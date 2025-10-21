@@ -83,7 +83,3 @@ split-on-trailing-comma = false
 
 [tool.pdm]
 distribution = false
-
-[[tool.pdm.source]]
-name = "pypi"
-url = "https://repo.nfi.minjus.nl/repository/pip-group/simple"
