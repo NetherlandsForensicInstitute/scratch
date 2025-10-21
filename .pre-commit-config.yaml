@@ -1,26 +1,20 @@
 repos:
--   repo: local
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: "v6.0.0"
     hooks:
-    -   id: ruff
-        name: ruff
-        entry: ruff check
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
-    -   id: ruff-format
-        name: ruff-format
-        entry: ruff format --check
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
-    -   id: pdm-lock-check
-        name: pdm-lock-check
-        description: run pdm lock --check to validate config
-        entry: pdm lock --check
-        language: system
-        pass_filenames: false
-        always_run: true
-        files: ^pyproject.toml$
-        stages: [pre-push]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: check-json
+      - id: pretty-format-json
+        args: [--autofix, --no-sort-keys]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.14.1"
+    hooks:
+      - id: ruff-check
+        args: [--exit-non-zero-on-fix]
+      - id: ruff-format
