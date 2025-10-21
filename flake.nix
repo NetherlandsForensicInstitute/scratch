@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Unlicense
+{
+  inputs = {
+    # nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    # systems.url = "github:nix-systems/default";
+  };
+
+  outputs = {nixpkgs, ...}: let
+    eachSystem = f:
+      nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system: f nixpkgs.legacyPackages.${system});
+  in {
+    devShells = eachSystem (pkgs: {
+      default = pkgs.mkShell {
+        buildInputs = [
+          pkgs.git
+          pkgs.lazygit
+          pkgs.python313
+          pkgs.uv
+          pkgs.ruff
+          pkgs.just
+        ];
+      };
+    });
+  };
+}
