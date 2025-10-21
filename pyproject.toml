@@ -4,11 +4,9 @@ version = "0.0.1"
 description = "Scratch"
 authors = [
     { name = "Netherlands Forensic Institute - CFS R&D Data", email = "cfs_rd_data@nfi.nl" },
+  {name = "Sharlon N. Regales", email = "s.regales@nfi.nl"},
+  {name= "Raymond Houwing", email= "r.houwing@nfi.nl"}
 ]
-dependencies = [
-    "lir>=1.0.0"
-]
-requires-python = "==3.13.*"
 readme = "README.md"
 classifiers = [
     'Development Status :: 4 - Beta',
@@ -20,24 +18,31 @@ classifiers = [
     'License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)'
 ]
 
-[build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.119.0",
+    "lir>=1.0.0"
+]
 
 [dependency-groups]
 dev = [
-    "pytest~=8.4.2",
-    "ruff~=0.14.1",
+    "deptry>=0.23.1",
+    "ipykernel>=7.0.0",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.0",
+    "rust-just>=1.43.0",
+    "ty>=0.0.1a22",
 ]
 
 [tool.ruff]
 line-length = 120
 target-version = "py313"
-# exclude = []
+fix = true
 
 [tool.ruff.format]
-quote-style = "preserve"
-skip-magic-trailing-comma = true
+preview = true
 
 [tool.ruff.lint]
 select = [
@@ -72,14 +77,24 @@ ignore-decorators = ["property"]
     "PT011", # No `match` parameter necessary for pytest.raises
 ]
 
-[tool.ruff.lint.flake8-pytest-style]
-parametrize-names-type = "csv"  # allows the string style of pytest.mark.parametrize feature names
+[tool.ty.environment]
+python = "./.venv"
+python-version = "3.13"
 
-[tool.ruff.lint.isort]
-split-on-trailing-comma = false
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: Tests related to more than one unit (examples: modules, interfaces)",
+    "e2e: End to end test (full system test)",
+    "prototype: local ticket tests (not allowed on main)",
+]
+
+[tool.coverage.report]
+skip_empty = true
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
 
 [tool.pdm]
 distribution = false
-
-[tool.pytest.ini_options]
-python_files = "tests/*.py"

@@ -1,0 +1,53 @@
+# List all tasks (default)
+help:
+  @echo "{{YELLOW}}Yellow: means change, {{RED}}Red: deleting, {{BLUE}}Blue: command execution{{NORMAL}}"
+  @echo "Just docs: https://just.systems/man/en/introduction.html"
+  @echo "cheatsheet: https://cheatography.com/linux-china/cheat-sheets/justfile/"
+  @just --list
+
+# Install the virtual environment and per-commit hooks
+install:
+  echo "{{BLUE}}{{BOLD}}{{ITALIC}}Creating virtual environment using uv"
+  uv sync --frozen
+  uv run pre-commit install-hooks
+
+# update the virtual environment and per-commit hooks
+update:
+  echo "{{YELLOW}}{{BOLD}}{{ITALIC}}Updating virtual environment using uv"
+  uv lock --upgrade
+  uv sync
+  uv run pre-commit autoupdate
+
+# Run code formatter
+format:
+  @echo "{{YELLOW}}{{BOLD}}{{ITALIC}}Format python files"
+  uv run ruff format
+
+# Run code quality tools
+check:
+  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Checking lock file consistency with 'pyproject.toml'"
+  uv lock --locked
+
+  @echo "\n{{BLUE}}{{BOLD}}{{ITALIC}}Checking code quality: Running pre-commit"
+  uv run pre-commit run -a
+
+  @echo "\n{{BLUE}}{{BOLD}}{{ITALIC}}Static type checking: Running ty"
+  uv run ty check
+
+  @echo "\n{{BLUE}}{{BOLD}}{{ITALIC}}Checking for obsolete dependencies: Running deptry"
+  uv run deptry src
+
+# Run all Project tests
+test:
+  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running pytest"
+  uv run pytest --cov --cov-config=pyproject.toml --cov-report=xml
+
+# Removes version control system dirty files
+clean:
+  @echo "{{RED}}{{BOLD}}{{ITALIC}}Deleting all dirty files"
+  git clean -xfd
+
+# Start API development server
+api:
+  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Starting FastAPI development server"
+  uv run fastapi dev src/main.py
