@@ -1,45 +1,66 @@
 # scratch
 
-## Installation
+## 🧑‍💻 Development Environment
 
-### Nix
+This project uses **[devenv](https://devenv.sh/)** for environment management
+and **[Just](https://github.com/casey/just)** as a command runner. Dependencies
+are managed with **[uv](https://github.com/astral-sh/uv)**, and code quality
+tools are handled via **[pre-commit](https://pre-commit.com/)**.
 
-If you do not know what nix is or don't have it installed please look at
-https://devenv.sh/getting-started/
+Using `devenv` ensures a fully reproducible development setup — including Python
+version, dependencies, and tooling — across all machines.
+
+### 🚀 Recommended setup (with devenv)
+
+If you have [Nix](https://nixos.org/) and [devenv](https://devenv.sh/)
+installed:
 
 ```bash
-devenv init # initialize a development environment
-devenv shell # start a development shell with you centered
+devenv shell
 ```
 
-If you have NixOS with flake features
+Or allow your project to start isolated shell at the point of directory entry
 
 ```bash
-nix develop
+direnv allow
 ```
 
-Once your shell is created and available install the project with the following
-command
+This will:
+
+- Enter the `devenv` shell with the correct environment
+- Automatically install **UV**
+- Sync all project dependencies
+- Install and configure **pre-commit** hooks
+- configure **PDM**
+
+You can now start developing right away.
+
+### 🧰 Alternative setup (without devenv)
+
+If you prefer not to use `devenv`, you can still set things up manually:
+
+- Ensure you have UV or PDM installed
+- Ensure you have Just installed
+- copy #pre-commit configuration to your local root directory
 
 ```bash
+# Create and sync a virtual environment
+uv run pre-commit install
 just install
 ```
 
-For more task commands
-
-```bash
-just help
-```
+> [Note!] Using `devenv` is highly recommended — it guarantees a consistent,
+> isolated, and reproducible development environment.
 
 ### PDM
 
-This project uses UV as it back-end project manager, but you can easily make it
-work with PDM [pdm with uv backend](https://pdm-project.org/en/latest/usage/uv/)
-This shows that you can configure PDM to use UV as it's backend. Thus you are
-able run the following, if you must use PDM
+If you must use **PDM**, go right ahead; your devenv shell already has it
+available
+
+If you are running a manually install then please configure **PDM** before
+embarking on a new PDM adventure
 
 ```bash
 pdm config use_uv true
 pdm config python.install_root $(uv python dir --color never)
-pdm install
 ```
