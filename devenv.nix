@@ -13,6 +13,13 @@
     just install
   '';
 
+  enterTest = ''
+    just --version | grep "${pkgs.just.version}"
+    uv --version | grep "${pkgs.uv.version}"
+    python --version | grep "${pkgs.python313.version}"
+    pdm --version | grep "${pkgs.pdm.version}"
+  '';
+
   git-hooks.hooks = {
     # Nix
     alejandra.enable = true;
@@ -42,7 +49,7 @@
 
     # Global hooks
     end-of-file-fixer.enable = true;
-    # trailing-whitespace.enable = true;
+    trim-trailing-whitespace.enable = true;
     no-commit-to-branch.enable = true;
 
     # execute example shell from Markdown files

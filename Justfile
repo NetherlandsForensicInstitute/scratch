@@ -9,7 +9,6 @@ help:
 install:
   echo "{{BLUE}}{{BOLD}}{{ITALIC}}Creating virtual environment using uv"
   uv sync --frozen
-  uv run pre-commit install-hooks
 
 # update the virtual environment and per-commit hooks
 update:
@@ -23,14 +22,13 @@ format:
   @echo "{{YELLOW}}{{BOLD}}{{ITALIC}}Format python files"
   uv run ruff format
 
-# Run code quality tools
-check:
-  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Checking lock file consistency with 'pyproject.toml'"
-  uv lock --locked
-
+# Run project quality (invoke pre-commit on all files)
+check-quality:
   @echo "\n{{BLUE}}{{BOLD}}{{ITALIC}}Checking code quality: Running pre-commit"
   uv run pre-commit run -a
 
+# Run python static code check
+check-static:
   @echo "\n{{BLUE}}{{BOLD}}{{ITALIC}}Static type checking: Running ty"
   uv run ty check
 
