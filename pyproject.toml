@@ -55,13 +55,9 @@ select = [
 ignore = [
     'D100', # no module docstring required at top of each file
     'D101', # no class docstring required (only in __init__)
-    'D205', # no blank line between summary and description of docstring required (we omit the summary often)
     'D104', # no docstring in __init__.py of public package required
     'D105', # no docstring in magic methods (like __eq__) required, since they are not class dependent
-    'D212', # no specific distinction between summary and description of a docstring (we omit the summary often)
-    'PLR0913', # no restriction on having 5 or fewer arguments in a function
     'PLE0604', # no restriction on having only strings in __all__ definitions
-    'PLR2004', # no restriction on using magic values (unspecified) as used a lot in the tests
 ]
 
 [tool.ruff.lint.pydocstyle]
