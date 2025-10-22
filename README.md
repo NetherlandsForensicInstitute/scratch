@@ -1,5 +1,27 @@
 # scratch
 
+## Starting API
+
+Run the REST API with
+
+### Just (recommended)
+
+```bash
+just api
+```
+
+### UV:
+
+```bash
+uv run fastapi dev src/api/__main__.py
+```
+
+### Python:
+
+```bash
+python -m fastapi dev src/api/__main__.py
+```
+
 ## 🧑‍💻 Development Environment
 
 This project uses **[devenv](https://devenv.sh/)** for environment management
