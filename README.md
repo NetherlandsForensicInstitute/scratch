@@ -89,7 +89,7 @@ repos:
 # create and copy pre-commit-config.yaml
 pre-commit install
 pre-commit install-hooks
-just check # will run pre-commit for all files (not required)
+just check-quality # will run pre-commit for all files (not required)
 ```
 
 > [!NOTE] Using `devenv` is highly recommended — it guarantees a consistent,
