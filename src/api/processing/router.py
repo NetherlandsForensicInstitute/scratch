@@ -41,13 +41,20 @@ The edited surface-map is retrieved from the db together with the 'Type' of the 
 I dont see what is done in the process category why it should be seperated from comparison**\n
 ## MatLab functions:
 ### For processing
+#### With striation:
 - ProcesBulletData
+- ProfileCorrelatorSingle
+- CompareDatasetsMultiple
+#### With impression:
 - ProcesNIST
-### For comparison
-- ProfileCorrelatorSingle (one to one)
-- CompareDatasetNIST (one to one)
-- CompareDatasetsMultiple ( one to many)
-- CompareDatasetMultipleNist (one to many)
+- CompareDatasetNIST
+- CompareDatasetMultipleNist
+
+### For the results
+- StructOfArraysExtract
+- NFINistResForDisplayString
+- GenerateScoreDistributionPlots
+
 """,
     responses={
         200: {

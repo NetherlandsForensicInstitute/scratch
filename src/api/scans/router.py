@@ -70,6 +70,7 @@ async def get_scan_state(id_key: str) -> Scan:
     summary="get surface map as a PNG",
     description="""Get surface map as a PNG.
 The surfacemap is retrieved from the database and converted to a png.
+**just a png to send over or a file?**
 404 or so returned when the surfacemap is not found.\n
 ## MatLab functions:
 - GetImageForDisplay
@@ -95,6 +96,7 @@ async def get_surfacemap(id_key: str) -> Response:
     summary="get heatmap map as a PNG",
     description="""get heatmap map as a PNG.
 The heatmap is retrieved from the database and converted to a png.
+**just a png to send over or a file?**
 404 or so returned when the heatmap is not found.\n
 ## MatLab functions:
 - GetImageForDisplay
@@ -118,6 +120,7 @@ async def get_heatmap(id_key: str) -> Response:
     path="/edit_surface_{}",
     summary="get edited_surface map as a PNG",
     description="""get edited_surface map as a PNG.
+**just a png to send over or a file?**?
 The edited surface is retrieved from the database and converted to a png.
 404 or so returned when the edited surface map is not found.\n
 ## MatLab functions:
@@ -142,10 +145,15 @@ async def get_edit_image(id_key: str) -> Response:
     path="/edit_image_{}",
     summary="save edited surface map",
     description="""save the edited_surface map
+**just a png to send over or a file?**
+atm we send images both directions,
+I expect later on we get a key and some json like structure for the geometric data for the cutouts and crops etc.
 returns the edited surface map.\n
 ## MatLab functions:
 - RotateCropImage
-- GetImageForDisplay
+- GetPreviewImageForCropping
+- SetMarkTypeAndMarkPathFromCollection < no clue
+- ResampleMarkTypeSpecific < also no clue
     """,  # TODO: check how this is done, just a png to send over or a file?
     responses={
         200: {"description": "returns a 'png' image of the edited_surface", "content": {"image/png": {}}},
