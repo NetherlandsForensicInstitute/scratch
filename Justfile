@@ -9,7 +9,6 @@ help:
 install:
   echo "{{BLUE}}{{BOLD}}{{ITALIC}}Creating virtual environment using uv"
   uv sync
-  uv run pre-commit install
   uv run pre-commit install-hooks
 
 # update the virtual environment and per-commit hooks
