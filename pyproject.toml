@@ -6,6 +6,7 @@ authors = [
     { name = "Netherlands Forensic Institute - CFS R&D Data", email = "cfs_rd_data@nfi.nl" },
 ]
 dependencies = [
+    "lir>=1.0.0"
 ]
 requires-python = "==3.13.*"
 readme = "README.md"
@@ -79,3 +80,6 @@ split-on-trailing-comma = false
 
 [tool.pdm]
 distribution = false
+
+[tool.pytest.ini_options]
+python_files = "tests/*.py"
