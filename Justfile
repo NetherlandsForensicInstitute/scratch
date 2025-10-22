@@ -50,4 +50,4 @@ clean:
 # Start API development server
 api:
   @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Starting FastAPI development server"
-  uv run fastapi dev src/main.py
+  uv run fastapi dev src/api/__main__.py
