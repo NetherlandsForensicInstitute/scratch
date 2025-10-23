@@ -6,7 +6,6 @@
     just
     python313
     uv
-    pdm
     ruff
   ];
 
