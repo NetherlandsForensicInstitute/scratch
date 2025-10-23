@@ -14,6 +14,7 @@ version, dependencies, and tooling — across all machines.
 ### 🚀 Recommended setup (with devenv)
 
 #### pre-requirements
+
 - [devenv](https://devenv.sh/getting-started/)
 
 ```bash
@@ -32,7 +33,6 @@ This will:
 - Automatically install **UV**
 - Sync all project dependencies
 - Install and configure **pre-commit** hooks
-- configure **PDM**
 
 You can now start developing right away.
 
@@ -40,16 +40,13 @@ You can now start developing right away.
 
 If you prefer not to use `devenv`, you can still set things up manually:
 
-#### pre-requirements
-
-- UV or PDM
-
 #### UV
 
-It could be that you need to use a private package index proxy,
-if that is the case add the following to your `~/.config/uv/uv.toml`
+It could be that you need to use a private package index proxy, if that is the
+case add the following
 
 ```toml
+# ~/.config/uv/uv.toml
 [[index]]
 url = "https://<your domain>/<route>/simple"
 default = true
@@ -61,17 +58,6 @@ uv venv
 uv sync
 source ./.venv/bin/activate
 ```
-
-#### PDM
-
-```bash
-pdm install
-pdm venv activate # does not always work
-# source ./.venv/bin/activate
-```
-
-> [!NOTE] There might be some just commands that won't work while using PDM environment
-
 
 #### pre-commit
 
