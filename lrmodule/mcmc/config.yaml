@@ -1,0 +1,34 @@
+interval:
+  lower_bound: 0.05
+  upper_bound: 0.95
+
+dataset:
+  firearm: 'glock'
+  ammo: 'fiocchi'
+  score: 'cmc'
+  statistical_model:
+    km:
+      distribution: 'betabinomial'
+      parameters:
+        alpha:
+          prior: 'uniform'
+          min: 0.01
+          max: 100
+        beta:
+          prior: 'uniform'
+          min: 0.01
+          max: 100
+    knm:
+      distribution: 'binomial'
+      parameters:
+        p:
+          prior: 'beta'
+          a: 0.5
+          b: 0.5
+    mcmc_settings:
+      chain_count: 4
+      tune_count: 1000
+      draw_count: 1000
+
+
+
