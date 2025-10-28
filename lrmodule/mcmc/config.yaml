@@ -29,6 +29,3 @@ dataset:
       chain_count: 4
       tune_count: 1000
       draw_count: 1000
-
-
-
