@@ -105,12 +105,13 @@ just api
 
 ## Project Structure
 
-- grey are packages
-- blue are public modules
-- green internal public modules
-- orange is data-store (type of data-store is still to be determined)
-- pink is optional (may not be implemented)
-- purple are external team development
+- <span style="color:#f5f5f5">grey</span> are packages
+- <span style="color:#e6f7ff">blue</span> are public modules
+- <span style="color:#f6ffed">green</span> internal public modules
+- <span style="color:#fff7e6">orange</span> is data-store (type of data-store is
+  still to be determined)
+- <span style="color:#fff0f6">pink</span> is optional (may not be implemented)
+- <span style="color:#f0f5ff">purple</span> are external team development
 
 ```mermaid
 flowchart LR
@@ -127,7 +128,7 @@ flowchart LR
   subgraph API[API]
     direction TB
     api_rest[REST]:::public
-    api_sockets[Sockets]:::optional
+    api_sockets[Websockets]:::optional
     api_models[Public Models]:::internal
   end
   class API pkg
