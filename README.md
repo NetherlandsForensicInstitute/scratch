@@ -105,6 +105,13 @@ just api
 
 ## Project Structure
 
+- grey are packages
+- blue are public modules
+- green internal public modules
+- orange is data-store (type of data-store is still to be determined)
+- pink is optional (may not be implemented)
+- purple are external team development
+
 ```mermaid
 flowchart LR
 
