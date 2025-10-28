@@ -21,7 +21,9 @@ classifiers = [
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.119.0",
-    "lir>=1.0.0"
+    "lir>=1.0.0",
+    "surfalize>=0.16.6",
+    "x3p @ git+https://github.com/giacomomarchioro/pyx3p.git#81c0f764cf321e56dc41e9e3c71d14e97d5bc3ae",
 ]
 
 [dependency-groups]
