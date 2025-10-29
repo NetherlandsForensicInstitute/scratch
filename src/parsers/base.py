@@ -8,6 +8,9 @@ from surfalize import Surface
 
 from src.parsers.data_types import ParsedImage
 
+# import the patched method, the decorator will automatically register it so we do not need to call it anywhere
+from .patches.al3d import read_al3d  # noqa: F401
+
 
 class Parser(ABC):
     @abstractmethod
@@ -20,7 +23,6 @@ class ScanFileParser(Parser):
     def parse(self, filepath: os.PathLike | Path) -> ParsedImage:
         """Parse surface data from a scan file."""
         surface = Surface.load(filepath)
-        surface.show()
         return ParsedImage(
             data=surface.data,
             scale_x=surface.step_x,

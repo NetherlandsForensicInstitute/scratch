@@ -78,6 +78,9 @@ ignore-decorators = ["property"]
     "D103", # No docstring necessary for tests
     "PT011", # No `match` parameter necessary for pytest.raises
 ]
+"src/parsers/patches/*" = [
+    "D103", "N806"
+]
 
 [tool.ty.environment]
 python = "./.venv"

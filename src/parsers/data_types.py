@@ -36,8 +36,8 @@ class ParsedImage(BaseModel):
     def height_um(self) -> float:
         return self.scale_y * self.height
 
-    def plot(self):
-        """Generate a plot of the parsed image."""
+    def show(self):
+        """Show a plot of the parsed image."""
         # TODO
         raise NotImplementedError
 
