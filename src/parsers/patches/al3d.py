@@ -1,11 +1,19 @@
 import numpy as np
 from surfalize.exceptions import CorruptedFileError
-from surfalize.file import FileHandler
 from surfalize.file.al3d import MAGIC, read_array, read_tag
 from surfalize.file.common import RawSurface
 
+"""
+This file contains a modified copy of a method from the `surfalize` package. The original method uses tagged
+values stored in the .al3d-file for obtaining the image size before parsing the binary image data. However,
+some .al3d-files have an incorrect value stored for the image width, which leads to an incorrectly parsed image.
+To fix this, we use the shape of the parsed buffer to compute the image width instead, before reshaping the data.
 
-@FileHandler.register_reader(suffix=".al3d", magic=MAGIC)
+The original method can be found here:
+https://github.com/fredericjs/surfalize/blob/d47b9b68636aae76e77329ac58ee0390765d7fb5/surfalize/file/al3d.py#L48
+"""
+
+
 def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
     magic = filehandle.read(17)
     if magic != MAGIC:
