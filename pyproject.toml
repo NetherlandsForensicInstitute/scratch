@@ -4,8 +4,8 @@ version = "0.0.1"
 description = "Scratch"
 authors = [
     { name = "Netherlands Forensic Institute - CFS R&D Data", email = "cfs_rd_data@nfi.nl" },
-  {name = "Sharlon N. Regales", email = "s.regales@nfi.nl"},
-  {name= "Raymond Houwing", email= "r.houwing@nfi.nl"}
+    { name = "Sharlon N. Regales", email = "s.regales@nfi.nl" },
+    { name = "Raymond Houwing", email = "r.houwing@nfi.nl" }
 ]
 readme = "README.md"
 classifiers = [
@@ -20,11 +20,16 @@ classifiers = [
 
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi[standard]>=0.119.0",
-    "lir>=1.0.0",
-    "surfalize>=0.16.6",
-    "x3p @ git+https://github.com/giacomomarchioro/pyx3p.git#81c0f764cf321e56dc41e9e3c71d14e97d5bc3ae",
+  "fastapi[standard]>=0.119.0",
 ]
+
+# https://docs.astral.sh/uv/concepts/projects/workspaces/
+[tool.uv.sources]
+scratch-core = { workspace = true }
+stats = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [dependency-groups]
 dev = [

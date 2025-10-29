@@ -8,13 +8,13 @@ help:
 # Install the virtual environment and per-commit hooks
 install:
   echo "{{BLUE}}{{BOLD}}{{ITALIC}}Creating virtual environment using uv"
-  uv sync --frozen
+  uv sync --all-packages --frozen
 
 # update the virtual environment and per-commit hooks
 update:
   echo "{{YELLOW}}{{BOLD}}{{ITALIC}}Updating virtual environment using uv"
   uv lock --upgrade
-  uv sync
+  uv sync --all-packages
   uv run pre-commit autoupdate
 
 # Run code formatter
