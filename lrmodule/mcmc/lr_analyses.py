@@ -9,12 +9,10 @@ def analyse_bayesian(scores_eval, scores_km, scores_knm, stats_model):
     parameters_km = fit_mcmc(stats_model.km, scores_km, stats_model.mcmc_settings)
     parameters_knm = fit_mcmc(stats_model.knm, scores_knm, stats_model.mcmc_settings)
 
-    probs_km = apply_mcmc(stats_model.km, parameters_km, scores_eval)
-    probs_knm = apply_mcmc(stats_model.knm, parameters_knm, scores_eval)
+    logp_km = apply_mcmc(stats_model.km, parameters_km, scores_eval)
+    logp_knm = apply_mcmc(stats_model.knm, parameters_knm, scores_eval)
 
-    llrs = np.log10(probs_km) - np.log10(probs_knm)
-
-    return llrs, probs_km, probs_knm
+    return logp_km, logp_knm
 
 
 def fit_mcmc(stats_model, scores_obs, mcmc_settings):
