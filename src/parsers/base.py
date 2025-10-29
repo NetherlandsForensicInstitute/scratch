@@ -52,4 +52,4 @@ def _to_x3p(image: ParsedImage, author: str | None = None, comment: str | None =
 def save_to_x3p(image: ParsedImage, path: Path, author: str | None = None, comment: str | None = None) -> None:
     """Save an instance of `ParsedImage` to a .x3p-file."""
     # TODO: extend function arguments to handle more meta-data fields?
-    _to_x3p(image, author, comment).write(path)
+    _to_x3p(image, author, comment).write(str(path))
