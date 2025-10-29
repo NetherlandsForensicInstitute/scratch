@@ -1,0 +1,34 @@
+name: Main
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up shell environment
+        uses: ./.github/actions/setup-devenv
+
+      - name: Run checks
+        run: devenv test
+
+      - name: Check typing
+        run: devenv shell just check-static
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up shell environment
+        uses: ./.github/actions/setup-devenv
+
+      - name: Run tests
+        run: devenv shell just test
