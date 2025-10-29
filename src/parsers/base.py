@@ -31,22 +31,22 @@ def parse_file(path: Path) -> ParsedImage:
 
 
 def _to_x3p(image: ParsedImage, author: str | None = None, comment: str | None = None) -> X3Pfile:
-    output = X3Pfile()
-    output.record1.set_featuretype("SUR")
-    output.record1.axes.CX.set_axistype("I")
-    output.record1.axes.CX.set_increment(image.scale_x)  # TODO: test if this should be in m or um
-    output.record1.axes.CY.set_axistype("I")
-    output.record1.axes.CY.set_increment(image.scale_y)  # TODO: test if this should be in m or um
-    output.record2.set_date(dt.datetime.now(tz=dt.UTC).strftime("%Y-%m-%dT%H:%M:%S"))
+    x3p = X3Pfile()
+    x3p.record1.set_featuretype("SUR")
+    x3p.record1.axes.CX.set_axistype("I")
+    x3p.record1.axes.CX.set_increment(image.scale_x)  # TODO: test if this should be in m or um
+    x3p.record1.axes.CY.set_axistype("I")
+    x3p.record1.axes.CY.set_increment(image.scale_y)  # TODO: test if this should be in m or um
+    x3p.record2.set_date(dt.datetime.now(tz=dt.UTC).strftime("%Y-%m-%dT%H:%M:%S"))
     if author:
-        output.record2.set_creator(author)
+        x3p.record2.set_creator(author)
     if comment:
-        output.record2.set_comment(comment)
+        x3p.record2.set_comment(comment)
     # TODO: include more metadata in function arguments? (e.g. calibration date)
-    output.record2.instrument.set_model("")
-    output.record2.instrument.set_manufacturer("NFI")
-    output.set_data(image.data)
-    return output
+    x3p.record2.instrument.set_model("")
+    x3p.record2.instrument.set_manufacturer("NFI")
+    x3p.set_data(image.data)
+    return x3p
 
 
 def save_to_x3p(image: ParsedImage, path: Path, author: str | None = None, comment: str | None = None) -> None:
