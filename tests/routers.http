@@ -1,0 +1,11 @@
+### ROOT
+GET http://127.0.0.1:8000
+
+### Comparator
+GET http://127.0.0.1:8000/comparator
+
+### Pre-Processor
+GET http://127.0.0.1:8000/pre-processor
+
+### Processor
+GET http://127.0.0.1:8000/processors
