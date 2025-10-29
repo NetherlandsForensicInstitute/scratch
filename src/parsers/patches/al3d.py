@@ -32,7 +32,7 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
     offset = int(header["DepthImageOffset"])
     filehandle.seek(offset)
 
-    # original line of code
+    # original code
     # data = read_array(filehandle, dtype=np.float32, count=nx * ny, offset=0).reshape(ny, nx)
 
     # patched code

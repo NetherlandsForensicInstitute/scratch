@@ -15,7 +15,7 @@ class ParsedImage(BaseModel):
     data: Array2D
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in um")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in um")
-    filepath: os.PathLike | Path | None = None
+    filepath: str | None = None
     metadata: dict | None = None
 
     model_config = {"frozen": True, "arbitrary_types_allowed": True}

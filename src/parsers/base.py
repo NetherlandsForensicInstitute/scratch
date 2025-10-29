@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 from surfalize import Surface
 
-from src.parsers.data_types import ParsedImage
+from .data_types import ParsedImage
 
 # import the patched method, the decorator will automatically register it so we do not need to call it anywhere
 from .patches.al3d import read_al3d  # noqa: F401
@@ -28,6 +28,7 @@ class ScanFileParser(Parser):
             scale_x=surface.step_x,
             scale_y=surface.step_y,
             metadata=surface.metadata,
+            filepath=str(filepath),
         )
 
 
@@ -36,4 +37,4 @@ class ImageFileParser(Parser):
         """Parse surface data from an image file."""
         image = Image.open(filepath).convert("L")  # convert parsed image to grayscale
         data = np.array(image, dtype=np.float64) / 255.0  # scale pixel values to unit range
-        return ParsedImage(data=data)
+        return ParsedImage(data=data, filepath=str(filepath))

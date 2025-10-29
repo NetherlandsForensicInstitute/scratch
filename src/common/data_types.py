@@ -10,7 +10,7 @@ class Image:
     FILE_FORMATS = IMAGE_FORMATS | SCAN_FORMATS
 
     @classmethod
-    def from_file(cls, filepath: os.PathLike | Path) -> ParsedImage:
+    def from_file(cls, filepath: str | os.PathLike | Path) -> ParsedImage:
         """Parse and validate an image file."""
         if not isinstance(filepath, Path):
             filepath = Path(str(filepath))
