@@ -37,8 +37,13 @@ check-static:
 
 # Run all Project tests
 test:
-  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running pytest"
   uv run pytest --cov --cov-config=pyproject.toml --cov-report=xml
+
+# Run all endpoints health checks
+smoke-test:
+  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running pytest"
+  just api & sleep 2
+  httpyac tests/api.http --all
 
 # Removes version control system dirty files
 clean:

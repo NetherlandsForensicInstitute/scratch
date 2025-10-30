@@ -32,3 +32,18 @@ jobs:
 
       - name: Run tests
         run: devenv shell just test
+
+  smoketests:
+    runs-on: ubuntu-latest
+    needs: [tests]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up shell environment
+        uses: ./.github/actions/setup-devenv
+
+      - name: Install httpyac
+        run: devenv shell npm install -g httpyac # this should be different. checking out different packages
+
+      - name: Run smoke tests (api.http requests)
+        run: devenv shell just smoke-test

@@ -8,4 +8,4 @@ GET http://127.0.0.1:8000/comparator
 GET http://127.0.0.1:8000/pre-processor
 
 ### Processor
-GET http://127.0.0.1:8000/processors
+GET http://127.0.0.1:8000/processor
