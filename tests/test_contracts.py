@@ -16,6 +16,7 @@ class TemplateResponse(BaseModel):
 class TestContracts:
     """
     Test the outgoing traffic.
+
     Here are tests like:
       - Get/Post endpoints are online (health check)
       - checks if some end-points are forbidden (auth)
@@ -42,6 +43,6 @@ class TestContracts:
     def test_non_existing_contract(self) -> None:
         """Test if a non-existent contract returns 404."""
         # Act
-        response = requests.get(f"{ROOT_URL}/non-existing-path")
+        response = requests.get(f"{ROOT_URL}/non-existing-path", timeout=5)
         # Assert
         assert response.status_code == HTTP_404_NOT_FOUND
