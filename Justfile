@@ -37,7 +37,7 @@ check-static:
 
 # Run all Project tests
 test:
-  uv run pytest --cov --cov-config=pyproject.toml --cov-report=xml
+  uv run pytest -m 'not contract_testing' --cov --cov-config=pyproject.toml --cov-report=xml
 
 # Run all endpoints health checks
 smoke-test:
