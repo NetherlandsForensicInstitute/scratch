@@ -1,8 +1,8 @@
 from fastapi import APIRouter, FastAPI
 
-from src.comparators.router import comparison_router
-from src.pre_processors.router import pre_processors
-from src.processors.router import processors
+from comparators.router import comparison_router
+from pre_processors.router import pre_processors
+from processors.router import processors
 
 app = FastAPI()
 prefix_router = APIRouter()
