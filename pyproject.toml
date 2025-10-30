@@ -38,6 +38,7 @@ dev = [
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
+    "requests>=2.32.5",
     "ruff>=0.14.0",
     "rust-just>=1.43.0",
     "ty>=0.0.1a22",
@@ -95,6 +96,7 @@ addopts = ["--import-mode=importlib"]
 markers = [
     "integration: Tests related to more than one unit (examples: modules, interfaces)",
     "e2e: End to end test (full system test)",
+    "contract_testing: all tests used for checking if the interface to the outside is same as contract"
 ]
 
 [tool.coverage.report]

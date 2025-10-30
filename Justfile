@@ -43,7 +43,8 @@ test:
 smoke-test:
   @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running pytest"
   just api & sleep 2
-  httpyac tests/api.http --all
+  uv run pytest -m 'contract_testing'
+  kill `lsof -t -i:8000` 2>/dev/null || true
 
 # Removes version control system dirty files
 clean:

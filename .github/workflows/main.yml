@@ -42,8 +42,5 @@ jobs:
       - name: Set up shell environment
         uses: ./.github/actions/setup-devenv
 
-      - name: Install httpyac
-        run: devenv shell npm install -g httpyac # this should be different. checking out different packages
-
       - name: Run smoke tests (api.http requests)
         run: devenv shell just smoke-test
