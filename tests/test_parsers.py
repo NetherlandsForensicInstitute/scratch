@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.parsers.base import parse_file
+from src.parsers import parse_file
 from tests.conftest import SCANS_DIR
 
 
