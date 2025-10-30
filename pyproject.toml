@@ -89,6 +89,9 @@ python = "./.venv"
 python-version = "3.13"
 
 [tool.pytest.ini_options]
+pythonpath = [
+  "src"
+]
 testpaths = ["tests"]
 markers = [
     "integration: Tests related to more than one unit (examples: modules, interfaces)",
