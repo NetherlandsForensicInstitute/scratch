@@ -14,5 +14,10 @@ app.include_router(prefix_router)
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
+    """Return a hallo NFI message at the root as placeholder.
+
+    Eventually this will be removed or replaced with another endpoint.
+
+    """
     return {"message": "Hello NFI Scratch"}
