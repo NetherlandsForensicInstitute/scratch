@@ -41,7 +41,7 @@ test:
 
 # Run all endpoints health checks
 smoke-test:
-  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running pytest"
+  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running the contract testing"
   just api & sleep 2
   uv run pytest -m 'contract_testing'
   kill `lsof -t -i:8000` 2>/dev/null || true
