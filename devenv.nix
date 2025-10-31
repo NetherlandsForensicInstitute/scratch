@@ -4,15 +4,14 @@
     git
     lazygit
     just
-    python313
-    uv
     ruff
   ];
-
   enterShell = ''
-    just install
+    # Create a local symlink to the Python virtual environment
+    if [ ! -L "$DEVENV_ROOT/.venv" ]; then
+        ln -s "$DEVENV_STATE/venv/" "$DEVENV_ROOT/.venv"
+    fi
   '';
-
   enterTest = ''
     just --version | grep "${pkgs.just.version}"
     uv --version | grep "${pkgs.uv.version}"
@@ -53,5 +52,17 @@
 
     # execute example shell from Markdown files
     mdsh.enable = true;
+  };
+
+  languages.python = {
+    enable = true;
+    uv = {
+      enable = true;
+      sync = {
+        enable = true;
+        allPackages = true;
+        arguments = ["--frozen"];
+      };
+    };
   };
 }
