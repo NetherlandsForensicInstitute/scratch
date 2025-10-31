@@ -117,7 +117,8 @@ jobs:
       - name: Test Contract
         run: |
           just api-bg artifact="main.py"
-          just smoke-test
+          sleep 5
+          just test-contract
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
