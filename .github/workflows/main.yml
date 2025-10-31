@@ -114,16 +114,36 @@ jobs:
       - name: install dep
         run: just install
 
-      - name: Test Contract
+      - name: build artifact
+        run: just build
+
+      - name: Start artifact in background
+        shell: pwsh
         run: |
-          just api-bg artifact="main.exe"
-          echo "Wait till artifacts spins up"
-          sleep 5
-          echo "Artifact should be up and running"
-          just test-contract
+          Start-Process -FilePath "dist/main.exe" -RedirectStandardOutput "api.log" -RedirectStandardError "api.log"
+          $timeout = [DateTime]::Now.AddSeconds(20)
+          while (-not (Test-NetConnection -ComputerName "127.0.0.1" -Port 8000 -InformationLevel Quiet)) {
+            if ([DateTime]::Now -gt $timeout) { throw "REST API did not start within 20 seconds" }
+            Start-Sleep -Seconds 1
+          }
+          Write-Host "API is up!"
+
+      - name: Run contract tests
+        run: uv run pytest -m "contract_testing" -v
+
+      - name: Stop API if still running
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $proc = Get-Process main -ErrorAction SilentlyContinue
+          if ($proc) {
+            Stop-Process -Id $proc.Id -Force
+          } else {
+            Write-Host "No main.exe process found."
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: server
-          path: ./dist/main.exe
+          path: dist/main.exe
