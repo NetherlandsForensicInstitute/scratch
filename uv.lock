@@ -1988,6 +1988,7 @@ version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
+    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -2006,7 +2007,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "fastapi", extras = ["standard"], specifier = ">=0.119.0" }]
+requires-dist = [
+    { name = "fastapi", extras = ["standard"], specifier = ">=0.119.0" },
+    { name = "uvicorn", specifier = ">=0.38.0" },
+]
 
 [package.metadata.requires-dev]
 dev = [

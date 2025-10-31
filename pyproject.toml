@@ -19,7 +19,10 @@ classifiers = [
 ]
 
 requires-python = ">=3.13"
-dependencies = ["fastapi[standard]>=0.119.0"]
+dependencies = [
+    "fastapi[standard]>=0.119.0",
+    "uvicorn>=0.38.0",
+]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
 [tool.uv.sources]
