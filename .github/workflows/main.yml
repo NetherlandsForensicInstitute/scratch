@@ -92,10 +92,21 @@ jobs:
       - name: Set up shell environment
         uses: ./.github/actions/setup-devenv
 
-      - name: Test Contract
+      - name: build artifact
         run: |
-          devenv shell just api-bg artifact="main"
-          devenv shell just smoke-test
+          devenv shell just build
+          echo "Build complete. Contents of dist/:"
+          ls -lah dist/
+
+      - name: start artifact
+        timeout-minutes: 1
+        run: |
+          dev/main &
+          echo $! > api.pid
+          until nc -z 127.0.0.1 8000; do sleep 1; done
+
+      - name: Test Contract
+        run: devenv shell just test-contract
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
