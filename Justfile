@@ -53,13 +53,13 @@ smoke-test host="0.0.0.0" port="8000":
   @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running the contract testing{{NORMAL}}"
   @just api > /dev/null 2>&1 & echo $! > api.pid
   until nc -z {{host}} {{port}}; do sleep 1; done
-  uv run pytest --mark 'contract_testing'
+  uv run pytest --markers 'contract_testing'
   kill $(cat api.pid)
   rm api.pid
 
 # test-contract REST API
 test-contract:
-  uv run pytest --mark 'contract_testing'
+  uv run pytest --markers 'contract_testing'
 
 # Removes version control system dirty files
 clean:
