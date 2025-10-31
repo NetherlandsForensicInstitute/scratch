@@ -57,6 +57,10 @@ smoke-test host="0.0.0.0" port="8000":
   kill $(cat api.pid)
   rm api.pid
 
+# test-contract REST API
+test-contract:
+  uv run pytest --mark 'contract_testing'
+
 # Removes version control system dirty files
 clean:
   @echo "{{RED}}{{BOLD}}{{ITALIC}}Deleting all dirty files"

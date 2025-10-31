@@ -80,3 +80,58 @@ jobs:
 
       - name: Run smoke tests (api.http requests)
         run: devenv shell just smoke-test
+
+  build_linux:
+    runs-on: ubuntu-latest
+    needs: [tests]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up shell environment
+        uses: ./.github/actions/setup-devenv
+
+      - name: Build artifact
+        run: devenv shell just build
+
+      - name: Run artifact
+        run: ./dist/main &
+
+      - name: Test Contract
+        run: just test-contract
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server
+          path: ./dist/main
+
+
+  build_windows:
+    runs-on: windows-latest
+    needs: [tests]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: setup just
+        uses: extractions/setup-just@v3
+
+      - name: install dep
+        run: just install
+
+      - name: build that thing
+        run: just build
+
+      - name: run artifact
+        run: ./dist/main.exe
+
+      - name: test contract
+        run: just test-contract
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server
+          path: ./dist/main.exe
