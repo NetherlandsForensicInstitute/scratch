@@ -1,4 +1,7 @@
+import multiprocessing
+
 from fastapi import APIRouter, FastAPI
+from uvicorn import run
 
 from comparators.router import comparison_router
 from pre_processors.router import pre_processors
@@ -21,3 +24,8 @@ async def root() -> dict[str, str]:
 
     """
     return {"message": "Hello NFI Scratch"}
+
+
+if __name__ == "__main__":
+    multiprocessing.freeze_support()  # For Windows support
+    run(app, host="127.0.0.0", port=8000, reload=False, workers=1)
