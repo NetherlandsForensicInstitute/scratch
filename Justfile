@@ -40,10 +40,10 @@ test:
   uv run pytest -m 'not contract_testing' --cov --cov-config=pyproject.toml --cov-report=xml
 
 # Run all endpoints health checks
-smoke-test:
+smoke-test host="0.0.0.0" port="8000":
   @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running the contract testing{{NORMAL}}"
   @just api > /dev/null 2>&1 & echo $! > api.pid
-  until nc -z 0.0.0.0 8000; do sleep 1; done
+  until nc -z {{host}} {{port}}; do sleep 1; done
   uv run pytest -m 'contract_testing'
   kill $(cat api.pid)
   rm api.pid
