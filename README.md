@@ -104,6 +104,7 @@ just api
 ```
 
 ## Project Structure
+This project tree follows: [fastapi-best-pactices](https://github.com/zhanymkanov/fastapi-best-practices?tab=readme-ov-file#fastapi-best-practices-)
 
 - <span style="color:#f5f5f5">grey</span> are packages
 - <span style="color:#e6f7ff">blue</span> are public modules

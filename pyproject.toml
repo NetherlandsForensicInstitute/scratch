@@ -20,7 +20,7 @@ classifiers = [
 
 requires-python = ">=3.13"
 dependencies = [
-  "fastapi[standard]>=0.119.0",
+    "fastapi[standard]>=0.119.0",
 ]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
@@ -38,6 +38,7 @@ dev = [
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
+    "requests>=2.32.5",
     "ruff>=0.14.0",
     "rust-just>=1.43.0",
     "ty>=0.0.1a22",
@@ -89,11 +90,13 @@ python = "./.venv"
 python-version = "3.13"
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
 markers = [
     "integration: Tests related to more than one unit (examples: modules, interfaces)",
     "e2e: End to end test (full system test)",
-    "prototype: local ticket tests (not allowed on main)",
+    "contract_testing: all tests used for checking if the interface to the outside is same as contract"
 ]
 
 [tool.coverage.report]
