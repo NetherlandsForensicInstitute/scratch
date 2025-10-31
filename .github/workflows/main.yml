@@ -116,8 +116,10 @@ jobs:
 
       - name: Test Contract
         run: |
-          just api-bg artifact="main.py"
+          just api-bg artifact="main.exe"
+          echo "Wait till artifacts spins up"
           sleep 5
+          echo "Artifact should be up and running"
           just test-contract
 
       - name: Upload artifact
