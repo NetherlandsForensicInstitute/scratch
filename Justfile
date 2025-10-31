@@ -51,15 +51,14 @@ core-test report="":
 # Run all endpoints health checks
 smoke-test host="0.0.0.0" port="8000":
   @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running the contract testing{{NORMAL}}"
-  @just api > /dev/null 2>&1 & echo $! > api.pid
   until nc -z {{host}} {{port}}; do sleep 1; done
-  uv run pytest --markers 'contract_testing'
+  uv run pytest -m 'contract_testing'
   kill $(cat api.pid)
   rm api.pid
 
 # test-contract REST API
 test-contract:
-  uv run pytest --markers 'contract_testing'
+  uv run pytest -m 'contract_testing'
 
 # Removes version control system dirty files
 clean:
@@ -69,12 +68,26 @@ clean:
 # Build an executable for the REST API
 build:
   @echo "\n{{BLUE}}{{BOLD}}{{ITALIC}}Building the REST API to an executable"
-  uv run pyinstaller --onefile src/main.py --clean
+  uv run pyinstaller --onefile src/main.py --clean \
+  --hidden-import=numpy \
+  --hidden-import=numpy.core \
+  --hidden-import=numpy.core._methods \
+  --hidden-import=numpy.core._dtype_ctypes
+
 
 # Start API development server
 api:
   @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Starting FastAPI development server"
   uv run fastapi dev src/main.py
+
+# Start API development server in the background
+api-bg artifact="":
+  @if [ -n '{{artifact}}']; then \
+    just api > /dev/null 2>&1 & echo $! > api.pid; \
+  else \
+    just build; \
+    ./dist/{{artifact}} &> /dev/null & echo $! > api.pid; \
+  fi \
 
 # list or run github job locally
 ci job="":
