@@ -4,14 +4,8 @@
     git
     lazygit
     just
-    python313
-    uv
     ruff
   ];
-
-  enterShell = ''
-    just install
-  '';
 
   enterTest = ''
     just --version | grep "${pkgs.just.version}"
@@ -53,5 +47,17 @@
 
     # execute example shell from Markdown files
     mdsh.enable = true;
+  };
+
+  languages.python = {
+    enable = true;
+    uv = {
+      enable = true;
+      sync = {
+        enable = true;
+        allPackages = true;
+        arguments = ["--frozen"];
+      };
+    };
   };
 }
