@@ -62,6 +62,11 @@ clean:
   @echo "{{RED}}{{BOLD}}{{ITALIC}}Deleting all dirty files"
   git clean -xfd
 
+# Build an executable for the REST API
+build:
+  @echo "\n{{BLUE}}{{BOLD}}{{ITALIC}}Building the REST API to an executable"
+  uv run pyinstaller --onefile src/main.py --clean
+
 # Start API development server
 api:
   @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Starting FastAPI development server"
