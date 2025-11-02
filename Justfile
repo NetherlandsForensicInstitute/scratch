@@ -7,12 +7,12 @@ help:
 
 # Install the virtual environment and per-commit hooks
 install:
-  echo "{{BLUE}}{{BOLD}}{{ITALIC}}Creating virtual environment using uv"
+  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Creating virtual environment using uv"
   uv sync --all-packages --frozen
 
 # update the virtual environment and per-commit hooks
 update:
-  echo "{{YELLOW}}{{BOLD}}{{ITALIC}}Updating virtual environment using uv"
+  @echo "{{YELLOW}}{{BOLD}}{{ITALIC}}Updating virtual environment using uv"
   uv lock --upgrade
   uv sync --all-packages
   uv run pre-commit autoupdate
@@ -57,3 +57,7 @@ clean:
 api:
   @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Starting FastAPI development server"
   uv run fastapi dev src/main.py
+
+# list or run github job locally
+ci job="":
+  [ -z "{{job}}"] && act --list || act --job {{job}} --quiet
