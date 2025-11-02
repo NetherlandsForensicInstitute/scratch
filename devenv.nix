@@ -6,7 +6,12 @@
     just
     ruff
   ];
-
+  enterShell = ''
+    # Create a local symlink to the Python virtual environment
+    if [ ! -L "$DEVENV_ROOT/.venv" ]; then
+        ln -s "$DEVENV_STATE/venv/" "$DEVENV_ROOT/.venv"
+    fi
+  '';
   enterTest = ''
     just --version | grep "${pkgs.just.version}"
     uv --version | grep "${pkgs.uv.version}"
