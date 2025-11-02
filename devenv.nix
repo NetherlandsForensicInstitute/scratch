@@ -1,22 +1,37 @@
 {pkgs, ...}: {
   # https://devenv.sh/reference/options/
-  packages = with pkgs; [
-    git
-    lazygit
-    just
-    ruff
-  ];
+  packages = with pkgs;
+    [
+      # project essentials packages
+      git
+      netcat
+      lazygit
+      just
+      ruff
+    ]
+    ++ [
+      # packages for local GitHub actions
+      act
+      docker
+      procps
+    ];
+
   enterShell = ''
     # Create a local symlink to the Python virtual environment
     if [ ! -L "$DEVENV_ROOT/.venv" ]; then
         ln -s "$DEVENV_STATE/venv/" "$DEVENV_ROOT/.venv"
     fi
   '';
+
   enterTest = ''
     just --version | grep "${pkgs.just.version}"
     uv --version | grep "${pkgs.uv.version}"
     python --version | grep "${pkgs.python313.version}"
   '';
+
+  processes = {
+    server.exec = "just api";
+  };
 
   git-hooks.hooks = {
     # Nix
