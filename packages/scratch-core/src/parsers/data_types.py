@@ -41,7 +41,9 @@ class ParsedImage(FrozenBaseModel):
     data: Array2D
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in um")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in um")
-    path_to_original_image: Annotated[Path | None, AfterValidator(validate_file_extension)] = None
+    path_to_original_image: Annotated[
+        Path | None, AfterValidator(validate_file_extension)
+    ] = None
     meta_data: dict | None = None
 
     @property

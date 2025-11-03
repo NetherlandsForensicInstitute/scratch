@@ -57,6 +57,8 @@ def _to_x3p(image: ParsedImage, meta_data: X3PMetaData) -> X3Pfile:
     return x3p
 
 
-def save_to_x3p(image: ParsedImage, path: Path, meta_data: X3PMetaData | None = None) -> None:
+def save_to_x3p(
+    image: ParsedImage, path: Path, meta_data: X3PMetaData | None = None
+) -> None:
     """Save an instance of `ParsedImage` to a .x3p-file."""
     _to_x3p(image, meta_data or X3PMetaData()).write(str(path))

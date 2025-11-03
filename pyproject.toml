@@ -19,14 +19,7 @@ classifiers = [
 ]
 
 requires-python = ">=3.13"
-dependencies = [
-    "fastapi[standard]>=0.119.0",
-    "numpy>=2.3.4",
-    "pillow>=12.0.0",
-    "pydantic>=2.12.3",
-    "surfalize>=0.16.6",
-    "x3p @ git+https://github.com/giacomomarchioro/pyx3p.git#81c0f764cf321e56dc41e9e3c71d14e97d5bc3ae",
-]
+dependencies = ["fastapi[standard]>=0.119.0"]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
 [tool.uv.sources]
@@ -84,13 +77,10 @@ convention = "pep257"            # docstring type to use
 ignore-decorators = ["property"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*.py" = [
+"**/tests/*.py" = [
   "S101",  # Exclude the 'use of assert' warning in the test files
   "D103",  # No docstring necessary for tests
   "PT011", # No `match` parameter necessary for pytest.raises
-]
-"src/parsers/patches/*" = [
-    "D103", "N806"
 ]
 
 [tool.ty.environment]

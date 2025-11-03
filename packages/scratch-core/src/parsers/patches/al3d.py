@@ -45,7 +45,9 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
     # === Our Patch Start ===
     offset_texture = int(header["TextureImageOffset"])
     # if no texture data is present, read until end of file or buffer
-    count = offset_texture - offset if offset_texture > 0 else -1  # TODO: check if this is correct?
+    count = (
+        offset_texture - offset if offset_texture > 0 else -1
+    )  # TODO: check if this is correct?
     data = read_array(filehandle, dtype=np.float32, count=count, offset=0)
     # compute `nx` from the data shape
     nx = data.shape[0] // ny
