@@ -115,8 +115,9 @@ jobs:
         run: just install
 
       - name: Test Contract
+        shell: bash
         run: |
-          just api-bg artifact="main.exe"
+          just api-bg "main.exe"
           sleep 5
           just test-contract
 
