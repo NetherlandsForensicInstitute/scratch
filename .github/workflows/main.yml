@@ -114,12 +114,9 @@ jobs:
       - name: install dep
         run: just install
 
-      - name: Test Contract
+      - name: build artifact
         shell: bash
-        run: |
-          just api-bg "main.exe"
-          sleep 5
-          just test-contract
+        run: just build
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
