@@ -86,7 +86,7 @@ api-bg artifact="":
     just api > /dev/null 2>&1 & echo $! > api.pid; \
   else \
     just build; \
-    ./dist/{{artifact}} &> /dev/null & echo $! > api.pid; \
+    ./dist/{{artifact}} & echo $! > api.pid; \
   fi \
 
 # list or run github job locally
