@@ -131,7 +131,7 @@ jobs:
       - name: Start artifact in background
         shell: pwsh
         run: |
-          Start-Process -FilePath "dist/main.exe" -RedirectStandardOutput "api.out.log" -RedirectStandardError "api.err.log"
+          Start-Process -FilePath "dist/main.exe" -RedirectStandardOutput "api.log" -RedirectStandardError "api.log"
           $timeout = [DateTime]::Now.AddSeconds(20)
           while (-not (Test-NetConnection -ComputerName "127.0.0.1" -Port 8000 -InformationLevel Quiet)) {
             if ([DateTime]::Now -gt $timeout) { throw "REST API did not start within 20 seconds" }
