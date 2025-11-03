@@ -28,4 +28,4 @@ async def root() -> dict[str, str]:
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()  # For Windows support
-    run(app, host="127.0.0.0", port=8000, reload=False, workers=1)
+    run(app, host="127.0.0.1", port=8000, reload=False, workers=1)
