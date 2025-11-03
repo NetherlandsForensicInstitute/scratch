@@ -8,13 +8,13 @@ help:
 # Install the virtual environment and per-commit hooks
 install:
   echo "{{BLUE}}{{BOLD}}{{ITALIC}}Creating virtual environment using uv"
-  uv sync --frozen
+  uv sync --all-packages --frozen
 
 # update the virtual environment and per-commit hooks
 update:
   echo "{{YELLOW}}{{BOLD}}{{ITALIC}}Updating virtual environment using uv"
   uv lock --upgrade
-  uv sync
+  uv sync --all-packages
   uv run pre-commit autoupdate
 
 # Run code formatter
@@ -37,8 +37,16 @@ check-static:
 
 # Run all Project tests
 test:
-  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running pytest"
-  uv run pytest --cov --cov-config=pyproject.toml --cov-report=xml
+  uv run pytest -m 'not contract_testing' --cov --cov-config=pyproject.toml --cov-report=xml
+
+# Run all endpoints health checks
+smoke-test host="0.0.0.0" port="8000":
+  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running the contract testing{{NORMAL}}"
+  @just api > /dev/null 2>&1 & echo $! > api.pid
+  until nc -z {{host}} {{port}}; do sleep 1; done
+  uv run pytest -m 'contract_testing'
+  kill $(cat api.pid)
+  rm api.pid
 
 # Removes version control system dirty files
 clean:

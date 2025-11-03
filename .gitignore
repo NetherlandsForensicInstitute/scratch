@@ -219,3 +219,6 @@ devenv.local.nix
 
 # pre-commit
 .pre-commit-config.yaml
+
+# Justfile artifacts
+api.pid

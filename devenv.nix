@@ -17,7 +17,6 @@
     just --version | grep "${pkgs.just.version}"
     uv --version | grep "${pkgs.uv.version}"
     python --version | grep "${pkgs.python313.version}"
-    pdm --version | grep "${pkgs.pdm.version}"
   '';
 
   git-hooks.hooks = {

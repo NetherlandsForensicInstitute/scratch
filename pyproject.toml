@@ -4,8 +4,8 @@ version = "0.0.1"
 description = "Scratch"
 authors = [
     { name = "Netherlands Forensic Institute - CFS R&D Data", email = "cfs_rd_data@nfi.nl" },
-  {name = "Sharlon N. Regales", email = "s.regales@nfi.nl"},
-  {name= "Raymond Houwing", email= "r.houwing@nfi.nl"}
+    { name = "Sharlon N. Regales", email = "s.regales@nfi.nl" },
+    { name = "Raymond Houwing", email = "r.houwing@nfi.nl" }
 ]
 readme = "README.md"
 classifiers = [
@@ -21,10 +21,15 @@ classifiers = [
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.119.0",
-    "lir>=1.0.0",
-    "surfalize>=0.16.6",
-    "x3p @ git+https://github.com/giacomomarchioro/pyx3p.git#81c0f764cf321e56dc41e9e3c71d14e97d5bc3ae",
 ]
+
+# https://docs.astral.sh/uv/concepts/projects/workspaces/
+[tool.uv.sources]
+scratch-core = { workspace = true }
+stats = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [dependency-groups]
 dev = [
@@ -33,6 +38,7 @@ dev = [
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
+    "requests>=2.32.5",
     "ruff>=0.14.0",
     "rust-just>=1.43.0",
     "ty>=0.0.1a22",
@@ -87,11 +93,13 @@ python = "./.venv"
 python-version = "3.13"
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
 markers = [
     "integration: Tests related to more than one unit (examples: modules, interfaces)",
     "e2e: End to end test (full system test)",
-    "prototype: local ticket tests (not allowed on main)",
+    "contract_testing: all tests used for checking if the interface to the outside is same as contract"
 ]
 
 [tool.coverage.report]
