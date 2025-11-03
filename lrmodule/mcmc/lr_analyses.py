@@ -36,7 +36,6 @@ def fit_mcmc(stats_model, scores_obs, mcmc_settings):
         if stats_model.distribution == 'betabinomial':
             pm.BetaBinomial('k', alpha=priors['alpha'], beta=priors['beta'], n=scores_obs[:,1], observed=scores_obs[:,0])
         elif stats_model.distribution == 'binomial':
-            # Define the model: parameters and observed data
             pm.Binomial('k', p=priors['p'], n=np.sum(scores_obs[:,1]), observed=np.sum(scores_obs[:,0]))
         else:
             raise ValueError('Unrecognized distribution')
@@ -74,7 +73,6 @@ def apply_mcmc(stats_model, parameters, scores_eval):
         if stats_model.distribution == 'betabinomial':
             logp = betabinom.logpmf(scores_2d[0], scores_2d[1], parameters_2d['alpha'], parameters_2d['beta'])
         elif stats_model.distribution == 'binomial':
-            # Calculate probabilities on specified score grid values
             logp = binom.logpmf(scores_2d[0], scores_2d[1], parameters_2d['p'])
 
     # Return 10-bas log probabilities
