@@ -14,7 +14,12 @@ FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
 
 
 def parse_scan(path: Path) -> ParsedImage:
-    """Parse surface data from a scan file."""
+    """
+    Parse surface data from a raw scan file.
+
+    :param path: Path to the raw scan file.
+    :return: An instance of ParsedImage containing the parsed scan data.
+    """
     surface = Surface.load(path)
     surface.data = np.asarray(surface.data, dtype=np.float64)
     return ParsedImage(
@@ -27,8 +32,14 @@ def parse_scan(path: Path) -> ParsedImage:
 
 
 def parse_image(path: Path) -> ParsedImage:
-    """Parse surface data from an image file."""
-    # open image and convert to grayscale
+    """
+    Parse surface data from an image file.
+
+    The parsed image data will be converted to grayscale and converted to floating point values.
+
+    :param path: Path to the image file.
+    :return: An instance of ParsedImage containing the parsed image data.
+    """
     image = Image.open(path).convert("L")
     data = np.asarray(image, dtype=np.float64)
     return ParsedImage(data=data, path_to_original_image=path)

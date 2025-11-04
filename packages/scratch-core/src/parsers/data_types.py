@@ -8,10 +8,20 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 Array2D = np.ndarray[tuple[int, int], np.float64]
 
 
-class FileFormats(StrEnum):
+class ImageFileFormats(StrEnum):
     PNG = auto()
+    BMP = auto()
+    JPG = auto()
+    JPEG = auto()
+    TIF = auto()
+    TIFF = auto()
+
+
+class ScanFileFormats(StrEnum):
     AL3D = auto()
+    SUR = auto()
     X3P = auto()
+    PLU = auto()
 
 
 class FrozenBaseModel(BaseModel):
@@ -20,10 +30,12 @@ class FrozenBaseModel(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
 
-def validate_file_extension(path: Path | None = None) -> Path | None:
+def validate_file_extension(path: Path) -> Path:
     """Test whether the file extension is valid."""
     if path is not None:
-        _ = FileFormats(path.suffix[1:])
+        ext = path.suffix[1:]
+        if not (ext in ImageFileFormats or ext in ScanFileFormats):
+            raise ValueError("Invalid file extension")
     return path
 
 
@@ -41,9 +53,7 @@ class ParsedImage(FrozenBaseModel):
     data: Array2D
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in um")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in um")
-    path_to_original_image: Annotated[
-        Path | None, AfterValidator(validate_file_extension)
-    ] = None
+    path_to_original_image: Annotated[Path, AfterValidator(validate_file_extension)]
     meta_data: dict | None = None
 
     @property

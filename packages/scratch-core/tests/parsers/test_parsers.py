@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 import pytest
-from parsers import parse_file, ParsedImage
+from parsers import parse_surface_scan_file, ParsedImage
 
 
 def test_file_can_be_parsed(scans_dir: Path, image_data: NDArray):
@@ -16,7 +16,7 @@ def test_file_can_be_parsed(scans_dir: Path, image_data: NDArray):
         )
 
     assert all(
-        validate_image(path, parse_file(path))
+        validate_image(path, parse_surface_scan_file(path))
         for path in scans_dir.iterdir()
         if path.is_file()
     )

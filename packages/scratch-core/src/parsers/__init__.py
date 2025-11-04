@@ -1,29 +1,27 @@
 from pathlib import Path
 
 from .base import parse_image, parse_scan
-from .data_types import ParsedImage
+from .data_types import ParsedImage, ImageFileFormats, ScanFileFormats
 from .x3p import save_to_x3p
 
-__all__ = ("save_to_x3p", "parse_image", "parse_scan")
+__all__ = ("save_to_x3p", "parse_image", "parse_scan", "parse_surface_scan_file")
 
-FILETYPE_TO_PARSER = {
-    ".png": parse_image,
-    ".jpg": parse_image,
-    ".jpeg": parse_image,
-    ".bmp": parse_image,
-    ".tif": parse_image,
-    ".tiff": parse_image,
-    ".al3d": parse_scan,
-    ".x3p": parse_scan,
-    ".sur": parse_scan,
-    ".plu": parse_scan,
+FILETYPE_TO_PARSER = {f".{ext}": parse_image for ext in ImageFileFormats} | {
+    f".{ext}": parse_scan for ext in ScanFileFormats
 }
 
 
-def parse_file(path: Path) -> ParsedImage:
-    """Parse a surface scan file and return an instance of `ParsedImage`."""
-    parser = FILETYPE_TO_PARSER.get(path.suffix.lower())
-    if parser:
-        return parser(path)
-    else:
-        raise RuntimeError(f"File type not supported: {path.suffix}")
+def parse_surface_scan_file(path_to_scan_file: Path) -> ParsedImage:
+    """
+    Parse a surface scan file return an instance of `ParsedImage`.
+
+    :param path_to_scan_file: Path to the surface scan file.
+    :returns: An instance of `ParsedImage` containing the parsed scan data.
+    """
+    ext = path_to_scan_file.suffix.lower()
+    try:
+        parser = FILETYPE_TO_PARSER[ext]
+    except KeyError:
+        raise ValueError(f"File type not supported: {ext}")
+
+    return parser(path_to_scan_file)
