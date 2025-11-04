@@ -25,6 +25,19 @@ def validate_image(
     )
 
 
+def test_exception_on_incorrect_path(image_data: NDArray):
+    with pytest.raises(ValueError, match="extension"):
+        _ = ParsedImage(data=image_data, path_to_original_image=Path("export.txt"))
+
+
+def test_exception_on_incorrect_shape(image_data: NDArray):
+    with pytest.raises(ValueError, match="shape"):
+        _ = ParsedImage(
+            data=np.expand_dims(image_data, -1),
+            path_to_original_image=Path("export.x3p"),
+        )
+
+
 def test_image_parser_can_parse_png(png_file: Path, image_data: NDArray):
     parsed_image = parse_image(png_file)
     assert validate_image(
