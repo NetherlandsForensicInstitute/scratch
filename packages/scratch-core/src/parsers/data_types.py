@@ -33,8 +33,15 @@ def validate_file_extension(path: Path) -> Path:
     if path is not None:
         ext = path.suffix[1:]
         if not (ext in ImageFileFormats or ext in ScanFileFormats):
-            raise ValueError("Invalid file extension")
+            raise ValueError(f"Invalid file extension: {ext}")
     return path
+
+
+def validate_array_shape(array: NDArray) -> NDArray:
+    """Test whether the passed array has a valid shape."""
+    if len(array.shape) != 2:
+        raise ValueError(f"Invalid array shape: {array.shape}")
+    return array
 
 
 class ParsedImage(FrozenBaseModel):
@@ -48,7 +55,7 @@ class ParsedImage(FrozenBaseModel):
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
-    data: NDArray
+    data: Annotated[NDArray, AfterValidator(validate_array_shape)]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in um")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in um")
     path_to_original_image: Annotated[Path, AfterValidator(validate_file_extension)]
