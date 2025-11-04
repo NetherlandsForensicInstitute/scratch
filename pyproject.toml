@@ -91,7 +91,7 @@ python-version = "3.13"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-testpaths = ["tests"]
+testpaths = ["tests", "packages/**/tests"]
 addopts = ["--import-mode=importlib"]
 markers = [
   "integration: Tests related to more than one unit (examples: modules, interfaces)",

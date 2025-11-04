@@ -19,12 +19,12 @@ dependencies = [
 [tool.ruff.lint.per-file-ignores]
 "src/parsers/patches/*" = ["D103", "N806"]
 
-[tool.pytest.ini_options]
-pythonpath = ["src"]
-testpaths = ["tests"]
-addopts = ["--import-mode=importlib"]
-markers = [
-  "integration: Tests related to more than one unit (examples: modules, interfaces)",
-  "e2e: End to end test (full system test)",
-  "contract_testing: all tests used for checking if the interface to the outside is same as contract",
-]
+# [tool.pytest.ini_options]
+# pythonpath = ["src"]
+# testpaths = ["tests"]
+# addopts = ["--import-mode=importlib"]
+# markers = [
+#   "integration: Tests related to more than one unit (examples: modules, interfaces)",
+#   "e2e: End to end test (full system test)",
+#   "contract_testing: all tests used for checking if the interface to the outside is same as contract",
+# ]

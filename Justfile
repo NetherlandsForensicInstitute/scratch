@@ -36,14 +36,15 @@ check-static:
   uv run deptry src
 
 # Run all Project tests
-test: core_test api_test
-
-# Run API tests
-api_test:
+test:
   uv run pytest -m 'not contract_testing' --cov --cov-config=pyproject.toml --cov-report=xml
 
+# Run API tests
+api-test:
+  uv run pytest tests -m 'not contract_testing' --cov --cov-config=pyproject.toml --cov-report=xml
+
 # Run scratch_core packages tests
-core_test:
+core-test:
   uv run pytest packages/scratch-core --cov --cov-config=pyproject.toml --cov-report=xml
 
 # Run all endpoints health checks
