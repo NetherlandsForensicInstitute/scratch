@@ -2,10 +2,8 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated
 
-import numpy as np
+from numpy.typing import NDArray
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
-
-Array2D = np.ndarray[tuple[int, int], np.float64]
 
 
 class ImageFileFormats(StrEnum):
@@ -46,11 +44,11 @@ class ParsedImage(FrozenBaseModel):
     :param data: A numpy array containing the parsed 2D image data.
     :param scale_x: The pixel size in the X-direction in micrometers (um).
     :param scale_y: The pixel size in the Y-direction in micrometers (um).
-    :path path_to_original_image: (Optional) The filepath to the original image.
+    :param path_to_original_image: (Optional) The filepath to the original image.
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
-    data: Array2D
+    data: NDArray
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in um")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in um")
     path_to_original_image: Annotated[Path, AfterValidator(validate_file_extension)]
