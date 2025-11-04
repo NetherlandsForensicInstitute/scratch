@@ -16,6 +16,7 @@ DEPTH_SCALE = 1 / CONVERSION_FACTOR
 class X3PMetaData(NamedTuple):
     """A container for storing X3P meta-data."""
 
+    # TODO: parse default values from a config file?
     author: str | None = None
     comment: str | None = None
     instrument_version: str | None = None
