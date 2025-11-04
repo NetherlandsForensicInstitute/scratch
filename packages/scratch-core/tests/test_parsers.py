@@ -3,11 +3,11 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 import pytest
-from parsers import parse_file
+from parsers import parse_file, ParsedImage
 
 
 def test_file_can_be_parsed(scans_dir: Path, image_data: NDArray):
-    def validate_image(path, parsed_image) -> bool:
+    def validate_image(path: Path, parsed_image: ParsedImage) -> bool:
         return (
             parsed_image.data == pytest.approx(image_data)
             and parsed_image.data.dtype == np.float64

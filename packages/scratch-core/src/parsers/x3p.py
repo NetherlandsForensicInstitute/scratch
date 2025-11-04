@@ -6,6 +6,9 @@ import numpy as np
 from x3p import X3Pfile
 
 from .data_types import ParsedImage
+from surfalize.file.x3p import CONVERSION_FACTOR
+
+DEPTH_SCALE = 1 / CONVERSION_FACTOR
 
 
 class X3PMetaData(NamedTuple):
@@ -19,17 +22,6 @@ class X3PMetaData(NamedTuple):
     model: str = "Default"
     manufacturer: str = "NFI"
     measurement_type: str = "NonContacting"
-
-
-def parse_x3p(path: Path) -> ParsedImage:
-    """Parse surface data from a x3p file."""
-    x3p = X3Pfile(str(path))
-    return ParsedImage(
-        data=np.asarray(x3p.data, dtype=np.float64),
-        scale_x=float(x3p.record1.axes.CX.increment),
-        scale_y=float(x3p.record1.axes.CX.increment),
-        path_to_original_image=path,
-    )
 
 
 def _to_x3p(image: ParsedImage, meta_data: X3PMetaData) -> X3Pfile:
@@ -53,7 +45,7 @@ def _to_x3p(image: ParsedImage, meta_data: X3PMetaData) -> X3Pfile:
     x3p.record2.probingsystem.set_identification(meta_data.identificaton)  # type: ignore
     x3p.record2.probingsystem.set_type(meta_data.measurement_type)  # type: ignore
     # set the binary data
-    x3p.set_data(np.ascontiguousarray(image.data))
+    x3p.set_data(np.ascontiguousarray(image.data * DEPTH_SCALE))
     return x3p
 
 
