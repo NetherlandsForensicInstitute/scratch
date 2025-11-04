@@ -79,6 +79,4 @@ jobs:
         uses: ./.github/actions/setup-devenv
 
       - name: Run smoke tests (api.http requests)
-        run: |
-          devenv shell just api-bg
-          devenv shell just smoke-test
+        run: devenv shell just smoke-test
