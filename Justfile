@@ -48,6 +48,10 @@ api-test report="":
 core-test report="":
   rep={{report}} && uv run pytest packages/scratch-core -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
 
+# test-contract REST API
+test-contract:
+    uv run pytest -m 'contract_testing'
+
 # Run all endpoints health checks
 smoke-test artifact="" kill-api="True" host="0.0.0.0" port="8000":
     @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Testing code: Running the contract testing{{ NORMAL }}"
@@ -57,10 +61,6 @@ smoke-test artifact="" kill-api="True" host="0.0.0.0" port="8000":
     echo "Running contract tests..."
     @just test-contract
     @if [ -n '{{ kill-api }}' ]; then kill $(cat api.pid) && rm api.pid; fi
-
-# test-contract REST API
-test-contract:
-    uv run pytest -m 'contract_testing'
 
 # Removes version control system dirty files
 clean:
