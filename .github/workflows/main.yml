@@ -102,7 +102,6 @@ jobs:
         shell: bash
         run: |
           ./dist/main.exe &
-          APP_PID=$!
           echo "Waiting for API to be ready..."
           TIMEOUT=20
           for i in $(seq 1 $TIMEOUT); do
@@ -111,12 +110,8 @@ jobs:
             fi
             sleep 1
           done
-
           echo "Running contract tests..."
           just smoke-test
-
-          echo "Stopping app..."
-          kill $APP_PID || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
