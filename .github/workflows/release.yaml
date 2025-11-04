@@ -9,7 +9,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 jobs:
-  build_windows:
+  release_windows:
     permissions:
       contents: write
     runs-on: windows-latest
