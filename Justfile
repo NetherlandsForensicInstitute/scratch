@@ -85,7 +85,7 @@ api:
 
 # Start API development server in the background
 api-bg artifact="":
-  @if [ -n '{{artifact}}']; then \
+  @if [ -n '{{artifact}}' ]; then \
     just api > /dev/null 2>&1 & echo $! > api.pid; \
   else \
     ./dist/{{artifact}} & echo $! > api.pid; \
