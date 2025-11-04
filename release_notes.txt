@@ -1,1 +1,13 @@
-Template for releasing stuff
+# Release vX.Y.Z
+
+## New Features
+-
+
+## Bug Fixes
+-
+
+## Improvements
+-
+
+## Notes
+-
