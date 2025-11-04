@@ -49,15 +49,14 @@ core-test report="":
   rep={{report}} && uv run pytest packages/scratch-core -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
 
 # Run all endpoints health checks
-smoke-test artifact="" host="0.0.0.0" port="8000":
+smoke-test artifact="" kill-api="True" host="0.0.0.0" port="8000":
     @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Testing code: Running the contract testing{{ NORMAL }}"
     @just api-bg {{ artifact }}
     echo "Waiting for API to be ready..."
     TIMEOUT=20; for i in $(seq 1 $TIMEOUT); do if curl -s http://127.0.0.1:8000 >/dev/null; then break; fi; sleep 1;  done
     echo "Running contract tests..."
     uv run pytest -m 'contract_testing'
-    kill $(cat api.pid)
-    rm api.pid
+    @if [ -n '{{ kill-api }}' ]; then kill $(cat api.pid) && rm api.pid; fi
 
 # test-contract REST API
 test-contract:
@@ -84,10 +83,11 @@ api:
 
 # Start API development server in the background
 api-bg artifact="":
+    @echo 'artifact is: {{artifact}}'
     @if [ -n '{{ artifact }}' ]; then \
-      just api > /dev/null 2>&1 & echo $! > api.pid; \
-    else \
       ./dist/{{ artifact }} & echo $! > api.pid; \
+    else \
+      just api > /dev/null 2>&1 & echo $! > api.pid; \
     fi \
 
 # list or run github job locally
