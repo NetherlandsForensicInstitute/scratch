@@ -8,6 +8,8 @@ from x3p import X3Pfile
 from .data_types import ParsedImage
 from surfalize.file.x3p import CONVERSION_FACTOR
 
+# When parsing, the image data is scaled by `CONVERSION_FACTOR`,
+# therefore the exported image data is scaled in this file by the reciprocal
 DEPTH_SCALE = 1 / CONVERSION_FACTOR
 
 
