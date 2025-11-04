@@ -13,7 +13,7 @@ FILETYPE_TO_PARSER = {f".{ext}": parse_image for ext in ImageFileFormats} | {
 
 def parse_surface_scan_file(path_to_scan_file: Path) -> ParsedImage:
     """
-    Parse a surface scan file return an instance of `ParsedImage`.
+    Parse image data from a surface scan file and return an instance of `ParsedImage`.
 
     :param path_to_scan_file: Path to the surface scan file.
     :returns: An instance of `ParsedImage` containing the parsed scan data.
