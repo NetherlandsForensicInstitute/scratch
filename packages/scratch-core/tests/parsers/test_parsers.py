@@ -25,7 +25,7 @@ def validate_image(
     )
 
 
-def test_exception_on_incorrect_path(image_data: NDArray):
+def test_exception_on_incorrect_file_extension(image_data: NDArray):
     with pytest.raises(ValueError, match="extension"):
         _ = ParsedImage(data=image_data, path_to_original_image=Path("export.txt"))
 
