@@ -102,7 +102,7 @@ jobs:
         shell: bash
         run: |
           ./dist/main.exe &
-          just smoke-test
+          just smoke-test "main.exe"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

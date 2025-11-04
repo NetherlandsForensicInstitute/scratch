@@ -49,16 +49,11 @@ core-test report="":
   rep={{report}} && uv run pytest packages/scratch-core -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
 
 # Run all endpoints health checks
-smoke-test host="0.0.0.0" port="8000":
+smoke-test artifact="" host="0.0.0.0" port="8000":
   @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running the contract testing{{NORMAL}}"
+  @just api-bg {{artifact}}
   echo "Waiting for API to be ready..."
-  TIMEOUT=20
-  for i in $(seq 1 $TIMEOUT); do
-    if curl -s http://127.0.0.1:8000 >/dev/null; then
-      break
-    fi
-    sleep 1
-  done
+  TIMEOUT=20; for i in $(seq 1 $TIMEOUT); do if curl -s http://127.0.0.1:8000 >/dev/null; then break; fi; sleep 1;  done
   echo "Running contract tests..."
   uv run pytest -m 'contract_testing'
   kill $(cat api.pid)
@@ -93,7 +88,6 @@ api-bg artifact="":
   @if [ -n '{{artifact}}']; then \
     just api > /dev/null 2>&1 & echo $! > api.pid; \
   else \
-    just build; \
     ./dist/{{artifact}} & echo $! > api.pid; \
   fi \
 
