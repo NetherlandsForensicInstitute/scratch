@@ -78,12 +78,12 @@ def test_scan_files_can_be_parsed(scans_dir: Path, image_data: NDArray):
 
 @pytest.mark.integration
 def test_exported_x3p_file_can_be_parsed(al3d_file: Path, tmp_path: PosixPath):
-    filepath = tmp_path / "export.x3p"
     parsed_image = parse_surface_scan_file(al3d_file)
-    save_to_x3p(image=parsed_image, path=filepath)
-    parsed_exported_image = parse_surface_scan_file(filepath)
+    output_file = tmp_path / "export.x3p"
+    save_to_x3p(image=parsed_image, path=output_file)
+    parsed_exported_image = parse_surface_scan_file(output_file)
     assert validate_image(
-        path_to_original_image=filepath,
+        path_to_original_image=output_file,
         parsed_image=parsed_exported_image,
         image_data=parsed_image.data,
     )
