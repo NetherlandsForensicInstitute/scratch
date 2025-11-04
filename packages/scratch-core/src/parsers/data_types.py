@@ -51,7 +51,7 @@ class ParsedImage(FrozenBaseModel):
     :param data: A numpy array containing the parsed 2D image data.
     :param scale_x: The pixel size in the X-direction in micrometers (um).
     :param scale_y: The pixel size in the Y-direction in micrometers (um).
-    :param path_to_original_image: (Optional) The filepath to the original image.
+    :param path_to_original_image: The filepath to the original image.
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
