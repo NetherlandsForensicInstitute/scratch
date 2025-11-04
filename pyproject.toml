@@ -89,7 +89,7 @@ python-version = "3.13"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-addopts = ["--import-mode=importlib"]
+addopts = ["--import-mode=importlib", "--cov-config=pyproject.toml", "--cov-report=term"]
 markers = [
   "integration: Tests related to more than one unit (examples: modules, interfaces)",
   "e2e: End to end test (full system test)",
@@ -98,7 +98,15 @@ markers = [
 
 [tool.coverage.report]
 skip_empty = true
+skip_covered = true
+show_missing = true
 
 [tool.coverage.run]
 branch = true
-source = ["src"]
+source = ["src", "packages/**/src"]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
