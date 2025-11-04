@@ -8,15 +8,9 @@ TEST_ROOT = Path(__file__).parent
 
 
 @pytest.fixture(scope="session")
-def resources_dir() -> Path:
-    """Path to resources directory."""
-    return TEST_ROOT / "resources"
-
-
-@pytest.fixture(scope="session")
-def scans_dir(resources_dir: Path) -> Path:
-    """Path to resources scan sub directory."""
-    return resources_dir / "scans"
+def scans_dir() -> Path:
+    """Path to resources scan directory."""
+    return TEST_ROOT / "resources" / "scans"
 
 
 @pytest.fixture
