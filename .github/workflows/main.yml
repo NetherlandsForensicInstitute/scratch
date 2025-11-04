@@ -83,26 +83,6 @@ jobs:
           devenv shell just api-bg
           devenv shell just smoke-test
 
-#  build_linux:
-#    runs-on: ubuntu-latest
-#    needs: [tests]
-#    steps:
-#      - uses: actions/checkout@v5
-#
-#      - name: Set up shell environment
-#        uses: ./.github/actions/setup-devenv
-#
-#      - name: Test Contract
-#        run: |
-#          devenv shell just api-bg artifact="main"
-#          devenv shell just smoke-test
-#
-#      - name: Upload artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: server
-#          path: ./dist/main
-
   build_windows:
     runs-on: windows-latest
     needs: [tests]
@@ -117,6 +97,19 @@ jobs:
       - name: build artifact
         shell: bash
         run: just build
+
+      - name: Run contract tests
+        shell: bash
+        run: |
+          ./dist/main.exe &
+          APP_PID=$!
+          sleep 3
+
+          echo "Running contract tests..."
+          just smoke-test
+
+          echo "Stopping app..."
+          kill $APP_PID || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
