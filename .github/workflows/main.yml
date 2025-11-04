@@ -103,7 +103,14 @@ jobs:
         run: |
           ./dist/main.exe &
           APP_PID=$!
-          sleep 3
+          echo "Waiting for API to be ready..."
+          TIMEOUT=20
+          for i in $(seq 1 $TIMEOUT); do
+            if curl -s http://127.0.0.1:8000 >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
 
           echo "Running contract tests..."
           just smoke-test
