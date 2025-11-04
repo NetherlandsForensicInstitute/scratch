@@ -32,6 +32,7 @@ members = ["packages/*"]
 [dependency-groups]
 dev = [
   "deptry>=0.23.1",
+  "diff-cover>=9.7.1",
   "ipykernel>=7.0.0",
   "pre-commit>=4.3.0",
   "pytest>=8.4.2",
@@ -89,7 +90,11 @@ python-version = "3.13"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-addopts = ["--import-mode=importlib", "--cov-config=pyproject.toml", "--cov-report=term"]
+addopts = [
+  "--import-mode=importlib",
+  "--cov-config=pyproject.toml",
+  "--cov-report=term",
+]
 markers = [
   "integration: Tests related to more than one unit (examples: modules, interfaces)",
   "e2e: End to end test (full system test)",
@@ -97,6 +102,7 @@ markers = [
 ]
 
 [tool.coverage.report]
+fail_under = 80
 skip_empty = true
 skip_covered = true
 show_missing = true

@@ -62,3 +62,12 @@ api:
 # list or run github job locally
 ci job="":
   [ -z "{{job}}" ] && act --list || act --job {{job}} --quiet
+
+# run coverage difference between current branch and main
+cov-diff:
+  [ -f coverage.xml ] || just test xml
+  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Getting coverage difference against main"
+  uv run diff-cover coverage.xml \
+     --diff-range-notation '..' \
+     --fail-under 80 \
+     --format markdown:diff_coverage.md
