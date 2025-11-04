@@ -52,12 +52,10 @@ def test_scan_parser_can_parse_al3d(al3d_file: Path, image_data: NDArray):
     )
 
 
-def test_x3p_file_can_be_exported(image_data: NDArray, tmp_path: PosixPath):
-    parsed_image = ParsedImage(
-        data=image_data, path_to_original_image=Path("some/path/file.x3p")
-    )
-    output_file = tmp_path / "export.x3p"
-    save_to_x3p(image=parsed_image, path=output_file)
+def test_parsed_image_can_be_exported_to_x3p(
+    parsed_image: ParsedImage, tmp_path: PosixPath
+):
+    save_to_x3p(image=parsed_image, path=tmp_path / "export.x3p")
     files = list(tmp_path.iterdir())
     assert len(files) == 1
     assert files[0].name == "export.x3p"
@@ -77,11 +75,12 @@ def test_scan_files_can_be_parsed(scans_dir: Path, image_data: NDArray):
 
 
 @pytest.mark.integration
-def test_exported_x3p_file_can_be_parsed(al3d_file: Path, tmp_path: PosixPath):
+def test_al3d_can_be_converted_to_x3p(al3d_file: Path, tmp_path: PosixPath):
     parsed_image = parse_surface_scan_file(al3d_file)
     output_file = tmp_path / "export.x3p"
     save_to_x3p(image=parsed_image, path=output_file)
     parsed_exported_image = parse_surface_scan_file(output_file)
+    # compare the parsed data from the exported .x3p file to the parsed data from the .al3d file
     assert validate_image(
         path_to_original_image=output_file,
         parsed_image=parsed_exported_image,
