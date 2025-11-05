@@ -1,0 +1,26 @@
+name: build-api
+description: build-api and test it.
+
+runs:
+  using: "composite"
+  steps:
+    - name: Determine test argument based on OS
+      shell: bash
+      id: test_arg
+      run: |
+        if [[ "${RUNNER_OS}" == "Windows" ]]; then
+          echo "test_arg=main.exe" >> $GITHUB_OUTPUT
+        else
+          echo "test_arg=main" >> $GITHUB_OUTPUT
+        fi
+    - name: Install dependencies
+      shell: bash
+      run: just install
+
+    - name: Build artifact
+      shell: bash
+      run: just build
+
+    - name: Run tests
+      shell: bash
+      run: just smoke-test "${{ steps.test_arg.outputs.test_arg }}"

@@ -1,11 +1,8 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - release
-    tags:
-      - 'v*'   # e.g. v1.0.0, v2.3.4
+  release:
+    types: [published]
 jobs:
   release_windows:
     permissions:
@@ -19,17 +16,11 @@ jobs:
       - name: install dep
         run: just install
 
-      - name: build artifact
-        shell: bash
-        run: just build
-
-      - name: Run contract tests
-        shell: bash
-        run: just smoke-test "main.exe"
+      - name: Set up shell environment
+        uses: ./.github/actions/build-api
 
       - name: Create GitHub Release and upload artifacts
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           body_path: ./scratch/release_notes.txt
           files: ./dist/main.exe
