@@ -37,8 +37,9 @@ check-static:
   uv run deptry src
 
 # Run all Project tests with coverage report if given (html or xml)
-test report="":
-  rep={{report}} && uv run pytest -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
+test $key="" $report="":
+  uv run pytest -m 'not contract_testing' \
+  ${key:+-k $key} ${report:+--cov --cov-report $report} --cov-config pyproject.toml
 
 # Run all endpoints health checks
 smoke-test host="0.0.0.0" port="8000":
