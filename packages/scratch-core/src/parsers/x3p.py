@@ -10,7 +10,7 @@ from surfalize.file.x3p import CONVERSION_FACTOR
 
 # When parsing, the image data is scaled by `CONVERSION_FACTOR`,
 # therefore the exported image data is scaled in this file by the reciprocal
-DEPTH_SCALE = 1 / CONVERSION_FACTOR
+SCALE_FACTOR = 1 / CONVERSION_FACTOR
 
 
 class X3PMetaData(NamedTuple):
@@ -32,9 +32,9 @@ def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
     # set record1 entries
     x3p.record1.set_featuretype("SUR")
     x3p.record1.axes.CX.set_axistype("I")
-    x3p.record1.axes.CX.set_increment(image.scale_x * DEPTH_SCALE)
+    x3p.record1.axes.CX.set_increment(image.scale_x * SCALE_FACTOR)
     x3p.record1.axes.CY.set_axistype("I")
-    x3p.record1.axes.CY.set_increment(image.scale_y * DEPTH_SCALE)
+    x3p.record1.axes.CY.set_increment(image.scale_y * SCALE_FACTOR)
     # set record2 entries
     x3p.record2.set_date(dt.datetime.now(tz=dt.UTC).strftime("%Y-%m-%dT%H:%M:%S"))  # type: ignore
     x3p.record2.set_calibrationdate(meta_data.calibration_date)  # type: ignore
@@ -48,7 +48,7 @@ def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
     x3p.record2.probingsystem.set_identification(meta_data.identificaton)  # type: ignore
     x3p.record2.probingsystem.set_type(meta_data.measurement_type)  # type: ignore
     # set the binary data
-    x3p.set_data(np.ascontiguousarray(image.data * DEPTH_SCALE))
+    x3p.set_data(np.ascontiguousarray(image.data * SCALE_FACTOR))
     return x3p
 
 
