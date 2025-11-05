@@ -38,7 +38,7 @@ check-static:
 
 # Run all Project tests with coverage report if given (html or xml)
 test report="":
-  rep={{report}} && uv run pytest -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
+  rep={{report}} && uv run pytest -m 'not contract_testing' ${rep:+--cov --cov-report=$rep} --cov-config=.coveragerc
 
 # Run API tests with coverage report if given (html or xml)
 api-test report="":

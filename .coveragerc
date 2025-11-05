@@ -1,3 +1,9 @@
 [run]
 omit =
     src/main.py
+[report]
+omit =
+    src/main.py
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
