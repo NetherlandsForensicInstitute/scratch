@@ -66,8 +66,8 @@ class ScanImage(FrozenBaseModel):
         """
         Load a scan image from a file.
 
-        If the file is an image file (e.g. PNG or JPG), the pixel values will be first converted to grayscale
-        and to floating point values before returning.
+        If the file is an image file (e.g. PNG or JPG), the pixel values will be converted to grayscale
+        and floating point values.
 
         :param scan_file: The path to the file containing the scanned image data.
         :returns: An instance of `ScanImage`.
