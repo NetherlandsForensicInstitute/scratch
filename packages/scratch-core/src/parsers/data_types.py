@@ -44,7 +44,7 @@ def validate_parsed_image_shape(image_data: NDArray) -> NDArray:
     return image_data
 
 
-class ParsedImage(FrozenBaseModel):
+class ScanImage(FrozenBaseModel):
     """
     Class for storing parsed scan data.
 
@@ -62,11 +62,11 @@ class ParsedImage(FrozenBaseModel):
     meta_data: dict | None = None
 
     @classmethod
-    def from_file(cls, scan_file: Path) -> "ParsedImage":
+    def from_file(cls, scan_file: Path) -> "ScanImage":
         extension = scan_file.suffix.lower()[1:]
         if extension in ScanFileFormats:
             surface = Surface.load(scan_file)
-            return ParsedImage(
+            return ScanImage(
                 data=np.asarray(surface.data, dtype=np.float64),
                 scale_x=surface.step_x,
                 scale_y=surface.step_y,
@@ -74,7 +74,7 @@ class ParsedImage(FrozenBaseModel):
                 path_to_original_image=scan_file,
             )
         elif extension in ImageFileFormats:
-            return ParsedImage(
+            return ScanImage(
                 data=np.asarray(
                     Image.open(scan_file).convert("L"),
                     dtype=np.float64,

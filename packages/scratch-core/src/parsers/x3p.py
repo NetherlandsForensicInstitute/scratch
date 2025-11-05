@@ -5,7 +5,7 @@ from typing import NamedTuple
 import numpy as np
 from x3p import X3Pfile
 
-from .data_types import ParsedImage
+from .data_types import ScanImage
 from surfalize.file.x3p import CONVERSION_FACTOR
 
 # When parsing, the image data is scaled by `CONVERSION_FACTOR`,
@@ -27,7 +27,7 @@ class X3PMetaData(NamedTuple):
     measurement_type: str = "NonContacting"
 
 
-def _to_x3p(image: ParsedImage, meta_data: X3PMetaData) -> X3Pfile:
+def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
     x3p = X3Pfile()
     # set record1 entries
     x3p.record1.set_featuretype("SUR")
@@ -53,7 +53,7 @@ def _to_x3p(image: ParsedImage, meta_data: X3PMetaData) -> X3Pfile:
 
 
 def save_to_x3p(
-    image: ParsedImage, output_path: Path, meta_data: X3PMetaData | None = None
+    image: ScanImage, output_path: Path, meta_data: X3PMetaData | None = None
 ) -> None:
-    """Save an instance of `ParsedImage` to a .x3p-file."""
+    """Save an instance of `ScanImage` to a .x3p-file."""
     _to_x3p(image, meta_data or X3PMetaData()).write(str(output_path))
