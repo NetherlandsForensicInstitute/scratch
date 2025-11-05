@@ -60,7 +60,12 @@ smoke-test artifact="" kill-api="True" host="0.0.0.0" port="8000":
     TIMEOUT=20; for i in $(seq 1 $TIMEOUT); do if curl -s http://127.0.0.1:8000 >/dev/null; then break; fi; sleep 1;  done
     echo "Running contract tests..."
     @just test-contract
-    @if [ -n '{{ kill-api }}' ]; then kill $(cat api.pid) && rm api.pid; fi
+    @if [ "{{os_family()}}" = "unix" ]; then \
+        kill $(cat api.pid); \
+    else \
+        taskkill //PID $(cat api.pid) //F 2>nul; \
+    fi
+    @rm -f api.pid
 
 # Removes version control system dirty files
 clean:
