@@ -6,8 +6,6 @@ on:
       - release
     tags:
       - 'v*'   # e.g. v1.0.0, v2.3.4
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
 jobs:
   release_windows:
     permissions:
