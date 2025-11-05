@@ -25,7 +25,7 @@ jobs:
 
       - name: Run contract tests
         shell: bash
-        run: just smoke-test "main.exe" ""
+        run: just smoke-test "main.exe"
 
       - name: Create GitHub Release and upload artifacts
         uses: softprops/action-gh-release@v2

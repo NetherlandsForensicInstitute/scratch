@@ -53,7 +53,7 @@ test-contract:
     uv run pytest -m 'contract_testing'
 
 # Run all endpoints health checks
-smoke-test artifact="" kill-api="True" host="0.0.0.0" port="8000":
+smoke-test artifact="" host="0.0.0.0" port="8000":
     @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Testing code: Running the contract testing{{ NORMAL }}"
     @just api-bg {{ artifact }}
     @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Waiting for API to be ready...{{NORMAL}}"
