@@ -1,22 +1,37 @@
+from typing import Self
+
 import arviz as az
 import numpy as np
 import pymc as pm
+
+from lir.data.models import FeatureData, LLRData
+from lir.transform import Transformer
 from scipy.stats import binom, betabinom
 
 
-def analyse_bayesian(scores_eval, scores_km, scores_knm, stats_model):
+class McmcLLRModel(Transformer):
+    def __init__(self, stats_model, mcmc_settings,
+                 interval: tuple[float, float] = (0.05, 0.95),
+                 ):
+        self.model_h1 = McmcModel(stats_model.km, mcmc_settings)
+        self.model_h2 = McmcModel(stats_model.knm, mcmc_settings)
+        self.interval = interval
 
-    model_km = McmcModel(stats_model.km, stats_model.mcmc_settings).fit(scores_km)
-    model_knm = McmcModel(stats_model.knm, stats_model.mcmc_settings).fit(scores_knm)
+    def fit(self, instances: FeatureData) -> Self:
+        self.model_h1.fit(instances.features[instances.labels==1])
+        self.model_h2.fit(instances.features[instances.labels==0])
 
-    logp_km = model_km.transform(scores_eval)
-    logp_knm = model_knm.transform(scores_eval)
-
-    return logp_km, logp_knm
+    def transform(self, instances: FeatureData) -> LLRData:
+        logp_h1 = self.model_h1.transform(instances.features)
+        logp_h2 = self.model_h2.transform(instances.features)
+        llrs = logp_h1 - logp_h2
+        quantiles = np.quantile(llrs, [.5] + list(self.interval), axis=1, method='midpoint')
+        return LLRData(features=quantiles.transpose(1, 0))
 
 
 class McmcModel:
-    def __init__(self, stats_model, mcmc_settings):
+    def __init__(self, stats_model, mcmc_settings,
+                 ):
         self.stats_model = stats_model
         self.mcmc_settings = mcmc_settings
         self.parameter_samples = None

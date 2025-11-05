@@ -1,8 +1,10 @@
 import confidence
 import numpy as np
 import pandas as pd
+import pytest
 
-from lrmodule.mcmc.lr_analyses import analyse_bayesian, McmcModel
+from lir.data.models import FeatureData
+from lrmodule.mcmc.lr_analyses import McmcModel, McmcLLRModel
 
 # Tests against references from the Matlab implementation.
 
@@ -58,35 +60,30 @@ def test_transform_mcmc_binomial():
     logp_ref = np.loadtxt(csv_prefix + '-knm_logp.csv', delimiter=',')
     assert np.allclose(logp_calc, logp_ref)
 
-def test_llr_firing_pin():
+
+@pytest.mark.parametrize("dataset_name", [
+    "firing_pin_impression",
+    "breech_face_impression",
+])
+def test_llr_dataset(dataset_name: str):
 
     # From pre-calculated scores to (percentiles of) log-10 lrs.
     # We expect some differences here due to mcmc-differences and randomness.
 
-    csv_prefix = 'lrmodule/mcmc/firing_pin_impression-' + cfg.dataset.score
+    csv_prefix = f'lrmodule/mcmc/{dataset_name}-' + cfg.dataset.score
     df_scores = pd.read_csv(csv_prefix + '-all-input.csv', header=None)
 
     scores_eval = np.int32(np.array(df_scores[df_scores[0]=='eval'])[:,1:])
     scores_km = np.int32(np.array(df_scores[df_scores[0]=='km'])[:,1:])
     scores_knm = np.int32(np.array(df_scores[df_scores[0]=='knm'])[:,1:])
-    logp_km, logp_knm = analyse_bayesian(scores_eval, scores_km, scores_knm, cfg.dataset.statistical_model)
-    llrs_calc = np.quantile(logp_km - logp_knm, quantages, axis=1, method='midpoint')
+
+    features = np.concatenate([scores_km, scores_knm])
+    labels = np.concatenate([np.ones(scores_km.shape[0]), np.zeros(scores_knm.shape[0])])
+
+    model = McmcLLRModel(cfg.dataset.statistical_model, cfg.dataset.statistical_model.mcmc_settings, (cfg.interval.lower_bound, cfg.interval.upper_bound))
+    model.fit(FeatureData(features=features, labels=labels))
+    llrs = model.transform(FeatureData(features=scores_eval))
     llrs_ref = np.loadtxt(csv_prefix + '-llr_unbound.csv', delimiter=',')
-    assert np.allclose(llrs_calc, llrs_ref, rtol=5E-2, atol=5E-2)
-
-
-def test_llr_breech_face():
-
-    # From pre-calculated scores to (percentiles of) log-10 lrs.
-    # We expect some differences here due to mcmc-differences and randomness.
-
-    csv_prefix = 'lrmodule/mcmc/breech_face_impression-' + cfg.dataset.score
-    df_scores = pd.read_csv(csv_prefix + '-all-input.csv', header=None)
-
-    scores_eval = np.int32(np.array(df_scores[df_scores[0]=='eval'])[:,1:])
-    scores_km = np.int32(np.array(df_scores[df_scores[0]=='km'])[:,1:])
-    scores_knm = np.int32(np.array(df_scores[df_scores[0]=='knm'])[:,1:])
-    logp_km, logp_knm = analyse_bayesian(scores_eval, scores_km, scores_knm, cfg.dataset.statistical_model)
-    llrs_calc = np.quantile(logp_km - logp_knm, quantages, axis=1, method='midpoint')
-    llrs_ref = np.loadtxt(csv_prefix + '-llr_unbound.csv', delimiter=',')
-    assert np.allclose(llrs_calc, llrs_ref, rtol=5E-2, atol=5E-2)
+    assert np.allclose(llrs.llrs, llrs_ref[1], rtol=5E-2, atol=5E-2)
+    assert np.allclose(llrs.llr_intervals[:,0], llrs_ref[0], rtol=5E-2, atol=5E-2)
+    assert np.allclose(llrs.llr_intervals[:,1], llrs_ref[2], rtol=5E-2, atol=5E-2)
