@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from lir.data.models import FeatureData
-from lrmodule.mcmc.lr_analyses import McmcModel, McmcLLRModel
+from lrmodule.mcmc.mcmc import McmcModel, McmcLLRModel
 
 # Tests against references from the Matlab implementation.
 

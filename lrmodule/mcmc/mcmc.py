@@ -1,7 +1,6 @@
 from typing import Self
 
 import arviz as az
-import confidence
 import numpy as np
 import pymc as pm
 
@@ -11,15 +10,28 @@ from scipy.stats import binom, betabinom
 
 
 class McmcLLRModel(Transformer):
+    """
+    Use Markov Chain Monte Carlo simulations to fit a statistical distribution for each of the two hypotheses. Using
+    samples from the posterior distributions of the model parameters, a posterior distribution of the LR is obtained.
+    The median of this distribution is used as best estimate for the LR; a credible interval is also determined.
+    """
+
     def __init__(self,
                  distribution_h1: str,
-                 parameter_priors_h1: confidence.Configuration | None,
+                 parameters_h1: dict[str, dict] | None,
                  distribution_h2: str,
-                 parameter_priors_h2: confidence.Configuration | None,
+                 parameters_h2: dict[str, dict] | None,
                  interval: tuple[float, float] = (0.05, 0.95),
                  ):
-        self.model_h1 = McmcModel(distribution_h1, parameter_priors_h1)
-        self.model_h2 = McmcModel(distribution_h2, parameter_priors_h2)
+        """
+        :param distribution_h1: statistical distribution used to model H1
+        :param parameters_h1: definition of the parameters of distribution_h1, and their prior distributions
+        :param distribution_h2: statistical distribution used to model H2
+        :param parameters_h2: definition of the parameters of distribution_h2, and their prior distributions
+        :param interval: lower and upper bounds of the credible interval
+        """
+        self.model_h1 = McmcModel(distribution_h1, parameters_h1)
+        self.model_h2 = McmcModel(distribution_h2, parameters_h2)
         self.interval = interval
 
     def fit(self, instances: FeatureData, **mcmc_kwargs) -> Self:
@@ -37,8 +49,16 @@ class McmcLLRModel(Transformer):
 class McmcModel:
     def __init__(self,
                  distribution: str,
-                 parameters: confidence.Configuration | None,
+                 parameters: dict[str, dict] | None,
                  ):
+        """
+        :param distribution: statistical distribution used to model
+        :param parameters: definition of the parameters of the distribution, and their prior distributions; it should
+        be a dictionary where the keys are the parameter names used for the statistical distribution in pymc,
+        and the values are dictionaries with a key 'prior', defining the prior distribution used for that parameter,
+        and with additional keys corresponding to the parameter names used for that prior distribution.
+        For example, for a binomial distribution: parameters = {'p': {'prior': 'beta', 'alpha': 0.5, 'beta': 0.5}}.
+        """
         self.distribution = distribution
         self.parameters = parameters
         self.chain_count = None
@@ -55,6 +75,13 @@ class McmcModel:
             draw_count: int = 1000,
             random_seed: int = None,
             ):
+        """
+        :param scores_obs: observations, based on those the prior distributions of the parameters are updated
+        :param chain_count: number of parallel mcmc chains
+        :param tune_count: number of tune/warm-up/burn-in samples per chain
+        :param draw_count: number of samples to draw from each chain
+        :param random_seed: random seed
+        """
         self.chain_count = chain_count
         self.tune_count = tune_count
         self.draw_count = draw_count
@@ -62,14 +89,14 @@ class McmcModel:
 
         # It looks like all pymc stuff needs to be in a single model block
         with pm.Model():
-            # Define the prior distributions of the model parameters
+            # Define the prior distributions of the model parameters based on their definitions
             priors = {}
             for parameter in list(self.parameters.keys()):
                 parameter_input = self.parameters[parameter]
-                if parameter_input.prior == 'uniform':
-                    prior = pm.Uniform(parameter, parameter_input.lower, parameter_input.upper)
-                elif parameter_input.prior == 'beta':
-                    prior = pm.Beta(parameter, alpha=parameter_input.alpha, beta=parameter_input.beta)
+                if parameter_input['prior'] == 'uniform':
+                    prior = pm.Uniform(parameter, parameter_input['lower'], parameter_input['upper'])
+                elif parameter_input['prior'] == 'beta':
+                    prior = pm.Beta(parameter, alpha=parameter_input['alpha'], beta=parameter_input['beta'])
                 else:
                     raise ValueError('Unrecognized prior')
                 priors.update({parameter: prior})
