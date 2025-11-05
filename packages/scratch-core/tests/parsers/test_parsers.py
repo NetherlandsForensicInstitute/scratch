@@ -62,7 +62,7 @@ def test_parser_can_parse_al3d(al3d_file: Path, image_data: NDArray):
 def test_parsed_image_can_be_exported_to_x3p(
     parsed_image: ParsedImage, tmp_path: PosixPath
 ):
-    save_to_x3p(image=parsed_image, path=tmp_path / "export.x3p")
+    save_to_x3p(image=parsed_image, output_path=tmp_path / "export.x3p")
     files = list(tmp_path.iterdir())
     assert len(files) == 1
     assert files[0].name == "export.x3p"
@@ -72,7 +72,7 @@ def test_parsed_image_can_be_exported_to_x3p(
 def test_al3d_can_be_converted_to_x3p(al3d_file: Path, tmp_path: PosixPath):
     parsed_image = ParsedImage.from_file(al3d_file)
     output_file = tmp_path / "export.x3p"
-    save_to_x3p(image=parsed_image, path=output_file)
+    save_to_x3p(image=parsed_image, output_path=output_file)
     parsed_exported_image = ParsedImage.from_file(output_file)
     # compare the parsed data from the exported .x3p file to the parsed data from the .al3d file
     assert validate_image(

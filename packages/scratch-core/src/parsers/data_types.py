@@ -37,11 +37,11 @@ class FrozenBaseModel(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
 
-def validate_array_shape(array: NDArray) -> NDArray:
-    """Test whether the passed array has a valid shape."""
-    if len(array.shape) != 2:
-        raise ValueError(f"Invalid array shape: {array.shape}")
-    return array
+def validate_parsed_image_shape(image_data: NDArray) -> NDArray:
+    """Test whether the parsed image data has a valid shape."""
+    if len(image_data.shape) != 2:
+        raise ValueError(f"Invalid array shape: {image_data.shape}")
+    return image_data
 
 
 class ParsedImage(FrozenBaseModel):
@@ -55,31 +55,31 @@ class ParsedImage(FrozenBaseModel):
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
-    data: Annotated[NDArray, AfterValidator(validate_array_shape)]
+    data: Annotated[NDArray, AfterValidator(validate_parsed_image_shape)]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in um")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in um")
     path_to_original_image: Path
     meta_data: dict | None = None
 
     @classmethod
-    def from_file(cls, path: Path) -> "ParsedImage":
-        extension = path.suffix.lower()[1:]
+    def from_file(cls, scan_file: Path) -> "ParsedImage":
+        extension = scan_file.suffix.lower()[1:]
         if extension in ScanFileFormats:
-            surface = Surface.load(path)
+            surface = Surface.load(scan_file)
             return ParsedImage(
                 data=np.asarray(surface.data, dtype=np.float64),
                 scale_x=surface.step_x,
                 scale_y=surface.step_y,
                 meta_data=surface.metadata,
-                path_to_original_image=path,
+                path_to_original_image=scan_file,
             )
         elif extension in ImageFileFormats:
             return ParsedImage(
                 data=np.asarray(
-                    Image.open(path).convert("L"),
+                    Image.open(scan_file).convert("L"),
                     dtype=np.float64,
                 ),
-                path_to_original_image=path,
+                path_to_original_image=scan_file,
             )
         else:
             raise ValueError(f"Invalid file extension: {extension}")
