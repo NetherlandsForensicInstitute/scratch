@@ -81,14 +81,12 @@ api:
     @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Starting FastAPI development server"
     uv run fastapi dev src/main.py
 
-# Start API development server in the background
+# Start API server in the background
 api-bg artifact="":
-    @echo 'artifact is: {{artifact}}'
-    @if [ -n '{{ artifact }}' ]; then \
-      ./dist/{{ artifact }} & echo $! > api.pid; \
-    else \
-      just api > /dev/null 2>&1 & echo $! > api.pid; \
-    fi \
+    cmd=(just api); [ -n "{{ artifact }}" ] && cmd=(./dist/{{ artifact }}); \
+    ${cmd[@]} >/dev/null 2>&1 & echo $! > api.pid
+    @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }} API started in the background"
+    @cat api.pid
 
 # list or run github job locally
 ci job="":
