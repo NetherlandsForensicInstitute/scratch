@@ -50,6 +50,7 @@ core-test report="":
 
 # test-contract REST API
 test-contract:
+    @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Running contract tests...{{NORMAL}}"
     uv run pytest -m 'contract_testing'
 
 # Run all endpoints health checks
