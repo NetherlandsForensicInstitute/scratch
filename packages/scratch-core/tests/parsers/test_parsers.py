@@ -7,15 +7,19 @@ from parsers import ScanImage, save_to_x3p
 
 
 def validate_image(
-    path_to_original_image: Path, parsed_image: ScanImage, image_data: NDArray
+    path_to_original_image: Path,
+    parsed_image: ScanImage,
+    expected_image_data: NDArray,
+    expected_scale: float,
 ) -> bool:
     """Validate a parsed image."""
     return (
         isinstance(parsed_image, ScanImage)
-        and parsed_image.data == pytest.approx(image_data)
+        and parsed_image.data == pytest.approx(expected_image_data)
         and parsed_image.data.dtype == np.float64
-        and 0 < parsed_image.scale_x == parsed_image.scale_y
         and parsed_image.path_to_original_image == path_to_original_image
+        and parsed_image.scale_x == pytest.approx(parsed_image.scale_y)
+        and parsed_image.scale_x == pytest.approx(expected_scale)
     )
 
 
@@ -37,7 +41,8 @@ def test_parser_can_parse_png(png_file: Path, image_data: NDArray):
     assert validate_image(
         path_to_original_image=png_file,
         parsed_image=parsed_image,
-        image_data=image_data,
+        expected_image_data=image_data,
+        expected_scale=1.0,
     )
 
 
@@ -46,7 +51,8 @@ def test_parser_can_parse_x3p(x3p_file: Path, image_data: NDArray):
     assert validate_image(
         path_to_original_image=x3p_file,
         parsed_image=parsed_image,
-        image_data=image_data,
+        expected_image_data=image_data,
+        expected_scale=0.87654321,
     )
 
 
@@ -55,7 +61,8 @@ def test_parser_can_parse_al3d(al3d_file: Path, image_data: NDArray):
     assert validate_image(
         path_to_original_image=al3d_file,
         parsed_image=parsed_image,
-        image_data=image_data,
+        expected_image_data=image_data,
+        expected_scale=0.87654321,
     )
 
 
@@ -78,5 +85,6 @@ def test_al3d_can_be_converted_to_x3p(al3d_file: Path, tmp_path: PosixPath):
     assert validate_image(
         path_to_original_image=output_file,
         parsed_image=parsed_exported_image,
-        image_data=parsed_image.data,
+        expected_image_data=parsed_image.data,
+        expected_scale=parsed_image.scale_x,
     )
