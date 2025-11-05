@@ -56,9 +56,8 @@ test-contract:
 smoke-test artifact="" kill-api="True" host="0.0.0.0" port="8000":
     @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Testing code: Running the contract testing{{ NORMAL }}"
     @just api-bg {{ artifact }}
-    echo "Waiting for API to be ready..."
-    TIMEOUT=20; for i in $(seq 1 $TIMEOUT); do if curl -s http://127.0.0.1:8000 >/dev/null; then break; fi; sleep 1;  done
-    echo "Running contract tests..."
+    @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Waiting for API to be ready...{{NORMAL}}"
+    @timeout 10 bash -c 'until curl -fs http://{{ host }}:{{ port }}/docs > /dev/null; do sleep 1; done'
     @just test-contract
     @if [ "{{os_family()}}" = "unix" ]; then \
         kill $(cat api.pid); \
