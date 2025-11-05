@@ -1,3 +1,4 @@
+
 # List all tasks (default)
 help:
   @echo "{{YELLOW}}Yellow: means change, {{RED}}Red: deleting, {{BLUE}}Blue: command execution{{NORMAL}}"
@@ -35,9 +36,9 @@ check-static:
   @echo "\n{{BLUE}}{{BOLD}}{{ITALIC}}Checking for obsolete dependencies: Running deptry"
   uv run deptry src
 
-# Run all Project tests
-test:
-  uv run pytest -m 'not contract_testing' --cov --cov-config=pyproject.toml --cov-report=xml
+# Run all Project tests with coverage report if given (html or xml)
+test report="":
+  rep={{report}} && uv run pytest -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
 
 # Run API tests
 api-test:
@@ -68,4 +69,13 @@ api:
 
 # list or run github job locally
 ci job="":
-  [ -z "{{job}}"] && act --list || act --job {{job}} --quiet
+  [ -z "{{job}}" ] && act --list || act --job {{job}} --quiet
+
+# run coverage difference between current branch and main
+cov-diff:
+  [ -f coverage.xml ] || just test xml
+  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Getting coverage difference against main"
+  uv run diff-cover coverage.xml \
+     --diff-range-notation '..' \
+     --fail-under 80 \
+     --format markdown:diff_coverage.md

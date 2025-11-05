@@ -19,10 +19,7 @@ classifiers = [
 ]
 
 requires-python = ">=3.13"
-dependencies = [
-    "fastapi[standard]>=0.119.0",
-    "loguru>=0.7.3",
-]
+dependencies = ["fastapi[standard]>=0.119.0"]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
 [tool.uv.sources]
@@ -35,6 +32,7 @@ members = ["packages/*"]
 [dependency-groups]
 dev = [
   "deptry>=0.23.1",
+  "diff-cover>=9.7.1",
   "ipykernel>=7.0.0",
   "pre-commit>=4.3.0",
   "pytest>=8.4.2",
@@ -80,7 +78,7 @@ convention = "pep257"            # docstring type to use
 ignore-decorators = ["property"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/*.py" = [
+"tests/*.py" = [
   "S101",  # Exclude the 'use of assert' warning in the test files
   "D103",  # No docstring necessary for tests
   "PT011", # No `match` parameter necessary for pytest.raises
@@ -91,8 +89,12 @@ python-version = "3.13"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-testpaths = ["tests", "packages/**/tests"]
-addopts = ["--import-mode=importlib"]
+testpaths = ["tests"]
+addopts = [
+  "--import-mode=importlib",
+  "--cov-config=pyproject.toml",
+  "--cov-report=term",
+]
 markers = [
   "integration: Tests related to more than one unit (examples: modules, interfaces)",
   "e2e: End to end test (full system test)",
@@ -100,8 +102,17 @@ markers = [
 ]
 
 [tool.coverage.report]
+fail_under = 80
 skip_empty = true
+skip_covered = true
+show_missing = true
 
 [tool.coverage.run]
 branch = true
-source = ["src"]
+source = ["src", "packages/**/src"]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
