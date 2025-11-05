@@ -11,7 +11,14 @@ from scipy.stats import binom, betabinom
 
 class McmcLLRModel(Transformer):
     def __init__(self, stats_model, mcmc_settings,
+                 mcmc_chain_count: int,
+                 tune_count: int,
+                 draw_count: int,
                  interval: tuple[float, float] = (0.05, 0.95),
+                 distribution_h1: str,
+                 priors_h1: dict[str, Prior],
+                 distribution_h2: str,
+                 priors_h2: dict[str, pm.Distribution],
                  ):
         self.model_h1 = McmcModel(stats_model.km, mcmc_settings)
         self.model_h2 = McmcModel(stats_model.knm, mcmc_settings)
@@ -31,6 +38,7 @@ class McmcLLRModel(Transformer):
 
 class McmcModel:
     def __init__(self, stats_model, mcmc_settings,
+                 prior,
                  ):
         self.stats_model = stats_model
         self.mcmc_settings = mcmc_settings
@@ -53,7 +61,7 @@ class McmcModel:
                 priors.update({parameter: prior})
 
             # Define the model: parameters and observed data
-            if self.stats_model.distribution == 'betabinomial':
+            if self.distribution == 'betabinomial':
                 pm.BetaBinomial('k', alpha=priors['alpha'], beta=priors['beta'], n=scores_obs[:,1], observed=scores_obs[:,0])
             elif self.stats_model.distribution == 'binomial':
                 pm.Binomial('k', p=priors['p'], n=np.sum(scores_obs[:,1]), observed=np.sum(scores_obs[:,0]))
