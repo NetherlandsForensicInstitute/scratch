@@ -37,15 +37,6 @@ class FrozenBaseModel(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
 
-def validate_file_extension(path: Path) -> Path:
-    """Test whether the file extension is valid."""
-    if path is not None:
-        ext = path.suffix[1:]
-        if not (ext in ImageFileFormats or ext in ScanFileFormats):
-            raise ValueError(f"Invalid file extension: {ext}")
-    return path
-
-
 def validate_array_shape(array: NDArray) -> NDArray:
     """Test whether the passed array has a valid shape."""
     if len(array.shape) != 2:
