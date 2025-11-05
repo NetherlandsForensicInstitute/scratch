@@ -63,6 +63,15 @@ class ScanImage(FrozenBaseModel):
 
     @classmethod
     def from_file(cls, scan_file: Path) -> "ScanImage":
+        """
+        Load a scan image from a file.
+
+        If the file is an image file (e.g. PNG or JPG), the pixel values will be first converted to grayscale
+        and to floating point values before returning.
+
+        :param scan_file: The path to the file containing the scanned image data.
+        :returns: An instance of `ScanImage`.
+        """
         extension = scan_file.suffix.lower()[1:]
         if extension in ScanFileFormats:
             surface = Surface.load(scan_file)
