@@ -4,6 +4,15 @@ from typing import Annotated
 
 from numpy.typing import NDArray
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from PIL import Image
+import numpy as np
+from surfalize import Surface
+from surfalize.file import FileHandler
+from surfalize.file.al3d import MAGIC
+from .patches.al3d import read_al3d
+
+# register the patched method as a parser
+FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
 
 
 class ImageFileFormats(StrEnum):
@@ -58,8 +67,31 @@ class ParsedImage(FrozenBaseModel):
     data: Annotated[NDArray, AfterValidator(validate_array_shape)]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in um")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in um")
-    path_to_original_image: Annotated[Path, AfterValidator(validate_file_extension)]
+    path_to_original_image: Path
     meta_data: dict | None = None
+
+    @classmethod
+    def from_file(cls, path: Path) -> "ParsedImage":
+        extension = path.suffix.lower()[1:]
+        if extension in ScanFileFormats:
+            surface = Surface.load(path)
+            return ParsedImage(
+                data=np.asarray(surface.data, dtype=np.float64),
+                scale_x=surface.step_x,
+                scale_y=surface.step_y,
+                meta_data=surface.metadata,
+                path_to_original_image=path,
+            )
+        elif extension in ImageFileFormats:
+            return ParsedImage(
+                data=np.asarray(
+                    Image.open(path).convert("L"),
+                    dtype=np.float64,
+                ),
+                path_to_original_image=path,
+            )
+        else:
+            raise ValueError(f"Invalid file extension: {extension}")
 
     @property
     def width(self) -> int:
