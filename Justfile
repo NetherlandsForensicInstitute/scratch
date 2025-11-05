@@ -40,6 +40,14 @@ check-static:
 test report="":
   rep={{report}} && uv run pytest -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
 
+# Run API tests with coverage report if given (html or xml)
+api-test report="":
+  rep={{report}} && uv run pytest tests -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
+
+# Run scratch core tests with coverage report if given (html or xml)
+core-test report="":
+  rep={{report}} && uv run pytest packages/scratch-core -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
+
 # Run all endpoints health checks
 smoke-test host="0.0.0.0" port="8000":
   @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Testing code: Running the contract testing{{NORMAL}}"
