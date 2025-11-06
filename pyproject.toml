@@ -93,7 +93,7 @@ python-version = "3.13"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-testpaths = ["tests"]
+testpaths = ["tests", "packages/**/tests"]
 addopts = [
   "--import-mode=importlib",
   "--cov-config=pyproject.toml",
@@ -114,7 +114,11 @@ omit = ["src/main.py"]
 
 [tool.coverage.run]
 branch = true
-source = ["src", "packages/**/src"]
+source = [
+  "src",
+  "packages/stats/src",
+  "packages/scratch-core/src",
+]
 omit = ["src/main.py"]
 
 [tool.coverage.html]
