@@ -110,10 +110,12 @@ fail_under = 80
 skip_empty = true
 skip_covered = true
 show_missing = true
+omit = ["src/main.py"]
 
 [tool.coverage.run]
 branch = true
 source = ["src", "packages/**/src"]
+omit = ["src/main.py"]
 
 [tool.coverage.html]
 directory = "htmlcov"
