@@ -17,7 +17,7 @@ jobs:
         uses: ./.github/actions/setup-devenv
 
       - name: Run checks
-        run: devenv test
+        run: SKIP=no-commit-to-branch devenv test
 
       - name: Check typing
         run: devenv shell just check-static

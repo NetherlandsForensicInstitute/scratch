@@ -62,7 +62,10 @@
     # Global hooks
     end-of-file-fixer.enable = true;
     trim-trailing-whitespace.enable = true;
-    no-commit-to-branch.enable = true;
+    no-commit-to-branch = {
+      enable = true;
+      settings.pattern = ["release/.*"];
+    };
 
     # execute example shell from Markdown files
     mdsh.enable = true;
