@@ -4,7 +4,6 @@
     [
       # project essentials packages
       git
-      netcat
       lazygit
       just
       ruff

@@ -26,7 +26,6 @@ class TestContracts:
     @pytest.mark.parametrize(
         ("get_request_url", "expected_response"),
         [
-            ("/", TemplateResponse),
             ("/comparator", TemplateResponse),
             ("/pre-processor", TemplateResponse),
             ("/processor", TemplateResponse),

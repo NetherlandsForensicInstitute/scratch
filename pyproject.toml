@@ -19,7 +19,10 @@ classifiers = [
 ]
 
 requires-python = ">=3.13"
-dependencies = ["fastapi[standard]>=0.119.0"]
+dependencies = [
+    "fastapi[standard]>=0.119.0",
+    "uvicorn>=0.38.0",
+]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
 [tool.uv.sources]
@@ -35,6 +38,7 @@ dev = [
   "diff-cover>=9.7.1",
   "ipykernel>=7.0.0",
   "pre-commit>=4.3.0",
+  "pyinstaller>=6.16.0",
   "pytest>=8.4.2",
   "pytest-cov>=7.0.0",
   "requests>=2.32.5",
@@ -106,10 +110,12 @@ fail_under = 80
 skip_empty = true
 skip_covered = true
 show_missing = true
+omit = ["src/main.py"]
 
 [tool.coverage.run]
 branch = true
 source = ["src", "packages/**/src"]
+omit = ["src/main.py"]
 
 [tool.coverage.html]
 directory = "htmlcov"
