@@ -22,21 +22,22 @@ class McmcLLRModel(Transformer):
                  distribution_h2: str,
                  parameters_h2: dict[str, dict] | None,
                  interval: tuple[float, float] = (0.05, 0.95),
+                 **mcmc_kwargs
                  ):
         """
-        :param distribution_h1: statistical distribution used to model H1
+        :param distribution_h1: statistical distribution used to model H1, for example 'binomial' or 'betabinomial'
         :param parameters_h1: definition of the parameters of distribution_h1, and their prior distributions
-        :param distribution_h2: statistical distribution used to model H2
+        :param distribution_h2: statistical distribution used to model H2, for example 'binomial' or 'betabinomial'
         :param parameters_h2: definition of the parameters of distribution_h2, and their prior distributions
-        :param interval: lower and upper bounds of the credible interval
+        :param interval: lower and upper bounds of the credible interval in range 0..1; default: (0.05, 0.95)
         """
-        self.model_h1 = McmcModel(distribution_h1, parameters_h1)
-        self.model_h2 = McmcModel(distribution_h2, parameters_h2)
+        self.model_h1 = McmcModel(distribution_h1, parameters_h1, **mcmc_kwargs)
+        self.model_h2 = McmcModel(distribution_h2, parameters_h2, **mcmc_kwargs)
         self.interval = interval
 
-    def fit(self, instances: FeatureData, **mcmc_kwargs) -> Self:
-        self.model_h1.fit(instances.features[instances.labels==1], **mcmc_kwargs)
-        self.model_h2.fit(instances.features[instances.labels==0], **mcmc_kwargs)
+    def fit(self, instances: FeatureData) -> Self:
+        self.model_h1.fit(instances.features[instances.labels==1])
+        self.model_h2.fit(instances.features[instances.labels==0])
 
     def transform(self, instances: FeatureData) -> LLRData:
         logp_h1 = self.model_h1.transform(instances.features)
@@ -50,49 +51,51 @@ class McmcModel:
     def __init__(self,
                  distribution: str,
                  parameters: dict[str, dict] | None,
+                 chain_count: int = 4,
+                 tune_count: int = 1000,
+                 draw_count: int = 1000,
+                 random_seed: int = None,
                  ):
         """
-        :param distribution: statistical distribution used to model
-        :param parameters: definition of the parameters of the distribution, and their prior distributions; it should
-        be a dictionary where the keys are the parameter names used for the statistical distribution in pymc,
-        and the values are dictionaries with a key 'prior', defining the prior distribution used for that parameter,
-        and with additional keys corresponding to the parameter names used for that prior distribution.
-        For example, for a binomial distribution: parameters = {'p': {'prior': 'beta', 'alpha': 0.5, 'beta': 0.5}}.
-        """
-        self.distribution = distribution
-        self.parameters = parameters
-        self.chain_count = None
-        self.tune_count = None
-        self.draw_count = None
-        self.random_seed = None
-        self.parameter_samples = None
-        self.r_hat = None
+        Define the MCMC model and settings to be used.
 
-    def fit(self,
-            scores_obs: np.ndarray,
-            chain_count: int = 4,
-            tune_count: int = 1000,
-            draw_count: int = 1000,
-            random_seed: int = None,
-            ):
-        """
-        :param scores_obs: observations, based on those the prior distributions of the parameters are updated
+        :param distribution: statistical distribution used to model, for example 'binomial' or 'betabinomial'
+        :param parameters: definition of the parameters of the distribution, and their prior distributions; see below.
         :param chain_count: number of parallel mcmc chains
         :param tune_count: number of tune/warm-up/burn-in samples per chain
         :param draw_count: number of samples to draw from each chain
         :param random_seed: random seed
+
+        The parameters should be a provided as a dictionary where the keys are the parameter names used for the
+        statistical distribution in pymc, and the values are dictionaries with a key 'prior', defining the prior
+        distribution used for that parameter, and with additional keys corresponding to the parameter names used for
+        that prior distribution.
+        For example, for a binomial distribution: parameters = {'p': {'prior': 'beta', 'alpha': 0.5, 'beta': 0.5}}.
+        And for a betabinomial distribution: parameters = {'alpha': {'prior': 'uniform', 'lower': 0.01, 'upper': 100},
+        'beta': {'prior': 'uniform', 'lower': 0.01, 'upper': 100}}.
         """
+        self.distribution = distribution
+        self.parameters = parameters
         self.chain_count = chain_count
         self.tune_count = tune_count
         self.draw_count = draw_count
         self.random_seed = random_seed
+        self.parameter_samples = None
+        self.r_hat = None
+
+    def fit(self, features: np.ndarray):
+        """
+        Draw samples from the posterior distributions of the parameters of a specified statistical distribution, based
+        on the specified prior distributions of these parameters and observed features.
+
+        :param features: observed features, used to update the prior distributions of the parameters with
+        """
 
         # It looks like all pymc stuff needs to be in a single model block
         with pm.Model():
             # Define the prior distributions of the model parameters based on their definitions
             priors = {}
-            for parameter in list(self.parameters.keys()):
-                parameter_input = self.parameters[parameter]
+            for parameter, parameter_input in self.parameters.items():
                 if parameter_input['prior'] == 'uniform':
                     prior = pm.Uniform(parameter, parameter_input['lower'], parameter_input['upper'])
                 elif parameter_input['prior'] == 'beta':
@@ -102,9 +105,9 @@ class McmcModel:
                 priors.update({parameter: prior})
             # Define the model: priors and the observed data
             if self.distribution == 'betabinomial':
-                pm.BetaBinomial('k', alpha=priors['alpha'], beta=priors['beta'], n=scores_obs[:,1], observed=scores_obs[:,0])
+                pm.BetaBinomial('k', alpha=priors['alpha'], beta=priors['beta'], n=features[:,1], observed=features[:,0])
             elif self.distribution == 'binomial':
-                pm.Binomial('k', p=priors['p'], n=np.sum(scores_obs[:,1]), observed=np.sum(scores_obs[:,0]))
+                pm.Binomial('k', p=priors['p'], n=np.sum(features[:,1]), observed=np.sum(features[:,0]))
             else:
                 raise ValueError('Unrecognized distribution')
             # Do simulations and sample from the posterior distributions
@@ -119,16 +122,23 @@ class McmcModel:
         self.r_hat = summary['r_hat']
         return self
 
-    def transform(self, scores_eval: np.ndarray) -> np.ndarray:
+    def transform(self, features: np.ndarray) -> np.ndarray:
+        """
+        Use the samples of the posterior distributions of the parameters, in combination with the selected statistical
+        distribution, to get samples of the posterior distribution of the (log10) probability, evaluated for specified
+        features.
+
+        :param features: features for which the probabilities are to be calculated
+        """
         # Prepare parameter and scores for 2d-evaluations
         sample_count = len(self.parameter_samples[list(self.parameter_samples.keys())[0]])
         scores_2d = {}
-        for score_id in range(scores_eval.shape[1]):
-            score_2d = np.tile(np.expand_dims(scores_eval[:,score_id], 1), (1, sample_count))
+        for score_id in range(features.shape[1]):
+            score_2d = np.tile(np.expand_dims(features[:,score_id], 1), (1, sample_count))
             scores_2d.update({score_id: score_2d})
         parameters_2d = {}
         for parameter in list(self.parameter_samples.keys()):
-            parameter_2d = np.tile(np.expand_dims(self.parameter_samples[parameter], 0), (len(scores_eval), 1))
+            parameter_2d = np.tile(np.expand_dims(self.parameter_samples[parameter], 0), (len(features), 1))
             parameters_2d.update({parameter: parameter_2d})
         # Calculate e-base log probabilities on specified scores values
         if self.distribution == 'betabinomial':
