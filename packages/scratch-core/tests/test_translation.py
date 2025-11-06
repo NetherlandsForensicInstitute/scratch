@@ -6,6 +6,7 @@ from matplotlib.figure import Figure
 from matplotlib.testing.decorators import image_comparison
 from numpy._typing import NDArray
 from parsers.data_types import ScanImage
+from pydantic import BaseModel
 
 
 @pytest.fixture
@@ -30,32 +31,42 @@ def mask(scan_image: ScanImage) -> NDArray[tuple[int, int]]:
     return mask
 
 
+class ScanData(BaseModel, arbitrary_types_allowed=True):
+    """For making testing more readable, dict is moved to pydantic model."""
+
+    depth_data: NDArray[tuple[int, int]]
+    xdim: int
+    ydim: int
+
+
 @pytest.fixture
-def data_in(scan_image: ScanImage) -> dict[str, np.ndarray]:
-    return {
-        "depth_data": scan_image.data,
-        "xdim": scan_image.width,
-        "ydim": scan_image.height,
-    }
+def data_in(scan_image: ScanImage) -> ScanData:
+    return ScanData(
+        depth_data=scan_image.data,
+        xdim=scan_image.width,
+        ydim=scan_image.height,
+    )
 
 
-def plot_test_data(data) -> Figure:
+def plot_test_data(data, show_plot=True) -> Figure:
     """Plot test data for debugging purposes."""
     fig, ax = plt.subplots()
     ax.imshow(data, cmap="gray")
     ax.axis("off")
     ax.axis("equal")
+    if show_plot:
+        fig.show()
     return fig
 
 
-def test_get_surface_plot(data_in):
-    data = get_surface_plot(data_in)
-    plot_test_data(data).show()
+def test_get_surface_plot(data_in: ScanData) -> None:
+    data = get_surface_plot(data_in.model_dump())
+    plot_test_data(data)
 
 
-def test_get_surface_plot_data_with_extra_light(data_in):
-    data = get_surface_plot(data_in, True)
-    plot_test_data(data).show()
+def test_get_surface_plot_data_with_extra_light(data_in: ScanData) -> None:
+    data = get_surface_plot(data_in.model_dump(), True)
+    plot_test_data(data)
 
 
 @pytest.mark.parametrize(
@@ -73,34 +84,35 @@ def test_get_surface_plot_data_with_extra_light(data_in):
         "extra lights",
     ],
 )
-def test_get_surface_plot_data_with_light_angle(data_in: dict, light_angles: tuple[list[int]]):
-    data = get_surface_plot(data_in, True, np.array(light_angles))
-    plot_test_data(data).show()
+def test_get_surface_plot_data_with_light_angle(data_in: ScanData, light_angles: tuple[list[int]]) -> None:
+    data = get_surface_plot(data_in.model_dump(), True, np.array(light_angles))
+    plot_test_data(data)
 
 
-def test_get_surface_plot_data_with_mask(data_in, mask):
-    data = get_surface_plot(data_in, True, np.array([[90, 45], [180, 45]]), mask)
-    plot_test_data(data).show()
+def test_get_surface_plot_data_with_mask(data_in: ScanData, mask: NDArray[tuple[int, int]]) -> None:
+    light_angles = np.array([[90, 45], [180, 45]])
+    data = get_surface_plot(data_in.model_dump(), True, light_angles, mask)
+    plot_test_data(data)
 
 
-def test_get_surface_plot_data_with_cropping_mask(data_in, mask_crop):
-    data = get_surface_plot(data_in, True, np.array([[90, 45], [180, 45]]), mask_crop)
-    plot_test_data(data).show()
+def test_get_surface_plot_data_with_cropping_mask(data_in: ScanData, mask_crop: NDArray[tuple[int, int]]) -> None:
+    data = get_surface_plot(data_in.model_dump(), True, np.array([[90, 45], [180, 45]]), mask_crop)
+    plot_test_data(data)
 
 
-def test_get_surface_plot_data_with_mask_and_zoom(data_in, mask_crop):
-    data = get_surface_plot(data_in, True, np.array([[90, 45], [180, 45]]), mask_crop, True)
-    plot_test_data(data).show()
+def test_get_surface_plot_data_with_mask_and_zoom(data_in: ScanData, mask_crop: NDArray[tuple[int, int]]) -> None:
+    data = get_surface_plot(data_in.model_dump(), True, np.array([[90, 45], [180, 45]]), mask_crop, True)
+    plot_test_data(data)
 
 
-def test_get_surface_plot_data_with_mask_and_zoom_failed(data_in, mask):
-    data = get_surface_plot(data_in, True, np.array([[90, 45], [180, 45]]), mask, True)
-    plot_test_data(data).show()
+def test_get_surface_plot_data_with_mask_and_zoom_failed(data_in: ScanData, mask: NDArray[tuple[int, int]]) -> None:
+    data = get_surface_plot(data_in.model_dump(), True, np.array([[90, 45], [180, 45]]), mask, True)
+    plot_test_data(data)
 
 
 @pytest.mark.integration
 @image_comparison(baseline_images=["surfaceplot"], extensions=["png"])
-def test_get_surface_plot_integration(data_in, mask_crop):
-    """This integration test will loop through all options of the get_surface_plot."""
-    data = get_surface_plot(data_in, True, np.array([[90, 45], [180, 45]]), mask_crop, True)
-    plot_test_data(data)
+def test_get_surface_plot_integration(data_in: ScanData, mask_crop: NDArray[tuple[int, int]]) -> None:
+    """This integration test will provide all arguments of the get_surface_plot."""
+    data = get_surface_plot(data_in.model_dump(), True, np.array([[90, 45], [30, 30]]), mask_crop, True)
+    plot_test_data(data, show_plot=False)
