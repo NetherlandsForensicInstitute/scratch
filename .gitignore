@@ -227,3 +227,5 @@ devenv.local.nix
 
 # Justfile artifacts
 api.pid
+# generated images of matplotlib
+/packages/**/result_images/

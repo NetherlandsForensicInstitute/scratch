@@ -20,9 +20,11 @@ classifiers = [
 
 requires-python = ">=3.13"
 dependencies = [
-  "fastapi[standard]>=0.119.0",
-  "loguru>=0.7.3",
-  "uvicorn>=0.38.0",
+    "fastapi[standard]>=0.119.0",
+    "loguru>=0.7.3",
+    "scikit-image>=0.25.2",
+    "surfalize>=0.16.6",
+    "uvicorn>=0.38.0",
 ]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
