@@ -16,7 +16,9 @@ def mask_crop(scan_image: ScanImage) -> NDArray[tuple[int, int]]:
     square_size = 85
     x_start_cor = 100
     y_start_cor = 150
-    mask[x_start_cor : x_start_cor + square_size, y_start_cor : y_start_cor + square_size] = 1
+    mask[
+        x_start_cor : x_start_cor + square_size, y_start_cor : y_start_cor + square_size
+    ] = 1
     return mask
 
 
@@ -27,7 +29,9 @@ def mask(scan_image: ScanImage) -> NDArray[tuple[int, int]]:
     square_size = 85
     x_start_cor = 100
     y_start_cor = 150
-    mask[x_start_cor : x_start_cor + square_size, y_start_cor : y_start_cor + square_size] = 0
+    mask[
+        x_start_cor : x_start_cor + square_size, y_start_cor : y_start_cor + square_size
+    ] = 0
     return mask
 
 
@@ -84,35 +88,48 @@ def test_get_surface_plot_data_with_extra_light(data_in: ScanData) -> None:
         "extra lights",
     ],
 )
-def test_get_surface_plot_data_with_light_angle(data_in: ScanData, light_angles: tuple[list[int]]) -> None:
-    data = get_surface_plot(data_in.model_dump(), True, np.array(light_angles))
+def test_get_surface_plot_data_with_light_angle(
+    data_in: ScanData, light_angles: tuple[list[int]]
+) -> None:
+    data = get_surface_plot(data_in.model_dump(), None, np.array(light_angles))
     plot_test_data(data)
 
 
-def test_get_surface_plot_data_with_mask(data_in: ScanData, mask: NDArray[tuple[int, int]]) -> None:
-    light_angles = np.array([[90, 45], [180, 45]])
-    data = get_surface_plot(data_in.model_dump(), True, light_angles, mask)
+def test_get_surface_plot_data_with_mask(
+    data_in: ScanData, mask: NDArray[tuple[int, int]]
+) -> None:
+    data = get_surface_plot(data_in.model_dump(), None, np.array([]), mask)
     plot_test_data(data)
 
 
-def test_get_surface_plot_data_with_cropping_mask(data_in: ScanData, mask_crop: NDArray[tuple[int, int]]) -> None:
-    data = get_surface_plot(data_in.model_dump(), True, np.array([[90, 45], [180, 45]]), mask_crop)
+def test_get_surface_plot_data_with_cropping_mask(
+    data_in: ScanData, mask_crop: NDArray[tuple[int, int]]
+) -> None:
+    data = get_surface_plot(data_in.model_dump(), None, np.array([]), mask_crop)
     plot_test_data(data)
 
 
-def test_get_surface_plot_data_with_mask_and_zoom(data_in: ScanData, mask_crop: NDArray[tuple[int, int]]) -> None:
-    data = get_surface_plot(data_in.model_dump(), True, np.array([[90, 45], [180, 45]]), mask_crop, True)
+def test_get_surface_plot_data_with_mask_and_zoom(
+    data_in: ScanData, mask_crop: NDArray[tuple[int, int]]
+) -> None:
+    data = get_surface_plot(data_in.model_dump(), None, np.array([]), mask_crop, True)
     plot_test_data(data)
 
 
-def test_get_surface_plot_data_with_mask_and_zoom_failed(data_in: ScanData, mask: NDArray[tuple[int, int]]) -> None:
-    data = get_surface_plot(data_in.model_dump(), True, np.array([[90, 45], [180, 45]]), mask, True)
+def test_get_surface_plot_data_with_mask_and_zoom_failed(
+    data_in: ScanData, mask: NDArray[tuple[int, int]]
+) -> None:
+    data = get_surface_plot(data_in.model_dump(), None, np.array([]), mask, True)
     plot_test_data(data)
 
 
 @pytest.mark.integration
 @image_comparison(baseline_images=["surfaceplot"], extensions=["png"])
-def test_get_surface_plot_integration(data_in: ScanData, mask_crop: NDArray[tuple[int, int]]) -> None:
+def test_get_surface_plot_integration(
+    data_in: ScanData, mask_crop: NDArray[tuple[int, int]]
+) -> None:
     """This integration test will provide all arguments of the get_surface_plot."""
-    data = get_surface_plot(data_in.model_dump(), True, np.array([[90, 45], [30, 30]]), mask_crop, True)
+    data = get_surface_plot(
+        data_in.model_dump(), True, np.array([[90, 45], [30, 30]]), mask_crop, True
+    )
     plot_test_data(data, show_plot=False)
