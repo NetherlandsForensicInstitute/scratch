@@ -54,9 +54,7 @@ test-contract:
     uv run pytest -m 'contract_testing'
 
 # Run all endpoints health checks
-smoke-test artifact="" host="0.0.0.0" port="8000":
-    @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Testing code: Running the contract testing{{ NORMAL }}"
-    @just api-bg {{ artifact }}
+smoke-test artifact="" host="0.0.0.0" port="8000": (api-bg artifact)
     @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Waiting for API to be ready...{{NORMAL}}"
     @timeout 10 bash -c 'until curl -fs http://{{ host }}:{{ port }}/docs > /dev/null; do sleep 1; done'
     @just test-contract
@@ -88,7 +86,7 @@ api:
 
 # Start API server in the background
 api-bg artifact="":
-    cmd=(just api); [ -n "{{ artifact }}" ] && cmd=(./dist/{{ artifact }}); \
+    @cmd=(just api); [ -n "{{ artifact }}" ] && cmd=(./dist/{{ artifact }}); \
     ${cmd[@]} >/dev/null 2>&1 & echo $! > api.pid
     @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }} API started in the background"
     @cat api.pid
