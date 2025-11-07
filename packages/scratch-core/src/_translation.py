@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy._typing import NDArray
 from skimage.transform import resize
 
 
@@ -40,7 +41,9 @@ def get_surface_plot(data_in, *args):
         # Resize mask if dimensions mismatch
         if mask.shape != depthdata.shape:
             # Equivalent to imresize(mask, size(depthdata), 'nearest')
-            mask = resize(mask, depthdata.shape, order=0, preserve_range=True, anti_aliasing=False)
+            mask = resize(
+                mask, depthdata.shape, order=0, preserve_range=True, anti_aliasing=False
+            )
 
         # Mask background data with NaN
         depthdata = np.where(mask, depthdata, np.nan)
@@ -58,36 +61,18 @@ def get_surface_plot(data_in, *args):
         bbox = DetermineBoundingBox(mask)
         depthdata = depthdata[bbox[1, 0] - 1 : bbox[1, 1], bbox[0, 0] - 1 : bbox[0, 1]]
 
-    # Create vector pointing towards observer
-    OBS = getv(0, 90)  # azimuth 0 deg, elevation 90 deg
-
-    # Create surface normals
-    hx = np.diff(depthdata, axis=0) / xdim  # slope x-direction
-    hy = np.diff(depthdata, axis=1) / ydim  # slope y-direction
-
-    # Extend to match original dimensions
-    hx = np.vstack([hx, np.full((1, hx.shape[1]), np.nan)])
-    hy = np.hstack([hy, np.full((hy.shape[0], 1), np.nan)])
-
-    norm = np.sqrt(hx * hx + hy * hy + 1)
-    n1 = -hx / norm
-    n2 = -hy / norm
-    n3 = 1 / norm
+    n1, n2, n3 = convert_image_to_slope_map(depthdata=depthdata, xdim=xdim, ydim=ydim)
 
     # Calculate intensity of surface for each light source
     nLS = light_angles.shape[0]
-    Iout = np.full((*depthdata.shape, nLS), np.nan)
-
+    Iout = np.full(
+        (*depthdata.shape, nLS), np.nan
+    )  # adds sort of empty layer per light_angle to fill later on
+    # Create vector pointing towards observer
+    OBS = getv(0, 90)  # azimuth 0 deg, elevation 90 deg
     for i in range(nLS):
-        LS = getv(light_angles[i, 0], light_angles[i, 1])
+        LS = getv(light_angles[i, 0], light_angles[i, 1])  # get light el and az
         Iout[:, :, i] = calcsurf(LS, OBS, n1, n2, n3)
-
-        if doplot:
-            plt.figure()
-            plt.imshow(Iout[:, :, i], cmap="gray")
-            plt.axis("equal")
-            plt.axis("off")
-            plt.show()
 
     # Calculate total intensity of surface
     Iout = np.nansum(Iout, axis=2)
@@ -104,12 +89,30 @@ def get_surface_plot(data_in, *args):
     return Iout
 
 
+def convert_image_to_slope_map(depthdata: NDArray, xdim: int, ydim: int):
+    # Create surface normals
+    hx = np.diff(depthdata, axis=0) / xdim  # slope x-direction
+    hy = np.diff(depthdata, axis=1) / ydim  # slope y-direction
+
+    # Extend to match original dimensions
+    hx = np.vstack([hx, np.full((1, hx.shape[1]), np.nan)])
+    hy = np.hstack([hy, np.full((hy.shape[0], 1), np.nan)])
+
+    norm = np.sqrt(hx * hx + hy * hy + 1)
+    n1 = -hx / norm
+    n2 = -hy / norm
+    n3 = 1 / norm
+    return n1, n2, n3
+
+
 # --------------------------------------------
 def getv(az, el):
     """Compute vector from azimuth/elevation (degrees)."""
     azr = np.deg2rad(az)
     elr = np.deg2rad(el)
-    v = np.array([-np.cos(azr) * np.cos(elr), np.sin(azr) * np.cos(elr), np.sin(elr)])
+    v = np.array(
+        [-np.cos(azr) * np.cos(elr), np.sin(azr) * np.cos(elr), np.sin(elr)]
+    )  # vx,vy,vz as 3D light vector.
     return v
 
 
