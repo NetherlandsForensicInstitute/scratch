@@ -5,5 +5,5 @@ description = "statistics"
 authors = []
 readme = "README.md"
 dependencies = [
-    "lir>=1.0.0"
+    "lir>=1.1.0"
 ]
