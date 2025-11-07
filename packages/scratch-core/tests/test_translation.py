@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
+from numpy.testing import assert_allclose
 
-from _translation import get_surface_plot
+from _translation import get_surface_plot, convert_image_to_slope_map
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.testing.decorators import image_comparison
@@ -142,3 +143,27 @@ def test_get_surface_plot_integration(
         data_in.model_dump(), True, np.array([[90, 45], [30, 30]]), mask_crop, True
     )
     plot_test_data(data, show_plot=False)
+
+
+def test_flat_surface_returns_upward_normal():
+    """Given a flat surface the depth map should also be flat.
+    The image is 1 pixel smaller on all sides due to the slope calculation.
+    This is filled with NaN values to get the same shape as original image
+    """
+    # Arrange
+    input_image = np.zeros((4, 4))
+    inner_mask = np.zeros_like(input_image, dtype=bool)
+    inner_mask[:-1, :-1] = True
+    outer_mask = ~inner_mask
+
+    # Act
+    n1, n2, n3 = convert_image_to_slope_map(input_image, 1, 1)
+
+    # Assert
+    assert n1.shape == input_image.shape
+    assert_allclose(n1[inner_mask], 0), "innerside should be 0 (no x direction)"
+    assert_allclose(n2[inner_mask], 0), "innerside should be 0 (no y direction)"
+    assert_allclose(n3[inner_mask], 1), "innerside should be 1 (no z direction)"
+    assert np.any(n1[outer_mask]), "outer row and columns should be NaN"
+    assert np.any(n2[outer_mask]), "outer row and columns should be NaN"
+    assert np.any(n3[outer_mask]), "outer row and columns should be NaN"
