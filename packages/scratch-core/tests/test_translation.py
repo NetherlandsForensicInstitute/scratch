@@ -145,25 +145,52 @@ def test_get_surface_plot_integration(
     plot_test_data(data, show_plot=False)
 
 
-def test_flat_surface_returns_upward_normal():
-    """Given a flat surface the depth map should also be flat.
-    The image is 1 pixel smaller on all sides due to the slope calculation.
-    This is filled with NaN values to get the same shape as original image
-    """
-    # Arrange
-    input_image = np.zeros((4, 4))
-    inner_mask = np.zeros_like(input_image, dtype=bool)
-    inner_mask[:-1, :-1] = True
-    outer_mask = ~inner_mask
+class TestSurfaceSlopeConversion:
+    # TODO: maybe move the outer border is NaN test to own test and only test the slopes
+    def test_flat_surface_returns_upward_normal(self):
+        """Given a flat surface the depth map should also be flat.
+        The image is 1 pixel smaller on all sides due to the slope calculation.
+        This is filled with NaN values to get the same shape as original image
+        """
+        # Arrange
+        input_image = np.zeros((4, 4))
+        inner_mask = np.zeros_like(input_image, dtype=bool)
+        inner_mask[:-1, :-1] = True
+        outer_mask = ~inner_mask
 
-    # Act
-    n1, n2, n3 = convert_image_to_slope_map(input_image, 1, 1)
+        # Act
+        n1, n2, n3 = convert_image_to_slope_map(input_image, 1, 1)
 
-    # Assert
-    assert n1.shape == input_image.shape
-    assert_allclose(n1[inner_mask], 0), "innerside should be 0 (no x direction)"
-    assert_allclose(n2[inner_mask], 0), "innerside should be 0 (no y direction)"
-    assert_allclose(n3[inner_mask], 1), "innerside should be 1 (no z direction)"
-    assert np.any(n1[outer_mask]), "outer row and columns should be NaN"
-    assert np.any(n2[outer_mask]), "outer row and columns should be NaN"
-    assert np.any(n3[outer_mask]), "outer row and columns should be NaN"
+        # Assert
+        assert n1.shape == input_image.shape
+        assert_allclose(n1[inner_mask], 0), "innerside should be 0 (no x direction)"
+        assert_allclose(n2[inner_mask], 0), "innerside should be 0 (no y direction)"
+        assert_allclose(n3[inner_mask], 1), "innerside should be 1 (no z direction)"
+        assert np.any(n1[outer_mask]), "outer row and columns should be NaN"
+        assert np.any(n2[outer_mask]), "outer row and columns should be NaN"
+        assert np.any(n3[outer_mask]), "outer row and columns should be NaN"
+
+    def test_linear_slope_in_y_direction(self):
+        """Test the conversion if the immage has a slope of 2 to the right."""
+        # Arrange
+        max_number = 20
+        step_y = 2
+        step_x = 0
+        norm = np.sqrt(step_x**2 + step_y**2 + 1)
+
+        num_steps = int((step_y / max_number) + 1)
+        input_image = np.tile(np.linspace(0, max_number, num_steps), (4, 1))
+        inner_mask = np.zeros_like(input_image, dtype=bool)
+        inner_mask[:-1, :-1] = True
+
+        # Act
+        n1, n2, n3 = convert_image_to_slope_map(input_image, xdim=1, ydim=1)
+
+        # Assertion
+        expected_n1 = -step_x / norm  # x-component
+        expected_n2 = -step_y / norm  # y-component
+        expected_n3 = 1 / norm  # z-component
+
+        assert_allclose(n1[inner_mask], expected_n1, atol=1e-6)
+        assert_allclose(n2[inner_mask], expected_n2, atol=1e-6)
+        assert_allclose(n3[inner_mask], expected_n3, atol=1e-6)
