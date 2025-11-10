@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    volumes:
+      - .:/app:delegated
+    ports:
+      - 8000:8000
+    command: uv run src/main.py
