@@ -4,11 +4,11 @@ import pandas as pd
 import pytest
 
 from lir.data.models import FeatureData
-from lrmodule.mcmc.mcmc import McmcModel, McmcLLRModel
+from packages.stats.src.lrmodule.mcmc import McmcModel, McmcLLRModel
 
 # Tests against references from the Matlab implementation.
 
-cfg = confidence.load_name("lrmodule/mcmc/config")
+cfg = confidence.load_name("mcmc_matlab_comparison/config")
 
 
 def test_fit_parameter_stats():
@@ -16,7 +16,7 @@ def test_fit_parameter_stats():
     # Conversion from observed score data to (statistics of) model parameter samples.
     # We expect some differences here due to mcmc-differences and randomness.
 
-    csv_prefix = 'lrmodule/mcmc/firing_pin_impression-' + cfg.dataset.score
+    csv_prefix = 'mcmc_matlab_comparison/firing_pin_impression-' + cfg.dataset.score
     df_scores = pd.read_csv(csv_prefix + '-all-input.csv', header=None)
 
     # beta-binomial model
@@ -38,7 +38,7 @@ def test_transform_quantiles():
 
     # Conversion from model parameter samples to (percentiles of) log10-probabilities.
 
-    csv_prefix = 'lrmodule/mcmc/firing_pin_impression-' + cfg.dataset.score#
+    csv_prefix = 'mcmc_matlab_comparison/firing_pin_impression-' + cfg.dataset.score#
     df_scores = pd.read_csv(csv_prefix + '-all-input.csv', header=None)
     scores_eval = np.int32(np.array(df_scores[df_scores[0]=='eval'])[:,1:])
 
@@ -69,7 +69,7 @@ def test_llr_dataset(dataset_name: str):
     # From pre-calculated scores to (percentiles of) log-10 lrs.
     # We expect some differences here due to mcmc-differences and randomness.
 
-    csv_prefix = f'lrmodule/mcmc/{dataset_name}-' + cfg.dataset.score
+    csv_prefix = f'mcmc_matlab_comparison/{dataset_name}-' + cfg.dataset.score
     df_scores = pd.read_csv(csv_prefix + '-all-input.csv', header=None)
 
     scores_eval = np.int32(np.array(df_scores[df_scores[0]=='eval'])[:,1:])
