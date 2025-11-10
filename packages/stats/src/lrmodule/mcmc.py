@@ -3,7 +3,6 @@ from typing import Self
 import arviz as az
 import numpy as np
 import pymc as pm
-
 from lir.data.models import FeatureData, LLRData
 from lir.transform import Transformer
 from scipy.stats import betabinom, binom, norm
@@ -11,20 +10,25 @@ from scipy.stats import betabinom, binom, norm
 
 class McmcLLRModel(Transformer):
     """
-    Use Markov Chain Monte Carlo simulations to fit a statistical distribution for each of the two hypotheses. Using
-    samples from the posterior distributions of the model parameters, a posterior distribution of the LR is obtained.
-    The median of this distribution is used as best estimate for the LR; a credible interval is also determined.
+    Use Markov Chain Monte Carlo simulations to fit a statistical distribution for each of the two hypotheses.
+
+    Using samples from the posterior distributions of the model parameters, a posterior distribution of the LR is
+    obtained. The median of this distribution is used as best estimate for the LR; a credible interval is also
+    determined.
     """
 
-    def __init__(self,
-                 distribution_h1: str,
-                 parameters_h1: dict[str, dict] | None,
-                 distribution_h2: str,
-                 parameters_h2: dict[str, dict] | None,
-                 interval: tuple[float, float] = (0.05, 0.95),
-                 **mcmc_kwargs
-                 ):
+    def __init__(
+        self,
+        distribution_h1: str,
+        parameters_h1: dict[str, dict] | None,
+        distribution_h2: str,
+        parameters_h2: dict[str, dict] | None,
+        interval: tuple[float, float] = (0.05, 0.95),
+        **mcmc_kwargs,
+    ):
         """
+        Initialise the MCMC model, based on distributions and parameters.
+
         :param distribution_h1: statistical distribution used to model H1, for example 'normal' or 'binomial'
         :param parameters_h1: definition of the parameters of distribution_h1, and their prior distributions
         :param distribution_h2: statistical distribution used to model H2, for example 'normal' or 'binomial'
@@ -37,26 +41,29 @@ class McmcLLRModel(Transformer):
         self.interval = interval
 
     def fit(self, instances: FeatureData) -> Self:
-        self.model_h1.fit(instances.features[instances.labels==1])
-        self.model_h2.fit(instances.features[instances.labels==0])
+        """Fit the defined model to the supplies instances."""
+        self.model_h1.fit(instances.features[instances.labels == 1])
+        self.model_h2.fit(instances.features[instances.labels == 0])
 
     def transform(self, instances: FeatureData) -> LLRData:
+        """Apply the fitted model to the supplies instances."""
         logp_h1 = self.model_h1.transform(instances.features)
         logp_h2 = self.model_h2.transform(instances.features)
         llrs = logp_h1 - logp_h2
-        quantiles = np.quantile(llrs, [.5] + list(self.interval), axis=1, method='midpoint')
+        quantiles = np.quantile(llrs, [0.5] + list(self.interval), axis=1, method="midpoint")
         return LLRData(features=quantiles.transpose(1, 0))
 
 
 class McmcModel:
-    def __init__(self,
-                 distribution: str,
-                 parameters: dict[str, dict] | None,
-                 chain_count: int = 4,
-                 tune_count: int = 1000,
-                 draw_count: int = 1000,
-                 random_seed: int = None,
-                 ):
+    def __init__(  # noqa: PLR0913
+        self,
+        distribution: str,
+        parameters: dict[str, dict] | None,
+        chain_count: int = 4,
+        tune_count: int = 1000,
+        draw_count: int = 1000,
+        random_seed: int = None,
+    ):
         """
         Define the MCMC model and settings to be used.
 
@@ -89,38 +96,46 @@ class McmcModel:
 
     def fit(self, features: np.ndarray):
         """
-        Draw samples from the posterior distributions of the parameters of a specified statistical distribution, based
-        on the specified prior distributions of these parameters and observed feature values.
+        Draw samples from the posterior distributions of the parameters of a specified statistical distribution.
+
+        The posteriors are based on the specified prior distributions of these parameters and observed feature values.
 
         :param features: observed feature values, used to update the prior distributions of the parameters with
         """
-
         # It looks like all pymc stuff needs to be in a single model block
         with pm.Model():
             # Define the prior distributions of the model parameters based on their definitions
             priors = {}
             for parameter, parameter_input in self.parameters.items():
-                if parameter_input['prior'] == 'beta':
-                    prior = pm.Beta(parameter, alpha=parameter_input['alpha'], beta=parameter_input['beta'])
-                elif parameter_input['prior'] == 'normal':
-                    prior = pm.Normal(parameter, mu=parameter_input['mu'], sigma=parameter_input['sigma'])
-                elif parameter_input['prior'] == 'uniform':
-                    prior = pm.Uniform(parameter, lower=parameter_input['lower'], upper=parameter_input['upper'])
+                if parameter_input["prior"] == "beta":
+                    prior = pm.Beta(parameter, alpha=parameter_input["alpha"], beta=parameter_input["beta"])
+                elif parameter_input["prior"] == "normal":
+                    prior = pm.Normal(parameter, mu=parameter_input["mu"], sigma=parameter_input["sigma"])
+                elif parameter_input["prior"] == "uniform":
+                    prior = pm.Uniform(parameter, lower=parameter_input["lower"], upper=parameter_input["upper"])
                 else:
-                    raise ValueError('Unrecognized prior')
+                    raise ValueError("Unrecognized prior")
                 priors.update({parameter: prior})
             # Define the model: priors and the observed data
-            if self.distribution == 'betabinomial':
-                pm.BetaBinomial('k', alpha=priors['alpha'], beta=priors['beta'], n=features[:,1], observed=features[:,0])
-            elif self.distribution == 'binomial':
-                pm.Binomial('k', p=priors['p'], n=np.sum(features[:,1]), observed=np.sum(features[:,0]))
-            elif self.distribution == 'normal':
-                pm.Normal('x', mu=priors['mu'], sigma=priors['sigma'], observed=features[:,0])
+            if self.distribution == "betabinomial":
+                pm.BetaBinomial(
+                    "k", alpha=priors["alpha"], beta=priors["beta"], n=features[:, 1], observed=features[:, 0]
+                )
+            elif self.distribution == "binomial":
+                pm.Binomial("k", p=priors["p"], n=np.sum(features[:, 1]), observed=np.sum(features[:, 0]))
+            elif self.distribution == "normal":
+                pm.Normal("x", mu=priors["mu"], sigma=priors["sigma"], observed=features[:, 0])
             else:
-                raise ValueError('Unrecognized distribution')
+                raise ValueError("Unrecognized distribution")
             # Do simulations and sample from the posterior distributions
-            trace = pm.sample(draws=self.draw_count, chains=self.chain_count,
-                              tune=self.tune_count, cores=1, random_seed=self.random_seed, progressbar=False)
+            trace = pm.sample(
+                draws=self.draw_count,
+                chains=self.chain_count,
+                tune=self.tune_count,
+                cores=1,
+                random_seed=self.random_seed,
+                progressbar=False,
+            )
         # Get the posterior samples of the model parameters and convergence statistics
         self.parameter_samples = {}
         for parameter in list(self.parameters.keys()):
@@ -128,11 +143,13 @@ class McmcModel:
             samples = np.concatenate(np.array(trace.posterior[parameter]))
             self.parameter_samples.update({parameter: samples})
         summary = az.summary(trace, round_to=6)
-        self.r_hat = summary['r_hat']
+        self.r_hat = summary["r_hat"]
         return self
 
     def transform(self, features: np.ndarray) -> np.ndarray:
         """
+        Get samples of the posterior distribution of the (log10) probability.
+
         Use the samples of the posterior distributions of the parameters, in combination with the selected statistical
         distribution, to get samples of the posterior distribution of the (log10) probability, evaluated for specified
         feature values.
@@ -143,20 +160,20 @@ class McmcModel:
         sample_count = len(self.parameter_samples[list(self.parameter_samples.keys())[0]])
         features_2d = {}
         for feature_id in range(features.shape[1]):
-            feature_2d = np.tile(np.expand_dims(features[:,feature_id], 1), (1, sample_count))
+            feature_2d = np.tile(np.expand_dims(features[:, feature_id], 1), (1, sample_count))
             features_2d.update({feature_id: feature_2d})
         parameters_2d = {}
         for parameter in list(self.parameter_samples.keys()):
             parameter_2d = np.tile(np.expand_dims(self.parameter_samples[parameter], 0), (len(features), 1))
             parameters_2d.update({parameter: parameter_2d})
         # Calculate e-base log probabilities at specified feature values
-        if self.distribution == 'betabinomial':
-            logp = betabinom.logpmf(features_2d[0], features_2d[1], parameters_2d['alpha'], parameters_2d['beta'])
-        elif self.distribution == 'binomial':
-            logp = binom.logpmf(features_2d[0], features_2d[1], parameters_2d['p'])
-        elif self.distribution == 'norm':
-            logp = norm.logpmf(features_2d[0], parameters_2d['mu'], parameters_2d['sigma'])
+        if self.distribution == "betabinomial":
+            logp = betabinom.logpmf(features_2d[0], features_2d[1], parameters_2d["alpha"], parameters_2d["beta"])
+        elif self.distribution == "binomial":
+            logp = binom.logpmf(features_2d[0], features_2d[1], parameters_2d["p"])
+        elif self.distribution == "norm":
+            logp = norm.logpmf(features_2d[0], parameters_2d["mu"], parameters_2d["sigma"])
         else:
-            raise ValueError('Unrecognized distribution')
+            raise ValueError("Unrecognized distribution")
         # Return 10-base log probabilities
         return logp / np.log(10)
