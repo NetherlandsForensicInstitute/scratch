@@ -7,7 +7,7 @@ import pytest
 
 from lir.data.models import FeatureData
 from packages.stats.src.lrmodule.mcmc import McmcModel, McmcLLRModel
-Update
+
 # Tests against references from the Matlab implementation.
 
 base_directory = Path(__file__).parent
