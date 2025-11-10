@@ -1,5 +1,3 @@
-test_command := "uv run pytest $path -m 'not contract_testing' ${key:+-k $key} ${report:+--cov --cov-report $report}"
-
 # List all tasks (default)
 help:
     @echo "{{ YELLOW }}Yellow: means change, {{ RED }}Red: deleting, {{ BLUE }}Blue: command execution{{ NORMAL }}"
@@ -38,14 +36,8 @@ check-static:
     uv run deptry src
 
 # Run all Project tests with coverage report if given (html or xml)
-test $key="" $report="" $path="":
-    {{ test_command }}
-
-# Run API tests with coverage report if given (html or xml)
-api-test key="" report="": (test key report "tests")
-
-# Run scratch core tests with coverage report if given (html or xml)
-core-test key="" report="": (test key report "packages/scratch-core")
+test $report="":
+    uv run pytest -m 'not contract_testing' ${report:+--cov --cov-report $report}
 
 # test-contract REST API
 test-contract:
