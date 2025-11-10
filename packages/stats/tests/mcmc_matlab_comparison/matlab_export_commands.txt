@@ -3,7 +3,7 @@
 	firing_pin_impression-cmc-all-input.csv
 	breech_face_impression-cmc-all-input.csv
 * RunAllTestCases.m  (examples for firing_pin)
-	- 'firing_pin_impression', 'cmc';	
+	- 'firing_pin_impression', 'cmc';
 * DetermineLikelihoodRatioAndIntervals.m, break at line 116
 	- make sure the order of the scores matches with input: score_grid = eval_scores;
 * AnalyseBayesian.m, break at line 160
