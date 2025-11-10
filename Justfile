@@ -1,3 +1,4 @@
+test_command := "uv run pytest $path -m 'not contract_testing' ${key:+-k $key} ${report:+--cov --cov-report $report}"
 
 # List all tasks (default)
 help:
@@ -37,28 +38,26 @@ check-static:
     uv run deptry src
 
 # Run all Project tests with coverage report if given (html or xml)
-test report="":
-  rep={{report}} && uv run pytest -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
+test $key="" $report="" $path="":
+    {{ test_command }}
 
 # Run API tests with coverage report if given (html or xml)
-api-test report="":
-  rep={{report}} && uv run pytest tests -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
+api-test key="" report="": (test key report "tests")
 
 # Run scratch core tests with coverage report if given (html or xml)
-core-test report="":
-  rep={{report}} && uv run pytest packages/scratch-core -m 'not contract_testing' ${rep:+--cov --cov-report=$rep}
+core-test key="" report="": (test key report "packages/scratch-core")
 
 # test-contract REST API
 test-contract:
-    @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Running contract tests...{{NORMAL}}"
+    @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Running contract tests...{{ NORMAL }}"
     uv run pytest -m 'contract_testing'
 
 # Run all endpoints health checks
 smoke-test artifact="" host="0.0.0.0" port="8000": (api-bg artifact)
-    @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Waiting for API to be ready...{{NORMAL}}"
+    @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Waiting for API to be ready...{{ NORMAL }}"
     @timeout 10 bash -c 'until curl -fs http://{{ host }}:{{ port }}/docs > /dev/null; do sleep 1; done'
     @just test-contract
-    @if [ "{{os_family()}}" = "unix" ]; then \
+    @if [ "{{ os_family() }}" = "unix" ]; then \
         kill $(cat api.pid); \
     else \
         taskkill //PID $(cat api.pid) //F 2>nul; \
@@ -93,13 +92,13 @@ api-bg artifact="":
 
 # list or run github job locally
 ci job="":
-  [ -z "{{job}}" ] && act --list || act --job {{job}} --quiet
+    [ -z "{{ job }}" ] && act --list || act --job {{ job }} --quiet
 
 # run coverage difference between current branch and main
 cov-diff:
-  [ -f coverage.xml ] || just test xml
-  @echo "{{BLUE}}{{BOLD}}{{ITALIC}}Getting coverage difference against main"
-  uv run diff-cover coverage.xml \
-     --diff-range-notation '..' \
-     --fail-under 80 \
-     --format markdown:diff_coverage.md
+    [ -f coverage.xml ] || just test xml
+    @echo "{{ BLUE }}{{ BOLD }}{{ ITALIC }}Getting coverage difference against main"
+    uv run diff-cover coverage.xml \
+       --diff-range-notation '..' \
+       --fail-under 80 \
+       --format markdown:diff_coverage.md

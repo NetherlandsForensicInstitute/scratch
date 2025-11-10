@@ -33,7 +33,7 @@ jobs:
         uses: ./.github/actions/setup-devenv
 
       - name: Run tests
-        run: devenv shell just test xml
+        run: devenv shell just test "" xml
 
       - name: Compute diff coverage for PR
         if: github.event_name == 'pull_request'
