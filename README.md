@@ -1,5 +1,11 @@
 # scratch
 
+
+## Using Make
+
+Make is available natively on unix systes (linux and macOS), but should be installed manually on Windows: https://gnuwin32.sourceforge.net/packages/make.htm
+
+
 ## 🧑‍💻 Development Environment
 
 This project uses **[devenv](https://devenv.sh/getting-started/)** for
