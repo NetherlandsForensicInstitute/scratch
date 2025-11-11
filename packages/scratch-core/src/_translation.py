@@ -25,7 +25,7 @@ def get_param_value(input_struct: Any, param_name: str, param_value: Any) -> Any
 
 def subsample_data(data_in: JavaStruct, step_size: int | Sequence[int]) -> JavaStruct:
     """
-    TODO: write docstring
+    Translation of the MATLAB function 'SubsampleData'
     """
     # Skip the GetParamValue and struct type check in the MATLAB implementation and just use step sizes directly as input arguments
     if isinstance(step_size, int):
