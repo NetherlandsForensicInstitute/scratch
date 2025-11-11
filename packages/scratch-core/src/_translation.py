@@ -1,4 +1,5 @@
-from typing import Any, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 from copy import deepcopy
 
 from _data_types import JavaStruct
@@ -16,7 +17,7 @@ def get_param_value(input_struct: Any, param_name: str, param_value: Any) -> Any
     """
     if hasattr(input_struct, param_name):
         return getattr(input_struct, param_name)
-    elif isinstance(input_struct, dict):
+    elif isinstance(input_struct, Mapping):
         return input_struct.get(param_name, param_value)
 
     return param_value
