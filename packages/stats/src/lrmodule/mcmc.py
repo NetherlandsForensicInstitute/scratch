@@ -20,9 +20,9 @@ class McmcLLRModel(Transformer):
     def __init__(
         self,
         distribution_h1: str,
-        parameters_h1: dict[str, dict] | None,
+        parameters_h1: dict[str, dict[str, int]] | None,
         distribution_h2: str,
-        parameters_h2: dict[str, dict] | None,
+        parameters_h2: dict[str, dict[str, int]] | None,
         interval: tuple[float, float] = (0.05, 0.95),
         **mcmc_kwargs,
     ):
@@ -44,6 +44,7 @@ class McmcLLRModel(Transformer):
         """Fit the defined model to the supplied instances."""
         self.model_h1.fit(instances.features[instances.labels == 1])
         self.model_h2.fit(instances.features[instances.labels == 0])
+        return self
 
     def transform(self, instances: FeatureData) -> LLRData:
         """Apply the fitted model to the supplied instances."""
@@ -51,17 +52,18 @@ class McmcLLRModel(Transformer):
         logp_h2 = self.model_h2.transform(instances.features)
         llrs = logp_h1 - logp_h2
         quantiles = np.quantile(llrs, [0.5] + list(self.interval), axis=1, method="midpoint")
-        return LLRData(features=quantiles.transpose(1, 0))
+        return instances.replace_as(LLRData, features=quantiles.transpose(1, 0))
 
 
 class McmcModel:
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         distribution: str,
-        parameters: dict[str, dict] | None,
+        parameters: dict[str, dict[str, int]] | None,
         chain_count: int = 4,
         tune_count: int = 1000,
         draw_count: int = 1000,
+        random_seed: int | None = None,
     ):
         """
         Define the MCMC model and settings to be used.
@@ -89,11 +91,11 @@ class McmcModel:
         self.chain_count = chain_count
         self.tune_count = tune_count
         self.draw_count = draw_count
-        self.random_seed = None
-        self.parameter_samples = None
+        self.random_seed = random_seed
+        self.parameter_samples = {}
         self.r_hat = None
 
-    def fit(self, features: np.ndarray):
+    def fit(self, features: np.ndarray) -> Self:
         """
         Draw samples from the posterior distributions of the parameters of a specified statistical distribution.
 
@@ -101,6 +103,8 @@ class McmcModel:
 
         :param features: observed feature values, used to update the prior distributions of the parameters with
         """
+        if self.parameters is None:
+            raise ValueError("Distribution parameters not specified.")
         # It looks like all pymc stuff needs to be in a single model block
         with pm.Model():
             # Define the prior distributions of the model parameters based on their definitions
@@ -171,7 +175,7 @@ class McmcModel:
         elif self.distribution == "binomial":
             logp = binom.logpmf(features_2d[0], features_2d[1], parameters_2d["p"])
         elif self.distribution == "norm":
-            logp = norm.logpmf(features_2d[0], parameters_2d["mu"], parameters_2d["sigma"])
+            logp = norm.logpdf(features_2d[0], parameters_2d["mu"], parameters_2d["sigma"])
         else:
             raise ValueError("Unrecognized distribution")
         # Return 10-base log probabilities
