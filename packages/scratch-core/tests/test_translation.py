@@ -8,7 +8,9 @@ from matplotlib.figure import Figure
 from matplotlib.testing.decorators import image_comparison
 from numpy._typing import NDArray
 from parsers.data_types import ScanImage
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from utils import ROOT_DIR
 
 
 @pytest.fixture
@@ -41,16 +43,29 @@ class ScanData(BaseModel, arbitrary_types_allowed=True):
     """For making testing more readable, dict is moved to pydantic model."""
 
     depth_data: NDArray[tuple[int, int]]
-    xdim: int
-    ydim: int
+    xdim: float = Field(
+        ...,
+        description="x dimension of meters for 1 pixel",
+        gt=0,
+        le=1,
+        examples=[0.7, 1],
+    )
+    ydim: float = Field(
+        ...,
+        description="y dimension of meters for 1 pixel",
+        gt=0,
+        le=1,
+        examples=[0.7, 1],
+    )
 
 
 @pytest.fixture
 def data_in(scan_image: ScanImage) -> ScanData:
+    image = ScanImage.from_file(ROOT_DIR / "tests/resources/scans/Huls1.al3d")
     return ScanData(
-        depth_data=scan_image.data,
-        xdim=scan_image.width,
-        ydim=scan_image.height,
+        depth_data=image.data,
+        xdim=image.scale_x,
+        ydim=image.scale_y,
     )
 
 
