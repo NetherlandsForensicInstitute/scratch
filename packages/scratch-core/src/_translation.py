@@ -39,7 +39,7 @@ def subsample_data(data_in: JavaStruct, step_size: int | Sequence[int]) -> JavaS
         sub_x, sub_y = step_size[1], step_size[0]
 
     # Here we assume (y, x) indexing instead of the implementation in MATLAB which assumed (x, y) indexing
-    depth_data_sub = data_in.depth_data[::sub_y, ::sub_x]
+    depth_data_sub = data_in.depth_data[::sub_y, ::sub_x, :]
     texture_data_sub = (
         data_in.texture_data[::sub_y, ::sub_x, :]
         if data_in.texture_data is not None
