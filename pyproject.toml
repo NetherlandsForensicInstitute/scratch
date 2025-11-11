@@ -21,6 +21,7 @@ classifiers = [
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.119.0",
+    "loguru>=0.7.3",
     "uvicorn>=0.38.0",
 ]
 

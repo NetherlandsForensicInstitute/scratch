@@ -1,4 +1,5 @@
 from fastapi import APIRouter, FastAPI
+from loguru import logger
 from uvicorn import run
 
 from comparators.router import comparison_router
@@ -15,4 +16,5 @@ app.include_router(prefix_router)
 
 
 if __name__ == "__main__":
+    logger.info("Starting server...")
     run(app, host="127.0.0.1", port=8000, reload=False, workers=1)
