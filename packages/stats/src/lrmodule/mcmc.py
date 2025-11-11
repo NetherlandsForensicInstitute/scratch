@@ -41,12 +41,12 @@ class McmcLLRModel(Transformer):
         self.interval = interval
 
     def fit(self, instances: FeatureData) -> Self:
-        """Fit the defined model to the supplies instances."""
+        """Fit the defined model to the supplied instances."""
         self.model_h1.fit(instances.features[instances.labels == 1])
         self.model_h2.fit(instances.features[instances.labels == 0])
 
     def transform(self, instances: FeatureData) -> LLRData:
-        """Apply the fitted model to the supplies instances."""
+        """Apply the fitted model to the supplied instances."""
         logp_h1 = self.model_h1.transform(instances.features)
         logp_h2 = self.model_h2.transform(instances.features)
         llrs = logp_h1 - logp_h2
