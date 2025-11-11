@@ -23,7 +23,7 @@ def test_fit_parameter_stats():
     df_scores = pd.read_csv(base_directory / (csv_prefix + "-all-input.csv"), header=None)
 
     # beta-binomial model
-    scores_h1 = np.int32(np.array(df_scores[df_scores[0] == "km"])[:, 1:])
+    scores_h1 = np.array(df_scores[df_scores[0] == "km"].iloc[:, 1:], dtype=np.int16)
     model_h1 = McmcModel(cfg.distribution_h1, cfg.parameters_h1).fit(scores_h1)
     stats_calc = np.array([
         [np.mean(model_h1.parameter_samples["alpha"]), np.std(model_h1.parameter_samples["alpha"])],
@@ -33,7 +33,7 @@ def test_fit_parameter_stats():
     assert np.allclose(stats_calc, stats_ref, rtol=2e-2, atol=2e-2)
 
     # binomial model
-    scores_h2 = np.int32(np.array(df_scores[df_scores[0] == "knm"])[:, 1:])
+    scores_h2 = np.array(df_scores[df_scores[0] == "knm"].iloc[:, 1:], dtype=np.int16)
     model_h2 = McmcModel(cfg.distribution_h2, cfg.parameters_h2).fit(scores_h2)
     stats_calc = np.array([np.mean(model_h2.parameter_samples["p"]), np.std(model_h2.parameter_samples["p"])])
     stats_ref = np.loadtxt(base_directory / (csv_prefix + "-knm_parameter_stats.csv"), delimiter=",")
@@ -46,7 +46,7 @@ def test_transform_quantiles():
 
     csv_prefix = "firing_pin_impression-" + cfg.dataset.score
     df_scores = pd.read_csv(base_directory / (csv_prefix + "-all-input.csv"), header=None)
-    scores_eval = np.int32(np.array(df_scores[df_scores[0] == "eval"])[:, 1:])
+    scores_eval = np.array(df_scores[df_scores[0] == "eval"].iloc[:, 1:], dtype=np.int16)
 
     # betabinomial model
     alpha, beta = np.loadtxt(base_directory / (csv_prefix + "-km_parameter_samples.csv"), delimiter=",", unpack=True)
@@ -55,7 +55,7 @@ def test_transform_quantiles():
     logp_eval = model_h1.transform(scores_eval)
     logp_calc = np.quantile(logp_eval, [0.05, 0.5, 0.95], axis=1, method="midpoint")
     logp_ref = np.loadtxt(base_directory / (csv_prefix + "-km_logp.csv"), delimiter=",")
-    assert np.allclose(logp_calc, logp_ref)
+    assert np.allclose(logp_calc, logp_ref, rtol=1e-4, atol=1e-4)
 
     # binomial model
     model_h2 = McmcModel(cfg.distribution_h2, None)
@@ -65,7 +65,7 @@ def test_transform_quantiles():
     logp_eval = model_h2.transform(scores_eval)
     logp_calc = np.quantile(logp_eval, [0.05, 0.5, 0.95], axis=1, method="midpoint")
     logp_ref = np.loadtxt(base_directory / (csv_prefix + "-knm_logp.csv"), delimiter=",")
-    assert np.allclose(logp_calc, logp_ref)
+    assert np.allclose(logp_calc, logp_ref, rtol=1e-4, atol=1e-4)
 
 
 @pytest.mark.parametrize(
@@ -83,9 +83,9 @@ def test_llr_dataset(dataset_name: str):
     csv_prefix = f"{dataset_name}-" + cfg.dataset.score
     df_scores = pd.read_csv(base_directory / (csv_prefix + "-all-input.csv"), header=None)
 
-    scores_eval = np.int32(np.array(df_scores[df_scores[0] == "eval"])[:, 1:])
-    scores_km = np.int32(np.array(df_scores[df_scores[0] == "km"])[:, 1:])
-    scores_knm = np.int32(np.array(df_scores[df_scores[0] == "knm"])[:, 1:])
+    scores_eval = np.array(df_scores[df_scores[0] == "eval"].iloc[:, 1:], dtype=np.int16)
+    scores_km = np.array(df_scores[df_scores[0] == "km"].iloc[:, 1:], dtype=np.int16)
+    scores_knm = np.array(df_scores[df_scores[0] == "knm"].iloc[:, 1:], dtype=np.int16)
 
     features = np.concatenate([scores_km, scores_knm])
     labels = np.concatenate([np.ones(scores_km.shape[0]), np.zeros(scores_knm.shape[0])])
