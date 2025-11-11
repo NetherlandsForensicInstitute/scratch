@@ -1,0 +1,110 @@
+name: MATLAB to Python Translation
+description: Track the translation of MATLAB code to Python
+title: "[Translation] "
+labels: ["translation", "matlab"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to track the translation of MATLAB functions/files to Python.
+
+  - type: input
+    id: matlab_function
+    attributes:
+      label: MATLAB Function/File
+      description: Name of the MATLAB function or file to translate
+      placeholder: e.g., some_function.m
+    validations:
+      required: true
+
+  - type: input
+    id: matlab_location
+    attributes:
+      label: MATLAB Source Location
+      description: Path or URL to the original MATLAB code
+      placeholder: e.g., /path/to/matlab/files or https://github.com/org/repo/blob/main/some_function.m
+
+  - type: dropdown
+    id: target_module
+    attributes:
+      label: Target Python Module
+      description: Which Python module should this be translated to?
+      options:
+        - packages/scratch-core
+        - Other (specify in notes)
+    validations:
+      default: 0
+
+  - type: input
+    id: python_location
+    attributes:
+      label: Expected Python File Path
+      description: Where should the translated Python code live?
+      placeholder: e.g., packages/scratch-core/src/path/some_function.py
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Function Description
+      description: Brief description of what this MATLAB function does
+      placeholder: Describe the purpose and functionality of the code to be translated
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: List any MATLAB dependencies or related functions
+      placeholder: |
+        - Other MATLAB functions this depends on
+        - MATLAB toolboxes required
+        - Related Python packages to use (numpy, scipy, etc.)
+
+  - type: textarea
+    id: test_requirements
+    attributes:
+      label: Test Requirements
+      description: How should this translation be tested?
+      placeholder: |
+        - List any test data available
+        - Expected outputs to verify
+        - Edge cases to consider
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How urgent is this translation?
+      options:
+        - Low
+        - Medium
+        - High
+        - Critical
+      default: 1
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Any other relevant information
+      placeholder: |
+        - Known challenges or gotchas
+        - Performance considerations
+        - Compatibility requirements
+        - Links to related issues
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Translation Checklist
+      description: Steps to complete this translation
+      options:
+        - label: Understand MATLAB implementation
+        - label: Identify Python equivalents for MATLAB-specific features
+        - label: Write Python implementation
+        - label: Create unit tests
+        - label: Verify output matches MATLAB (if possible)
+        - label: Document any differences from MATLAB version
+        - label: Code review completed
