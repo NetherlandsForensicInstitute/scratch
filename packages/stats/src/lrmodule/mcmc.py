@@ -55,14 +55,13 @@ class McmcLLRModel(Transformer):
 
 
 class McmcModel:
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         distribution: str,
         parameters: dict[str, dict] | None,
         chain_count: int = 4,
         tune_count: int = 1000,
         draw_count: int = 1000,
-        random_seed: int = None,
     ):
         """
         Define the MCMC model and settings to be used.
@@ -90,7 +89,7 @@ class McmcModel:
         self.chain_count = chain_count
         self.tune_count = tune_count
         self.draw_count = draw_count
-        self.random_seed = random_seed
+        self.random_seed = None
         self.parameter_samples = None
         self.r_hat = None
 
