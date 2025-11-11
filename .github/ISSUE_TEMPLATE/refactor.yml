@@ -1,0 +1,169 @@
+name: Code Refactoring
+description: Track refactoring work to improve code quality, performance, or maintainability
+title: "[Refactor] "
+labels: ["refactor"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to track refactoring work that improves code quality, performance, or maintainability.
+
+  - type: input
+    id: target_code
+    attributes:
+      label: Target Code/Module
+      description: What code or module needs refactoring?
+      placeholder: e.g., packages/scratch-core/src/path/module_name.py or specific function/class
+    validations:
+      required: true
+
+  - type: dropdown
+    id: refactor_type
+    attributes:
+      label: Refactor Type
+      description: What type of refactoring is this?
+      options:
+        - Code cleanup (style, formatting, naming)
+        - Performance optimization
+        - Architecture improvement
+        - Technical debt reduction
+        - Code duplication removal
+        - Simplification
+        - Type safety improvements
+        - Test coverage improvements
+        - Other (specify in description)
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_state
+    attributes:
+      label: Current State
+      description: Describe the current implementation and what problems it has
+      placeholder: |
+        - What is the current code doing?
+        - What issues or pain points exist?
+        - Why does it need refactoring?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_changes
+    attributes:
+      label: Proposed Changes
+      description: What changes do you propose to make?
+      placeholder: |
+        - High-level approach to the refactor
+        - Key changes to be made
+        - Patterns or best practices to apply
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Expected Benefits
+      description: What will be improved by this refactor?
+      placeholder: |
+        - Improved readability
+        - Better performance (quantify if possible)
+        - Easier to maintain
+        - Better test coverage
+        - Reduced complexity
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact/Risk Level
+      description: How much of the codebase will this affect?
+      options:
+        - Minimal (isolated change, no API changes)
+        - Low (small module, limited dependencies)
+        - Medium (multiple files, some dependencies)
+        - High (core functionality, many dependencies)
+        - Critical (breaking changes, major refactor)
+      default: 1
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How urgent is this refactor?
+      options:
+        - Low
+        - Medium
+        - High
+        - Critical
+      default: 1
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: List any dependencies or blockers
+      placeholder: |
+        - Other issues that must be completed first
+        - Code that depends on this module
+        - Features that might be affected
+
+  - type: textarea
+    id: testing_strategy
+    attributes:
+      label: Testing Strategy
+      description: How will you ensure the refactor doesn't break functionality?
+      placeholder: |
+        - Existing tests to verify
+        - New tests to write
+        - Manual testing required
+        - Performance benchmarks
+    validations:
+      required: true
+
+  - type: dropdown
+    id: breaking_changes
+    attributes:
+      label: Breaking Changes?
+      description: Will this refactor introduce breaking changes?
+      options:
+        - "No"
+        - "Yes"
+      default: 0
+
+  - type: textarea
+    id: migration_notes
+    attributes:
+      label: Migration Notes
+      description: If there are breaking changes, how should users migrate?
+      placeholder: |
+        - API changes and how to adapt
+        - Deprecation timeline
+        - Migration guide
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Any other relevant information
+      placeholder: |
+        - Alternative approaches considered
+        - Performance metrics (before/after)
+        - Links to related issues or discussions
+        - Technical constraints
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Refactor Checklist
+      description: Steps to complete this refactor
+      options:
+        - label: Review and understand current implementation
+        - label: Create plan/design for refactored code
+        - label: Ensure test coverage exists for current behavior
+        - label: Implement refactored code
+        - label: Verify all existing tests pass
+        - label: Add new tests if needed
+        - label: Update documentation
+        - label: Performance testing (if applicable)
+        - label: Code review completed
+        - label: Migration guide created (if breaking changes)
