@@ -3,3 +3,5 @@
 # Exclude these specific files from LFS
 packages/scratch-core/tests/resources/scans/circle.al3d -filter -diff -merge text
 packages/scratch-core/tests/resources/scans/circle.x3p -filter -diff -merge text
+
+*.al3d binary
