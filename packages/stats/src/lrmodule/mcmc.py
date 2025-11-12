@@ -143,7 +143,7 @@ class McmcModel:
         self.parameter_samples = {}
         for parameter in list(self.parameters.keys()):
             # Combine the samples from all chains
-            samples = np.concatenate(np.array(trace.posterior[parameter]))
+            samples = np.concatenate(np.array(trace.posterior[parameter]))  # type: ignore [unresolved-attribute]
             self.parameter_samples.update({parameter: samples})
         summary = az.summary(trace, round_to=6)
         self.r_hat = summary["r_hat"]
