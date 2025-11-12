@@ -5,3 +5,4 @@ packages/scratch-core/tests/resources/scans/circle.al3d -filter -diff -merge tex
 packages/scratch-core/tests/resources/scans/circle.x3p -filter -diff -merge text
 
 *.al3d binary
+*.x3p binary
