@@ -28,8 +28,11 @@ def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
     x3p.record1.set_featuretype("SUR")
     x3p.record1.axes.CX.set_axistype("I")
     x3p.record1.axes.CX.set_increment(image.scale_x)
+    x3p.record1.axes.CX.set_datatype("D")
     x3p.record1.axes.CY.set_axistype("I")
     x3p.record1.axes.CY.set_increment(image.scale_y)
+    x3p.record1.axes.CY.set_datatype("D")
+    x3p.record1.axes.CZ.set_datatype("D")
     # set record2 entries
     x3p.record2.set_date(dt.datetime.now(tz=dt.UTC).strftime("%Y-%m-%dT%H:%M:%S"))  # type: ignore
     x3p.record2.set_calibrationdate(meta_data.calibration_date)  # type: ignore
@@ -44,6 +47,9 @@ def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
     x3p.record2.probingsystem.set_type(meta_data.measurement_type)  # type: ignore
     # set the binary data
     x3p.set_data(np.ascontiguousarray(image.data))
+    # manually set the Record3 entries since these are set incorrectly in package
+    x3p.record3.matrixdimension.sizeX = image.data.shape[1]
+    x3p.record3.matrixdimension.sizeY = image.data.shape[0]
     return x3p
 
 
