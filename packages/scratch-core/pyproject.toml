@@ -12,6 +12,7 @@ readme = "README.md"
 dependencies = [
   "numpy>=2.3.4",
   "pillow>=12.0.0",
+  "scipy>=1.16.3",
   "surfalize>=0.16.6",
   "x3p @ git+https://github.com/giacomomarchioro/pyx3p.git#81c0f764cf321e56dc41e9e3c71d14e97d5bc3ae",
 ]
