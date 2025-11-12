@@ -10,9 +10,9 @@ from lir.data.models import FeatureData
 
 
 class TestTrainSplit(StrEnum):
-    NOT_USED = "n"
-    TRAIN = "t"
-    TEST = "v"
+    NOT_USED = 'n'
+    TRAIN = 't'
+    TEST = 'v'
 
 
 class ScratchData(DataStrategy):
@@ -24,7 +24,7 @@ class ScratchData(DataStrategy):
         """
         self.file_path = input_file_path
 
-    def _read_instances_from_file(self):
+    def _read_instances_from_file(self) -> list[tuple[FeatureData, FeatureData]]:
         """Read K-fold cross validation CSV input data to a list of K corresponding subsets of test/train folds.
 
         In the CSV file, subsets of the data are indicated by the "split<N>" column. For example, 3-fold cross
@@ -34,35 +34,35 @@ class ScratchData(DataStrategy):
         df = pd.read_csv(self.file_path)
 
         # Ensure all expected columns are present
-        expected_columns = ["weapon1", "weapon2", "accf", "hypothesis", "split1"]
+        expected_columns = ['weapon1', 'weapon2', 'accf', 'hypothesis', 'split1']
         if not all(column in df.columns for column in expected_columns):
-            raise ValueError(f"Missing one of the expected columns: {', '.join(expected_columns)}")
+            raise ValueError(f'Missing one of the expected columns: {", ".join(expected_columns)}')
 
         # Find all columns regarding the prepared folds, named 'split*' ('split1', 'split2', etc.)
-        fold_column_names = [c for c in df.columns if c.startswith("split")]
+        fold_column_names = [c for c in df.columns if c.startswith('split')]
 
-        label_column = ["hypothesis"]
-        feature_columns = ["accf"]
+        label_column = ['hypothesis']
+        feature_columns = ['accf']
 
         # Group the folds by the column name, i.e. 'split1', 'split2', etc.
         df_with_subsets = df.melt(
             id_vars=label_column + feature_columns,
             value_vars=fold_column_names,
-            var_name="subset",
-            value_name="test_train_split",
+            var_name='subset',
+            value_name='test_train_split',
         )
 
         subsets = []
 
         # Loop over each subset
-        for _, folds in df_with_subsets.groupby("subset"):
+        for _, folds in df_with_subsets.groupby('subset'):
             # Filter out the data marked as "not used"
             test_train_folds = folds[folds.test_train_split != TestTrainSplit.NOT_USED]
 
             # Loop over 'train' / 'test' folds for the current subset
             subset_folds = defaultdict()
 
-            for test_or_train_indicator, raw_data in test_train_folds.groupby("test_train_split"):
+            for test_or_train_indicator, raw_data in test_train_folds.groupby('test_train_split'):
                 # The `test_or_train_indicator` refers to the role of this data
                 # in the current fold; belonging to either the 'test' or 'train' split.
                 features = raw_data[feature_columns].to_numpy()
@@ -74,8 +74,8 @@ class ScratchData(DataStrategy):
 
         return subsets
 
-    @cache
-    def _get_instances(self):
+    @cache  # noqa: B019
+    def _get_instances(self) -> list[tuple[FeatureData, FeatureData]]:
         """Read instances from file only once."""
         return self._read_instances_from_file()
 

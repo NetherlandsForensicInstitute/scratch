@@ -3,6 +3,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import pytest
+
 from lrmodule.data_types import LLR_data
 from lrmodule.determine_lr import scores_to_llrs
 
@@ -58,24 +59,24 @@ def parse_expected_output(expected_output_file_path: Path) -> list[LLR_data]:
 
 
 @pytest.mark.parametrize(
-    "csv_file_name",
+    'csv_file_name',
     [
-        "aperture_shear-ccf-subset.csv",
+        'aperture_shear-ccf-subset.csv',
     ],
 )
 def test_characterization_test_input_output_files(csv_file_name: str):
     """Check that for a given input, the expected output is provided."""
     # Given the input scores from a specific CSV
-    input_data = _parse_csv_input_file(Path(__file__).parent / "score_input" / csv_file_name)
-    evaluation_scores = input_data["eval"]
-    known_match_scores = input_data["km"]
-    known_non_match_scores = input_data["knm"]
+    input_data = _parse_csv_input_file(Path(__file__).parent / 'score_input' / csv_file_name)
+    evaluation_scores = input_data['eval']
+    known_match_scores = input_data['km']
+    known_non_match_scores = input_data['knm']
 
     # When we use this data to obtain LLRS
     calculated_llrs = scores_to_llrs(evaluation_scores, known_match_scores, known_non_match_scores)
 
     # These should match the expected LLR values
-    expected_llrs = parse_expected_output(Path(__file__).parent / "expected_llr_output" / csv_file_name)
+    expected_llrs = parse_expected_output(Path(__file__).parent / 'expected_llr_output' / csv_file_name)
 
     # # Pickle dump the expected LLRs for later re-use (temporary)
     # with open(Path(__file__).parent / 'expected_aperture_shear_LLRS.pkl', 'wb') as f:
