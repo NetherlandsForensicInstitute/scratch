@@ -4,7 +4,6 @@ from typing import Annotated
 
 from numpy.typing import NDArray
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
-from PIL import Image
 import numpy as np
 from surfalize import Surface
 from surfalize.file import FileHandler
@@ -48,7 +47,9 @@ class ScanImage(FrozenBaseModel):
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
-    data: Annotated[NDArray[tuple[int, int]], AfterValidator(validate_parsed_image_shape)]
+    data: Annotated[
+        NDArray[tuple[int, int]], AfterValidator(validate_parsed_image_shape)
+    ]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     path_to_original_image: Path
@@ -67,7 +68,8 @@ class ScanImage(FrozenBaseModel):
             surface = Surface.load(scan_file)
             # rescale the parsed data to meters instead of micrometers
             return ScanImage(
-                data=np.asarray(surface.data, dtype=np.float64) * UNIT_CONVERSION_FACTOR,
+                data=np.asarray(surface.data, dtype=np.float64)
+                * UNIT_CONVERSION_FACTOR,
                 scale_x=surface.step_x * UNIT_CONVERSION_FACTOR,
                 scale_y=surface.step_y * UNIT_CONVERSION_FACTOR,
                 meta_data=surface.metadata,

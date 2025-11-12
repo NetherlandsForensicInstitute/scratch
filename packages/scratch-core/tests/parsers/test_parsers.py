@@ -38,7 +38,7 @@ def test_exception_on_incorrect_shape(image_data: NDArray):
 
 @pytest.mark.parametrize(
     "filename, expected_scale",
-    [("circle.png", 1.0), ("circle.al3d", 0.87654321), ("circle.x3p", 0.87654321)],
+    [("circle.al3d", 8.7654321e-7), ("circle.x3p", 8.7654321e-7)],
 )
 def test_parser_can_parse(
     filename: Path, image_data: NDArray, expected_scale: float, scans_dir: Path
