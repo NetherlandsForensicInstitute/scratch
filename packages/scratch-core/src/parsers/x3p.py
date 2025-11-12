@@ -24,7 +24,7 @@ class X3PMetaData(NamedTuple):
 
 def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
     x3p = X3Pfile()
-    # set record1 entries
+    # set Record1 entries
     x3p.record1.set_featuretype("SUR")
     x3p.record1.axes.CX.set_axistype("I")
     x3p.record1.axes.CX.set_increment(image.scale_x)
@@ -33,7 +33,7 @@ def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
     x3p.record1.axes.CY.set_increment(image.scale_y)
     x3p.record1.axes.CY.set_datatype("D")
     x3p.record1.axes.CZ.set_datatype("D")
-    # set record2 entries
+    # set Record2 entries
     x3p.record2.set_date(dt.datetime.now(tz=dt.UTC).strftime("%Y-%m-%dT%H:%M:%S"))  # type: ignore
     x3p.record2.set_calibrationdate(meta_data.calibration_date)  # type: ignore
     if meta_data.author:
