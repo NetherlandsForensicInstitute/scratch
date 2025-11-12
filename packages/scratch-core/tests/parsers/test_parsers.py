@@ -13,9 +13,7 @@ def validate_image(
     expected_scale: float,
 ):
     """Validate a parsed image."""
-    atol = (
-        expected_scale * 1e-8
-    )  # correct absolute tolerance for small measurement values
+    atol = 1e-16  # take a small value for the absolute tolerance since parsed values are in meters
     assert isinstance(parsed_image, ScanImage)
     assert parsed_image.data.shape == expected_image_data.shape
     assert np.allclose(
