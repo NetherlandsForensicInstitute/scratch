@@ -58,7 +58,7 @@ class ScanImage(FrozenBaseModel):
     @classmethod
     def from_file(cls, scan_file: Path) -> "ScanImage":
         """
-        Load a scan image from a file. The parsed data will be converted to meters (m).
+        Load a scan image from a file. Parsed values will be converted to meters (m).
 
         :param scan_file: The path to the file containing the scanned image data.
         :returns: An instance of `ScanImage`.
