@@ -250,42 +250,46 @@ class TestSurfaceSlopeConversion:
             (f"expected continuous n3 slope of {expected_n3}"),
         )
 
-    def test_linear_slope_in_y_direction(
-        self, inner_mask: NDArray[tuple[int, int]]
-    ) -> None:
-        """Test the conversion if the image has a slope of 2 downward (along Y)."""
-
+    def test_local_slope_location(self, inner_mask: NDArray[tuple[int, int]]) -> None:
+        """Check that slope calculation is localized to the bump coordinates."""
         # Arrange
-        step_y = 0
-        step_x = 2  # slope in Y direction = vertical increase
-        norm = np.sqrt(step_x**2 + step_y**2 + 1)
+        image_size = self.TEST_IMAGE_WIDTH
+        center_row = image_size // 2
+        center_col = image_size // 2
+        bumb_size = 4
+        nan_offset = 1
+        input_depth_map = np.zeros((image_size, image_size))
 
-        # Create a depth map that increases linearly downward
-        input_image = np.arange(self.TEST_IMAGE_HEIGHT) * 2
-        input_image = np.tile(input_image[:, None], (1, self.TEST_IMAGE_WIDTH))
+        bump_height = 6
+        bump_rows = slice(center_row - bumb_size // 2, center_row + bumb_size // 2)
+        bump_cols = slice(center_col - bumb_size // 2, center_col + bumb_size // 2)
+        input_depth_map[bump_rows, bump_cols] = bump_height
 
-        # Adjust inner mask
-        inner_mask = np.zeros_like(input_image, dtype=bool)
-        inner_mask[:-1, :-1] = True
+        bump_mask = np.zeros_like(input_depth_map, dtype=bool)
+        bump_mask[
+            center_col - bumb_size // 2 - nan_offset : center_col + bumb_size // 2,
+            center_row - bumb_size // 2 - nan_offset : center_row + bumb_size // 2,
+        ] = True
+        outside_bump_mask = ~bump_mask & inner_mask
 
         # Act
-        n1, n2, n3 = convert_image_to_slope_map(input_image, xdim=1, ydim=1)
-
-        # Expect normals tilted toward negative Y
-        expected_n1 = -step_y / norm  # x-component (0)
-        expected_n2 = -step_x / norm  # y-component
-        expected_n3 = 1 / norm  # z-component
+        n1, n2, n3 = convert_image_to_slope_map(input_depth_map, xdim=1, ydim=1)
 
         # Assert
-        (
-            assert_allclose(n1[inner_mask], expected_n1, atol=self.TOLERANCE),
-            "0, only y should have a slope",
+        assert np.any(np.abs(n1[bump_mask]) > 0), "n1 should have slope inside bump"
+        assert np.any(np.abs(n2[bump_mask]) > 0), "n2 should have slope inside bump"
+        assert np.any(np.abs(n3[bump_mask]) != 1), (
+            "n3 should deviate from 1 inside bump"
         )
         (
-            assert_allclose(n2[inner_mask], expected_n2, atol=self.TOLERANCE),
-            f"should have a continuous slope of {expected_n2}",
+            assert_allclose(n1[outside_bump_mask], 0, atol=self.TOLERANCE),
+            "outside the bumb X should be 0",
         )
         (
-            assert_allclose(n3[inner_mask], expected_n3, atol=self.TOLERANCE),
-            f"should have a continuous slope of {expected_n3}",
+            assert_allclose(n2[outside_bump_mask], 0, atol=self.TOLERANCE),
+            "outside the bumb Y should be 0",
+        )
+        (
+            assert_allclose(n3[outside_bump_mask], 1, atol=self.TOLERANCE),
+            "outside the bumb Z should be 1",
         )
