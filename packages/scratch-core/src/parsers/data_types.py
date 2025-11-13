@@ -89,11 +89,11 @@ class ScanImage(FrozenBaseModel):
         return self.data.shape[0]
 
     @property
-    def width_m(self) -> float:
+    def width_meters(self) -> float:
         """The image width in meters."""
         return self.scale_x * self.width
 
     @property
-    def height_m(self) -> float:
+    def height_meters(self) -> float:
         """The image height in meters."""
         return self.scale_y * self.height
