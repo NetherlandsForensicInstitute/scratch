@@ -96,15 +96,9 @@ def test_get_surface_plot_data_with_extra_light(data_in: ScanData) -> None:
     "light_angles",
     [
         # ([90, 45]),
-        ([90, 45], [180, 45]),
-        ([90, 45], [180, 45], [270, 45]),
-        ([90, 45], [180, 45], [270, 45], [90, 90]),
-    ],
-    ids=[
-        # "one light source", not working yet
-        "default value",
-        "same as extra light source",
-        "extra lights",
+        pytest.param([90, 45], [180, 45], id="default value"),
+        pytest.param([90, 45], [180, 45], [270, 45], id="same as extra light source"),
+        pytest.param([90, 45], [180, 45], [270, 45], [90, 90], id="extra lights"),
     ],
 )
 def test_get_surface_plot_data_with_light_angle(
@@ -222,18 +216,15 @@ class TestSurfaceSlopeConversion:
     @pytest.mark.parametrize(
         "step_x, step_y",
         [
-            (2, 0),
-            (0, 2),
-            (2, 2),
-            (2, -2),
-            (-2, -2),
-        ],
-        ids=[
-            "step increase in x",
-            "step increase in y",
-            "step increase in x and y",
-            "positive and negative steps",
-            "negative x and y steps",
+            pytest.param(2, 0, id="step increase in x"),
+            pytest.param(
+                0,
+                2,
+                id="step increase in y",
+            ),
+            pytest.param(2, 2, id="step increase in x and y"),
+            pytest.param(2, -2, id="positive and negative steps"),
+            pytest.param(-2, -2, id="negative x and y steps"),
         ],
     )
     def test_linear_slope(
