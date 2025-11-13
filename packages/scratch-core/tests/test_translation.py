@@ -213,43 +213,41 @@ class TestSurfaceSlopeConversion:
         assert_allclose(n2[inner_mask], 0), "innerside should be 0 (no y direction)"
         assert_allclose(n3[inner_mask], 1), "innerside should be 1 (no z direction)"
 
-    def test_linear_slope_in_x_direction(
-        self, inner_mask: NDArray[tuple[int, int]]
-    ) -> None:
-        """Test the conversion if the image has a slope of 2 to the right (along X)."""
+    @pytest.mark.parametrize(
+        "step_x, step_y",
+        [
+            (2, 0),
+            (0, 2),
+            (2, 2),
+        ],
+        ids=["only increase in x", "only increase in y", "increase in x and y"],
+    )
+    def test_linear_slope(self, step_x, step_y, inner_mask: np.ndarray):
+        """Test linear slopes in X, Y, or both directions."""
         # Arrange
-        slope_x = 2  # depth increases by 2 per pixel to the right
-        slope_y = 0
-        norm = np.sqrt(slope_x**2 + slope_y**2 + 1)
-
-        # Create a linear slope along the columns (X direction)
-        input_image = np.arange(self.TEST_IMAGE_WIDTH) * slope_x
-        input_image = np.tile(input_image, (self.TEST_IMAGE_HEIGHT, 1))
-
-        # Adjust inner mask
-        inner_mask = np.zeros_like(input_image, dtype=bool)
-        inner_mask[:-1, :-1] = True
+        norm = np.sqrt(step_x**2 + step_y**2 + 1)
+        expected_n1 = -step_x / norm
+        expected_n2 = -step_y / norm
+        expected_n3 = 1 / norm
+        x_vals = np.arange(self.TEST_IMAGE_WIDTH) * step_x
+        y_vals = np.arange(self.TEST_IMAGE_HEIGHT) * step_y
+        input_image = y_vals[:, None] + x_vals[None, :]
 
         # Act
         n1, n2, n3 = convert_image_to_slope_map(input_image, xdim=1, ydim=1)
 
-        # Expected normals (tilted along X)
-        expected_n1 = -slope_x / norm
-        expected_n2 = 0
-        expected_n3 = 1 / norm
-
         # Assert
         (
             assert_allclose(n1[inner_mask], expected_n1, atol=self.TOLERANCE),
-            f"should have a continuous slope of {expected_n1}",
+            (f"expected continuous n1 slope of {expected_n1}"),
         )
         (
             assert_allclose(n2[inner_mask], expected_n2, atol=self.TOLERANCE),
-            "0, only x should have a slope",
+            (f"expected continuous n2 slope of {expected_n2}"),
         )
         (
             assert_allclose(n3[inner_mask], expected_n3, atol=self.TOLERANCE),
-            f"should have a continuous slope of {expected_n3}",
+            (f"expected continuous n3 slope of {expected_n3}"),
         )
 
     def test_linear_slope_in_y_direction(
