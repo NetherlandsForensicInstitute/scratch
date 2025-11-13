@@ -236,7 +236,9 @@ class TestSurfaceSlopeConversion:
             "negative x and y steps",
         ],
     )
-    def test_linear_slope(self, step_x, step_y, inner_mask: np.ndarray):
+    def test_linear_slope(
+        self, step_x: int, step_y: int, inner_mask: NDArray[tuple[int, int]]
+    ) -> None:
         """Test linear slopes in X, Y, or both directions."""
         # Arrange
         norm = np.sqrt(step_x**2 + step_y**2 + 1)
