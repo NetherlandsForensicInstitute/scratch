@@ -63,20 +63,17 @@ class ScanImage(FrozenBaseModel):
         :param scan_file: The path to the file containing the scanned image data.
         :returns: An instance of `ScanImage`.
         """
-        extension = scan_file.suffix.lower()[1:]
-        if extension in ScanFileFormats:
-            surface = Surface.load(scan_file)
-            # rescale the parsed data to meters instead of micrometers
-            return ScanImage(
-                data=np.asarray(surface.data, dtype=np.float64)
-                * UNIT_CONVERSION_FACTOR,
-                scale_x=surface.step_x * UNIT_CONVERSION_FACTOR,
-                scale_y=surface.step_y * UNIT_CONVERSION_FACTOR,
-                meta_data=surface.metadata,
-                path_to_original_image=scan_file,
-            )
-        else:
+        if extension := scan_file.suffix.lower()[1:] not in ScanFileFormats:
             raise ValueError(f"Invalid file extension: {extension}")
+        surface = Surface.load(scan_file)
+        # rescale the parsed data to meters instead of micrometers
+        return ScanImage(
+            data=np.asarray(surface.data, dtype=np.float64) * UNIT_CONVERSION_FACTOR,
+            scale_x=surface.step_x * UNIT_CONVERSION_FACTOR,
+            scale_y=surface.step_y * UNIT_CONVERSION_FACTOR,
+            meta_data=surface.metadata,
+            path_to_original_image=scan_file,
+        )
 
     @property
     def width(self) -> int:
