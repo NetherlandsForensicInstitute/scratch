@@ -90,13 +90,33 @@ def get_surface_plot(data_in, *args):
 
 
 def convert_image_to_slope_map(depthdata: NDArray, xdim: int, ydim: int):
+    """
+    Compute surface-normal components (n1, n2, n3) from a 2D depth map.
+
+    Parameters
+    ----------
+    depthdata : NDArray
+        2-D array of depth values, indexed as depth[y, x].
+    xdim : float
+        Physical spacing between columns in meters (Δx).
+    ydim : float
+        Physical spacing between rows in meters (Δy).
+
+    Returns
+    -------
+    n1, n2, n3 : NDArray
+        Components of the unit surface normal.
+        n1 = -∂z/∂x / norm
+        n2 = -∂z/∂y / norm
+        n3 = 1 / norm
+    """
     # Create surface normals
-    hx = np.diff(depthdata, axis=0) / xdim  # slope x-direction
-    hy = np.diff(depthdata, axis=1) / ydim  # slope y-direction
+    hx = np.diff(depthdata, axis=1) / xdim  # slope in x-direction (∂z/∂x)
+    hy = np.diff(depthdata, axis=0) / ydim  # slope in y-direction (∂z/∂y)
 
     # Extend to match original dimensions
-    hx = np.vstack([hx, np.full((1, hx.shape[1]), np.nan)])
-    hy = np.hstack([hy, np.full((hy.shape[0], 1), np.nan)])
+    hx = np.hstack([hx, np.full((hx.shape[0], 1), np.nan)])  # pad last column
+    hy = np.vstack([hy, np.full((1, hy.shape[1]), np.nan)])  # pad last row
 
     norm = np.sqrt(hx * hx + hy * hy + 1)
     n1 = -hx / norm
