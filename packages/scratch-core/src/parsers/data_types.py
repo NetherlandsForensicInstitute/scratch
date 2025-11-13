@@ -66,7 +66,6 @@ class ScanImage(FrozenBaseModel):
         if extension := scan_file.suffix.lower()[1:] not in ScanFileFormats:
             raise ValueError(f"Invalid file extension: {extension}")
         surface = Surface.load(scan_file)
-        # rescale the parsed data to meters instead of micrometers
         return ScanImage(
             data=np.asarray(surface.data, dtype=np.float64) * UNIT_CONVERSION_FACTOR,
             scale_x=surface.step_x * UNIT_CONVERSION_FACTOR,
