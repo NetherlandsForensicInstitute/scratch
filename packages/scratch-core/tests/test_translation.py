@@ -225,8 +225,16 @@ class TestSurfaceSlopeConversion:
             (2, 0),
             (0, 2),
             (2, 2),
+            (2, -2),
+            (-2, -2),
         ],
-        ids=["only increase in x", "only increase in y", "increase in x and y"],
+        ids=[
+            "step increase in x",
+            "step increase in y",
+            "step increase in x and y",
+            "positive and negative steps",
+            "negative x and y steps",
+        ],
     )
     def test_linear_slope(self, step_x, step_y, inner_mask: np.ndarray):
         """Test linear slopes in X, Y, or both directions."""
