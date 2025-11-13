@@ -163,6 +163,7 @@ def test_get_surface_plot_integration(
 class TestSurfaceSlopeConversion:
     TEST_IMAGE_WIDTH = 20
     TEST_IMAGE_HEIGHT = 20
+    TOLERANCE = 1e-6
 
     @pytest.fixture(scope="class")
     def inner_mask(self) -> NDArray[tuple[int, int]]:
@@ -215,34 +216,78 @@ class TestSurfaceSlopeConversion:
     def test_linear_slope_in_x_direction(
         self, inner_mask: NDArray[tuple[int, int]]
     ) -> None:
-        """Test the conversion if the immage has a slope of 2 to the right, this will influence the Z direction slightly"""
+        """Test the conversion if the image has a slope of 2 to the right (along X)."""
         # Arrange
-        step_y = 2
-        step_x = 0
-        norm = np.sqrt(step_x**2 + step_y**2 + 1)
+        slope_x = 2  # depth increases by 2 per pixel to the right
+        slope_y = 0
+        norm = np.sqrt(slope_x**2 + slope_y**2 + 1)
 
-        num_steps = int((step_y / self.TEST_IMAGE_WIDTH) + 1)
-        input_image = np.tile(np.linspace(0, self.TEST_IMAGE_WIDTH, num_steps), (4, 1))
+        # Create a linear slope along the columns (X direction)
+        input_image = np.arange(self.TEST_IMAGE_WIDTH) * slope_x
+        input_image = np.tile(input_image, (self.TEST_IMAGE_HEIGHT, 1))
+
+        # Adjust inner mask
         inner_mask = np.zeros_like(input_image, dtype=bool)
         inner_mask[:-1, :-1] = True
 
         # Act
         n1, n2, n3 = convert_image_to_slope_map(input_image, xdim=1, ydim=1)
 
-        # Assertion
-        expected_n1 = -step_x  # x-component
-        expected_n2 = -step_y / norm  # y-component
+        # Expected normals (tilted along X)
+        expected_n1 = -slope_x / norm
+        expected_n2 = 0
+        expected_n3 = 1 / norm
+
+        # Assert
+        (
+            assert_allclose(n1[inner_mask], expected_n1, atol=self.TOLERANCE),
+            f"should have a continuous slope of {expected_n1}",
+        )
+        (
+            assert_allclose(n2[inner_mask], expected_n2, atol=self.TOLERANCE),
+            "0, only x should have a slope",
+        )
+        (
+            assert_allclose(n3[inner_mask], expected_n3, atol=self.TOLERANCE),
+            f"should have a continuous slope of {expected_n3}",
+        )
+
+    def test_linear_slope_in_y_direction(
+        self, inner_mask: NDArray[tuple[int, int]]
+    ) -> None:
+        """Test the conversion if the image has a slope of 2 downward (along Y)."""
+
+        # Arrange
+        step_y = 0
+        step_x = 2  # slope in Y direction = vertical increase
+        norm = np.sqrt(step_x**2 + step_y**2 + 1)
+
+        # Create a depth map that increases linearly downward
+        input_image = np.arange(self.TEST_IMAGE_HEIGHT) * 2
+        input_image = np.tile(input_image[:, None], (1, self.TEST_IMAGE_WIDTH))
+
+        # Adjust inner mask
+        inner_mask = np.zeros_like(input_image, dtype=bool)
+        inner_mask[:-1, :-1] = True
+
+        # Act
+        n1, n2, n3 = convert_image_to_slope_map(input_image, xdim=1, ydim=1)
+
+        # Expect normals tilted toward negative Y
+        expected_n1 = -step_y / norm  # x-component (0)
+        expected_n2 = -step_x / norm  # y-component
         expected_n3 = 1 / norm  # z-component
 
+        # Assert
         (
-            assert_allclose(n1[inner_mask], expected_n1, atol=1e-6),
-            "n1 should be 0 due the y step value als is 0",
+            assert_allclose(n1[inner_mask], expected_n1, atol=self.TOLERANCE),
+            "0, only y should have a slope",
         )
         (
-            assert_allclose(n2[inner_mask], expected_n2, atol=1e-6),
-            f"n2 should have a constant slope due to the x step value is {step_x}",
+            assert_allclose(n2[inner_mask], expected_n2, atol=self.TOLERANCE),
+            f"should have a continuous slope of {expected_n2}",
         )
         (
-            assert_allclose(n3[inner_mask], expected_n3, atol=1e-6),
-            "n3 should be a constant slope due to the x step value is {step_x} and z value is 1",
+            assert_allclose(n3[inner_mask], expected_n3, atol=self.TOLERANCE),
+            f"should have a continuous slope of {expected_n3}",
         )
