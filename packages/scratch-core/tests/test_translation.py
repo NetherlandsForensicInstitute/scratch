@@ -193,9 +193,15 @@ class TestSurfaceSlopeConversion:
         assert not np.any(np.isnan(n3[inner_mask])), (
             "outer row and columns should have a number"
         )
-        assert np.any(np.isnan(n1[outer_mask])), "outer row and columns should be NaN"
-        assert np.any(np.isnan(n2[outer_mask])), "outer row and columns should be NaN"
-        assert np.any(np.isnan(n3[outer_mask])), "outer row and columns should be NaN"
+        assert np.all(np.isnan(n1[outer_mask])), (
+            "all outer row and columns should be NaN"
+        )
+        assert np.all(np.isnan(n2[outer_mask])), (
+            "all outer row and columns should be NaN"
+        )
+        assert np.all(np.isnan(n3[outer_mask])), (
+            "all outer row and columns should be NaN"
+        )
 
     def test_flat_surface_returns_upward_normal(
         self, inner_mask: NDArray[tuple[int, int]]
