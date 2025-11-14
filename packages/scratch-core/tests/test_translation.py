@@ -96,9 +96,9 @@ def test_get_surface_plot_data_with_extra_light(data_in: ScanData) -> None:
     "light_angles",
     [
         # ([90, 45]),
-        pytest.param([90, 45], [180, 45], id="default value"),
-        pytest.param([90, 45], [180, 45], [270, 45], id="same as extra light source"),
-        pytest.param([90, 45], [180, 45], [270, 45], [90, 90], id="extra lights"),
+        pytest.param(([90, 45], [180, 45]), id="default value"),
+        pytest.param(([90, 45], [180, 45], [270, 45]), id="same as extra light source"),
+        pytest.param(([90, 45], [180, 45], [270, 45], [90, 90]), id="extra lights"),
     ],
 )
 def test_get_surface_plot_data_with_light_angle(
