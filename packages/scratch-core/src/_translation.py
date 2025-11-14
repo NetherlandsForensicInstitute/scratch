@@ -64,15 +64,7 @@ def get_surface_plot(data_in, *args):
     n1, n2, n3 = convert_image_to_slope_map(depthdata=depthdata, xdim=xdim, ydim=ydim)
 
     # Calculate intensity of surface for each light source
-    nLS = light_angles.shape[0]
-    Iout = np.full(
-        (*depthdata.shape, nLS), np.nan
-    )  # adds sort of empty layer per light_angle to fill later on
-    # Create vector pointing towards observer
-    OBS = getv(0, 90)  # azimuth 0 deg, elevation 90 deg
-    for i in range(nLS):
-        LS = getv(light_angles[i, 0], light_angles[i, 1])  # get light el and az
-        Iout[:, :, i] = calcsurf(LS, OBS, n1, n2, n3)
+    Iout = merge_depth_map_with_slope_maps(depthdata, n1, n2, n3, light_angles)
 
     # Calculate total intensity of surface
     Iout = np.nansum(Iout, axis=2)
@@ -89,7 +81,36 @@ def get_surface_plot(data_in, *args):
     return Iout
 
 
-def convert_image_to_slope_map(depthdata: NDArray, xdim: int, ydim: int):
+def merge_depth_map_with_slope_maps(depthdata, n1, n2, n3, light_angles):
+    """
+
+    Parameters
+    ----------
+    depthdata
+    n1
+    n2
+    n3
+    light_angles
+
+    Returns
+    -------
+
+    """
+    nLS = light_angles.shape[0]
+    Iout = np.full(
+        (*depthdata.shape, nLS), np.nan
+    )  # adds sort of empty layer per light_angle to fill later on
+    # Create vector pointing towards observer
+    OBS = getv(0, 90)  # azimuth 0 deg, elevation 90 deg
+    for i in range(nLS):
+        LS = getv(light_angles[i, 0], light_angles[i, 1])  # get light el and az
+        Iout[:, :, i] = calcsurf(LS, OBS, n1, n2, n3)
+    return Iout
+
+
+def convert_image_to_slope_map(
+    depthdata: NDArray[tuple[int, int]], xdim: int, ydim: int
+):
     """
     Compute surface-normal components (n1, n2, n3) from a 2D depth map.
 
