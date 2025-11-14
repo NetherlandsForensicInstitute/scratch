@@ -60,9 +60,15 @@ class DataOutput(FrozenBaseModel):
 
     type: DataType
     mark_type: str = Field(default="", description="See list in Scratch 3.0 docu")
-    depth_data: NDArray | None = Field(default=None, description="The z-data")
-    texture_data: NDArray | None = Field(default=None, description="(color) RGB image")
-    quality_data: NDArray | None = Field(default=None, description="Greyscale image")
+    depth_data: NDArray[np.float64] | None = Field(
+        default=None, description="The z-data"
+    )
+    texture_data: NDArray[np.uint8] | None = Field(
+        default=None, description="(color) RGB image"
+    )
+    quality_data: NDArray[np.uint8] | None = Field(
+        default=None, description="Greyscale image"
+    )
     xdim: float = Field(default=0.0, description="X pixel size in meters")
     ydim: float = Field(default=0.0, description="Y pixel size in meters")
     xdim_orig: float = Field(
@@ -421,7 +427,7 @@ def _load_plu_file(file_path: Path) -> DataOutput:
     )
 
 
-def _determine_2d_image_sampling_distance(ruler_image: NDArray) -> float:
+def _determine_2d_image_sampling_distance(ruler_image: NDArray[np.uint8]) -> float:
     """
     Determine sampling distance from a ruler image.
 
@@ -431,7 +437,7 @@ def _determine_2d_image_sampling_distance(ruler_image: NDArray) -> float:
 
     Parameters
     ----------
-    ruler_image : NDArray
+    ruler_image : NDArray[np.uint8]
         Image of a ruler with stripes of 1 mm distance
 
     Returns
@@ -443,35 +449,35 @@ def _determine_2d_image_sampling_distance(ruler_image: NDArray) -> float:
     raise NotImplementedError(msg)
 
 
-def _rgb_to_grey(rgb_image: NDArray) -> NDArray:
+def _rgb_to_grey(rgb_image: NDArray[np.uint8]) -> NDArray[np.float64]:
     """
     Convert RGB image to greyscale.
 
     Parameters
     ----------
-    rgb_image : NDArray
+    rgb_image : NDArray[np.uint8]
         RGB image array
 
     Returns
     -------
-    NDArray
+    NDArray[np.float64]
         Greyscale image
     """
     if len(rgb_image.shape) == 3:
         # Standard RGB to greyscale conversion
         return np.dot(rgb_image[..., :3], [0.299, 0.587, 0.114])
-    return rgb_image
+    return rgb_image.astype(np.float64)
 
 
 def _stretch(
-    image: NDArray, plow: float, phigh: float, low: float, high: float
-) -> NDArray:
+    image: NDArray[np.float64], plow: float, phigh: float, low: float, high: float
+) -> NDArray[np.float64]:
     """
     Stretch image contrast.
 
     Parameters
     ----------
-    image : NDArray
+    image : NDArray[np.float64]
         Input image
     plow : float
         Lower percentile
@@ -484,7 +490,7 @@ def _stretch(
 
     Returns
     -------
-    NDArray
+    NDArray[np.float64]
         Stretched image
     """
     plow_val = np.percentile(image, plow)
