@@ -159,10 +159,11 @@ class TestSurfaceSlopeConversion:
     TEST_IMAGE_HEIGHT = 20
     TOLERANCE = 1e-6
 
+    # TODO: Make test for cross point on x and y. in data of test_local_slope_location i see weird cross point
     @pytest.fixture(scope="class")
     def inner_mask(self) -> NDArray[tuple[int, int]]:
         inner_mask = np.zeros(
-            (self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), dtype=bool
+            (self.TEST_IMAGE_HEIGHT, self.TEST_IMAGE_WIDTH), dtype=bool
         )
         inner_mask[:-1, :-1] = True
         return inner_mask
@@ -300,3 +301,7 @@ class TestSurfaceSlopeConversion:
             assert_allclose(n3[outside_bump_mask], 1, atol=self.TOLERANCE),
             "outside the bumb Z should be 1",
         )
+
+
+class TestMergeSlopeMapToImage:
+    def test(self): ...
