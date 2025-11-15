@@ -1,6 +1,6 @@
 from .data_types import ScanImage, ScanFileFormats
 from .x3p import save_to_x3p, X3PMetaData
-from .import_data import import_data, DataOutput
+from .import_data import import_data
 
 __all__ = (
     "ScanImage",
@@ -8,5 +8,4 @@ __all__ = (
     "save_to_x3p",
     "X3PMetaData",
     "import_data",
-    "DataOutput",
 )

@@ -3,7 +3,13 @@ from typing import Any
 from numpy import nan
 from pydantic import Field
 
-from .base import FloatArray2D, FrozenBaseModel, ImageArray2D
+from .base import (
+    FloatArray1D,
+    FloatArray2D,
+    FrozenBaseModel,
+    ImageArray2D,
+    ImageArray3D,
+)
 from .enums import CropType, ImageType, InputFormat
 
 
@@ -14,10 +20,10 @@ class ImageData(FrozenBaseModel):
 
     type: ImageType
     mark_type: str = Field(default="", description="See list in Scratch 3.0 docu")
-    depth_data: FloatArray2D | None = Field(
+    depth_data: FloatArray2D | FloatArray1D | None = Field(
         default=None, description="The z-data (2D for surfaces, 1D for profiles)"
     )
-    texture_data: ImageArray2D | None = Field(
+    texture_data: ImageArray3D | ImageArray2D | None = Field(
         default=None, description="(color) RGB image (H×W×3) or grayscale (H×W)"
     )
     quality_data: ImageArray2D | None = Field(
@@ -42,11 +48,11 @@ class ImageData(FrozenBaseModel):
     lateral_resolution: float | None = Field(
         default=None, description="Lateral resolution"
     )
-    input_format: InputFormat
+    input_format: InputFormat | None = None
     additional_info: dict[str, Any] = Field(
         default_factory=dict, description="All additional meta data"
     )
-    crop_type: CropType
+    crop_type: CropType | None = None
     crop_coordinates: list | dict | None = Field(
         default=None, description="List of coordinates (n x 2) or structure"
     )
