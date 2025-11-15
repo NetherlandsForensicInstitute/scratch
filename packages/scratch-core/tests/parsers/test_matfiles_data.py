@@ -9,16 +9,16 @@ import pytest
 
 from models.enums import ImageType
 from models.image import ImageData
-from parsers.import_data import _load_mat_file
+from parsers.matfiles import load_mat_file
 
 
 def compare_image_data(actual: ImageData, expected: ImageData) -> bool:
     """Compare ImageData objects, handling numpy arrays properly."""
 
-    def assert_array(value, comparator):
-        return not (actual.depth_data is None) ^ (
-            expected.depth_data is None
-        ) and array_equal(value, comparator)
+    def is_array_equal(value, comparator):
+        return not (value is None) ^ (comparator is None) and array_equal(
+            value, comparator
+        )
 
     return (
         # Compare scalar fields
@@ -27,8 +27,8 @@ def compare_image_data(actual: ImageData, expected: ImageData) -> bool:
         and actual.xdim == expected.xdim
         and actual.ydim == expected.ydim
         # Compare array fields using numpy's array_equal
-        and assert_array(actual.depth_data, expected.depth_data)
-        and assert_array(actual.texture_data, expected.texture_data)
+        and is_array_equal(actual.depth_data, expected.depth_data)
+        and is_array_equal(actual.texture_data, expected.texture_data)
     )
 
 
@@ -52,7 +52,7 @@ def test_load_mat_file_empty(
     """Test that loading an empty MAT file raises ValueError."""
     path = create_mat_file("empty", {})
     with pytest.raises(ValueError, match="MAT file must contain 'type' field"):
-        _load_mat_file(path)
+        load_mat_file(path)
 
 
 @pytest.mark.parametrize(
@@ -153,7 +153,7 @@ def test_load_mat_file(
     create_mat_file: Callable[[str, dict[str, Any]], Path],
 ) -> None:
     path = create_mat_file(name, data)
-    actual = _load_mat_file(path)
+    actual = load_mat_file(path)
     assert compare_image_data(actual, expected), (
         f"ImageData mismatch:\nActual: {actual}\nExpected: {expected}"
     )
