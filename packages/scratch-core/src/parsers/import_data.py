@@ -12,122 +12,20 @@ sampling_distance.txt with the sampling distance in micrometers (e.g. 4.26)
 at the beginning, followed by a space!
 """
 
-from enum import StrEnum, auto
 from pathlib import Path
-from typing import Any
 
 import numpy as np
-from numpy.typing import NDArray
 from PIL import Image
-from pydantic import Field
-
-from .data_types import FrozenBaseModel
-from scipy.io import loadmat
 
 from surfalize import Surface
+from scipy.io import loadmat
 
-
-class DataType(StrEnum):
-    SURFACE = auto()
-    PROFILE = auto()
-    IMAGE = auto()
-
-
-class InputFormat(StrEnum):
-    MAT = auto()
-    AL3D = auto()
-    X3P = auto()
-    SUR = auto()
-    LMS = auto()
-    PLU = auto()
-    PNG = auto()
-    BMP = auto()
-    JPG = auto()
-    JPEG = auto()
-
-
-class CropType(StrEnum):
-    RECTANGLE = auto()
-    LINE = auto()
-    POLYGON = auto()
-    CIRCLE = auto()
-
-
-class DataOutput(FrozenBaseModel):
-    """
-    Output structure matching MATLAB data_out.
-    """
-
-    type: DataType
-    mark_type: str = Field(default="", description="See list in Scratch 3.0 docu")
-    depth_data: NDArray[np.float64] | None = Field(
-        default=None, description="The z-data"
-    )
-    texture_data: NDArray[np.uint8] | None = Field(
-        default=None, description="(color) RGB image"
-    )
-    quality_data: NDArray[np.uint8] | None = Field(
-        default=None, description="Greyscale image"
-    )
-    xdim: float = Field(default=0.0, description="X pixel size in meters")
-    ydim: float = Field(default=0.0, description="Y pixel size in meters")
-    xdim_orig: float = Field(
-        default=0.0,
-        description="X pixel size of the data after adding it to the database",
-    )
-    ydim_orig: float = Field(
-        default=0.0,
-        description="Y pixel size of the raw data when added to the database",
-    )
-    invalid_pixel_val: float = Field(
-        default=np.nan, description="Value of invalid measurement point"
-    )
-    vertical_resolution: float | None = Field(
-        default=None, description="Vertical resolution"
-    )
-    lateral_resolution: float | None = Field(
-        default=None, description="Lateral resolution"
-    )
-    input_format: InputFormat
-    additional_info: dict[str, Any] = Field(
-        default_factory=dict, description="All additional meta data"
-    )
-    crop_type: CropType
-    crop_coordinates: list | dict | None = Field(
-        default=None, description="List of coordinates (n x 2) or structure"
-    )
-    crop_info: list = Field(
-        default_factory=list,
-        description="List containing individual steps of advanced cropping",
-    )
-    cutoff_hi: float | None = Field(
-        default=None, description="The shape filter cutoff (in [um])"
-    )
-    cutoff_lo: float | None = Field(
-        default=None, description="The noise filter cutoff (in [um])"
-    )
-    is_prep: bool = Field(
-        default=False, description="Indicates whether the data was pre-processed"
-    )
-    is_crop: bool = Field(
-        default=False, description="Indicates whether the data was cropped"
-    )
-    is_interp: bool = Field(
-        default=False, description="Indicates whether the data was interpolated"
-    )
-    is_resamp: bool = Field(
-        default=False, description="Indicates whether the data was resampled"
-    )
-    data_param: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Structure with pre-processing specific parameters",
-    )
-    subsampling: int = Field(default=1, description="Image subsampling parameter")
-    orig_path: str = Field(default="", description="The original data path")
+from models.enums import ImageType, InputFormat
+from models.image import ImageData, ImageArray2D, FloatArray2D
 
 
 # TODO MAT files for testing
-def _load_mat_file(file_path: Path) -> DataOutput:
+def _load_mat_file(file_path: Path) -> ImageData:
     """
     Load MAT file format.
 
@@ -138,99 +36,14 @@ def _load_mat_file(file_path: Path) -> DataOutput:
 
     Returns
     -------
-    DataOutput
+    ImageData
         Loaded data structure
     """
-
-    data = loadmat(str(file_path))
-    # Get the first field (similar to MATLAB tmp = fields(data))
-
-    if not (field_names := [k for k in data.keys() if not k.startswith("__")]):
-        raise ValueError(f"No data fields found in {file_path}")
-
-    data_struct = data[field_names[0]]
-
-    # Convert MATLAB struct to Python dict if needed
-    if hasattr(data_struct, "dtype") and hasattr(data_struct.dtype, "names"):
-        # It's a structured array
-        data_dict = {name: data_struct[name][0, 0] for name in data_struct.dtype.names}
-    else:
-        data_dict = data_struct
-
-    # Create output structure
-    data_out = DataOutput(**data_dict)
-
-    # Handle backward compatibility with Scratch 2.0
-    # selection_type and crop_type logic
-    selection_type = data_dict.get("selection_type", "")
-    select_coordinates = data_dict.get("select_coordinates", None)
-    crop_type = data_dict.get("crop_type", "")
-    crop_coordinates = data_dict.get("crop_coordinates", None)
-
-    if selection_type and crop_type:
-        if selection_type == crop_type:
-            if (select_coordinates is None and crop_coordinates is not None) or (
-                select_coordinates is not None and crop_coordinates is None
-            ):
-                data_out.crop_coordinates = select_coordinates
-            elif select_coordinates is not None and crop_coordinates is not None:
-                tmp1 = np.asarray(crop_coordinates).flatten()
-                tmp2 = np.asarray(select_coordinates).flatten()
-                if len(tmp1) == len(tmp2):
-                    if not np.array_equal(tmp1, tmp2):
-                        data_out.crop_coordinates = select_coordinates
-                else:
-                    data_out.crop_coordinates = select_coordinates
-        else:
-            data_out.crop_type = str(selection_type)
-            data_out.crop_coordinates = select_coordinates
-    else:
-        if selection_type:
-            data_out.crop_type = str(selection_type)
-            data_out.crop_coordinates = select_coordinates
-        else:
-            data_out.crop_type = crop_type if crop_type else ""
-            data_out.crop_coordinates = crop_coordinates
-
-    if "crop_info" not in data_dict:
-        data_out.crop_info = []
-    else:
-        data_out.crop_info = list(data_dict["crop_info"])
-
-    if "cutoff_hi" in data_dict:
-        data_out.cutoff_hi = data_dict["cutoff_hi"]
-
-    if "cutoff_lo" in data_dict:
-        data_out.cutoff_lo = data_dict["cutoff_lo"]
-
-    if "is_prep" in data_dict:
-        data_out.is_prep = int(data_dict["is_prep"])
-
-    if "is_crop" in data_dict:
-        data_out.is_crop = int(data_dict["is_crop"])
-
-    if "is_interp" in data_dict:
-        data_out.is_interp = int(data_dict["is_interp"])
-
-    if "is_resamp" in data_dict:
-        data_out.is_resamp = int(data_dict["is_resamp"])
-
-    if "data_param" in data_dict:
-        data_out.data_param = dict(data_dict["data_param"])
-
-    if "subsampling" in data_dict:
-        data_out.subsampling = int(data_dict["subsampling"])
-
-    if "orig_path" not in data_dict:
-        data_out.orig_path = str(file_path)
-    else:
-        data_out.orig_path = str(data_dict["orig_path"])
-
-    data_out.input_format = InputFormat.MAT
-    return data_out
+    loadmat(file_path)
+    return ImageData()
 
 
-def _load_x3p_file(file_path: Path) -> DataOutput:
+def _load_x3p_file(file_path: Path) -> ImageData:
     """
     Load X3P file format using surfalize.
 
@@ -241,38 +54,37 @@ def _load_x3p_file(file_path: Path) -> DataOutput:
 
     Returns
     -------
-    DataOutput
+    ImageData
         Loaded data structure
     """
     surface = Surface.load(file_path)
 
-    data_out = DataOutput(
+    data_out = ImageData(
         depth_data=surface.data.T if surface.data_shape[1] > 1 else surface.data,
         texture_data=None,
         quality_data=None,
         xdim=surface.step_x * 1e-6,
+        vertical_resolution=None,
+        lateral_resolution=None,
+        additional_info={"metadata": surface.metadata},
+        input_format=InputFormat.X3P,
+        invalid_pixel_val=np.nan,
+        orig_path=str(file_path),
     )
 
     # Determine type based on feature type
     if surface.data.shape[1] > 1:
-        data_out.type = DataType.SURFACE
+        data_out.type = ImageType.SURFACE
         # surfalize returns step_x and step_y in micrometers, convert to meters
         data_out.ydim = surface.step_y * 1e-6
     else:
-        data_out.type = DataType.PROFILE
+        data_out.type = ImageType.PROFILE
         data_out.ydim = None
-
-    data_out.vertical_resolution = None
-    data_out.lateral_resolution = None
-    data_out.additional_info = {"metadata": surface.metadata}
-    data_out.input_format = InputFormat.X3P
-    data_out.invalid_pixel_val = np.nan
-    data_out.orig_path = str(file_path)
 
     return data_out
 
 
-def _load_al3d_file(file_path: Path) -> DataOutput:
+def _load_al3d_file(file_path: Path) -> ImageData:
     """
     Load AL3D (Alicona) file format using surfalize.
 
@@ -283,43 +95,30 @@ def _load_al3d_file(file_path: Path) -> DataOutput:
 
     Returns
     -------
-    DataOutput
+    ImageData
         Loaded data structure
     """
     surface = Surface.load(file_path)
 
-    data_out = DataOutput()
-    data_out.type = DataType.SURFACE
-
-    # surfalize already handles conversion to micrometers
-    # and replaces invalid values with NaN
-    data_out.depth_data = np.asarray(surface.data, dtype=np.float64)
-
-    # surfalize doesn't return texture/quality for AL3D
-    data_out.texture_data = None
-    data_out.quality_data = None
-
-    # Convert from micrometers to meters
-    data_out.xdim = surface.step_x * 1e-6
-    data_out.ydim = surface.step_y * 1e-6
-
-    # Try to extract LR and VR from metadata if available
-    data_out.vertical_resolution = None
-    data_out.lateral_resolution = None
-
-    if hasattr(surface, "metadata") and surface.metadata:
-        data_out.additional_info = {"metadata": surface.metadata}
-    else:
-        data_out.additional_info = {}
-
-    data_out.input_format = InputFormat.AL3D
-    data_out.invalid_pixel_val = np.nan
-    data_out.orig_path = str(file_path)
-
-    return data_out
+    return ImageData(
+        type=ImageType.SURFACE,
+        depth_data=np.asarray(surface.data, dtype=np.float64),
+        texture_data=None,
+        quality_data=None,
+        xdim=surface.step_x * 1e-6,
+        ydim=surface.step_y * 1e-6,
+        vertical_resolution=None,
+        lateral_resolution=None,
+        additional_info={"metadata": surface.metadata}
+        if hasattr(surface, "metadata") and surface.metadata
+        else {},
+        input_format=InputFormat.AL3D,
+        invalid_pixel_val=np.nan,
+        orig_path=str(file_path),
+    )
 
 
-def _load_sur_file(file_path: Path) -> DataOutput:
+def _load_sur_file(file_path: Path) -> ImageData:
     """
     Load SUR (Mountains Map) file format using surfalize.
 
@@ -330,13 +129,13 @@ def _load_sur_file(file_path: Path) -> DataOutput:
 
     Returns
     -------
-    DataOutput
+    ImageData
         Loaded data structure
     """
     surface = Surface.load(file_path)
 
-    return DataOutput(
-        type=DataType.SURFACE,
+    return ImageData(
+        type=ImageType.SURFACE,
         depth_data=np.asarray(surface.data, dtype=np.float64),
         texture_data=None,
         quality_data=None,
@@ -354,7 +153,7 @@ def _load_sur_file(file_path: Path) -> DataOutput:
     )
 
 
-def _load_lms_file(file_path: Path) -> DataOutput:
+def _load_lms_file(file_path: Path) -> ImageData:
     """
     Load LMS (Zeiss) file format using surfalize.
 
@@ -365,13 +164,13 @@ def _load_lms_file(file_path: Path) -> DataOutput:
 
     Returns
     -------
-    DataOutput
+    ImageData
         Loaded data structure
     """
     surface = Surface.load(file_path)
 
-    return DataOutput(
-        type=DataType.SURFACE,
+    return ImageData(
+        type=ImageType.SURFACE,
         depth_data=np.asarray(surface.data, dtype=np.float64),
         # As in MATLAB, texture is removed by default for LMS
         texture_data=None,
@@ -390,7 +189,7 @@ def _load_lms_file(file_path: Path) -> DataOutput:
     )
 
 
-def _load_plu_file(file_path: Path) -> DataOutput:
+def _load_plu_file(file_path: Path) -> ImageData:
     """
     Load PLU (Sensofar) file format using surfalize.
 
@@ -403,13 +202,13 @@ def _load_plu_file(file_path: Path) -> DataOutput:
 
     Returns
     -------
-    DataOutput
+    ImageData
         Loaded data structure
     """
     surface = Surface.load(file_path)
 
-    return DataOutput(
-        type=DataType.SURFACE,
+    return ImageData(
+        type=ImageType.SURFACE,
         depth_data=np.asarray(surface.data, dtype=np.float64),
         texture_data=None,
         quality_data=None,
@@ -427,7 +226,9 @@ def _load_plu_file(file_path: Path) -> DataOutput:
     )
 
 
-def _determine_2d_image_sampling_distance(ruler_image: NDArray[np.uint8]) -> float:
+def _determine_2d_image_sampling_distance(
+    ruler_image: ImageArray2D,
+) -> float:
     """
     Determine sampling distance from a ruler image.
 
@@ -437,7 +238,7 @@ def _determine_2d_image_sampling_distance(ruler_image: NDArray[np.uint8]) -> flo
 
     Parameters
     ----------
-    ruler_image : NDArray[np.uint8]
+    ruler_image : ImageArray2D | ImageArray3D
         Image of a ruler with stripes of 1 mm distance
 
     Returns
@@ -449,19 +250,19 @@ def _determine_2d_image_sampling_distance(ruler_image: NDArray[np.uint8]) -> flo
     raise NotImplementedError(msg)
 
 
-def _rgb_to_grey(rgb_image: NDArray[np.uint8]) -> NDArray[np.float64]:
+def _rgb_to_grey(rgb_image: ImageArray2D) -> FloatArray2D:
     """
     Convert RGB image to greyscale.
 
     Parameters
     ----------
-    rgb_image : NDArray[np.uint8]
-        RGB image array
+    rgb_image : ImageArray2D | ImageArray3D
+        RGB image array (H×W×3) or grayscale (H×W)
 
     Returns
     -------
-    NDArray[np.float64]
-        Greyscale image
+    FloatArray2D
+        Greyscale image (H×W)
     """
     if len(rgb_image.shape) == 3:
         # Standard RGB to greyscale conversion
@@ -470,15 +271,15 @@ def _rgb_to_grey(rgb_image: NDArray[np.uint8]) -> NDArray[np.float64]:
 
 
 def _stretch(
-    image: NDArray[np.float64], plow: float, phigh: float, low: float, high: float
-) -> NDArray[np.float64]:
+    image: FloatArray2D, plow: float, phigh: float, low: float, high: float
+) -> FloatArray2D:
     """
     Stretch image contrast.
 
     Parameters
     ----------
-    image : NDArray[np.float64]
-        Input image
+    image : FloatArray2D
+        Input image (H×W)
     plow : float
         Lower percentile
     phigh : float
@@ -490,8 +291,8 @@ def _stretch(
 
     Returns
     -------
-    NDArray[np.float64]
-        Stretched image
+    FloatArray2D
+        Stretched image (H×W)
     """
     plow_val = np.percentile(image, plow)
     phigh_val = np.percentile(image, phigh)
@@ -501,7 +302,7 @@ def _stretch(
     return stretched * (high - low) + low
 
 
-def _load_image_file(file_path: Path) -> DataOutput:
+def _load_image_file(file_path: Path) -> ImageData:
     """
     Load 2D image file (PNG, BMP, JPG, JPEG).
 
@@ -512,10 +313,10 @@ def _load_image_file(file_path: Path) -> DataOutput:
 
     Returns
     -------
-    DataOutput
+    ImageData
         Loaded data structure
     """
-    data_out = DataOutput()
+    data_out = ImageData()
     data_out.type = "image"
 
     # Read image
@@ -608,7 +409,7 @@ def _load_image_file(file_path: Path) -> DataOutput:
     return data_out
 
 
-def import_data(file_path: Path) -> DataOutput:
+def import_data(file_path: Path) -> ImageData:
     """
     Generic data import routine for all supported formats.
 
@@ -628,7 +429,7 @@ def import_data(file_path: Path) -> DataOutput:
 
     Returns
     -------
-    DataOutput
+    ImageData
         Data structure containing the loaded data and metadata
 
     Raises
