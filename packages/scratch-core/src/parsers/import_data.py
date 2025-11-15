@@ -14,82 +14,10 @@ at the beginning, followed by a space!
 
 from pathlib import Path
 
-import numpy as np
-
-from scipy.io import loadmat
-
-from models.enums import ImageType, InputFormat
+from models.enums import InputFormat
 from models.image import ImageData
 
-
-def _load_mat_file(file_path: Path) -> ImageData:
-    """
-    Load MAT file format.
-
-    Parameters
-    ----------
-    file_path : Path
-        Path to the .mat file
-
-    Returns
-    -------
-    ImageData
-        Loaded data structure
-
-    Raises
-    ------
-    ValueError
-        If required fields are missing or invalid
-    """
-    # Load the MAT file
-    mat_data = loadmat(file_path)
-
-    # Check if 'type' field exists
-    if "type" not in mat_data:
-        raise ValueError("MAT file must contain 'type' field")
-
-    # Get the type and map to ImageType enum
-    # scipy.io.loadmat returns strings as arrays, so we need to extract the value
-    type_val = mat_data["type"]
-    if isinstance(type_val, np.ndarray):
-        # Handle both scalar and array cases
-        type_str = str(type_val.flat[0])
-    else:
-        type_str = str(type_val)
-
-    image_type = ImageType(type_str.lower())
-
-    # Extract depth_data (required for most types)
-    depth_data = mat_data.get("depth_data")
-
-    # scipy.io.loadmat converts 1D arrays to 2D row vectors (1, n)
-    # For profiles, we need to flatten them back to 1D
-    if depth_data is not None and depth_data.ndim == 2 and depth_data.shape[0] == 1:
-        depth_data = depth_data.flatten()
-
-    # Extract dimensions
-    xdim = mat_data.get("xdim", 0.0)
-    if isinstance(xdim, np.ndarray):
-        xdim = float(xdim.item())
-    else:
-        xdim = float(xdim)
-
-    ydim = mat_data.get("ydim", 0.0)
-    if isinstance(ydim, np.ndarray):
-        ydim = float(ydim.item())
-    else:
-        ydim = float(ydim)
-
-    # Extract optional texture_data
-    texture_data = mat_data.get("texture_data")
-
-    return ImageData(
-        type=image_type,
-        depth_data=depth_data,
-        texture_data=texture_data,
-        xdim=xdim,
-        ydim=ydim,
-    )
+from .matfiles import load_mat_file
 
 
 def import_data(file_path: Path) -> ImageData:
@@ -132,7 +60,7 @@ def import_data(file_path: Path) -> ImageData:
     # Dispatch to appropriate loader based on extension
     match ext := file_path.suffix.lower()[1:]:
         case InputFormat.MAT:
-            return _load_mat_file(file_path)
+            return load_mat_file(file_path)
         # case InputFormat.X3P:
         #     return _load_x3p_file(file_path)
         # case InputFormat.X3P:
