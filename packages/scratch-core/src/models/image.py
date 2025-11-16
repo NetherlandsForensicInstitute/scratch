@@ -10,7 +10,7 @@ from .base import (
     ImageArray2D,
     ImageArray3D,
 )
-from .enums import CropType, ImageType, InputFormat
+from .enums import CropType, ImageType, SupportedExtension
 
 
 class ImageData(FrozenBaseModel):
@@ -48,7 +48,7 @@ class ImageData(FrozenBaseModel):
     lateral_resolution: float | None = Field(
         default=None, description="Lateral resolution"
     )
-    input_format: InputFormat | None = None
+    input_format: SupportedExtension | None = None
     additional_info: dict[str, Any] = Field(
         default_factory=dict, description="All additional meta data"
     )
@@ -60,11 +60,11 @@ class ImageData(FrozenBaseModel):
         default_factory=list,
         description="List containing individual steps of advanced cropping",
     )
-    cutoff_hi: float | None = Field(
-        default=None, description="The shape filter cutoff (in [um])"
+    cutoff_hi: list = Field(
+        default_factory=list, description="The shape filter cutoff (in [um])"
     )
-    cutoff_lo: float | None = Field(
-        default=None, description="The noise filter cutoff (in [um])"
+    cutoff_lo: list = Field(
+        default_factory=list, description="The noise filter cutoff (in [um])"
     )
     is_prep: bool = Field(
         default=False, description="Indicates whether the data was pre-processed"

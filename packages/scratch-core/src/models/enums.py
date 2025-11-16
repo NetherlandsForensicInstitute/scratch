@@ -1,13 +1,14 @@
 from enum import StrEnum, auto
 
 
+# TODO: Rethink and rename this enum
 class ImageType(StrEnum):
     SURFACE = auto()
     PROFILE = auto()
     IMAGE = auto()
 
 
-class InputFormat(StrEnum):
+class SupportedExtension(StrEnum):
     MAT = auto()
     AL3D = auto()
     X3P = auto()
