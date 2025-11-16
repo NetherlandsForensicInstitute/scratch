@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Type
 
 import numpy as np
 
@@ -104,6 +104,18 @@ def migrate_scratch_2_to_3_fields(mat_data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def _cast_mat_value[T](type_: Type[T], value: Any) -> T:
+    if type_ is str:
+        return type_(
+            value.flat[0]  # Handle both scalar and array cases
+            if isinstance(value, np.ndarray)
+            else value or ""
+        )
+    if type_ is float:
+        return type_(value.item() if isinstance(value, np.ndarray) else value or 0.0)
+    raise NotImplementedError
+
+
 def load_mat_file(file_path: Path) -> ImageData:
     """
     Load MAT file format.
@@ -133,67 +145,25 @@ def load_mat_file(file_path: Path) -> ImageData:
     if "type" not in mat_data:
         raise ValueError("MAT file must contain 'type' field")
 
-    # Get the type and map to ImageType enum
-    # scipy.io.loadmat returns strings as arrays, so we need to extract the value
-    type_val = mat_data["type"]
-    if isinstance(type_val, np.ndarray):
-        # Handle both scalar and array cases
-        type_str = str(type_val.flat[0])
-    else:
-        type_str = str(type_val)
-
-    image_type = ImageType(type_str.lower())
-
-    # Extract depth_data (required for most types)
-    depth_data = mat_data.get("depth_data")
-
     # scipy.io.loadmat converts 1D arrays to 2D row vectors (1, n)
     # For profiles, we need to flatten them back to 1D
-    if depth_data is not None and depth_data.ndim == 2 and depth_data.shape[0] == 1:
-        depth_data = depth_data.flatten()
-
-    # Extract dimensions
-    xdim = mat_data.get("xdim", 0.0)
-    if isinstance(xdim, np.ndarray):
-        xdim = float(xdim.item())
-    else:
-        xdim = float(xdim)
-
-    ydim = mat_data.get("ydim", 0.0)
-    if isinstance(ydim, np.ndarray):
-        ydim = float(ydim.item())
-    else:
-        ydim = float(ydim)
-
-    # Extract optional texture_data
-    texture_data = mat_data.get("texture_data")
-
-    # Extract crop information (after migration)
-    crop_type_val = mat_data.get("crop_type")
-    crop_type = None
-    if crop_type_val is not None:
-        # Extract string from array if needed
-        if isinstance(crop_type_val, np.ndarray):
-            crop_type_str = str(crop_type_val.flat[0]) if crop_type_val.size > 0 else ""
-        else:
-            crop_type_str = str(crop_type_val)
-
-        # Convert to CropType enum if not empty
-        if crop_type_str:
-            try:
-                crop_type = CropType(crop_type_str.lower())
-            except ValueError:
-                # Invalid crop type, leave as None
-                pass
-
-    crop_coordinates = mat_data.get("crop_coordinates")
+    depth_data = (
+        value.flatten()
+        if (value := mat_data.get("depth_data")) is not None
+        and value.ndim == 2
+        and value.shape[0] == 1
+        else value
+    )
 
     return ImageData(
-        type=image_type,
+        # scipy.io.loadmat returns strings as arrays, so we need to extract the value
+        type=ImageType(_cast_mat_value(str, mat_data["type"])),
         depth_data=depth_data,
-        texture_data=texture_data,
-        xdim=xdim,
-        ydim=ydim,
-        crop_type=crop_type,
-        crop_coordinates=crop_coordinates,
+        texture_data=mat_data.get("texture_data"),
+        xdim=_cast_mat_value(float, mat_data.get("xdim")),
+        ydim=_cast_mat_value(float, mat_data.get("ydim")),
+        crop_type=CropType(casted_value)
+        if (casted_value := _cast_mat_value(str, mat_data.get("crop_type")))
+        else None,
+        crop_coordinates=mat_data.get("crop_coordinates"),
     )

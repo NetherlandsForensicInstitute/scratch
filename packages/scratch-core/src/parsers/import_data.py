@@ -14,7 +14,7 @@ at the beginning, followed by a space!
 
 from pathlib import Path
 
-from models.enums import InputFormat
+from models.enums import SupportedExtension
 from models.image import ImageData
 
 from .matfiles import load_mat_file
@@ -58,8 +58,8 @@ def import_data(file_path: Path) -> ImageData:
     """
 
     # Dispatch to appropriate loader based on extension
-    match ext := file_path.suffix.lower()[1:]:
-        case InputFormat.MAT:
+    match extension := file_path.suffix.lower()[1:]:
+        case SupportedExtension.MAT:
             return load_mat_file(file_path)
         # case InputFormat.X3P:
         #     return _load_x3p_file(file_path)
@@ -74,4 +74,4 @@ def import_data(file_path: Path) -> ImageData:
         # case InputFormat.PNG | InputFormat.BMP | InputFormat.JPG | InputFormat.JPEG:
         #     return _load_image_file(file_path)
         case _:
-            raise ValueError(f"Unsupported file format: {ext}")
+            raise ValueError(f"Unsupported file format: {extension}")
