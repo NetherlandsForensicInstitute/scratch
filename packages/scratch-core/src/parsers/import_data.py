@@ -18,6 +18,7 @@ from models.enums import SupportedExtension
 from models.image import ImageData
 
 from .matfiles import load_mat_file
+from .xthreep import load_x3p_file
 
 
 def import_data(file_path: Path) -> ImageData:
@@ -61,9 +62,9 @@ def import_data(file_path: Path) -> ImageData:
     match extension := file_path.suffix.lower()[1:]:
         case SupportedExtension.MAT:
             return load_mat_file(file_path)
-        # case InputFormat.X3P:
-        #     return _load_x3p_file(file_path)
-        # case InputFormat.X3P:
+        case SupportedExtension.X3P:
+            return load_x3p_file(file_path)
+        # case SupportedExtension.AL3D:
         #     return _load_al3d_file(file_path)
         # case InputFormat.SUR:
         #     return _load_sur_file(file_path)
