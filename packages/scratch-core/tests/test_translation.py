@@ -302,6 +302,34 @@ class TestSurfaceSlopeConversion:
             "outside the bumb Z should be 1",
         )
 
+    def test_corner_of_slope(self, inner_mask: NDArray[tuple[int, int]]):
+        """Test if the corner of the slope is an extension of x, y"""
+        image_size = self.TEST_IMAGE_WIDTH
+        center_row = image_size // 2
+        center_col = image_size // 2
+        bumb_size = 4
+        nan_offset = 1
+        input_depth_map = np.zeros((image_size, image_size))
 
-class TestMergeSlopeMapToImage:
-    def test(self): ...
+        bump_height = 6
+        bump_rows = slice(center_row - bumb_size // 2, center_row + bumb_size // 2)
+        bump_cols = slice(center_col - bumb_size // 2, center_col + bumb_size // 2)
+        input_depth_map[bump_rows, bump_cols] = bump_height
+
+        bump_mask = np.zeros_like(input_depth_map, dtype=bool)
+        bump_mask[
+            center_col - bumb_size // 2 - nan_offset : center_col + bumb_size // 2,
+            center_row - bumb_size // 2 - nan_offset : center_row + bumb_size // 2,
+        ] = True
+        ~bump_mask & inner_mask
+
+        # Act
+        n1, n2, n3 = convert_image_to_slope_map(input_depth_map, xdim=1, ydim=1)
+
+        # Assert
+        assert True, "extension of y, value must be the same as y"
+        assert True, "extension of x, value must be the same as x"
+        assert True, (
+            "corner should be same as background. only in x and y direction should it extend"
+        )
+        assert True, "corner where x and y meet in the slope should be pytagoras"
