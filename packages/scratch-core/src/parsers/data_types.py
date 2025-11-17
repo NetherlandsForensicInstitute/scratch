@@ -65,7 +65,7 @@ class ScanImage(FrozenBaseModel):
         Load a scan image from a file. Parsed values will be converted to meters (m).
 
         :param scan_file: The path to the file containing the scanned image data.
-        :returns: An instance of `ScanImage` containing the parsed data.
+        :returns: An instance of `ScanImage`.
         """
         if extension := scan_file.suffix.lower()[1:] not in ScanFileFormats:
             raise ValueError(f"Invalid file extension: {extension}")
