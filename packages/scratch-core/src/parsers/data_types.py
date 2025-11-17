@@ -15,6 +15,8 @@ UNIT_CONVERSION_FACTOR = 1e-6  # conversion factor from micrometers (um) to mete
 # register the patched method as a parser
 FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
 
+Array2D = NDArray[tuple[int, int]]
+
 
 class ScanFileFormats(StrEnum):
     AL3D = auto()
@@ -40,19 +42,21 @@ class ScanImage(FrozenBaseModel):
     """
     Class for storing parsed scan data.
 
+    The image data is stored as a 2D floating point tensor with shape `[height, width]`.
+
     :param data: A numpy array containing the parsed 2D image data.
     :param scale_x: The pixel size in the X-direction in meters (m).
     :param scale_y: The pixel size in the Y-direction in meters (m).
     :param path_to_original_image: The filepath to the original image.
+    :param is_subsampled: Whether the image data is subsampled from the original image.
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
-    data: Annotated[
-        NDArray[tuple[int, int]], AfterValidator(validate_parsed_image_shape)
-    ]
+    data: Annotated[Array2D, AfterValidator(validate_parsed_image_shape)]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     path_to_original_image: Path
+    is_subsampled: bool = False
     meta_data: dict | None = None
 
     @classmethod
@@ -61,7 +65,7 @@ class ScanImage(FrozenBaseModel):
         Load a scan image from a file. Parsed values will be converted to meters (m).
 
         :param scan_file: The path to the file containing the scanned image data.
-        :returns: An instance of `ScanImage`.
+        :returns: An instance of `ScanImage` containing the parsed data.
         """
         if extension := scan_file.suffix.lower()[1:] not in ScanFileFormats:
             raise ValueError(f"Invalid file extension: {extension}")
