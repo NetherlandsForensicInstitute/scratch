@@ -133,9 +133,16 @@ def convert_image_to_slope_map(
     """
     factor_x = 1 / (2 * xdim)
     factor_y = 1 / (2 * ydim)
-    K = [[1, 0, -1]]
-    hx = convolve2d(depthdata, K, 'same', fillvalue=np.nan) * factor_x
-    hy = convolve2d(depthdata.T, K, 'same', fillvalue=np.nan).T * factor_y
+    K = np.array(
+        [
+            [0, 1j, 0],
+            [1, 0, -1],
+            [0, -1j, 0],
+        ]
+    )
+    z = convolve2d(depthdata, K, 'same', fillvalue=np.nan)
+    hx = z.real * factor_x
+    hy = z.imag * factor_y
 
     # # Create surface normals
     # hx = np.diff(depthdata, axis=1) / xdim  # slope in x-direction (∂z/∂x)
