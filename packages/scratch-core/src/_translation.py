@@ -4,6 +4,7 @@ from numpy._typing import NDArray
 from skimage.transform import resize
 from scipy.signal import convolve2d
 
+
 def get_surface_plot(data_in, *args):
     """
     Python translation of MATLAB function GetSurfacePlot.
@@ -81,7 +82,13 @@ def get_surface_plot(data_in, *args):
     return Iout
 
 
-def merge_depth_map_with_slope_maps(depthdata, n1, n2, n3, light_angles):
+def merge_depth_map_with_slope_maps(
+    depthdata: NDArray[tuple[int, int]],
+    n1: NDArray[tuple[int, int]],
+    n2: NDArray[tuple[int, int]],
+    n3: NDArray[tuple[int, int]],
+    light_angles,
+):
     """
 
     Parameters
@@ -109,7 +116,14 @@ def merge_depth_map_with_slope_maps(depthdata, n1, n2, n3, light_angles):
 
 
 def convert_image_to_slope_map(
-    depthdata: NDArray[tuple[int, int]], xdim: int, ydim: int
+    depthdata: NDArray[tuple[int, int]],
+    xdim: int,
+    ydim: int,
+    kernel: tuple[int, int] = (
+        [0, 1j, 0],
+        [1, 0, -1],
+        [0, -1j, 0],
+    ),
 ):
     """
     Compute surface-normal components (n1, n2, n3) from a 2D depth map.
@@ -133,24 +147,9 @@ def convert_image_to_slope_map(
     """
     factor_x = 1 / (2 * xdim)
     factor_y = 1 / (2 * ydim)
-    K = np.array(
-        [
-            [0, 1j, 0],
-            [1, 0, -1],
-            [0, -1j, 0],
-        ]
-    )
-    z = convolve2d(depthdata, K, 'same', fillvalue=np.nan)
+    z = convolve2d(depthdata, np.array(kernel), "same", fillvalue=np.nan)
     hx = z.real * factor_x
     hy = z.imag * factor_y
-
-    # # Create surface normals
-    # hx = np.diff(depthdata, axis=1) / xdim  # slope in x-direction (∂z/∂x)
-    # hy = np.diff(depthdata, axis=0) / ydim  # slope in y-direction (∂z/∂y)
-    #
-    # # Extend to match original dimensions
-    # hx = np.hstack([hx, np.full((hx.shape[0], 1), np.nan)])  # pad last column
-    # hy = np.vstack([hy, np.full((1, hy.shape[1]), np.nan)])  # pad last row
 
     norm = np.sqrt(hx * hx + hy * hy + 1)
     n1 = -hx / norm
