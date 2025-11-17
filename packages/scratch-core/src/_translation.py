@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy._typing import NDArray
 from skimage.transform import resize
-
+from scipy.signal import convolve2d
 
 def get_surface_plot(data_in, *args):
     """
@@ -131,17 +131,23 @@ def convert_image_to_slope_map(
         n2 = -∂z/∂y / norm
         n3 = 1 / norm
     """
-    # Create surface normals
-    hx = np.diff(depthdata, axis=1) / xdim  # slope in x-direction (∂z/∂x)
-    hy = np.diff(depthdata, axis=0) / ydim  # slope in y-direction (∂z/∂y)
+    factor_x = 1 / (2 * xdim)
+    factor_y = 1 / (2 * ydim)
+    K = [[1, 0, -1]]
+    hx = convolve2d(depthdata, K, 'same', fillvalue=np.nan) * factor_x
+    hy = convolve2d(depthdata.T, K, 'same', fillvalue=np.nan).T * factor_y
 
-    # Extend to match original dimensions
-    hx = np.hstack([hx, np.full((hx.shape[0], 1), np.nan)])  # pad last column
-    hy = np.vstack([hy, np.full((1, hy.shape[1]), np.nan)])  # pad last row
+    # # Create surface normals
+    # hx = np.diff(depthdata, axis=1) / xdim  # slope in x-direction (∂z/∂x)
+    # hy = np.diff(depthdata, axis=0) / ydim  # slope in y-direction (∂z/∂y)
+    #
+    # # Extend to match original dimensions
+    # hx = np.hstack([hx, np.full((hx.shape[0], 1), np.nan)])  # pad last column
+    # hy = np.vstack([hy, np.full((1, hy.shape[1]), np.nan)])  # pad last row
 
     norm = np.sqrt(hx * hx + hy * hy + 1)
     n1 = -hx / norm
-    n2 = -hy / norm
+    n2 = hy / norm
     n3 = 1 / norm
     return n1, n2, n3
 
