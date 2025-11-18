@@ -61,7 +61,9 @@ class ScanData(BaseModel, arbitrary_types_allowed=True):
 
 @pytest.fixture
 def data_in(scan_image: ScanImage) -> ScanData:
-    image = ScanImage.from_file(ROOT_DIR / "tests/resources/scans/Huls1.al3d")
+    image = ScanImage.from_file(
+        ROOT_DIR / "tests/resources/scans/Klein_non_replica_mode.al3d"
+    )
     return ScanData(
         depth_data=image.data,
         xdim=image.scale_x,
