@@ -159,13 +159,12 @@ class TestSurfaceSlopeConversion:
     TEST_IMAGE_HEIGHT = 20
     TOLERANCE = 1e-6
 
-    # TODO: Make test for cross point on x and y. in data of test_local_slope_location i see weird cross point
     @pytest.fixture(scope="class")
     def inner_mask(self) -> NDArray[tuple[int, int]]:
         inner_mask = np.zeros(
             (self.TEST_IMAGE_HEIGHT, self.TEST_IMAGE_WIDTH), dtype=bool
         )
-        inner_mask[:-1, :-1] = True
+        inner_mask[1:-1, 1:-1] = True
         return inner_mask
 
     def test_slope_has_nan_border(self, inner_mask: NDArray[tuple[int, int]]) -> None:
@@ -235,7 +234,7 @@ class TestSurfaceSlopeConversion:
         # Arrange
         norm = np.sqrt(step_x**2 + step_y**2 + 1)
         expected_n1 = -step_x / norm
-        expected_n2 = -step_y / norm
+        expected_n2 = step_y / norm
         expected_n3 = 1 / norm
         x_vals = np.arange(self.TEST_IMAGE_WIDTH) * step_x
         y_vals = np.arange(self.TEST_IMAGE_HEIGHT) * step_y
@@ -264,19 +263,27 @@ class TestSurfaceSlopeConversion:
         image_size = self.TEST_IMAGE_WIDTH
         center_row = image_size // 2
         center_col = image_size // 2
-        bumb_size = 4
+        bump_size = 4
         nan_offset = 1
         input_depth_map = np.zeros((image_size, image_size))
 
         bump_height = 6
-        bump_rows = slice(center_row - bumb_size // 2, center_row + bumb_size // 2)
-        bump_cols = slice(center_col - bumb_size // 2, center_col + bumb_size // 2)
+        bump_rows = slice(center_row - bump_size // 2, center_row + bump_size // 2)
+        bump_cols = slice(center_col - bump_size // 2, center_col + bump_size // 2)
         input_depth_map[bump_rows, bump_cols] = bump_height
 
         bump_mask = np.zeros_like(input_depth_map, dtype=bool)
         bump_mask[
-            center_col - bumb_size // 2 - nan_offset : center_col + bumb_size // 2,
-            center_row - bumb_size // 2 - nan_offset : center_row + bumb_size // 2,
+            center_col - bump_size // 2 - nan_offset : center_col
+            + bump_size // 2
+            + nan_offset,
+            center_row - bump_size // 2 : center_row + bump_size // 2,
+        ] = True
+        bump_mask[
+            center_col - bump_size // 2 : center_col + bump_size // 2,
+            center_row - bump_size // 2 - nan_offset : center_row
+            + bump_size // 2
+            + nan_offset,
         ] = True
         outside_bump_mask = ~bump_mask & inner_mask
 
@@ -307,19 +314,23 @@ class TestSurfaceSlopeConversion:
         image_size = self.TEST_IMAGE_WIDTH
         center_row = image_size // 2
         center_col = image_size // 2
-        bumb_size = 4
-        nan_offset = 1
+        bump_size = 4
+        bump_height = 6
         input_depth_map = np.zeros((image_size, image_size))
 
-        bump_height = 6
-        bump_rows = slice(center_row - bumb_size // 2, center_row + bumb_size // 2)
-        bump_cols = slice(center_col - bumb_size // 2, center_col + bumb_size // 2)
+        expected_corner_value = 1 / np.sqrt(
+            (bump_height // 2) ** 2 + (bump_height // 2) ** 2 + 1
+        )
+
+        bump_rows = slice(center_row - bump_size // 2, center_row + bump_size // 2)
+        bump_cols = slice(center_col - bump_size // 2, center_col + bump_size // 2)
         input_depth_map[bump_rows, bump_cols] = bump_height
 
+        nan_offset = 1
         bump_mask = np.zeros_like(input_depth_map, dtype=bool)
         bump_mask[
-            center_col - bumb_size // 2 - nan_offset : center_col + bumb_size // 2,
-            center_row - bumb_size // 2 - nan_offset : center_row + bumb_size // 2,
+            center_col - bump_size // 2 - nan_offset : center_col + bump_size // 2,
+            center_row - bump_size // 2 - nan_offset : center_row + bump_size // 2,
         ] = True
         ~bump_mask & inner_mask
 
@@ -327,9 +338,9 @@ class TestSurfaceSlopeConversion:
         n1, n2, n3 = convert_image_to_slope_map(input_depth_map, xdim=1, ydim=1)
 
         # Assert
-        assert True, "extension of y, value must be the same as y"
-        assert True, "extension of x, value must be the same as x"
-        assert True, (
-            "corner should be same as background. only in x and y direction should it extend"
+        corner = (center_row - bump_size // 2, center_col - bump_size // 2)
+
+        (
+            assert_allclose(n3[corner], expected_corner_value, atol=self.TOLERANCE),
+            "corner of x and y should have unit normal of x and y",
         )
-        assert True, "corner where x and y meet in the slope should be pytagoras"
