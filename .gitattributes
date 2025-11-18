@@ -4,11 +4,8 @@
 packages/scratch-core/tests/resources/scans/circle.al3d -filter -diff -merge text
 packages/scratch-core/tests/resources/scans/circle.x3p -filter -diff -merge text
 
-packages/scratch-core/tests/resources/scans/Klein_non_replica_mode.al3d -filter -diff -merge text
-packages/scratch-core/tests/resources/scans/Klein_replica_mode.al3d -filter -diff -merge text
-packages/scratch-core/tests/resources/scans/Klein_non_replica_mode_X3P_Scratch.x3p -filter -diff -merge text
-packages/scratch-core/tests/resources/scans/Klein_replica_mode_X3P_Alicona.x3p -filter -diff -merge text
-packages/scratch-core/tests/resources/scans/Klein_replica_mode_X3P_Scratch.x3p -filter -diff -merge text
+packages/scratch-core/tests/resources/scans/Klein*.al3d -filter -diff -merge text
+packages/scratch-core/tests/resources/scans/Klein*.x3p -filter -diff -merge text
 
 *.al3d binary
 *.x3p binary
