@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from scipy.constants import micro, milli, nano
 from surfalize import Surface
 
 from models.enums import ImageType, SupportedExtension
@@ -96,11 +97,11 @@ def _extract_resolution_from_description(
             case (109,):  # char(109) = 'm'
                 return value
             case (109, 109):  # char([109 109]) = 'mm'
-                return value * 1e-3
+                return value * milli
             case (181, 109):  # char([181 109]) = 'µm'
-                return value * 1e-6
+                return value * micro
             case (110, 109):  # char([110 109]) = 'nm'
-                return value * 1e-9
+                return value * nano
             case _:
                 return None
 
