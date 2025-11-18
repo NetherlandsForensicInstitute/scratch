@@ -1,0 +1,516 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0" version="29.0.3">
+  <diagram name="Page-1" id="SyapJX5edKefJnmLWu2D">
+    <mxGraphModel dx="2951" dy="1506" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="TxiDf01pobGoCFdE-xis-1" value="&amp;nbsp;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="180" y="506.75" width="2469.88" height="977.25" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-2" value="" style="ellipse;html=1;shape=startState;fillColor=#000000;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="461.63" y="534" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-3" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;verticalAlign=bottom;endArrow=open;endSize=8;strokeColor=#ff0000;rounded=0;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="476.63" y="624" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-5" target="TxiDf01pobGoCFdE-xis-22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-5" value="validate" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontColor=#000000;fillColor=#ffffc0;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="416.63" y="600.5" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-6" value="&lt;div&gt;Post: /pre-processor/ingest&lt;/div&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="481.88" y="526.5" width="168.25" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-50" target="TxiDf01pobGoCFdE-xis-18">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="473.88" y="824" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-8" value="scan.x3p" style="text;align=center;fontStyle=1;verticalAlign=middle;spacingLeft=3;spacingRight=3;strokeColor=none;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="595.38" y="771" width="54.75" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=6;startSize=3;endSize=3;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-10" target="TxiDf01pobGoCFdE-xis-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-10" value="&lt;div align=&quot;left&quot;&gt;.al3p&lt;/div&gt;&lt;div align=&quot;left&quot;&gt;.sur&lt;/div&gt;&lt;div align=&quot;left&quot;&gt;.x3p&lt;/div&gt;&lt;div align=&quot;left&quot;&gt;.plu&lt;/div&gt;" style="text;align=left;fontStyle=1;verticalAlign=middle;spacingLeft=3;spacingRight=3;strokeColor=default;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="546.88" y="754" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-11" value="&lt;div&gt;validates:&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;- path exists&lt;/div&gt;&lt;div&gt;- extension is supported&lt;/div&gt;&lt;div&gt;- file is not corrupt/ has expected body&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;rounded=0;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="536.63" y="580.5" width="179" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-12" value="http 200" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffc0;strokeColor=#ff0000;fontColor=#000000;arcSize=40;" vertex="1" parent="1">
+          <mxGeometry x="414.13" y="1004" width="120" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-13" value="{&#xa;  &quot;status&quot; : &quot;done&quot;,&#xa;  &quot;scan_file&quot; : &quot;./../scan.x3p&quot;&#xa;  &quot;preview_file&quot; : NDArray[tuple[int,int]]&#xa;  &quot;surfacemap_file&quot; : NDArray[tuple[int,int]]&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="432.13" y="1030.25" width="225.75" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-14" value="- ImportDATA&#xa;- SubsampleData&#xa;- SaveDataTox3PFile&#xa;- GetImageForDisplay&#xa;- GetSurfacePlot" style="text;whiteSpace=wrap;fillColor=#e3c800;fontColor=#000000;strokeColor=#B09500;" vertex="1" parent="1">
+          <mxGeometry x="227.63" y="514" width="153.5" height="87.5" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-15" value="&lt;div&gt;Post :&amp;nbsp;/pre-processor/edit-image&lt;/div&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="958.88" y="521.75" width="176" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-5" target="TxiDf01pobGoCFdE-xis-49">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="475.65999999999997" y="766.3999999999996" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-17" value="scan-file-path" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" connectable="0" vertex="1" parent="TxiDf01pobGoCFdE-xis-16">
+          <mxGeometry x="0.1298" y="-1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-18" value="create maps" style="swimlane;fontStyle=1;align=center;verticalAlign=middle;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=0;resizeLast=1;container=0;fontColor=#000000;collapsible=0;rounded=1;arcSize=30;strokeColor=#ff0000;fillColor=#ffffc0;swimlaneFillColor=#ffffc0;dropTarget=0;" vertex="1" parent="1">
+          <mxGeometry x="394.13" y="878.7799999999997" width="160" height="65.22" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-19" value="preview, surfacemap" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacingLeft=4;spacingRight=4;whiteSpace=wrap;overflow=hidden;rotatable=0;fontColor=#000000;" vertex="1" parent="TxiDf01pobGoCFdE-xis-18">
+          <mxGeometry y="30" width="160" height="35.22" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-20" value="ScanImage" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" connectable="0" vertex="1" parent="1">
+          <mxGeometry x="477.63" y="844" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-19" target="TxiDf01pobGoCFdE-xis-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-22" value="&lt;div&gt;http 40X&lt;/div&gt;" style="whiteSpace=wrap;html=1;fillColor=#ffffc0;strokeColor=#ff0000;fontColor=#000000;rounded=1;arcSize=40;" vertex="1" parent="1">
+          <mxGeometry x="227.63" y="652.5" width="120.25" height="30.5" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-23" value="&lt;div&gt;preview.png&lt;/div&gt;&lt;div&gt;surfacemap.png&lt;/div&gt;" style="text;align=center;fontStyle=1;verticalAlign=middle;spacingLeft=3;spacingRight=3;strokeColor=none;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="574.07" y="894" width="85.81" height="27.78" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=6;startSize=3;endSize=3;" edge="1" parent="1" target="TxiDf01pobGoCFdE-xis-23">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="555.82" y="908.7799999999997" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-25" value="{&#xa;  &quot;error&quot;: &quot;path doesnt exists&quot;,&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="229.88" y="683" width="170" height="41" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-26" value="{&#xa;  &quot;error&quot;: &quot;unsupported extension&quot;&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="229.88" y="730" width="170" height="41" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-27" value="{&#xa;  &quot;error&quot;: &quot;file is corrupt, file can&#39;t be parsed.&quot;&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="229.88" y="773" width="170" height="51" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-28" value="- ImportDATA&#xa;- SubsampleData&#xa;- GetPreviewImageForcropping &#xa;- GetImageForDisplay &#xa;- GetSurfacePlot" style="text;whiteSpace=wrap;fillColor=#e3c800;fontColor=#000000;strokeColor=#B09500;labelBorderColor=none;textShadow=0;" vertex="1" parent="1">
+          <mxGeometry x="1134.88" y="521.75" width="237" height="87.5" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-29" value="" style="ellipse;html=1;shape=startState;fillColor=#000000;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="943.88" y="530.5" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-30" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;verticalAlign=bottom;endArrow=open;endSize=8;strokeColor=#ff0000;rounded=0;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-29">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="958.88" y="624" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-31" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-32" target="TxiDf01pobGoCFdE-xis-43">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-32" value="validate" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontColor=#000000;fillColor=#ffffc0;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="895.88" y="601.5" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-34" target="TxiDf01pobGoCFdE-xis-39">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="954.13" y="905.032608695652" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-34" value="&amp;nbsp;cropping preview" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontColor=#000000;fillColor=#ffffc0;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="894.13" y="790.25" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-35" value="&lt;div&gt;validates:&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;- path exists&lt;/div&gt;&lt;div&gt;- extension is x3p&lt;/div&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;rounded=0;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1022.38" y="593.75" width="179" height="53.5" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-36" value="http 200" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffc0;strokeColor=#ff0000;fontColor=#000000;arcSize=40;" vertex="1" parent="1">
+          <mxGeometry x="894.13" y="1030.25" width="120" height="23.75" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-37" value="{&#xa;  &quot;status&quot; : &quot;done&quot;,&#xa;  &quot;scan_file&quot; : &quot;./../scan.x3p&quot;&#xa;  &quot;preview_file&quot; : NDArray[tuple[int,int]]&#xa;  &quot;surfacemap_file&quot; : NDArray[tuple[int,int]]&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="915.38" y="1054" width="225.75" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-38" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-62" target="TxiDf01pobGoCFdE-xis-34">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-39" value="create maps" style="swimlane;fontStyle=1;align=center;verticalAlign=middle;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=0;resizeLast=1;container=0;fontColor=#000000;collapsible=0;rounded=1;arcSize=30;strokeColor=#ff0000;fillColor=#ffffc0;swimlaneFillColor=#ffffc0;dropTarget=0;" vertex="1" parent="1">
+          <mxGeometry x="874.63" y="904.1426086956517" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-40" value="preview, surfacemap" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacingLeft=4;spacingRight=4;whiteSpace=wrap;overflow=hidden;rotatable=0;fontColor=#000000;" vertex="1" parent="TxiDf01pobGoCFdE-xis-39">
+          <mxGeometry y="30" width="160" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-41" value="heatmap, surfacemap, ..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacingLeft=4;spacingRight=4;whiteSpace=wrap;overflow=hidden;rotatable=0;fontColor=#000000;" vertex="1" parent="TxiDf01pobGoCFdE-xis-39">
+          <mxGeometry y="60" width="160" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" target="TxiDf01pobGoCFdE-xis-36">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="954.13" y="965.032608695652" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-43" value="&lt;div&gt;http 40X&lt;/div&gt;" style="whiteSpace=wrap;html=1;fillColor=#ffffc0;strokeColor=#ff0000;fontColor=#000000;rounded=1;arcSize=40;" vertex="1" parent="1">
+          <mxGeometry x="709.88" y="652.5" width="120.25" height="30.5" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-44" value="&lt;div&gt;preview.png&lt;/div&gt;&lt;div&gt;surfacemap.png&lt;/div&gt;" style="text;align=center;fontStyle=1;verticalAlign=middle;spacingLeft=3;spacingRight=3;strokeColor=none;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1054.0700000000002" y="920.25" width="85.81" height="27.78" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-45" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=6;startSize=3;endSize=3;" edge="1" parent="1" target="TxiDf01pobGoCFdE-xis-44">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1035.8200000000002" y="935.0299999999997" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-46" value="{&#xa;  &quot;error&quot;: &quot;path doesnt exists&quot;,&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="712.13" y="683" width="170" height="41" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-47" value="{&#xa;  &quot;error&quot;: &quot;unsupported extension&quot;&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="712.13" y="730" width="170" height="41" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-48" value="{&#xa;  &quot;error&quot;: &quot;file is corrupt, file can&#39;t be parsed.&quot;&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="712.13" y="773" width="170" height="51" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-49" value="Convert" style="swimlane;fontStyle=1;align=center;verticalAlign=middle;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=0;resizeLast=1;container=0;fontColor=#000000;collapsible=0;rounded=1;arcSize=30;strokeColor=#ff0000;fillColor=#ffffc0;swimlaneFillColor=#ffffc0;dropTarget=0;" vertex="1" parent="1">
+          <mxGeometry x="407.38" y="749" width="138.5" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-50" value="parse, subsample, export" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacingLeft=4;spacingRight=4;whiteSpace=wrap;overflow=hidden;rotatable=0;fontColor=#000000;" vertex="1" parent="TxiDf01pobGoCFdE-xis-49">
+          <mxGeometry y="30" width="138.5" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-51" value="EditImage" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="799.88" y="314" width="370" height="182" as="geometry">
+            <mxRectangle x="2600" y="-506" width="170" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-52" value="+ parsed_file&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;FileUpload&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-51">
+          <mxGeometry y="26" width="370" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-53" value="+ sampling&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;int = 4" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-51">
+          <mxGeometry y="52" width="370" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-54" value="+ level&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;Literal[&quot;plane&quot;,&quot;sphere&quot;] | None" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-51">
+          <mxGeometry y="78" width="370" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-55" value="+ filter&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;Literal[&quot;R0&quot;,&quot;R1&quot;,&quot;R2&quot;&lt;/span&gt;] | None" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-51">
+          <mxGeometry y="104" width="370" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-56" value="&lt;div&gt;+ marks&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;tuple[MarkDefinition]&amp;nbsp;| None&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-51">
+          <mxGeometry y="130" width="370" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-57" value="+ zoom&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;bool = False" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-51">
+          <mxGeometry y="156" width="370" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-58" value="upload-scan" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="363.88" y="444" width="255" height="52" as="geometry">
+            <mxRectangle x="2600" y="-506" width="170" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-59" value="+ scan_file&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;FileUpload&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-58">
+          <mxGeometry y="26" width="255" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-60" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.519;entryY=0.06;entryDx=0;entryDy=0;entryPerimeter=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-32" target="TxiDf01pobGoCFdE-xis-62">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="958.88" y="641" as="sourcePoint" />
+            <mxPoint x="958.88" y="766" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-61" value="file path" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" connectable="0" vertex="1" parent="TxiDf01pobGoCFdE-xis-60">
+          <mxGeometry x="-0.2337" y="2" relative="1" as="geometry">
+            <mxPoint y="2" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-62" value="import x3p" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontColor=#000000;fillColor=#ffffc0;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="893.63" y="700.25" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-63" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-64" target="TxiDf01pobGoCFdE-xis-34">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-64" value="GeneratePreview" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1156.88" y="681" width="276.5" height="156" as="geometry">
+            <mxRectangle x="2600" y="-506" width="170" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-65" value="+ scan_image&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;ScanImage&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-64">
+          <mxGeometry y="26" width="276.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-66" value="+ sampling&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;int = 4" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-64">
+          <mxGeometry y="52" width="276.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-67" value="+ level&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;Literal[&quot;plane&quot;,&quot;sphere&quot;] | None" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-64">
+          <mxGeometry y="78" width="276.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-68" value="+ filter&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;Literal[&quot;R0&quot;,&quot;R1&quot;,&quot;R2&quot;&lt;/span&gt;] | None" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-64">
+          <mxGeometry y="104" width="276.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-69" value="&lt;div&gt;+ marks&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;tuple[MarkDefinition]&amp;nbsp;| None&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-64">
+          <mxGeometry y="130" width="276.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-70" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-71" target="TxiDf01pobGoCFdE-xis-39">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-71" value="CreateMaps" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1156.88" y="859.3900000000003" width="264" height="130" as="geometry">
+            <mxRectangle x="2600" y="-506" width="170" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-72" value="+ scan_image&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;ScanImage&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-71">
+          <mxGeometry y="26" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-73" value="+ zoom&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;zoom&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-71">
+          <mxGeometry y="52" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-74" value="&lt;div&gt;+ marks&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;tuple[MarkDefinition]&amp;nbsp;| None&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-71">
+          <mxGeometry y="78" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-75" value="&lt;div&gt;+&amp;nbsp;&lt;span data-teams=&quot;true&quot;&gt;nScaleStd&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;...&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-71">
+          <mxGeometry y="104" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-76" value="&lt;div&gt;Post :&amp;nbsp;/pre-processor/prepare-image&lt;/div&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1896.88" y="521.75" width="176" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-77" value="- ImportDATA&#xa;- RotateCropImage&#xa;- SetMarkTypeAndMarkPathFromCollection&#xa;- ResampleMarkTypeSpecifc&#xa;- PreprocessBulletData&#xa;- PreprocessNist&#xa;- GetImageForDisplay &#xa;- GetSurfacePlot&#xa;- SaveMatlabFile" style="text;whiteSpace=wrap;fillColor=#e3c800;fontColor=#000000;strokeColor=#B09500;labelBorderColor=none;textShadow=0;" vertex="1" parent="1">
+          <mxGeometry x="2072.88" y="521.75" width="308" height="142.25" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-78" value="" style="ellipse;html=1;shape=startState;fillColor=#000000;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="1870.88" y="528.5" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-79" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;verticalAlign=bottom;endArrow=open;endSize=8;strokeColor=#ff0000;rounded=0;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-78">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1885.88" y="622" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-80" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-81" target="TxiDf01pobGoCFdE-xis-91">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-81" value="validate" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontColor=#000000;fillColor=#ffffc0;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="1822.88" y="599.5" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-82" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-120">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1881.6300000000006" y="902.1426086956517" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-83" value="rotate &amp;amp; crop" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontColor=#000000;fillColor=#ffffc0;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="1821.13" y="788.25" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-84" value="&lt;div&gt;validates:&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;- path exists&lt;/div&gt;&lt;div&gt;- extension is x3p&lt;/div&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;rounded=0;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1949.38" y="591.75" width="179" height="53.5" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-85" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-86" target="TxiDf01pobGoCFdE-xis-128">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-86" value="PreprocessNist" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffc0;strokeColor=#ff0000;fontColor=#000000;arcSize=40;" vertex="1" parent="1">
+          <mxGeometry x="1673.88" y="1048.38" width="120" height="23.75" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-87" value="{&#xa;  &quot;status&quot; : &quot;done&quot;,&#xa;  &quot;scan_file&quot; : &quot;./../scan.x3p&quot;&#xa;  &quot;preview_file&quot; : NDArray[tuple[int,int]]&#xa;  &quot;surfacemap_file&quot; : NDArray[tuple[int,int]]&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1829.0100000000002" y="1374" width="225.75" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-88" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-97" target="TxiDf01pobGoCFdE-xis-83">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-89" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-124" target="TxiDf01pobGoCFdE-xis-86">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1881.13" y="963.032608695652" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-90" value="striation" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" connectable="0" vertex="1" parent="TxiDf01pobGoCFdE-xis-89">
+          <mxGeometry x="-0.3719" y="1" relative="1" as="geometry">
+            <mxPoint x="11" y="-1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-91" value="&lt;div&gt;http 40X&lt;/div&gt;" style="whiteSpace=wrap;html=1;fillColor=#ffffc0;strokeColor=#ff0000;fontColor=#000000;rounded=1;arcSize=40;" vertex="1" parent="1">
+          <mxGeometry x="1636.88" y="650.5" width="120.25" height="30.5" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-92" value="{&#xa;  &quot;error&quot;: &quot;path doesnt exists&quot;,&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1639.13" y="681" width="170" height="41" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-93" value="{&#xa;  &quot;error&quot;: &quot;unsupported extension&quot;&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1639.13" y="728" width="170" height="41" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-94" value="{&#xa;  &quot;error&quot;: &quot;file is corrupt, file can&#39;t be parsed.&quot;&#xa;}" style="text;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1639.13" y="771" width="170" height="51" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-95" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.519;entryY=0.06;entryDx=0;entryDy=0;entryPerimeter=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-81" target="TxiDf01pobGoCFdE-xis-97">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1885.88" y="639" as="sourcePoint" />
+            <mxPoint x="1885.88" y="764" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-96" value="file path" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" connectable="0" vertex="1" parent="TxiDf01pobGoCFdE-xis-95">
+          <mxGeometry x="-0.2337" y="2" relative="1" as="geometry">
+            <mxPoint y="2" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-97" value="import x3p" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontColor=#000000;fillColor=#ffffc0;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="1820.63" y="698.25" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-98" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-99" target="TxiDf01pobGoCFdE-xis-83">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-99" value="GeneratePreview" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2077.63" y="681" width="276.5" height="130" as="geometry">
+            <mxRectangle x="2600" y="-506" width="170" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-100" value="+ scan_image&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;ScanImage&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-99">
+          <mxGeometry y="26" width="276.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-101" value="+ mask_array&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;n x m bitmap with mask&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-99">
+          <mxGeometry y="52" width="276.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-102" value="+ crop_info&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;n x 3 cell array&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-99">
+          <mxGeometry y="78" width="276.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-103" value="+ rotation_angle&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;int: &lt;/span&gt;0-360" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-99">
+          <mxGeometry y="104" width="276.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-104" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-120">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1881.6300000000006" y="902.1426086956517" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-105" value="CreateMaps" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2075.88" y="830.25" width="264" height="104" as="geometry">
+            <mxRectangle x="2600" y="-506" width="170" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-106" value="+ scan_image&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;ScanImage&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-105">
+          <mxGeometry y="26" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-107" value="+ mark_type&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;Literal[...]&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-105">
+          <mxGeometry y="52" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-108" value="&lt;div&gt;+ image_mask&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;tuple[MarkDefinition] | None&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-105">
+          <mxGeometry y="78" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-109" value="PrePareImage" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1763.13" y="270" width="393.5" height="234" as="geometry">
+            <mxRectangle x="2600" y="-506" width="170" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-110" value="+ parsed_file&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;FileUpload&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-109">
+          <mxGeometry y="26" width="393.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-111" value="+ mark_type&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;Literal[&quot;striation&quot;,&quot;impression&quot;&lt;/span&gt;,&quot;...&quot;]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-109">
+          <mxGeometry y="52" width="393.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-112" value="+ mask_array&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;Literal[&quot;plane&quot;,&quot;sphere&quot;] | None" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-109">
+          <mxGeometry y="78" width="393.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-113" value="+ crop_info&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;Literal[&quot;R0&quot;,&quot;R1&quot;,&quot;R2&quot;&lt;/span&gt;] | None" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-109">
+          <mxGeometry y="104" width="393.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-114" value="&lt;div&gt;+ rotation_angle&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;tuple[MarkDefinition]&amp;nbsp;| None&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-109">
+          <mxGeometry y="130" width="393.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-115" value="+ zoom&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;bool = False" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-109">
+          <mxGeometry y="156" width="393.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-116" value="+ marks&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;tuple[MarkDefinition]&amp;nbsp;| None" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-109">
+          <mxGeometry y="182" width="393.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-117" value="&lt;div&gt;+ image_mask&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;... | None&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="TxiDf01pobGoCFdE-xis-109">
+          <mxGeometry y="208" width="393.5" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-118" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-83" target="TxiDf01pobGoCFdE-xis-120">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1881.6300000000006" y="902.1426086956517" as="targetPoint" />
+            <mxPoint x="1880.88" y="828" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-119" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-105" target="TxiDf01pobGoCFdE-xis-120">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2075.88" y="882" as="sourcePoint" />
+            <mxPoint x="1881.6300000000006" y="902.1426086956517" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-120" value="resample" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontColor=#000000;fillColor=#ffffc0;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="1821.13" y="891.3900000000003" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-121" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-120" target="TxiDf01pobGoCFdE-xis-124">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1880.88" y="931" as="sourcePoint" />
+            <mxPoint x="1880.88" y="1028" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-122" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-124" target="TxiDf01pobGoCFdE-xis-126">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-123" value="impression" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" connectable="0" vertex="1" parent="TxiDf01pobGoCFdE-xis-122">
+          <mxGeometry x="-0.6588" relative="1" as="geometry">
+            <mxPoint x="41" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-124" value="mark_type" style="rhombus;whiteSpace=wrap;html=1;fontColor=#000000;fillColor=#ffffc0;strokeColor=#ff0000;" vertex="1" parent="1">
+          <mxGeometry x="1842.88" y="963.3899999999999" width="80" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-125" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-126" target="TxiDf01pobGoCFdE-xis-128">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-126" value="PreprocessBulletData" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffc0;strokeColor=#ff0000;fontColor=#000000;arcSize=40;" vertex="1" parent="1">
+          <mxGeometry x="1958.38" y="1048.13" width="161" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-127" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-128" target="TxiDf01pobGoCFdE-xis-129">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-128" value="SaveMatlabFile" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffc0;strokeColor=#ff0000;fontColor=#000000;arcSize=40;" vertex="1" parent="1">
+          <mxGeometry x="1835.88" y="1154" width="120" height="23.75" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-129" value="create maps" style="swimlane;fontStyle=1;align=center;verticalAlign=middle;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=0;resizeLast=1;container=0;fontColor=#000000;collapsible=0;rounded=1;arcSize=30;strokeColor=#ff0000;fillColor=#ffffc0;swimlaneFillColor=#ffffc0;dropTarget=0;" vertex="1" parent="1">
+          <mxGeometry x="1815.88" y="1224" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-130" value="preview, surfacemap" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacingLeft=4;spacingRight=4;whiteSpace=wrap;overflow=hidden;rotatable=0;fontColor=#000000;" vertex="1" parent="TxiDf01pobGoCFdE-xis-129">
+          <mxGeometry y="30" width="160" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-131" value="heatmap, surfacemap, ..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacingLeft=4;spacingRight=4;whiteSpace=wrap;overflow=hidden;rotatable=0;fontColor=#000000;" vertex="1" parent="TxiDf01pobGoCFdE-xis-129">
+          <mxGeometry y="60" width="160" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-132" value="http 200" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffc0;strokeColor=#ff0000;fontColor=#000000;arcSize=40;" vertex="1" parent="1">
+          <mxGeometry x="1835.7600000000002" y="1350.25" width="120" height="23.75" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-133" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-130" target="TxiDf01pobGoCFdE-xis-132">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-134" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-135" target="TxiDf01pobGoCFdE-xis-129">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-135" value="CreateMaps" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2027.88" y="1214" width="264" height="130" as="geometry">
+            <mxRectangle x="2600" y="-506" width="170" height="30" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-136" value="+ scan_image&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;ScanImage&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-135">
+          <mxGeometry y="26" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-137" value="+ zoom&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;zoom&lt;/span&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-135">
+          <mxGeometry y="52" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-138" value="&lt;div&gt;+ marks&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;tuple[MarkDefinition]&amp;nbsp;| None&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-135">
+          <mxGeometry y="78" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-139" value="&lt;div&gt;+&amp;nbsp;&lt;span data-teams=&quot;true&quot;&gt;nScaleStd&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;:&amp;nbsp;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;...&lt;/span&gt;&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontSize=9;" vertex="1" parent="TxiDf01pobGoCFdE-xis-135">
+          <mxGeometry y="104" width="264" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-140" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-141" target="TxiDf01pobGoCFdE-xis-86">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-141" value="StraiationInput" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1516.38" y="944" width="140" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-142" value="&lt;pre class=&quot;language-plaintext&quot;&gt;&lt;code&gt;bLevelOffset&lt;br&gt;bLevelTilt&lt;br&gt;bLevel2nd&lt;br&gt;filterTypeLow&lt;br&gt;filterTypeHigh&lt;/code&gt;&lt;/pre&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-141">
+          <mxGeometry y="26" width="140" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-143" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fillColor=#e51400;strokeColor=#B20000;" edge="1" parent="1" source="TxiDf01pobGoCFdE-xis-144" target="TxiDf01pobGoCFdE-xis-126">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2229.88" y="1099" />
+              <mxPoint x="2229.88" y="1024" />
+              <mxPoint x="2038.88" y="1024" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-144" value="ImpressionInput" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="2179.88" y="955.25" width="240" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="TxiDf01pobGoCFdE-xis-145" value="shape_noise_removel (in subfunctie)&lt;br&gt;show_info (in subfunctie)&lt;br&gt;use_mean (in subfunctie)&lt;br&gt;unfold_bullet (in subfunctie, uitgecommentarieerd)&lt;br&gt;slope_correction (in subfunctie)&lt;br&gt;cutoff_hi (in subfunctie)&lt;br&gt;cut_borders_after_smoothing (in subfunctie)&lt;br&gt;angle_accuracy (in subfunctie)&lt;br&gt;extra_sub_samp (in subfunctie)&lt;br&gt;cut_y_after_shift (in subfunctie)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="TxiDf01pobGoCFdE-xis-144">
+          <mxGeometry y="26" width="240" height="204" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
