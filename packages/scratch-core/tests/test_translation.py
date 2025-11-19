@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 
-from conversion._translation import get_surface_plot
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.testing.decorators import image_comparison
@@ -9,6 +8,7 @@ from numpy._typing import NDArray
 from parsers.data_types import ScanImage
 from pydantic import BaseModel, Field
 
+from surface_conversion.translations import pre_refactor_logic
 from utils.paths import ROOT_DIR
 
 
@@ -84,5 +84,5 @@ def plot_test_data(data, show_plot=True) -> Figure:
 @pytest.mark.integration
 @image_comparison(baseline_images=["surfaceplot_default"], extensions=["png"])
 def test_get_surface_plot(data_in: ScanData) -> None:
-    data = get_surface_plot(data_in.model_dump())
+    data = pre_refactor_logic(data_in.depth_data, data_in.xdim, data_in.ydim)
     plot_test_data(data, show_plot=False)

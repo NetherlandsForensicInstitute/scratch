@@ -345,3 +345,16 @@ class TestCalculateSurface:
 
         # Assert
         assert np.allclose(out, expected_constant, atol=self.TOLERANCE)
+
+
+class TestApplyMultipleLights:
+    @pytest.fixture
+    def setup_basic_data(self):
+        """Fixture providing basic test data"""
+        n1 = np.array([[0.5, 0.6], [0.7, 0.8]])
+        n2 = np.array([[0.3, 0.4], [0.5, 0.6]])
+        n3 = np.array([[0.2, 0.3], [0.4, 0.5]])
+        return n1, n2, n3
+
+    def test_apply_multiple_lights(self, setup_basic_data):
+        n1, n2, n3 = setup_basic_data

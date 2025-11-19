@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage.transform import resize
-from surface_conversion import compute_surface_normals
-from surface_conversion.translations import apply_multiple_lights
+from surface_conversion.translations import pre_refactor_logic
 from surface_conversion.schemas import LightAngle
 
 
@@ -29,14 +28,6 @@ def get_surface_plot(data_in, *args):
         plt.imshow(depthdata, cmap="gray")
         plt.axis("equal")
         plt.show()
-
-    # Turn an extra light source on if requested
-    if len(args) > 0 and args[0] is not None:
-        light_angles = np.array([[90, 45], [180, 45], [270, 45]])
-
-    # If light sources are provided, these replace the defaults
-    if len(args) > 1 and args[1] is not None and len(args[1]) > 0:
-        light_angles = np.array(args[1])
 
     # If a mask is provided, mask the image before generating the surface
     if len(args) > 2 and args[2] is not None and np.any(args[2]):
@@ -65,22 +56,8 @@ def get_surface_plot(data_in, *args):
         bbox = DetermineBoundingBox(mask)
         depthdata = depthdata[bbox[1, 0] - 1 : bbox[1, 1], bbox[0, 0] - 1 : bbox[0, 1]]
 
-    n1, n2, n3 = compute_surface_normals(depthdata=depthdata, xdim=xdim, ydim=ydim)
-
     # Calculate intensity of surface for each light source
-    Iout = apply_multiple_lights(n1, n2, n3, light_angles)
-
-    # Calculate total intensity of surface
-    Iout = np.nansum(Iout, axis=2)
-
-    # Normalize between [0,1]
-    Imin = np.nanmin(Iout)
-    Imax = np.nanmax(Iout)
-    Iout = (Iout - Imin) / (Imax - Imin)
-
-    # Add ambient component and scale [0,1]->[0,255]
-    famb = 25
-    Iout = famb + (255 - famb) * Iout
+    Iout = pre_refactor_logic(depthdata, xdim, ydim, light_angles)
 
     return Iout
 
