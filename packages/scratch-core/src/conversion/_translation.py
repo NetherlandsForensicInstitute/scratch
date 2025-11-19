@@ -3,6 +3,7 @@ import numpy as np
 from numpy._typing import NDArray
 from skimage.transform import resize
 from surface_conversion import convert_image_to_slope_map
+from surface_conversion.translations import calculate_surface
 
 
 def get_surface_plot(data_in, *args):
@@ -126,33 +127,6 @@ def getv(az, el):
     return v
 
 
-# --------------------------------------------
-def calculate_surface(LS, OBS, n1, n2, n3):
-    """Calculate diffuse + specular components."""
-    # PREPARATIONS
-    h = LS + OBS
-    h = h / np.sqrt(np.dot(h, h))  # normalize
-
-    # DIFFUSE COMPONENT
-    Idiffuse = LS[0] * n1 + LS[1] * n2 + LS[2] * n3
-    Idiffuse[Idiffuse < 0] = 0
-
-    # SPECULAR COMPONENT
-    Ispec = h[0] * n1 + h[1] * n2 + h[2] * n3
-    Ispec[Ispec < 0] = 0
-    Ispec = np.cos(2 * np.arccos(Ispec))
-    Ispec[Ispec < 0] = 0
-
-    # Phong factor f=4
-    Ispec = Ispec**4
-
-    # Combine
-    fspec = 1
-    Iout = (Idiffuse + fspec * Ispec) / (1 + fspec)
-    return Iout
-
-
-# --------------------------------------------
 def DetermineBoundingBox(mask):
     """Determine bounding box of mask."""
     x_sum = np.sum(mask, axis=0)

@@ -3,7 +3,8 @@ import pytest
 from numpy._typing import NDArray
 from numpy.testing import assert_allclose
 
-from conversion._translation import calculate_surface, getv
+from conversion._translation import getv
+from surface_conversion.translations import calculate_surface
 from surface_conversion import convert_image_to_slope_map
 
 
