@@ -1,3 +1,3 @@
-from .translations import convert_image_to_slope_map
+from .translations import compute_surface_normals
 
-__all__ = ["convert_image_to_slope_map"]
+__all__ = ["compute_surface_normals"]

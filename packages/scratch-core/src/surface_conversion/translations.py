@@ -1,32 +1,15 @@
 import numpy as np
 from numpy._typing import NDArray
-from pydantic import BaseModel, Field
 from scipy.signal import convolve2d
 
-
-class LightAngle(BaseModel):
-    azimuth: float = Field(..., description="Azimuth angle in degrees.")
-    elevation: float = Field(..., description="Elevation angle in degrees.")
-
-    @property
-    def vector(self):
-        azr = np.deg2rad(self.azimuth)
-        elr = np.deg2rad(self.elevation)
-        v = np.array(
-            [-np.cos(azr) * np.cos(elr), np.sin(azr) * np.cos(elr), np.sin(elr)]
-        )
-        return v
+from surface_conversion.schemas import LightAngle
 
 
-def convert_image_to_slope_map(
+def compute_surface_normals(
     depthdata: NDArray[tuple[int, int]],
     xdim: int,
     ydim: int,
-    kernel: tuple[int, int] = (
-        [0, 1j, 0],
-        [1, 0, -1],
-        [0, -1j, 0],
-    ),
+    kernel: NDArray = np.array([[0, 1j, 0], [1, 0, -1], [0, -1j, 0]]),
 ):
     """
     Compute surface-normal components (n1, n2, n3) from a 2D depth map.
@@ -39,6 +22,8 @@ def convert_image_to_slope_map(
         Physical spacing between columns in meters (Δx).
     ydim : float
         Physical spacing between rows in meters (Δy).
+    kernel : NDArray
+        the kernel used to convolve the diff of the neighboring cells
 
     Returns
     -------
@@ -50,7 +35,7 @@ def convert_image_to_slope_map(
     """
     factor_x = 1 / (2 * xdim)
     factor_y = 1 / (2 * ydim)
-    z = convolve2d(depthdata, np.array(kernel), "same", fillvalue=np.nan)
+    z = convolve2d(depthdata, kernel, "same", fillvalue=np.nan)
     hx = z.real * factor_x
     hy = z.imag * factor_y
 
@@ -61,33 +46,52 @@ def convert_image_to_slope_map(
     return n1, n2, n3
 
 
-def calculate_surface(LS, OBS, n1, n2, n3):
-    """Calculate diffuse + specular components."""
-    # PREPARATIONS
-    h = LS + OBS
-    h = h / np.sqrt(np.dot(h, h))  # normalize
+def calculate_lighting(
+    light_vector: NDArray,
+    observer_vector: NDArray,
+    n1: NDArray,
+    n2: NDArray,
+    n3: NDArray,
+    specular_factor: float = 1.0,
+    phong_exponent: int = 4,
+) -> NDArray:
+    """
+    Calculate diffuse + specular lighting components.
 
-    # DIFFUSE COMPONENT
-    Idiffuse = LS[0] * n1 + LS[1] * n2 + LS[2] * n3
-    Idiffuse[Idiffuse < 0] = 0
+    Parameters
+    ----------
+    light_vector : NDArray
+        Direction to light source (normalized).
+    observer_vector : NDArray
+        Direction to observer (normalized).
+    n1, n2, n3 : NDArray
+        Surface normal components.
+    specular_factor : float
+        Weight of specular component (default: 1.0).
+    phong_exponent : int
+        Phong exponent for specular highlights (default: 4).
 
-    # SPECULAR COMPONENT
-    Ispec = h[0] * n1 + h[1] * n2 + h[2] * n3
-    Ispec[Ispec < 0] = 0
-    Ispec = np.cos(2 * np.arccos(Ispec))
-    Ispec[Ispec < 0] = 0
+    Returns
+    -------
+    NDArray
+        Combined lighting intensity [0, 1].
+    """
+    h = light_vector + observer_vector
+    h = h / np.linalg.norm(h)
 
-    # Phong factor f=4
-    Ispec = Ispec**4
+    diffuse = light_vector[0] * n1 + light_vector[1] * n2 + light_vector[2] * n3
+    diffuse = np.maximum(diffuse, 0)
 
-    # Combine
-    fspec = 1
-    Iout = (Idiffuse + fspec * Ispec) / (1 + fspec)
-    return Iout
+    specular = h[0] * n1 + h[1] * n2 + h[2] * n3
+    specular = np.maximum(specular, 0)
+    specular = np.cos(2 * np.arccos(specular))
+    specular = np.maximum(specular, 0) ** phong_exponent
+
+    intensity = (diffuse + specular_factor * specular) / (1 + specular_factor)
+    return intensity
 
 
-def merge_depth_map_with_slope_maps(
-    depthdata: NDArray[tuple[int, int]],
+def apply_multiple_lights(
     n1: NDArray[tuple[int, int]],
     n2: NDArray[tuple[int, int]],
     n3: NDArray[tuple[int, int]],
@@ -108,9 +112,10 @@ def merge_depth_map_with_slope_maps(
     -------
 
     """
-    Iout = np.full((*depthdata.shape, len(light_angles)), np.nan)
-    for i, light_angle in enumerate(light_angles):
-        Iout[:, :, i] = calculate_surface(
-            light_angle.vector, observer.vector, n1, n2, n3
-        )
-    return Iout
+    return np.stack(
+        [
+            calculate_lighting(light_angle.vector, observer.vector, n1, n2, n3)
+            for light_angle in light_angles
+        ],
+        axis=-1,
+    )
