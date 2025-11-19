@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage.transform import resize
-from surface_conversion import convert_image_to_slope_map
-from surface_conversion.translations import merge_depth_map_with_slope_maps, LightAngle
+from surface_conversion import compute_surface_normals
+from surface_conversion.translations import apply_multiple_lights
+from surface_conversion.schemas import LightAngle
 
 
 def get_surface_plot(data_in, *args):
@@ -64,10 +65,10 @@ def get_surface_plot(data_in, *args):
         bbox = DetermineBoundingBox(mask)
         depthdata = depthdata[bbox[1, 0] - 1 : bbox[1, 1], bbox[0, 0] - 1 : bbox[0, 1]]
 
-    n1, n2, n3 = convert_image_to_slope_map(depthdata=depthdata, xdim=xdim, ydim=ydim)
+    n1, n2, n3 = compute_surface_normals(depthdata=depthdata, xdim=xdim, ydim=ydim)
 
     # Calculate intensity of surface for each light source
-    Iout = merge_depth_map_with_slope_maps(depthdata, n1, n2, n3, light_angles)
+    Iout = apply_multiple_lights(n1, n2, n3, light_angles)
 
     # Calculate total intensity of surface
     Iout = np.nansum(Iout, axis=2)

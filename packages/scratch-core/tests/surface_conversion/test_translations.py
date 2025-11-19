@@ -4,8 +4,8 @@ from numpy._typing import NDArray
 from numpy.testing import assert_allclose
 
 from utils.conversions import convert_azimuth_elevation_to_vector
-from surface_conversion import convert_image_to_slope_map
-from surface_conversion.translations import calculate_surface
+from surface_conversion import compute_surface_normals
+from surface_conversion.translations import calculate_lighting
 
 
 class TestSurfaceSlopeConversion:
@@ -29,7 +29,7 @@ class TestSurfaceSlopeConversion:
         outer_mask = ~inner_mask
 
         # Act
-        n1, n2, n3 = convert_image_to_slope_map(input_image, 1, 1)
+        n1, n2, n3 = compute_surface_normals(input_image, 1, 1)
 
         # Assert
         assert not np.any(np.isnan(n1[inner_mask])), (
@@ -59,7 +59,7 @@ class TestSurfaceSlopeConversion:
         input_image = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
 
         # Act
-        n1, n2, n3 = convert_image_to_slope_map(input_image, 1, 1)
+        n1, n2, n3 = compute_surface_normals(input_image, 1, 1)
 
         # Assert
         assert n1.shape == input_image.shape
@@ -95,7 +95,7 @@ class TestSurfaceSlopeConversion:
         input_image = y_vals[:, None] + x_vals[None, :]
 
         # Act
-        n1, n2, n3 = convert_image_to_slope_map(input_image, xdim=1, ydim=1)
+        n1, n2, n3 = compute_surface_normals(input_image, xdim=1, ydim=1)
 
         # Assert
         (
@@ -142,7 +142,7 @@ class TestSurfaceSlopeConversion:
         outside_bump_mask = ~bump_mask & inner_mask
 
         # Act
-        n1, n2, n3 = convert_image_to_slope_map(input_depth_map, xdim=1, ydim=1)
+        n1, n2, n3 = compute_surface_normals(input_depth_map, xdim=1, ydim=1)
 
         # Assert
         assert np.any(np.abs(n1[bump_mask]) > 0), "n1 should have slope inside bump"
@@ -189,7 +189,7 @@ class TestSurfaceSlopeConversion:
         ~bump_mask & inner_mask
 
         # Act
-        n1, n2, n3 = convert_image_to_slope_map(input_depth_map, xdim=1, ydim=1)
+        n1, n2, n3 = compute_surface_normals(input_depth_map, xdim=1, ydim=1)
 
         # Assert
         corner = (center_row - bump_size // 2, center_col - bump_size // 2)
@@ -219,7 +219,7 @@ class TestCalculateSurface:
         observer_vector = convert_azimuth_elevation_to_vector(0, 90)
 
         # Act
-        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+        out = calculate_lighting(light_source, observer_vector, n1, n2, n3)
 
         # Assert
         assert out.shape == (self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT)
@@ -231,7 +231,7 @@ class TestCalculateSurface:
         observer_vector = convert_azimuth_elevation_to_vector(0, 90)
 
         # Act
-        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+        out = calculate_lighting(light_source, observer_vector, n1, n2, n3)
 
         # Assert
         assert np.all(out >= 0)
@@ -244,7 +244,7 @@ class TestCalculateSurface:
         observer_vector = convert_azimuth_elevation_to_vector(0, 90)
 
         # Act
-        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+        out = calculate_lighting(light_source, observer_vector, n1, n2, n3)
 
         # Assert
         assert np.allclose(out, out[0, 0])
@@ -260,7 +260,7 @@ class TestCalculateSurface:
         observer_vector = convert_azimuth_elevation_to_vector(0, 90)
 
         # Act
-        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+        out = calculate_lighting(light_source, observer_vector, n1, n2, n3)
 
         # Assert
         center = out[self.TEST_IMAGE_WIDTH // 2, self.TEST_IMAGE_HEIGHT // 2]
@@ -313,7 +313,7 @@ class TestCalculateSurface:
         observer_vector = np.array([0.0, 0.0, 1.0])
 
         # Act
-        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+        out = calculate_lighting(light_source, observer_vector, n1, n2, n3)
 
         # Assert
         assert np.all(out == 0), "values should be 0."
@@ -328,7 +328,7 @@ class TestCalculateSurface:
         observer_vector = np.array([0.0, 0.0, 1.0])
 
         # Act
-        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+        out = calculate_lighting(light_source, observer_vector, n1, n2, n3)
 
         # Assert
         assert np.allclose(out, 1.0), "(diffuse=1, specular=1), output = (1+1)/2 = 1"
@@ -341,7 +341,7 @@ class TestCalculateSurface:
         expected_constant = 0.46335
 
         # Act
-        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+        out = calculate_lighting(light_source, observer_vector, n1, n2, n3)
 
         # Assert
         assert np.allclose(out, expected_constant, atol=self.TOLERANCE)
