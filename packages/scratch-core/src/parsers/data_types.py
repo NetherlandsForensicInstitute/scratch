@@ -24,6 +24,11 @@ class ScanFileFormats(StrEnum):
     PLU = auto()
 
 
+class ScanDataKind(StrEnum):
+    ORIGINAL = auto()
+    SUBSAMPLED = auto()
+
+
 class FrozenBaseModel(BaseModel):
     """Base class for frozen Pydantic models."""
 
@@ -47,7 +52,7 @@ class ScanImage(FrozenBaseModel):
     :param scale_x: The pixel size in the X-direction in meters (m).
     :param scale_y: The pixel size in the Y-direction in meters (m).
     :param path_to_original_image: The filepath to the original image.
-    :param is_subsampled: Whether the image data is subsampled from the original image.
+    :param data_kind: An enum value for the kind of scan data (e.g. ORIGINAL or SUBSAMPLED).
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
@@ -55,7 +60,7 @@ class ScanImage(FrozenBaseModel):
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     path_to_original_image: Path
-    is_subsampled: bool = False
+    data_kind: ScanDataKind = ScanDataKind.ORIGINAL
     meta_data: dict | None = None
 
     @classmethod
