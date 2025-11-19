@@ -266,20 +266,56 @@ class TestCalculateSurface:
         border = out[0, 0]
         assert center != border
 
-    def test_diffuse_clamps_to_zero(self):
+    @pytest.mark.parametrize(
+        "light_source,n1,n2,n3",
+        [
+            pytest.param(
+                np.array([-1.0, 0.0, 0.0]),
+                np.ones((10, 10)),
+                np.zeros((10, 10)),
+                np.zeros((10, 10)),
+                id="Light pointing -X, normal pointing +X",
+            ),
+            pytest.param(
+                np.array([1.0, 0.0, 0.0]),
+                -np.ones((10, 10)),
+                np.zeros((10, 10)),
+                np.zeros((10, 10)),
+                id="Light pointing +X, normal pointing -X",
+            ),
+            pytest.param(
+                np.array([0.0, -1.0, 0.0]),
+                np.zeros((10, 10)),
+                np.ones((10, 10)),
+                np.zeros((10, 10)),
+                id="Light pointing -Y, normal pointing +Y",
+            ),
+            pytest.param(
+                np.array([0.0, 1.0, 0.0]),
+                np.zeros((10, 10)),
+                -np.ones((10, 10)),
+                np.zeros((10, 10)),
+                id="Light pointing +Y, normal pointing -Y",
+            ),
+            pytest.param(
+                np.array([0.0, 0.0, 1.0]),
+                np.zeros((10, 10)),
+                np.zeros((10, 10)),
+                -np.ones((10, 10)),
+                id="Light pointing +Z, normal pointing -Z",
+            ),
+        ],
+    )
+    def test_diffuse_clamps_to_zero(self, light_source, n1, n2, n3):
         """Opposite direction → diffuse should be 0."""
         # Arrange
-        n1 = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
-        n2 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
-        n3 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
-        light_source = np.array([-1.0, 0.0, 0.0])
         observer_vector = np.array([0.0, 0.0, 1.0])
 
         # Act
         out = calculate_surface(light_source, observer_vector, n1, n2, n3)
 
         # Assert
-        assert np.all(out == 0)
+        assert np.all(out == 0), "values should be 0."
 
     def test_specular_maximum_case(self):
         """If light, observer, and normal all align, specular should be maximal."""
