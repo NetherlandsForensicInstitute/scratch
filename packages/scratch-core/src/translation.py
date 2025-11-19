@@ -22,8 +22,7 @@ def subsample_data(
     return ScanImage(
         data=scan_image.data[::step_y, ::step_x].copy(order="F"),
         scale_x=scan_image.scale_x * step_x,
-        scale_y=scan_image.scale_x * step_y,
+        scale_y=scan_image.scale_y * step_y,
         path_to_original_image=scan_image.path_to_original_image,
-        is_subsampled=True,
-        meta_data={"original_scan_image": scan_image},
+        is_subsampled=True
     )
