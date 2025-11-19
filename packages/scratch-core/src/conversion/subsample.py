@@ -24,5 +24,5 @@ def subsample_data(
         scale_x=scan_image.scale_x * step_x,
         scale_y=scan_image.scale_y * step_y,
         path_to_original_image=scan_image.path_to_original_image,
-        is_subsampled=True
+        is_subsampled=True,
     )

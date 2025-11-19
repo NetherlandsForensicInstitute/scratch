@@ -1,7 +1,6 @@
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated
-
 from numpy.typing import NDArray
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 import numpy as np
