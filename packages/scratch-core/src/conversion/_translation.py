@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy._typing import NDArray
 from skimage.transform import resize
-from scipy.signal import convolve2d
+from surface_conversion import convert_image_to_slope_map
 
 
 def get_surface_plot(data_in, *args):
@@ -111,51 +111,8 @@ def merge_depth_map_with_slope_maps(
     OBS = getv(0, 90)  # azimuth 0 deg, elevation 90 deg
     for i in range(nLS):
         LS = getv(light_angles[i, 0], light_angles[i, 1])  # get light el and az
-        Iout[:, :, i] = calcsurf(LS, OBS, n1, n2, n3)
+        Iout[:, :, i] = calculate_surface(LS, OBS, n1, n2, n3)
     return Iout
-
-
-def convert_image_to_slope_map(
-    depthdata: NDArray[tuple[int, int]],
-    xdim: int,
-    ydim: int,
-    kernel: tuple[int, int] = (
-        [0, 1j, 0],
-        [1, 0, -1],
-        [0, -1j, 0],
-    ),
-):
-    """
-    Compute surface-normal components (n1, n2, n3) from a 2D depth map.
-
-    Parameters
-    ----------
-    depthdata : NDArray
-        2-D array of depth values, indexed as depth[y, x].
-    xdim : float
-        Physical spacing between columns in meters (Δx).
-    ydim : float
-        Physical spacing between rows in meters (Δy).
-
-    Returns
-    -------
-    n1, n2, n3 : NDArray
-        Components of the unit surface normal.
-        n1 = -∂z/∂x / norm
-        n2 = -∂z/∂y / norm
-        n3 = 1 / norm
-    """
-    factor_x = 1 / (2 * xdim)
-    factor_y = 1 / (2 * ydim)
-    z = convolve2d(depthdata, np.array(kernel), "same", fillvalue=np.nan)
-    hx = z.real * factor_x
-    hy = z.imag * factor_y
-
-    norm = np.sqrt(hx * hx + hy * hy + 1)
-    n1 = -hx / norm
-    n2 = hy / norm
-    n3 = 1 / norm
-    return n1, n2, n3
 
 
 # --------------------------------------------
@@ -170,7 +127,7 @@ def getv(az, el):
 
 
 # --------------------------------------------
-def calcsurf(LS, OBS, n1, n2, n3):
+def calculate_surface(LS, OBS, n1, n2, n3):
     """Calculate diffuse + specular components."""
     # PREPARATIONS
     h = LS + OBS
