@@ -20,9 +20,9 @@ classifiers = [
 
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi[standard]>=0.119.0",
-    "loguru>=0.7.3",
-    "uvicorn>=0.38.0",
+  "fastapi[standard]>=0.119.0",
+  "loguru>=0.7.3",
+  "uvicorn>=0.38.0",
 ]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
@@ -79,7 +79,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.pydocstyle]
-convention = "numpy"            # docstring type to use
+convention = "numpy"             # docstring type to use
 ignore-decorators = ["property"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -115,11 +115,7 @@ omit = ["src/main.py"]
 
 [tool.coverage.run]
 branch = true
-source = [
-  "src",
-  "packages/stats/src",
-  "packages/scratch-core/src",
-]
+source = ["src", "packages/scratch-core/src"]
 omit = ["src/main.py"]
 
 [tool.coverage.html]
