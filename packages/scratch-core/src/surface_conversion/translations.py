@@ -1,6 +1,14 @@
 import numpy as np
 from numpy._typing import NDArray
+from pydantic import BaseModel, Field
 from scipy.signal import convolve2d
+
+from utils.conversions import convert_azimuth_elevation_to_vector
+
+
+class LightAngle(BaseModel):
+    azimuth: float = Field(..., description="Azimuth angle in degrees.")
+    elevation: float = Field(..., description="Elevation angle in degrees.")
 
 
 def convert_image_to_slope_map(
@@ -68,4 +76,39 @@ def calculate_surface(LS, OBS, n1, n2, n3):
     # Combine
     fspec = 1
     Iout = (Idiffuse + fspec * Ispec) / (1 + fspec)
+    return Iout
+
+
+def merge_depth_map_with_slope_maps(
+    depthdata: NDArray[tuple[int, int]],
+    n1: NDArray[tuple[int, int]],
+    n2: NDArray[tuple[int, int]],
+    n3: NDArray[tuple[int, int]],
+    light_angles: tuple[LightAngle],
+):
+    """
+
+    Parameters
+    ----------
+    depthdata
+    n1
+    n2
+    n3
+    light_angles
+
+    Returns
+    -------
+
+    """
+    nLS = len(light_angles)
+    Iout = np.full(
+        (*depthdata.shape, nLS), np.nan
+    )  # adds sort of empty layer per light_angle to fill later on
+    # Create vector pointing towards observer
+    OBS = convert_azimuth_elevation_to_vector(0, 90)  # azimuth 0 deg, elevation 90 deg
+    for i, light_angle in enumerate(light_angles):
+        LS = convert_azimuth_elevation_to_vector(
+            light_angle.azimuth, light_angle.elevation
+        )  # get light el and az
+        Iout[:, :, i] = calculate_surface(LS, OBS, n1, n2, n3)
     return Iout
