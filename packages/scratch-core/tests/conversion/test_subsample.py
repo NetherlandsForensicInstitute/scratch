@@ -25,8 +25,9 @@ def test_subsample_matches_size(
 def test_subsample_matches_baseline_output(
     scan_image_replica: ScanImage, baseline_images_dir: Path, atol: float
 ):
-    subsampled = subsample_data(scan_image=scan_image_replica, step_size=(10, 15))
     verified = ScanImage.from_file(baseline_images_dir / "replica_subsampled.x3p")
+
+    subsampled = subsample_data(scan_image=scan_image_replica, step_size=(10, 15))
     assert np.allclose(
         subsampled.data,
         verified.data,
