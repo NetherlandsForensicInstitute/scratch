@@ -16,6 +16,18 @@ def scans_dir() -> Path:
     return TEST_ROOT / "resources" / "scans"
 
 
+@pytest.fixture(scope="session")
+def baseline_images_dir() -> Path:
+    """Path to resources baseline images directory."""
+    return TEST_ROOT / "resources" / "baseline_images"
+
+
+@pytest.fixture(scope="session")
+def atol() -> float:
+    """Return a small value for the absolute tolerance since parsed values are in meters."""
+    return 1e-16
+
+
 @pytest.fixture
 def image_data(scans_dir: Path) -> NDArray:
     """Build a fixture with ground truth image data."""
@@ -28,3 +40,9 @@ def image_data(scans_dir: Path) -> NDArray:
 def scan_image(image_data: NDArray) -> ScanImage:
     """Build a `ScanImage` object`."""
     return ScanImage(data=image_data, path_to_original_image=Path("some/path/file.x3p"))
+
+
+@pytest.fixture
+def scan_image_replica(scans_dir: Path) -> ScanImage:
+    """Build a `ScanImage` object`."""
+    return ScanImage.from_file(scans_dir / "Klein_non_replica_mode.al3d")

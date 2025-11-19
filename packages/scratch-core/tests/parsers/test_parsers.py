@@ -11,9 +11,9 @@ def validate_image(
     parsed_image: ScanImage,
     expected_image_data: NDArray,
     expected_scale: float,
+    atol: float,
 ):
     """Validate a parsed image."""
-    atol = 1e-16  # take a small value for the absolute tolerance since parsed values are in meters
     assert isinstance(parsed_image, ScanImage)
     assert parsed_image.data.shape == expected_image_data.shape
     assert np.allclose(
@@ -46,7 +46,11 @@ def test_exception_on_incorrect_shape(image_data: NDArray):
     [("circle.al3d", 8.7654321e-7), ("circle.x3p", 8.7654321e-7)],
 )
 def test_parser_can_parse(
-    filename: Path, image_data: NDArray, expected_scale: float, scans_dir: Path
+    filename: Path,
+    image_data: NDArray,
+    expected_scale: float,
+    scans_dir: Path,
+    atol: float,
 ):
     file_to_test = scans_dir / filename
     parsed_image = ScanImage.from_file(file_to_test)
@@ -55,6 +59,7 @@ def test_parser_can_parse(
         parsed_image=parsed_image,
         expected_image_data=image_data,
         expected_scale=expected_scale,
+        atol=atol,
     )
 
 
@@ -68,7 +73,9 @@ def test_parsed_image_can_be_exported_to_x3p(
 
 
 @pytest.mark.integration
-def test_al3d_can_be_converted_to_x3p(scans_dir: Path, tmp_path: PosixPath):
+def test_al3d_can_be_converted_to_x3p(
+    scans_dir: Path, tmp_path: PosixPath, atol: float
+):
     al3d_file = scans_dir / "circle.al3d"
     parsed_image = ScanImage.from_file(al3d_file)
     output_file = tmp_path / "export.x3p"
@@ -80,4 +87,5 @@ def test_al3d_can_be_converted_to_x3p(scans_dir: Path, tmp_path: PosixPath):
         parsed_image=parsed_exported_image,
         expected_image_data=parsed_image.data,
         expected_scale=parsed_image.scale_x,
+        atol=atol,
     )
