@@ -97,6 +97,7 @@ def apply_multiple_lights(
     n3: NDArray[tuple[int, int]],
     light_angles: tuple[LightAngle],
     observer: LightAngle = LightAngle(azimuth=0, elevation=90),
+    lighting_calculator=calculate_lighting,
 ):
     """
 
@@ -107,6 +108,8 @@ def apply_multiple_lights(
     n2
     n3
     light_angles
+    observer
+    lighting_calculator
 
     Returns
     -------
@@ -114,8 +117,37 @@ def apply_multiple_lights(
     """
     return np.stack(
         [
-            calculate_lighting(light_angle.vector, observer.vector, n1, n2, n3)
+            lighting_calculator(light_angle.vector, observer.vector, n1, n2, n3)
             for light_angle in light_angles
         ],
         axis=-1,
     )
+
+
+def pre_refactor_logic(
+    depthdata,
+    xdim,
+    ydim,
+    light_angles: tuple[LightAngle] = (
+        LightAngle(azimuth=90, elevation=45),
+        LightAngle(azimuth=180, elevation=45),
+    ),
+    famb=25,
+):
+    n1, n2, n3 = compute_surface_normals(depthdata=depthdata, xdim=xdim, ydim=ydim)
+
+    # Calculate intensity of surface for each light source
+    Iout = apply_multiple_lights(n1, n2, n3, light_angles)
+
+    # Calculate total intensity of surface
+    Iout = np.nansum(Iout, axis=2)
+
+    # Normalize between [0,1]
+    Imin = np.nanmin(Iout)
+    Imax = np.nanmax(Iout)
+    Iout = (Iout - Imin) / (Imax - Imin)
+
+    # Add ambient component and scale [0,1]->[0,255]
+    Iout = famb + (255 - famb) * Iout
+
+    return Iout
