@@ -1,24 +1,21 @@
 import re
-from typing import Any
+from typing import Any, Literal
 
 from scipy.constants import micro, milli, nano
 
 
 def _extract_resolution_from_description(
-    description_text: str, label: str
+    description_text: str, axis: Literal["Vertical", "Lateral"]
 ) -> float | None:
     """
-    Parse resolution value from description text for a given label.
-
-    This helper function extracts the numeric value and unit from a resolution string
-    like "Estimated Vertical Resolution: 2.5 µm" and converts it to meters using the appropriate SI prefix.
+    Parse the axis resolution value from description text.
 
     Parameters
     ----------
     description_text : str
         The full description text to search in
-    label : str
-        The label to search for (e.g., "Estimated Lateral Resolution")
+    axis : str
+        The axis string to scrape
 
     Returns
     -------
@@ -27,7 +24,10 @@ def _extract_resolution_from_description(
     """
     if not (
         match_ := re.search(
-            rf"Estimated {re.escape(label)} Resolution:\s*(?P<quantity>[\d.]+)\s*(?P<unit>[mnµ]+)",
+            (
+                f"Estimated {axis} Resolution:"
+                r"\s*(?P<quantity>[\d.]+)\s*(?P<unit>[mnµ]+)"
+            ),
             description_text,
         )
     ):
@@ -53,7 +53,7 @@ def _extract_resolution_from_description(
 
 
 def extract_resolutions_from_xml_data(
-    data: dict[str, Any],
+    xml_data: dict[str, Any],
 ) -> tuple[float | None, float | None]:
     """
     Extract VR and LR from AL3D XMLData structure.
@@ -72,10 +72,8 @@ def extract_resolutions_from_xml_data(
 
     """
     try:
-        # MATLAB: data.XMLData.Object3D.generalData.description.Text
-        description_text = data["XMLData"]["Object3D"]["generalData"]["description"][
-            "Text"
-        ]
+        # data.XMLData.Object3D.generalData.description.Text
+        description_text = xml_data["Object3D"]["generalData"]["description"]["Text"]
     except (KeyError, IndexError, ValueError, AttributeError):
         return None, None
 
