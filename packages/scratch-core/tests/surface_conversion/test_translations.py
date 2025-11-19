@@ -4,8 +4,8 @@ from numpy._typing import NDArray
 from numpy.testing import assert_allclose
 
 from utils.conversions import convert_azimuth_elevation_to_vector
-from surface_conversion.translations import calculate_surface
 from surface_conversion import convert_image_to_slope_map
+from surface_conversion.translations import calculate_surface
 
 
 class TestSurfaceSlopeConversion:
