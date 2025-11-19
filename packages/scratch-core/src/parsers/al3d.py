@@ -13,9 +13,6 @@ from surfalize import Surface
 
 from models.enums import ImageType, SupportedExtension
 from models.image import ImageData
-from parsers.extract_al3d_resolution import (
-    extract_resolutions_from_xml_data,
-)
 
 
 def load_al3d_file(file_path: Path) -> ImageData:
@@ -84,7 +81,7 @@ def load_al3d_file(file_path: Path) -> ImageData:
     # Try to extract VR/LR from XML data if not already extracted
     # MATLAB: if isfield(data, 'XMLData')
     if vertical_resolution is None or lateral_resolution is None:
-        vertical_resolution, lateral_resolution = extract_resolutions_from_xml_data({})
+        pass  # TODO: redo this section
 
     # Build additional_info matching MATLAB structure
     # MATLAB: additional_info.Header = data.Header
