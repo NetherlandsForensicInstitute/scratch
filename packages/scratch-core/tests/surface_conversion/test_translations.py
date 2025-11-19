@@ -3,7 +3,7 @@ import pytest
 from numpy._typing import NDArray
 from numpy.testing import assert_allclose
 
-from conversion._translation import getv
+from utils.conversions import convert_azimuth_elevation_to_vector
 from surface_conversion.translations import calculate_surface
 from surface_conversion import convert_image_to_slope_map
 
@@ -215,8 +215,8 @@ class TestCalculateSurface:
     def test_shape(self, base_images):
         # Arrange
         n1, n2, n3 = base_images
-        light_source = getv(45, 180)
-        observer_vector = getv(0, 90)
+        light_source = convert_azimuth_elevation_to_vector(45, 180)
+        observer_vector = convert_azimuth_elevation_to_vector(0, 90)
 
         # Act
         out = calculate_surface(light_source, observer_vector, n1, n2, n3)
@@ -227,8 +227,8 @@ class TestCalculateSurface:
     def test_value_range(self, base_images):
         # Arrange
         n1, n2, n3 = base_images
-        light_source = getv(45, 180)
-        observer_vector = getv(0, 90)
+        light_source = convert_azimuth_elevation_to_vector(45, 180)
+        observer_vector = convert_azimuth_elevation_to_vector(0, 90)
 
         # Act
         out = calculate_surface(light_source, observer_vector, n1, n2, n3)
@@ -240,8 +240,8 @@ class TestCalculateSurface:
     def test_constant_normals_give_constant_output(self, base_images):
         # Arrange
         n1, n2, n3 = base_images
-        light_source = getv(10, 30)
-        observer_vector = getv(0, 90)
+        light_source = convert_azimuth_elevation_to_vector(10, 30)
+        observer_vector = convert_azimuth_elevation_to_vector(0, 90)
 
         # Act
         out = calculate_surface(light_source, observer_vector, n1, n2, n3)
@@ -256,8 +256,8 @@ class TestCalculateSurface:
         n2 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
         n3 = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
         n3[self.TEST_IMAGE_WIDTH // 2, self.TEST_IMAGE_HEIGHT // 2] = 1.3
-        light_source = getv(45, 45)
-        observer_vector = getv(0, 90)
+        light_source = convert_azimuth_elevation_to_vector(45, 45)
+        observer_vector = convert_azimuth_elevation_to_vector(0, 90)
 
         # Act
         out = calculate_surface(light_source, observer_vector, n1, n2, n3)

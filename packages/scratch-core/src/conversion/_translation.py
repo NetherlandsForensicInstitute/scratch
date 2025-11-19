@@ -4,6 +4,7 @@ from numpy._typing import NDArray
 from skimage.transform import resize
 from surface_conversion import convert_image_to_slope_map
 from surface_conversion.translations import calculate_surface
+from utils.conversions import convert_azimuth_elevation_to_vector
 
 
 def get_surface_plot(data_in, *args):
@@ -109,22 +110,13 @@ def merge_depth_map_with_slope_maps(
         (*depthdata.shape, nLS), np.nan
     )  # adds sort of empty layer per light_angle to fill later on
     # Create vector pointing towards observer
-    OBS = getv(0, 90)  # azimuth 0 deg, elevation 90 deg
+    OBS = convert_azimuth_elevation_to_vector(0, 90)  # azimuth 0 deg, elevation 90 deg
     for i in range(nLS):
-        LS = getv(light_angles[i, 0], light_angles[i, 1])  # get light el and az
+        LS = convert_azimuth_elevation_to_vector(
+            light_angles[i, 0], light_angles[i, 1]
+        )  # get light el and az
         Iout[:, :, i] = calculate_surface(LS, OBS, n1, n2, n3)
     return Iout
-
-
-# --------------------------------------------
-def getv(az, el):
-    """Compute vector from azimuth/elevation (degrees)."""
-    azr = np.deg2rad(az)
-    elr = np.deg2rad(el)
-    v = np.array(
-        [-np.cos(azr) * np.cos(elr), np.sin(azr) * np.cos(elr), np.sin(elr)]
-    )  # vx,vy,vz as 3D light vector.
-    return v
 
 
 def DetermineBoundingBox(mask):
