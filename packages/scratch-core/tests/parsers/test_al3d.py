@@ -8,7 +8,8 @@ import pytest
 
 from models.enums import ImageType, SupportedExtension
 from models.image import ImageData
-from parsers.al3d import _extract_resolution_from_description, load_al3d_file
+from parsers.al3d import load_al3d_file
+from parsers.extract_al3d_resolution import _extract_resolution_from_description
 
 AL3D_FILES: Final[tuple[str, ...]] = (
     "circle.al3d",
@@ -106,24 +107,24 @@ def test_load_al3d_invalid_pixels_are_nan(scans_dir: Path) -> None:
     assert np.isnan(result.invalid_pixel_val)
 
 
-@pytest.mark.parametrize("filename", AL3D_FILES)
-def test_load_all_al3d_files(filename: str, scans_dir: Path) -> None:
+def test_load_all_al3d_files(al3d_file_path: Path) -> None:
     """Test that all AL3D files in resources can be loaded."""
-    al3d_file = scans_dir / filename
 
     # Skip if this is a Git LFS pointer (file not actually downloaded)
-    if is_git_lfs_pointer(al3d_file):
-        pytest.skip(f"{filename} is a Git LFS pointer - actual file not downloaded")
+    if is_git_lfs_pointer(al3d_file_path):
+        pytest.skip(
+            f"{al3d_file_path} is a Git LFS pointer - actual file not downloaded"
+        )
 
-    result = load_al3d_file(al3d_file)
+    result = load_al3d_file(al3d_file_path)
 
     # Basic validation
     assert isinstance(result, ImageData)
     assert result.type == ImageType.SURFACE
     assert result.depth_data is not None
-    assert result.depth_data.size > 0, f"File {filename} has empty depth data"
-    assert result.xdim > 0, f"File {filename} has invalid xdim"
-    assert result.ydim > 0, f"File {filename} has invalid ydim"
+    assert result.depth_data.size > 0, f"File {al3d_file_path} has empty depth data"
+    assert result.xdim > 0, f"File {al3d_file_path} has invalid xdim"
+    assert result.ydim > 0, f"File {al3d_file_path} has invalid ydim"
 
 
 def test_load_al3d_surface_data_shape(scans_dir: Path) -> None:

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from scipy.constants import micro
 from surfalize import Surface
 
 from models.enums import ImageType, SupportedExtension
@@ -60,8 +61,8 @@ def load_al3d_file(file_path: Path) -> ImageData:
     # MATLAB: ydim = str2double(data.Header.PixelSizeYMeter)
     # Note: surfalize already extracts these and stores them in step_x, step_y
     # They are in meters in the original file
-    xdim = float(surface.step_x * 1e-6)  # Convert from µm to m
-    ydim = float(surface.step_y * 1e-6)  # Convert from µm to m
+    xdim = float(surface.step_x * micro)  # Convert from µm to m
+    ydim = float(surface.step_y * micro)  # Convert from µm to m
 
     # Initialize metadata fields
     texture_data = None
