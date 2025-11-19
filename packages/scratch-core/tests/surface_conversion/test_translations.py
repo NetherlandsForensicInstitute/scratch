@@ -1,158 +1,10 @@
 import numpy as np
 import pytest
-
-from conversion._translation import get_surface_plot
-from matplotlib import pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.testing.decorators import image_comparison
 from numpy._typing import NDArray
-from parsers.data_types import ScanImage
-from pydantic import BaseModel, Field
+from numpy.testing import assert_allclose
 
-from utils.paths import ROOT_DIR
-
-
-@pytest.fixture
-def mask_crop(scan_image: ScanImage) -> NDArray[tuple[int, int]]:
-    """Makes a mask used for cropping (all is 0 except the drawn square)."""
-    mask = np.zeros((scan_image.width, scan_image.height), dtype=np.uint8)
-    square_size = 85
-    x_start_cor = 100
-    y_start_cor = 150
-    mask[
-        x_start_cor : x_start_cor + square_size, y_start_cor : y_start_cor + square_size
-    ] = 1
-    return mask
-
-
-@pytest.fixture
-def mask(scan_image: ScanImage) -> NDArray[tuple[int, int]]:
-    """Makes a mask used for masking that area (all is 1 except the drawn square)."""
-    mask = np.ones((scan_image.width, scan_image.height), dtype=np.uint8)
-    square_size = 85
-    x_start_cor = 100
-    y_start_cor = 150
-    mask[
-        x_start_cor : x_start_cor + square_size, y_start_cor : y_start_cor + square_size
-    ] = 0
-    return mask
-
-
-class ScanData(BaseModel, arbitrary_types_allowed=True):
-    """For making testing more readable, dict is moved to pydantic model."""
-
-    depth_data: NDArray[tuple[int, int]]
-    xdim: float = Field(
-        ...,
-        description="x dimension of meters for 1 pixel",
-        gt=0,
-        le=1,
-        examples=[0.7, 1],
-    )
-    ydim: float = Field(
-        ...,
-        description="y dimension of meters for 1 pixel",
-        gt=0,
-        le=1,
-        examples=[0.7, 1],
-    )
-
-
-@pytest.fixture
-def data_in(scan_image: ScanImage) -> ScanData:
-    image = ScanImage.from_file(
-        ROOT_DIR / "tests/resources/scans/Klein_non_replica_mode.al3d"
-    )
-    return ScanData(
-        depth_data=image.data,
-        xdim=image.scale_x,
-        ydim=image.scale_y,
-    )
-
-
-def plot_test_data(data, show_plot=True) -> Figure:
-    """Plot test data for debugging purposes."""
-    fig, ax = plt.subplots()
-    ax.imshow(data, cmap="gray")
-    ax.axis("off")
-    ax.axis("equal")
-    if show_plot:
-        fig.show()
-    return fig
-
-
-@image_comparison(baseline_images=["surfaceplot_default"], extensions=["png"])
-def test_get_surface_plot(data_in: ScanData) -> None:
-    data = get_surface_plot(data_in.model_dump())
-    plot_test_data(data, show_plot=False)
-
-
-@image_comparison(baseline_images=["surfaceplot_extra_light"], extensions=["png"])
-def test_get_surface_plot_data_with_extra_light(data_in: ScanData) -> None:
-    data = get_surface_plot(data_in.model_dump(), True)
-    plot_test_data(data, show_plot=False)
-
-
-@pytest.mark.parametrize(
-    "light_angles",
-    [
-        # ([90, 45]),
-        pytest.param(([90, 45], [180, 45]), id="default value"),
-        pytest.param(([90, 45], [180, 45], [270, 45]), id="same as extra light source"),
-        pytest.param(([90, 45], [180, 45], [270, 45], [90, 90]), id="extra lights"),
-    ],
-)
-def test_get_surface_plot_data_with_light_angle(
-    data_in: ScanData, light_angles: tuple[list[int]]
-) -> None:
-    data = get_surface_plot(data_in.model_dump(), None, np.array(light_angles))
-    plot_test_data(data, show_plot=False)
-
-
-@image_comparison(baseline_images=["surfaceplot_with_masking"], extensions=["png"])
-def test_get_surface_plot_data_with_mask(
-    data_in: ScanData, mask: NDArray[tuple[int, int]]
-) -> None:
-    data = get_surface_plot(data_in.model_dump(), None, np.array([]), mask)
-    plot_test_data(data, show_plot=False)
-
-
-@image_comparison(
-    baseline_images=["surfaceplot_with_cropping_mask"], extensions=["png"]
-)
-def test_get_surface_plot_data_with_cropping_mask(
-    data_in: ScanData, mask_crop: NDArray[tuple[int, int]]
-) -> None:
-    data = get_surface_plot(data_in.model_dump(), None, np.array([]), mask_crop)
-    plot_test_data(data, show_plot=False)
-
-
-@image_comparison(baseline_images=["surfaceplot_mask_and_zoom"], extensions=["png"])
-def test_get_surface_plot_data_with_mask_and_zoom(
-    data_in: ScanData, mask_crop: NDArray[tuple[int, int]]
-) -> None:
-    data = get_surface_plot(data_in.model_dump(), None, np.array([]), mask_crop, True)
-    plot_test_data(data, show_plot=False)
-
-
-@image_comparison(baseline_images=["surfaceplot_zoom_failed"], extensions=["png"])
-def test_get_surface_plot_data_with_mask_and_zoom_failed(
-    data_in: ScanData, mask: NDArray[tuple[int, int]]
-) -> None:
-    data = get_surface_plot(data_in.model_dump(), None, np.array([]), mask, True)
-    plot_test_data(data, show_plot=False)
-
-
-@pytest.mark.integration
-@image_comparison(baseline_images=["surfaceplot"], extensions=["png"])
-def test_get_surface_plot_integration(
-    data_in: ScanData, mask_crop: NDArray[tuple[int, int]]
-) -> None:
-    """This integration test will provide all arguments of the get_surface_plot."""
-    data = get_surface_plot(
-        data_in.model_dump(), True, np.array([[90, 45], [30, 30]]), mask_crop, True
-    )
-    plot_test_data(data, show_plot=False)
+from conversion._translation import calculate_surface, getv
+from surface_conversion import convert_image_to_slope_map
 
 
 class TestSurfaceSlopeConversion:
@@ -345,3 +197,114 @@ class TestSurfaceSlopeConversion:
             assert_allclose(n3[corner], expected_corner_value, atol=self.TOLERANCE),
             "corner of x and y should have unit normal of x and y",
         )
+
+
+class TestCalculateSurface:
+    TEST_IMAGE_WIDTH = 10
+    TEST_IMAGE_HEIGHT = 10
+    TOLERANCE = 1e-5
+
+    @pytest.fixture(scope="class")
+    def base_images(self):
+        n1 = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.7)
+        n2 = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.6)
+        n3 = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.2)
+        return (n1, n2, n3)
+
+    def test_shape(self, base_images):
+        # Arrange
+        n1, n2, n3 = base_images
+        light_source = getv(45, 180)
+        observer_vector = getv(0, 90)
+
+        # Act
+        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+
+        # Assert
+        assert out.shape == (self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT)
+
+    def test_value_range(self, base_images):
+        # Arrange
+        n1, n2, n3 = base_images
+        light_source = getv(45, 180)
+        observer_vector = getv(0, 90)
+
+        # Act
+        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+
+        # Assert
+        assert np.all(out >= 0)
+        assert np.all(out <= 1)
+
+    def test_constant_normals_give_constant_output(self, base_images):
+        # Arrange
+        n1, n2, n3 = base_images
+        light_source = getv(10, 30)
+        observer_vector = getv(0, 90)
+
+        # Act
+        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+
+        # Assert
+        assert np.allclose(out, out[0, 0])
+
+    def test_bump_changes_values(self):
+        """Test that the shader reacts per pixel by giving a bump in the normals."""
+        # Arrange
+        n1 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        n2 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        n3 = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        n3[self.TEST_IMAGE_WIDTH // 2, self.TEST_IMAGE_HEIGHT // 2] = 1.3
+        light_source = getv(45, 45)
+        observer_vector = getv(0, 90)
+
+        # Act
+        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+
+        # Assert
+        center = out[self.TEST_IMAGE_WIDTH // 2, self.TEST_IMAGE_HEIGHT // 2]
+        border = out[0, 0]
+        assert center != border
+
+    def test_diffuse_clamps_to_zero(self):
+        """Opposite direction → diffuse should be 0."""
+        # Arrange
+        n1 = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        n2 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        n3 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        light_source = np.array([-1.0, 0.0, 0.0])
+        observer_vector = np.array([0.0, 0.0, 1.0])
+
+        # Act
+        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+
+        # Assert
+        assert np.all(out == 0)
+
+    def test_specular_maximum_case(self):
+        """If light, observer, and normal all align, specular should be maximal."""
+        # Arrange
+        n1 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        n2 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        n3 = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        light_source = np.array([0.0, 0.0, 1.0])
+        observer_vector = np.array([0.0, 0.0, 1.0])
+
+        # Act
+        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+
+        # Assert
+        assert np.allclose(out, 1.0), "(diffuse=1, specular=1), output = (1+1)/2 = 1"
+
+    def test_lighting_known_value(self, base_images):
+        # Arrange
+        n1, n2, n3 = base_images
+        light_source = np.array([1.0, 0.0, 0.0])
+        observer_vector = np.array([0.0, 1.0, 0.0])
+        expected_constant = 0.46335
+
+        # Act
+        out = calculate_surface(light_source, observer_vector, n1, n2, n3)
+
+        # Assert
+        assert np.allclose(out, expected_constant, atol=self.TOLERANCE)
