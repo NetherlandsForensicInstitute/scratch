@@ -7,7 +7,7 @@ import numpy as np
 
 
 @pytest.mark.parametrize("step_size", [1, 10, (25, 25), (25, 50)])
-def test_subsample_by_size(
+def test_subsample_matches_size(
     scan_image: ScanImage, step_size: int | tuple[int, int], atol: float
 ):
     subsampled = subsample_data(scan_image=scan_image, step_size=step_size)
@@ -22,7 +22,7 @@ def test_subsample_by_size(
     assert np.isclose(subsampled.scale_y, scan_image.scale_y * step_size[1], atol=atol)
 
 
-def test_subsample_by_baseline(
+def test_subsample_matches_baseline_output(
     scan_image_replica: ScanImage, baseline_images_dir: Path, atol: float
 ):
     subsampled = subsample_data(scan_image=scan_image_replica, step_size=(10, 15))
