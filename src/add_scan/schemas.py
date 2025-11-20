@@ -10,10 +10,6 @@ class SupportedExtension(StrEnum):
     SUR = auto()
     LMS = auto()
     PLU = auto()
-    PNG = auto()
-    BMP = auto()
-    JPG = auto()
-    JPEG = auto()
 
 
 class BaseModelConfig(BaseModel):
