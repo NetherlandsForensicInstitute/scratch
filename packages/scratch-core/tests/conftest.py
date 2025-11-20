@@ -38,7 +38,7 @@ def image_data(scans_dir: Path) -> Array2D:
 @pytest.fixture
 def scan_image(image_data: Array2D) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return ScanImage(data=image_data, path_to_original_image=Path("some/path/file.x3p"))
+    return ScanImage(data=image_data)
 
 
 @pytest.fixture
