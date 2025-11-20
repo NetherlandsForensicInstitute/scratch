@@ -1,4 +1,7 @@
 from fastapi import APIRouter
+from parsers import ScanImage
+
+from .schemas import UploadScan
 
 
 class ParseError(Exception): ...
@@ -31,9 +34,10 @@ async def comparison_root() -> dict[str, str]:
     summary="Add a scan file to be processed",
     description="""""",
 )
-async def add_scan() -> dict[str, str]:
+async def add_scan(upload_scan: UploadScan) -> dict[str, str]:
     """TODO."""
     # parse parse incoming file
+    _ = ScanImage.from_file(upload_scan.scan_file)
     # raise Unable to ParseError
     # subsample the parsed file
     # export newly created files to output directory
