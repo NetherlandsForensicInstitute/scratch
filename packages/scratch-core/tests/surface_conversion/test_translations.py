@@ -231,7 +231,7 @@ class TestComputeSurfaceNormals:
         )
 
 
-class TestCalculateSurface:
+class TestCalculateLighting:
     TEST_IMAGE_WIDTH = 10
     TEST_IMAGE_HEIGHT = 10
     TOLERANCE = 1e-5
