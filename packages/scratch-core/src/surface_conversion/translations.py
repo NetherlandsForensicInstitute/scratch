@@ -9,7 +9,7 @@ def compute_surface_normals(
     depthdata: NDArray[tuple[int, int]],
     xdim: int,
     ydim: int,
-    kernel: NDArray = np.array([[0, 1j, 0], [1, 0, -1], [0, -1j, 0]]),
+    kernel: NDArray = np.array(((0, 1j, 0), (1, 0, -1), (0, -1j, 0))),
 ):
     """
     Compute surface-normal components (n1, n2, n3) from a 2D depth map.
