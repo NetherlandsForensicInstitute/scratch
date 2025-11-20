@@ -4,11 +4,12 @@ from numpy._typing import NDArray
 from numpy.testing import assert_allclose
 
 from surface_conversion import compute_surface_normals
+from surface_conversion.data_formats import SurfaceNormals, DepthMap
 from surface_conversion.schemas import LightAngle
 from surface_conversion.translations import calculate_lighting
 
 
-class TestSurfaceSlopeConversion:
+class TestComputeSurfaceNormals:
     TEST_IMAGE_WIDTH = 20
     TEST_IMAGE_HEIGHT = 20
     TOLERANCE = 1e-6
@@ -25,11 +26,14 @@ class TestSurfaceSlopeConversion:
         """The image is 1 pixel smaller on all sides due to the slope calculation.
         This is filled with NaN values to get the same shape as original image"""
         # Arrange
-        input_image = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        input_image = DepthMap(
+            data=np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT)),
+            xdim=1,
+            ydim=1,
+        )
         outer_mask = ~inner_mask
-
         # Act
-        surface_normals = compute_surface_normals(input_image, 1, 1)
+        surface_normals = compute_surface_normals(input_image)
 
         # Assert
         assert not np.any(np.isnan(surface_normals.nx[inner_mask])), (
@@ -57,9 +61,10 @@ class TestSurfaceSlopeConversion:
         """Given a flat surface the depth map should also be flat."""
         # Arrange
         input_image = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        depth_map = DepthMap(data=input_image, xdim=1, ydim=1)
 
         # Act
-        surface_normals = compute_surface_normals(input_image, 1, 1)
+        surface_normals = compute_surface_normals(depth_map)
 
         # Assert
         assert surface_normals.nx.shape == input_image.shape
@@ -79,15 +84,11 @@ class TestSurfaceSlopeConversion:
     @pytest.mark.parametrize(
         "step_x, step_y",
         [
-            pytest.param(2, 0, id="step increase in x"),
-            pytest.param(
-                0,
-                2,
-                id="step increase in y",
-            ),
-            pytest.param(2, 2, id="step increase in x and y"),
-            pytest.param(2, -2, id="positive and negative steps"),
-            pytest.param(-2, -2, id="negative x and y steps"),
+            pytest.param(2.0, 0.0, id="step increase in x"),
+            pytest.param(0.0, 2.0, id="step increase in y"),
+            pytest.param(2.0, 2.0, id="step increase in x and y"),
+            pytest.param(2.0, -2.0, id="positive and negative steps"),
+            pytest.param(-2.0, -2.0, id="negative x and y steps"),
         ],
     )
     def test_linear_slope(
@@ -102,9 +103,10 @@ class TestSurfaceSlopeConversion:
         x_vals = np.arange(self.TEST_IMAGE_WIDTH) * step_x
         y_vals = np.arange(self.TEST_IMAGE_HEIGHT) * step_y
         input_image = y_vals[:, None] + x_vals[None, :]
+        depth_map = DepthMap(data=input_image, xdim=1, ydim=1)
 
         # Act
-        surface_normals = compute_surface_normals(input_image, xdim=1, ydim=1)
+        surface_normals = compute_surface_normals(depth_map)
 
         # Assert
         (
@@ -140,6 +142,7 @@ class TestSurfaceSlopeConversion:
         bump_rows = slice(center_row - bump_size // 2, center_row + bump_size // 2)
         bump_cols = slice(center_col - bump_size // 2, center_col + bump_size // 2)
         input_depth_map[bump_rows, bump_cols] = bump_height
+        depth_map = DepthMap(data=input_depth_map, xdim=1, ydim=1)
 
         bump_mask = np.zeros_like(input_depth_map, dtype=bool)
         bump_mask[
@@ -157,7 +160,7 @@ class TestSurfaceSlopeConversion:
         outside_bump_mask = ~bump_mask & inner_mask
 
         # Act
-        surface_normals = compute_surface_normals(input_depth_map, xdim=1, ydim=1)
+        surface_normals = compute_surface_normals(depth_map)
 
         # Assert
         assert np.any(np.abs(surface_normals.nx[bump_mask]) > 0), (
@@ -204,6 +207,7 @@ class TestSurfaceSlopeConversion:
         bump_rows = slice(center_row - bump_size // 2, center_row + bump_size // 2)
         bump_cols = slice(center_col - bump_size // 2, center_col + bump_size // 2)
         input_depth_map[bump_rows, bump_cols] = bump_height
+        depth_map = DepthMap(data=input_depth_map, xdim=1, ydim=1)
 
         nan_offset = 1
         bump_mask = np.zeros_like(input_depth_map, dtype=bool)
@@ -214,7 +218,7 @@ class TestSurfaceSlopeConversion:
         ~bump_mask & inner_mask
 
         # Act
-        surface_normals = compute_surface_normals(input_depth_map, xdim=1, ydim=1)
+        surface_normals = compute_surface_normals(depth_map)
 
         # Assert
         corner = (center_row - bump_size // 2, center_col - bump_size // 2)
@@ -233,21 +237,20 @@ class TestCalculateSurface:
     TOLERANCE = 1e-5
 
     @pytest.fixture(scope="class")
-    def base_images(self):
-        n1 = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.7)
-        n2 = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.6)
-        n3 = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.2)
-        return (n1, n2, n3)
+    def base_images(self) -> SurfaceNormals:
+        nx = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.7)
+        ny = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.6)
+        nz = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.2)
+        return SurfaceNormals(nx=nx, ny=ny, nz=nz)
 
     def test_shape(self, base_images):
         # Arrange
-        n1, n2, n3 = base_images
         light_source = LightAngle(azimuth=45, elevation=180)
         observer_vector = LightAngle(azimuth=0, elevation=90)
 
         # Act
         out = calculate_lighting(
-            light_source.vector, observer_vector.vector, n1, n2, n3
+            light_source.vector, observer_vector.vector, base_images
         )
 
         # Assert
@@ -255,13 +258,12 @@ class TestCalculateSurface:
 
     def test_value_range(self, base_images):
         # Arrange
-        n1, n2, n3 = base_images
         light_source = LightAngle(azimuth=45, elevation=180)
         observer_vector = LightAngle(azimuth=0, elevation=90)
 
         # Act
         out = calculate_lighting(
-            light_source.vector, observer_vector.vector, n1, n2, n3
+            light_source.vector, observer_vector.vector, base_images
         )
 
         # Assert
@@ -270,13 +272,12 @@ class TestCalculateSurface:
 
     def test_constant_normals_give_constant_output(self, base_images):
         # Arrange
-        n1, n2, n3 = base_images
         light_source = LightAngle(azimuth=10, elevation=30)
         observer_vector = LightAngle(azimuth=0, elevation=90)
 
         # Act
         out = calculate_lighting(
-            light_source.vector, observer_vector.vector, n1, n2, n3
+            light_source.vector, observer_vector.vector, base_images
         )
 
         # Assert
@@ -285,16 +286,17 @@ class TestCalculateSurface:
     def test_bump_changes_values(self):
         """Test that the shader reacts per pixel by giving a bump in the normals."""
         # Arrange
-        n1 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
-        n2 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
-        n3 = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
-        n3[self.TEST_IMAGE_WIDTH // 2, self.TEST_IMAGE_HEIGHT // 2] = 1.3
+        nx = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        ny = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        nz = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        nz[self.TEST_IMAGE_WIDTH // 2, self.TEST_IMAGE_HEIGHT // 2] = 1.3
+        base_images = SurfaceNormals(nx=nx, ny=ny, nz=nz)
         light_source = LightAngle(azimuth=45, elevation=45)
         observer_vector = LightAngle(azimuth=0, elevation=90)
 
         # Act
         out = calculate_lighting(
-            light_source.vector, observer_vector.vector, n1, n2, n3
+            light_source.vector, observer_vector.vector, base_images
         )
 
         # Assert
@@ -303,7 +305,7 @@ class TestCalculateSurface:
         assert center != border
 
     @pytest.mark.parametrize(
-        "light_source,n1,n2,n3",
+        "light_source,nx,ny,nz",
         [
             pytest.param(
                 np.array([-1.0, 0.0, 0.0]),
@@ -342,13 +344,13 @@ class TestCalculateSurface:
             ),
         ],
     )
-    def test_diffuse_clamps_to_zero(self, light_source, n1, n2, n3):
+    def test_diffuse_clamps_to_zero(self, light_source, nx, ny, nz):
         """Opposite direction → diffuse should be 0."""
         # Arrange
         observer_vector = np.array([0.0, 0.0, 1.0])
-
+        base_images = SurfaceNormals(nx=nx, ny=ny, nz=nz)
         # Act
-        out = calculate_lighting(light_source, observer_vector, n1, n2, n3)
+        out = calculate_lighting(light_source, observer_vector, base_images)
 
         # Assert
         assert np.all(out == 0), "values should be 0."
@@ -356,27 +358,27 @@ class TestCalculateSurface:
     def test_specular_maximum_case(self):
         """If light, observer, and normal all align, specular should be maximal."""
         # Arrange
-        n1 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
-        n2 = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
-        n3 = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        nx = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        ny = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        nz = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        base_images = SurfaceNormals(nx=nx, ny=ny, nz=nz)
         light_source = np.array([0.0, 0.0, 1.0])
         observer_vector = np.array([0.0, 0.0, 1.0])
 
         # Act
-        out = calculate_lighting(light_source, observer_vector, n1, n2, n3)
+        out = calculate_lighting(light_source, observer_vector, base_images)
 
         # Assert
         assert np.allclose(out, 1.0), "(diffuse=1, specular=1), output = (1+1)/2 = 1"
 
     def test_lighting_known_value(self, base_images):
         # Arrange
-        n1, n2, n3 = base_images
         light_source = np.array([1.0, 0.0, 0.0])
         observer_vector = np.array([0.0, 1.0, 0.0])
         expected_constant = 0.46335
 
         # Act
-        out = calculate_lighting(light_source, observer_vector, n1, n2, n3)
+        out = calculate_lighting(light_source, observer_vector, base_images)
 
         # Assert
         assert np.allclose(out, expected_constant, atol=self.TOLERANCE)

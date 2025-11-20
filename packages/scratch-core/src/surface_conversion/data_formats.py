@@ -13,10 +13,10 @@ class DepthMap(BaseModel):
     data: NDArray[Shape[HeightWidth], float] = Field(
         ..., description="2D depth map array of shape (H, W)"
     )
-    xdim: int = Field(
+    xdim: float = Field(
         ..., description="X dimension, the space between pixels in meters."
     )
-    ydim: int = Field(
+    ydim: float = Field(
         ..., description="Y dimension, the space between pixels in meters."
     )
 
@@ -65,10 +65,6 @@ class LightVector(BaseModel):
     vec: NDArray[Shape[NormalVector], float] = Field(
         ..., description="Length-3 normalized direction vector"
     )
-
-    model_config = {
-        "arbitrary_types_allowed": True,
-    }
 
 
 class LightingStack(BaseModel):
