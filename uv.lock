@@ -1834,6 +1834,7 @@ dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "loguru" },
     { name = "pydantic" },
+    { name = "scratch-core" },
     { name = "uvicorn" },
 ]
 
@@ -1858,6 +1859,7 @@ requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.119.0" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "pydantic", specifier = ">=2.12.4" },
+    { name = "scratch-core", editable = "packages/scratch-core" },
     { name = "uvicorn", specifier = ">=0.38.0" },
 ]
 

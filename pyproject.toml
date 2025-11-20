@@ -24,12 +24,12 @@ dependencies = [
   "loguru>=0.7.3",
   "pydantic>=2.12.4",
   "uvicorn>=0.38.0",
+  "scratch-core",
 ]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
 [tool.uv.sources]
 scratch-core = { workspace = true }
-stats = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
