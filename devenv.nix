@@ -4,6 +4,7 @@
     [
       # project essentials packages
       git
+      git-lfs
       lazygit
       just
       ruff
