@@ -4,13 +4,13 @@ from fastapi import APIRouter
 class ParseError(Exception): ...
 
 
-pre_processors = APIRouter(
+add_scan = APIRouter(
     prefix="/add-scan",
     tags=["add-scan"],
 )
 
 
-@pre_processors.post(
+@add_scan.post(
     path="/",
     summary="Add a scan file to be processed",
     description="""""",
