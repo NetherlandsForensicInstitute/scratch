@@ -6,8 +6,8 @@ from matplotlib.figure import Figure
 from matplotlib.testing.decorators import image_comparison
 from numpy._typing import NDArray
 from parsers.data_types import ScanImage
-from pydantic import BaseModel, Field
 
+from surface_conversion.data_formats import DepthMap
 from surface_conversion.translations import pre_refactor_logic
 from utils.paths import ROOT_DIR
 
@@ -38,33 +38,13 @@ def mask(scan_image: ScanImage) -> NDArray[tuple[int, int]]:
     return mask
 
 
-class ScanData(BaseModel, arbitrary_types_allowed=True):
-    """For making testing more readable, dict is moved to pydantic model."""
-
-    depth_data: NDArray[tuple[int, int]]
-    xdim: float = Field(
-        ...,
-        description="x dimension of meters for 1 pixel",
-        gt=0,
-        le=1,
-        examples=[0.7, 1],
-    )
-    ydim: float = Field(
-        ...,
-        description="y dimension of meters for 1 pixel",
-        gt=0,
-        le=1,
-        examples=[0.7, 1],
-    )
-
-
 @pytest.fixture
-def data_in(scan_image: ScanImage) -> ScanData:
+def data_in(scan_image: ScanImage) -> DepthMap:
     image = ScanImage.from_file(
         ROOT_DIR / "tests/resources/scans/Klein_non_replica_mode.al3d"
     )
-    return ScanData(
-        depth_data=image.data,
+    return DepthMap(
+        data=image.data,
         xdim=image.scale_x,
         ydim=image.scale_y,
     )
@@ -83,6 +63,6 @@ def plot_test_data(data, show_plot=True) -> Figure:
 
 @pytest.mark.integration
 @image_comparison(baseline_images=["surfaceplot_default"], extensions=["png"])
-def test_get_surface_plot(data_in: ScanData) -> None:
-    data = pre_refactor_logic(data_in.depth_data, data_in.xdim, data_in.ydim)
+def test_get_surface_plot(data_in: DepthMap) -> None:
+    data = pre_refactor_logic(data_in)
     plot_test_data(data, show_plot=False)

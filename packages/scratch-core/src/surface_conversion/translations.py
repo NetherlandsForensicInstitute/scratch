@@ -2,22 +2,20 @@ import numpy as np
 from numpy._typing import NDArray
 from scipy.signal import convolve2d
 
-from surface_conversion.data_formats import DepthMap, SurfaceNormals
+from surface_conversion.data_formats import DepthMap, SurfaceNormals, LightVector
 from surface_conversion.schemas import LightAngle
 
 
 def compute_surface_normals(
-    depthdata: DepthMap,
-    xdim: float,
-    ydim: float,
-    kernel: NDArray = np.array(((0, 1j, 0), (1, 0, -1), (0, -1j, 0))),
+    depth_data: DepthMap,
+    kernel: tuple[tuple[int, int, int]] = ((0, 1j, 0), (1, 0, -1), (0, -1j, 0)),
 ) -> SurfaceNormals:
     """
     Compute surface-normal components (n1, n2, n3) from a 2D depth map.
 
     Parameters
     ----------
-    depthdata : DepthMap
+    depth_data : DepthMap
         array representing a 2D image.
     xdim : float
         Physical spacing between columns in meters (Δx).
@@ -26,15 +24,11 @@ def compute_surface_normals(
     kernel : NDArray
         the kernel used to convolve the diff of the neighboring cells
 
-    Returns:
-        SurfaceNormals(nx, ny, nz)
     """
-    data = depthdata.data
+    factor_x = 1 / (2 * depth_data.xdim)
+    factor_y = 1 / (2 * depth_data.ydim)
 
-    factor_x = 1 / (2 * xdim)
-    factor_y = 1 / (2 * ydim)
-
-    z = convolve2d(data, kernel, "same", fillvalue=np.nan)
+    z = convolve2d(depth_data.data, kernel, "same", fillvalue=np.nan)
 
     hx = z.real * factor_x
     hy = z.imag * factor_y
@@ -49,11 +43,9 @@ def compute_surface_normals(
 
 
 def calculate_lighting(
-    light_vector: NDArray,
-    observer_vector: NDArray,
-    n1: NDArray,
-    n2: NDArray,
-    n3: NDArray,
+    light_vector: LightVector,
+    observer_vector: LightVector,
+    surface_normals: SurfaceNormals,
     specular_factor: float = 1.0,
     phong_exponent: int = 4,
 ) -> NDArray:
@@ -66,7 +58,7 @@ def calculate_lighting(
         Direction to light source (normalized).
     observer_vector : NDArray
         Direction to observer (normalized).
-    n1, n2, n3 : NDArray
+    surface_normals : SurfaceNormals
         Surface normal components.
     specular_factor : float
         Weight of specular component (default: 1.0).
@@ -81,10 +73,18 @@ def calculate_lighting(
     h = light_vector + observer_vector
     h = h / np.linalg.norm(h)
 
-    diffuse = light_vector[0] * n1 + light_vector[1] * n2 + light_vector[2] * n3
+    diffuse = (
+        light_vector[0] * surface_normals.nx
+        + light_vector[1] * surface_normals.ny
+        + light_vector[2] * surface_normals.nz
+    )
     diffuse = np.maximum(diffuse, 0)
 
-    specular = h[0] * n1 + h[1] * n2 + h[2] * n3
+    specular = (
+        h[0] * surface_normals.nx
+        + h[1] * surface_normals.ny
+        + h[2] * surface_normals.nz
+    )
     specular = np.maximum(specular, 0)
     specular = np.cos(2 * np.arccos(specular))
     specular = np.maximum(specular, 0) ** phong_exponent
@@ -94,9 +94,7 @@ def calculate_lighting(
 
 
 def apply_multiple_lights(
-    n1: NDArray[tuple[int, int]],
-    n2: NDArray[tuple[int, int]],
-    n3: NDArray[tuple[int, int]],
+    surface_normals: SurfaceNormals,
     light_angles: tuple[LightAngle],
     observer: LightAngle = LightAngle(azimuth=0, elevation=90),
     lighting_calculator=calculate_lighting,
@@ -105,10 +103,7 @@ def apply_multiple_lights(
 
     Parameters
     ----------
-    depthdata
-    n1
-    n2
-    n3
+    surface_normals
     light_angles
     observer
     lighting_calculator
@@ -119,7 +114,7 @@ def apply_multiple_lights(
     """
     return np.stack(
         [
-            lighting_calculator(light_angle.vector, observer.vector, n1, n2, n3)
+            lighting_calculator(light_angle.vector, observer.vector, surface_normals)
             for light_angle in light_angles
         ],
         axis=-1,
@@ -127,21 +122,17 @@ def apply_multiple_lights(
 
 
 def pre_refactor_logic(
-    depthdata,
-    xdim,
-    ydim,
+    depthdata: DepthMap,
     light_angles: tuple[LightAngle] = (
         LightAngle(azimuth=90, elevation=45),
         LightAngle(azimuth=180, elevation=45),
     ),
     famb=25,
 ):
-    surface_normals = compute_surface_normals(depthdata=depthdata, xdim=xdim, ydim=ydim)
+    surface_normals = compute_surface_normals(depth_data=depthdata)
 
     # Calculate intensity of surface for each light source
-    Iout = apply_multiple_lights(
-        surface_normals.nx, surface_normals.ny, surface_normals.nz, light_angles
-    )
+    Iout = apply_multiple_lights(surface_normals, light_angles)
 
     # Calculate total intensity of surface
     Iout = np.nansum(Iout, axis=2)
