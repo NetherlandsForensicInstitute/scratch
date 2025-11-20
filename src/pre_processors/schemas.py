@@ -1,6 +1,8 @@
 from enum import StrEnum, auto
 
-from pydantic import BaseModel, ConfigDict, DirectoryPath, FilePath, field_validator
+from pydantic import DirectoryPath, FilePath, field_validator
+
+from models import BaseModelConfig
 
 
 class SupportedExtension(StrEnum):
@@ -8,14 +10,6 @@ class SupportedExtension(StrEnum):
     X3P = auto()
     SUR = auto()
     PLU = auto()
-
-
-class BaseModelConfig(BaseModel):
-    model_config = ConfigDict(
-        frozen=True,
-        regex_engine="rust-regex",
-        extra="forbid",
-    )
 
 
 class UploadScan(BaseModelConfig):
