@@ -29,25 +29,25 @@ class TestSurfaceSlopeConversion:
         outer_mask = ~inner_mask
 
         # Act
-        n1, n2, n3 = compute_surface_normals(input_image, 1, 1)
+        surface_normals = compute_surface_normals(input_image, 1, 1)
 
         # Assert
-        assert not np.any(np.isnan(n1[inner_mask])), (
+        assert not np.any(np.isnan(surface_normals.nx[inner_mask])), (
             "inner row and columns should have a number"
         )
-        assert not np.any(np.isnan(n2[inner_mask])), (
+        assert not np.any(np.isnan(surface_normals.ny[inner_mask])), (
             "outer row and columns should have a number"
         )
-        assert not np.any(np.isnan(n3[inner_mask])), (
+        assert not np.any(np.isnan(surface_normals.nz[inner_mask])), (
             "outer row and columns should have a number"
         )
-        assert np.all(np.isnan(n1[outer_mask])), (
+        assert np.all(np.isnan(surface_normals.nx[outer_mask])), (
             "all outer row and columns should be NaN"
         )
-        assert np.all(np.isnan(n2[outer_mask])), (
+        assert np.all(np.isnan(surface_normals.ny[outer_mask])), (
             "all outer row and columns should be NaN"
         )
-        assert np.all(np.isnan(n3[outer_mask])), (
+        assert np.all(np.isnan(surface_normals.nz[outer_mask])), (
             "all outer row and columns should be NaN"
         )
 
@@ -59,13 +59,22 @@ class TestSurfaceSlopeConversion:
         input_image = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
 
         # Act
-        n1, n2, n3 = compute_surface_normals(input_image, 1, 1)
+        surface_normals = compute_surface_normals(input_image, 1, 1)
 
         # Assert
-        assert n1.shape == input_image.shape
-        assert_allclose(n1[inner_mask], 0), "innerside should be 0 (no x direction)"
-        assert_allclose(n2[inner_mask], 0), "innerside should be 0 (no y direction)"
-        assert_allclose(n3[inner_mask], 1), "innerside should be 1 (no z direction)"
+        assert surface_normals.nx.shape == input_image.shape
+        (
+            assert_allclose(surface_normals.nx[inner_mask], 0),
+            "innerside should be 0 (no x direction)",
+        )
+        (
+            assert_allclose(surface_normals.ny[inner_mask], 0),
+            "innerside should be 0 (no y direction)",
+        )
+        (
+            assert_allclose(surface_normals.nz[inner_mask], 1),
+            "innerside should be 1 (no z direction)",
+        )
 
     @pytest.mark.parametrize(
         "step_x, step_y",
@@ -95,19 +104,25 @@ class TestSurfaceSlopeConversion:
         input_image = y_vals[:, None] + x_vals[None, :]
 
         # Act
-        n1, n2, n3 = compute_surface_normals(input_image, xdim=1, ydim=1)
+        surface_normals = compute_surface_normals(input_image, xdim=1, ydim=1)
 
         # Assert
         (
-            assert_allclose(n1[inner_mask], expected_n1, atol=self.TOLERANCE),
+            assert_allclose(
+                surface_normals.nx[inner_mask], expected_n1, atol=self.TOLERANCE
+            ),
             (f"expected continuous n1 slope of {expected_n1}"),
         )
         (
-            assert_allclose(n2[inner_mask], expected_n2, atol=self.TOLERANCE),
+            assert_allclose(
+                surface_normals.ny[inner_mask], expected_n2, atol=self.TOLERANCE
+            ),
             (f"expected continuous n2 slope of {expected_n2}"),
         )
         (
-            assert_allclose(n3[inner_mask], expected_n3, atol=self.TOLERANCE),
+            assert_allclose(
+                surface_normals.nz[inner_mask], expected_n3, atol=self.TOLERANCE
+            ),
             (f"expected continuous n3 slope of {expected_n3}"),
         )
 
@@ -142,24 +157,34 @@ class TestSurfaceSlopeConversion:
         outside_bump_mask = ~bump_mask & inner_mask
 
         # Act
-        n1, n2, n3 = compute_surface_normals(input_depth_map, xdim=1, ydim=1)
+        surface_normals = compute_surface_normals(input_depth_map, xdim=1, ydim=1)
 
         # Assert
-        assert np.any(np.abs(n1[bump_mask]) > 0), "n1 should have slope inside bump"
-        assert np.any(np.abs(n2[bump_mask]) > 0), "n2 should have slope inside bump"
-        assert np.any(np.abs(n3[bump_mask]) != 1), (
+        assert np.any(np.abs(surface_normals.nx[bump_mask]) > 0), (
+            "n1 should have slope inside bump"
+        )
+        assert np.any(np.abs(surface_normals.ny[bump_mask]) > 0), (
+            "n2 should have slope inside bump"
+        )
+        assert np.any(np.abs(surface_normals.nz[bump_mask]) != 1), (
             "n3 should deviate from 1 inside bump"
         )
         (
-            assert_allclose(n1[outside_bump_mask], 0, atol=self.TOLERANCE),
+            assert_allclose(
+                surface_normals.nx[outside_bump_mask], 0, atol=self.TOLERANCE
+            ),
             "outside the bumb X should be 0",
         )
         (
-            assert_allclose(n2[outside_bump_mask], 0, atol=self.TOLERANCE),
+            assert_allclose(
+                surface_normals.ny[outside_bump_mask], 0, atol=self.TOLERANCE
+            ),
             "outside the bumb Y should be 0",
         )
         (
-            assert_allclose(n3[outside_bump_mask], 1, atol=self.TOLERANCE),
+            assert_allclose(
+                surface_normals.nz[outside_bump_mask], 1, atol=self.TOLERANCE
+            ),
             "outside the bumb Z should be 1",
         )
 
@@ -189,13 +214,15 @@ class TestSurfaceSlopeConversion:
         ~bump_mask & inner_mask
 
         # Act
-        n1, n2, n3 = compute_surface_normals(input_depth_map, xdim=1, ydim=1)
+        surface_normals = compute_surface_normals(input_depth_map, xdim=1, ydim=1)
 
         # Assert
         corner = (center_row - bump_size // 2, center_col - bump_size // 2)
 
         (
-            assert_allclose(n3[corner], expected_corner_value, atol=self.TOLERANCE),
+            assert_allclose(
+                surface_normals.nz[corner], expected_corner_value, atol=self.TOLERANCE
+            ),
             "corner of x and y should have unit normal of x and y",
         )
 
