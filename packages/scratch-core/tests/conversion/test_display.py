@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 
-
 @pytest.mark.parametrize("std_scaler", [0.5, 1, 2, 4, 8])
 def test_image_is_clipped_correctly(scan_image_with_nans: ScanImage, std_scaler: float):
     data = scan_image_with_nans.data

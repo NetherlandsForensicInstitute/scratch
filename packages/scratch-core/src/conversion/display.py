@@ -1,4 +1,4 @@
-from parsers.data_types import ScanImage
+from parsers.data_types import ScanImage, Array2D
 import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
@@ -22,7 +22,7 @@ def clip_data(data: NDArray, std_scaler) -> tuple[NDArray, float, float]:
     return clipped, lower, upper
 
 
-def get_image_for_display(image: NDArray | ScanImage, std_scaler: float = 2.0) -> Image:
+def get_image_for_display(image: Array2D | ScanImage, std_scaler: float = 2.0) -> Image:
     """
     Get an 8-bit RGBA image for displaying a scan image.
 
