@@ -30,7 +30,7 @@ async def comparison_root() -> dict[str, str]:
 
 
 @pre_processors.post(
-    path="/add-scan",
+    path="/ingest",
     summary="Add a scan file to be processed",
     description="""""",
 )
