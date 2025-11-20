@@ -45,3 +45,13 @@ def scan_image(image_data: Array2D) -> ScanImage:
 def scan_image_replica(scans_dir: Path) -> ScanImage:
     """Build a `ScanImage` object`."""
     return ScanImage.from_file(scans_dir / "Klein_non_replica_mode.al3d")
+
+
+@pytest.fixture
+def scan_image_with_nans(scans_dir: Path) -> ScanImage:
+    """Build a `ScanImage` object`."""
+    scan_image = ScanImage.from_file(scans_dir / "Klein_non_replica_mode.al3d")
+    # add random NaN values
+    rng = np.random.default_rng(42)
+    scan_image.data[rng.random(size=scan_image.data.shape) < 0.1] = np.nan
+    return scan_image
