@@ -48,7 +48,7 @@ def load_al3d_file(file_path: Path) -> ImageData:
     quality_data = metadata.get("quality_data")
     vertical_resolution = metadata.get("vr")
     lateral_resolution = metadata.get("lr")
-    xml_data = metadata.get("XMLData")
+    xml_data = metadata.get("XMLData", {})
 
     # Try to extract VR/LR from XML data if not already extracted
     if not (vertical_resolution and lateral_resolution) and xml_data:
