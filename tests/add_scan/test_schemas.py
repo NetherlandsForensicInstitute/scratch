@@ -19,7 +19,7 @@ def output_dir(tmp_path: Path) -> Path:
 @pytest.fixture
 def valid_scan_file(tmp_path: Path) -> Path:
     """Create a temporary scan file with valid extension."""
-    scan_file = tmp_path / "test_scan.mat"
+    scan_file = tmp_path / "test_scan.x3p"
     scan_file.touch()
     return scan_file
 
