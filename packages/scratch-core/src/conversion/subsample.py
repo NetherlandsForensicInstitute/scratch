@@ -1,4 +1,4 @@
-from parsers.data_types import ScanImage, ScanDataKind
+from parsers.data_types import ScanImage
 
 
 def subsample_data(
@@ -23,6 +23,4 @@ def subsample_data(
         data=scan_image.data[::step_y, ::step_x].copy(order="F"),
         scale_x=scan_image.scale_x * step_x,
         scale_y=scan_image.scale_y * step_y,
-        path_to_original_image=scan_image.path_to_original_image,
-        data_kind=ScanDataKind.SUBSAMPLED,
     )

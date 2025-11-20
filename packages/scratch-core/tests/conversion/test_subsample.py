@@ -1,4 +1,4 @@
-from parsers.data_types import ScanImage, ScanDataKind
+from parsers.data_types import ScanImage
 from conversion import subsample_data
 import pytest
 from math import ceil
@@ -13,9 +13,6 @@ def test_subsample_matches_size(
     subsampled = subsample_data(scan_image=scan_image, step_size=step_size)
     if isinstance(step_size, int):
         step_size = (step_size, step_size)
-    assert scan_image.data_kind == ScanDataKind.ORIGINAL
-    assert subsampled.data_kind == ScanDataKind.SUBSAMPLED
-    assert subsampled.path_to_original_image == scan_image.path_to_original_image
     assert subsampled.width == ceil(scan_image.width / step_size[0])
     assert subsampled.height == ceil(scan_image.height / step_size[1])
     assert np.isclose(subsampled.scale_x, scan_image.scale_x * step_size[0], atol=atol)

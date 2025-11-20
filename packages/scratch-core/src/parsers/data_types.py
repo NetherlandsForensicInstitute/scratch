@@ -24,11 +24,6 @@ class ScanFileFormats(StrEnum):
     PLU = auto()
 
 
-class ScanDataKind(StrEnum):
-    ORIGINAL = auto()
-    SUBSAMPLED = auto()
-
-
 class FrozenBaseModel(BaseModel):
     """Base class for frozen Pydantic models."""
 
@@ -51,16 +46,12 @@ class ScanImage(FrozenBaseModel):
     :param data: A numpy array containing the parsed 2D image data.
     :param scale_x: The pixel size in the X-direction in meters (m).
     :param scale_y: The pixel size in the Y-direction in meters (m).
-    :param path_to_original_image: The filepath to the original image.
-    :param data_kind: An enum value for the kind of scan data (e.g. ORIGINAL or SUBSAMPLED).
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
     data: Annotated[Array2D, AfterValidator(validate_parsed_image_shape)]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
-    path_to_original_image: Path
-    data_kind: ScanDataKind = ScanDataKind.ORIGINAL
     meta_data: dict | None = None
 
     @classmethod
@@ -79,7 +70,6 @@ class ScanImage(FrozenBaseModel):
             scale_x=surface.step_x * UNIT_CONVERSION_FACTOR,
             scale_y=surface.step_y * UNIT_CONVERSION_FACTOR,
             meta_data=surface.metadata,
-            path_to_original_image=scan_file,
         )
 
     @property
