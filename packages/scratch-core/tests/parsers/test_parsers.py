@@ -8,7 +8,6 @@ from parsers.data_types import Array2D
 
 
 def validate_image(
-    path_to_original_image: Path,
     parsed_image: ScanImage,
     expected_image_data: Array2D,
     expected_scale: float,
@@ -24,7 +23,6 @@ def validate_image(
         atol=atol,
     )
     assert parsed_image.data.dtype == np.float64
-    assert parsed_image.path_to_original_image == path_to_original_image
     assert np.isclose(parsed_image.scale_x, parsed_image.scale_y, atol=atol)
     assert np.isclose(parsed_image.scale_x, expected_scale, atol=atol)
 
@@ -36,10 +34,7 @@ def test_exception_on_incorrect_file_extension():
 
 def test_exception_on_incorrect_shape(image_data: NDArray):
     with pytest.raises(ValueError, match="shape"):
-        _ = ScanImage(
-            data=np.expand_dims(image_data, -1),
-            path_to_original_image=Path("export.x3p"),
-        )
+        _ = ScanImage(data=np.expand_dims(image_data, -1))
 
 
 @pytest.mark.parametrize(
@@ -56,7 +51,6 @@ def test_parser_can_parse(
     file_to_test = scans_dir / filename
     parsed_image = ScanImage.from_file(file_to_test)
     validate_image(
-        path_to_original_image=file_to_test,
         parsed_image=parsed_image,
         expected_image_data=image_data,
         expected_scale=expected_scale,
@@ -84,7 +78,6 @@ def test_al3d_can_be_converted_to_x3p(
     parsed_exported_image = ScanImage.from_file(output_file)
     # compare the parsed data from the exported .x3p file to the parsed data from the .al3d file
     validate_image(
-        path_to_original_image=output_file,
         parsed_image=parsed_exported_image,
         expected_image_data=parsed_image.data,
         expected_scale=parsed_image.scale_x,
