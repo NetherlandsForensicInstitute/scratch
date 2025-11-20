@@ -1,6 +1,6 @@
 from enum import StrEnum, auto
 
-from pydantic import BaseModel, DirectoryPath, FilePath, field_validator
+from pydantic import BaseModel, ConfigDict, DirectoryPath, FilePath, field_validator
 
 
 class SupportedExtension(StrEnum):
@@ -16,7 +16,12 @@ class SupportedExtension(StrEnum):
     JPEG = auto()
 
 
-class BaseModelConfig(BaseModel): ...
+class BaseModelConfig(BaseModel):
+    model_config = ConfigDict(
+        frozen=True,
+        regex_engine="rust-regex",
+        extra="forbid",
+    )
 
 
 class UploadScan(BaseModelConfig):
@@ -24,9 +29,10 @@ class UploadScan(BaseModelConfig):
     output_dir: DirectoryPath
 
     @field_validator("scan_file", mode="after")
-    def validate_file_extension(self, scan_file: FilePath) -> FilePath:
+    @classmethod
+    def validate_file_extension(cls, scan_file: FilePath) -> FilePath:
         """Validate given file is off a supported type."""
-        extensions = tuple(extension for extension in SupportedExtension)
+        extensions = tuple(f".{extension}" for extension in SupportedExtension)
         if scan_file.suffix not in extensions:
-            raise ValueError("unsupported extension: {scan_file.name}")
+            raise ValueError(f"unsupported extension: {scan_file.name}")
         return scan_file
