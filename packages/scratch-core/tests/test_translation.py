@@ -65,4 +65,4 @@ def plot_test_data(data, show_plot=True) -> Figure:
 @image_comparison(baseline_images=["surfaceplot_default"], extensions=["png"])
 def test_get_surface_plot(data_in: DepthMap) -> None:
     data = pre_refactor_logic(data_in)
-    plot_test_data(data, show_plot=False)
+    plot_test_data(data.intensity, show_plot=False)

@@ -1,13 +1,21 @@
 import numpy as np
 from numpydantic import NDArray, Shape
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 HeightWidth = "*, *"
 HeightWidthN = "*, *, *"
 NormalVector = "3"
 
 
-class DepthMap(BaseModel):
+class BaseModelConfig(BaseModel):
+    model_config = ConfigDict(
+        frozen=True,
+        regex_engine="rust-regex",
+        extra="forbid",
+    )
+
+
+class DepthMap(BaseModelConfig):
     """A 2D depth map (height × width)."""
 
     data: NDArray[Shape[HeightWidth], float] = Field(
@@ -21,7 +29,7 @@ class DepthMap(BaseModel):
     )
 
 
-class SurfaceNormals(BaseModel):
+class SurfaceNormals(BaseModelConfig):
     """Per-pixel unit surface normal components."""
 
     nx: NDArray[Shape[HeightWidth], float] = Field(
@@ -51,7 +59,7 @@ class SurfaceNormals(BaseModel):
         return np.stack([self.nx, self.ny, self.nz], axis=-1)
 
 
-class SurfaceIntensity(BaseModel):
+class SurfaceIntensity(BaseModelConfig):
     """2D surface intensity map normalized to [0–255]."""
 
     intensity: NDArray[Shape[HeightWidth], float] = Field(
@@ -59,7 +67,7 @@ class SurfaceIntensity(BaseModel):
     )
 
 
-class LightVector(BaseModel):
+class LightVector(BaseModelConfig):
     """A normalized 3-element vector (x, y, z)."""
 
     vec: NDArray[Shape[NormalVector], float] = Field(
@@ -67,7 +75,7 @@ class LightVector(BaseModel):
     )
 
 
-class LightingStack(BaseModel):
+class LightingStack(BaseModelConfig):
     """Stack of lighting intensity maps from multiple light sources."""
 
     intensity_stack: NDArray[Shape[HeightWidthN], float] = Field(
@@ -77,4 +85,4 @@ class LightingStack(BaseModel):
     @property
     def combined(self) -> NDArray:
         """Combine stacked lights → (H × W)."""
-        return np.nansum(self.intensity_stack, axis=-1)
+        return np.nansum(self.intensity_stack, axis=2)

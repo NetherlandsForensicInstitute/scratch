@@ -2,7 +2,13 @@ import numpy as np
 from numpy._typing import NDArray
 from scipy.signal import convolve2d
 
-from surface_conversion.data_formats import DepthMap, SurfaceNormals, LightVector
+from surface_conversion.data_formats import (
+    DepthMap,
+    SurfaceNormals,
+    LightVector,
+    LightingStack,
+    SurfaceIntensity,
+)
 from surface_conversion.schemas import LightAngle
 
 
@@ -98,7 +104,7 @@ def apply_multiple_lights(
     light_angles: tuple[LightAngle],
     observer: LightAngle = LightAngle(azimuth=0, elevation=90),
     lighting_calculator=calculate_lighting,
-):
+) -> LightingStack:
     """
 
     Parameters
@@ -112,13 +118,43 @@ def apply_multiple_lights(
     -------
 
     """
-    return np.stack(
+    intensity_stack = np.stack(
         [
             lighting_calculator(light_angle.vector, observer.vector, surface_normals)
             for light_angle in light_angles
         ],
         axis=-1,
     )
+    return LightingStack(intensity_stack=intensity_stack)
+
+
+def normalize_intensity_map(
+    non_normalized_image: LightingStack, max_val: float = 255, scale_min: float = 25
+) -> SurfaceIntensity:
+    """
+    Normalize a 2D intensity map to [scale_min, max_val].
+
+    Parameters
+    ----------
+    non_normalized_image : LightingStack
+        2D array of intensity values (H, W).
+    min_val : float
+        Optional manual minimum for normalization (default: None = use np.nanmin).
+    max_val : float
+        Optional manual maximum for normalization (default: None = use np.nanmax).
+    scale_min : float
+        Minimum value in the output image (default: 25).
+
+    Returns
+    -------
+    np.ndarray
+        Normalized 2D intensity map in [scale_min, max_val].
+    """
+    image_to_normalize = non_normalized_image.combined
+    imin = np.nanmin(image_to_normalize)
+    imax = np.nanmax(image_to_normalize)
+    norm = (image_to_normalize - imin) / (imax - imin)
+    return SurfaceIntensity(intensity=(scale_min + (max_val - scale_min) * norm))
 
 
 def pre_refactor_logic(
@@ -127,22 +163,9 @@ def pre_refactor_logic(
         LightAngle(azimuth=90, elevation=45),
         LightAngle(azimuth=180, elevation=45),
     ),
-    famb=25,
 ):
     surface_normals = compute_surface_normals(depth_data=depthdata)
 
-    # Calculate intensity of surface for each light source
-    Iout = apply_multiple_lights(surface_normals, light_angles)
+    image_with_lighting = apply_multiple_lights(surface_normals, light_angles)
 
-    # Calculate total intensity of surface
-    Iout = np.nansum(Iout, axis=2)
-
-    # Normalize between [0,1]
-    Imin = np.nanmin(Iout)
-    Imax = np.nanmax(Iout)
-    Iout = (Iout - Imin) / (Imax - Imin)
-
-    # Add ambient component and scale [0,1]->[0,255]
-    Iout = famb + (255 - famb) * Iout
-
-    return Iout
+    return normalize_intensity_map(image_with_lighting)
