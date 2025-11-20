@@ -1,33 +1,39 @@
 import numpy as np
-from numpydantic import NDArray, Shape, DType
+from numpydantic import NDArray, Shape
 from pydantic import BaseModel, Field
 
 
-HeightWidth = NDArray[Shape["H W"], DType[np.floating]]
-HeightWidthN = NDArray[Shape["H W N"], DType[np.floating]]
-NormalVector = NDArray[Shape["N3"], DType[np.floating]]
+HeightWidth = "*, *"
+HeightWidthN = "*, *, *"
+NormalVector = "3"
 
 
 class DepthMap(BaseModel):
     """A 2D depth map (height × width)."""
 
-    data: NDArray[Shape[HeightWidth], DType[np.floating]] = Field(
+    data: NDArray[Shape[HeightWidth], float] = Field(
         ..., description="2D depth map array of shape (H, W)"
+    )
+    xdim: int = Field(
+        ..., description="X dimension, the space between pixels in meters."
+    )
+    ydim: int = Field(
+        ..., description="Y dimension, the space between pixels in meters."
     )
 
 
 class SurfaceNormals(BaseModel):
     """Per-pixel unit surface normal components."""
 
-    nx: NDArray[Shape[HeightWidth], DType[np.floating]] = Field(
+    nx: NDArray[Shape[HeightWidth], float] = Field(
         ..., description="Normal x-component"
     )
 
-    ny: NDArray[Shape[HeightWidth], DType[np.floating]] = Field(
+    ny: NDArray[Shape[HeightWidth], float] = Field(
         ..., description="Normal y-component"
     )
 
-    nz: NDArray[Shape[HeightWidth], DType[np.floating]] = Field(
+    nz: NDArray[Shape[HeightWidth], float] = Field(
         ..., description="Normal z-component"
     )
 
@@ -39,7 +45,7 @@ class SurfaceNormals(BaseModel):
 class SurfaceIntensity(BaseModel):
     """2D surface intensity map normalized to [0–255]."""
 
-    intensity: NDArray[Shape[HeightWidth], DType[np.floating]] = Field(
+    intensity: NDArray[Shape[HeightWidth], float] = Field(
         ..., description="2D intensity array (H, W)"
     )
 
@@ -47,7 +53,7 @@ class SurfaceIntensity(BaseModel):
 class LightVector(BaseModel):
     """A normalized 3-element vector (x, y, z)."""
 
-    vec: NDArray[Shape[NormalVector], DType[np.floating]] = Field(
+    vec: NDArray[Shape[NormalVector], float] = Field(
         ..., description="Length-3 normalized direction vector"
     )
 
@@ -59,7 +65,7 @@ class LightVector(BaseModel):
 class LightingStack(BaseModel):
     """Stack of lighting intensity maps from multiple light sources."""
 
-    intensity_stack: NDArray[Shape[HeightWidthN], DType[np.floating]] = Field(
+    intensity_stack: NDArray[Shape[HeightWidthN], float] = Field(
         ..., description="Lighting stack with shape (H, W, N)"
     )
 

@@ -2,22 +2,23 @@ import numpy as np
 from numpy._typing import NDArray
 from scipy.signal import convolve2d
 
+from surface_conversion.data_formats import DepthMap, SurfaceNormals
 from surface_conversion.schemas import LightAngle
 
 
 def compute_surface_normals(
-    depthdata: NDArray[tuple[int, int]],
-    xdim: int,
-    ydim: int,
+    depthdata: DepthMap,
+    xdim: float,
+    ydim: float,
     kernel: NDArray = np.array(((0, 1j, 0), (1, 0, -1), (0, -1j, 0))),
-):
+) -> SurfaceNormals:
     """
     Compute surface-normal components (n1, n2, n3) from a 2D depth map.
 
     Parameters
     ----------
-    depthdata : NDArray
-        2-D array of depth values, indexed as depth[y, x].
+    depthdata : DepthMap
+        array representing a 2D image.
     xdim : float
         Physical spacing between columns in meters (Δx).
     ydim : float
@@ -25,25 +26,26 @@ def compute_surface_normals(
     kernel : NDArray
         the kernel used to convolve the diff of the neighboring cells
 
-    Returns
-    -------
-    n1, n2, n3 : NDArray
-        Components of the unit surface normal.
-        n1 = -∂z/∂x / norm
-        n2 = -∂z/∂y / norm
-        n3 = 1 / norm
+    Returns:
+        SurfaceNormals(nx, ny, nz)
     """
+    data = depthdata.data
+
     factor_x = 1 / (2 * xdim)
     factor_y = 1 / (2 * ydim)
-    z = convolve2d(depthdata, kernel, "same", fillvalue=np.nan)
+
+    z = convolve2d(data, kernel, "same", fillvalue=np.nan)
+
     hx = z.real * factor_x
     hy = z.imag * factor_y
 
     norm = np.sqrt(hx * hx + hy * hy + 1)
-    n1 = -hx / norm
-    n2 = hy / norm
-    n3 = 1 / norm
-    return n1, n2, n3
+
+    return SurfaceNormals(
+        nx=-hx / norm,
+        ny=hy / norm,
+        nz=1 / norm,
+    )
 
 
 def calculate_lighting(
@@ -134,10 +136,12 @@ def pre_refactor_logic(
     ),
     famb=25,
 ):
-    n1, n2, n3 = compute_surface_normals(depthdata=depthdata, xdim=xdim, ydim=ydim)
+    surface_normals = compute_surface_normals(depthdata=depthdata, xdim=xdim, ydim=ydim)
 
     # Calculate intensity of surface for each light source
-    Iout = apply_multiple_lights(n1, n2, n3, light_angles)
+    Iout = apply_multiple_lights(
+        surface_normals.nx, surface_normals.ny, surface_normals.nz, light_angles
+    )
 
     # Calculate total intensity of surface
     Iout = np.nansum(Iout, axis=2)
