@@ -125,6 +125,6 @@ def test_extra_fields_forbidden(valid_scan_file: Path, output_dir: Path) -> None
         UploadScan(
             scan_file=valid_scan_file,
             output_dir=output_dir,
-            extra_field="not allowed",
+            extra_field="not allowed",  # type: ignore[call-arg]
         )
     assert "Extra inputs are not permitted" in str(exc_info.value)
