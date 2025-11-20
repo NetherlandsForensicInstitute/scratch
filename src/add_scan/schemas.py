@@ -4,11 +4,9 @@ from pydantic import BaseModel, ConfigDict, DirectoryPath, FilePath, field_valid
 
 
 class SupportedExtension(StrEnum):
-    MAT = auto()
     AL3D = auto()
     X3P = auto()
     SUR = auto()
-    LMS = auto()
     PLU = auto()
 
 
