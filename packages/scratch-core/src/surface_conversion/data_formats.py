@@ -1,7 +1,6 @@
 import numpy as np
 from numpydantic import NDArray, Shape
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel, Field, model_validator
 
 HeightWidth = "*, *"
 HeightWidthN = "*, *, *"
@@ -36,6 +35,16 @@ class SurfaceNormals(BaseModel):
     nz: NDArray[Shape[HeightWidth], float] = Field(
         ..., description="Normal z-component"
     )
+
+    @model_validator(mode="after")
+    def validate_shapes(self):
+        """Ensure nx, ny, nz all share the same H × W dimensions."""
+        if not (self.nx.shape == self.ny.shape == self.nz.shape):
+            raise ValueError(
+                f"SurfaceNormals must have matching shapes, "
+                f"got nx={self.nx.shape}, ny={self.ny.shape}, nz={self.nz.shape}"
+            )
+        return self
 
     def stack(self) -> NDArray:
         """Return a stacked (H × W × 3) normal map."""
