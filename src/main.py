@@ -2,7 +2,6 @@ from fastapi import APIRouter, FastAPI
 from loguru import logger
 from uvicorn import run
 
-from add_scan.router import add_scan
 from comparators.router import comparison_router
 from pre_processors.router import pre_processors
 from processors.router import processors
@@ -10,7 +9,6 @@ from processors.router import processors
 app = FastAPI()
 prefix_router = APIRouter()
 
-prefix_router.include_router(add_scan)
 prefix_router.include_router(pre_processors)
 prefix_router.include_router(processors)
 prefix_router.include_router(comparison_router)
