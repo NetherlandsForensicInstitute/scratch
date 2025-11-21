@@ -3,17 +3,18 @@ from numpy._typing import NDArray
 from scipy.signal import convolve2d
 
 from surface_conversion.data_formats import (
-    DepthMap,
     SurfaceNormals,
     LightVector,
     LightingStack,
-    SurfaceIntensity,
+    Image2DArray,
 )
 from surface_conversion.schemas import LightAngle
 
 
 def compute_surface_normals(
-    depth_data: DepthMap,
+    depth_data: Image2DArray,
+    x_dimension: float,
+    y_dimension: float,
     kernel: tuple[tuple[int, int, int]] = ((0, 1j, 0), (1, 0, -1), (0, -1j, 0)),
 ) -> SurfaceNormals:
     """
@@ -21,7 +22,7 @@ def compute_surface_normals(
 
     Parameters
     ----------
-    depth_data : DepthMap
+    depth_data : Image2DArray
         array representing a 2D image.
     xdim : float
         Physical spacing between columns in meters (Δx).
@@ -31,8 +32,8 @@ def compute_surface_normals(
         the kernel used to convolve the diff of the neighboring cells
 
     """
-    factor_x = 1 / (2 * depth_data.xdim)
-    factor_y = 1 / (2 * depth_data.ydim)
+    factor_x = 1 / (2 * x_dimension)
+    factor_y = 1 / (2 * y_dimension)
 
     z = convolve2d(depth_data.data, kernel, "same", fillvalue=np.nan)
 
@@ -41,7 +42,7 @@ def compute_surface_normals(
 
     norm = np.sqrt(hx * hx + hy * hy + 1)
 
-    return SurfaceNormals(
+    return SurfaceNormals.from_components(
         nx=-hx / norm,
         ny=hy / norm,
         nz=1 / norm,
@@ -125,18 +126,18 @@ def apply_multiple_lights(
         ],
         axis=-1,
     )
-    return LightingStack(intensity_stack=intensity_stack)
+    return LightingStack(data=intensity_stack)
 
 
 def normalize_intensity_map(
-    non_normalized_image: LightingStack, max_val: float = 255, scale_min: float = 25
-) -> SurfaceIntensity:
+    non_normalized_image: Image2DArray, max_val: float = 255, scale_min: float = 25
+) -> Image2DArray:
     """
     Normalize a 2D intensity map to [scale_min, max_val].
 
     Parameters
     ----------
-    non_normalized_image : LightingStack
+    non_normalized_image : Image2DArray
         2D array of intensity values (H, W).
     min_val : float
         Optional manual minimum for normalization (default: None = use np.nanmin).
@@ -150,22 +151,26 @@ def normalize_intensity_map(
     np.ndarray
         Normalized 2D intensity map in [scale_min, max_val].
     """
-    image_to_normalize = non_normalized_image.combined
-    imin = np.nanmin(image_to_normalize)
-    imax = np.nanmax(image_to_normalize)
-    norm = (image_to_normalize - imin) / (imax - imin)
-    return SurfaceIntensity(intensity=(scale_min + (max_val - scale_min) * norm))
+    image_data = non_normalized_image.data
+    imin = np.nanmin(image_data, axis=(0, 1), keepdims=True)
+    imax = np.nanmax(image_data, axis=(0, 1), keepdims=True)
+    norm = (image_data - imin) / (imax - imin)
+    normalized_data = scale_min + (max_val - scale_min) * norm
+
+    return Image2DArray(data=normalized_data)
 
 
-def pre_refactor_logic(
-    depthdata: DepthMap,
+def get_surface_map(
+    depthdata: Image2DArray,
+    x_dimension: float,
+    y_dimension: float,
     light_angles: tuple[LightAngle] = (
         LightAngle(azimuth=90, elevation=45),
         LightAngle(azimuth=180, elevation=45),
     ),
-):
-    surface_normals = compute_surface_normals(depth_data=depthdata)
-
+) -> Image2DArray:
+    surface_normals = compute_surface_normals(
+        depth_data=depthdata, x_dimension=x_dimension, y_dimension=y_dimension
+    )
     image_with_lighting = apply_multiple_lights(surface_normals, light_angles)
-
-    return normalize_intensity_map(image_with_lighting)
+    return normalize_intensity_map(image_with_lighting.combined)

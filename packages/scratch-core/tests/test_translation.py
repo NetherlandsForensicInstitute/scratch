@@ -7,8 +7,7 @@ from matplotlib.testing.decorators import image_comparison
 from numpy._typing import NDArray
 from parsers.data_types import ScanImage
 
-from surface_conversion.data_formats import DepthMap
-from surface_conversion.translations import pre_refactor_logic
+from surface_conversion.translations import get_surface_map
 from utils.paths import ROOT_DIR
 
 
@@ -39,14 +38,9 @@ def mask(scan_image: ScanImage) -> NDArray[tuple[int, int]]:
 
 
 @pytest.fixture
-def data_in(scan_image: ScanImage) -> DepthMap:
-    image = ScanImage.from_file(
+def data_in(scan_image: ScanImage) -> ScanImage:
+    return ScanImage.from_file(
         ROOT_DIR / "tests/resources/scans/Klein_non_replica_mode.al3d"
-    )
-    return DepthMap(
-        data=image.data,
-        xdim=image.scale_x,
-        ydim=image.scale_y,
     )
 
 
@@ -63,6 +57,8 @@ def plot_test_data(data, show_plot=True) -> Figure:
 
 @pytest.mark.integration
 @image_comparison(baseline_images=["surfaceplot_default"], extensions=["png"])
-def test_get_surface_plot(data_in: DepthMap) -> None:
-    data = pre_refactor_logic(data_in)
-    plot_test_data(data.intensity, show_plot=False)
+def test_get_surface_plot(data_in: ScanImage) -> None:
+    data = get_surface_map(
+        depthdata=data_in.data, x_dimension=data_in.scale_x, y_dimension=data_in.scale_y
+    )
+    plot_test_data(data.data, show_plot=False)
