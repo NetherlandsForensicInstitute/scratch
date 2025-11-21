@@ -9,7 +9,7 @@ from image_generation.translations import (
 from utils.array_definitions import (
     IMAGE_2D_ARRAY,
     IMAGE_3D_ARRAY,
-    IMAGE_3_STACK_ARRAY,
+    IMAGE_3_LAYER_STACK_ARRAY,
     NORMAL_VECTOR,
 )
 
@@ -80,7 +80,7 @@ class Image3DArray(BaseModelConfig):
 class SurfaceNormals(BaseModelConfig):
     """Normal vector at each pixel: shape (H, W, 3)."""
 
-    data: IMAGE_3_STACK_ARRAY
+    data: IMAGE_3_LAYER_STACK_ARRAY
 
     @property
     def nx(self) -> IMAGE_2D_ARRAY:
