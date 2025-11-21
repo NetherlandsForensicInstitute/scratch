@@ -1,5 +1,4 @@
-from image_generation.data_formats import Image2DArray
-from image_generation.schemas import LightAngle
+from image_generation.data_formats import Image2DArray, LightAngle
 
 
 def get_surface_map(
