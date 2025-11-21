@@ -25,6 +25,8 @@ dependencies = [
   "pydantic>=2.12.4",
   "uvicorn>=0.38.0",
   "scratch-core",
+  "returns>=0.26.0",
+  "numpydantic>=1.7.0",
 ]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
