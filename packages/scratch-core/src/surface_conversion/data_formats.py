@@ -1,10 +1,16 @@
 import numpy as np
 from numpydantic import NDArray, Shape
-from pydantic import BaseModel, Field, model_validator, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
 
 HeightWidth = "*, *"
-HeightWidthN = "*, *, *"
+HeightWidthNLayers = f"{HeightWidth}, *"
+HeightWidth3Layers = f"{HeightWidth}, 3"
 NormalVector = "3"
+
+IMAGE_2D_ARRAY = NDArray[Shape[HeightWidth], float]
+IMAGE_3D_ARRAY = NDArray[Shape[HeightWidthNLayers], float]
+IMAGE_3_STACK_ARRAY = NDArray[Shape[HeightWidth3Layers], float]
+NORMAL_VECTOR = NDArray[Shape[NormalVector], float]
 
 
 class BaseModelConfig(BaseModel):
@@ -15,74 +21,66 @@ class BaseModelConfig(BaseModel):
     )
 
 
-class DepthMap(BaseModelConfig):
-    """A 2D depth map (height × width)."""
+class Image2DArray(BaseModelConfig):
+    """
+    A 2D image/array of floats.
 
-    data: NDArray[Shape[HeightWidth], float] = Field(
-        ..., description="2D depth map array of shape (H, W)"
-    )
-    xdim: float = Field(
-        ..., description="X dimension, the space between pixels in meters."
-    )
-    ydim: float = Field(
-        ..., description="Y dimension, the space between pixels in meters."
-    )
+    Used for: depth maps, intensity maps, single-channel images.
+    Shape: (height, width)
+    """
+
+    data: IMAGE_2D_ARRAY = Field(..., description="2D depth map array of shape (H, W)")
+
+
+class Image3DArray(BaseModelConfig):
+    """
+    A 3D stack of 2D images.
+
+    Used for: multiple lighting angles, multi-channel data.
+    Shape: (height, width, n_layers)
+    """
+
+    data: IMAGE_3D_ARRAY = Field(..., description="(H, W, N)")
 
 
 class SurfaceNormals(BaseModelConfig):
-    """Per-pixel unit surface normal components."""
+    """Normal vector at each pixel: shape (H, W, 3)."""
 
-    nx: NDArray[Shape[HeightWidth], float] = Field(
-        ..., description="Normal x-component"
-    )
+    data: IMAGE_3_STACK_ARRAY
 
-    ny: NDArray[Shape[HeightWidth], float] = Field(
-        ..., description="Normal y-component"
-    )
+    @property
+    def nx(self) -> IMAGE_2D_ARRAY:
+        return self.data[..., 0]
 
-    nz: NDArray[Shape[HeightWidth], float] = Field(
-        ..., description="Normal z-component"
-    )
+    @property
+    def ny(self) -> IMAGE_2D_ARRAY:
+        return self.data[..., 1]
 
-    @model_validator(mode="after")
-    def validate_shapes(self):
-        """Ensure nx, ny, nz all share the same H × W dimensions."""
-        if not (self.nx.shape == self.ny.shape == self.nz.shape):
-            raise ValueError(
-                f"SurfaceNormals must have matching shapes, "
-                f"got nx={self.nx.shape}, ny={self.ny.shape}, nz={self.nz.shape}"
-            )
-        return self
+    @property
+    def nz(self) -> IMAGE_2D_ARRAY:
+        return self.data[..., 2]
 
-    def stack(self) -> NDArray:
-        """Return a stacked (H × W × 3) normal map."""
-        return np.stack([self.nx, self.ny, self.nz], axis=-1)
-
-
-class SurfaceIntensity(BaseModelConfig):
-    """2D surface intensity map normalized to [0–255]."""
-
-    intensity: NDArray[Shape[HeightWidth], float] = Field(
-        ..., description="2D intensity array (H, W)"
-    )
+    @classmethod
+    def from_components(
+        cls,
+        nx: IMAGE_2D_ARRAY,
+        ny: IMAGE_2D_ARRAY,
+        nz: IMAGE_2D_ARRAY,
+    ) -> "SurfaceNormals":
+        """Construct from separate component arrays."""
+        return cls(data=np.stack([nx, ny, nz], axis=-1))
 
 
 class LightVector(BaseModelConfig):
     """A normalized 3-element vector (x, y, z)."""
 
-    vec: NDArray[Shape[NormalVector], float] = Field(
-        ..., description="Length-3 normalized direction vector"
-    )
+    vec: NORMAL_VECTOR = Field(..., description="Length-3 normalized direction vector")
 
 
-class LightingStack(BaseModelConfig):
+class LightingStack(Image3DArray):
     """Stack of lighting intensity maps from multiple light sources."""
 
-    intensity_stack: NDArray[Shape[HeightWidthN], float] = Field(
-        ..., description="Lighting stack with shape (H, W, N)"
-    )
-
     @property
-    def combined(self) -> NDArray:
+    def combined(self) -> Image2DArray:
         """Combine stacked lights → (H × W)."""
-        return np.nansum(self.intensity_stack, axis=2)
+        return Image2DArray(data=np.nansum(self.data, axis=2))
