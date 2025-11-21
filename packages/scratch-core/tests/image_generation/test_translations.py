@@ -3,82 +3,82 @@ import pytest
 from numpy._typing import NDArray
 from numpy.testing import assert_allclose
 
+from image_generation.data_formats import LightAngle, Image2DArray
+from image_generation.translations import calculate_lighting
 from image_generation.translations import (
     compute_surface_normals,
     normalize_intensity_map,
     apply_multiple_lights,
 )
-from image_generation.data_formats import LightAngle
-from image_generation.translations import calculate_lighting
 from utils.array_definitions import IMAGE_3_LAYER_STACK_ARRAY
 
 
 class TestComputeSurfaceNormals:
-    TEST_IMAGE_WIDTH = 20
-    TEST_IMAGE_HEIGHT = 20
     TOLERANCE = 1e-6
+    IMAGE_SIZE = 20
 
-    @pytest.fixture(scope="class")
-    def inner_mask(self) -> NDArray[tuple[int, int]]:
-        inner_mask = np.zeros(
-            (self.TEST_IMAGE_HEIGHT, self.TEST_IMAGE_WIDTH), dtype=bool
-        )
-        inner_mask[1:-1, 1:-1] = True
-        return inner_mask
+    @pytest.fixture
+    def inner_mask(self) -> NDArray[tuple[bool, bool]]:
+        """Mask of all pixels except the 1-pixel border."""
+        mask = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE), dtype=bool)
+        mask[1:-1, 1:-1] = True
+        return mask
 
-    def test_slope_has_nan_border(self, inner_mask: NDArray[tuple[int, int]]) -> None:
+    @pytest.fixture
+    def outer_mask(self, inner_mask) -> NDArray[tuple[bool, bool]]:
+        """Inverse of inner_mask: the NaN border."""
+        return ~inner_mask
+
+    def assert_normals_close(self, normals, mask, expected, atol=1e-6):
+        """Assert nx, ny, nz at mask match expected 3-tuple."""
+        nx, ny, nz = normals[..., 0], normals[..., 1], normals[..., 2]
+        exp_x, exp_y, exp_z = expected
+        np.testing.assert_allclose(nx[mask], exp_x, atol=atol)
+        np.testing.assert_allclose(ny[mask], exp_y, atol=atol)
+        np.testing.assert_allclose(nz[mask], exp_z, atol=atol)
+
+    def assert_all_nan(self, normals, mask):
+        """All channels must be NaN within mask."""
+        assert np.isnan(normals[mask]).all()
+
+    def assert_no_nan(self, normals, mask):
+        """No channel should contain NaN within mask."""
+        assert ~np.isnan(normals[mask]).any()
+
+    def test_slope_has_nan_border(
+        self, inner_mask: Image2DArray, outer_mask: Image2DArray
+    ) -> None:
         """The image is 1 pixel smaller on all sides due to the slope calculation.
         This is filled with NaN values to get the same shape as original image"""
         # Arrange
-        input_image = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        input_image = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE))
 
-        outer_mask = ~inner_mask
         # Act
-        surface_normals = compute_surface_normals(input_image, 1, 1)
+        surface_normals = compute_surface_normals(
+            depth_data=input_image, x_dimension=1, y_dimension=1
+        )
 
         # Assert
-        assert not np.any(np.isnan(surface_normals[..., 0][inner_mask])), (
-            "inner row and columns should have a number"
-        )
-        assert not np.any(np.isnan(surface_normals[..., 1][inner_mask])), (
-            "outer row and columns should have a number"
-        )
-        assert not np.any(np.isnan(surface_normals[..., 2][inner_mask])), (
-            "outer row and columns should have a number"
-        )
-        assert np.all(np.isnan(surface_normals[..., 0][outer_mask])), (
-            "all outer row and columns should be NaN"
-        )
-        assert np.all(np.isnan(surface_normals[..., 1][outer_mask])), (
-            "all outer row and columns should be NaN"
-        )
-        assert np.all(np.isnan(surface_normals[..., 2][outer_mask])), (
-            "all outer row and columns should be NaN"
-        )
+        self.assert_no_nan(surface_normals, inner_mask)
+        self.assert_all_nan(surface_normals, outer_mask)
 
-    def test_flat_surface_returns_upward_normal(
-        self, inner_mask: NDArray[tuple[int, int]]
+    def test_flat_surface_returns_flat_surface(
+        self,
+        inner_mask: NDArray[tuple[bool, bool]],
+        outer_mask: NDArray[tuple[bool, bool]],
     ) -> None:
         """Given a flat surface the depth map should also be flat."""
         # Arrange
-        input_image = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
+        input_image = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE))
 
         # Act
-        surface_normals = compute_surface_normals(input_image, 1, 1)
+        surface_normals = compute_surface_normals(
+            depth_data=input_image, x_dimension=1, y_dimension=1
+        )
 
         # Assert
-        assert surface_normals[..., 0].shape == input_image.shape
-        (
-            assert_allclose(surface_normals[..., 0][inner_mask], 0),
-            "innerside should be 0 (no x direction)",
-        )
-        (
-            assert_allclose(surface_normals[..., 1][inner_mask], 0),
-            "innerside should be 0 (no y direction)",
-        )
-        (
-            assert_allclose(surface_normals[..., 2][inner_mask], 1),
-            "innerside should be 1 (no z direction)",
+        self.assert_normals_close(
+            surface_normals, inner_mask, (0, 0, 1), atol=self.TOLERANCE
         )
 
     @pytest.mark.parametrize(
@@ -92,73 +92,46 @@ class TestComputeSurfaceNormals:
         ],
     )
     def test_linear_slope(
-        self, step_x: int, step_y: int, inner_mask: NDArray[tuple[int, int]]
+        self, step_x: int, step_y: int, inner_mask: Image2DArray
     ) -> None:
         """Test linear slopes in X, Y, or both directions."""
         # Arrange
-        norm = np.sqrt(step_x**2 + step_y**2 + 1)
-        expected_n1 = -step_x / norm
-        expected_n2 = step_y / norm
-        expected_n3 = 1 / norm
-        x_vals = np.arange(self.TEST_IMAGE_WIDTH) * step_x
-        y_vals = np.arange(self.TEST_IMAGE_HEIGHT) * step_y
+        x_vals = np.arange(self.IMAGE_SIZE) * step_x
+        y_vals = np.arange(self.IMAGE_SIZE) * step_y
         input_image = y_vals[:, None] + x_vals[None, :]
+        norm = np.sqrt(step_x**2 + step_y**2 + 1)
+        expected = (-step_x / norm, step_y / norm, 1 / norm)
 
         # Act
         surface_normals = compute_surface_normals(input_image, 1, 1)
 
         # Assert
-        (
-            assert_allclose(
-                surface_normals[..., 0][inner_mask], expected_n1, atol=self.TOLERANCE
-            ),
-            (f"expected continuous n1 slope of {expected_n1}"),
-        )
-        (
-            assert_allclose(
-                surface_normals[..., 1][inner_mask], expected_n2, atol=self.TOLERANCE
-            ),
-            (f"expected continuous n2 slope of {expected_n2}"),
-        )
-        (
-            assert_allclose(
-                surface_normals[..., 2][inner_mask], expected_n3, atol=self.TOLERANCE
-            ),
-            (f"expected continuous n3 slope of {expected_n3}"),
+        self.assert_normals_close(
+            surface_normals, inner_mask, expected, atol=self.TOLERANCE
         )
 
-    def test_local_slope_location(self, inner_mask: NDArray[tuple[int, int]]) -> None:
+    def test_location_slope_is_where_expected(self, inner_mask: Image2DArray) -> None:
         """Check that slope calculation is localized to the bump coordinates."""
         # Arrange
-        image_size = self.TEST_IMAGE_WIDTH
-        center_row = image_size // 2
-        center_col = image_size // 2
         bump_size = 4
-        nan_offset = 1
-        input_depth_map = np.zeros((image_size, image_size))
-
         bump_height = 6
-        bump_rows = slice(center_row - bump_size // 2, center_row + bump_size // 2)
-        bump_cols = slice(center_col - bump_size // 2, center_col + bump_size // 2)
-        input_depth_map[bump_rows, bump_cols] = bump_height
+        center_bump = self.IMAGE_SIZE // 2
+        input_depth_map = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE))
+        bump_center = slice(center_bump - bump_size // 2, center_bump + bump_size // 2)
+        input_depth_map[bump_center, bump_center] = bump_height
 
         bump_mask = np.zeros_like(input_depth_map, dtype=bool)
         bump_mask[
-            center_col - bump_size // 2 - nan_offset : center_col
-            + bump_size // 2
-            + nan_offset,
-            center_row - bump_size // 2 : center_row + bump_size // 2,
+            bump_center.start - 1 : bump_center.stop + 1,
+            bump_center.start - 1 : bump_center.stop + 1,
         ] = True
-        bump_mask[
-            center_col - bump_size // 2 : center_col + bump_size // 2,
-            center_row - bump_size // 2 - nan_offset : center_row
-            + bump_size // 2
-            + nan_offset,
-        ] = True
+
         outside_bump_mask = ~bump_mask & inner_mask
 
         # Act
-        surface_normals = compute_surface_normals(input_depth_map, 1, 1)
+        surface_normals = compute_surface_normals(
+            depth_data=input_depth_map, x_dimension=1, y_dimension=1
+        )
 
         # Assert
         assert np.any(np.abs(surface_normals[..., 0][bump_mask]) > 0), (
@@ -171,55 +144,27 @@ class TestComputeSurfaceNormals:
             "nz should deviate from 1 inside bump"
         )
 
-        assert_allclose(
-            surface_normals[..., 0][outside_bump_mask],
-            0,
-            atol=self.TOLERANCE,
-            err_msg="outside the bump nx should be 0",
-        )
-        assert_allclose(
-            surface_normals[..., 1][outside_bump_mask],
-            0,
-            atol=self.TOLERANCE,
-            err_msg="outside the bump ny should be 0",
-        )
-        assert_allclose(
-            surface_normals[..., 2][outside_bump_mask],
-            1,
-            atol=self.TOLERANCE,
-            err_msg="outside the bump nz should be 1",
+        self.assert_normals_close(
+            surface_normals, outside_bump_mask, (0, 0, 1), atol=self.TOLERANCE
         )
 
-    def test_corner_of_slope(self, inner_mask: NDArray[tuple[int, int]]):
+    def test_corner_of_slope(self, inner_mask: Image2DArray) -> None:
         """Test if the corner of the slope is an extension of x, y"""
-        image_size = self.TEST_IMAGE_WIDTH
-        center_row = image_size // 2
-        center_col = image_size // 2
+        center = self.IMAGE_SIZE // 2
         bump_size = 4
         bump_height = 6
-        input_depth_map = np.zeros((image_size, image_size))
-
+        input_depth_map = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE))
         expected_corner_value = 1 / np.sqrt(
             (bump_height // 2) ** 2 + (bump_height // 2) ** 2 + 1
         )
-
-        bump_rows = slice(center_row - bump_size // 2, center_row + bump_size // 2)
-        bump_cols = slice(center_col - bump_size // 2, center_col + bump_size // 2)
-        input_depth_map[bump_rows, bump_cols] = bump_height
-
-        nan_offset = 1
-        bump_mask = np.zeros_like(input_depth_map, dtype=bool)
-        bump_mask[
-            center_col - bump_size // 2 - nan_offset : center_col + bump_size // 2,
-            center_row - bump_size // 2 - nan_offset : center_row + bump_size // 2,
-        ] = True
-        ~bump_mask & inner_mask
+        bump_center = slice(center - bump_size // 2, center + bump_size // 2)
+        input_depth_map[bump_center, bump_center] = bump_height
 
         # Act
         surface_normals = compute_surface_normals(input_depth_map, 1, 1)
 
         # Assert
-        corner = (center_row - bump_size // 2, center_col - bump_size // 2)
+        corner = (center - bump_size // 2, center - bump_size // 2)
 
         assert_allclose(
             surface_normals[corner[0], corner[1], 2],
