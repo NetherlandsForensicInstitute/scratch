@@ -33,3 +33,21 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
     # Assert
     assert response.status_code == HTTP_200_OK, "endpoint is alive"
     assert response.json() == {"message": "Hello from the pre-processors"}, "A placeholder response should be returned"
+
+
+def test_edit_image_placeholder(client: TestClient, tmp_path: Path) -> None:
+    # Arrange
+    parsed_file = tmp_path / "parsed_scan.json"
+    parsed_file.touch()  # Create parsed file
+
+    # Act
+    response = client.post(
+        "/pre-processor/edit-image/",
+        json={
+            "parsed_file": str(parsed_file),
+        },
+    )
+
+    # Assert
+    assert response.status_code == HTTP_200_OK, "endpoint is alive"
+    assert response.json() == {"message": "Hello from edit-image"}, "A placeholder response should be returned"
