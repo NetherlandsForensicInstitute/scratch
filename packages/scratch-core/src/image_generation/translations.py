@@ -1,10 +1,11 @@
 import numpy as np
 from scipy.signal import convolve2d
+from typing import Protocol
 
 from utils.array_definitions import (
     NORMAL_VECTOR,
     IMAGE_2D_ARRAY,
-    IMAGE_3_STACK_ARRAY,
+    IMAGE_3_LAYER_STACK_ARRAY,
     IMAGE_3D_ARRAY,
 )
 
@@ -14,7 +15,7 @@ def compute_surface_normals(
     x_dimension: float,
     y_dimension: float,
     kernel: tuple[tuple[int, int, int]] = ((0, 1j, 0), (1, 0, -1), (0, -1j, 0)),
-) -> IMAGE_3_STACK_ARRAY:
+) -> IMAGE_3_LAYER_STACK_ARRAY:
     """
     Compute per-pixel surface normals from a 2D depth map.
 
@@ -55,7 +56,7 @@ def compute_surface_normals(
 def calculate_lighting(
     light_vector: NORMAL_VECTOR,
     observer_vector: NORMAL_VECTOR,
-    surface_normals: IMAGE_3_STACK_ARRAY,
+    surface_normals: IMAGE_3_LAYER_STACK_ARRAY,
     specular_factor: float = 1.0,
     phong_exponent: int = 4,
 ) -> IMAGE_2D_ARRAY:
@@ -101,11 +102,22 @@ def calculate_lighting(
     return intensity
 
 
+class LightingCalculator(Protocol):
+    def __call__(
+        self,
+        light_vector: NORMAL_VECTOR,
+        observer_vector: NORMAL_VECTOR,
+        surface_normals: IMAGE_3_LAYER_STACK_ARRAY,
+        specular_factor: float = 1.0,
+        phong_exponent: int = 4,
+    ) -> IMAGE_2D_ARRAY: ...
+
+
 def apply_multiple_lights(
-    surface_normals: IMAGE_3_STACK_ARRAY,
+    surface_normals: IMAGE_3_LAYER_STACK_ARRAY,
     light_vectors: tuple[NORMAL_VECTOR, ...],
     observer_vector: NORMAL_VECTOR,
-    lighting_calculator=calculate_lighting,
+    lighting_calculator: LightingCalculator = calculate_lighting,
 ) -> IMAGE_3D_ARRAY:
     """
     Apply multiple light sources to a surface and stack the resulting intensity maps.
