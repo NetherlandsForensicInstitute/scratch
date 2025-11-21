@@ -3,8 +3,11 @@ import pytest
 from numpy._typing import NDArray
 from numpy.testing import assert_allclose
 
-from image_generation.translations import compute_surface_normals
-from image_generation.schemas import LightAngle
+from image_generation.translations import (
+    compute_surface_normals,
+    normalize_intensity_map,
+)
+from image_generation.data_formats import LightAngle
 from image_generation.translations import calculate_lighting
 from utils.array_definitions import IMAGE_3_STACK_ARRAY
 
@@ -378,14 +381,52 @@ class TestCalculateLighting:
         assert np.allclose(out, expected_constant, atol=self.TOLERANCE)
 
 
-class TestApplyMultipleLights:
-    @pytest.fixture
-    def setup_basic_data(self):
-        """Fixture providing basic test data"""
-        n1 = np.array([[0.5, 0.6], [0.7, 0.8]])
-        n2 = np.array([[0.3, 0.4], [0.5, 0.6]])
-        n3 = np.array([[0.2, 0.3], [0.4, 0.5]])
-        return n1, n2, n3
+class TestNormalizeIntensityMap:
+    TEST_IMAGE_WIDTH = 10
+    TEST_IMAGE_HEIGHT = 12
+    TOLERANCE = 1e-5
 
-    def test_apply_multiple_lights(self, setup_basic_data):
-        n1, n2, n3 = setup_basic_data
+    @pytest.mark.parametrize(
+        "start_value, slope",
+        [
+            pytest.param(10, 100.0, id="test bigger numbers are reduced"),
+            pytest.param(-200, 10.0, id="test negative numbers are upped"),
+            pytest.param(100, 0.01, id="small slope is streched over the range"),
+        ],
+    )
+    def test_bigger_numbers(self, start_value: int, slope: float):
+        # Arrange
+        row = start_value + slope * np.arange(self.TEST_IMAGE_WIDTH)
+        image = np.tile(row, (self.TEST_IMAGE_HEIGHT, 1))
+        max_val = 255
+        min_val = 20
+        # Act
+        normalized_image = normalize_intensity_map(
+            image, max_val=max_val, scale_min=min_val
+        )
+
+        # Assert
+        assert normalized_image.max() <= max_val
+        assert normalized_image.min() >= min_val
+        assert normalized_image[0, 0] == normalized_image.min()
+        assert normalized_image[9, 9] == normalized_image.max()
+
+    def test_already_normalized_image(self):
+        # Arrange
+        max_value = 255
+        min_val = 20
+        image = np.linspace(
+            min_val, max_value, num=self.TEST_IMAGE_WIDTH * self.TEST_IMAGE_HEIGHT
+        ).reshape(self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT)
+
+        # Act
+        normalized = normalize_intensity_map(
+            image, max_val=max_value, scale_min=min_val
+        )
+
+        # Assert
+        assert np.all(normalized >= min_val)
+        assert np.all(normalized <= max_value)
+        assert np.allclose(image, normalized, atol=self.TOLERANCE), (
+            "should be the same output as the already normalized input"
+        )

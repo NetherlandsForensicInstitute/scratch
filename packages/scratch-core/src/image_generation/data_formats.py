@@ -1,7 +1,6 @@
 import numpy as np
 from pydantic import BaseModel, Field, ConfigDict
 
-from image_generation.schemas import LightAngle
 from image_generation.translations import (
     normalize_intensity_map,
     apply_multiple_lights,
@@ -21,6 +20,20 @@ class BaseModelConfig(BaseModel):
         regex_engine="rust-regex",
         extra="forbid",
     )
+
+
+class LightAngle(BaseModel):
+    azimuth: float = Field(..., description="Azimuth angle in degrees.")
+    elevation: float = Field(..., description="Elevation angle in degrees.")
+
+    @property
+    def vector(self):
+        azr = np.deg2rad(self.azimuth)
+        elr = np.deg2rad(self.elevation)
+        v = np.array(
+            [-np.cos(azr) * np.cos(elr), np.sin(azr) * np.cos(elr), np.sin(elr)]
+        )
+        return v
 
 
 class Image2DArray(BaseModelConfig):
@@ -52,7 +65,7 @@ class Image3DArray(BaseModelConfig):
     """
     A 3D stack of 2D images.
 
-    Used for: multiple lighting angles, multi-channel data.
+    Used for: multiple lighting angles, multichannel data.
     Shape: (height, width, n_layers)
     """
 
