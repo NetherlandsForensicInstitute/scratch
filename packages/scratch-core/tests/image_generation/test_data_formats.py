@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from surface_conversion.data_formats import SurfaceNormals
+from image_generation.data_formats import SurfaceNormals
 
 
 @pytest.mark.parametrize(

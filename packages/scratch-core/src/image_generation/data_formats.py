@@ -1,16 +1,18 @@
 import numpy as np
-from numpydantic import NDArray, Shape
 from pydantic import BaseModel, Field, ConfigDict
 
-HeightWidth = "*, *"
-HeightWidthNLayers = f"{HeightWidth}, *"
-HeightWidth3Layers = f"{HeightWidth}, 3"
-NormalVector = "3"
-
-IMAGE_2D_ARRAY = NDArray[Shape[HeightWidth], float]
-IMAGE_3D_ARRAY = NDArray[Shape[HeightWidthNLayers], float]
-IMAGE_3_STACK_ARRAY = NDArray[Shape[HeightWidth3Layers], float]
-NORMAL_VECTOR = NDArray[Shape[NormalVector], float]
+from image_generation.schemas import LightAngle
+from image_generation.translations import (
+    normalize_intensity_map,
+    apply_multiple_lights,
+    compute_surface_normals,
+)
+from utils.array_definitions import (
+    IMAGE_2D_ARRAY,
+    IMAGE_3D_ARRAY,
+    IMAGE_3_STACK_ARRAY,
+    NORMAL_VECTOR,
+)
 
 
 class BaseModelConfig(BaseModel):
@@ -31,6 +33,20 @@ class Image2DArray(BaseModelConfig):
 
     data: IMAGE_2D_ARRAY = Field(..., description="2D depth map array of shape (H, W)")
 
+    def compute_normals(
+        self, x_dimension: float, y_dimension: float
+    ) -> "SurfaceNormals":
+        return SurfaceNormals(
+            data=compute_surface_normals(self.data, x_dimension, y_dimension)
+        )
+
+    def normalize(self, max_val: float = 255, scale_min: float = 25) -> "Image2DArray":
+        return Image2DArray(
+            data=normalize_intensity_map(
+                self.data, max_val=max_val, scale_min=scale_min
+            )
+        )
+
 
 class Image3DArray(BaseModelConfig):
     """
@@ -41,6 +57,11 @@ class Image3DArray(BaseModelConfig):
     """
 
     data: IMAGE_3D_ARRAY = Field(..., description="(H, W, N)")
+
+    @property
+    def combined(self) -> Image2DArray:
+        """Combine stacked lights → (H × W)."""
+        return Image2DArray(data=np.nansum(self.data, axis=2))
 
 
 class SurfaceNormals(BaseModelConfig):
@@ -70,17 +91,11 @@ class SurfaceNormals(BaseModelConfig):
         """Construct from separate component arrays."""
         return cls(data=np.stack([nx, ny, nz], axis=-1))
 
-
-class LightVector(BaseModelConfig):
-    """A normalized 3-element vector (x, y, z)."""
-
-    vec: NORMAL_VECTOR = Field(..., description="Length-3 normalized direction vector")
-
-
-class LightingStack(Image3DArray):
-    """Stack of lighting intensity maps from multiple light sources."""
-
-    @property
-    def combined(self) -> Image2DArray:
-        """Combine stacked lights → (H × W)."""
-        return Image2DArray(data=np.nansum(self.data, axis=2))
+    def apply_lights(
+        self,
+        light_angles: tuple[NORMAL_VECTOR, ...],
+        observer: NORMAL_VECTOR = LightAngle(azimuth=0, elevation=90).vector,
+    ) -> "Image3DArray":
+        return Image3DArray(
+            data=apply_multiple_lights(self.data, light_angles, observer)
+        )
