@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from parsers import ScanImage
 
-from .schemas import UploadScan
+from .schemas import EditImage, UploadScan
 
 
 class ParseError(Exception): ...
@@ -44,3 +44,17 @@ async def add_scan(upload_scan: UploadScan) -> dict[str, str]:
     # create surface map png
     # export png to output directory
     return {"message": "Hello from add-scan"}
+
+
+@pre_processors.post(
+    path="/edit-image",
+    summary="Edit parsed scan",
+    description="""""",
+)
+async def edit_image(params: EditImage) -> dict[str, str]:
+    """TODO."""
+    # load requested scan
+    # crop scan
+    # create surface map png
+    # export png to output directory
+    return {"message": "Hello from edit-image"}
