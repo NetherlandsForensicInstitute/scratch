@@ -21,8 +21,20 @@ class LightSource(BaseModel):
         frozen=True,
         extra="forbid",
     )
-    azimuth: float = Field(..., description="Azimuth angle in degrees.")
-    elevation: float = Field(..., description="Elevation angle in degrees.")
+    azimuth: float = Field(
+        ...,
+        description="Azimuth angle in degrees.",
+        examples=[90, 45, 180],
+        ge=0,
+        le=360,
+    )
+    elevation: float = Field(
+        ...,
+        description="Elevation angle in degrees.",
+        examples=[90, 45, 180],
+        ge=0,
+        le=360,
+    )
 
     @property
     def vector(self) -> Vector3D:

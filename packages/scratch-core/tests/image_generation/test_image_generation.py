@@ -6,7 +6,7 @@ from matplotlib.testing.decorators import image_comparison
 from image_generation import get_surface_map
 from image_generation.data_formats import Image2DArray
 from parsers.data_types import ScanImage
-from utils.paths import ROOT_DIR
+from utils.paths import PROJECT_ROOT
 
 
 def plot_test_data(data) -> Figure:
@@ -21,7 +21,7 @@ def plot_test_data(data) -> Figure:
 @pytest.fixture
 def data_in(scan_image: ScanImage) -> ScanImage:
     return ScanImage.from_file(
-        ROOT_DIR / "tests/resources/scans/Klein_non_replica_mode.al3d"
+        PROJECT_ROOT / "tests/resources/scans/Klein_non_replica_mode.al3d"
     )
 
 
