@@ -6,13 +6,11 @@ from pathlib import Path
 import numpy as np
 
 
-@pytest.mark.parametrize("step_size", [1, 10, (25, 25), (25, 50)])
+@pytest.mark.parametrize("step_size", [(1, 1), (10, 10), (25, 25), (25, 50)])
 def test_subsample_matches_size(
-    scan_image: ScanImage, step_size: int | tuple[int, int], atol: float
+    scan_image: ScanImage, step_size: tuple[int, int], atol: float
 ):
     subsampled = subsample_data(scan_image=scan_image, step_size=step_size)
-    if isinstance(step_size, int):
-        step_size = (step_size, step_size)
     assert subsampled.width == ceil(scan_image.width / step_size[0])
     assert subsampled.height == ceil(scan_image.height / step_size[1])
     assert np.isclose(subsampled.scale_x, scan_image.scale_x * step_size[0], atol=atol)
