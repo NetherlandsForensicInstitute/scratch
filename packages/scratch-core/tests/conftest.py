@@ -1,10 +1,10 @@
 from pathlib import Path
-
+from numpy.typing import NDArray
 import numpy as np
 import pytest
 from PIL import Image
 
-from parsers.data_types import Array2D, ScanImage
+from parsers.data_types import ScanImage
 
 TEST_ROOT = Path(__file__).parent
 
@@ -28,7 +28,7 @@ def atol() -> float:
 
 
 @pytest.fixture
-def image_data(scans_dir: Path) -> Array2D:
+def image_data(scans_dir: Path) -> NDArray:
     """Build a fixture with ground truth image data."""
     gray = Image.open(scans_dir / "circle.png").convert("L")
     data = np.asarray(gray, dtype=np.float64)
@@ -36,7 +36,7 @@ def image_data(scans_dir: Path) -> Array2D:
 
 
 @pytest.fixture
-def scan_image(image_data: Array2D) -> ScanImage:
+def scan_image(image_data: NDArray) -> ScanImage:
     """Build a `ScanImage` object`."""
     return ScanImage(data=image_data)
 

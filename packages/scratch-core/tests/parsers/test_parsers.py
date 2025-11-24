@@ -4,12 +4,11 @@ import numpy as np
 from numpy.typing import NDArray
 import pytest
 from parsers import ScanImage, save_to_x3p
-from parsers.data_types import Array2D
 
 
 def validate_image(
     parsed_image: ScanImage,
-    expected_image_data: Array2D,
+    expected_image_data: NDArray,
     expected_scale: float,
     atol: float,
 ):
@@ -43,7 +42,7 @@ def test_exception_on_incorrect_shape(image_data: NDArray):
 )
 def test_parser_can_parse(
     filename: Path,
-    image_data: Array2D,
+    image_data: NDArray,
     expected_scale: float,
     scans_dir: Path,
     atol: float,
