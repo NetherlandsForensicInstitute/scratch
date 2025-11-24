@@ -1043,19 +1043,6 @@ wheels = [
 ]
 
 [[package]]
-name = "numpydantic"
-version = "1.7.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/59/ba/6bf5e0a7cc3fbfbb02a7824926cad73c58df374322eb7728b378023a76dc/numpydantic-1.7.0.tar.gz", hash = "sha256:268285bee026d9dfdf23efeee13f60c3b75d47de2ffdf2e58b4f0c17a6824e3b", size = 80412, upload-time = "2025-10-11T05:23:56.654Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/e0/42f0ea229a8b5ada24a1eae4f5522b80ab65b4083f5cea4c7372bc894af3/numpydantic-1.7.0-py3-none-any.whl", hash = "sha256:81314ed00423efa954a711a48003dba5382156e899f677f405ce043f5296b090", size = 86734, upload-time = "2025-10-11T05:23:55.003Z" },
-]
-
-[[package]]
 name = "openpyxl"
 version = "3.1.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1880,7 +1867,6 @@ version = "0.0.1"
 source = { editable = "packages/scratch-core" }
 dependencies = [
     { name = "numpy" },
-    { name = "numpydantic" },
     { name = "pillow" },
     { name = "surfalize" },
     { name = "x3p" },
@@ -1889,7 +1875,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "numpy", specifier = ">=2.3.4" },
-    { name = "numpydantic", specifier = ">=1.7.0" },
     { name = "pillow", specifier = ">=12.0.0" },
     { name = "surfalize", specifier = "~=0.16.6" },
     { name = "x3p", git = "https://github.com/giacomomarchioro/pyx3p.git" },
