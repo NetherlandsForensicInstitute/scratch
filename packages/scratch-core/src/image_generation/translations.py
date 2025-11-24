@@ -75,7 +75,7 @@ def calculate_lighting(
     Returns
     -------
     IMAGE_2D_ARRAY
-        2D array of combined lighting intensities in [0, 1] with shape (H, W).
+        2D array of combined lighting intensities in [0, 1] with shape (Height, Width).
     """
     h_vec = light_vector + observer_vector
     h_norm = np.linalg.norm(h_vec)

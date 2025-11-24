@@ -22,7 +22,7 @@ def get_surface_map(
     Parameters
     ----------
     depth_data : Image2DArray
-        2D depth map of shape (H, W).
+        2D depth map of shape (Height, Width).
     x_dimension : float
         Physical spacing between columns (Δx) in meters.
     y_dimension : float
@@ -34,7 +34,7 @@ def get_surface_map(
     Returns
     -------
     Image2DArray
-        Normalized 2D intensity map (H, W) resulting from combined lighting,
+        Normalized 2D intensity map (Height, Width) resulting from combined lighting,
         suitable for visualization or further processing.
     """
     return (

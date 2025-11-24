@@ -71,7 +71,7 @@ class Image3DArray(RootModel[IMAGE_3D_ARRAY]):
 
 
 class SurfaceNormals(RootModel[IMAGE_3_LAYER_STACK_ARRAY]):
-    """Normal vector at each pixel: shape (H, W, 3)."""
+    """Normal vector at each pixel: shape (Height, Width, 3-layers(x,y,z))."""
 
     @property
     def nx(self) -> IMAGE_2D_ARRAY:
