@@ -3,7 +3,7 @@ import pytest
 from numpy._typing import NDArray
 from numpy.testing import assert_allclose
 
-from image_generation.data_formats import LightAngle, Image2DArray
+from image_generation.data_formats import LightAngle
 from image_generation.translations import calculate_lighting
 from image_generation.translations import (
     compute_surface_normals,
@@ -25,7 +25,9 @@ class TestComputeSurfaceNormals:
         return mask
 
     @pytest.fixture
-    def outer_mask(self, inner_mask) -> NDArray[tuple[bool, bool]]:
+    def outer_mask(
+        self, inner_mask: NDArray[tuple[bool, bool]]
+    ) -> NDArray[tuple[bool, bool]]:
         """Inverse of inner_mask: the NaN border."""
         return ~inner_mask
 
@@ -46,7 +48,9 @@ class TestComputeSurfaceNormals:
         assert ~np.isnan(normals[mask]).any()
 
     def test_slope_has_nan_border(
-        self, inner_mask: Image2DArray, outer_mask: Image2DArray
+        self,
+        inner_mask: NDArray[tuple[bool, bool]],
+        outer_mask: NDArray[tuple[bool, bool]],
     ) -> None:
         """The image is 1 pixel smaller on all sides due to the slope calculation.
         This is filled with NaN values to get the same shape as original image"""
@@ -92,7 +96,7 @@ class TestComputeSurfaceNormals:
         ],
     )
     def test_linear_slope(
-        self, step_x: int, step_y: int, inner_mask: Image2DArray
+        self, step_x: int, step_y: int, inner_mask: NDArray[tuple[bool, bool]]
     ) -> None:
         """Test linear slopes in X, Y, or both directions."""
         # Arrange
@@ -110,7 +114,9 @@ class TestComputeSurfaceNormals:
             surface_normals, inner_mask, expected, atol=self.TOLERANCE
         )
 
-    def test_location_slope_is_where_expected(self, inner_mask: Image2DArray) -> None:
+    def test_location_slope_is_where_expected(
+        self, inner_mask: NDArray[tuple[bool, bool]]
+    ) -> None:
         """Check that slope calculation is localized to the bump coordinates."""
         # Arrange
         bump_size = 4
@@ -148,7 +154,7 @@ class TestComputeSurfaceNormals:
             surface_normals, outside_bump_mask, (0, 0, 1), atol=self.TOLERANCE
         )
 
-    def test_corner_of_slope(self, inner_mask: Image2DArray) -> None:
+    def test_corner_of_slope(self, inner_mask: NDArray[tuple[bool, bool]]) -> None:
         """Test if the corner of the slope is an extension of x, y"""
         center = self.IMAGE_SIZE // 2
         bump_size = 4
@@ -227,13 +233,15 @@ class TestCalculateLighting:
         assert np.allclose(out, out[0, 0])
 
     def test_bump_changes_values(self):
-        """Test that the shader reacts per pixel by giving a bump in the normals."""
+        """Test that the shader reacts per pixel by giving a bump in the normals. and thest the location is changed"""
         # Arrange
         nx = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
         ny = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
         nz = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
         nz[self.TEST_IMAGE_WIDTH // 2, self.TEST_IMAGE_HEIGHT // 2] = 1.3
         base_images = np.stack([nx, ny, nz], axis=-1)
+        norm = np.linalg.norm(base_images, axis=-1, keepdims=True)
+        base_images = base_images / norm
         light_source = LightAngle(azimuth=45, elevation=45)
         observer_vector = LightAngle(azimuth=0, elevation=90)
 
@@ -244,8 +252,12 @@ class TestCalculateLighting:
 
         # Assert
         center = out[self.TEST_IMAGE_WIDTH // 2, self.TEST_IMAGE_HEIGHT // 2]
-        border = out[0, 0]
-        assert center != border
+        border = out[
+            (self.TEST_IMAGE_WIDTH // 2) + 1, (self.TEST_IMAGE_HEIGHT // 2) + 1
+        ]
+        assert not np.allclose(center, border), (
+            "Center pixel should differ from border pixel due to bump."
+        )
 
     @pytest.mark.parametrize(
         "light_source,nx,ny,nz",
