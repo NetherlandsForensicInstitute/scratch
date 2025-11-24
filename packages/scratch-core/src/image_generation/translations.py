@@ -95,7 +95,9 @@ def calculate_lighting(
     diffuse = np.maximum(
         light_vector[0] * nx + light_vector[1] * ny + light_vector[2] * nz, 0
     )
+
     specular = np.maximum(h[0] * nx + h[1] * ny + h[2] * nz, 0)
+    specular = np.clip(specular, -1.0, 1.0)
     specular = np.maximum(np.cos(2 * np.arccos(specular)), 0) ** phong_exponent
 
     intensity = (diffuse + specular_factor * specular) / (1 + specular_factor)
