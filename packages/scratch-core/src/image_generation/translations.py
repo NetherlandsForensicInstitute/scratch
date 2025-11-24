@@ -83,8 +83,9 @@ def calculate_lighting(
     IMAGE_2D_ARRAY
         2D array of combined lighting intensities in [0, 1] with shape (H, W).
     """
-    h = light_vector + observer_vector
-    h = h / np.linalg.norm(h)
+    h_vec = light_vector + observer_vector
+    h_norm = np.linalg.norm(h_vec)
+    h_vec = h_vec / h_norm
 
     nx, ny, nz = (
         surface_normals[..., 0],
@@ -96,7 +97,7 @@ def calculate_lighting(
         light_vector[0] * nx + light_vector[1] * ny + light_vector[2] * nz, 0
     )
 
-    specular = np.maximum(h[0] * nx + h[1] * ny + h[2] * nz, 0)
+    specular = np.maximum(h_vec[0] * nx + h_vec[1] * ny + h_vec[2] * nz, 0)
     specular = np.clip(specular, -1.0, 1.0)
     specular = np.maximum(np.cos(2 * np.arccos(specular)), 0) ** phong_exponent
 
