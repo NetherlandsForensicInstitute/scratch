@@ -5,7 +5,7 @@ def get_surface_map(
     depth_data: Image2DArray,
     x_dimension: float,
     y_dimension: float,
-    light_angles: tuple[NORMAL_VECTOR] = (
+    light_angles: tuple[NORMAL_VECTOR, ...] = (
         LightAngle(azimuth=90, elevation=45).vector,
         LightAngle(azimuth=180, elevation=45).vector,
     ),

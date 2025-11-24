@@ -29,8 +29,8 @@ def data_in(scan_image: ScanImage) -> ScanImage:
 @image_comparison(baseline_images=["surfaceplot_default"], extensions=["png"])
 def test_get_surface_plot(data_in: ScanImage) -> None:
     data = get_surface_map(
-        depth_data=Image2DArray(data=data_in.data),
+        depth_data=Image2DArray(data_in.data),
         x_dimension=data_in.scale_x,
         y_dimension=data_in.scale_y,
     )
-    plot_test_data(data.data)
+    plot_test_data(data.root)

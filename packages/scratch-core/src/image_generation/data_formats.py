@@ -1,5 +1,5 @@
 import numpy as np
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, RootModel
 
 from image_generation.translations import (
     normalize_intensity_map,
@@ -14,17 +14,13 @@ from utils.array_definitions import (
 )
 
 
-class BaseModelConfig(BaseModel):
-    model_config = ConfigDict(
-        frozen=True,
-        regex_engine="rust-regex",
-        extra="forbid",
-    )
-
-
 class LightAngle(BaseModel):
     """Representation of a light angle and the thereby proprty a vector of [x,y,z]"""
 
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+    )
     azimuth: float = Field(..., description="Azimuth angle in degrees.")
     elevation: float = Field(..., description="Elevation angle in degrees.")
 
@@ -41,7 +37,7 @@ class LightAngle(BaseModel):
         )
 
 
-class Image2DArray(BaseModelConfig):
+class Image2DArray(RootModel[IMAGE_2D_ARRAY]):
     """
     A 2D image/array of floats.
 
@@ -49,24 +45,18 @@ class Image2DArray(BaseModelConfig):
     Shape: (height, width)
     """
 
-    data: IMAGE_2D_ARRAY = Field(..., description="2D depth map array of shape (H, W)")
-
-    def compute_normals(
-        self, x_dimension: float, y_dimension: float
-    ) -> "SurfaceNormals":
+    def compute_normals(self, x_dimension: float, y_dimension: float):
         return SurfaceNormals(
-            data=compute_surface_normals(self.data, x_dimension, y_dimension)
+            compute_surface_normals(self.root, x_dimension, y_dimension)
         )
 
-    def normalize(self, max_val: float = 255, scale_min: float = 25) -> "Image2DArray":
+    def normalize(self, max_val: float = 255, scale_min: float = 25):
         return Image2DArray(
-            data=normalize_intensity_map(
-                self.data, max_val=max_val, scale_min=scale_min
-            )
+            normalize_intensity_map(self.root, max_val=max_val, scale_min=scale_min)
         )
 
 
-class Image3DArray(BaseModelConfig):
+class Image3DArray(RootModel[IMAGE_3D_ARRAY]):
     """
     A 3D stack of 2D images.
 
@@ -74,30 +64,26 @@ class Image3DArray(BaseModelConfig):
     Shape: (height, width, n_layers)
     """
 
-    data: IMAGE_3D_ARRAY = Field(..., description="(H, W, N)")
-
     @property
     def combined(self) -> Image2DArray:
-        """Combine stacked lights → (H × W)."""
-        return Image2DArray(data=np.nansum(self.data, axis=2))
+        """Combine stacked lights → (Height × Width)."""
+        return Image2DArray(np.nansum(self.root, axis=2))
 
 
-class SurfaceNormals(BaseModelConfig):
+class SurfaceNormals(RootModel[IMAGE_3_LAYER_STACK_ARRAY]):
     """Normal vector at each pixel: shape (H, W, 3)."""
-
-    data: IMAGE_3_LAYER_STACK_ARRAY
 
     @property
     def nx(self) -> IMAGE_2D_ARRAY:
-        return self.data[..., 0]
+        return self.root[..., 0]
 
     @property
     def ny(self) -> IMAGE_2D_ARRAY:
-        return self.data[..., 1]
+        return self.root[..., 1]
 
     @property
     def nz(self) -> IMAGE_2D_ARRAY:
-        return self.data[..., 2]
+        return self.root[..., 2]
 
     @classmethod
     def from_components(
@@ -107,13 +93,17 @@ class SurfaceNormals(BaseModelConfig):
         nz: IMAGE_2D_ARRAY,
     ) -> "SurfaceNormals":
         """Construct from separate component arrays."""
-        return cls(data=np.stack([nx, ny, nz], axis=-1))
+        return cls(np.stack([nx, ny, nz], axis=-1))
 
     def apply_lights(
         self,
-        light_angles: tuple[NORMAL_VECTOR, ...],
+        light_vectors: tuple[NORMAL_VECTOR, ...],
         observer: NORMAL_VECTOR = LightAngle(azimuth=0, elevation=90).vector,
     ) -> "Image3DArray":
         return Image3DArray(
-            data=apply_multiple_lights(self.data, light_angles, observer)
+            apply_multiple_lights(
+                surface_normals=self.root,
+                light_vectors=light_vectors,
+                observer_vector=observer,
+            )
         )

@@ -14,7 +14,11 @@ def compute_surface_normals(
     depth_data: IMAGE_2D_ARRAY,
     x_dimension: float,
     y_dimension: float,
-    kernel: tuple[tuple[int, int, int]] = ((0, 1j, 0), (1, 0, -1), (0, -1j, 0)),
+    kernel: tuple[tuple[complex | int, complex | int, complex | int], ...] = (
+        (0, 1j, 0),
+        (1, 0, -1),
+        (0, -1j, 0),
+    ),
 ) -> IMAGE_3_LAYER_STACK_ARRAY:
     """
     Compute per-pixel surface normals from a 2D depth map.
