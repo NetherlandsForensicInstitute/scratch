@@ -14,8 +14,6 @@ UNIT_CONVERSION_FACTOR = 1e-6  # conversion factor from micrometers (um) to mete
 # register the patched method as a parser
 FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
 
-Array2D = NDArray[tuple[int, int]]
-
 
 class ScanFileFormats(StrEnum):
     AL3D = auto()
@@ -49,7 +47,7 @@ class ScanImage(FrozenBaseModel):
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
-    data: Annotated[Array2D, AfterValidator(validate_parsed_image_shape)]
+    data: Annotated[NDArray[np.float64], AfterValidator(validate_parsed_image_shape)]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     meta_data: dict | None = None

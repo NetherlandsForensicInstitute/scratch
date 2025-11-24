@@ -32,6 +32,7 @@ stats = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
+exclude = ["**/__pycache__"]
 
 [dependency-groups]
 dev = [
