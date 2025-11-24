@@ -16,6 +16,10 @@ from utils.array_definitions import IMAGE_3_LAYER_STACK_ARRAY
 class TestComputeSurfaceNormals:
     TOLERANCE = 1e-6
     IMAGE_SIZE = 20
+    BUMP_SIZE = 6
+    BUMP_HEIGHT = 4
+    BUMP_CENTER = IMAGE_SIZE // 2
+    BUMP_SLICE = slice(BUMP_CENTER - BUMP_SIZE // 2, BUMP_CENTER + BUMP_SIZE // 2)
 
     @pytest.fixture
     def inner_mask(self) -> NDArray[tuple[bool, bool]]:
@@ -114,29 +118,31 @@ class TestComputeSurfaceNormals:
             surface_normals, inner_mask, expected, atol=self.TOLERANCE
         )
 
+    @pytest.fixture
+    def input_depth_map_with_bump(
+        self,
+    ) -> NDArray[tuple[int, int]]:
+        input_depth_map = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE), dtype=int)
+        input_depth_map[self.BUMP_SLICE, self.BUMP_SLICE] = self.BUMP_HEIGHT
+        return input_depth_map
+
     def test_location_slope_is_where_expected(
-        self, inner_mask: NDArray[tuple[bool, bool]]
+        self,
+        inner_mask: NDArray[tuple[bool, bool]],
+        input_depth_map_with_bump: NDArray[tuple[int, int]],
     ) -> None:
-        """Check that slope calculation is localized to the bump coordinates."""
+        """Check that slope calculation is localized to the bump coordination an offset of 1 is used for the slope."""
         # Arrange
-        bump_size = 4
-        bump_height = 6
-        center_bump = self.IMAGE_SIZE // 2
-        input_depth_map = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE))
-        bump_center = slice(center_bump - bump_size // 2, center_bump + bump_size // 2)
-        input_depth_map[bump_center, bump_center] = bump_height
-
-        bump_mask = np.zeros_like(input_depth_map, dtype=bool)
+        bump_mask = np.zeros_like(input_depth_map_with_bump, dtype=bool)
         bump_mask[
-            bump_center.start - 1 : bump_center.stop + 1,
-            bump_center.start - 1 : bump_center.stop + 1,
+            self.BUMP_SLICE.start - 1 : self.BUMP_SLICE.stop + 1,
+            self.BUMP_SLICE.start - 1 : self.BUMP_SLICE.stop + 1,
         ] = True
-
         outside_bump_mask = ~bump_mask & inner_mask
 
         # Act
         surface_normals = compute_surface_normals(
-            depth_data=input_depth_map, x_dimension=1, y_dimension=1
+            depth_data=input_depth_map_with_bump, x_dimension=1, y_dimension=1
         )
 
         # Assert
@@ -154,23 +160,25 @@ class TestComputeSurfaceNormals:
             surface_normals, outside_bump_mask, (0, 0, 1), atol=self.TOLERANCE
         )
 
-    def test_corner_of_slope(self, inner_mask: NDArray[tuple[bool, bool]]) -> None:
+    def test_corner_of_slope(
+        self,
+        inner_mask: NDArray[tuple[bool, bool]],
+        input_depth_map_with_bump: NDArray[tuple[int, int]],
+    ) -> None:
         """Test if the corner of the slope is an extension of x, y"""
-        center = self.IMAGE_SIZE // 2
-        bump_size = 4
-        bump_height = 6
-        input_depth_map = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE))
-        expected_corner_value = 1 / np.sqrt(
-            (bump_height // 2) ** 2 + (bump_height // 2) ** 2 + 1
+        # Arrange
+        corner = (
+            self.BUMP_CENTER - self.BUMP_SIZE // 2,
+            self.BUMP_CENTER - self.BUMP_SIZE // 2,
         )
-        bump_center = slice(center - bump_size // 2, center + bump_size // 2)
-        input_depth_map[bump_center, bump_center] = bump_height
+        expected_corner_value = 1 / np.sqrt(
+            (self.BUMP_HEIGHT // 2) ** 2 + (self.BUMP_HEIGHT // 2) ** 2 + 1
+        )
 
         # Act
-        surface_normals = compute_surface_normals(input_depth_map, 1, 1)
+        surface_normals = compute_surface_normals(input_depth_map_with_bump, 1, 1)
 
         # Assert
-        corner = (center - bump_size // 2, center - bump_size // 2)
 
         assert_allclose(
             surface_normals[corner[0], corner[1], 2],
