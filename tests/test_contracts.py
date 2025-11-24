@@ -1,9 +1,21 @@
+from enum import StrEnum
+
 import pytest
 import requests
 from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
+from constants import PROJECT_ROOT
+from pre_processors.schemas import ProcessScan, UploadScan
+
 ROOT_URL = "http://127.0.0.1:8000"
+SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
+
+
+class RootRout(StrEnum):
+    COMPARATOR = "comparator"
+    PRE_PROCESSOR = "pre-processor"
+    PROCESSOR = "processor"
 
 
 class TemplateResponse(BaseModel):
@@ -24,17 +36,32 @@ class TestContracts:
     """
 
     @pytest.mark.parametrize(
-        ("get_request_url", "expected_response"),
-        [
-            ("/comparator", TemplateResponse),
-            ("/pre-processor", TemplateResponse),
-            ("/processor", TemplateResponse),
-        ],
+        ("rout", "expected_response"),
+        (pytest.param(f"/{rout}", TemplateResponse, id=rout) for rout in RootRout),
     )
-    def test_root(self, get_request_url: str, expected_response: BaseModel) -> None:
+    def test_root(self, rout: str, expected_response: BaseModel) -> None:
         """Check if the root is still returning the hello world response."""
         # Act
-        response = requests.get(f"{ROOT_URL}{get_request_url}", timeout=5)
+        response = requests.get(f"{ROOT_URL}{rout}", timeout=5)
+        # Assert
+        assert response.status_code == HTTP_200_OK
+        expected_response.model_validate(response.json())
+
+    @pytest.mark.parametrize(
+        ("sub_rout", "data", "expected_response"),
+        [
+            pytest.param(
+                "/processs-scan",
+                UploadScan(scan_file=SCANS_DIR / "circle.x3p", output_dir=SCANS_DIR),
+                ProcessScan,
+                id="process-scan",
+            ),
+        ],
+    )
+    def test_pre_processor_post_requests(self, sub_rout: str, data: BaseModel, expected_response: BaseModel) -> None:
+        """TODO."""
+        # Act
+        response = requests.post(f"{ROOT_URL}/{RootRout.PRE_PROCESSOR}{sub_rout}", data.model_dump_json(), timeout=5)
         # Assert
         assert response.status_code == HTTP_200_OK
         expected_response.model_validate(response.json())

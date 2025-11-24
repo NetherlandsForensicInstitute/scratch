@@ -67,6 +67,7 @@ def test_nonexistent_scan_file_raises_error(output_dir: Path) -> None:
     """Test that non-existent scan file raises ValidationError."""
     # Arrange
     nonexistent_file = Path("/nonexistent/path/scan.mat")
+
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
         UploadScan(scan_file=nonexistent_file, output_dir=output_dir)
@@ -77,6 +78,7 @@ def test_nonexistent_output_dir_raises_error(valid_scan_file: Path) -> None:
     """Test that non-existent output directory raises ValidationError."""
     # Arrange
     nonexistent_dir = Path("/nonexistent/output/dir")
+
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
         UploadScan(scan_file=valid_scan_file, output_dir=nonexistent_dir)
@@ -88,6 +90,7 @@ def test_scan_file_as_directory_raises_error(tmp_path: Path, output_dir: Path) -
     # Arrange
     directory = tmp_path / "not_a_file"
     directory.mkdir()
+
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
         UploadScan(scan_file=directory, output_dir=output_dir)
@@ -99,6 +102,7 @@ def test_output_dir_as_file_raises_error(tmp_path: Path, valid_scan_file: Path) 
     # Arrange
     file_not_dir = tmp_path / "not_a_directory.txt"
     file_not_dir.touch()
+
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
         UploadScan(scan_file=valid_scan_file, output_dir=file_not_dir)
@@ -112,6 +116,7 @@ def test_model_is_frozen(valid_scan_file: Path, output_dir: Path) -> None:
         scan_file=valid_scan_file,
         output_dir=output_dir,
     )
+
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
         upload_scan.scan_file = valid_scan_file

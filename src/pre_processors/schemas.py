@@ -39,12 +39,11 @@ class ProcessScan(BaseModelConfig):
 
     @model_validator(mode="after")
     def same_parent_directory(self) -> Self:
-        """Validate that all image files are in the same parent directory."""
-        parent_dirs = {
-            getattr(self, field_name).parent
-            for field_name, field_info in self.model_fields.items()
-            if field_info.annotation is FilePath
-        }
-        if len(parent_dirs) > 1:
+        """Validate that all files are in the same parent directory."""
+        if not all(
+            getattr(self, field_name).parent == self.output_directory
+            for field_name, field_info in self.__class__.model_fields.items()
+            if field_info.annotation is Path
+        ):
             raise ValueError("All fields must point to the same output directory")
         return self
