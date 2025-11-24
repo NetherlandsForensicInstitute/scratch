@@ -23,17 +23,22 @@ class BaseModelConfig(BaseModel):
 
 
 class LightAngle(BaseModel):
+    """Representation of a light angle and the thereby proprty a vector of [x,y,z]"""
+
     azimuth: float = Field(..., description="Azimuth angle in degrees.")
     elevation: float = Field(..., description="Elevation angle in degrees.")
 
     @property
-    def vector(self):
-        azr = np.deg2rad(self.azimuth)
-        elr = np.deg2rad(self.elevation)
-        v = np.array(
-            [-np.cos(azr) * np.cos(elr), np.sin(azr) * np.cos(elr), np.sin(elr)]
+    def vector(self) -> NORMAL_VECTOR:
+        azimuth = np.deg2rad(self.azimuth)
+        elevation = np.deg2rad(self.elevation)
+        return np.array(
+            [
+                -np.cos(azimuth) * np.cos(elevation),
+                np.sin(azimuth) * np.cos(elevation),
+                np.sin(elevation),
+            ]
         )
-        return v
 
 
 class Image2DArray(BaseModelConfig):
