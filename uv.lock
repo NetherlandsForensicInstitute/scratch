@@ -1876,7 +1876,7 @@ dependencies = [
 requires-dist = [
     { name = "numpy", specifier = ">=2.3.4" },
     { name = "pillow", specifier = ">=12.0.0" },
-    { name = "surfalize", specifier = ">=0.16.6" },
+    { name = "surfalize", specifier = "~=0.16.6" },
     { name = "x3p", git = "https://github.com/giacomomarchioro/pyx3p.git" },
 ]
 
