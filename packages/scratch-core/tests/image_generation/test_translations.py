@@ -240,8 +240,6 @@ class TestCalculateLighting:
         nz = np.ones((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
         nz[self.TEST_IMAGE_WIDTH // 2, self.TEST_IMAGE_HEIGHT // 2] = 1.3
         base_images = np.stack([nx, ny, nz], axis=-1)
-        norm = np.linalg.norm(base_images, axis=-1, keepdims=True)
-        base_images = base_images / norm
         light_source = LightAngle(azimuth=45, elevation=45)
         observer_vector = LightAngle(azimuth=0, elevation=90)
 

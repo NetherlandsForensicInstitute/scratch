@@ -22,7 +22,7 @@ def compute_surface_normals(
     Parameters
     ----------
     depth_data : IMAGE_2D_ARRAY
-        2D array of depth values with shape (H, W).
+        2D array of depth values with shape (Height, Width).
     x_dimension : float
         Physical spacing between columns (Δx) in meters.
     y_dimension : float
@@ -34,7 +34,7 @@ def compute_surface_normals(
     Returns
     -------
     IMAGE_3_STACK_ARRAY
-        3D array of surface normals with shape (H, W, 3), where the last
+        3D array of surface normals with shape (Height, Width, 3), where the last
         dimension corresponds to (nx, ny, nz).
     """
     factor_x = 1 / (2 * x_dimension)
@@ -72,7 +72,7 @@ def calculate_lighting(
     observer_vector : NORMAL_VECTOR
         3-element normalized vector pointing toward the observer/camera.
     surface_normals : IMAGE_3_STACK_ARRAY
-        3D array of surface normals with shape (H, W, 3).
+        3D array of surface normals with shape (Height, Width, 3-layers(x,y,z).
     specular_factor : float, optional
         Weight of the specular component (default: 1.0).
     phong_exponent : int, optional
@@ -125,7 +125,7 @@ def apply_multiple_lights(
     Parameters
     ----------
     surface_normals : IMAGE_3_STACK_ARRAY
-        3D array of surface normals with shape (H, W, 3).
+        3D array of surface normals with shape (Height, Width, 3-layers(x,y,z)).
     light_vectors : tuple of NORMAL_VECTOR
         Tuple of normalized 3-element light direction vectors.
     observer_vector : NORMAL_VECTOR
@@ -136,7 +136,7 @@ def apply_multiple_lights(
     Returns
     -------
     IMAGE_3D_ARRAY
-        3D array of lighting intensities with shape (H, W, N), where N is the number of lights.
+        3D array of lighting intensities with shape (Height, Width, N), where N is the number of lights.
     """
     return np.stack(
         [
@@ -156,7 +156,7 @@ def normalize_intensity_map(
     Parameters
     ----------
     image_to_normalize : IMAGE_2D_ARRAY
-        2D array of intensity values (H, W).
+        2D array of intensity values (Height, Width).
     max_val : float, optional
         Maximum value in the output image (default: 255).
     scale_min : float, optional
