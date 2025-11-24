@@ -1,13 +1,13 @@
-from image_generation.data_formats import Image2DArray, LightAngle, NORMAL_VECTOR
+from image_generation.data_formats import Image2DArray, LightSource, Vector3D
 
 
 def get_surface_map(
     depth_data: Image2DArray,
     x_dimension: float,
     y_dimension: float,
-    light_angles: tuple[NORMAL_VECTOR, ...] = (
-        LightAngle(azimuth=90, elevation=45).vector,
-        LightAngle(azimuth=180, elevation=45).vector,
+    light_angles: tuple[Vector3D, ...] = (
+        LightSource(azimuth=90, elevation=45).vector,
+        LightSource(azimuth=180, elevation=45).vector,
     ),
 ) -> Image2DArray:
     """

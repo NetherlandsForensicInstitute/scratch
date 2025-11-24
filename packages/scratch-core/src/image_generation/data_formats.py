@@ -7,14 +7,14 @@ from image_generation.translations import (
     compute_surface_normals,
 )
 from utils.array_definitions import (
-    IMAGE_2D_ARRAY,
-    IMAGE_3D_ARRAY,
-    IMAGE_3_LAYER_STACK_ARRAY,
-    NORMAL_VECTOR,
+    ScanMap2D,
+    ScanTensor3D,
+    ScanVectorField2D,
+    Vector3D,
 )
 
 
-class LightAngle(BaseModel):
+class LightSource(BaseModel):
     """Representation of a light angle and the thereby proprty a vector of [x,y,z]"""
 
     model_config = ConfigDict(
@@ -25,7 +25,7 @@ class LightAngle(BaseModel):
     elevation: float = Field(..., description="Elevation angle in degrees.")
 
     @property
-    def vector(self) -> NORMAL_VECTOR:
+    def vector(self) -> Vector3D:
         azimuth = np.deg2rad(self.azimuth)
         elevation = np.deg2rad(self.elevation)
         return np.array(
@@ -37,7 +37,7 @@ class LightAngle(BaseModel):
         )
 
 
-class Image2DArray(RootModel[IMAGE_2D_ARRAY]):
+class Image2DArray(RootModel[ScanMap2D]):
     """
     A 2D image/array of floats.
 
@@ -56,7 +56,7 @@ class Image2DArray(RootModel[IMAGE_2D_ARRAY]):
         )
 
 
-class Image3DArray(RootModel[IMAGE_3D_ARRAY]):
+class Image3DArray(RootModel[ScanTensor3D]):
     """
     A 3D stack of 2D images.
 
@@ -70,35 +70,35 @@ class Image3DArray(RootModel[IMAGE_3D_ARRAY]):
         return Image2DArray(np.nansum(self.root, axis=2))
 
 
-class SurfaceNormals(RootModel[IMAGE_3_LAYER_STACK_ARRAY]):
+class SurfaceNormals(RootModel[ScanVectorField2D]):
     """Normal vector at each pixel: shape (Height, Width, 3-layers(x,y,z))."""
 
     @property
-    def nx(self) -> IMAGE_2D_ARRAY:
+    def nx(self) -> ScanMap2D:
         return self.root[..., 0]
 
     @property
-    def ny(self) -> IMAGE_2D_ARRAY:
+    def ny(self) -> ScanMap2D:
         return self.root[..., 1]
 
     @property
-    def nz(self) -> IMAGE_2D_ARRAY:
+    def nz(self) -> ScanMap2D:
         return self.root[..., 2]
 
     @classmethod
     def from_components(
         cls,
-        nx: IMAGE_2D_ARRAY,
-        ny: IMAGE_2D_ARRAY,
-        nz: IMAGE_2D_ARRAY,
+        nx: ScanMap2D,
+        ny: ScanMap2D,
+        nz: ScanMap2D,
     ) -> "SurfaceNormals":
         """Construct from separate component arrays."""
         return cls(np.stack([nx, ny, nz], axis=-1))
 
     def apply_lights(
         self,
-        light_vectors: tuple[NORMAL_VECTOR, ...],
-        observer: NORMAL_VECTOR = LightAngle(azimuth=0, elevation=90).vector,
+        light_vectors: tuple[Vector3D, ...],
+        observer: Vector3D = LightSource(azimuth=0, elevation=90).vector,
     ) -> "Image3DArray":
         return Image3DArray(
             apply_multiple_lights(
