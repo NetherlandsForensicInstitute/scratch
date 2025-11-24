@@ -11,31 +11,33 @@ def get_surface_map(
     ),
 ) -> Image2DArray:
     """
-    Compute a normalized surface map from a 2D depth image using lighting.
+    Compute a normalized intensity map from a 2D depth scan using lighting.
 
-    This function performs the full pipeline:
+    This function performs the complete processing pipeline:
+
     1. Compute per-pixel surface normals from the depth map.
-    2. Apply multiple directional lights to compute diffuse and specular intensities.
-    3. Combine the lighting stack into a single intensity map.
-    4. Normalize the intensity map to a specified range.
+    2. Apply multiple directional light vectors to obtain per-light intensities.
+    3. Combine the resulting intensity stack into a single 2D map.
+    4. Normalize the combined map to a specified output range.
 
     Parameters
     ----------
-    depth_data : Image2DArray
-        2D depth map of shape (Height, Width).
+    depth_data : IMAGE_2D_ARRAY
+        2D depth map with shape ``(Height, Width)``.
     x_dimension : float
         Physical spacing between columns (Δx) in meters.
     y_dimension : float
         Physical spacing between rows (Δy) in meters.
-    light_angles : tuple of LightAngle.vector, optional
-        Tuple of normalized 3-element vectors indicating light directions
-        (default: two lights at azimuth=90°, elevation=45° and azimuth=180°, elevation=45°).
+    light_angles : tuple of LightSource, optional
+        Tuple of light-source objects defining azimuth and elevation. Each light
+        contributes a 3-element unit vector. If omitted, two default lights are used:
+        ``(azimuth=90°, elevation=45°)`` and ``(azimuth=180°, elevation=45°)``.
 
     Returns
     -------
-    Image2DArray
-        Normalized 2D intensity map (Height, Width) resulting from combined lighting,
-        suitable for visualization or further processing.
+    IMAGE_2D_ARRAY
+        Normalized 2D intensity map with shape ``(Height, Width)``, suitable for
+        visualization or downstream processing.
     """
     return (
         depth_data.compute_normals(x_dimension, y_dimension)

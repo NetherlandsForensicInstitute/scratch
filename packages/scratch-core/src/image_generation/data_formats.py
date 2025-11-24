@@ -38,6 +38,10 @@ class LightSource(BaseModel):
 
     @property
     def vector(self) -> Vector3D:
+        """
+        The `vector` property is a unit direction vector in 3D space as a NumPy array of the form `[x, y, z]`, derived from the
+        angular representation.
+        """
         azimuth = np.deg2rad(self.azimuth)
         elevation = np.deg2rad(self.elevation)
         return np.array(
@@ -70,9 +74,9 @@ class Image2DArray(RootModel[ScanMap2D]):
 
 class Image3DArray(RootModel[ScanTensor3D]):
     """
-    A 3D stack of 2D images.
+    A 3D stack of 2D scan maps.
 
-    Used for: multiple lighting angles, multichannel data.
+    Typically used for multi-illumination data or multichannel measurements.
     Shape: (height, width, n_layers)
     """
 
@@ -83,18 +87,24 @@ class Image3DArray(RootModel[ScanTensor3D]):
 
 
 class SurfaceNormals(RootModel[ScanVectorField2D]):
-    """Normal vector at each pixel: shape (Height, Width, 3-layers(x,y,z))."""
+    """Normal vectors per pixel in a 3-layer field.
+
+    Represents a surface-normal map with components (nx, ny, nz) stored in the
+    last dimension. Shape: (height, width, 3)."""
 
     @property
     def nx(self) -> ScanMap2D:
+        """ "X-component of the surface normal as a 2D scan map."""
         return self.root[..., 0]
 
     @property
     def ny(self) -> ScanMap2D:
+        """Y-component of the surface normal as a 2D scan map."""
         return self.root[..., 1]
 
     @property
     def nz(self) -> ScanMap2D:
+        """Z-component of the surface normal as a 2D scan map."""
         return self.root[..., 2]
 
     @classmethod
@@ -104,7 +114,7 @@ class SurfaceNormals(RootModel[ScanVectorField2D]):
         ny: ScanMap2D,
         nz: ScanMap2D,
     ) -> "SurfaceNormals":
-        """Construct from separate component arrays."""
+        """Create a SurfaceNormals object from separate nx, ny, and nz 2D component maps."""
         return cls(np.stack([nx, ny, nz], axis=-1))
 
     def apply_lights(
@@ -112,6 +122,12 @@ class SurfaceNormals(RootModel[ScanVectorField2D]):
         light_vectors: tuple[Vector3D, ...],
         observer: Vector3D = LightSource(azimuth=0, elevation=90).vector,
     ) -> "Image3DArray":
+        """
+        Apply one or more light vectors to the surface-normal field.
+
+        Computes intensity values for each light direction (and an optional observer
+        direction) and returns a stacked result as an Image3DArray.
+        """
         return Image3DArray(
             apply_multiple_lights(
                 surface_normals=self.root,
