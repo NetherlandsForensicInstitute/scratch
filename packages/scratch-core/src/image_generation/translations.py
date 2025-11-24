@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.signal import convolve2d
 from typing import Protocol
 
 from utils.array_definitions import (
@@ -14,11 +13,6 @@ def compute_surface_normals(
     depth_data: IMAGE_2D_ARRAY,
     x_dimension: float,
     y_dimension: float,
-    kernel: tuple[tuple[complex | int, complex | int, complex | int], ...] = (
-        (0, 1j, 0),
-        (1, 0, -1),
-        (0, -1j, 0),
-    ),
 ) -> IMAGE_3_LAYER_STACK_ARRAY:
     """
     Compute per-pixel surface normals from a 2D depth map.
@@ -31,9 +25,6 @@ def compute_surface_normals(
         Physical spacing between columns (Δx) in meters.
     y_dimension : float
         Physical spacing between rows (Δy) in meters.
-    kernel : tuple of tuple of int, optional
-        Complex convolution kernel used to approximate derivatives (default:
-        ((0, 1j, 0), (1, 0, -1), (0, -1j, 0))).
 
     Returns
     -------
@@ -44,15 +35,14 @@ def compute_surface_normals(
     factor_x = 1 / (2 * x_dimension)
     factor_y = 1 / (2 * y_dimension)
 
-    z = convolve2d(depth_data, kernel, "same", fillvalue=np.nan)
-
-    hx = z.real * factor_x
-    hy = z.imag * factor_y
-
+    hx = (depth_data[:, :-2] - depth_data[:, 2:]) * factor_x
+    hy = (depth_data[:-2, :] - depth_data[2:, :]) * factor_y
+    hx = np.pad(hx, ((0, 0), (1, 1)), mode="constant", constant_values=np.nan)
+    hy = np.pad(hy, ((1, 1), (0, 0)), mode="constant", constant_values=np.nan)
     norm = np.sqrt(hx * hx + hy * hy + 1)
 
-    nx = -hx / norm
-    ny = hy / norm
+    nx = hx / norm
+    ny = -hy / norm
     nz = 1 / norm
     return np.stack([nx, ny, nz], axis=-1)
 
