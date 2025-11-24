@@ -2,18 +2,18 @@ import numpy as np
 from typing import Protocol
 
 from utils.array_definitions import (
-    Vector3D,
-    ScanMap2D,
-    ScanVectorField2D,
-    ScanTensor3D,
+    Vector3DArray,
+    ScanMap2DArray,
+    ScanVectorField2DArray,
+    ScanTensor3DArray,
 )
 
 
 def compute_surface_normals(
-    depth_data: ScanMap2D,
+    depth_data: ScanMap2DArray,
     x_dimension: float,
     y_dimension: float,
-) -> ScanVectorField2D:
+) -> ScanVectorField2DArray:
     """
     Compute per-pixel surface normals from a 2D depth map.
 
@@ -48,12 +48,12 @@ def compute_surface_normals(
 
 
 def calculate_lighting(
-    light_vector: Vector3D,
-    observer_vector: Vector3D,
-    surface_normals: ScanVectorField2D,
+    light_vector: Vector3DArray,
+    observer_vector: Vector3DArray,
+    surface_normals: ScanVectorField2DArray,
     specular_factor: float = 1.0,
     phong_exponent: int = 4,
-) -> ScanMap2D:
+) -> ScanMap2DArray:
     """
     Compute per-pixel lighting intensity from a light source and surface normals.
 
@@ -102,20 +102,20 @@ def calculate_lighting(
 class LightingCalculator(Protocol):
     def __call__(
         self,
-        light_vector: Vector3D,
-        observer_vector: Vector3D,
-        surface_normals: ScanVectorField2D,
+        light_vector: Vector3DArray,
+        observer_vector: Vector3DArray,
+        surface_normals: ScanVectorField2DArray,
         specular_factor: float = 1.0,
         phong_exponent: int = 4,
-    ) -> ScanMap2D: ...
+    ) -> ScanMap2DArray: ...
 
 
 def apply_multiple_lights(
-    surface_normals: ScanVectorField2D,
-    light_vectors: tuple[Vector3D, ...],
-    observer_vector: Vector3D,
+    surface_normals: ScanVectorField2DArray,
+    light_vectors: tuple[Vector3DArray, ...],
+    observer_vector: Vector3DArray,
     lighting_calculator: LightingCalculator = calculate_lighting,
-) -> ScanTensor3D:
+) -> ScanTensor3DArray:
     """
     Apply multiple light sources to a surface and stack the resulting intensity maps.
 
@@ -145,8 +145,8 @@ def apply_multiple_lights(
 
 
 def normalize_intensity_map(
-    image_to_normalize: ScanMap2D, max_val: float = 255, scale_min: float = 25
-) -> ScanMap2D:
+    image_to_normalize: ScanMap2DArray, max_val: float = 255, scale_min: float = 25
+) -> ScanMap2DArray:
     """
     Normalize a 2D intensity map to a specified range.
 

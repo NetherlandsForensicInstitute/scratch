@@ -7,10 +7,10 @@ from image_generation.translations import (
     compute_surface_normals,
 )
 from utils.array_definitions import (
-    ScanMap2D,
-    ScanTensor3D,
-    ScanVectorField2D,
-    Vector3D,
+    ScanMap2DArray,
+    ScanTensor3DArray,
+    ScanVectorField2DArray,
+    Vector3DArray,
 )
 
 
@@ -37,7 +37,7 @@ class LightSource(BaseModel):
     )
 
     @property
-    def vector(self) -> Vector3D:
+    def vector(self) -> Vector3DArray:
         """
         The `vector` property is a unit direction vector in 3D space as a NumPy array of the form `[x, y, z]`, derived from the
         angular representation.
@@ -53,7 +53,7 @@ class LightSource(BaseModel):
         )
 
 
-class Image2DArray(RootModel[ScanMap2D]):
+class ScanMap2D(RootModel[ScanMap2DArray]):
     """
     A 2D image/array of floats.
 
@@ -67,12 +67,12 @@ class Image2DArray(RootModel[ScanMap2D]):
         )
 
     def normalize(self, max_val: float = 255, scale_min: float = 25):
-        return Image2DArray(
+        return ScanMap2D(
             normalize_intensity_map(self.root, max_val=max_val, scale_min=scale_min)
         )
 
 
-class Image3DArray(RootModel[ScanTensor3D]):
+class ScanTensor3D(RootModel[ScanTensor3DArray]):
     """
     A 3D stack of 2D scan maps.
 
@@ -81,54 +81,54 @@ class Image3DArray(RootModel[ScanTensor3D]):
     """
 
     @property
-    def combined(self) -> Image2DArray:
+    def combined(self) -> ScanMap2D:
         """Combine stacked lights → (Height × Width)."""
-        return Image2DArray(np.nansum(self.root, axis=2))
+        return ScanMap2D(np.nansum(self.root, axis=2))
 
 
-class SurfaceNormals(RootModel[ScanVectorField2D]):
+class SurfaceNormals(RootModel[ScanVectorField2DArray]):
     """Normal vectors per pixel in a 3-layer field.
 
     Represents a surface-normal map with components (nx, ny, nz) stored in the
     last dimension. Shape: (height, width, 3)."""
 
     @property
-    def nx(self) -> ScanMap2D:
+    def nx(self) -> ScanMap2DArray:
         """ "X-component of the surface normal as a 2D scan map."""
         return self.root[..., 0]
 
     @property
-    def ny(self) -> ScanMap2D:
+    def ny(self) -> ScanMap2DArray:
         """Y-component of the surface normal as a 2D scan map."""
         return self.root[..., 1]
 
     @property
-    def nz(self) -> ScanMap2D:
+    def nz(self) -> ScanMap2DArray:
         """Z-component of the surface normal as a 2D scan map."""
         return self.root[..., 2]
 
     @classmethod
     def from_components(
         cls,
-        nx: ScanMap2D,
-        ny: ScanMap2D,
-        nz: ScanMap2D,
+        nx: ScanMap2DArray,
+        ny: ScanMap2DArray,
+        nz: ScanMap2DArray,
     ) -> "SurfaceNormals":
         """Create a SurfaceNormals object from separate nx, ny, and nz 2D component maps."""
         return cls(np.stack([nx, ny, nz], axis=-1))
 
     def apply_lights(
         self,
-        light_vectors: tuple[Vector3D, ...],
-        observer: Vector3D = LightSource(azimuth=0, elevation=90).vector,
-    ) -> "Image3DArray":
+        light_vectors: tuple[Vector3DArray, ...],
+        observer: Vector3DArray = LightSource(azimuth=0, elevation=90).vector,
+    ) -> "ScanTensor3D":
         """
         Apply one or more light vectors to the surface-normal field.
 
         Computes intensity values for each light direction (and an optional observer
         direction) and returns a stacked result as an Image3DArray.
         """
-        return Image3DArray(
+        return ScanTensor3D(
             apply_multiple_lights(
                 surface_normals=self.root,
                 light_vectors=light_vectors,

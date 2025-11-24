@@ -10,7 +10,7 @@ from image_generation.translations import (
     normalize_intensity_map,
     apply_multiple_lights,
 )
-from utils.array_definitions import ScanVectorField2D, Vector3D
+from utils.array_definitions import ScanVectorField2DArray, Vector3DArray
 
 
 class TestComputeSurfaceNormals:
@@ -202,7 +202,7 @@ class TestCalculateLighting:
         return LightSource(azimuth=0, elevation=90).vector
 
     @pytest.fixture(scope="class")
-    def base_images(self) -> ScanVectorField2D:
+    def base_images(self) -> ScanVectorField2DArray:
         nx = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.7)
         ny = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.6)
         nz = np.full((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT), 0.2)
@@ -210,9 +210,9 @@ class TestCalculateLighting:
 
     def test_shape(
         self,
-        base_images: ScanVectorField2D,
-        observer_vector: Vector3D,
-        light_vector: Vector3D,
+        base_images: ScanVectorField2DArray,
+        observer_vector: Vector3DArray,
+        light_vector: Vector3DArray,
     ):
         # Act
         out = calculate_lighting(light_vector, observer_vector, base_images)
@@ -222,9 +222,9 @@ class TestCalculateLighting:
 
     def test_value_range(
         self,
-        base_images: ScanVectorField2D,
-        observer_vector: Vector3D,
-        light_vector: Vector3D,
+        base_images: ScanVectorField2DArray,
+        observer_vector: Vector3DArray,
+        light_vector: Vector3DArray,
     ):
         # Act
         out = calculate_lighting(light_vector, observer_vector, base_images)
@@ -235,9 +235,9 @@ class TestCalculateLighting:
 
     def test_constant_normals_give_constant_output(
         self,
-        base_images: ScanVectorField2D,
-        observer_vector: Vector3D,
-        light_vector: Vector3D,
+        base_images: ScanVectorField2DArray,
+        observer_vector: Vector3DArray,
+        light_vector: Vector3DArray,
     ):
         # Act
         out = calculate_lighting(light_vector, observer_vector, base_images)
@@ -246,7 +246,7 @@ class TestCalculateLighting:
         assert np.allclose(out, out[0, 0])
 
     def test_bump_changes_values(
-        self, observer_vector: Vector3D, light_vector: Vector3D
+        self, observer_vector: Vector3DArray, light_vector: Vector3DArray
     ):
         """Test that the shader reacts per pixel by giving a bump in the normals. and thest the location is changed"""
         # Arrange
@@ -309,7 +309,7 @@ class TestCalculateLighting:
         ],
     )
     def test_diffuse_clamps_to_zero(
-        self, light_source: Vector3D, nx, ny, nz, observer_vector: Vector3D
+        self, light_source: Vector3DArray, nx, ny, nz, observer_vector: Vector3DArray
     ):
         """Opposite direction → diffuse should be 0."""
         # Arrange
@@ -320,7 +320,7 @@ class TestCalculateLighting:
         # Assert
         assert np.all(out == 0), "values should be 0."
 
-    def test_specular_maximum_case(self, observer_vector: Vector3D):
+    def test_specular_maximum_case(self, observer_vector: Vector3DArray):
         """If light, observer, and normal all align, specular should be maximal."""
         # Arrange
         nx = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
@@ -336,7 +336,7 @@ class TestCalculateLighting:
         assert np.allclose(out, 1.0), "(diffuse=1, specular=1), output = (1+1)/2 = 1"
 
     def test_lighting_known_value(
-        self, base_images, observer_vector: Vector3D, light_vector: Vector3D
+        self, base_images, observer_vector: Vector3DArray, light_vector: Vector3DArray
     ):
         expected_constant = 0.03535534
 

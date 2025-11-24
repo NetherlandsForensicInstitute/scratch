@@ -1,15 +1,15 @@
-from image_generation.data_formats import Image2DArray, LightSource, Vector3D
+from image_generation.data_formats import ScanMap2D, LightSource, Vector3DArray
 
 
 def get_surface_map(
-    depth_data: Image2DArray,
+    depth_data: ScanMap2D,
     x_dimension: float,
     y_dimension: float,
-    light_angles: tuple[Vector3D, ...] = (
+    light_angles: tuple[Vector3DArray, ...] = (
         LightSource(azimuth=90, elevation=45).vector,
         LightSource(azimuth=180, elevation=45).vector,
     ),
-) -> Image2DArray:
+) -> ScanMap2D:
     """
     Compute a normalized intensity map from a 2D depth scan using lighting.
 
