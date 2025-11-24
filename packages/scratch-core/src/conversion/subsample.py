@@ -12,7 +12,7 @@ def subsample_data(scan_image: ScanImage, step_size: tuple[int, int]) -> ScanIma
     """
     step_x, step_y = step_size
     return ScanImage(
-        data=scan_image.data[::step_y, ::step_x].copy(order="F"),
+        data=scan_image.data[::step_y, ::step_x].copy(),
         scale_x=scan_image.scale_x * step_x,
         scale_y=scan_image.scale_y * step_y,
     )
