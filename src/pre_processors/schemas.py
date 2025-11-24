@@ -1,6 +1,8 @@
 from enum import StrEnum, auto
+from pathlib import Path
+from typing import Self
 
-from pydantic import DirectoryPath, FilePath, field_validator
+from pydantic import DirectoryPath, FilePath, field_validator, model_validator
 
 from models import BaseModelConfig
 
@@ -24,3 +26,25 @@ class UploadScan(BaseModelConfig):
         if scan_file.suffix not in extensions:
             raise ValueError(f"unsupported extension: {scan_file.name}")
         return scan_file
+
+
+class ProcessScan(BaseModelConfig):
+    x3p_image: FilePath
+    preview_image: FilePath
+    surfacemap_image: FilePath
+
+    @property
+    def output_directory(self) -> Path:
+        return self.x3p_image.parent
+
+    @model_validator(mode="after")
+    def same_parent_directory(self) -> Self:
+        """Validate that all image files are in the same parent directory."""
+        parent_dirs = {
+            getattr(self, field_name).parent
+            for field_name, field_info in self.model_fields.items()
+            if field_info.annotation is FilePath
+        }
+        if len(parent_dirs) > 1:
+            raise ValueError("All fields must point to the same output directory")
+        return self

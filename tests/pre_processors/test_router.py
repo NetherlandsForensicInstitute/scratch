@@ -14,7 +14,7 @@ def test_add_scan_placeholder(client: TestClient, tmp_path: Path) -> None:
 
     # Act
     response = client.post(
-        "/pre-processor/ingest/",
+        "/pre-processor/processs_scan/",
         json={
             "scan_file": str(scan_file),
             "output_dir": str(output_dir),
