@@ -51,7 +51,7 @@ class TestContracts:
         ("sub_rout", "data", "expected_response"),
         [
             pytest.param(
-                "/processs-scan",
+                "/process-scan",
                 UploadScan(scan_file=SCANS_DIR / "circle.x3p", output_dir=SCANS_DIR),
                 ProcessScan,
                 id="process-scan",
