@@ -110,31 +110,6 @@ class SurfaceNormals(RootModel[ScanVectorField2DArray]):
     Represents a surface-normal map with components (nx, ny, nz) stored in the
     last dimension. Shape: (height, width, 3)."""
 
-    @property
-    def nx(self) -> ScanMap2DArray:
-        """X-component of the surface normal as a 2D scan map."""
-        return self.root[..., 0]
-
-    @property
-    def ny(self) -> ScanMap2DArray:
-        """Y-component of the surface normal as a 2D scan map."""
-        return self.root[..., 1]
-
-    @property
-    def nz(self) -> ScanMap2DArray:
-        """Z-component of the surface normal as a 2D scan map."""
-        return self.root[..., 2]
-
-    @classmethod
-    def from_components(
-        cls,
-        nx: ScanMap2DArray,
-        ny: ScanMap2DArray,
-        nz: ScanMap2DArray,
-    ) -> "SurfaceNormals":
-        """Create a SurfaceNormals object from separate nx, ny, and nz 2D component maps."""
-        return cls(np.stack([nx, ny, nz], axis=-1))
-
     def apply_lights(
         self,
         light_vectors: tuple[Vector3DArray, ...],
