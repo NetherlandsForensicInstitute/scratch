@@ -140,8 +140,8 @@ def apply_multiple_lights(
     )
 
 
-def normalize_intensity_map(
-    image_to_normalize: ScanMap2DArray, max_val: float = 255, scale_min: float = 25
+def normalize_2d_array(
+    image_to_normalize: ScanMap2DArray, scale_max: float = 255, scale_min: float = 25
 ) -> ScanMap2DArray:
     """
     Normalize a 2D intensity map to a specified output range.
@@ -152,15 +152,15 @@ def normalize_intensity_map(
 
     :param image_to_normalize: 2D array of input intensity values.
     :type image_to_normalize: IMAGE_2D_ARRAY
-    :param max_val: Maximum output intensity value. Default is ``255``.
-    :type max_val: float, optional
+    :param scale_max: Maximum output intensity value. Default is ``255``.
+    :type scale_max: float, optional
     :param scale_min: Minimum output intensity value. Default is ``25``.
     :type scale_min: float, optional
 
     :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
     :rtype: IMAGE_2D_ARRAY
     """
-    imin = np.nanmin(image_to_normalize, axis=(0, 1), keepdims=True)
-    imax = np.nanmax(image_to_normalize, axis=(0, 1), keepdims=True)
+    imin = np.nanmin(image_to_normalize)
+    imax = np.nanmax(image_to_normalize)
     norm = (image_to_normalize - imin) / (imax - imin)
-    return scale_min + (max_val - scale_min) * norm
+    return scale_min + (scale_max - scale_min) * norm

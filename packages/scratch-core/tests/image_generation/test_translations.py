@@ -7,7 +7,7 @@ from image_generation.data_formats import LightSource
 from image_generation.translations import calculate_lighting
 from image_generation.translations import (
     compute_surface_normals,
-    normalize_intensity_map,
+    normalize_2d_array,
     apply_multiple_lights,
 )
 from utils.array_definitions import ScanVectorField2DArray, Vector3DArray
@@ -367,8 +367,8 @@ class TestNormalizeIntensityMap:
         max_val = 255
         min_val = 20
         # Act
-        normalized_image = normalize_intensity_map(
-            image, max_val=max_val, scale_min=min_val
+        normalized_image = normalize_2d_array(
+            image, scale_max=max_val, scale_min=min_val
         )
 
         # Assert
@@ -386,9 +386,7 @@ class TestNormalizeIntensityMap:
         ).reshape(self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT)
 
         # Act
-        normalized = normalize_intensity_map(
-            image, max_val=max_value, scale_min=min_val
-        )
+        normalized = normalize_2d_array(image, scale_max=max_value, scale_min=min_val)
 
         # Assert
         assert np.all(normalized >= min_val)

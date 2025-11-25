@@ -2,7 +2,7 @@ import numpy as np
 from pydantic import BaseModel, Field, ConfigDict, RootModel
 
 from image_generation.translations import (
-    normalize_intensity_map,
+    normalize_2d_array,
     apply_multiple_lights,
     compute_surface_normals,
 )
@@ -86,7 +86,7 @@ class ScanMap2D(RootModel[ScanMap2DArray]):
 
     def normalize(self, max_val: float = 255, scale_min: float = 25) -> "ScanMap2D":
         return ScanMap2D(
-            normalize_intensity_map(self.root, max_val=max_val, scale_min=scale_min)
+            normalize_2d_array(self.root, scale_max=max_val, scale_min=scale_min)
         )
 
 
