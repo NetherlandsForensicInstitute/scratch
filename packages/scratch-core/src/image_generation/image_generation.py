@@ -6,8 +6,8 @@ def get_surface_map(
     x_dimension: float,
     y_dimension: float,
     light_angles: tuple[Vector3DArray, ...] = (
-        LightSource(azimuth=90, elevation=45).vector,
-        LightSource(azimuth=180, elevation=45).vector,
+        LightSource(azimuth=90, elevation=45).unit_vector,
+        LightSource(azimuth=180, elevation=45).unit_vector,
     ),
 ) -> ScanMap2D:
     """

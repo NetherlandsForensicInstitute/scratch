@@ -195,11 +195,11 @@ class TestCalculateLighting:
 
     @pytest.fixture(scope="class")
     def light_vector(self):
-        return LightSource(azimuth=45, elevation=45).vector
+        return LightSource(azimuth=45, elevation=45).unit_vector
 
     @pytest.fixture(scope="class")
     def observer_vector(self):
-        return LightSource(azimuth=0, elevation=90).vector
+        return LightSource(azimuth=0, elevation=90).unit_vector
 
     @pytest.fixture(scope="class")
     def base_images(self) -> ScanVectorField2DArray:
