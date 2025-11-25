@@ -1,4 +1,5 @@
 # Helper function to style echo messages
+timeout_seconds := "20"
 log message style="magenta":
     #!/bin/bash
     case "{{ style }}" in
@@ -54,7 +55,7 @@ test-contract: (log "Running contract tests...")
 
 # Run all endpoints health checks
 smoke-test artifact="" host="0.0.0.0" port="8000": (api-bg artifact) (log "Waiting for API to be ready...")
-    timeout 10 bash -c 'until curl -fs http://{{ host }}:{{ port }}/docs > /dev/null; do sleep 1; done'
+    timeout {{timeout_seconds}} bash -c 'until curl -fs http://{{ host }}:{{ port }}/docs > /dev/null; do sleep 1; done'
     @just test-contract
     @if [ "{{ os_family() }}" = "unix" ]; then \
         kill $(cat api.pid); \
@@ -82,7 +83,7 @@ api: (log "Starting FastAPI development server")
 # Start API server in the background
 api-bg artifact="":
     @cmd=(just api); [ -n "{{ artifact }}" ] && cmd=(./dist/{{ artifact }}); \
-    ${cmd[@]} >/dev/null 2>&1 & echo $! > api.pid
+    ${cmd[@]} 2>/dev/null & echo $! > api.pid
     @just log "API started in the background"
     @cat api.pid
 
