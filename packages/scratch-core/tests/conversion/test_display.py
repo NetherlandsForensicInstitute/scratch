@@ -45,4 +45,4 @@ def test_get_image_for_display_matches_baseline_image(
     ).astype(np.uint8)
     display_image = get_image_for_display(scan_image_with_nans)
     result_to_check = np.asarray(display_image.convert("RGBA")).astype(np.uint8)
-    assert np.allclose(verified, result_to_check, atol=PRECISION, equal_nan=True)
+    assert np.array_equal(verified, result_to_check, equal_nan=True)
