@@ -2,7 +2,7 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Self
 
-from pydantic import DirectoryPath, FilePath, field_validator, model_validator
+from pydantic import DirectoryPath, Field, FilePath, field_validator, model_validator
 
 from models import BaseModelConfig
 
@@ -15,8 +15,14 @@ class SupportedExtension(StrEnum):
 
 
 class UploadScan(BaseModelConfig):
-    scan_file: FilePath
-    output_dir: DirectoryPath
+    scan_file: FilePath = Field(
+        ...,
+        description="Upload scan file.",
+        examples=[Path("./temp/scan.al3d"), Path("./temp/scan.x3p"), Path("./temp/scan.sur"), Path("./temp/scan.plu")],
+    )
+    output_dir: DirectoryPath = Field(
+        ..., description="Upload output directory.", examples=[Path("./documents/project_x")]
+    )
 
     @field_validator("scan_file", mode="after")
     @classmethod
@@ -29,9 +35,19 @@ class UploadScan(BaseModelConfig):
 
 
 class ProcessScan(BaseModelConfig):
-    x3p_image: FilePath
-    preview_image: FilePath
-    surfacemap_image: FilePath
+    x3p_image: FilePath = Field(
+        ..., description="converted subsampled X3P image.", examples=[Path("./documents/project_x/x3p.png")]
+    )
+    preview_image: FilePath = Field(
+        ...,
+        description="rgba image made from the x3p converted file.",
+        examples=[Path("./documents/project_x/preview.png")],
+    )
+    surfacemap_image: FilePath = Field(
+        ...,
+        description="surface image made from the x3p converted file.",
+        examples=[Path("./documents/project_x/surfacemap.png")],
+    )
 
     @property
     def output_directory(self) -> Path:

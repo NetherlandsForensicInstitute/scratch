@@ -34,10 +34,44 @@ async def comparison_root() -> dict[str, str]:
 @pre_processors.post(
     path="/processs-scan",
     summary="Add a scan file to be processed",
-    description="""""",
+    description="""
+    Processes an uploaded scan file and generates several derived outputs, including
+    an X3P file, a preview image, and a surface map, these files are saved to the working directory given as parameter.
+    The endpoint parses and validates the file before running the processing pipeline.
+""",
+    responses={
+        400: {
+            "description": "Invalid input",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "path_not_exists": {
+                            "summary": "Path doesn't exist",
+                            "value": {"error": "path doesn't exist"},
+                        },
+                        "unsupported_extension": {
+                            "summary": "Unsupported extension",
+                            "value": {"error": "unsupported extension"},
+                        },
+                        "file_corrupt": {
+                            "summary": "File is corrupt",
+                            "value": {"error": "file is corrupt, file can't be parsed."},
+                        },
+                    }
+                }
+            },
+        },
+    },
 )
 async def process_scan(upload_scan: UploadScan) -> ProcessScan:
-    """TODO."""
+    """
+    Process an uploaded scan file and generate derived output files.
+
+    This endpoint parses and validates the incoming scan file, performs the
+    necessary processing steps, and produces several outputs such as an X3P
+    file, a preview image, and a surface map saved to the working directory.
+
+    """
     # parse parse incoming file
     _ = ScanImage.from_file(upload_scan.scan_file)
     # raise Unable to ParseError
