@@ -1,4 +1,5 @@
 from enum import StrEnum
+from pathlib import Path
 
 import pytest
 import requests
@@ -47,21 +48,32 @@ class TestContracts:
         assert response.status_code == HTTP_200_OK
         expected_response.model_validate(response.json())
 
+    @pytest.fixture
+    def process_scan(self, tmp_path: Path) -> tuple[BaseModel, type[BaseModel]]:
+        """Create dummy files for the expected response.
+
+        Returns the post request data, sub_rout & expected response.
+        """
+        data = UploadScan(scan_file=SCANS_DIR / "circle.x3p", output_dir=tmp_path)
+        expected_response = ProcessScan
+        # TODO: when implemented the file touch can ben removed.
+        (tmp_path / "circle.x3p").touch()
+        (tmp_path / "preview.png").touch()
+        (tmp_path / "surface_map.png").touch()
+        return data, expected_response
+
     @pytest.mark.parametrize(
-        ("sub_rout", "data", "expected_response"),
-        [
-            pytest.param(
-                "/process-scan",
-                UploadScan(scan_file=SCANS_DIR / "circle.x3p", output_dir=SCANS_DIR),
-                ProcessScan,
-                id="process-scan",
-            ),
-        ],
+        ("fixture_name", "sub_rout"), [pytest.param("process_scan", "/process-scan", id="process_scan")]
     )
-    def test_pre_processor_post_requests(self, sub_rout: str, data: BaseModel, expected_response: BaseModel) -> None:
+    def test_pre_processor_post_requests(
+        self, fixture_name: str, sub_rout: str, request: pytest.FixtureRequest
+    ) -> None:
         """Test if the process scan endpoint returns an expected model."""
+        data, expected_response = request.getfixturevalue(fixture_name)
         # Act
-        response = requests.post(f"{ROOT_URL}/{RootRout.PRE_PROCESSOR}{sub_rout}", data.model_dump_json(), timeout=5)
+        response = requests.post(
+            f"{ROOT_URL}/{RootRout.PRE_PROCESSOR}{sub_rout}", json=data.model_dump(mode="json"), timeout=5
+        )
         # Assert
         assert response.status_code == HTTP_200_OK
         expected_response.model_validate(response.json())

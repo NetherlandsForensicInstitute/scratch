@@ -80,5 +80,5 @@ async def process_scan(upload_scan: UploadScan) -> ProcessScan:
     return ProcessScan(
         x3p_image=upload_scan.output_dir / "circle.x3p",
         preview_image=upload_scan.output_dir / "preview.png",
-        surfacemap_image=upload_scan.output_dir / "surfacemap.png",
+        surfacemap_image=upload_scan.output_dir / "surface_map.png",
     )
