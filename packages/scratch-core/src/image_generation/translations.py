@@ -93,8 +93,7 @@ def calculate_lighting(
     specular = np.clip(specular, -1.0, 1.0)
     specular = np.maximum(np.cos(2 * np.arccos(specular)), 0) ** phong_exponent
 
-    intensity = (diffuse + specular_factor * specular) / (1 + specular_factor)
-    return intensity
+    return (diffuse + specular_factor * specular) / (1 + specular_factor)
 
 
 class LightingCalculator(Protocol):
@@ -146,6 +145,10 @@ def normalize_intensity_map(
 ) -> ScanMap2DArray:
     """
     Normalize a 2D intensity map to a specified output range.
+
+    The normalization is done by the steps:
+    1. apply min-max normalization to grayscale data
+    2. stretch / scale the normalized data from the unit range to a specified output range
 
     :param image_to_normalize: 2D array of input intensity values.
     :type image_to_normalize: IMAGE_2D_ARRAY
