@@ -54,7 +54,7 @@ test-contract: (log "Running contract tests...")
 
 # Run all endpoints health checks
 smoke-test artifact="" host="0.0.0.0" port="8000": (api-bg artifact) (log "Waiting for API to be ready...")
-    @timeout 10 bash -c 'until curl -fs http://{{ host }}:{{ port }}/docs > /dev/null; do sleep 1; done'
+    timeout 10 bash -c 'until curl -fs http://{{ host }}:{{ port }}/docs > /dev/null; do sleep 1; done'
     @just test-contract
     @if [ "{{ os_family() }}" = "unix" ]; then \
         kill $(cat api.pid); \
