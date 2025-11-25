@@ -1,8 +1,6 @@
 from fastapi import APIRouter
 from parsers import ScanImage
 
-from constants import PROJECT_ROOT
-
 from .schemas import ProcessScan, UploadScan
 
 
@@ -32,7 +30,7 @@ async def comparison_root() -> dict[str, str]:
 
 
 @pre_processors.post(
-    path="/processs-scan",
+    path="/process-scan",
     summary="Add a scan file to be processed",
     description="""
     Processes an uploaded scan file and generates several derived outputs, including
@@ -70,7 +68,6 @@ async def process_scan(upload_scan: UploadScan) -> ProcessScan:
     This endpoint parses and validates the incoming scan file, performs the
     necessary processing steps, and produces several outputs such as an X3P
     file, a preview image, and a surface map saved to the working directory.
-
     """
     # parse parse incoming file
     _ = ScanImage.from_file(upload_scan.scan_file)
@@ -80,9 +77,8 @@ async def process_scan(upload_scan: UploadScan) -> ProcessScan:
     # create surface map png
     # export png to output directory
     # TODO: replace the arguments with actual calculated results
-    tmp_scans = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
     return ProcessScan(
-        x3p_image=tmp_scans / "circle.x3p",
-        preview_image=tmp_scans / "circle.png",
-        surfacemap_image=tmp_scans / "circle.png",
+        x3p_image=upload_scan.output_dir / "circle.x3p",
+        preview_image=upload_scan.output_dir / "preview.png",
+        surfacemap_image=upload_scan.output_dir / "surfacemap.png",
     )
