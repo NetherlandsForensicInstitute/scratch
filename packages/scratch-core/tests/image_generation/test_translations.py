@@ -195,7 +195,7 @@ class TestCalculateLighting:
 
     @pytest.fixture(scope="class")
     def light_vector(self):
-        return LightSource(azimuth=45, elevation=180).vector
+        return LightSource(azimuth=45, elevation=45).vector
 
     @pytest.fixture(scope="class")
     def observer_vector(self):
@@ -338,7 +338,7 @@ class TestCalculateLighting:
     def test_lighting_known_value(
         self, base_images, observer_vector: Vector3DArray, light_vector: Vector3DArray
     ):
-        expected_constant = 0.03535534
+        expected_constant = 0.04571068
 
         # Act
         out = calculate_lighting(light_vector, observer_vector, base_images)
