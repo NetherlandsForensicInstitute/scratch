@@ -11,7 +11,7 @@ def get_surface_map(
     ),
 ) -> ScanMap2D:
     """
-    Compute a normalized intensity map from a 2D depth scan using lighting.
+    Compute a normalized intensity map from a 2D depth scan using directional lighting.
 
     This function performs the complete processing pipeline:
 
@@ -20,24 +20,21 @@ def get_surface_map(
     3. Combine the resulting intensity stack into a single 2D map.
     4. Normalize the combined map to a specified output range.
 
-    Parameters
-    ----------
-    depth_data : IMAGE_2D_ARRAY
-        2D depth map with shape ``(Height, Width)``.
-    x_dimension : float
-        Physical spacing between columns (Δx) in meters.
-    y_dimension : float
-        Physical spacing between rows (Δy) in meters.
-    light_angles : tuple of LightSource, optional
-        Tuple of light-source objects defining azimuth and elevation. Each light
-        contributes a 3-element unit vector. If omitted, two default lights are used:
-        ``(azimuth=90°, elevation=45°)`` and ``(azimuth=180°, elevation=45°)``.
+    :param depth_data: 2D depth map with shape (Height, Width).
+    :type depth_data: IMAGE_2D_ARRAY
+    :param x_dimension: Physical spacing between columns (Δx) in meters.
+    :type x_dimension: float
+    :param y_dimension: Physical spacing between rows (Δy) in meters.
+    :type y_dimension: float
+    :param light_angles: Tuple of LightSource objects defining azimuth and elevation.
+                         Each light contributes a 3-element unit vector. If omitted,
+                         two default lights are used: (azimuth=90°, elevation=45°)
+                         and (azimuth=180°, elevation=45°).
+    :type light_angles: tuple[LightSource], optional
 
-    Returns
-    -------
-    IMAGE_2D_ARRAY
-        Normalized 2D intensity map with shape ``(Height, Width)``, suitable for
-        visualization or downstream processing.
+    :returns: Normalized 2D intensity map with shape (Height, Width), suitable for
+              visualization or downstream processing.
+    :rtype: IMAGE_2D_ARRAY
     """
     return (
         depth_data.compute_normals(x_dimension, y_dimension)
