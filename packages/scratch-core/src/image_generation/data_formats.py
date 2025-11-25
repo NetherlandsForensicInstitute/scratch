@@ -32,8 +32,8 @@ class LightSource(BaseModel):
         ...,
         description="Elevation angle in degrees.",
         examples=[90, 45, 180],
-        ge=0,
-        le=360,
+        ge=-90,
+        le=90,
     )
 
     @property
