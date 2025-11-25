@@ -59,7 +59,7 @@ class TestContracts:
         ],
     )
     def test_pre_processor_post_requests(self, sub_rout: str, data: BaseModel, expected_response: BaseModel) -> None:
-        """TODO."""
+        """Test if the process scan endpoint returns an expected model."""
         # Act
         response = requests.post(f"{ROOT_URL}/{RootRout.PRE_PROCESSOR}{sub_rout}", data.model_dump_json(), timeout=5)
         # Assert

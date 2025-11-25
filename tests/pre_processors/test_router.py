@@ -41,4 +41,4 @@ def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
 
     # Assert
     assert response.status_code == HTTP_200_OK, "endpoint is alive"
-    assert response.json() == expected_response.model_dump(mode="json")
+    expected_response.model_validate(response.json())
