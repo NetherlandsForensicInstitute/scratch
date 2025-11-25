@@ -5,7 +5,7 @@ from PIL import Image
 from PIL.Image import Image as PILImage
 
 
-def clip_data(data: NDArray, std_scaler) -> tuple[NDArray, float, float]:
+def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
     """
     Clip the data so that the values lie in the interval [μ - σ * S, μ + σ * S].
 
