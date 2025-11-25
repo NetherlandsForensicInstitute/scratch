@@ -2,6 +2,8 @@ from conversion.display import clip_data, get_image_for_display
 from parsers import ScanImage
 import numpy as np
 import pytest
+from pathlib import Path
+from PIL import Image
 
 PRECISION = 1e-16
 
@@ -33,3 +35,14 @@ def test_get_image_for_display(scan_image_with_nans: ScanImage):
 
     image_data = np.asarray(display_image)
     assert np.array_equal(np.isnan(scan_image_with_nans.data), image_data[..., -1] == 0)
+
+
+def test_get_image_for_display_matches_baseline_image(
+    scan_image_with_nans: ScanImage, baseline_images_dir: Path
+):
+    verified = np.asarray(
+        Image.open(baseline_images_dir / "replica_preview.png").convert("RGBA")
+    ).astype(np.uint8)
+    display_image = get_image_for_display(scan_image_with_nans)
+    result_to_check = np.asarray(display_image.convert("RGBA")).astype(np.uint8)
+    assert np.allclose(verified, result_to_check, atol=PRECISION, equal_nan=True)
