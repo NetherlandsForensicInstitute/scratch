@@ -79,7 +79,7 @@ def calculate_lighting(
     """
     h_vec = light_vector + observer_vector
     h_norm = np.linalg.norm(h_vec)
-    h_vec = h_vec / h_norm
+    h_vec /= h_norm
 
     nx, ny, nz = (
         surface_normals[..., 0],

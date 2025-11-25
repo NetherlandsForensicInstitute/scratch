@@ -15,7 +15,7 @@ from utils.array_definitions import (
 
 
 class LightSource(BaseModel):
-    """Representation of a light angle and the thereby proprty a vector of [x,y,z]"""
+    """Representation of a light source and the property vector with [x,y,z]"""
 
     model_config = ConfigDict(
         frozen=True,
