@@ -15,7 +15,19 @@ from utils.array_definitions import (
 
 
 class LightSource(BaseModel):
-    """Representation of a light source and the property vector with [x,y,z]"""
+    """
+    Representation of a light source using an angular direction (azimuth and elevation)
+    together with a derived 3D unit direction vector.
+
+    Angle conventions:
+    - Azimuth: horizontal angle measured in the x–y plane.
+      0° corresponds to the –x direction, and the angle increases counter-clockwise
+      toward the +y direction.
+
+    - Elevation: vertical angle measured relative to the x–y plane.
+      0° is horizontal, +90° points straight upward (+z), and –90° points straight
+      downward (–z).
+    """
 
     model_config = ConfigDict(
         frozen=True,
@@ -23,14 +35,16 @@ class LightSource(BaseModel):
     )
     azimuth: float = Field(
         ...,
-        description="Azimuth angle in degrees.",
+        description="Horizontal direction angle in degrees. "
+        "Measured in the x–y plane from the –x axis, increasing counter-clockwise.",
         examples=[90, 45, 180],
         ge=0,
         le=360,
     )
     elevation: float = Field(
         ...,
-        description="Elevation angle in degrees.",
+        description="Vertical angle in degrees measured from the x–y plane. "
+        "0° is horizontal, +90° is upward (+z), –90° is downward (–z).",
         examples=[90, 45, 180],
         ge=-90,
         le=90,
@@ -39,8 +53,10 @@ class LightSource(BaseModel):
     @property
     def vector(self) -> Vector3DArray:
         """
-        The `vector` property is a unit direction vector in 3D space as a NumPy array of the form `[x, y, z]`, derived from the
-        angular representation.
+        Returns the unit direction vector [x, y, z] corresponding to the azimuth and
+        elevation angles. The conversion follows a spherical-coordinate convention:
+        azimuth defines the horizontal direction, and elevation defines the vertical
+        tilt relative to the x–y plane.
         """
         azimuth = np.deg2rad(self.azimuth)
         elevation = np.deg2rad(self.elevation)
@@ -61,12 +77,14 @@ class ScanMap2D(RootModel[ScanMap2DArray]):
     Shape: (height, width)
     """
 
-    def compute_normals(self, x_dimension: float, y_dimension: float):
+    def compute_normals(
+        self, x_dimension: float, y_dimension: float
+    ) -> "SurfaceNormals":
         return SurfaceNormals(
             compute_surface_normals(self.root, x_dimension, y_dimension)
         )
 
-    def normalize(self, max_val: float = 255, scale_min: float = 25):
+    def normalize(self, max_val: float = 255, scale_min: float = 25) -> "ScanMap2D":
         return ScanMap2D(
             normalize_intensity_map(self.root, max_val=max_val, scale_min=scale_min)
         )
@@ -81,7 +99,7 @@ class ScanTensor3D(RootModel[ScanTensor3DArray]):
     """
 
     @property
-    def combined(self) -> ScanMap2D:
+    def combined(self) -> "ScanMap2D":
         """Combine stacked lights → (Height × Width)."""
         return ScanMap2D(np.nansum(self.root, axis=2))
 
@@ -94,7 +112,7 @@ class SurfaceNormals(RootModel[ScanVectorField2DArray]):
 
     @property
     def nx(self) -> ScanMap2DArray:
-        """ "X-component of the surface normal as a 2D scan map."""
+        """X-component of the surface normal as a 2D scan map."""
         return self.root[..., 0]
 
     @property
