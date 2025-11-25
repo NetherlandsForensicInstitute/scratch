@@ -29,3 +29,10 @@ def test_subsample_matches_baseline_output(
         equal_nan=True,
         atol=atol,
     )
+
+
+def test_subsample_creates_new_object(scan_image_replica: ScanImage):
+    subsampled = subsample_data(scan_image=scan_image_replica, step_size=(5, 5))
+    assert id(subsampled) != id(scan_image_replica)
+    assert id(subsampled.data) != id(scan_image_replica.data)
+    assert scan_image_replica.data.ctypes.data != subsampled.data.ctypes.data
