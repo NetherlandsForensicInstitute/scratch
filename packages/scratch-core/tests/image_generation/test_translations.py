@@ -45,17 +45,14 @@ class TestComputeSurfaceNormals:
         atol=1e-3,
     ) -> None:
         """Assert nx, ny, nz at mask match expected 3-tuple."""
-        nx, ny, nz = normals[..., 0], normals[..., 1], normals[..., 2]
-        exp_x, exp_y, exp_z = expected
-        np.testing.assert_allclose(nx[mask], exp_x, atol=atol)
-        np.testing.assert_allclose(ny[mask], exp_y, atol=atol)
-        np.testing.assert_allclose(nz[mask], exp_z, atol=atol)
+        for component, expected_value in zip(np.moveaxis(normals, -1, 0), expected):
+            np.testing.assert_allclose(component[mask], expected_value, atol=atol)
 
-    def assert_all_nan(self, normals, mask) -> None:
+    def assert_all_nan(self, normals: ScanMap2DArray, mask: ScanMap2DArray) -> None:
         """All channels must be NaN within mask."""
         assert np.isnan(normals[mask]).all()
 
-    def assert_no_nan(self, normals, mask) -> None:
+    def assert_no_nan(self, normals: ScanMap2DArray, mask: ScanMap2DArray) -> None:
         """No channel should contain NaN within mask."""
         assert ~np.isnan(normals[mask]).any()
 
@@ -64,8 +61,10 @@ class TestComputeSurfaceNormals:
         inner_mask: NDArray[bool],
         outer_mask: NDArray[bool],
     ) -> None:
-        """The image is 1 pixel smaller on all sides due to the slope calculation.
-        This is filled with NaN values to get the same shape as original image"""
+        """
+        The image is 1 pixel smaller on all sides due to the slope calculation.
+        This is filled with NaN values to get the same shape as original image
+        """
         # Arrange
         input_image = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE))
 
