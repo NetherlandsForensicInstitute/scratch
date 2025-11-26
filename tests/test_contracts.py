@@ -63,7 +63,7 @@ class TestContracts:
         return data, expected_response
 
     @pytest.mark.parametrize(
-        ("fixture_name", "sub_route"), [pytest.param("process_scan", "/process-scan", id="process_scan")]
+        ("fixture_name", "sub_route"), [pytest.param("process_scan", "process-scan", id="process_scan")]
     )
     def test_pre_processor_post_requests(
         self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest
@@ -72,7 +72,7 @@ class TestContracts:
         data, expected_response = request.getfixturevalue(fixture_name)
         # Act
         response = requests.post(
-            f"{ROOT_URL}/{RoutePrefix.PREPROCESSOR}{sub_route}", json=data.model_dump(mode="json"), timeout=5
+            f"{ROOT_URL}/{RoutePrefix.PREPROCESSOR}/{sub_route}", json=data.model_dump(mode="json"), timeout=5
         )
         # Assert
         assert response.status_code == HTTP_200_OK
