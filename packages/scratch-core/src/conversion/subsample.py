@@ -12,7 +12,7 @@ def subsample_data(scan_image: ScanImage, step_size: tuple[int, int]) -> ScanIma
     """
     step_x, step_y = step_size
     if step_x <= 0 or step_y <= 0:
-        raise ValueError("Step size must be a positive integer")
+        raise ValueError("Step size must be a tuple of positive integers")
     if step_x >= scan_image.width or step_y >= scan_image.height:
         raise ValueError("Step size should be smaller than the image size")
 
