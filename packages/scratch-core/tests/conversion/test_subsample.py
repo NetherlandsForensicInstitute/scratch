@@ -21,6 +21,14 @@ def test_subsample_matches_size(scan_image: ScanImage, step_size: tuple[int, int
     )
 
 
+@pytest.mark.parametrize("step_size", [(-2, 2), (0, 3), (2, -1), (-1, -1), (1e3, 1e4)])
+def test_subsample_rejects_incorrect_sizes(
+    scan_image: ScanImage, step_size: tuple[int, int]
+):
+    with pytest.raises(ValueError):
+        _ = subsample_data(scan_image=scan_image, step_size=step_size)
+
+
 def test_subsample_matches_baseline_output(
     scan_image_replica: ScanImage, baseline_images_dir: Path
 ):
