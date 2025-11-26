@@ -36,7 +36,7 @@ def test_clip_data_rejects_incorrect_scalers(
 
 
 @pytest.mark.parametrize("std_scaler", [0.0, 1e-16, -1e-16, -1.0])
-def test_get_get_image_for_display_rejects_incorrect_scalers(
+def test_get_image_for_display_rejects_incorrect_scalers(
     scan_image_with_nans: ScanImage, std_scaler: float
 ):
     with pytest.raises(ValueError):
