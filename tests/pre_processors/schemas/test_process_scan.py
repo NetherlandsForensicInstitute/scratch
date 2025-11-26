@@ -33,15 +33,6 @@ def test_process_scan_valid_same_directory(process_scan_files: dict[str, Path]) 
     assert process_scan.surfacemap_image == process_scan_files["surfacemap_image"]
 
 
-def test_process_scan_output_directory_property(process_scan_files: dict[str, Path]) -> None:
-    """Test that output_directory property returns the correct parent directory."""
-    # Act
-    process_scan = ProcessScan(**process_scan_files)
-
-    # Assert
-    assert all(process_scan.output_directory == dir.parent for dir in process_scan_files.values())
-
-
 @pytest.mark.parametrize("field", ["x3p_image", "preview_image", "surfacemap_image"])
 def test_process_scan_nonexistent_file_raises_error(field: str, process_scan_files: dict[str, Path]) -> None:
     """Test that ProcessScan raises error for non-existent files."""

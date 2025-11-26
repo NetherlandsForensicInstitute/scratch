@@ -48,15 +48,11 @@ class ProcessScan(BaseModelConfig):
         examples=[Path("./documents/project_x/surfacemap.png")],
     )
 
-    @property
-    def output_directory(self) -> Path:
-        return self.x3p_image.parent
-
     @model_validator(mode="after")
     def same_parent_directory(self) -> Self:
         """Validate that all files are in the same parent directory."""
         if not all(
-            getattr(self, field_name).parent == self.output_directory
+            getattr(self, field_name).parent == self.x3p_image.parent
             for field_name, field_info in self.__class__.model_fields.items()
             if field_info.annotation is Path
         ):
