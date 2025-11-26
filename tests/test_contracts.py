@@ -13,7 +13,7 @@ ROOT_URL = "http://127.0.0.1:8000"
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
 
 
-class RootRout(StrEnum):
+class RoutePrefix(StrEnum):
     COMPARATOR = "comparator"
     PRE_PROCESSOR = "pre-processor"
     PROCESSOR = "processor"
@@ -37,13 +37,13 @@ class TestContracts:
     """
 
     @pytest.mark.parametrize(
-        ("rout", "expected_response"),
-        (pytest.param(f"/{rout}", TemplateResponse, id=rout) for rout in RootRout),
+        ("route", "expected_response"),
+        (pytest.param(f"/{route}", TemplateResponse, id=route) for route in RoutePrefix),
     )
-    def test_root(self, rout: str, expected_response: BaseModel) -> None:
+    def test_root(self, route: str, expected_response: BaseModel) -> None:
         """Check if the root is still returning the hello world response."""
         # Act
-        response = requests.get(f"{ROOT_URL}{rout}", timeout=5)
+        response = requests.get(f"{ROOT_URL}{route}", timeout=5)
         # Assert
         assert response.status_code == HTTP_200_OK
         expected_response.model_validate(response.json())
@@ -52,7 +52,7 @@ class TestContracts:
     def process_scan(self, tmp_path: Path) -> tuple[BaseModel, type[BaseModel]]:
         """Create dummy files for the expected response.
 
-        Returns the post request data, sub_rout & expected response.
+        Returns the post request data, sub_route & expected response.
         """
         data = UploadScan(scan_file=SCANS_DIR / "circle.x3p", output_dir=tmp_path)
         expected_response = ProcessedDataLocation
@@ -63,16 +63,16 @@ class TestContracts:
         return data, expected_response
 
     @pytest.mark.parametrize(
-        ("fixture_name", "sub_rout"), [pytest.param("process_scan", "/process-scan", id="process_scan")]
+        ("fixture_name", "sub_route"), [pytest.param("process_scan", "/process-scan", id="process_scan")]
     )
     def test_pre_processor_post_requests(
-        self, fixture_name: str, sub_rout: str, request: pytest.FixtureRequest
+        self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest
     ) -> None:
         """Test if the process scan endpoint returns an expected model."""
         data, expected_response = request.getfixturevalue(fixture_name)
         # Act
         response = requests.post(
-            f"{ROOT_URL}/{RootRout.PRE_PROCESSOR}{sub_rout}", json=data.model_dump(mode="json"), timeout=5
+            f"{ROOT_URL}/{RoutePrefix.PRE_PROCESSOR}{sub_route}", json=data.model_dump(mode="json"), timeout=5
         )
         # Assert
         assert response.status_code == HTTP_200_OK
