@@ -28,8 +28,7 @@ class UploadScan(BaseModelConfig):
     @classmethod
     def validate_file_extension(cls, scan_file: FilePath) -> FilePath:
         """Validate given file is off a supported type."""
-        extensions = tuple(f".{extension}" for extension in SupportedExtension)
-        if scan_file.suffix not in extensions:
+        if scan_file.suffix[1:] not in SupportedExtension:
             raise ValueError(f"unsupported extension: {scan_file.name}")
         return scan_file
 
