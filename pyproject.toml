@@ -20,15 +20,16 @@ classifiers = [
 
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi[standard]>=0.119.0",
-    "loguru>=0.7.3",
-    "uvicorn>=0.38.0",
+  "fastapi[standard]>=0.119.0",
+  "loguru>=0.7.3",
+  "pydantic>=2.12.4",
+  "uvicorn>=0.38.0",
+  "scratch-core",
 ]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
 [tool.uv.sources]
 scratch-core = { workspace = true }
-stats = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
@@ -38,6 +39,7 @@ exclude = ["**/__pycache__"]
 dev = [
   "deptry>=0.23.1",
   "diff-cover>=9.7.1",
+  "hypothesis>=6.148.2",
   "ipykernel>=7.0.0",
   "pre-commit>=4.3.0",
   "pyinstaller>=6.16.0",
