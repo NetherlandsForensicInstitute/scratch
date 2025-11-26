@@ -37,29 +37,6 @@ async def comparison_root() -> dict[str, str]:
     an X3P file, a preview image, and a surface map, these files are saved to the working directory given as parameter.
     The endpoint parses and validates the file before running the processing pipeline.
 """,
-    responses={
-        400: {
-            "description": "Invalid input",
-            "content": {
-                "application/json": {
-                    "examples": {
-                        "path_not_exists": {
-                            "summary": "Path doesn't exist",
-                            "value": {"error": "path doesn't exist"},
-                        },
-                        "unsupported_extension": {
-                            "summary": "Unsupported extension",
-                            "value": {"error": "unsupported extension"},
-                        },
-                        "file_corrupt": {
-                            "summary": "File is corrupt",
-                            "value": {"error": "file is corrupt, file can't be parsed."},
-                        },
-                    }
-                }
-            },
-        },
-    },
 )
 async def process_scan(upload_scan: UploadScan) -> ProcessScan:
     """
