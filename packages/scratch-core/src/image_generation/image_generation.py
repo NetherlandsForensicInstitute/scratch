@@ -5,7 +5,7 @@ def get_surface_map(
     depth_data: ScanMap2D,
     x_dimension: float,
     y_dimension: float,
-    light_angles: tuple[Vector3DArray, ...] = (
+    light_sources: tuple[Vector3DArray, ...] = (
         LightSource(azimuth=90, elevation=45).unit_vector,
         LightSource(azimuth=180, elevation=45).unit_vector,
     ),
@@ -26,11 +26,11 @@ def get_surface_map(
     :type x_dimension: float
     :param y_dimension: Physical spacing between rows (Δy) in meters.
     :type y_dimension: float
-    :param light_angles: Tuple of LightSource objects defining azimuth and elevation.
+    :param light_sources: Tuple of LightSource objects defining azimuth and elevation.
                          Each light contributes a 3-element unit vector. If omitted,
                          two default lights are used: (azimuth=90°, elevation=45°)
                          and (azimuth=180°, elevation=45°).
-    :type light_angles: tuple[LightSource], optional
+    :type light_sources: tuple[LightSource], optional
 
     :returns: Normalized 2D intensity map with shape (Height, Width), suitable for
               visualization or downstream processing.
@@ -38,6 +38,6 @@ def get_surface_map(
     """
     return (
         depth_data.compute_normals(x_dimension, y_dimension)
-        .apply_lights(light_angles)
+        .apply_lights(light_sources)
         .combined.normalize()
     )
