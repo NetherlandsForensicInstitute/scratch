@@ -10,7 +10,7 @@ from utils.array_definitions import (
     ScanMap2DArray,
     ScanTensor3DArray,
     ScanVectorField2DArray,
-    Vector3DArray,
+    UnitVector3DArray,
 )
 
 
@@ -51,7 +51,7 @@ class LightSource(BaseModel):
     )
 
     @property
-    def unit_vector(self) -> Vector3DArray:
+    def unit_vector(self) -> UnitVector3DArray:
         """
         Returns the unit direction vector [x, y, z] corresponding to the azimuth and
         elevation angles. The conversion follows a spherical-coordinate convention:
@@ -128,8 +128,8 @@ class SurfaceNormals(RootModel[ScanVectorField2DArray]):
 
     def apply_lights(
         self,
-        light_vectors: tuple[Vector3DArray, ...],
-        observer: Vector3DArray = LightSource(azimuth=0, elevation=90).unit_vector,
+        light_vectors: tuple[UnitVector3DArray, ...],
+        observer: UnitVector3DArray = LightSource(azimuth=0, elevation=90).unit_vector,
     ) -> "ScanTensor3D":
         """
         Apply one or more light vectors to the surface-normal field.

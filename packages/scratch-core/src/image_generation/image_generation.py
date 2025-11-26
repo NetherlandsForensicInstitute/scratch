@@ -1,11 +1,11 @@
-from image_generation.data_formats import ScanMap2D, LightSource, Vector3DArray
+from image_generation.data_formats import ScanMap2D, LightSource, UnitVector3DArray
 
 
 def get_surface_map(
     depth_data: ScanMap2D,
     x_dimension: float,
     y_dimension: float,
-    light_sources: tuple[Vector3DArray, ...] = (
+    light_sources: tuple[UnitVector3DArray, ...] = (
         LightSource(azimuth=90, elevation=45).unit_vector,
         LightSource(azimuth=180, elevation=45).unit_vector,
     ),

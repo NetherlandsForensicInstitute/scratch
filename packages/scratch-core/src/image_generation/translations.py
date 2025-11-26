@@ -2,7 +2,7 @@ import numpy as np
 from typing import Protocol
 
 from utils.array_definitions import (
-    Vector3DArray,
+    UnitVector3DArray,
     ScanMap2DArray,
     ScanVectorField2DArray,
     ScanTensor3DArray,
@@ -44,8 +44,8 @@ def compute_surface_normals(
 
 
 def calculate_lighting(
-    light_vector: Vector3DArray,
-    observer_vector: Vector3DArray,
+    light_vector: UnitVector3DArray,
+    observer_vector: UnitVector3DArray,
     surface_normals: ScanVectorField2DArray,
     specular_factor: float = 1.0,
     phong_exponent: int = 4,
@@ -90,8 +90,8 @@ def calculate_lighting(
 class LightingCalculator(Protocol):
     def __call__(
         self,
-        light_vector: Vector3DArray,
-        observer_vector: Vector3DArray,
+        light_vector: UnitVector3DArray,
+        observer_vector: UnitVector3DArray,
         surface_normals: ScanVectorField2DArray,
         specular_factor: float = 1.0,
         phong_exponent: int = 4,
@@ -100,8 +100,8 @@ class LightingCalculator(Protocol):
 
 def apply_multiple_lights(
     surface_normals: ScanVectorField2DArray,
-    light_vectors: tuple[Vector3DArray, ...],
-    observer_vector: Vector3DArray,
+    light_vectors: tuple[UnitVector3DArray, ...],
+    observer_vector: UnitVector3DArray,
     lighting_calculator: LightingCalculator = calculate_lighting,
 ) -> ScanTensor3DArray:
     """
