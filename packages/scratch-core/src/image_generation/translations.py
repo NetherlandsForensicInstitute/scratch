@@ -19,6 +19,7 @@ def compute_surface_normals(
 
     The gradients in both x and y directions are estimated using central differences,
     and the resulting normal vectors are normalized per pixel.
+    The border are padded with NaN values to keep the same size as the input data.
 
     :param depth_data: 2D array of depth values with shape (Height, Width).
     :param x_dimension: Physical spacing between columns (Δx) in meters.
@@ -26,7 +27,6 @@ def compute_surface_normals(
 
     :returns: 3D array of surface normals with shape (Height, Width, 3), where the
               last dimension corresponds to (nx, ny, nz).
-    :rtype: IMAGE_3_STACK_ARRAY
     """
     factor_x = 1 / (2 * x_dimension)
     factor_y = 1 / (2 * y_dimension)
