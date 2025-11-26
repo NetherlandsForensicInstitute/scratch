@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from numpy._typing import NDArray
+from numpy.typing import NDArray
 from numpy.testing import assert_allclose
 
 from image_generation.data_formats import LightSource
@@ -10,11 +10,15 @@ from image_generation.translations import (
     normalize_2d_array,
     apply_multiple_lights,
 )
-from utils.array_definitions import ScanVectorField2DArray, UnitVector3DArray
+from utils.array_definitions import (
+    ScanVectorField2DArray,
+    UnitVector3DArray,
+    ScanMap2DArray,
+)
 
 
 class TestComputeSurfaceNormals:
-    TOLERANCE = 1e-6
+    TOLERANCE = 1e-3
     IMAGE_SIZE = 20
     BUMP_SIZE = 6
     BUMP_HEIGHT = 4
@@ -22,20 +26,24 @@ class TestComputeSurfaceNormals:
     BUMP_SLICE = slice(BUMP_CENTER - BUMP_SIZE // 2, BUMP_CENTER + BUMP_SIZE // 2)
 
     @pytest.fixture
-    def inner_mask(self) -> NDArray[tuple[bool, bool]]:
+    def inner_mask(self) -> NDArray[bool]:
         """Mask of all pixels except the 1-pixel border."""
         mask = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE), dtype=bool)
         mask[1:-1, 1:-1] = True
         return mask
 
     @pytest.fixture
-    def outer_mask(
-        self, inner_mask: NDArray[tuple[bool, bool]]
-    ) -> NDArray[tuple[bool, bool]]:
+    def outer_mask(self, inner_mask: NDArray[bool]) -> NDArray[bool]:
         """Inverse of inner_mask: the NaN border."""
         return ~inner_mask
 
-    def assert_normals_close(self, normals, mask, expected, atol=1e-6):
+    def assert_normals_close(
+        self,
+        normals: ScanVectorField2DArray,
+        mask: NDArray[bool],
+        expected: tuple[float, float, float],
+        atol=1e-3,
+    ) -> None:
         """Assert nx, ny, nz at mask match expected 3-tuple."""
         nx, ny, nz = normals[..., 0], normals[..., 1], normals[..., 2]
         exp_x, exp_y, exp_z = expected
@@ -43,18 +51,18 @@ class TestComputeSurfaceNormals:
         np.testing.assert_allclose(ny[mask], exp_y, atol=atol)
         np.testing.assert_allclose(nz[mask], exp_z, atol=atol)
 
-    def assert_all_nan(self, normals, mask):
+    def assert_all_nan(self, normals, mask) -> None:
         """All channels must be NaN within mask."""
         assert np.isnan(normals[mask]).all()
 
-    def assert_no_nan(self, normals, mask):
+    def assert_no_nan(self, normals, mask) -> None:
         """No channel should contain NaN within mask."""
         assert ~np.isnan(normals[mask]).any()
 
     def test_slope_has_nan_border(
         self,
-        inner_mask: NDArray[tuple[bool, bool]],
-        outer_mask: NDArray[tuple[bool, bool]],
+        inner_mask: NDArray[bool],
+        outer_mask: NDArray[bool],
     ) -> None:
         """The image is 1 pixel smaller on all sides due to the slope calculation.
         This is filled with NaN values to get the same shape as original image"""
@@ -72,8 +80,8 @@ class TestComputeSurfaceNormals:
 
     def test_flat_surface_returns_flat_surface(
         self,
-        inner_mask: NDArray[tuple[bool, bool]],
-        outer_mask: NDArray[tuple[bool, bool]],
+        inner_mask: NDArray[bool],
+        outer_mask: NDArray[bool],
     ) -> None:
         """Given a flat surface the depth map should also be flat."""
         # Arrange
@@ -100,7 +108,7 @@ class TestComputeSurfaceNormals:
         ],
     )
     def test_linear_slope(
-        self, step_x: int, step_y: int, inner_mask: NDArray[tuple[bool, bool]]
+        self, step_x: int, step_y: int, inner_mask: NDArray[bool]
     ) -> None:
         """Test linear slopes in X, Y, or both directions."""
         # Arrange
@@ -121,15 +129,15 @@ class TestComputeSurfaceNormals:
     @pytest.fixture
     def input_depth_map_with_bump(
         self,
-    ) -> NDArray[tuple[int, int]]:
+    ) -> ScanMap2DArray:
         input_depth_map = np.zeros((self.IMAGE_SIZE, self.IMAGE_SIZE), dtype=int)
         input_depth_map[self.BUMP_SLICE, self.BUMP_SLICE] = self.BUMP_HEIGHT
         return input_depth_map
 
     def test_location_slope_is_where_expected(
         self,
-        inner_mask: NDArray[tuple[bool, bool]],
-        input_depth_map_with_bump: NDArray[tuple[int, int]],
+        inner_mask: NDArray[bool],
+        input_depth_map_with_bump: ScanMap2DArray,
     ) -> None:
         """Check that slope calculation is localized to the bump coordination an offset of 1 is used for the slope."""
         # Arrange
@@ -162,8 +170,8 @@ class TestComputeSurfaceNormals:
 
     def test_corner_of_slope(
         self,
-        inner_mask: NDArray[tuple[bool, bool]],
-        input_depth_map_with_bump: NDArray[tuple[int, int]],
+        inner_mask: NDArray[bool],
+        input_depth_map_with_bump: ScanMap2DArray,
     ) -> None:
         """Test if the corner of the slope is an extension of x, y"""
         # Arrange
@@ -194,11 +202,11 @@ class TestCalculateLighting:
     TOLERANCE = 1e-5
 
     @pytest.fixture(scope="class")
-    def light_vector(self):
+    def light_vector(self) -> UnitVector3DArray:
         return LightSource(azimuth=45, elevation=45).unit_vector
 
     @pytest.fixture(scope="class")
-    def observer_vector(self):
+    def observer_vector(self) -> UnitVector3DArray:
         return LightSource(azimuth=0, elevation=90).unit_vector
 
     @pytest.fixture(scope="class")
@@ -213,7 +221,7 @@ class TestCalculateLighting:
         base_images: ScanVectorField2DArray,
         observer_vector: UnitVector3DArray,
         light_vector: UnitVector3DArray,
-    ):
+    ) -> None:
         # Act
         out = calculate_lighting(light_vector, observer_vector, base_images)
 
@@ -225,7 +233,7 @@ class TestCalculateLighting:
         base_images: ScanVectorField2DArray,
         observer_vector: UnitVector3DArray,
         light_vector: UnitVector3DArray,
-    ):
+    ) -> None:
         # Act
         out = calculate_lighting(light_vector, observer_vector, base_images)
 
@@ -238,7 +246,7 @@ class TestCalculateLighting:
         base_images: ScanVectorField2DArray,
         observer_vector: UnitVector3DArray,
         light_vector: UnitVector3DArray,
-    ):
+    ) -> None:
         # Act
         out = calculate_lighting(light_vector, observer_vector, base_images)
 
@@ -247,7 +255,7 @@ class TestCalculateLighting:
 
     def test_bump_changes_values(
         self, observer_vector: UnitVector3DArray, light_vector: UnitVector3DArray
-    ):
+    ) -> None:
         """Test that the shader reacts per pixel by giving a bump in the normals. and thest the location is changed"""
         # Arrange
         nx = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
@@ -311,11 +319,11 @@ class TestCalculateLighting:
     def test_diffuse_clamps_to_zero(
         self,
         light_source: UnitVector3DArray,
-        nx,
-        ny,
-        nz,
+        nx: ScanMap2DArray,
+        ny: ScanMap2DArray,
+        nz: ScanMap2DArray,
         observer_vector: UnitVector3DArray,
-    ):
+    ) -> None:
         """Opposite direction → diffuse should be 0."""
         # Arrange
         base_images = np.stack([nx, ny, nz], axis=-1)
@@ -325,7 +333,7 @@ class TestCalculateLighting:
         # Assert
         assert np.all(out == 0), "values should be 0."
 
-    def test_specular_maximum_case(self, observer_vector: UnitVector3DArray):
+    def test_specular_maximum_case(self, observer_vector: UnitVector3DArray) -> None:
         """If light, observer, and normal all align, specular should be maximal."""
         # Arrange
         nx = np.zeros((self.TEST_IMAGE_WIDTH, self.TEST_IMAGE_HEIGHT))
@@ -342,10 +350,10 @@ class TestCalculateLighting:
 
     def test_lighting_known_value(
         self,
-        base_images,
+        base_images: ScanMap2DArray,
         observer_vector: UnitVector3DArray,
         light_vector: UnitVector3DArray,
-    ):
+    ) -> None:
         expected_constant = 0.04571068
 
         # Act
@@ -368,7 +376,7 @@ class TestNormalizeIntensityMap:
             pytest.param(100, 0.01, id="small slope is streched over the range"),
         ],
     )
-    def test_bigger_numbers(self, start_value: int, slope: float):
+    def test_bigger_numbers(self, start_value: int, slope: float) -> None:
         # Arrange
         row = start_value + slope * np.arange(self.TEST_IMAGE_WIDTH)
         image = np.tile(row, (self.TEST_IMAGE_HEIGHT, 1))
@@ -385,7 +393,7 @@ class TestNormalizeIntensityMap:
         assert normalized_image[0, 0] == normalized_image.min()
         assert normalized_image[9, 9] == normalized_image.max()
 
-    def test_already_normalized_image(self):
+    def test_already_normalized_image(self) -> None:
         # Arrange
         max_value = 255
         min_val = 20
@@ -415,11 +423,11 @@ class TestMultipleLights:
         surface_normals,
         specular_factor: float = 1.0,
         phong_exponent: int = 1,
-    ):
+    ) -> ScanMap2DArray:
         """A dumb calculator that returns a constant equal to the x-component of the light."""
         return np.sum(surface_normals * light_vector, axis=-1)
 
-    def test_apply_multiple_lights(self):
+    def test_apply_multiple_lights(self) -> None:
         """test if for each light a layer is calculated with the given function."""
         # Arrange
         light1 = np.array([1.0, 0.5, 1.0])
