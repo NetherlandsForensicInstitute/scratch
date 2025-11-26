@@ -15,7 +15,7 @@ SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
 
 class RoutePrefix(StrEnum):
     COMPARATOR = "comparator"
-    PRE_PROCESSOR = "pre-processor"
+    PRE_PROCESSOR = "preprocessor"
     PROCESSOR = "processor"
 
 

@@ -8,8 +8,8 @@ class ParseError(Exception): ...
 
 
 pre_processors = APIRouter(
-    prefix="/pre-processor",
-    tags=["pre-processor"],
+    prefix="/preprocessor",
+    tags=["preprocessor"],
 )
 
 

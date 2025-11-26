@@ -10,7 +10,7 @@ from pre_processors.schemas import ProcessedDataLocation, UploadScan
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
     # Act
-    response = client.get("/pre-processor")
+    response = client.get("/preprocessor")
 
     # Assert
     assert response.status_code == HTTP_200_OK, "endpoint is alive"
@@ -37,7 +37,7 @@ def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
     )
 
     # Act
-    response = client.post("/pre-processor/process-scan", json=input_model.model_dump(mode="json"), timeout=5)
+    response = client.post("/preprocessor/process-scan", json=input_model.model_dump(mode="json"), timeout=5)
 
     # Assert
     assert response.status_code == HTTP_200_OK, "endpoint is alive"
