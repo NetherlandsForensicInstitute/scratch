@@ -1821,6 +1821,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "loguru" },
+    { name = "pydantic" },
     { name = "uvicorn" },
 ]
 
@@ -1843,6 +1844,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.119.0" },
     { name = "loguru", specifier = ">=0.7.3" },
+    { name = "pydantic", specifier = ">=2.12.4" },
     { name = "uvicorn", specifier = ">=0.38.0" },
 ]
 
