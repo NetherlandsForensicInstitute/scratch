@@ -3,13 +3,13 @@ from loguru import logger
 from uvicorn import run
 
 from comparators.router import comparison_router
-from pre_processors.router import pre_processors
+from preprocessors import preprocessor_route
 from processors.router import processors
 
 app = FastAPI()
 prefix_router = APIRouter()
 
-prefix_router.include_router(pre_processors)
+prefix_router.include_router(preprocessor_route)
 prefix_router.include_router(processors)
 prefix_router.include_router(comparison_router)
 app.include_router(prefix_router)

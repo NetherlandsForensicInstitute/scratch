@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from starlette.status import HTTP_200_OK
 
 from constants import PROJECT_ROOT
-from pre_processors.schemas import ProcessedDataLocation, UploadScan
+from preprocessors import ProcessedDataLocation, UploadScan
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:

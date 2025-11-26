@@ -7,13 +7,13 @@ from .schemas import ProcessedDataLocation, UploadScan
 class ParseError(Exception): ...
 
 
-pre_processors = APIRouter(
+preprocessor_route = APIRouter(
     prefix="/preprocessor",
     tags=["preprocessor"],
 )
 
 
-@pre_processors.get(
+@preprocessor_route.get(
     path="/",
     summary="check status of comparison proces",
     description="""Some description of pre-processors endpoint, you can use basic **markup**""",
@@ -29,7 +29,7 @@ async def comparison_root() -> dict[str, str]:
     return {"message": "Hello from the pre-processors"}
 
 
-@pre_processors.post(
+@preprocessor_route.post(
     path="/process-scan",
     summary="Create surface_map and preview image from the scan file.",
     description="""

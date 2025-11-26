@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
-from pre_processors.schemas import ProcessedDataLocation, UploadScan
+from preprocessors import ProcessedDataLocation, UploadScan
 
 ROOT_URL = "http://127.0.0.1:8000"
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"

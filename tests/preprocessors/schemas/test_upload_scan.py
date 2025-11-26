@@ -5,7 +5,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from pre_processors.schemas import SupportedExtension, UploadScan
+from preprocessors import UploadScan
+from preprocessors.schemas import SupportedExtension
 
 
 @pytest.fixture

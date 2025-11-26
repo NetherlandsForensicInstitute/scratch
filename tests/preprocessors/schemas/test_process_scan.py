@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from pre_processors.schemas import ProcessedDataLocation
+from preprocessors import ProcessedDataLocation
 
 
 @pytest.fixture(scope="module")
