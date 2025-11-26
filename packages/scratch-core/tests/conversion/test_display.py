@@ -8,7 +8,7 @@ from PIL import Image
 PRECISION = 1e-16
 
 
-@pytest.mark.parametrize("std_scaler", [0.5, 1, 2, 4, 8])
+@pytest.mark.parametrize("std_scaler", [1e-16, 0.5, 1, 2, 4, 8])
 def test_image_is_clipped_correctly(scan_image_with_nans: ScanImage, std_scaler: float):
     data = scan_image_with_nans.data
     data_min, data_max = np.nanmin(data), np.nanmax(data)
@@ -27,7 +27,7 @@ def test_image_is_clipped_correctly(scan_image_with_nans: ScanImage, std_scaler:
     assert np.array_equal(np.isnan(data), np.isnan(clipped))
 
 
-@pytest.mark.parametrize("std_scaler", [0.0, 1e-16, -1e-16, -1.0])
+@pytest.mark.parametrize("std_scaler", [0.0, -1e-16, -1.0, -1e3])
 def test_clip_data_rejects_incorrect_scalers(
     scan_image_with_nans: ScanImage, std_scaler: float
 ):
@@ -35,7 +35,7 @@ def test_clip_data_rejects_incorrect_scalers(
         _ = clip_data(scan_image_with_nans.data, std_scaler)
 
 
-@pytest.mark.parametrize("std_scaler", [0.0, 1e-16, -1e-16, -1.0])
+@pytest.mark.parametrize("std_scaler", [0.0, -1e-16, -1.0, -1e3])
 def test_get_image_for_display_rejects_incorrect_scalers(
     scan_image_with_nans: ScanImage, std_scaler: float
 ):
