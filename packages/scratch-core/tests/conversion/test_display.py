@@ -27,6 +27,22 @@ def test_image_is_clipped_correctly(scan_image_with_nans: ScanImage, std_scaler:
     assert np.array_equal(np.isnan(data), np.isnan(clipped))
 
 
+@pytest.mark.parametrize("std_scaler", [0.0, 1e-16, -1e-16, -1.0])
+def test_clip_data_rejects_incorrect_scalers(
+    scan_image_with_nans: ScanImage, std_scaler: float
+):
+    with pytest.raises(ValueError):
+        _ = clip_data(scan_image_with_nans.data, std_scaler)
+
+
+@pytest.mark.parametrize("std_scaler", [0.0, 1e-16, -1e-16, -1.0])
+def test_get_display_image_rejects_incorrect_scalers(
+    scan_image_with_nans: ScanImage, std_scaler: float
+):
+    with pytest.raises(ValueError):
+        _ = get_image_for_display(scan_image_with_nans, std_scaler)
+
+
 def test_get_image_for_display_has_correct_output(scan_image_with_nans: ScanImage):
     display_image = get_image_for_display(scan_image_with_nans)
     assert display_image.width == scan_image_with_nans.width

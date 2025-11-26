@@ -15,6 +15,9 @@ def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
     :param std_scaler: The multiplier for the standard deviation of the data to be clipped.
     :returns: A tuple containing the clipped data, the lower bound, and the upper bound of the clipped data.
     """
+    if np.isclose(std_scaler, 0.0) or std_scaler < 0:
+        raise ValueError("`std_scaler` must be a positive number.")
+
     mean = np.nanmean(data)
     std = np.nanstd(data, ddof=1) * std_scaler
     upper = float(mean + std)
