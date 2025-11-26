@@ -80,13 +80,29 @@ class ScanMap2D(RootModel[ScanMap2DArray]):
     def compute_normals(
         self, x_dimension: float, y_dimension: float
     ) -> "SurfaceNormals":
+        """
+        Compute per-pixel surface normals from a 2D depth map.
+
+        :param x_dimension: Represents the distance between 2 pixels in meters in x direction.
+        :param y_dimension: Represents the distance between 2 pixels in meters in x direction.
+
+        :returns: Normal vectors per pixel in a 3-layer field. Layers are [x,y,z]
+        """
         return SurfaceNormals(
             compute_surface_normals(self.root, x_dimension, y_dimension)
         )
 
-    def normalize(self, max_val: float = 255, scale_min: float = 25) -> "ScanMap2D":
+    def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanMap2D":
+        """
+        Normalize a 2D intensity map to a specified output range.
+
+        :param scale_max: Maximum output intensity value. Default is ``255``.
+        :param scale_min: Minimum output intensity value. Default is ``25``.
+
+        :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
+        """
         return ScanMap2D(
-            normalize_2d_array(self.root, scale_max=max_val, scale_min=scale_min)
+            normalize_2d_array(self.root, scale_max=scale_max, scale_min=scale_min)
         )
 
 
@@ -120,6 +136,12 @@ class SurfaceNormals(RootModel[ScanVectorField2DArray]):
 
         Computes intensity values for each light direction (and an optional observer
         direction) and returns a stacked result as an Image3DArray.
+
+        :param light_vectors: LightSource objects defining azimuth and elevation as a unit vector.
+        :param observer: LightSource object defining azimuth and elevation as a unit vector as the observer.
+            Defaults to azimuth=0, elevation=90
+
+        :returns: Normalized 2D intensity map with shape (Height, Width), suitable for
         """
         return ScanTensor3D(
             apply_multiple_lights(

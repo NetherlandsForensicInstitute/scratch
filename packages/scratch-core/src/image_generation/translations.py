@@ -21,11 +21,8 @@ def compute_surface_normals(
     and the resulting normal vectors are normalized per pixel.
 
     :param depth_data: 2D array of depth values with shape (Height, Width).
-    :type depth_data: IMAGE_2D_ARRAY
     :param x_dimension: Physical spacing between columns (Δx) in meters.
-    :type x_dimension: float
     :param y_dimension: Physical spacing between rows (Δy) in meters.
-    :type y_dimension: float
 
     :returns: 3D array of surface normals with shape (Height, Width, 3), where the
               last dimension corresponds to (nx, ny, nz).
@@ -60,20 +57,14 @@ def calculate_lighting(
     Phong specular component.
 
     :param light_vector: Normalized 3-element vector pointing toward the light source.
-    :type light_vector: NORMAL_VECTOR
     :param observer_vector: Normalized 3-element vector pointing toward the observer/camera.
-    :type observer_vector: NORMAL_VECTOR
     :param surface_normals: 3D array of surface normals with shape (Height, Width, 3).
-    :type surface_normals: IMAGE_3_STACK_ARRAY
     :param specular_factor: Weight of the specular component. Default is ``1.0``.
-    :type specular_factor: float, optional
     :param phong_exponent: Exponent controlling the sharpness of specular highlights.
                            Default is ``4``.
-    :type phong_exponent: int, optional
 
     :returns: 2D array of combined lighting intensities in ``[0, 1]`` with shape
               (Height, Width).
-    :rtype: IMAGE_2D_ARRAY
     """
     h_vec = light_vector + observer_vector
     h_norm = np.linalg.norm(h_vec)
@@ -118,18 +109,13 @@ def apply_multiple_lights(
     resulting intensity maps.
 
     :param surface_normals: 3D array of surface normals with shape (Height, Width, 3).
-    :type surface_normals: IMAGE_3_STACK_ARRAY
     :param light_vectors: Tuple of normalized 3-element light direction vectors.
-    :type light_vectors: tuple[NORMAL_VECTOR, ...]
     :param observer_vector: Normalized 3-element vector pointing toward the observer.
-    :type observer_vector: NORMAL_VECTOR
     :param lighting_calculator: Function used to compute lighting for a single light
                                 source. Default is :func:`calculate_lighting`.
-    :type lighting_calculator: callable, optional
 
     :returns: 3D array of lighting intensities with shape (Height, Width, N), where
               N is the number of lights.
-    :rtype: IMAGE_3D_ARRAY
     """
     return np.stack(
         [
@@ -151,14 +137,10 @@ def normalize_2d_array(
     2. stretch / scale the normalized data from the unit range to a specified output range
 
     :param image_to_normalize: 2D array of input intensity values.
-    :type image_to_normalize: IMAGE_2D_ARRAY
     :param scale_max: Maximum output intensity value. Default is ``255``.
-    :type scale_max: float, optional
     :param scale_min: Minimum output intensity value. Default is ``25``.
-    :type scale_min: float, optional
 
     :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
-    :rtype: IMAGE_2D_ARRAY
     """
     imin = np.nanmin(image_to_normalize)
     imax = np.nanmax(image_to_normalize)
