@@ -31,10 +31,10 @@ async def comparison_root() -> dict[str, str]:
 
 @pre_processors.post(
     path="/process-scan",
-    summary="Add a scan file to be processed",
+    summary="Create surface_map and preview image from the scan file.",
     description="""
-    Processes an uploaded scan file and generates several derived outputs, including
-    an X3P file, a preview image, and a surface map, these files are saved to the working directory given as parameter.
+    Processes the scan file from the given filepath and generates several derived outputs, including
+    an X3P file, a preview image, and a surface map, these files are saved to the output directory given as parameter.
     The endpoint parses and validates the file before running the processing pipeline.
 """,
 )
@@ -44,9 +44,9 @@ async def process_scan(upload_scan: UploadScan) -> ProcessScan:
 
     This endpoint parses and validates the incoming scan file, performs the
     necessary processing steps, and produces several outputs such as an X3P
-    file, a preview image, and a surface map saved to the working directory.
+    file, a preview image, and a surface map saved to the output directory.
     """
-    # parse parse incoming file
+    # parse incoming file
     _ = ScanImage.from_file(upload_scan.scan_file)
     # raise Unable to ParseError
     # subsample the parsed file
