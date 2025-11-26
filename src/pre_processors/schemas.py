@@ -33,7 +33,7 @@ class UploadScan(BaseModelConfig):
         return scan_file
 
 
-class ProcessScan(BaseModelConfig):
+class ProcessedDataLocation(BaseModelConfig):
     x3p_image: FilePath = Field(
         ..., description="converted subsampled X3P image.", examples=[Path("./documents/project_x/x3p.png")]
     )

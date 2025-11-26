@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from parsers import ScanImage
 
-from .schemas import ProcessScan, UploadScan
+from .schemas import ProcessedDataLocation, UploadScan
 
 
 class ParseError(Exception): ...
@@ -38,7 +38,7 @@ async def comparison_root() -> dict[str, str]:
     The endpoint parses and validates the file before running the processing pipeline.
 """,
 )
-async def process_scan(upload_scan: UploadScan) -> ProcessScan:
+async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     """
     Process an uploaded scan file and generate derived output files.
 
@@ -54,7 +54,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessScan:
     # create surface map png
     # export png to output directory
     # TODO: replace the arguments with actual calculated results
-    return ProcessScan(
+    return ProcessedDataLocation(
         x3p_image=upload_scan.output_dir / "circle.x3p",
         preview_image=upload_scan.output_dir / "preview.png",
         surfacemap_image=upload_scan.output_dir / "surface_map.png",

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
-from pre_processors.schemas import ProcessScan, UploadScan
+from pre_processors.schemas import ProcessedDataLocation, UploadScan
 
 ROOT_URL = "http://127.0.0.1:8000"
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
@@ -55,7 +55,7 @@ class TestContracts:
         Returns the post request data, sub_rout & expected response.
         """
         data = UploadScan(scan_file=SCANS_DIR / "circle.x3p", output_dir=tmp_path)
-        expected_response = ProcessScan
+        expected_response = ProcessedDataLocation
         # TODO: when implemented the file touch can ben removed.
         (tmp_path / "circle.x3p").touch()
         (tmp_path / "preview.png").touch()

@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from starlette.status import HTTP_200_OK
 
 from constants import PROJECT_ROOT
-from pre_processors.schemas import ProcessScan, UploadScan
+from pre_processors.schemas import ProcessedDataLocation, UploadScan
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
@@ -30,7 +30,7 @@ def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
     (input_model.output_dir / "preview.png").touch()
     (input_model.output_dir / "surface_map.png").touch()
 
-    expected_response = ProcessScan(
+    expected_response = ProcessedDataLocation(
         preview_image=input_model.output_dir / "preview.png",
         surfacemap_image=input_model.output_dir / "surface_map.png",
         x3p_image=input_model.output_dir / "circle.x3p",
