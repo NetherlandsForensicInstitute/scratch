@@ -1,3 +1,3 @@
-from .image_generation import get_surface_map
+from .image_generation import generate_3d_image
 
-__all__ = ["get_surface_map"]
+__all__ = ["generate_3d_image"]

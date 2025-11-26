@@ -1,7 +1,7 @@
 from image_generation.data_formats import ScanMap2D, LightSource, UnitVector3DArray
 
 
-def get_surface_map(
+def generate_3d_image(
     depth_data: ScanMap2D,
     x_dimension: float,
     y_dimension: float,
