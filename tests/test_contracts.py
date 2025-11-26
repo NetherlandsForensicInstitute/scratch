@@ -15,7 +15,7 @@ SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
 
 class RoutePrefix(StrEnum):
     COMPARATOR = "comparator"
-    PRE_PROCESSOR = "preprocessor"
+    PREPROCESSOR = "preprocessor"
     PROCESSOR = "processor"
 
 
@@ -72,7 +72,7 @@ class TestContracts:
         data, expected_response = request.getfixturevalue(fixture_name)
         # Act
         response = requests.post(
-            f"{ROOT_URL}/{RoutePrefix.PRE_PROCESSOR}{sub_route}", json=data.model_dump(mode="json"), timeout=5
+            f"{ROOT_URL}/{RoutePrefix.PREPROCESSOR}{sub_route}", json=data.model_dump(mode="json"), timeout=5
         )
         # Assert
         assert response.status_code == HTTP_200_OK
