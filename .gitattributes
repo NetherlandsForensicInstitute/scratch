@@ -9,3 +9,4 @@ packages/scratch-core/tests/resources/scans/Klein*.x3p -filter -diff -merge text
 
 *.al3d binary
 *.x3p binary
+*.npy binary

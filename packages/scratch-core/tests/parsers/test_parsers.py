@@ -5,27 +5,24 @@ from numpy.typing import NDArray
 import pytest
 from parsers import ScanImage, save_to_x3p
 
+PRECISION = 1e-16
+
 
 def validate_image(
-    path_to_original_image: Path,
-    parsed_image: ScanImage,
-    expected_image_data: NDArray,
-    expected_scale: float,
+    parsed_image: ScanImage, expected_image_data: NDArray, expected_scale: float
 ):
     """Validate a parsed image."""
-    atol = 1e-16  # take a small value for the absolute tolerance since parsed values are in meters
     assert isinstance(parsed_image, ScanImage)
     assert parsed_image.data.shape == expected_image_data.shape
     assert np.allclose(
         parsed_image.data,
         expected_image_data,
         equal_nan=True,
-        atol=atol,
+        atol=PRECISION,
     )
     assert parsed_image.data.dtype == np.float64
-    assert parsed_image.path_to_original_image == path_to_original_image
-    assert np.isclose(parsed_image.scale_x, parsed_image.scale_y, atol=atol)
-    assert np.isclose(parsed_image.scale_x, expected_scale, atol=atol)
+    assert np.isclose(parsed_image.scale_x, parsed_image.scale_y, atol=PRECISION)
+    assert np.isclose(parsed_image.scale_x, expected_scale, atol=PRECISION)
 
 
 def test_exception_on_incorrect_file_extension():
@@ -35,10 +32,7 @@ def test_exception_on_incorrect_file_extension():
 
 def test_exception_on_incorrect_shape(image_data: NDArray):
     with pytest.raises(ValueError, match="shape"):
-        _ = ScanImage(
-            data=np.expand_dims(image_data, -1),
-            path_to_original_image=Path("export.x3p"),
-        )
+        _ = ScanImage(data=np.expand_dims(image_data, -1))
 
 
 @pytest.mark.parametrize(
@@ -51,7 +45,6 @@ def test_parser_can_parse(
     file_to_test = scans_dir / filename
     parsed_image = ScanImage.from_file(file_to_test)
     validate_image(
-        path_to_original_image=file_to_test,
         parsed_image=parsed_image,
         expected_image_data=image_data,
         expected_scale=expected_scale,
@@ -76,7 +69,6 @@ def test_al3d_can_be_converted_to_x3p(scans_dir: Path, tmp_path: PosixPath):
     parsed_exported_image = ScanImage.from_file(output_file)
     # compare the parsed data from the exported .x3p file to the parsed data from the .al3d file
     validate_image(
-        path_to_original_image=output_file,
         parsed_image=parsed_exported_image,
         expected_image_data=parsed_image.data,
         expected_scale=parsed_image.scale_x,

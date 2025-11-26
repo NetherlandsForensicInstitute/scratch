@@ -1,7 +1,6 @@
 from pathlib import Path
-
-import numpy as np
 from numpy.typing import NDArray
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -16,6 +15,12 @@ def scans_dir() -> Path:
     return TEST_ROOT / "resources" / "scans"
 
 
+@pytest.fixture(scope="session")
+def baseline_images_dir() -> Path:
+    """Path to resources baseline images directory."""
+    return TEST_ROOT / "resources" / "baseline_images"
+
+
 @pytest.fixture
 def image_data(scans_dir: Path) -> NDArray:
     """Build a fixture with ground truth image data."""
@@ -27,4 +32,10 @@ def image_data(scans_dir: Path) -> NDArray:
 @pytest.fixture
 def scan_image(image_data: NDArray) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return ScanImage(data=image_data, path_to_original_image=Path("some/path/file.x3p"))
+    return ScanImage(data=image_data)
+
+
+@pytest.fixture
+def scan_image_replica(scans_dir: Path) -> ScanImage:
+    """Build a `ScanImage` object`."""
+    return ScanImage.from_file(scans_dir / "Klein_non_replica_mode.al3d")

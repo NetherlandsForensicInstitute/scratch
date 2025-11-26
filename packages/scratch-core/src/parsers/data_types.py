@@ -1,7 +1,6 @@
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated
-
 from numpy.typing import NDArray
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 import numpy as np
@@ -40,19 +39,17 @@ class ScanImage(FrozenBaseModel):
     """
     Class for storing parsed scan data.
 
+    The image data is stored as a 2D floating point tensor with shape `[height, width]`.
+
     :param data: A numpy array containing the parsed 2D image data.
     :param scale_x: The pixel size in the X-direction in meters (m).
     :param scale_y: The pixel size in the Y-direction in meters (m).
-    :param path_to_original_image: The filepath to the original image.
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
-    data: Annotated[
-        NDArray[tuple[int, int]], AfterValidator(validate_parsed_image_shape)
-    ]
+    data: Annotated[NDArray[np.float64], AfterValidator(validate_parsed_image_shape)]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
-    path_to_original_image: Path
     meta_data: dict | None = None
 
     @classmethod
@@ -71,7 +68,6 @@ class ScanImage(FrozenBaseModel):
             scale_x=surface.step_x * UNIT_CONVERSION_FACTOR,
             scale_y=surface.step_y * UNIT_CONVERSION_FACTOR,
             meta_data=surface.metadata,
-            path_to_original_image=scan_file,
         )
 
     @property
