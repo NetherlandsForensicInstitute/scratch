@@ -35,7 +35,7 @@ def test_clip_data_rejects_incorrect_scalers(
         _ = clip_data(scan_image_with_nans.data, std_scaler)
 
 
-def test_image_to_rgba_has_correct_output(scan_image_with_nans: ScanImage):
+def test_grayscale_to_rgba_has_correct_output(scan_image_with_nans: ScanImage):
     rgba = grayscale_to_rgba(scan_image_with_nans.data)
     assert rgba.shape[1] == scan_image_with_nans.width
     assert rgba.shape[0] == scan_image_with_nans.height
