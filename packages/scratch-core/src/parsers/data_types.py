@@ -1,12 +1,15 @@
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated
+
+import numpy as np
 from numpy.typing import NDArray
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
-import numpy as np
 from surfalize import Surface
 from surfalize.file import FileHandler
 from surfalize.file.al3d import MAGIC
+
+from .exceptions import InvalidTypeError
 from .patches.al3d import read_al3d
 
 UNIT_CONVERSION_FACTOR = 1e-6  # conversion factor from micrometers (um) to meters (m)
@@ -61,7 +64,7 @@ class ScanImage(FrozenBaseModel):
         :returns: An instance of `ScanImage`.
         """
         if extension := scan_file.suffix.lower()[1:] not in ScanFileFormats:
-            raise ValueError(f"Invalid file extension: {extension}")
+            raise InvalidTypeError(f"Invalid file extension: {extension}")
         surface = Surface.load(scan_file)
         return ScanImage(
             data=np.asarray(surface.data, dtype=np.float64) * UNIT_CONVERSION_FACTOR,
