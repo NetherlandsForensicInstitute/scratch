@@ -26,6 +26,22 @@ def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
     return clipped, lower, upper
 
 
+def grayscale_to_rgba(image: NDArray) -> NDArray:
+    """
+    Convert a 2D grayscale array to an 8-bit RGBA array.
+
+    The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
+    NaN values will be converted to black pixels with 100% transparency.
+
+    :param image: The grayscale image data to be converted to an 8-bit RGBA image.
+    :returns: Array with the image data in 8-bit RGBA format.
+    """
+    rgba = np.empty(shape=(*image.shape, 4), dtype=np.uint8)
+    rgba[..., :-1] = np.expand_dims(image.astype(np.uint8), axis=-1)
+    rgba[..., -1] = ~np.isnan(image) * 255
+    return rgba
+
+
 def get_image_for_display(
     image: NDArray | ScanImage, std_scaler: float = 2.0
 ) -> PILImage:
@@ -45,7 +61,5 @@ def get_image_for_display(
         image = image.data
     clipped, lower, upper = clip_data(data=image, std_scaler=std_scaler)
     normalized = (clipped - lower) / (upper - lower) * 255.0
-    rgba = np.empty(shape=(*image.shape, 4), dtype=np.uint8)
-    rgba[..., :-1] = np.expand_dims(normalized.astype(np.uint8), axis=-1)
-    rgba[..., -1] = ~np.isnan(normalized) * 255
+    rgba = grayscale_to_rgba(normalized)
     return Image.fromarray(rgba)

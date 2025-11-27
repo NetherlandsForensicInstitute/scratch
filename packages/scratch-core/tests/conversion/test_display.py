@@ -1,4 +1,4 @@
-from conversion.display import clip_data, get_image_for_display
+from conversion.display import clip_data, get_image_for_display, grayscale_to_rgba
 from parsers import ScanImage
 import numpy as np
 import pytest
@@ -33,6 +33,17 @@ def test_clip_data_rejects_incorrect_scalers(
 ):
     with pytest.raises(ValueError):
         _ = clip_data(scan_image_with_nans.data, std_scaler)
+
+
+def test_image_to_rgba_has_correct_output(scan_image_with_nans: ScanImage):
+    rgba = grayscale_to_rgba(scan_image_with_nans.data)
+    assert rgba.shape[1] == scan_image_with_nans.width
+    assert rgba.shape[0] == scan_image_with_nans.height
+    assert np.array_equal(np.isnan(scan_image_with_nans.data), rgba[..., -1] == 0)
+    for channel in range(3):
+        assert np.array_equal(
+            scan_image_with_nans.data.astype(np.uint8), rgba[..., channel]
+        )
 
 
 @pytest.mark.parametrize("std_scaler", [0.0, -1e-16, -1.0, -1e3])
