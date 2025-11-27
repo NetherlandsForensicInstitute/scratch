@@ -1,3 +1,5 @@
+set shell := ["bash", "-c"]
+
 # Helper function to style echo messages
 timeout_seconds := "20"
 log message style="magenta":
