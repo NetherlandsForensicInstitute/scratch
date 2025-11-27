@@ -1,14 +1,18 @@
-from conversion.display import clip_data, get_image_for_display, grayscale_to_rgba
-from parsers import ScanImage
 import numpy as np
 import pytest
-from pathlib import Path
-from PIL import Image
+from hypothesis import given
+from hypothesis import strategies as st
+from matplotlib.testing.decorators import image_comparison
+
+from conversion.display import clip_data, get_image_for_display, grayscale_to_rgba
+from conversion.exceptions import NegativeStdScalerException
+from parsers import ScanImage
+from ..helper_functions import plot_test_data
 
 PRECISION = 1e-16
 
 
-@pytest.mark.parametrize("std_scaler", [1e-16, 0.5, 1, 2, 4, 8])
+@given(std_scaler=st.floats(min_value=0, exclude_min=True))
 def test_image_is_clipped_correctly(scan_image_with_nans: ScanImage, std_scaler: float):
     data = scan_image_with_nans.data
     data_min, data_max = np.nanmin(data), np.nanmax(data)
@@ -27,15 +31,15 @@ def test_image_is_clipped_correctly(scan_image_with_nans: ScanImage, std_scaler:
     assert np.array_equal(np.isnan(data), np.isnan(clipped))
 
 
-@pytest.mark.parametrize("std_scaler", [0.0, -1e-16, -1.0, -1e3])
+@given(std_scaler=st.floats(max_value=0))
 def test_clip_data_rejects_incorrect_scalers(
     scan_image_with_nans: ScanImage, std_scaler: float
 ):
-    with pytest.raises(ValueError):
+    with pytest.raises(NegativeStdScalerException):
         _ = clip_data(scan_image_with_nans.data, std_scaler)
 
 
-def test_grayscale_to_rgba_has_correct_output(scan_image_with_nans: ScanImage):
+def test_grayscale_to_rgba(scan_image_with_nans: ScanImage):
     rgba = grayscale_to_rgba(scan_image_with_nans.data)
     assert rgba.shape[1] == scan_image_with_nans.width
     assert rgba.shape[0] == scan_image_with_nans.height
@@ -46,30 +50,10 @@ def test_grayscale_to_rgba_has_correct_output(scan_image_with_nans: ScanImage):
         )
 
 
-@pytest.mark.parametrize("std_scaler", [0.0, -1e-16, -1.0, -1e3])
-def test_get_image_for_display_rejects_incorrect_scalers(
-    scan_image_with_nans: ScanImage, std_scaler: float
-):
-    with pytest.raises(ValueError):
-        _ = get_image_for_display(scan_image_with_nans, std_scaler)
-
-
-def test_get_image_for_display_has_correct_output(scan_image_with_nans: ScanImage):
-    display_image = get_image_for_display(scan_image_with_nans)
-    assert display_image.width == scan_image_with_nans.width
-    assert display_image.height == scan_image_with_nans.height
-    assert display_image.mode == "RGBA"
-
-    image_data = np.asarray(display_image)
-    assert np.array_equal(np.isnan(scan_image_with_nans.data), image_data[..., -1] == 0)
-
-
+@pytest.mark.integration
+@image_comparison(baseline_images=["preview_image"], extensions=["png"])
 def test_get_image_for_display_matches_baseline_image(
-    scan_image_with_nans: ScanImage, baseline_images_dir: Path
+    scan_image_with_nans: ScanImage,
 ):
-    verified = np.asarray(
-        Image.open(baseline_images_dir / "replica_preview.png").convert("RGBA")
-    ).astype(np.uint8)
     display_image = get_image_for_display(scan_image_with_nans)
-    result_to_check = np.asarray(display_image.convert("RGBA")).astype(np.uint8)
-    assert np.array_equal(verified, result_to_check, equal_nan=True)
+    plot_test_data(display_image)

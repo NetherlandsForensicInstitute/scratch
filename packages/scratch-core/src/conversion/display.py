@@ -1,3 +1,4 @@
+from conversion.exceptions import NegativeStdScalerException
 from parsers.data_types import ScanImage
 import numpy as np
 from numpy.typing import NDArray
@@ -16,7 +17,7 @@ def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
     :returns: A tuple containing the clipped data, the lower bound, and the upper bound of the clipped data.
     """
     if std_scaler <= 0.0:
-        raise ValueError("`std_scaler` must be a positive number.")
+        raise NegativeStdScalerException("`std_scaler` must be a positive number.")
 
     mean = np.nanmean(data)
     std = np.nanstd(data, ddof=1) * std_scaler
@@ -42,9 +43,7 @@ def grayscale_to_rgba(image: NDArray) -> NDArray:
     return rgba
 
 
-def get_image_for_display(
-    image: NDArray | ScanImage, std_scaler: float = 2.0
-) -> PILImage:
+def get_image_for_display(image: ScanImage, std_scaler: float = 2.0) -> PILImage:
     """
     Get an 8-bit RGBA image for displaying a scan image.
 
@@ -53,13 +52,20 @@ def get_image_for_display(
     before they are converted to 8-bit unsigned integers. NaN values will be converted to black pixels
     with 100% transparency.
 
-    :param image: Either a 2D NumPy array containing the raw scan data or an instance of `ScanImage`.
+    :param image: An instance of `ScanImage`.
     :param std_scaler: The multiplier `S` for the standard deviation used above when clipping the image.
     :returns: A PIL Image object in 8-bit RGBA format.
     """
-    if isinstance(image, ScanImage):
-        image = image.data
-    clipped, lower, upper = clip_data(data=image, std_scaler=std_scaler)
-    normalized = (clipped - lower) / (upper - lower) * 255.0
+    clipped, lower, upper = clip_data(data=image.data, std_scaler=std_scaler)
+    normalized = normalize(clipped, lower, upper)
     rgba = grayscale_to_rgba(normalized)
     return Image.fromarray(rgba)
+
+
+def normalize(input_array: NDArray, lower: float, upper: float) -> NDArray:
+    """Perform min-max normalization on the input array and scale to the [0, 255] interval."""
+    if lower >= upper:
+        raise ValueError(
+            f"The lower bound ({lower}) should be smaller than the upper bound ({upper})."
+        )
+    return (input_array - lower) / (upper - lower) * 255.0

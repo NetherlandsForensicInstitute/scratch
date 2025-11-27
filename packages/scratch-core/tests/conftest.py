@@ -1,8 +1,9 @@
 from pathlib import Path
-from numpy.typing import NDArray
+
 import numpy as np
 import pytest
 from PIL import Image
+from numpy.typing import NDArray
 
 from parsers.data_types import ScanImage
 
@@ -41,7 +42,7 @@ def scan_image_replica(scans_dir: Path) -> ScanImage:
     return ScanImage.from_file(scans_dir / "Klein_non_replica_mode.al3d")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def scan_image_with_nans(scans_dir: Path) -> ScanImage:
     """Build a `ScanImage` object`."""
     scan_image = ScanImage.from_file(scans_dir / "Klein_non_replica_mode.al3d")
