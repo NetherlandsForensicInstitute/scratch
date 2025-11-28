@@ -1,5 +1,7 @@
-# Helper function to style echo messages
+set shell := ["bash", "-c"]
 timeout_seconds := "20"
+
+# Helper function to style echo messages
 log message style="magenta":
     #!/bin/bash
     case "{{ style }}" in
