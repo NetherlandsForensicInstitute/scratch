@@ -1,9 +1,8 @@
-from conversion.exceptions import NegativeStdScalerException
-from parsers.data_types import ScanImage
 import numpy as np
 from numpy.typing import NDArray
-from PIL import Image
-from PIL.Image import Image as PILImage
+
+from conversion.exceptions import NegativeStdScalerException
+from parsers.data_types import ScanImage
 
 
 def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
@@ -43,9 +42,9 @@ def grayscale_to_rgba(image: NDArray) -> NDArray:
     return rgba
 
 
-def get_image_for_display(image: ScanImage, std_scaler: float = 2.0) -> PILImage:
+def get_array_for_display(image: ScanImage, std_scaler: float = 2.0) -> NDArray:
     """
-    Get an 8-bit RGBA image for displaying a scan image.
+    Get an 8-bit RGBA array for displaying a scan image.
 
     First the data will be clipped and normalized so that the values lie in the interval
     [μ - σ * S, μ + σ * S]. Then the values are min-max normalized and scaled to the [0, 255] interval
@@ -54,12 +53,12 @@ def get_image_for_display(image: ScanImage, std_scaler: float = 2.0) -> PILImage
 
     :param image: An instance of `ScanImage`.
     :param std_scaler: The multiplier `S` for the standard deviation used above when clipping the image.
-    :returns: A PIL Image object in 8-bit RGBA format.
+    :returns: An array containing the image in 8-bit RGBA format.
     """
     clipped, lower, upper = clip_data(data=image.data, std_scaler=std_scaler)
     normalized = normalize(clipped, lower, upper)
     rgba = grayscale_to_rgba(normalized)
-    return Image.fromarray(rgba)
+    return rgba
 
 
 def normalize(input_array: NDArray, lower: float, upper: float) -> NDArray:
