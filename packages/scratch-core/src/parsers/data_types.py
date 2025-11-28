@@ -1,12 +1,14 @@
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated
+
+import numpy as np
 from numpy.typing import NDArray
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
-import numpy as np
 from surfalize import Surface
 from surfalize.file import FileHandler
 from surfalize.file.al3d import MAGIC
+
 from .patches.al3d import read_al3d
 
 UNIT_CONVERSION_FACTOR = 1e-6  # conversion factor from micrometers (um) to meters (m)
