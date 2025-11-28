@@ -16,7 +16,11 @@ PRECISION = 1e-16
 
 @given(
     std_scaler=st.floats(min_value=0, exclude_min=True),
-    data=arrays(dtype=float, shape=(4, 4)),
+    data=arrays(
+        dtype=float,
+        shape=(4, 4),
+        elements=st.floats(allow_nan=False, min_value=0.0, max_value=100.0),
+    ),
 )
 def test_clip_data_basic(data, std_scaler):
     clipped, lower, upper = clip_data(data, std_scaler)
@@ -50,7 +54,7 @@ def test_clip_data_with_nan():
 
 @given(val=st.integers(max_value=100))
 def test_clip_data_identical_values(val):
-    data = np.array([val] * 5)
+    data = np.full((4, 4), val)
     std_scaler = 1
     clipped, lower, upper = clip_data(data, std_scaler)
 

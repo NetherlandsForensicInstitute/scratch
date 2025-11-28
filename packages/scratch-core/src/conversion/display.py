@@ -17,7 +17,6 @@ def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
     """
     if std_scaler <= 0.0:
         raise NegativeStdScalerException("`std_scaler` must be a positive number.")
-
     mean = np.nanmean(data)
     std = np.nanstd(data, ddof=1) * std_scaler
     upper = float(mean + std)
