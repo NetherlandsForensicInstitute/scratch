@@ -1,6 +1,7 @@
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
+from conversion.subsample import subsample_data
 from image_generation.translations import (
     apply_multiple_lights,
     compute_surface_normals,
@@ -91,6 +92,15 @@ class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
     def height(self) -> int:
         """The image height in pixels."""
         return self.data.shape[0]
+
+    def subsample_data(self, step_x: int = 1, step_y: int = 1) -> "ScanMap2D":
+        """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
+        array = subsample_data(scan_image=self.data, step_size=(step_x, step_y))
+        return ScanMap2D(
+            data=array,
+            scale_x=self.scale_x * step_x,
+            scale_y=self.scale_y * step_y,
+        )
 
     def compute_normals(
         self, x_dimension: float, y_dimension: float
