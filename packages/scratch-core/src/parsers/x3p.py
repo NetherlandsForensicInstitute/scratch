@@ -6,6 +6,9 @@ import numpy as np
 from x3p import X3Pfile
 
 from image_generation.data_formats import ScanImage
+from loguru import logger
+from surfalize.exceptions import CorruptedFileError
+from parsers.exceptions import ExportError
 
 
 class X3PMetaData(NamedTuple):
@@ -58,3 +61,12 @@ def save_to_x3p(
 ) -> None:
     """Save an instance of `ScanImage` to a .x3p-file."""
     _to_x3p(image, meta_data or X3PMetaData()).write(str(output_path))
+    """Save an instance of `ScanMap2D` to a .x3p-file."""
+    try:
+        _to_x3p(image, meta_data or X3PMetaData()).write(str(output_path))
+    except CorruptedFileError as err:
+        logger.debug(
+            f"export failed with image:{image.data}, with metadata:{meta_data} and path:{output_path}"
+        )
+        logger.error("Failed to save X3P file")
+        raise ExportError("Failed to save X3P file") from err
