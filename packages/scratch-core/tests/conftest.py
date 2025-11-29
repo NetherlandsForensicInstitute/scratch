@@ -6,6 +6,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from image_generation.data_formats import ScanMap2D
+from image_generation.translations import ScanMap2DArray
 from parsers.data_types import from_file
 
 TEST_ROOT = Path(__file__).parent
@@ -32,7 +33,13 @@ def image_data(scans_dir: Path) -> NDArray:
 
 
 @pytest.fixture
-def scan_image(image_data: NDArray) -> ScanMap2D:
+def scan_image(image_data: NDArray) -> ScanMap2DArray:
+    """Build a `ScanImage` object`."""
+    return image_data
+
+
+@pytest.fixture
+def scan_map_2d(image_data: NDArray) -> ScanMap2D:
     """Build a `ScanImage` object`."""
     return ScanMap2D(data=image_data)
 

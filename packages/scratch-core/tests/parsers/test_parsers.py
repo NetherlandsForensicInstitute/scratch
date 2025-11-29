@@ -6,12 +6,13 @@ from numpy.typing import NDArray
 
 from image_generation.data_formats import ScanMap2D
 from parsers import from_file, save_to_x3p
+from utils.array_definitions import ScanMap2DArray
 
 PRECISION = 1e-16
 
 
 def validate_image(
-    parsed_image: ScanMap2D, expected_image_data: NDArray, expected_scale: float
+    parsed_image: ScanMap2D, expected_image_data: ScanMap2DArray, expected_scale: float
 ):
     """Validate a parsed image."""
     assert isinstance(parsed_image, ScanMap2D)
@@ -49,9 +50,10 @@ def test_parser_can_parse(
 
 
 def test_parsed_image_can_be_exported_to_x3p(
-    scan_image: ScanMap2D, tmp_path: PosixPath
+    scan_map_2d: ScanMap2D, tmp_path: PosixPath
 ):
-    save_to_x3p(image=scan_image, output_path=tmp_path / "export.x3p")
+    save_to_x3p(image=scan_map_2d, output_path=tmp_path / "export.x3p")
+
     files = list(tmp_path.iterdir())
     assert len(files) == 1
     assert files[0].name == "export.x3p"
