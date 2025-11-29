@@ -78,6 +78,19 @@ class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
     """
 
     data: ScanMap2DArray
+    scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
+    scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
+    meta_data: dict | None = None
+
+    @property
+    def width(self) -> int:
+        """The image width in pixels."""
+        return self.data.shape[1]
+
+    @property
+    def height(self) -> int:
+        """The image height in pixels."""
+        return self.data.shape[0]
 
     def compute_normals(
         self, x_dimension: float, y_dimension: float
