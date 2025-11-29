@@ -1,11 +1,11 @@
-from parsers.data_types import ScanImage
+from image_generation.data_formats import ScanMap2D
 
 
-def subsample_data(scan_image: ScanImage, step_size: tuple[int, int]) -> ScanImage:
+def subsample_data(scan_image: ScanMap2D, step_size: tuple[int, int]) -> ScanMap2D:
     """
-    Subsample the data in a `ScanImage` instance by skipping `step_size` steps.
+    Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps.
 
-    :param scan_image: The instance of `ScanImage` containing the 2D image data to subsample.
+    :param scan_image: The instance of `ScanMap2D` containing the 2D image data to subsample.
     :param step_size: Denotes the number of steps to skip in each dimension. The first integer
         corresponds to the subsampling step size in the X-direction, and the second integer to
         the step size in the Y-direction.
@@ -17,7 +17,7 @@ def subsample_data(scan_image: ScanImage, step_size: tuple[int, int]) -> ScanIma
     if step_x >= scan_image.width or step_y >= scan_image.height:
         raise ValueError("Step size should be smaller than the image size")
 
-    return ScanImage(
+    return ScanMap2D(
         data=scan_image.data[::step_y, ::step_x].copy(),
         scale_x=scan_image.scale_x * step_x,
         scale_y=scan_image.scale_y * step_y,

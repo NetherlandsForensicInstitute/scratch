@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from parsers import ScanImage
+from parsers import from_file
 
 from .schemas import ProcessedDataLocation, UploadScan
 
@@ -47,7 +47,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     file, a preview image, and a surface map saved to the output directory.
     """
     # parse incoming file
-    _ = ScanImage.from_file(upload_scan.scan_file)
+    _ = from_file(upload_scan.scan_file)
     # raise Unable to ParseError
     # subsample the parsed file
     # export newly created files to output directory

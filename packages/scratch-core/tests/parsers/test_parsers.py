@@ -2,20 +2,20 @@ from pathlib import Path, PosixPath
 
 import numpy as np
 import pytest
+from numpy.typing import NDArray
 
-from parsers import ScanImage, save_to_x3p
+from image_generation.data_formats import ScanMap2D
+from parsers import from_file, save_to_x3p
 from utils.array_definitions import ScanMap2DArray
 
 from ..constants import PRECISION, SCANS_DIR  # type: ignore
 
 
 def validate_image(
-    parsed_image: ScanImage,
-    expected_image_data: ScanMap2DArray,
-    expected_scale: float,
+    parsed_image: ScanMap2D, expected_image_data: NDArray, expected_scale: float
 ):
     """Validate a parsed image."""
-    assert isinstance(parsed_image, ScanImage)
+    assert isinstance(parsed_image, ScanMap2D)
     assert parsed_image.data.shape == expected_image_data.shape
     assert np.allclose(
         parsed_image.data,
@@ -28,14 +28,9 @@ def validate_image(
     assert np.isclose(parsed_image.scale_x, expected_scale, atol=PRECISION)
 
 
-def test_exception_on_incorrect_file_extension():
-    with pytest.raises(ValueError, match="extension"):
-        _ = ScanImage.from_file(Path("export.txt"))
-
-
-def test_exception_on_incorrect_shape(image_data: ScanMap2DArray):
+def test_exception_on_incorrect_shape(image_data: NDArray):
     with pytest.raises(ValueError, match="shape"):
-        _ = ScanImage(data=np.expand_dims(image_data, -1))
+        _ = ScanMap2D(data=np.expand_dims(image_data, -1))
 
 
 @pytest.mark.parametrize(
@@ -46,7 +41,7 @@ def test_parser_can_parse(
     filename: Path, image_data: ScanMap2DArray, expected_scale: float
 ):
     file_to_test = SCANS_DIR / filename
-    parsed_image = ScanImage.from_file(file_to_test)
+    parsed_image = from_file(file_to_test)
     validate_image(
         parsed_image=parsed_image,
         expected_image_data=image_data,
@@ -55,7 +50,7 @@ def test_parser_can_parse(
 
 
 def test_parsed_image_can_be_exported_to_x3p(
-    scan_image: ScanImage, tmp_path: PosixPath
+    scan_image: ScanMap2D, tmp_path: PosixPath
 ):
     save_to_x3p(image=scan_image, output_path=tmp_path / "export.x3p")
     files = list(tmp_path.iterdir())
@@ -66,10 +61,10 @@ def test_parsed_image_can_be_exported_to_x3p(
 @pytest.mark.integration
 def test_al3d_can_be_converted_to_x3p(tmp_path: PosixPath):
     al3d_file = SCANS_DIR / "circle.al3d"
-    parsed_image = ScanImage.from_file(al3d_file)
+    parsed_image = from_file(al3d_file)
     output_file = tmp_path / "export.x3p"
     save_to_x3p(image=parsed_image, output_path=output_file)
-    parsed_exported_image = ScanImage.from_file(output_file)
+    parsed_exported_image = from_file(output_file)
     # compare the parsed data from the exported .x3p file to the parsed data from the .al3d file
     validate_image(
         parsed_image=parsed_exported_image,
