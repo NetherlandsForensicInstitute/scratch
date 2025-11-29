@@ -14,7 +14,7 @@ def validate_image(
     parsed_image: ScanImage, expected_image_data: ScanMap2DArray, expected_scale: float
 ):
     """Validate a parsed image."""
-    assert isinstance(parsed_image, ScanImage)
+    assert isinstance(parsed_image, ScanMap2D)
     assert parsed_image.data.shape == expected_image_data.shape
     assert np.allclose(
         parsed_image.data,

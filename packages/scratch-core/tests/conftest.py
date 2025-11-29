@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from numpy.typing import NDArray
 from PIL import Image
 
 from image_generation.data_formats import ScanImage
@@ -25,7 +26,7 @@ def scan_image(image_data: ScanMap2DArray) -> ScanMap2DArray:
 @pytest.fixture
 def scan_map_2d(image_data: ScanMap2DArray) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return ScanImage(data=image_data)
+    return ScanMap2D(data=image_data)
 
 
 @pytest.fixture

@@ -24,7 +24,7 @@ class X3PMetaData(NamedTuple):
     measurement_type: str = "NonContacting"
 
 
-def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
+def _to_x3p(image: ScanMap2D, meta_data: X3PMetaData) -> X3Pfile:
     x3p = X3Pfile()
     # set Record1 entries
     x3p.record1.set_featuretype("SUR")
@@ -56,7 +56,7 @@ def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
 
 
 def save_to_x3p(
-    image: ScanImage, output_path: Path, meta_data: X3PMetaData | None = None
+    image: ScanMap2D, output_path: Path, meta_data: X3PMetaData | None = None
 ) -> None:
     """Save an instance of `ScanImage` to a .x3p-file."""
     try:
