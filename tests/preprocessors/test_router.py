@@ -25,21 +25,16 @@ def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
         scan_file=scan_file,
         output_dir=tmp_path,
     )
-    # TODO this will make the files till we implemented the endpoint to bypass the validations
-    (input_model.output_dir / "circle.x3p").touch()
-    (input_model.output_dir / "preview.png").touch()
-    (input_model.output_dir / "surface_map.png").touch()
-
-    expected_response = ProcessedDataLocation(
-        preview_image=input_model.output_dir / "preview.png",
-        surfacemap_image=input_model.output_dir / "surface_map.png",
-        x3p_image=input_model.output_dir / "circle.x3p",
-    )
 
     # Act
     response = client.post("/preprocessor/process-scan", json=input_model.model_dump(mode="json"), timeout=5)
 
     # Assert
+    expected_response = ProcessedDataLocation(
+        preview_image=input_model.output_dir / "preview.png",
+        surfacemap_image=input_model.output_dir / "surface_map.png",
+        x3p_image=input_model.output_dir / "scan.x3p",
+    )
     assert response.status_code == HTTP_200_OK, "endpoint is alive"
     response_model = expected_response.model_validate(response.json())
     assert response_model == expected_response

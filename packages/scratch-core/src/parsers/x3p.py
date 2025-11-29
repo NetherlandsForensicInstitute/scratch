@@ -4,8 +4,10 @@ from typing import NamedTuple
 
 import numpy as np
 from x3p import X3Pfile
-
+from loguru import logger
 from image_generation.data_formats import ScanMap2D
+from surfalize.exceptions import CorruptedFileError
+from parsers.exceptions import ExportError
 
 
 class X3PMetaData(NamedTuple):
@@ -57,4 +59,11 @@ def save_to_x3p(
     image: ScanMap2D, output_path: Path, meta_data: X3PMetaData | None = None
 ) -> None:
     """Save an instance of `ScanMap2D` to a .x3p-file."""
-    _to_x3p(image, meta_data or X3PMetaData()).write(str(output_path))
+    try:
+        _to_x3p(image, meta_data or X3PMetaData()).write(str(output_path))
+    except CorruptedFileError as err:
+        logger.debug(
+            f"export failed with image:{image.data}, with metadata:{meta_data} and path:{output_path}"
+        )
+        logger.error("Failed to save X3P file")
+        raise ExportError("Failed to save X3P file") from err
