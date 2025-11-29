@@ -1,6 +1,7 @@
-from numpydantic import NDArray, Shape
-from numpy import float64
 from typing import Annotated
+
+from numpy import float64
+from numpydantic import NDArray, Shape
 
 HeightWidthShape = "*, *"
 HeightWidthNLayers = f"{HeightWidthShape}, *"

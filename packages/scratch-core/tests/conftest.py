@@ -1,10 +1,12 @@
 from pathlib import Path
-from numpy.typing import NDArray
+
 import numpy as np
 import pytest
+from numpy.typing import NDArray
 from PIL import Image
 
-from parsers.data_types import ScanImage
+from image_generation.data_formats import ScanMap2D
+from parsers.data_types import from_file
 
 TEST_ROOT = Path(__file__).parent
 
@@ -30,12 +32,12 @@ def image_data(scans_dir: Path) -> NDArray:
 
 
 @pytest.fixture
-def scan_image(image_data: NDArray) -> ScanImage:
+def scan_image(image_data: NDArray) -> ScanMap2D:
     """Build a `ScanImage` object`."""
-    return ScanImage(data=image_data)
+    return ScanMap2D(data=image_data)
 
 
 @pytest.fixture
-def scan_image_replica(scans_dir: Path) -> ScanImage:
+def scan_image_replica(scans_dir: Path) -> ScanMap2D:
     """Build a `ScanImage` object`."""
-    return ScanImage.from_file(scans_dir / "Klein_non_replica_mode.al3d")
+    return from_file(scan_file=scans_dir / "Klein_non_replica_mode.al3d")
