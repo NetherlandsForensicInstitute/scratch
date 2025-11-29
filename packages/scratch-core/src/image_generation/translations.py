@@ -1,3 +1,4 @@
+from PIL.Image import Image, fromarray
 import numpy as np
 from typing import Protocol
 
@@ -148,3 +149,23 @@ def normalize_2d_array(
     imax = np.nanmax(image_to_normalize)
     norm = (image_to_normalize - imin) / (imax - imin)
     return scale_min + (scale_max - scale_min) * norm
+
+
+def _grayscale_to_rgba(scan_data: ScanMap2DArray) -> ScanMap2DArray:
+    """
+    Convert a 2D grayscale array to an 8-bit RGBA array.
+
+    The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
+    NaN values will be converted to black pixels with 100% transparency.
+
+    :param image: The grayscale image data to be converted to an 8-bit RGBA image.
+    :returns: Array with the image data in 8-bit RGBA format.
+    """
+    rgba = np.empty(shape=(*scan_data.shape, 4), dtype=np.uint8)
+    rgba[..., :-1] = np.expand_dims(scan_data.astype(np.uint8), axis=-1)
+    rgba[..., -1] = ~np.isnan(scan_data) * 255
+    return rgba
+
+
+def scan_to_image(scan_data: ScanMap2DArray) -> Image:
+    return fromarray(_grayscale_to_rgba(scan_data=scan_data))
