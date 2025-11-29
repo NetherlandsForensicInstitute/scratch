@@ -1,7 +1,8 @@
+from image_generation.exceptions import ImageGenerationError
 from PIL.Image import Image
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
-
+from loguru import logger
 from conversion.subsample import subsample_data
 from image_generation.translations import (
     apply_multiple_lights,
@@ -97,7 +98,12 @@ class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
 
     def subsample_data(self, step_x: int = 1, step_y: int = 1) -> "ScanMap2D":
         """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
-        array = subsample_data(scan_image=self.data, step_size=(step_x, step_y))
+        logger.debug(f"Subsampling data with step size ({step_x}, {step_y})")
+        try:
+            array = subsample_data(scan_image=self.data, step_size=(step_x, step_y))
+        except ValueError as e:
+            logger.error(f"Error subsampling data: {e}")
+            raise ImageGenerationError(f"Error subsampling data: {e}") from e
         return ScanMap2D(
             data=array,
             scale_x=self.scale_x * step_x,
@@ -115,9 +121,14 @@ class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
 
         :returns: Normal vectors per pixel in a 3-layer field. Layers are [x,y,z]
         """
-        return SurfaceNormals(
-            data=compute_surface_normals(self.data, x_dimension, y_dimension)
-        )
+        try:
+            return SurfaceNormals(
+                data=compute_surface_normals(self.data, x_dimension, y_dimension)
+            )
+        except ValueError as e:
+            logger.error(f"Error computing surface normals: {e}")
+            raise ImageGenerationError(f"Error computing surface normals: {e}") from e
+        return sufrace_normals
 
     def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanMap2D":
         """
