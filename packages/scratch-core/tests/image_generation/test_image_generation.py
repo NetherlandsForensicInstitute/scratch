@@ -17,9 +17,5 @@ def data_in(scan_image: ScanMap2D) -> ScanMap2D:
 @pytest.mark.integration
 @image_comparison(baseline_images=["surfaceplot_default"], extensions=["png"])
 def test_get_surface_plot(data_in: ScanMap2D) -> None:
-    generated_image = generate_3d_image(
-        depth_data=ScanMap2D(data=data_in.data),
-        x_dimension=data_in.scale_x,
-        y_dimension=data_in.scale_y,
-    )
+    generated_image = generate_3d_image(depth_data=data_in)
     plot_test_data(generated_image.data)
