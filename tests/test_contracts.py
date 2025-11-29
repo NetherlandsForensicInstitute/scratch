@@ -57,7 +57,7 @@ class TestContracts:
         data = UploadScan(scan_file=SCANS_DIR / "circle.x3p", output_dir=tmp_path)
         expected_response = ProcessedDataLocation
         # TODO: when implemented the file touch can ben removed.
-        (tmp_path / "circle.x3p").touch()
+        (tmp_path / "scan.x3p").touch()
         (tmp_path / "preview.png").touch()
         (tmp_path / "surface_map.png").touch()
         return data, expected_response
