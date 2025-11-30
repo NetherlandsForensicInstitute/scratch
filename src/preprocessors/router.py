@@ -2,9 +2,8 @@ from fastapi import APIRouter
 from fastapi.exceptions import HTTPException
 from image_generation.image_generation import ImageGenerator, generate_3d_image
 from loguru import logger
-from parsers import from_file
+from parsers import from_file, parse_to_x3p, save_x3p
 from parsers.exceptions import ExportError
-from parsers.x3p import save_to_x3p
 
 from preprocessors.models import ImageGenerationError, ParsingError
 
@@ -61,13 +60,12 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     except ExportError as err:
         logger.error("jammer man, failed to parse the given scan file")
         raise HTTPException(status_code=400, detail=f"Failed to parse the given scan file, err:{str(err)}")
-    try:
-        save_to_x3p(image=parsed_scan, output_path=upload_scan.output_dir / "scan.x3p")
-    except ExportError as err:
-        logger.error("jammer man, failed to save the scan file")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to save the scan file  {upload_scan.output_dir / 'scan.x3p'}: {str(err)}"
-        )
+    match parse_to_x3p(parsed_scan).bind(lambda x3p: save_x3p(x3p, upload_scan.output_dir / "scan.x3p")):
+        case IOFailure(err):
+            raise HTTPException(
+                status_code=500, detail=f"Failed to save the scan file  {upload_scan.output_dir / 'scan.x3p'}: {str(err)}"
+            )
+
     image_generators: tuple[tuple[str, ImageGenerator], ...] = (
         ("surface_map.png", generate_3d_image),
         ("preview.png", generate_3d_image),
