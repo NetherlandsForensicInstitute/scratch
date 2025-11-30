@@ -8,8 +8,8 @@ from surfalize.file.al3d import MAGIC
 from image_generation.data_formats import ScanImage
 
 from .patches.al3d import read_al3d
+from scipy.constants import micro
 
-UNIT_CONVERSION_FACTOR = 1e-6  # conversion factor from micrometers (um) to meters (m)
 
 # register the patched method as a parser
 FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
