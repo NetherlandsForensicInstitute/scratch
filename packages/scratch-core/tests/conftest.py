@@ -6,6 +6,7 @@ import pytest
 from numpy.typing import NDArray
 from PIL import Image
 from loguru import logger
+from returns.io import IOSuccess
 
 from image_generation.data_formats import ScanImage
 from parsers.data_types import from_file
@@ -66,14 +67,17 @@ def scan_map_2d(image_data: ScanMap2DArray) -> ScanImage:
 @pytest.fixture(scope="session")
 def scan_image_replica() -> ScanImage:
     """Build a `ScanImage` object`."""
-    return from_file(scan_file=SCANS_DIR / "Klein_non_replica_mode.al3d")
+    match from_file(scan_file=SCANS_DIR / "Klein_non_replica_mode.al3d"):
+        case IOSuccess(image):
+            return image.unwrap()
+        case _:
+            raise Exception
 
 
 @pytest.fixture(scope="module")
-def scan_image_with_nans() -> ScanImage:
-    """Build a `ScanImage` object`."""
-    scan_image = from_file(SCANS_DIR / "Klein_non_replica_mode.al3d")
+def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
     # add random NaN values
     rng = np.random.default_rng(42)
+    scan_image = scan_image_replica.model_copy()
     scan_image.data[rng.random(size=scan_image.data.shape) < 0.1] = np.nan
     return scan_image

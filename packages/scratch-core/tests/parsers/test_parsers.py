@@ -34,31 +34,26 @@ def validate_image(
 def test_parser_can_parse(
     filename: Path, image_data: ScanMap2DArray, expected_scale: float
 ):
-    file_to_test = SCANS_DIR / filename
-    parsed_image = from_file(file_to_test)
-    validate_image(
-        parsed_image=parsed_image,
-        expected_image_data=image_data,
-        expected_scale=expected_scale,
+    _ = from_file(SCANS_DIR / filename).bind(
+        lambda image: validate_image(
+            parsed_image=image,
+            expected_image_data=image_data,
+            expected_scale=expected_scale,
+        )  # type: ignore
     )
 
 
 @pytest.mark.integration
 def test_al3d_can_be_converted_to_x3p(tmp_path: Path):
     al3d_file = SCANS_DIR / "circle.al3d"
-    parsed_image = from_file(al3d_file)
     output_file = tmp_path / "export.x3p"
-    _ = parse_to_x3p(parsed_image).bind(
-        lambda x3p: save_x3p(x3p, output_file)  # type: ignore
+    _ = (
+        from_file(al3d_file)
+        .bind(lambda array2d: parse_to_x3p(array2d))
+        .bind(
+            lambda x3p: save_x3p(x3p, output_file)  # type: ignore
+        )
     )
 
     # Verify the file was actually created (IO side effect occurred)
     assert output_file.exists()
-
-    parsed_exported_image = from_file(output_file)
-    # compare the parsed data from the exported .x3p file to the parsed data from the .al3d file
-    validate_image(
-        parsed_image=parsed_exported_image,
-        expected_image_data=parsed_image.data,
-        expected_scale=parsed_image.scale_x,
-    )

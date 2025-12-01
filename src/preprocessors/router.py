@@ -56,7 +56,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     file, a preview image, and a surface map saved to the output directory.
     """
     try:
-        parsed_scan = from_file(upload_scan.scan_file).subsample_data(step_x=1, step_y=1)
+        parsed_scan = from_file(upload_scan.scan_file).bind(lambda surface: surface.subsample_data(step_x=1, step_y=1))
     except ExportError as err:
         logger.error("jammer man, failed to parse the given scan file")
         raise HTTPException(status_code=400, detail=f"Failed to parse the given scan file, err:{str(err)}")
