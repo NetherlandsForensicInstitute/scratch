@@ -158,7 +158,7 @@ class TestDummyFilterApply:
 
     def test_apply_list_input_converts_to_array(self):
         """Test that list input is converted to array."""
-        data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         filter_obj = DummyFilter()
 
         result = filter_obj.apply(data)
