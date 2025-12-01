@@ -1,53 +1,12 @@
 import numpy as np
 import pytest
 
-from conversion.filters.array_manipulation import crop_array, pad_array
+from conversion.filters.array_manipulation import (
+    crop_array,
+    pad_array,
+    calculate_nan_trim,
+)
 from conversion.filters.data_formats import Trim1D, Trim2D, Pad1D, Pad2D
-
-
-def calculate_nan_trim(data: np.ndarray) -> np.ndarray:
-    """Determine trim values for removing NaN borders.
-
-    :param data: Input array (1D or 2D).
-    :return: Trim values [top, bottom, left, right] for 2D or [start, end] for 1D.
-    :raises ValueError: If invalid dimensions.
-    """
-    data = np.asarray(data)
-    if data.ndim > 2:
-        raise ValueError(f"Data must be 1D or 2D, got {data.ndim}D")
-
-    # Handle 1D case
-    if data.ndim == 1:
-        valid_mask = ~np.isnan(data)
-        valid_idx = np.where(valid_mask)[0]
-
-        if len(valid_idx) == 0:
-            return np.array([0, data.size])
-
-        return np.array([valid_idx[0], data.size - valid_idx[-1] - 1])
-
-    # Handle 2D case
-    valid_mask = ~np.isnan(data)
-
-    # Find rows and columns with valid data
-    valid_rows = np.any(valid_mask, axis=1)
-    valid_cols = np.any(valid_mask, axis=0)
-
-    row_idx = np.where(valid_rows)[0]
-    col_idx = np.where(valid_cols)[0]
-
-    if len(row_idx) == 0 or len(col_idx) == 0:
-        return np.array([0, data.shape[0], 0, data.shape[1]])
-
-    # Calculate trim amounts: [top, bottom, left, right]
-    return np.array(
-        [
-            row_idx[0],  # Top
-            data.shape[0] - row_idx[-1] - 1,  # Bottom
-            col_idx[0],  # Left
-            data.shape[1] - col_idx[-1] - 1,  # Right
-        ]
-    )
 
 
 class TestCalculateNanTrim1D:
@@ -57,49 +16,49 @@ class TestCalculateNanTrim1D:
         """Test array with no NaN values."""
         data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         result = calculate_nan_trim(data)
-        expected = np.array([0, 0])  # No trimming needed
+        expected = Trim1D(start=0, end=0)
         np.testing.assert_array_equal(result, expected)
 
     def test_nan_at_start(self):
         """Test array with NaN at the start."""
         data = np.array([np.nan, np.nan, 3.0, 4.0, 5.0])
         result = calculate_nan_trim(data)
-        expected = np.array([2, 0])  # Trim 2 from start, 0 from end
+        expected = Trim1D(start=2, end=0)
         np.testing.assert_array_equal(result, expected)
 
     def test_nan_at_end(self):
         """Test array with NaN at the end."""
         data = np.array([1.0, 2.0, 3.0, np.nan, np.nan])
         result = calculate_nan_trim(data)
-        expected = np.array([0, 2])  # Trim 0 from start, 2 from end
+        expected = Trim1D(start=0, end=2)
         np.testing.assert_array_equal(result, expected)
 
     def test_nan_both_ends(self):
         """Test array with NaN at both ends."""
         data = np.array([np.nan, np.nan, 3.0, 4.0, np.nan])
         result = calculate_nan_trim(data)
-        expected = np.array([2, 1])  # Trim 2 from start, 1 from end
+        expected = Trim1D(start=2, end=1)
         np.testing.assert_array_equal(result, expected)
 
     def test_all_nan(self):
         """Test array with all NaN values."""
         data = np.array([np.nan, np.nan, np.nan])
         result = calculate_nan_trim(data)
-        expected = np.array([0, 3])  # Trim everything
+        expected = Trim1D(start=0, end=3)
         np.testing.assert_array_equal(result, expected)
 
     def test_single_valid_value(self):
         """Test array with single valid value."""
         data = np.array([np.nan, 5.0, np.nan, np.nan])
         result = calculate_nan_trim(data)
-        expected = np.array([1, 2])  # Trim to single value
+        expected = Trim1D(start=1, end=2)
         np.testing.assert_array_equal(result, expected)
 
     def test_empty_array(self):
         """Test empty array."""
         data = np.array([])
         result = calculate_nan_trim(data)
-        expected = np.array([0, 0])
+        expected = Trim1D(start=0, end=0)
         np.testing.assert_array_equal(result, expected)
 
 
@@ -110,7 +69,7 @@ class TestCalculateNanTrim2D:
         """Test 2D array with no NaN values."""
         data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
         result = calculate_nan_trim(data)
-        expected = np.array([0, 0, 0, 0])  # No trimming needed
+        expected = Trim2D(top=0, bottom=0, left=0, right=0)
         np.testing.assert_array_equal(result, expected)
 
     def test_nan_border_all_sides(self):
@@ -124,7 +83,7 @@ class TestCalculateNanTrim2D:
             ]
         )
         result = calculate_nan_trim(data)
-        expected = np.array([1, 1, 1, 1])  # Trim 1 from each side
+        expected = Trim2D(top=1, bottom=1, left=1, right=1)
         np.testing.assert_array_equal(result, expected)
 
     def test_nan_top_and_left(self):
@@ -133,7 +92,7 @@ class TestCalculateNanTrim2D:
             [[np.nan, np.nan, np.nan], [np.nan, 5.0, 3.0], [np.nan, 2.0, 7.0]]
         )
         result = calculate_nan_trim(data)
-        expected = np.array([1, 0, 1, 0])  # Trim top and left
+        expected = Trim2D(top=1, bottom=0, left=1, right=0)
         np.testing.assert_array_equal(result, expected)
 
     def test_nan_bottom_and_right(self):
@@ -142,7 +101,7 @@ class TestCalculateNanTrim2D:
             [[1.0, 2.0, np.nan], [3.0, 4.0, np.nan], [np.nan, np.nan, np.nan]]
         )
         result = calculate_nan_trim(data)
-        expected = np.array([0, 1, 0, 1])  # Trim bottom and right
+        expected = Trim2D(top=0, bottom=1, left=0, right=1)
         np.testing.assert_array_equal(result, expected)
 
     def test_all_nan(self):
@@ -155,7 +114,7 @@ class TestCalculateNanTrim2D:
             ]
         )
         result = calculate_nan_trim(data)
-        expected = np.array([0, 3, 0, 3])  # Trim everything
+        expected = Trim2D(top=0, bottom=3, left=0, right=3)
         np.testing.assert_array_equal(result, expected)
 
     def test_single_valid_value(self):
@@ -164,7 +123,7 @@ class TestCalculateNanTrim2D:
             [[np.nan, np.nan, np.nan], [np.nan, 5.0, np.nan], [np.nan, np.nan, np.nan]]
         )
         result = calculate_nan_trim(data)
-        expected = np.array([1, 1, 1, 1])  # Trim to single value
+        expected = Trim2D(top=1, bottom=1, left=1, right=1)
         np.testing.assert_array_equal(result, expected)
 
     def test_valid_row_in_middle(self):
@@ -173,7 +132,7 @@ class TestCalculateNanTrim2D:
             [[np.nan, np.nan, np.nan], [1.0, 2.0, 3.0], [np.nan, np.nan, np.nan]]
         )
         result = calculate_nan_trim(data)
-        expected = np.array([1, 1, 0, 0])
+        expected = Trim2D(top=1, bottom=1, left=0, right=0)
         np.testing.assert_array_equal(result, expected)
 
     def test_valid_column_in_middle(self):
@@ -182,7 +141,7 @@ class TestCalculateNanTrim2D:
             [[np.nan, 1.0, np.nan], [np.nan, 2.0, np.nan], [np.nan, 3.0, np.nan]]
         )
         result = calculate_nan_trim(data)
-        expected = np.array([0, 0, 1, 1])
+        expected = Trim2D(top=0, bottom=0, left=1, right=1)
         np.testing.assert_array_equal(result, expected)
 
     def test_asymmetric_borders(self):
@@ -196,7 +155,7 @@ class TestCalculateNanTrim2D:
             ]
         )
         result = calculate_nan_trim(data)
-        expected = np.array([2, 0, 1, 1])
+        expected = Trim2D(top=2, bottom=0, left=1, right=1)
         np.testing.assert_array_equal(result, expected)
 
     def test_rectangular_array(self):
@@ -209,14 +168,14 @@ class TestCalculateNanTrim2D:
             ]
         )
         result = calculate_nan_trim(data)
-        expected = np.array([1, 1, 1, 1])
+        expected = Trim2D(top=1, bottom=1, left=1, right=1)
         np.testing.assert_array_equal(result, expected)
 
     def test_empty_2d_array(self):
         """Test empty 2D array."""
         data = np.array([]).reshape(0, 0)
         result = calculate_nan_trim(data)
-        expected = np.array([0, 0, 0, 0])
+        expected = Trim2D(top=0, bottom=0, left=0, right=0)
         np.testing.assert_array_equal(result, expected)
 
 
@@ -239,28 +198,28 @@ class TestCalculateNanTrimEdgeCases:
         """Test that list input is converted to array."""
         data = [np.nan, 1.0, 2.0, np.nan]
         result = calculate_nan_trim(np.array(data))
-        expected = np.array([1, 1])
+        expected = Trim1D(start=1, end=1)
         np.testing.assert_array_equal(result, expected)
 
     def test_mixed_inf_and_nan(self):
         """Test array with both inf and NaN."""
         data = np.array([np.nan, np.inf, 2.0, np.nan])
         result = calculate_nan_trim(data)
-        expected = np.array([1, 1])  # inf is valid, only NaN trimmed
+        expected = Trim1D(start=1, end=1)  # inf is valid, only NaN trimmed
         np.testing.assert_array_equal(result, expected)
 
     def test_negative_values(self):
         """Test array with negative values."""
         data = np.array([np.nan, -5.0, -3.0, np.nan])
         result = calculate_nan_trim(data)
-        expected = np.array([1, 1])
+        expected = Trim1D(start=1, end=1)
         np.testing.assert_array_equal(result, expected)
 
     def test_zero_values(self):
         """Test array with zero values."""
         data = np.array([np.nan, 0.0, 0.0, np.nan])
         result = calculate_nan_trim(data)
-        expected = np.array([1, 1])
+        expected = Trim1D(start=1, end=1)
         np.testing.assert_array_equal(result, expected)
 
 
