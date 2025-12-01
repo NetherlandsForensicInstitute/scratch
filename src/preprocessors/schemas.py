@@ -2,7 +2,8 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Self
 
-from pydantic import DirectoryPath, Field, FilePath, field_validator, model_validator
+from pydantic import DirectoryPath, Field, FilePath, PositiveInt, field_validator, model_validator
+from utils.array_definitions import ScanMap2DArray
 
 from models import BaseModelConfig
 
@@ -12,6 +13,17 @@ class SupportedExtension(StrEnum):
     X3P = auto()
     SUR = auto()
     PLU = auto()
+
+
+class Level(StrEnum):
+    PLAIN = auto()
+    SPHERE = auto()
+
+
+class Filter(StrEnum):
+    RO = auto()
+    R1 = auto()
+    R2 = auto()
 
 
 class UploadScan(BaseModelConfig):
@@ -58,3 +70,32 @@ class ProcessedDataLocation(BaseModelConfig):
         ):
             raise ValueError("All fields must point to the same output directory")
         return self
+
+
+class EditImage(BaseModelConfig):
+    parsed_file: FilePath
+    sampling: PositiveInt = Field(4, description="")
+    level: Level | None = Field(None, description="")
+    filter: Filter | None = Field(None, description="")
+    zoom: bool = Field(False, description="")
+    mask_array: ScanMap2DArray | None = Field(None, description="")
+
+    @field_validator("mask_array")
+    @classmethod
+    def mask_within_spectrum(cls, mask_array: ScanMap2DArray | None) -> ScanMap2DArray | None:
+        """Check that mask_array is 0 <=values <= 255."""
+        if mask_array is None:
+            return mask_array
+
+        if ((mask_array < 0) | (mask_array > 255)).any():  # noqa
+            raise ValueError("mask_array values must be between 0 and 255 (inclusive)")
+
+        return mask_array
+
+    @field_validator("parsed_file")
+    @classmethod
+    def validate_x3p_extension(cls, parse_file: FilePath) -> FilePath:
+        """Validate given file is x3p extension."""
+        if parse_file.suffix[1:] != SupportedExtension.X3P:
+            raise ValueError(f"was expecting an x3p file: {parse_file.name}")
+        return parse_file
