@@ -4,11 +4,11 @@ from typing import NamedTuple
 
 import numpy as np
 from x3p import X3Pfile
-from loguru import logger
-from returns.result import Result, Success, Failure, safe
-from returns.io import IOSuccess, IOFailure, IOResult, impure_safe
+from returns.result import Result, safe
+from returns.io import impure_safe
 from image_generation.data_formats import ScanMap2D
 from parsers.exceptions import PreProcessError
+from utils.logger import log_io_railway_function, log_railway_function
 
 
 class X3PMetaData(NamedTuple):
@@ -72,30 +72,22 @@ def _set_record3_entries(x3p: X3Pfile, image: ScanMap2D) -> X3Pfile:
     return x3p
 
 
-def parse_to_x3p(image: ScanMap2D) -> Result[X3Pfile, PreProcessError]:
+@log_railway_function(
+    PreProcessError.X3P_PARSE_ERROR, "Successfully parse array to x3p"
+)
+def parse_to_x3p(image: ScanMap2D) -> Result[X3Pfile, Exception]:
     """Convert ScanMap2D to X3Pfile using a functional approach."""
-    result = (
+    return (
         _set_record1_entries(X3Pfile(), image)
         .bind(lambda x3p: _set_record2_entries(x3p, X3PMetaData()))
         .bind(lambda x3p: _set_binary_data(x3p, image))
         .bind(lambda x3p: _set_record3_entries(x3p, image))
     )
-    match result:
-        case Failure(error):
-            logger.debug(
-                f"{PreProcessError.X3P_PARSE_ERROR}:"
-                f"{error}, image shape: {image.data.shape}"  # type: ignore
-            )
-            logger.error(PreProcessError.X3P_PARSE_ERROR)
-            return Failure(PreProcessError.X3P_PARSE_ERROR)
-        case Success():
-            logger.info("Successfully parse array to x3p")
-            return result
-        case _:  # this is to keep type checker happy
-            return Failure(PreProcessError.X3P_PARSE_ERROR)
 
 
-def save_x3p(x3p: X3Pfile, output_path: Path) -> IOResult[Path, PreProcessError]:
+@log_io_railway_function(PreProcessError.X3P_WRITE_ERROR, "Successfully written X3P")
+@impure_safe
+def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
     """Save an X3Pfile to disk.
 
     Args:
@@ -106,20 +98,5 @@ def save_x3p(x3p: X3Pfile, output_path: Path) -> IOResult[Path, PreProcessError]
         IOResult[Path, Exception]: IOSuccess(Path) on success, IOFailure(Exception) on error
     """
 
-    @impure_safe
-    def wrapper() -> Path:
-        x3p.write(str(output_path))
-        return output_path
-
-    result = wrapper()
-    match result:
-        case IOSuccess():
-            logger.info(f"Successfully saved X3P file to {output_path}")
-            return result
-        case IOFailure(error):
-            message = f"{PreProcessError.X3P_WRITE_ERROR} to {output_path}"
-            logger.debug(f"{message}: {error}")
-            logger.error(message)
-            return IOFailure(PreProcessError.X3P_WRITE_ERROR)
-        case _:  # this is to keep type checker happy
-            return IOFailure(PreProcessError.X3P_WRITE_ERROR)
+    x3p.write(str(output_path))
+    return output_path

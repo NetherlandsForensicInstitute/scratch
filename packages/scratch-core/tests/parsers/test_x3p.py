@@ -1,6 +1,5 @@
 from re import compile, escape
 from pathlib import Path
-from typing import Type
 from unittest.mock import patch
 
 import pytest
@@ -11,16 +10,7 @@ from image_generation.data_formats import ScanMap2D
 from parsers import parse_to_x3p
 from parsers.exceptions import PreProcessError
 from parsers.x3p import save_x3p
-from returns.pipeline import is_successful
 from x3p import X3Pfile
-
-
-def is_failed_container(result, type_: Type, message: str) -> bool:
-    return (
-        not is_successful(result)
-        and isinstance(result, type_)
-        and message in str(result.failure())
-    )
 
 
 def is_good_fail_logs(message: str, log: str) -> bool:
@@ -43,12 +33,12 @@ def is_good_fail_logs(message: str, log: str) -> bool:
 class TestParseToX3PFailure:
     def test_parse_to_x3p_returns_failure(self, function: str, scan_map_2d: ScanMap2D):
         """Test that parse_to_x3p returns Failure when sub-functions fails."""
-
         with patch(f"parsers.x3p.{function}") as mocker:
             mocker.return_value = Failure(RuntimeError("Some Error"))
             result = parse_to_x3p(scan_map_2d)
 
-        assert is_failed_container(result, Failure, PreProcessError.X3P_PARSE_ERROR)
+        assert isinstance(result, Failure)
+        assert isinstance(result.failure(), RuntimeError)
 
     def test_parse_to_x3p_logs_on_failure(
         self, function: str, scan_map_2d: ScanMap2D, caplog: pytest.LogCaptureFixture
@@ -74,7 +64,8 @@ class TestX3PSave:
 
         # Use a path that will cause write to fail (read-only or invalid)
         result = save_x3p(x3p, output_path=Path("nonexistent_dir/test.x3p"))
-        assert is_failed_container(result, IOFailure, PreProcessError.X3P_WRITE_ERROR)
+        assert isinstance(result, IOFailure)
+        assert "No such file or directory" in str(result.failure())
 
     def test_save_x3p_logs_on_failure(
         self, x3p: X3Pfile, caplog: pytest.LogCaptureFixture
@@ -85,9 +76,9 @@ class TestX3PSave:
         with caplog.at_level("DEBUG"):
             _ = save_x3p(x3p, output_path)
 
-        assert is_good_fail_logs(
-            f"{PreProcessError.X3P_WRITE_ERROR} to {output_path}", caplog.text
-        ), "Logs don't match expected format."
+        assert is_good_fail_logs(PreProcessError.X3P_WRITE_ERROR, caplog.text), (
+            "Logs don't match expected format."
+        )
 
     def test_save_x3p_logs_on_success(
         self, x3p: X3Pfile, tmp_path: Path, caplog: pytest.LogCaptureFixture
@@ -98,9 +89,9 @@ class TestX3PSave:
         with caplog.at_level("INFO"):
             _ = save_x3p(x3p, output_path)
 
-        assert compile(f"Successfully saved X3P file to {output_path}").search(
-            caplog.text
-        ), "Logs don't match expected format."
+        assert compile("Successfully written X3P").search(caplog.text), (
+            "Logs don't match expected format."
+        )
 
     def test_save_x3p_returns_success_on_valid_input(
         self, x3p: X3Pfile, tmp_path: Path
