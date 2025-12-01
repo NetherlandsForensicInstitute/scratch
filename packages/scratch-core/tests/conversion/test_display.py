@@ -27,15 +27,14 @@ def test_clip_data_basic(data: NDArray, std_scaler: float):
 
     _, lower, upper = clip_data(data, std_scaler)
 
-    # Check if the lower and upper bounds are correct
-    assert np.isclose(lower, expected_lower)
-    assert np.isclose(upper, expected_upper)
+    assert np.isclose(lower, expected_lower), f"Lower bound should be {expected_lower}"
+    assert np.isclose(upper, expected_upper), f"Upper bound should be {expected_upper}"
 
 
 def test_clip_data_with_nan():
     data = np.array([1, 2, 3, np.nan, 5])
     std_scaler = 1
-    clipped, lower, upper = clip_data(data, std_scaler)
+    _, lower, upper = clip_data(data, std_scaler)
 
     # NaN values should be ignored, and other values clipped accordingly
     assert np.isnan(data[3])  # Ensure NaN is present in original data
