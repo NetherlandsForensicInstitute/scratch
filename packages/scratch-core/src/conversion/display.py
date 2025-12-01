@@ -25,7 +25,7 @@ def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
     return clipped, lower, upper
 
 
-def grayscale_to_rgba(image: NDArray) -> NDArray:
+def grayscale_to_rgba(image: NDArray[int | float]) -> NDArray[np.uint8]:
     """
     Convert a 2D grayscale array to an 8-bit RGBA array.
 
