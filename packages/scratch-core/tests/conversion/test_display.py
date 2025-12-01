@@ -3,14 +3,13 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
-from matplotlib.testing.decorators import image_comparison
 from numpy.typing import NDArray
 from numpy.testing import assert_array_almost_equal
 
 from conversion.display import clip_data, get_array_for_display, grayscale_to_rgba
 from conversion.exceptions import NegativeStdScalerException
 from parsers import ScanImage
-from ..utils import plot_test_data  # type: ignore
+from ..constants import BASELINE_IMAGES_DIR
 
 
 @given(
@@ -96,9 +95,9 @@ def test_grayscale_to_rgba_has_same_size(scan_image_with_nans: ScanImage):
 
 
 @pytest.mark.integration
-@image_comparison(baseline_images=["preview_image"], extensions=["png"])
 def test_get_image_for_display_matches_baseline_image(
     scan_image_with_nans: ScanImage,
 ):
+    verified = np.load(BASELINE_IMAGES_DIR / "display_array.npy")
     display_image = get_array_for_display(scan_image_with_nans)
-    plot_test_data(display_image)
+    assert_array_almost_equal(display_image, verified)
