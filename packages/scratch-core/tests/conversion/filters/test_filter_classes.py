@@ -158,7 +158,7 @@ class TestDummyFilterApply:
 
     def test_apply_list_input_converts_to_array(self):
         """Test that list input is converted to array."""
-        data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         filter_obj = DummyFilter()
 
         result = filter_obj.apply(data)
@@ -170,25 +170,25 @@ class TestDummyFilterApply:
 class TestDummyFilterValidation:
     """Tests for parameter validation in DummyFilter.__init__."""
 
-    def test_negative_robust_conv_tol_raises_error(self):
-        """Test that negative robust_conv_tol raises ValueError."""
-        with pytest.raises(ValueError, match="robust_conv_tol must be positive"):
-            DummyFilter(robust_conv_tol=-0.1)
+    def test_negative_outlier_tol_raises_error(self):
+        """Test that negative outlier_tol raises ValueError."""
+        with pytest.raises(ValueError, match="outlier_tol must be positive"):
+            DummyFilter(outlier_tol=-0.1)
 
-    def test_zero_robust_conv_tol_raises_error(self):
-        """Test that zero robust_conv_tol raises ValueError."""
-        with pytest.raises(ValueError, match="robust_conv_tol must be positive"):
-            DummyFilter(robust_conv_tol=0)
+    def test_zero_outlier_tol_raises_error(self):
+        """Test that zero outlier_tol raises ValueError."""
+        with pytest.raises(ValueError, match="outlier_tol must be positive"):
+            DummyFilter(outlier_tol=0)
 
-    def test_zero_n_robust_conv_iter_raises_error(self):
-        """Test that zero n_robust_conv_iter raises ValueError."""
-        with pytest.raises(ValueError, match="n_robust_conv_iter must be >= 1"):
-            DummyFilter(n_robust_conv_iter=0)
+    def test_zero_n_downweight_outlier_iter_raises_error(self):
+        """Test that zero n_downweight_outlier_iter raises ValueError."""
+        with pytest.raises(ValueError, match="n_downweight_outlier_iter must be >= 1"):
+            DummyFilter(n_downweight_outlier_iter=0)
 
-    def test_negative_n_robust_conv_iter_raises_error(self):
-        """Test that negative n_robust_conv_iter raises ValueError."""
-        with pytest.raises(ValueError, match="n_robust_conv_iter must be >= 1"):
-            DummyFilter(n_robust_conv_iter=-5)
+    def test_negative_n_downweight_outlier_iter_raises_error(self):
+        """Test that negative n_downweight_outlier_iter raises ValueError."""
+        with pytest.raises(ValueError, match="n_downweight_outlier_iter must be >= 1"):
+            DummyFilter(n_downweight_outlier_iter=-5)
 
     def test_valid_parameters_no_error(self):
         """Test that valid parameters don't raise errors."""
@@ -196,7 +196,7 @@ class TestDummyFilterValidation:
         DummyFilter(
             is_high_pass=True,
             nan_out=False,
-            is_robust=True,
-            robust_conv_tol=0.01,
-            n_robust_conv_iter=50,
+            downweight_outliers=True,
+            outlier_tol=0.01,
+            n_downweight_outlier_iter=50,
         )
