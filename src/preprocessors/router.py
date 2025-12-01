@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from parsers import load_scan_image
 
-from .schemas import ProcessedDataLocation, UploadScan
+from .schemas import EditImage, ProcessedDataLocation, UploadScan
 
 
 class ParseError(Exception): ...
@@ -59,3 +59,17 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
         preview_image=upload_scan.output_dir / "preview.png",
         surfacemap_image=upload_scan.output_dir / "surface_map.png",
     )
+
+
+@preprocessor_route.post(
+    path="/edit-image",
+    summary="Edit parsed scan",
+    description="""""",
+)
+async def edit_image(params: EditImage) -> dict[str, str]:
+    """TODO."""
+    # load requested x3p file
+    # create an edited preview image (png)
+    # create surface maps (png)
+    # response contains path to x3p file and two pngs (preview and surface_map)
+    return {"message": "Hello from edit-image"}
