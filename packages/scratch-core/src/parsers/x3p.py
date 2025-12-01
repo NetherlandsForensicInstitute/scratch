@@ -8,6 +8,7 @@ from loguru import logger
 from returns.result import Result, Success, Failure, safe
 from returns.io import IOSuccess, IOFailure, IOResult, impure_safe
 from image_generation.data_formats import ScanMap2D
+from parsers.exceptions import PreProcessError
 
 
 class X3PMetaData(NamedTuple):
@@ -71,7 +72,7 @@ def _set_record3_entries(x3p: X3Pfile, image: ScanMap2D) -> X3Pfile:
     return x3p
 
 
-def parse_to_x3p(image: ScanMap2D) -> Result[X3Pfile, str]:
+def parse_to_x3p(image: ScanMap2D) -> Result[X3Pfile, PreProcessError]:
     """Convert ScanMap2D to X3Pfile using a functional approach."""
     result = (
         _set_record1_entries(X3Pfile(), image)
@@ -81,18 +82,20 @@ def parse_to_x3p(image: ScanMap2D) -> Result[X3Pfile, str]:
     )
     match result:
         case Failure(error):
-            message = "Failure to parse image X3P"
-            logger.debug(f"{message}: {error}, image shape: {image.data.shape}")  # type: ignore
-            logger.error(message)
-            return result.alt(str)
+            logger.debug(
+                f"{PreProcessError.X3P_PARSE_ERROR}:"
+                f"{error}, image shape: {image.data.shape}"  # type: ignore
+            )
+            logger.error(PreProcessError.X3P_PARSE_ERROR)
+            return Failure(PreProcessError.X3P_PARSE_ERROR)
         case Success():
             logger.info("Successfully parse array to x3p")
             return result
-        case _:
-            return result.alt(str)  # this is to keep type checker happy
+        case _:  # this is to keep type checker happy
+            return Failure(PreProcessError.X3P_PARSE_ERROR)
 
 
-def save_x3p(x3p: X3Pfile, output_path: Path) -> IOResult[Path, str]:
+def save_x3p(x3p: X3Pfile, output_path: Path) -> IOResult[Path, PreProcessError]:
     """Save an X3Pfile to disk.
 
     Args:
@@ -114,9 +117,9 @@ def save_x3p(x3p: X3Pfile, output_path: Path) -> IOResult[Path, str]:
             logger.info(f"Successfully saved X3P file to {output_path}")
             return result
         case IOFailure(error):
-            message = f"Failed to write X3P file to {output_path}"
+            message = f"{PreProcessError.X3P_WRITE_ERROR} to {output_path}"
             logger.debug(f"{message}: {error}")
             logger.error(message)
-            return result.alt(str)
-        case _:
-            return result.alt(str)  # this is to keep type checker happy
+            return IOFailure(PreProcessError.X3P_WRITE_ERROR)
+        case _:  # this is to keep type checker happy
+            return IOFailure(PreProcessError.X3P_WRITE_ERROR)
