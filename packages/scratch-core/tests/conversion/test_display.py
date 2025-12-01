@@ -25,7 +25,7 @@ def test_clip_data_basic(data: NDArray, std_scaler: float):
     expected_lower = np.mean(data) - np.std(data, ddof=1) * std_scaler
     expected_upper = np.mean(data) + np.std(data, ddof=1) * std_scaler
 
-    clipped, lower, upper = clip_data(data, std_scaler)
+    _, lower, upper = clip_data(data, std_scaler)
 
     # Check if the lower and upper bounds are correct
     assert np.isclose(lower, expected_lower)
