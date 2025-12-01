@@ -2,10 +2,8 @@ from parsers.data_types import ScanImage
 from conversion import subsample_data
 import pytest
 from math import ceil
-from pathlib import Path
 import numpy as np
-
-PRECISION = 1e-16
+from ..constants import PRECISION, BASELINE_IMAGES_DIR  # type: ignore
 
 
 @pytest.mark.parametrize("step_size", [(1, 1), (10, 10), (25, 25), (25, 50)])
@@ -31,10 +29,8 @@ def test_subsample_rejects_incorrect_sizes(
         _ = subsample_data(scan_image=scan_image, step_size=step_size)
 
 
-def test_subsample_matches_baseline_output(
-    scan_image_replica: ScanImage, baseline_images_dir: Path
-):
-    verified = np.load(baseline_images_dir / "replica_subsampled.npy")
+def test_subsample_matches_baseline_output(scan_image_replica: ScanImage):
+    verified = np.load(BASELINE_IMAGES_DIR / "replica_subsampled.npy")
 
     subsampled = subsample_data(scan_image=scan_image_replica, step_size=(10, 15))
     assert np.allclose(

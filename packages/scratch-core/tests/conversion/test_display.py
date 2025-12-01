@@ -5,13 +5,12 @@ from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 from matplotlib.testing.decorators import image_comparison
 from numpy.testing import assert_array_almost_equal
+from numpy.typing import NDArray
 
 from conversion.display import clip_data, get_array_for_display, grayscale_to_rgba
 from conversion.exceptions import NegativeStdScalerException
 from parsers import ScanImage
-from ..helper_functions import plot_test_data
-
-PRECISION = 1e-16
+from ..helper_functions import plot_test_data  # type: ignore
 
 
 @given(
@@ -22,11 +21,11 @@ PRECISION = 1e-16
         elements=st.floats(allow_nan=False, min_value=0.0, max_value=100.0),
     ),
 )
-def test_clip_data_basic(data, std_scaler):
-    clipped, lower, upper = clip_data(data, std_scaler)
-
+def test_clip_data_basic(data: NDArray, std_scaler: float):
     expected_lower = np.mean(data) - np.std(data, ddof=1) * std_scaler
     expected_upper = np.mean(data) + np.std(data, ddof=1) * std_scaler
+
+    clipped, lower, upper = clip_data(data, std_scaler)
 
     # Check if the lower and upper bounds are correct
     assert np.isclose(lower, expected_lower)

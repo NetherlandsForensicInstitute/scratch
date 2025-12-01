@@ -5,7 +5,7 @@ from image_generation import generate_3d_image
 from image_generation.data_formats import ScanMap2D
 from parsers.data_types import ScanImage
 from utils.paths import PROJECT_ROOT
-from ..helper_functions import plot_test_data
+from ..helper_functions import plot_test_data  # type: ignore
 
 
 @pytest.fixture

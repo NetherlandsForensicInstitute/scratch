@@ -4,8 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 import pytest
 from parsers import ScanImage, save_to_x3p
-
-PRECISION = 1e-16
+from ..constants import PRECISION, SCANS_DIR  # type: ignore
 
 
 def validate_image(
@@ -39,10 +38,8 @@ def test_exception_on_incorrect_shape(image_data: NDArray):
     "filename, expected_scale",
     [("circle.al3d", 8.7654321e-7), ("circle.x3p", 8.7654321e-7)],
 )
-def test_parser_can_parse(
-    filename: Path, image_data: NDArray, expected_scale: float, scans_dir: Path
-):
-    file_to_test = scans_dir / filename
+def test_parser_can_parse(filename: Path, image_data: NDArray, expected_scale: float):
+    file_to_test = SCANS_DIR / filename
     parsed_image = ScanImage.from_file(file_to_test)
     validate_image(
         parsed_image=parsed_image,
@@ -61,8 +58,8 @@ def test_parsed_image_can_be_exported_to_x3p(
 
 
 @pytest.mark.integration
-def test_al3d_can_be_converted_to_x3p(scans_dir: Path, tmp_path: PosixPath):
-    al3d_file = scans_dir / "circle.al3d"
+def test_al3d_can_be_converted_to_x3p(tmp_path: PosixPath):
+    al3d_file = SCANS_DIR / "circle.al3d"
     parsed_image = ScanImage.from_file(al3d_file)
     output_file = tmp_path / "export.x3p"
     save_to_x3p(image=parsed_image, output_path=output_file)
