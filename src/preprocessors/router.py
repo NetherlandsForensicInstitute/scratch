@@ -60,11 +60,14 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
         parsed_scan = from_file(upload_scan.scan_file).subsample_data(step_x=1, step_y=1)
     except ExportError as err:
         logger.error("jammer man, failed to parse the given scan file")
-        raise HTTPException(status_code=400, detail="Failed to parse the given scan file") from err
-
-    save_to_x3p(
-        image=parsed_scan, output_path=upload_scan.output_dir / "scan.x3p"
-    )  # TODO: test to check what errors can come from this.
+        raise HTTPException(status_code=400, detail=f"Failed to parse the given scan file, err:{str(err)}")
+    try:
+        save_to_x3p(image=parsed_scan, output_path=upload_scan.output_dir / "scan.x3p")
+    except ExportError as err:
+        logger.error("jammer man, failed to save the scan file")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to save the scan file  {upload_scan.output_dir / 'scan.x3p'}: {str(err)}"
+        )
 
     for image_generator, file_name in zip([generate_3d_image, generate_3d_image], ["surface_map.png", "preview.png"]):
         try:
