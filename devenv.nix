@@ -8,6 +8,7 @@
       lazygit
       just
       ruff
+      pyright
     ]
     ++ [
       # packages for local GitHub actions
