@@ -3,8 +3,8 @@ from math import ceil
 import numpy as np
 import pytest
 
-
-from image_generation.data_formats import ScanMap2D
+from conversion import subsample_data
+from image_generation.data_formats import ScanImage
 from conversion import subsample_data
 from image_generation.translations import ScanMap2DArray
 
@@ -30,7 +30,7 @@ def test_scan_map_updates_scales(scan_image: ScanMap2DArray):
     scale_y = 3
     step_x = 10
     step_y = 10
-    input_data = ScanMap2D(data=scan_image, scale_x=scale_x, scale_y=scale_y)
+    input_data = ScanImage(data=scan_image, scale_x=scale_x, scale_y=scale_y)
 
     # Act
     subsampled = input_data.subsample_data(step_x=step_x, step_y=step_y)
@@ -51,7 +51,7 @@ def test_subsample_rejects_incorrect_sizes(
 
 
 def test_subsample_matches_baseline_output(
-    scan_image_replica: ScanMap2D
+    scan_image_replica: ScanImage
 ):
     verified = np.load(BASELINE_IMAGES_DIR / "replica_subsampled.npy")
 
@@ -64,7 +64,7 @@ def test_subsample_matches_baseline_output(
     )
 
 
-def test_subsample_creates_new_object(scan_image_replica: ScanMap2D):
+def test_subsample_creates_new_object(scan_image_replica: ScanImage):
     subsampled = subsample_data(scan_image=scan_image_replica.data, step_size=(5, 5))
     assert id(subsampled) != id(scan_image_replica)
     assert id(subsampled) != id(scan_image_replica.data)

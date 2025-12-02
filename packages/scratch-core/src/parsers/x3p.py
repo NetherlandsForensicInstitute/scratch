@@ -5,7 +5,7 @@ from typing import NamedTuple
 import numpy as np
 from x3p import X3Pfile
 from loguru import logger
-from image_generation.data_formats import ScanMap2D
+from image_generation.data_formats import ScanImage
 from surfalize.exceptions import CorruptedFileError
 from parsers.exceptions import ExportError
 
@@ -24,7 +24,7 @@ class X3PMetaData(NamedTuple):
     measurement_type: str = "NonContacting"
 
 
-def _to_x3p(image: ScanMap2D, meta_data: X3PMetaData) -> X3Pfile:
+def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
     x3p = X3Pfile()
     # set Record1 entries
     x3p.record1.set_featuretype("SUR")
@@ -56,9 +56,9 @@ def _to_x3p(image: ScanMap2D, meta_data: X3PMetaData) -> X3Pfile:
 
 
 def save_to_x3p(
-    image: ScanMap2D, output_path: Path, meta_data: X3PMetaData | None = None
+    image: ScanImage, output_path: Path, meta_data: X3PMetaData | None = None
 ) -> None:
-    """Save an instance of `ScanMap2D` to a .x3p-file."""
+    """Save an instance of `ScanImage` to a .x3p-file."""
     try:
         _to_x3p(image, meta_data or X3PMetaData()).write(str(output_path))
     except CorruptedFileError as err:

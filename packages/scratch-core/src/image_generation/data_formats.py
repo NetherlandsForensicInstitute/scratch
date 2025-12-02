@@ -73,7 +73,7 @@ class LightSource(BaseModel):
         )
 
 
-class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
+class ScanImage(BaseModel, arbitrary_types_allowed=True):
     """
     A 2D image/array of floats.
 
@@ -96,15 +96,15 @@ class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
         """The image height in pixels."""
         return self.data.shape[0]
 
-    def subsample_data(self, step_x: int = 1, step_y: int = 1) -> "ScanMap2D":
-        """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
+    def subsample_data(self, step_x: int = 1, step_y: int = 1) -> "ScanImage":
+        """Subsample the data in a `ScanImage` instance by skipping `step_size` steps."""
         logger.debug(f"Subsampling data with step size ({step_x}, {step_y})")
         try:
             array = subsample_data(scan_image=self.data, step_size=(step_x, step_y))
         except ValueError as e:
             logger.error(f"Error subsampling data: {e}")
             raise ImageGenerationError(f"Error subsampling data: {e}") from e
-        return ScanMap2D(
+        return ScanImage(
             data=array,
             scale_x=self.scale_x * step_x,
             scale_y=self.scale_y * step_y,
@@ -130,7 +130,7 @@ class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
             raise ImageGenerationError(f"Error computing surface normals: {e}") from e
         return sufrace_normals
 
-    def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanMap2D":
+    def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanImage":
         """
         Normalize a 2D intensity map to a specified output range.
 
@@ -139,7 +139,7 @@ class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
 
         :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
         """
-        return ScanMap2D(
+        return ScanImage(
             data=normalize_2d_array(self.data, scale_max=scale_max, scale_min=scale_min)
         )
 
@@ -164,9 +164,9 @@ class ScanTensor3D(BaseModel, arbitrary_types_allowed=True):
     data: ScanTensor3DArray
 
     @property
-    def combined(self) -> "ScanMap2D":
+    def combined(self) -> "ScanImage":
         """Combine stacked lights → (Height × Width)."""
-        return ScanMap2D(data=np.nansum(self.data, axis=2))
+        return ScanImage(data=np.nansum(self.data, axis=2))
 
 
 class SurfaceNormals(BaseModel, arbitrary_types_allowed=True):
