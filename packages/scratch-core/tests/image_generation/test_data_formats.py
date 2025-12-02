@@ -23,5 +23,5 @@ def test_surface_normals_invalid_shapes(
     nz_array = np.zeros(nz)
 
     with pytest.raises(ValueError) as excinfo:
-        SurfaceNormals(np.stack([nx_array, ny_array, nz_array], axis=-1))
+        SurfaceNormals(data=np.stack([nx_array, ny_array, nz_array], axis=-1))
     assert "all input arrays must have the same shape" == excinfo.value.args[0]

@@ -1,11 +1,12 @@
 from pathlib import Path, PosixPath
 
 import numpy as np
-from numpy.typing import NDArray
 import pytest
+
 from parsers import ScanImage, save_to_x3p
-from ..constants import PRECISION, SCANS_DIR  # type: ignore
 from utils.array_definitions import ScanMap2DArray
+
+from ..constants import PRECISION, SCANS_DIR  # type: ignore
 
 
 def validate_image(
@@ -32,7 +33,7 @@ def test_exception_on_incorrect_file_extension():
         _ = ScanImage.from_file(Path("export.txt"))
 
 
-def test_exception_on_incorrect_shape(image_data: NDArray):
+def test_exception_on_incorrect_shape(image_data: ScanMap2DArray):
     with pytest.raises(ValueError, match="shape"):
         _ = ScanImage(data=np.expand_dims(image_data, -1))
 
@@ -41,7 +42,9 @@ def test_exception_on_incorrect_shape(image_data: NDArray):
     "filename, expected_scale",
     [("circle.al3d", 8.7654321e-7), ("circle.x3p", 8.7654321e-7)],
 )
-def test_parser_can_parse(filename: Path, image_data: NDArray, expected_scale: float):
+def test_parser_can_parse(
+    filename: Path, image_data: ScanMap2DArray, expected_scale: float
+):
     file_to_test = SCANS_DIR / filename
     parsed_image = ScanImage.from_file(file_to_test)
     validate_image(
