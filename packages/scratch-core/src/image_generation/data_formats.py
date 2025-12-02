@@ -108,6 +108,7 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
     def subsample(self, step_x: int, step_y: int) -> "ScanImage":
         """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
+        logger.debug(f"Subsampling data with step size ({step_x}, {step_y})")
         try:
             array = subsample_array(scan_data=self.data, step_size=(step_x, step_y))
         except ValueError as e:
