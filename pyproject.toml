@@ -48,7 +48,6 @@ dev = [
   "requests>=2.32.5",
   "ruff>=0.14.0",
   "rust-just>=1.43.0",
-  "ty>=0.0.1a22",
 ]
 
 [tool.ruff]
