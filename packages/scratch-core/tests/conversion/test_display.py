@@ -24,9 +24,11 @@ def test_clip_data_bounds_match_expected_bounds(data: NDArray, std_scaler: float
     expected_lower = np.mean(data) - np.std(data, ddof=1) * std_scaler
     expected_upper = np.mean(data) + np.std(data, ddof=1) * std_scaler
 
-    _, lower, upper = clip_data(data, std_scaler)
+    clipped, lower, upper = clip_data(data, std_scaler)
     assert np.isclose(lower, expected_lower), f"Lower bound should be {expected_lower}"
     assert np.isclose(upper, expected_upper), f"Upper bound should be {expected_upper}"
+    assert clipped.min() >= lower, f"Minimum value should be clipped to {lower}"
+    assert clipped.max() <= upper, f"Maximum value should be clipped to {upper}"
 
 
 @pytest.mark.parametrize(
