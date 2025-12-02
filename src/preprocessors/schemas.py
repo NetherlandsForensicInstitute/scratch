@@ -99,3 +99,18 @@ class EditImage(BaseModelConfig):
         if parse_file.suffix[1:] != SupportedExtension.X3P:
             raise ValueError(f"was expecting an x3p file: {parse_file.name}")
         return parse_file
+
+    @model_validator(mode="after")
+    def validate_at_least_edit_task(self) -> Self:
+        """Validate that at least one edit task parameter is provided.
+
+        Ensures at least one task field (level, filter, zoom, or mask_array) is set,
+        excluding the required parsed_file and optional sampling fields.
+        """
+        if not any(
+            getattr(self, field_name)
+            for field_name in self.__class__.model_fields
+            if field_name not in ("parsed_file", "sampling")
+        ):
+            raise ValueError("No edit task parmeters given")
+        return self

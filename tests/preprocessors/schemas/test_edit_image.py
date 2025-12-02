@@ -19,18 +19,31 @@ def valid_parsed_file(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return parsed_file
 
 
-def test_edit_image_with_defaults(valid_parsed_file: Path) -> None:
-    """Test EditImage creation with default values."""
-    # Arrange & Act
-    edit_image = EditImage(parsed_file=valid_parsed_file)
+def test_edit_image_fails_no_task_field_given(valid_parsed_file: Path) -> None:
+    """Test EditImage fails when no task param is given (default values)."""
+    # Arrange & Assert
+    with pytest.raises(ValidationError, match="No edit task parmeters given"):
+        _ = EditImage(parsed_file=valid_parsed_file)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        pytest.param("level", Level.PLAIN, id="level"),
+        pytest.param("filter", Filter.R1, id="filter"),
+        pytest.param("zoom", True, id="zoom"),
+        # mask_array already covered by `test_mask_array_with_valid_boundary_values`
+    ],
+)
+def test_edit_image_at_least_one_task_field_given(
+    valid_parsed_file: Path, field: str, value: Level | Filter | bool
+) -> None:
+    """Test EditImage validates successfully when at least one task field is provided."""
+    # Act
+    edit_image = EditImage.model_validate({"parsed_file": valid_parsed_file, field: value})
 
     # Assert
-    assert edit_image.parsed_file == valid_parsed_file
-    assert edit_image.sampling == 4  # noqa
-    assert edit_image.level is None
-    assert edit_image.filter is None
-    assert edit_image.zoom is False
-    assert edit_image.mask_array is None
+    assert getattr(edit_image, field) == value
 
 
 @given(
@@ -64,9 +77,8 @@ def test_mask_array_with_invalid_values_raises_error(invalid_value: float, valid
     mask_array = np.array([[invalid_value, 100.0, 200.0], [50.0, 100.0, 200.0]], dtype=np.float64)
 
     # Act & Assert
-    with pytest.raises(ValidationError) as exc_info:
+    with pytest.raises(ValidationError, match="mask_array values must be between 0 and 255"):
         EditImage(parsed_file=valid_parsed_file, mask_array=mask_array)
-    assert "mask_array values must be between 0 and 255" in str(exc_info.value)
 
 
 @given(
@@ -125,13 +137,3 @@ def test_all_enum_values(valid_parsed_file: Path, key: str, values: tuple[Enum, 
         getattr(EditImage.model_validate({"parsed_file": valid_parsed_file, key: value}), key) == value
         for value in values
     )
-
-
-@pytest.mark.parametrize("zoom", [True, False])
-def test_zoom_boolean_values(valid_parsed_file: Path, zoom: bool) -> None:
-    """Test that zoom accepts boolean values."""
-    # Act
-    edit_image = EditImage(parsed_file=valid_parsed_file, zoom=zoom)
-
-    # Assert
-    assert edit_image.zoom == zoom
