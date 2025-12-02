@@ -8,7 +8,7 @@
       lazygit
       just
       ruff
-      pyright
+      pkgs.nodejs_22
     ]
     ++ [
       # packages for local GitHub actions

@@ -59,7 +59,7 @@ def test_no_clipping_when_input_is_constant(value: int):
     std_scaler = 1
     clipped, lower, upper = clip_data(data, std_scaler)
 
-    assert_array_almost_equal(clipped, data), "All values should remain constant"
+    assert_array_almost_equal(clipped, data)
     assert np.isclose(lower, value)
     assert np.isclose(upper, value)
 

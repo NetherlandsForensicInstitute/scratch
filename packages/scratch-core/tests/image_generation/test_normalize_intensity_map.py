@@ -3,7 +3,6 @@ import pytest
 
 from image_generation.translations import normalize_2d_array
 
-
 TEST_IMAGE_WIDTH = 10
 TEST_IMAGE_HEIGHT = 12
 TOLERANCE = 1e-5
@@ -19,8 +18,8 @@ TOLERANCE = 1e-5
 )
 def test_bigger_numbers(start_value: int, slope: float) -> None:
     # Arrange
-    row = start_value + slope * np.arange(TEST_IMAGE_WIDTH)
-    image = np.tile(row, (TEST_IMAGE_HEIGHT, 1))
+    row = (start_value + slope * np.arange(TEST_IMAGE_WIDTH)).astype(np.float64)
+    image = np.tile(row, (TEST_IMAGE_HEIGHT, 1)).astype(np.float64)
     max_val = 255
     min_val = 20
     # Act

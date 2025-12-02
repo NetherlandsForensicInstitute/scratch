@@ -1,10 +1,10 @@
 import numpy as np
-from pydantic import BaseModel, Field, ConfigDict, RootModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from image_generation.translations import (
-    normalize_2d_array,
     apply_multiple_lights,
     compute_surface_normals,
+    normalize_2d_array,
 )
 from utils.array_definitions import (
     ScanMap2DArray,
@@ -69,13 +69,15 @@ class LightSource(BaseModel):
         )
 
 
-class ScanMap2D(RootModel[ScanMap2DArray]):
+class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
     """
     A 2D image/array of floats.
 
     Used for: depth maps, intensity maps, single-channel images.
     Shape: (height, width)
     """
+
+    data: ScanMap2DArray
 
     def compute_normals(
         self, x_dimension: float, y_dimension: float
@@ -89,7 +91,7 @@ class ScanMap2D(RootModel[ScanMap2DArray]):
         :returns: Normal vectors per pixel in a 3-layer field. Layers are [x,y,z]
         """
         return SurfaceNormals(
-            compute_surface_normals(self.root, x_dimension, y_dimension)
+            data=compute_surface_normals(self.data, x_dimension, y_dimension)
         )
 
     def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanMap2D":
@@ -102,11 +104,11 @@ class ScanMap2D(RootModel[ScanMap2DArray]):
         :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
         """
         return ScanMap2D(
-            normalize_2d_array(self.root, scale_max=scale_max, scale_min=scale_min)
+            data=normalize_2d_array(self.data, scale_max=scale_max, scale_min=scale_min)
         )
 
 
-class ScanTensor3D(RootModel[ScanTensor3DArray]):
+class ScanTensor3D(BaseModel, arbitrary_types_allowed=True):
     """
     A 3D stack of 2D scan maps.
 
@@ -114,17 +116,21 @@ class ScanTensor3D(RootModel[ScanTensor3DArray]):
     Shape: (height, width, n_layers)
     """
 
+    data: ScanTensor3DArray
+
     @property
     def combined(self) -> "ScanMap2D":
         """Combine stacked lights → (Height × Width)."""
-        return ScanMap2D(np.nansum(self.root, axis=2))
+        return ScanMap2D(data=np.nansum(self.data, axis=2))
 
 
-class SurfaceNormals(RootModel[ScanVectorField2DArray]):
+class SurfaceNormals(BaseModel, arbitrary_types_allowed=True):
     """Normal vectors per pixel in a 3-layer field.
 
     Represents a surface-normal map with components (nx, ny, nz) stored in the
     last dimension. Shape: (height, width, 3)."""
+
+    data: ScanVectorField2DArray
 
     def apply_lights(
         self,
@@ -144,8 +150,8 @@ class SurfaceNormals(RootModel[ScanVectorField2DArray]):
         :returns: Normalized 2D intensity map with shape (Height, Width), suitable for
         """
         return ScanTensor3D(
-            apply_multiple_lights(
-                surface_normals=self.root,
+            data=apply_multiple_lights(
+                surface_normals=self.data,
                 light_vectors=light_vectors,
                 observer_vector=observer,
             )
