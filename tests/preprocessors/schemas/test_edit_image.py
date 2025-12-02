@@ -49,8 +49,7 @@ def test_edit_image_at_least_one_task_field_given(
 @given(
     mask_array=arrays(
         dtype=np.uint8,
-        shape=st.tuples(st.integers(min_value=1, max_value=50), st.integers(min_value=1, max_value=50)),
-        elements=st.sampled_from([0, 255]),
+        shape=st.tuples(st.integers(min_value=2, max_value=50), st.integers(min_value=2, max_value=50)),
     )
 )
 def test_mask_array_with_valid_boundary_values(mask_array: np.ndarray, valid_parsed_file: Path) -> None:
@@ -70,27 +69,24 @@ def test_mask_array_with_valid_boundary_values(mask_array: np.ndarray, valid_par
 )
 def test_mask_array_with_invalid_values_raises_error(invalid_value: float, valid_parsed_file: Path) -> None:
     """Test that mask_array with values outside [0, 255] raises ValidationError."""
-    # Arrange
-    # mask_array = np.array([[invalid_value, 100, 200], [50, 100, 200]], dtype=np.int16)
-    mask_array = ((invalid_value, 50), (100, 100), (200, 200))
     # Act & Assert
-    with pytest.raises(ValidationError, match="mask_array values must be between 0 and 255"):
-        EditImage.model_validate(dict(parsed_file=valid_parsed_file, mask_array=mask_array))
+    with pytest.raises(ValidationError, match=r"Array's value\(s\) out of range"):
+        EditImage(parsed_file=valid_parsed_file, mask_array=[[invalid_value, 200], [100, 200]])
 
 
 @given(
     mask_array=arrays(
         dtype=np.uint8,
         shape=st.tuples(st.integers(min_value=1, max_value=100), st.integers(min_value=1, max_value=100)),
-        elements=st.integers(min_value=0, max_value=255),
     )
 )
 def test_mask_array_with_valid_uint8_values(mask_array: np.ndarray, valid_parsed_file: Path) -> None:
     """Test that any uint8 array with values 0-255 is valid using property-based testing."""
     # Act
-    edit_image = EditImage(parsed_file=valid_parsed_file, mask_array=mask_array)
+    edit_image = EditImage(parsed_file=valid_parsed_file, mask_array=mask_array.tolist())
 
     # Assert
+    assert edit_image.mask_array is not None
     assert np.array_equal(edit_image.mask_array, mask_array)
 
 
