@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Annotated
 
 import numpy as np
-from numpy.typing import NDArray
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from surfalize import Surface
 from surfalize.file import FileHandler
@@ -34,7 +33,7 @@ class FrozenBaseModel(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
 
-def validate_parsed_image_shape(image_data: NDArray) -> NDArray:
+def validate_parsed_image_shape(image_data: ScanMap2DArray) -> ScanMap2DArray:
     """Test whether the parsed image data has a valid shape."""
     if len(image_data.shape) != 2:
         raise ValueError(f"Invalid array shape: {image_data.shape}")
