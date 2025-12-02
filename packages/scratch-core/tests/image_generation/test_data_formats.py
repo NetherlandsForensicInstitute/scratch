@@ -18,10 +18,10 @@ from image_generation.data_formats import SurfaceNormals
 def test_surface_normals_invalid_shapes(
     nx: tuple[int, int], ny: tuple[int, int], nz: tuple[int, int]
 ):
-    nx = np.zeros(nx)
-    ny = np.zeros(ny)
-    nz = np.zeros(nz)
+    nx_array = np.zeros(nx)
+    ny_array = np.zeros(ny)
+    nz_array = np.zeros(nz)
 
     with pytest.raises(ValueError) as excinfo:
-        SurfaceNormals(np.stack([nx, ny, nz], axis=-1))
+        SurfaceNormals(np.stack([nx_array, ny_array, nz_array], axis=-1))
     assert "all input arrays must have the same shape" == excinfo.value.args[0]

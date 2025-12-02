@@ -3,6 +3,7 @@ from numpy.typing import NDArray
 
 from conversion.exceptions import NegativeStdScalerException
 from parsers.data_types import ScanImage
+from utils.array_definitions import ScanMapRGBA, ScanMap2DArray
 
 
 def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
@@ -25,7 +26,7 @@ def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
     return clipped, lower, upper
 
 
-def grayscale_to_rgba(image: NDArray[int | float]) -> NDArray[np.uint8]:
+def grayscale_to_rgba(image: ScanMap2DArray) -> ScanMapRGBA:
     """
     Convert a 2D grayscale array to an 8-bit RGBA array.
 

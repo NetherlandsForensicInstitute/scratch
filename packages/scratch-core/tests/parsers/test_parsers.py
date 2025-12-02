@@ -5,10 +5,13 @@ from numpy.typing import NDArray
 import pytest
 from parsers import ScanImage, save_to_x3p
 from ..constants import PRECISION, SCANS_DIR  # type: ignore
+from utils.array_definitions import ScanMap2DArray
 
 
 def validate_image(
-    parsed_image: ScanImage, expected_image_data: NDArray, expected_scale: float
+    parsed_image: ScanImage,
+    expected_image_data: ScanMap2DArray,
+    expected_scale: float,
 ):
     """Validate a parsed image."""
     assert isinstance(parsed_image, ScanImage)

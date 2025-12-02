@@ -1,10 +1,9 @@
 import numpy as np
 import pytest
-from numpy._typing import NDArray
 from numpy.testing import assert_allclose
 
 from image_generation.translations import compute_surface_normals
-from utils.array_definitions import ScanVectorField2DArray, ScanMap2DArray
+from utils.array_definitions import ScanVectorField2DArray, ScanMap2DArray, MaskArray
 
 
 TOLERANCE = 1e-3
@@ -16,7 +15,7 @@ BUMP_SLICE = slice(BUMP_CENTER - BUMP_SIZE // 2, BUMP_CENTER + BUMP_SIZE // 2)
 
 
 @pytest.fixture
-def inner_mask() -> NDArray[bool]:
+def inner_mask() -> MaskArray:
     """Mask of all pixels except the 1-pixel border."""
     mask = np.zeros((IMAGE_SIZE, IMAGE_SIZE), dtype=bool)
     mask[1:-1, 1:-1] = True
@@ -24,14 +23,14 @@ def inner_mask() -> NDArray[bool]:
 
 
 @pytest.fixture
-def outer_mask(inner_mask: NDArray[bool]) -> NDArray[bool]:
+def outer_mask(inner_mask: MaskArray) -> MaskArray:
     """Inverse of inner_mask: the NaN border."""
     return ~inner_mask
 
 
 def assert_normals_close(
     normals: ScanVectorField2DArray,
-    mask: NDArray[bool],
+    mask: MaskArray,
     expected: tuple[float, float, float],
     atol=1e-3,
 ) -> None:
@@ -40,19 +39,19 @@ def assert_normals_close(
         np.testing.assert_allclose(component[mask], expected_value, atol=atol)
 
 
-def assert_all_nan(normals: ScanMap2DArray, mask: ScanMap2DArray) -> None:
+def assert_all_nan(normals: ScanMap2DArray, mask: MaskArray) -> None:
     """All channels must be NaN within mask."""
     assert np.isnan(normals[mask]).all()
 
 
-def assert_no_nan(normals: ScanMap2DArray, mask: ScanMap2DArray) -> None:
+def assert_no_nan(normals: ScanMap2DArray, mask: MaskArray) -> None:
     """No channel should contain NaN within mask."""
     assert ~np.isnan(normals[mask]).any()
 
 
 def test_slope_has_nan_border(
-    inner_mask: NDArray[bool],
-    outer_mask: NDArray[bool],
+    inner_mask: MaskArray,
+    outer_mask: MaskArray,
 ) -> None:
     """
     The image is 1 pixel smaller on all sides due to the slope calculation.
@@ -72,8 +71,8 @@ def test_slope_has_nan_border(
 
 
 def test_flat_surface_returns_flat_surface(
-    inner_mask: NDArray[bool],
-    outer_mask: NDArray[bool],
+    inner_mask: MaskArray,
+    outer_mask: MaskArray,
 ) -> None:
     """Given a flat surface the depth map should also be flat."""
     # Arrange
@@ -98,7 +97,7 @@ def test_flat_surface_returns_flat_surface(
         pytest.param(-2.0, -2.0, id="negative x and y steps"),
     ],
 )
-def test_linear_slope(step_x: int, step_y: int, inner_mask: NDArray[bool]) -> None:
+def test_linear_slope(step_x: float, step_y: float, inner_mask: MaskArray) -> None:
     """Test linear slopes in X, Y, or both directions."""
     # Arrange
     x_vals = np.arange(IMAGE_SIZE) * step_x
@@ -122,7 +121,7 @@ def input_depth_map_with_bump() -> ScanMap2DArray:
 
 
 def test_location_slope_is_where_expected(
-    inner_mask: NDArray[bool],
+    inner_mask: MaskArray,
     input_depth_map_with_bump: ScanMap2DArray,
 ) -> None:
     """Check that slope calculation is localized to the bump coordination an offset of 1 is used for the slope."""
@@ -154,7 +153,7 @@ def test_location_slope_is_where_expected(
 
 
 def test_corner_of_slope(
-    inner_mask: NDArray[bool],
+    inner_mask: MaskArray,
     input_depth_map_with_bump: ScanMap2DArray,
 ) -> None:
     """Test if the corner of the slope is an extension of x, y"""
