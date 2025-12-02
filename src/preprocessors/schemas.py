@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Self
 
 from pydantic import DirectoryPath, Field, FilePath, PositiveInt, field_validator, model_validator
-from utils.array_definitions import ScanMap2DArray
+from utils.array_definitions import MaskMap2DArray
 
 from models import BaseModelConfig
 
@@ -78,19 +78,19 @@ class EditImage(BaseModelConfig):
     level: Level | None = Field(None, description="")
     filter: Filter | None = Field(None, description="")
     zoom: bool = Field(False, description="")
-    mask_array: ScanMap2DArray | None = Field(None, description="")
+    mask_array: MaskMap2DArray | None = Field(None, description="")
 
-    @field_validator("mask_array")
-    @classmethod
-    def mask_within_spectrum(cls, mask_array: ScanMap2DArray | None) -> ScanMap2DArray | None:
-        """Check that mask_array is 0 <=values <= 255."""
-        if mask_array is None:
-            return mask_array
-
-        if ((mask_array < 0) | (mask_array > 255)).any():  # noqa
-            raise ValueError("mask_array values must be between 0 and 255 (inclusive)")
-
-        return mask_array
+    # @field_validator("mask_array")
+    # @classmethod
+    # def mask_within_spectrum(cls, mask_array: MaskMap2DArray | None) -> MaskMap2DArray | None:
+    #     """Check that mask_array is 0 <=values <= 255."""
+    #     if mask_array is None:
+    #         return mask_array
+    #
+    #     if ((mask_array < 0) | (mask_array > 255)).any():  # noqa
+    #         raise ValueError("mask_array values must be between 0 and 255 (inclusive)")
+    #
+    #     return mask_array
 
     @field_validator("parsed_file")
     @classmethod

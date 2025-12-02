@@ -48,12 +48,9 @@ def test_edit_image_at_least_one_task_field_given(
 
 @given(
     mask_array=arrays(
-        dtype=np.float64,
-        shape=st.tuples(
-            st.integers(min_value=1, max_value=50),
-            st.integers(min_value=1, max_value=50),
-        ),
-        elements=st.sampled_from([0.0, 255.0]),
+        dtype=np.uint8,
+        shape=st.tuples(st.integers(min_value=1, max_value=50), st.integers(min_value=1, max_value=50)),
+        elements=st.sampled_from([0, 255]),
     )
 )
 def test_mask_array_with_valid_boundary_values(mask_array: np.ndarray, valid_parsed_file: Path) -> None:
@@ -67,32 +64,29 @@ def test_mask_array_with_valid_boundary_values(mask_array: np.ndarray, valid_par
 
 @given(
     invalid_value=st.one_of(
-        st.floats(max_value=-0.1, allow_nan=False, allow_infinity=False),
-        st.floats(min_value=255.1, max_value=1000.0, allow_nan=False, allow_infinity=False),
+        st.integers(max_value=-1, min_value=-32768),
+        st.integers(min_value=256, max_value=32767),
     )
 )
 def test_mask_array_with_invalid_values_raises_error(invalid_value: float, valid_parsed_file: Path) -> None:
     """Test that mask_array with values outside [0, 255] raises ValidationError."""
     # Arrange
-    mask_array = np.array([[invalid_value, 100.0, 200.0], [50.0, 100.0, 200.0]], dtype=np.float64)
-
+    # mask_array = np.array([[invalid_value, 100, 200], [50, 100, 200]], dtype=np.int16)
+    mask_array = ((invalid_value, 50), (100, 100), (200, 200))
     # Act & Assert
     with pytest.raises(ValidationError, match="mask_array values must be between 0 and 255"):
-        EditImage(parsed_file=valid_parsed_file, mask_array=mask_array)
+        EditImage.model_validate(dict(parsed_file=valid_parsed_file, mask_array=mask_array))
 
 
 @given(
     mask_array=arrays(
-        dtype=np.float64,
-        shape=st.tuples(
-            st.integers(min_value=1, max_value=100),
-            st.integers(min_value=1, max_value=100),
-        ),
-        elements=st.floats(min_value=0.0, max_value=255.0, allow_nan=False, allow_infinity=False),
+        dtype=np.uint8,
+        shape=st.tuples(st.integers(min_value=1, max_value=100), st.integers(min_value=1, max_value=100)),
+        elements=st.integers(min_value=0, max_value=255),
     )
 )
-def test_mask_array_with_valid_float64_values(mask_array: np.ndarray, valid_parsed_file: Path) -> None:
-    """Test that any float64 array with values 0-255 is valid using property-based testing."""
+def test_mask_array_with_valid_uint8_values(mask_array: np.ndarray, valid_parsed_file: Path) -> None:
+    """Test that any uint8 array with values 0-255 is valid using property-based testing."""
     # Act
     edit_image = EditImage(parsed_file=valid_parsed_file, mask_array=mask_array)
 
