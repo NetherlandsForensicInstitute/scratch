@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from fastapi.exceptions import HTTPException
-from image_generation.image_generation import generate_3d_image
+from image_generation.image_generation import ImageGenerator, generate_3d_image
 from loguru import logger
 from parsers import from_file
 from parsers.exceptions import ExportError
@@ -68,13 +68,14 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
         raise HTTPException(
             status_code=500, detail=f"Failed to save the scan file  {upload_scan.output_dir / 'scan.x3p'}: {str(err)}"
         )
-
-    for image_generator, file_name in zip([generate_3d_image, generate_3d_image], ["surface_map.png", "preview.png"]):
+    image_generators: tuple[tuple[str, ImageGenerator], ...] = (
+        ("surface_map.png", generate_3d_image),
+        ("preview.png", generate_3d_image),
+    )
+    for file_name, image_generator in image_generators:
         try:
-            image_generator(parsed_scan).image.save(
-                upload_scan.output_dir / file_name
-            )  # TODO: if we want somthing like this, protocol is needed
-        except ValueError as err:  # TODO: ugly but it is how it is now..
+            image_generator(parsed_scan).image.save(upload_scan.output_dir / file_name)
+        except ValueError as err:
             logger.error("jammer man, failed to parse the given scan file")
             raise HTTPException(status_code=500, detail=f"Failed to generate {file_name}: {str(err)}")
 

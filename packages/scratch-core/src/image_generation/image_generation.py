@@ -1,8 +1,14 @@
+from typing import Protocol
 from image_generation.data_formats import ScanImage, LightSource, UnitVector3DArray
+
+
+class ImageGenerator(Protocol):
+    def __call__(self, depth_data: ScanImage, **kwargs) -> ScanImage: ...
 
 
 def generate_3d_image(
     depth_data: ScanImage,
+    *,
     light_sources: tuple[UnitVector3DArray, ...] = (
         LightSource(azimuth=90, elevation=45).unit_vector,
         LightSource(azimuth=180, elevation=45).unit_vector,
