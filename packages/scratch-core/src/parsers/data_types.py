@@ -9,6 +9,10 @@ from surfalize import Surface
 from surfalize.file import FileHandler
 from surfalize.file.al3d import MAGIC
 
+from utils.array_definitions import (
+    ScanMap2DArray,
+)
+
 from .patches.al3d import read_al3d
 
 UNIT_CONVERSION_FACTOR = 1e-6  # conversion factor from micrometers (um) to meters (m)
@@ -49,7 +53,7 @@ class ScanImage(FrozenBaseModel):
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
-    data: Annotated[NDArray[np.float64], AfterValidator(validate_parsed_image_shape)]
+    data: Annotated[ScanMap2DArray, AfterValidator(validate_parsed_image_shape)]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     meta_data: dict | None = None

@@ -4,6 +4,7 @@ from PIL import Image
 from numpy.typing import NDArray
 
 from parsers.data_types import ScanImage
+from utils.array_definitions import ScanMap2DArray
 from .constants import SCANS_DIR  # type: ignore
 
 
@@ -16,7 +17,7 @@ def image_data() -> NDArray:
 
 
 @pytest.fixture
-def scan_image(image_data: NDArray) -> ScanImage:
+def scan_image(image_data: ScanMap2DArray) -> ScanImage:
     """Build a `ScanImage` object`."""
     return ScanImage(data=image_data)
 

@@ -1,20 +1,9 @@
-from numpydantic import NDArray, Shape
-from numpy import float64
-from typing import Annotated
+from numpy import bool_, float64, uint8
+from numpy.typing import NDArray
 
-HeightWidthShape = "*, *"
-HeightWidthNLayers = f"{HeightWidthShape}, *"
-HeightWidth3Layers = f"{HeightWidthShape}, 3"
-UnitVector = "3"
-
-ScanMap2DArray = Annotated[NDArray[Shape[HeightWidthShape], float64], ...]  # type: ignore
-ScanTensor3DArray = Annotated[NDArray[Shape[HeightWidthNLayers], float64], ...]  # type: ignore
-ScanVectorField2DArray = Annotated[NDArray[Shape[HeightWidth3Layers], float64], ...]  # type: ignore
-UnitVector3DArray = Annotated[NDArray[Shape[UnitVector], float64], ...]  # type: ignore
-
-__all__ = [
-    "ScanMap2DArray",
-    "ScanTensor3DArray",
-    "ScanVectorField2DArray",
-    "UnitVector3DArray",
-]
+ScanMap2DArray = NDArray[float64]
+ScanMapRGBA = NDArray[uint8]
+ScanTensor3DArray = NDArray[float64]
+ScanVectorField2DArray = NDArray[float64]
+UnitVector3DArray = NDArray[float64]
+MaskArray = NDArray[bool_]
