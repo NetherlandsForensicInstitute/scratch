@@ -1,13 +1,13 @@
-from image_generation.data_formats import ScanMap2D, LightSource, UnitVector3DArray
+from image_generation.data_formats import ScanImage, LightSource, UnitVector3DArray
 
 
 def generate_3d_image(
-    depth_data: ScanMap2D,
+    depth_data: ScanImage,
     light_sources: tuple[UnitVector3DArray, ...] = (
         LightSource(azimuth=90, elevation=45).unit_vector,
         LightSource(azimuth=180, elevation=45).unit_vector,
     ),
-) -> ScanMap2D:
+) -> ScanImage:
     """
     Render a 3D image from 2D scan data using directional lighting.
 

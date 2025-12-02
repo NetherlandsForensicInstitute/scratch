@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from image_generation.data_formats import ScanMap2D
+from image_generation.data_formats import ScanImage
 from parsers import from_file, save_to_x3p
 from utils.array_definitions import ScanMap2DArray
 
@@ -12,10 +12,10 @@ from ..constants import PRECISION, SCANS_DIR  # type: ignore
 
 
 def validate_image(
-    parsed_image: ScanMap2D, expected_image_data: ScanMap2DArray, expected_scale: float
+    parsed_image: ScanImage, expected_image_data: ScanMap2DArray, expected_scale: float
 ):
     """Validate a parsed image."""
-    assert isinstance(parsed_image, ScanMap2D)
+    assert isinstance(parsed_image, ScanImage)
     assert parsed_image.data.shape == expected_image_data.shape
     assert np.allclose(
         parsed_image.data,
@@ -30,7 +30,7 @@ def validate_image(
 
 def test_exception_on_incorrect_shape(image_data: NDArray):
     with pytest.raises(ValueError, match="shape"):
-        _ = ScanMap2D(data=np.expand_dims(image_data, -1))
+        _ = ScanImage(data=np.expand_dims(image_data, -1))
 
 
 @pytest.mark.parametrize(
@@ -50,7 +50,7 @@ def test_parser_can_parse(
 
 
 def test_parsed_image_can_be_exported_to_x3p(
-    scan_map_2d: ScanMap2D, tmp_path: PosixPath
+    scan_map_2d: ScanImage, tmp_path: PosixPath
 ):
     save_to_x3p(image=scan_map_2d, output_path=tmp_path / "export.x3p")
 

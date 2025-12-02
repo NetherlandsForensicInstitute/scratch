@@ -7,7 +7,7 @@ from numpy.testing import assert_array_almost_equal
 
 from conversion.display import clip_data, get_array_for_display, grayscale_to_rgba
 from conversion.exceptions import NegativeStdScalerException
-from parsers import ScanImage
+from image_generation.data_formats import ScanImage
 from utils.array_definitions import ScanMap2DArray
 
 from ..constants import BASELINE_IMAGES_DIR

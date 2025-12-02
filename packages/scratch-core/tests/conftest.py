@@ -2,8 +2,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from image_generation.data_formats import ScanMap2D
-from image_generation.translations import ScanMap2DArray
+from image_generation.data_formats import ScanImage
 from parsers.data_types import from_file
 from utils.array_definitions import ScanMap2DArray
 
@@ -25,18 +24,19 @@ def scan_image(image_data: ScanMap2DArray) -> ScanMap2DArray:
 
 
 @pytest.fixture
-def scan_map_2d(image_data: ScanMap2DArray) -> ScanMap2D:
+def scan_map_2d(image_data: ScanMap2DArray) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return ScanMap2D(data=image_data)
+    return ScanImage(data=image_data)
 
 
 @pytest.fixture
-def scan_image_replica() -> ScanMap2D:
+def scan_image_replica() -> ScanImage:
     """Build a `ScanImage` object`."""
     return from_file(scan_file=SCANS_DIR / "Klein_non_replica_mode.al3d")
 
+
 @pytest.fixture(scope="module")
-def scan_image_with_nans() -> ScanMap2D:
+def scan_image_with_nans() -> ScanImage:
     """Build a `ScanImage` object`."""
     scan_image = from_file(SCANS_DIR / "Klein_non_replica_mode.al3d")
     # add random NaN values
