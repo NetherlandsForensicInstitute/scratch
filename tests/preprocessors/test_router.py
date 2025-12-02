@@ -29,7 +29,7 @@ def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
     )
 
     # Act
-    response = client.post("/preprocessor/process-scan", json=input_model.model_dump(mode="json"), timeout=5)
+    response = client.post("/preprocessor/process-scan", json=input_model.model_dump(mode="json"))
 
     # Assert
     expected_response = ProcessedDataLocation(
@@ -91,7 +91,6 @@ def test_process_scan_failures(  # noqa
     response = client.post(
         "/preprocessor/process-scan",
         json=input_model.model_dump(mode="json"),
-        timeout=5,
     )
 
     # Assert
