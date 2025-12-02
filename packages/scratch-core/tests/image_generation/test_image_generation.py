@@ -1,21 +1,11 @@
 import pytest
-from matplotlib import pyplot as plt
-from matplotlib.figure import Figure
 from matplotlib.testing.decorators import image_comparison
 
 from image_generation import generate_3d_image
 from image_generation.data_formats import ScanMap2D
 from parsers.data_types import ScanImage
 from utils.paths import PROJECT_ROOT
-
-
-def plot_test_data(data) -> Figure:
-    """Plot test data for debugging purposes."""
-    fig, ax = plt.subplots()
-    ax.imshow(data, cmap="gray")
-    ax.axis("off")
-    ax.axis("equal")
-    return fig
+from ..utils import plot_test_data  # type: ignore
 
 
 @pytest.fixture
