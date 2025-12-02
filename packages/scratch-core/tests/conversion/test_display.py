@@ -9,7 +9,7 @@ from numpy.testing import assert_array_almost_equal
 from conversion.display import clip_data, get_array_for_display, grayscale_to_rgba
 from conversion.exceptions import NegativeStdScalerException
 from parsers import ScanImage
-from ..constants import BASELINE_IMAGES_DIR
+from ..constants import BASELINE_IMAGES_DIR  # type: ignore
 
 
 @given(
