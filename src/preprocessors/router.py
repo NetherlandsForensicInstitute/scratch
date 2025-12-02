@@ -6,11 +6,9 @@ from parsers import from_file
 from parsers.exceptions import ExportError
 from parsers.x3p import save_to_x3p
 
+from preprocessors.models import ImageGenerationError, ParsingError
+
 from .schemas import ProcessedDataLocation, UploadScan
-
-
-class ParseError(Exception): ...
-
 
 preprocessor_route = APIRouter(
     prefix="/preprocessor",
@@ -42,6 +40,13 @@ async def comparison_root() -> dict[str, str]:
     an X3P file, a preview image, and a surface map, these files are saved to the output directory given as parameter.
     The endpoint parses and validates the file before running the processing pipeline.
 """,
+    responses={
+        400: {"description": "parse error", "model": ParsingError},
+        500: {
+            "description": "image generation error",
+            "model": ImageGenerationError,
+        },
+    },
 )
 async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     """
