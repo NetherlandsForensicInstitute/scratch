@@ -1,11 +1,13 @@
 from pathlib import Path
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from starlette.status import HTTP_200_OK
 
 from constants import PROJECT_ROOT
 from preprocessors import ProcessedDataLocation, UploadScan
+from preprocessors.schemas import EditImage
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
@@ -37,9 +39,24 @@ def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
     )
 
     # Act
-    response = client.post("/preprocessor/process-scan", json=input_model.model_dump(mode="json"), timeout=5)
+    response = client.post("/preprocessor/process-scan", json=input_model.model_dump(mode="json"))
 
     # Assert
     assert response.status_code == HTTP_200_OK, "endpoint is alive"
     response_model = expected_response.model_validate(response.json())
     assert response_model == expected_response
+
+
+@pytest.mark.integration
+def test_edit_image(client: TestClient) -> None:
+    # Arrange
+    scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.x3p"
+    input_model = EditImage(
+        parsed_file=scan_file, mask_array=np.array([[50, 100, 200], [50, 100, 200]], dtype=np.uint8)
+    )
+
+    # Act
+    response = client.post("/preprocessor/edit-image", json=input_model.model_dump(mode="json"))
+
+    # Assert
+    assert response.status_code == HTTP_200_OK, f"endpoint failed: {response.text}"

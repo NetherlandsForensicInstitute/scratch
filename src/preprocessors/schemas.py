@@ -80,18 +80,6 @@ class EditImage(BaseModelConfig):
     zoom: bool = Field(False, description="")
     mask_array: MaskMap2DArray | None = Field(None, description="")
 
-    # @field_validator("mask_array")
-    # @classmethod
-    # def mask_within_spectrum(cls, mask_array: MaskMap2DArray | None) -> MaskMap2DArray | None:
-    #     """Check that mask_array is 0 <=values <= 255."""
-    #     if mask_array is None:
-    #         return mask_array
-    #
-    #     if ((mask_array < 0) | (mask_array > 255)).any():  # noqa
-    #         raise ValueError("mask_array values must be between 0 and 255 (inclusive)")
-    #
-    #     return mask_array
-
     @field_validator("parsed_file")
     @classmethod
     def validate_x3p_extension(cls, parse_file: FilePath) -> FilePath:
@@ -108,9 +96,9 @@ class EditImage(BaseModelConfig):
         excluding the required parsed_file and optional sampling fields.
         """
         if not any(
-            getattr(self, field_name)
-            for field_name in self.__class__.model_fields
-            if field_name not in ("parsed_file", "sampling")
+            getattr(self, field) if field == "zoom" else getattr(self, field) is not None
+            for field in self.__class__.model_fields
+            if field not in ("parsed_file", "sampling")
         ):
             raise ValueError("No edit task parmeters given")
         return self
