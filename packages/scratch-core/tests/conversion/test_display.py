@@ -32,26 +32,22 @@ def test_clip_data_bounds_match_expected_bounds(data: NDArray, std_scaler: float
 
 
 @pytest.mark.parametrize(
-    "data, std_scaler, expected_lower, expected_upper",
+    "data",
     [
-        (np.array([0, 5, 6.7, 0.12]), 1.0, -0.45949361789807286, 6.369493617898073),
-        (
-            np.array([0, 5, np.nan, 6.7, 0.12]),
-            1.0,
-            -0.45949361789807286,
-            6.369493617898073,
+        pytest.param(np.array([0, 5, 6.7, 0.12]), id="Array contains no NaNs"),
+        pytest.param(
+            np.array([0, 5, np.nan, 6.7, 0.12]), id="Array contains single NaN value"
         ),
-        (
+        pytest.param(
             np.array([0, 5, np.nan, 6.7, 0.12, np.nan, np.nan]),
-            1.0,
-            -0.45949361789807286,
-            6.369493617898073,
+            id="Array contains multiple NaN values",
         ),
     ],
 )
-def test_clip_data_ignores_nans(
-    data: NDArray, std_scaler: float, expected_lower: float, expected_upper
-):
+def test_clip_data_ignores_nans(data: NDArray):
+    std_scaler = 1.0
+    expected_lower = -0.45949361789807286
+    expected_upper = 6.369493617898073
     _, lower, upper = clip_data(data, std_scaler)
     assert np.isclose(lower, expected_lower), f"Lower bound should be {expected_lower}"
     assert np.isclose(upper, expected_upper), f"Upper bound should be {expected_upper}"
