@@ -20,31 +20,15 @@ class SurfaceFilter(ABC):
         self,
         is_high_pass: bool = False,
         nan_out: bool = True,
-        downweight_outliers: bool = False,
-        outlier_tol: float = 1e-2,
-        n_downweight_outlier_iter: int = 50,
     ):
         """Initialize filter with common parameters.
 
         :param is_high_pass: Whether to apply as highpass filter (data - filtered).
         :param nan_out: Whether to return NaN values as NaN values.
-        :param downweight_outliers: Whether to use iterative biweight to downweight outliers.
-        :param outlier_tol: Convergence tolerance for outlier downweighting.
-        :param n_downweight_outlier_iter: Maximum iterations for outlier downweighting.
         :raises ValueError: If parameters are invalid.
         """
-        if outlier_tol <= 0:
-            raise ValueError(f"outlier_tol must be positive, got {outlier_tol}")
-        if n_downweight_outlier_iter < 1:
-            raise ValueError(
-                f"n_downweight_outlier_iter must be >= 1, got {n_downweight_outlier_iter}"
-            )
-
         self.is_high_pass = is_high_pass
         self.nan_out = nan_out
-        self.downweight_outliers = downweight_outliers
-        self.outlier_tol = outlier_tol
-        self.n_downweight_outlier_iter = n_downweight_outlier_iter
 
     def apply(self, data: np.ndarray) -> np.ndarray:
         """Apply filter to data.
@@ -145,9 +129,6 @@ class KernelBasedFilter(SurfaceFilter):
             data=data,
             regression_order=self.regression_order,
             nan_out=self.nan_out,
-            downweight_outliers=self.downweight_outliers,
-            outlier_tol=self.outlier_tol,
-            n_downweight_outlier_iter=self.n_downweight_outlier_iter,
         )
 
 
@@ -193,5 +174,5 @@ class AveragingFilter(KernelBasedFilter):
         return (
             f"AveragingFilter(filter_size={tuple(self.filter_size)}, "
             f"domain=FilterDomain.{self.domain.name}, regression_order={self.regression_order}, "
-            f"downweight_outliers={self.downweight_outliers}, is_high_pass={self.is_high_pass})"
+            f"is_high_pass={self.is_high_pass})"
         )

@@ -166,37 +166,10 @@ class TestDummyFilterApply:
         assert isinstance(result, np.ndarray)
         assert result.shape == (5,)
 
-
-class TestDummyFilterValidation:
-    """Tests for parameter validation in DummyFilter.__init__."""
-
-    def test_negative_outlier_tol_raises_error(self):
-        """Test that negative outlier_tol raises ValueError."""
-        with pytest.raises(ValueError, match="outlier_tol must be positive"):
-            DummyFilter(outlier_tol=-0.1)
-
-    def test_zero_outlier_tol_raises_error(self):
-        """Test that zero outlier_tol raises ValueError."""
-        with pytest.raises(ValueError, match="outlier_tol must be positive"):
-            DummyFilter(outlier_tol=0)
-
-    def test_zero_n_downweight_outlier_iter_raises_error(self):
-        """Test that zero n_downweight_outlier_iter raises ValueError."""
-        with pytest.raises(ValueError, match="n_downweight_outlier_iter must be >= 1"):
-            DummyFilter(n_downweight_outlier_iter=0)
-
-    def test_negative_n_downweight_outlier_iter_raises_error(self):
-        """Test that negative n_downweight_outlier_iter raises ValueError."""
-        with pytest.raises(ValueError, match="n_downweight_outlier_iter must be >= 1"):
-            DummyFilter(n_downweight_outlier_iter=-5)
-
     def test_valid_parameters_no_error(self):
         """Test that valid parameters don't raise errors."""
         # Should not raise any exceptions
         DummyFilter(
             is_high_pass=True,
             nan_out=False,
-            downweight_outliers=True,
-            outlier_tol=0.01,
-            n_downweight_outlier_iter=50,
         )
