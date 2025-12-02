@@ -1,9 +1,10 @@
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
-from numpy.typing import NDArray
+
+from utils.array_definitions import ScanMap2DArray
 
 
-def plot_test_data(data: NDArray) -> Figure:
+def plot_test_data(data: ScanMap2DArray) -> Figure:
     """Plot 2D image data for debugging purposes."""
     fig, ax = plt.subplots()
     ax.imshow(data, cmap="gray")

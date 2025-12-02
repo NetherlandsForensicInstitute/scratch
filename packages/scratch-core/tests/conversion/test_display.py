@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 from conversion.display import clip_data, get_array_for_display, grayscale_to_rgba
 from conversion.exceptions import NegativeStdScalerException
 from parsers import ScanImage
+from utils.array_definitions import ScanMap2DArray
 
 from ..constants import BASELINE_IMAGES_DIR  # type: ignore
 
@@ -21,7 +22,9 @@ from ..constants import BASELINE_IMAGES_DIR  # type: ignore
         elements=st.floats(allow_nan=False, min_value=0.0, max_value=100.0),
     ),
 )
-def test_clip_data_bounds_match_expected_bounds(data: NDArray, std_scaler: float):
+def test_clip_data_bounds_match_expected_bounds(
+    data: ScanMap2DArray, std_scaler: float
+):
     expected_lower = np.mean(data) - np.std(data, ddof=1) * std_scaler
     expected_upper = np.mean(data) + np.std(data, ddof=1) * std_scaler
 
@@ -45,7 +48,7 @@ def test_clip_data_bounds_match_expected_bounds(data: NDArray, std_scaler: float
         ),
     ],
 )
-def test_clip_data_ignores_nans(data: NDArray):
+def test_clip_data_ignores_nans(data: ScanMap2DArray):
     std_scaler = 1.0
     expected_lower = -0.45949361789807286
     expected_upper = 6.369493617898073
