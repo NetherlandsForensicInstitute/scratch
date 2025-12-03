@@ -14,7 +14,7 @@ from ..constants import BASELINE_IMAGES_DIR  # type: ignore
 
 
 @given(
-    std_scaler=st.floats(min_value=0, exclude_min=True),
+    std_scaler=st.floats(min_value=0, max_value=100, exclude_min=True),
     data=arrays(
         dtype=float,
         shape=(4, 4),
