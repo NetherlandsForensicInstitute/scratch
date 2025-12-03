@@ -4,7 +4,6 @@ from hypothesis import given
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 from numpy.testing import assert_array_almost_equal
-from numpy.typing import NDArray
 
 from conversion.display import clip_data, get_array_for_display, grayscale_to_rgba
 from conversion.exceptions import NegativeStdScalerException
