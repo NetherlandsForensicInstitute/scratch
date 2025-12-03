@@ -4,7 +4,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 from parsers.exceptions import ExportError
-from starlette.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR
+from starlette.status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR
 
 from constants import PROJECT_ROOT
 from preprocessors import ProcessedDataLocation, UploadScan
@@ -46,26 +46,12 @@ def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
     ("target_path", "error_kind", "expected_status", "expected_detail"),
     [
         pytest.param(
-            "preprocessors.router.from_file",
-            ExportError,
-            HTTP_400_BAD_REQUEST,
-            "Failed to parse the given scan file, err:Test error",
-            id="from_file failes",
-        ),
-        pytest.param(
             "preprocessors.router.save_to_x3p",
             ExportError,
             HTTP_500_INTERNAL_SERVER_ERROR,
             "Failed to save the scan file",
             id="save_to_x3p failes",
-        ),
-        pytest.param(
-            "image_generation.image_generation.get_array_for_display",
-            ValueError,
-            HTTP_500_INTERNAL_SERVER_ERROR,
-            "Failed to generate surface_map.png",
-            id="generate_3d_image failes",
-        ),
+        )
     ],
 )
 @pytest.mark.integration

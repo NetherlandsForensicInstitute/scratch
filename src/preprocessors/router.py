@@ -6,8 +6,8 @@ from parsers import from_file
 from parsers.exceptions import ExportError
 from parsers.x3p import save_to_x3p
 
+from preprocessors.helpers import export_image_pipeline
 from preprocessors.models import ImageGenerationError, ParsingError
-from src.preprocessors.helpers import export_image_pipeline
 
 from .schemas import ProcessedDataLocation, UploadScan
 
