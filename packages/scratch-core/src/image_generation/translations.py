@@ -7,6 +7,7 @@ from utils.array_definitions import (
     ScanMap2DArray,
     ScanVectorField2DArray,
     ScanTensor3DArray,
+    ScanMapRGBA,
 )
 
 
@@ -151,7 +152,7 @@ def normalize_2d_array(
     return scale_min + (scale_max - scale_min) * norm
 
 
-def _grayscale_to_rgba(scan_data: ScanMap2DArray) -> ScanMap2DArray:
+def _grayscale_to_rgba(scan_data: ScanMap2DArray) -> ScanMapRGBA:
     """
     Convert a 2D grayscale array to an 8-bit RGBA array.
 
