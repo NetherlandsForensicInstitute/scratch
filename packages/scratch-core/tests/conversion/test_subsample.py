@@ -6,7 +6,7 @@ import pytest
 from conversion import subsample_data
 from parsers.data_types import ScanImage
 
-from ..constants import BASELINE_IMAGES_DIR, PRECISION  # type: ignore
+from ..constants import BASELINE_IMAGES_DIR, PRECISION
 
 
 @pytest.mark.parametrize("step_size", [(1, 1), (10, 10), (25, 25), (25, 50)])

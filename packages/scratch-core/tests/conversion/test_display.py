@@ -10,7 +10,7 @@ from conversion.exceptions import NegativeStdScalerException
 from parsers import ScanImage
 from utils.array_definitions import ScanMap2DArray
 
-from ..constants import BASELINE_IMAGES_DIR  # type: ignore
+from ..constants import BASELINE_IMAGES_DIR
 
 
 @given(
