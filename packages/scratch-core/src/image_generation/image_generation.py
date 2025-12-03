@@ -1,9 +1,18 @@
-from typing import Protocol
-from image_generation.data_formats import ScanImage, LightSource, UnitVector3DArray
+from typing import ParamSpec, Protocol
+
+from conversion.display import clip_data, normalize
+from image_generation.data_formats import LightSource, ScanImage, UnitVector3DArray
+
+P = ParamSpec("P")
 
 
-class ImageGenerator(Protocol):
-    def __call__(self, depth_data: ScanImage, **kwargs) -> ScanImage: ...
+class ImageGenerator(Protocol[P]):
+    def __call__(
+        self,
+        depth_data: ScanImage,
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> ScanImage: ...
 
 
 def generate_3d_image(
@@ -38,3 +47,21 @@ def generate_3d_image(
         .apply_lights(light_sources)
         .combined.normalize()
     )
+
+
+def get_array_for_display(
+    depth_data: ScanImage, *, std_scaler: float = 2.0
+) -> ScanImage:
+    """
+    Clip and normalize image data for displaying purposes.
+
+    First the data will be clipped so that the values lie in the interval [μ - σ * S, μ + σ * S].
+    Then the values are min-max normalized and scaled to the [0, 255] interval.
+
+    :param image: An instance of `ScanImage`.
+    :param std_scaler: The multiplier `S` for the standard deviation used above when clipping the image.
+    :returns: An array containing the clipped and normalized image data.
+    """
+    clipped, lower, upper = clip_data(data=depth_data.data, std_scaler=std_scaler)
+    normalized = normalize(clipped, lower, upper)
+    return ScanImage(data=normalized)

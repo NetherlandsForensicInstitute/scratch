@@ -1,7 +1,6 @@
 import numpy as np
 
 from conversion.exceptions import NegativeStdScalerException
-from parsers.data_types import ScanImage
 from utils.array_definitions import ScanMap2DArray, ScanMapRGBA
 
 
@@ -41,22 +40,6 @@ def grayscale_to_rgba(image: ScanMap2DArray) -> ScanMapRGBA:
     rgba[..., :-1] = np.expand_dims(image.astype(np.uint8), axis=-1)
     rgba[..., -1] = ~np.isnan(image) * 255
     return rgba
-
-
-def get_array_for_display(image: ScanImage, std_scaler: float = 2.0) -> ScanMap2DArray:
-    """
-    Clip and normalize image data for displaying purposes.
-
-    First the data will be clipped so that the values lie in the interval [μ - σ * S, μ + σ * S].
-    Then the values are min-max normalized and scaled to the [0, 255] interval.
-
-    :param image: An instance of `ScanImage`.
-    :param std_scaler: The multiplier `S` for the standard deviation used above when clipping the image.
-    :returns: An array containing the clipped and normalized image data.
-    """
-    clipped, lower, upper = clip_data(data=image.data, std_scaler=std_scaler)
-    normalized = normalize(clipped, lower, upper)
-    return normalized
 
 
 def normalize(
