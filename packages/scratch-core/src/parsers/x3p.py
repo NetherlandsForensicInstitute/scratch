@@ -1,6 +1,6 @@
 import datetime as dt
 from pathlib import Path
-from typing import NamedTuple, cast
+from typing import NamedTuple
 
 import numpy as np
 from x3p import X3Pfile
@@ -48,8 +48,8 @@ def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
     # set the binary data
     x3p.set_data(np.ascontiguousarray(image.data))
     # manually set the Record3 entries since these are set incorrectly in package
-    x3p.record3.matrixdimension.sizeX = cast(int, image.data.shape[1])
-    x3p.record3.matrixdimension.sizeY = cast(int, image.data.shape[0])
+    x3p.record3.matrixdimension.sizeX = image.data.shape[1]
+    x3p.record3.matrixdimension.sizeY = image.data.shape[0]
     return x3p
 
 
