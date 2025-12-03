@@ -9,6 +9,7 @@ from utils.array_definitions import (
     ScanTensor3DArray,
     ScanVectorField2DArray,
     UnitVector3DArray,
+    ScanMapRGBA,
 )
 
 
