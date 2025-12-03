@@ -5,7 +5,6 @@ import pytest
 
 from conversion import subsample_data
 from image_generation.data_formats import ScanImage
-from conversion import subsample_data
 from image_generation.translations import ScanMap2DArray
 
 from ..constants import BASELINE_IMAGES_DIR, PRECISION

@@ -2,13 +2,12 @@ from pathlib import Path, PosixPath
 
 import numpy as np
 import pytest
-from numpy.typing import NDArray
 
 from image_generation.data_formats import ScanImage
 from parsers import from_file, save_to_x3p
 from utils.array_definitions import ScanMap2DArray
 
-from ..constants import PRECISION, SCANS_DIR  # type: ignore
+from ..constants import PRECISION, SCANS_DIR
 
 
 def validate_image(
