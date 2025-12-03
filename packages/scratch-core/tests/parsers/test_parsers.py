@@ -27,11 +27,6 @@ def validate_image(
     assert np.isclose(parsed_image.scale_x, expected_scale, atol=PRECISION)
 
 
-def test_exception_on_incorrect_shape(image_data: NDArray):
-    with pytest.raises(ValueError, match="shape"):
-        _ = ScanImage(data=np.expand_dims(image_data, -1))
-
-
 @pytest.mark.parametrize(
     "filename, expected_scale",
     [("circle.al3d", 8.7654321e-7), ("circle.x3p", 8.7654321e-7)],

@@ -128,7 +128,6 @@ class ScanImage(BaseModel, arbitrary_types_allowed=True):
         except ValueError as e:
             logger.error(f"Error computing surface normals: {e}")
             raise ImageGenerationError(f"Error computing surface normals: {e}") from e
-        return sufrace_normals
 
     def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanImage":
         """
