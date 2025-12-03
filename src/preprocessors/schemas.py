@@ -2,7 +2,8 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Self
 
-from pydantic import DirectoryPath, Field, FilePath, field_validator, model_validator
+from pydantic import DirectoryPath, Field, FilePath, PositiveInt, field_validator, model_validator
+from utils.array_definitions import MaskMap2DArray
 
 from models import BaseModelConfig
 
@@ -12,6 +13,17 @@ class SupportedExtension(StrEnum):
     X3P = auto()
     SUR = auto()
     PLU = auto()
+
+
+class Level(StrEnum):
+    PLAIN = auto()
+    SPHERE = auto()
+
+
+class Filter(StrEnum):
+    RO = auto()
+    R1 = auto()
+    R2 = auto()
 
 
 class UploadScan(BaseModelConfig):
@@ -57,4 +69,36 @@ class ProcessedDataLocation(BaseModelConfig):
             if field_info.annotation is Path
         ):
             raise ValueError("All fields must point to the same output directory")
+        return self
+
+
+class EditImage(BaseModelConfig):
+    parsed_file: FilePath
+    sampling: PositiveInt = Field(4, description="")
+    level: Level | None = Field(None, description="")
+    filter: Filter | None = Field(None, description="")
+    zoom: bool = Field(False, description="")
+    mask_array: MaskMap2DArray | None = Field(None, description="")
+
+    @field_validator("parsed_file")
+    @classmethod
+    def validate_x3p_extension(cls, parse_file: FilePath) -> FilePath:
+        """Validate given file is x3p extension."""
+        if parse_file.suffix[1:] != SupportedExtension.X3P:
+            raise ValueError(f"was expecting an x3p file: {parse_file.name}")
+        return parse_file
+
+    @model_validator(mode="after")
+    def validate_at_least_edit_task(self) -> Self:
+        """Validate that at least one edit task parameter is provided.
+
+        Ensures at least one task field (level, filter, zoom, or mask_array) is set,
+        excluding the required parsed_file and optional sampling fields.
+        """
+        if not any(
+            getattr(self, field) if field == "zoom" else getattr(self, field) is not None
+            for field in self.__class__.model_fields
+            if field not in ("parsed_file", "sampling")
+        ):
+            raise ValueError("No edit task parmeters given")
         return self
