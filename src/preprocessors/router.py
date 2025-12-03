@@ -5,8 +5,9 @@ from loguru import logger
 from parsers import load_scan_image
 from parsers.exceptions import ExportError
 from parsers.x3p import save_to_x3p
-from preprocessors.models import ImageGenerationError, ParsingError
+
 from preprocessors.helpers import export_image_pipeline
+from preprocessors.models import ImageGenerationError, ParsingError
 
 from .schemas import ProcessedDataLocation, UploadScan
 
