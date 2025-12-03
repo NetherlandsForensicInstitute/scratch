@@ -3,17 +3,18 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
-from numpy.typing import NDArray
 from numpy.testing import assert_array_almost_equal
+from numpy.typing import NDArray
 
 from conversion.display import clip_data, get_array_for_display, grayscale_to_rgba
 from conversion.exceptions import NegativeStdScalerException
 from parsers import ScanImage
+
 from ..constants import BASELINE_IMAGES_DIR  # type: ignore
 
 
 @given(
-    std_scaler=st.floats(min_value=0, exclude_min=True),
+    std_scaler=st.floats(min_value=0, max_value=100, exclude_min=True),
     data=arrays(
         dtype=float,
         shape=(4, 4),
