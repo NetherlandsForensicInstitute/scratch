@@ -49,9 +49,7 @@ def test_subsample_rejects_incorrect_sizes(
         _ = subsample_data(scan_image=scan_image, step_size=step_size)
 
 
-def test_subsample_matches_baseline_output(
-    scan_image_replica: ScanImage
-):
+def test_subsample_matches_baseline_output(scan_image_replica: ScanImage):
     verified = np.load(BASELINE_IMAGES_DIR / "replica_subsampled.npy")
 
     subsampled = subsample_data(scan_image=scan_image_replica.data, step_size=(10, 15))
