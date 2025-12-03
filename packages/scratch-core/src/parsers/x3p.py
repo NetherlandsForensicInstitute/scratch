@@ -6,7 +6,7 @@ import numpy as np
 from x3p import X3Pfile
 from returns.result import Result, safe
 from returns.io import impure_safe
-from image_generation.data_formats import ScanMap2D
+from image_generation.data_formats import ScanImage
 from parsers.exceptions import PreProcessError
 from utils.logger import log_io_railway_function, log_railway_function
 
@@ -26,7 +26,7 @@ class X3PMetaData(NamedTuple):
 
 
 @safe
-def _set_record1_entries(x3p: X3Pfile, image: ScanMap2D) -> X3Pfile:
+def _set_record1_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
     """Set Record1 entries (axes configuration)."""
     x3p.record1.set_featuretype("SUR")
     x3p.record1.axes.CX.set_axistype("I")
@@ -57,14 +57,14 @@ def _set_record2_entries(x3p: X3Pfile, meta_data: X3PMetaData) -> X3Pfile:
 
 
 @safe
-def _set_binary_data(x3p: X3Pfile, image: ScanMap2D) -> X3Pfile:
+def _set_binary_data(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
     """Set the binary data."""
     x3p.set_data(np.ascontiguousarray(image.data))
     return x3p
 
 
 @safe
-def _set_record3_entries(x3p: X3Pfile, image: ScanMap2D) -> X3Pfile:
+def _set_record3_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
     """Set Record3 entries (matrix dimensions)."""
     # manually set the Record3 entries since these are set incorrectly in package
     x3p.record3.matrixdimension.sizeX = image.data.shape[1]  # type: ignore
@@ -75,8 +75,8 @@ def _set_record3_entries(x3p: X3Pfile, image: ScanMap2D) -> X3Pfile:
 @log_railway_function(
     PreProcessError.X3P_PARSE_ERROR, "Successfully parse array to x3p"
 )
-def parse_to_x3p(image: ScanMap2D) -> Result[X3Pfile, Exception]:
-    """Convert ScanMap2D to X3Pfile using a functional approach."""
+def parse_to_x3p(image: ScanImage) -> Result[X3Pfile, Exception]:
+    """Convert ScanImage to X3Pfile using a functional approach."""
     return (
         _set_record1_entries(X3Pfile(), image)
         .bind(lambda x3p: _set_record2_entries(x3p, X3PMetaData()))

@@ -4,6 +4,7 @@ from image_generation.image_generation import ImageGenerator, generate_3d_image
 from loguru import logger
 from parsers import from_file, parse_to_x3p, save_x3p
 from parsers.exceptions import ExportError
+from returns.io import IOFailure
 
 from preprocessors.models import ImageGenerationError, ParsingError
 
@@ -63,7 +64,8 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     match parse_to_x3p(parsed_scan).bind(lambda x3p: save_x3p(x3p, upload_scan.output_dir / "scan.x3p")):
         case IOFailure(err):
             raise HTTPException(
-                status_code=500, detail=f"Failed to save the scan file  {upload_scan.output_dir / 'scan.x3p'}: {str(err)}"
+                status_code=500,
+                detail=f"Failed to save the scan file  {upload_scan.output_dir / 'scan.x3p'}: {str(err)}",
             )
 
     image_generators: tuple[tuple[str, ImageGenerator], ...] = (
