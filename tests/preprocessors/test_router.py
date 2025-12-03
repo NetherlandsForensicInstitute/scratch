@@ -60,7 +60,7 @@ def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
             id="save_to_x3p failes",
         ),
         pytest.param(
-            "preprocessors.router.generate_3d_image",
+            "image_generation.image_generation.get_array_for_display",
             ValueError,
             HTTP_500_INTERNAL_SERVER_ERROR,
             "Failed to generate surface_map.png",
