@@ -5,7 +5,7 @@ from PIL import Image
 from parsers.data_types import ScanImage
 from utils.array_definitions import ScanMap2DArray
 
-from .constants import SCANS_DIR  # type: ignore
+from .constants import SCANS_DIR
 
 
 @pytest.fixture
