@@ -5,7 +5,6 @@ from PIL import Image
 from image_generation.data_formats import ScanImage
 from parsers.data_types import load_scan_image
 from utils.array_definitions import ScanMap2DArray
-
 from .constants import SCANS_DIR
 
 
