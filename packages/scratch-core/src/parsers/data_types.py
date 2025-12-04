@@ -33,8 +33,10 @@ class FrozenBaseModel(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
 
-def validate_parsed_image_shape(image_data: ScanMap2DArray) -> ScanMap2DArray:
-    """Test whether the parsed image data has a valid shape."""
+def validate_parsed_image(image_data: ScanMap2DArray) -> ScanMap2DArray:
+    """Test whether the parsed image data has valid data and a valid shape."""
+    if np.isnan(image_data.data).all():
+        raise ValueError("Image data does not contain numerical data points.")
     if len(image_data.shape) != 2:
         raise ValueError(f"Invalid array shape: {image_data.shape}")
     return image_data
@@ -52,7 +54,7 @@ class ScanImage(FrozenBaseModel):
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
-    data: Annotated[ScanMap2DArray, AfterValidator(validate_parsed_image_shape)]
+    data: Annotated[ScanMap2DArray, AfterValidator(validate_parsed_image)]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     meta_data: dict | None = None
