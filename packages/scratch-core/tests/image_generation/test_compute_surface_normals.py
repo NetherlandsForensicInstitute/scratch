@@ -63,7 +63,7 @@ def test_slope_has_nan_border(
     # Act
     surface_normals = compute_surface_normals(
         depth_data=input_image, x_dimension=1, y_dimension=1
-    )
+    ).unwrap()
 
     # Assert
     assert_no_nan(surface_normals, inner_mask)
@@ -81,7 +81,7 @@ def test_flat_surface_returns_flat_surface(
     # Act
     surface_normals = compute_surface_normals(
         depth_data=input_image, x_dimension=1, y_dimension=1
-    )
+    ).unwrap()
 
     # Assert
     assert_normals_close(surface_normals, inner_mask, (0, 0, 1), atol=TOLERANCE)
@@ -107,7 +107,7 @@ def test_linear_slope(step_x: float, step_y: float, inner_mask: MaskArray) -> No
     expected = (-step_x / norm, step_y / norm, 1 / norm)
 
     # Act
-    surface_normals = compute_surface_normals(input_image, 1, 1)
+    surface_normals = compute_surface_normals(input_image, 1, 1).unwrap()
 
     # Assert
     assert_normals_close(surface_normals, inner_mask, expected, atol=TOLERANCE)
@@ -136,7 +136,7 @@ def test_location_slope_is_where_expected(
     # Act
     surface_normals = compute_surface_normals(
         depth_data=input_depth_map_with_bump, x_dimension=1, y_dimension=1
-    )
+    ).unwrap()
 
     # Assert
     assert np.any(np.abs(surface_normals[..., 0][bump_mask]) > 0), (
@@ -167,7 +167,7 @@ def test_corner_of_slope(
     )
 
     # Act
-    surface_normals = compute_surface_normals(input_depth_map_with_bump, 1, 1)
+    surface_normals = compute_surface_normals(input_depth_map_with_bump, 1, 1).unwrap()
 
     # Assert
 

@@ -1,4 +1,6 @@
-from image_generation.exceptions import ImageGenerationError
+from __future__ import annotations
+from returns.result import Failure, Success
+from returns.maybe import maybe
 from PIL.Image import Image
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
@@ -96,23 +98,23 @@ class ScanImage(BaseModel, arbitrary_types_allowed=True):
         """The image height in pixels."""
         return self.data.shape[0]
 
-    def subsample_data(self, step_x: int = 1, step_y: int = 1) -> "ScanImage":
+    @maybe
+    def subsample_data(self, step_x: int = 1, step_y: int = 1) -> ScanImage | None:
         """Subsample the data in a `ScanImage` instance by skipping `step_size` steps."""
-        logger.debug(f"Subsampling data with step size ({step_x}, {step_y})")
-        try:
-            array = subsample_data(self.data, step_x, step_y)
-        except ValueError as e:
-            logger.error(f"Error subsampling data: {e}")
-            raise ImageGenerationError(f"Error subsampling data: {e}") from e
-        return ScanImage(
-            data=array,
-            scale_x=self.scale_x * step_x,
-            scale_y=self.scale_y * step_y,
-        )
+        match subsample_data(self.data, step_x, step_y):
+            case Success(array):
+                return ScanImage(
+                    data=array,
+                    scale_x=self.scale_x * step_x,
+                    scale_y=self.scale_y * step_y,
+                )
+            case Failure(error):
+                logger.error(f"Error subsampling data: {error}")
 
+    @maybe
     def compute_normals(
         self, x_dimension: float, y_dimension: float
-    ) -> "SurfaceNormals":
+    ) -> SurfaceNormals | None:
         """
         Compute per-pixel surface normals from a 2D depth map.
 
@@ -121,13 +123,11 @@ class ScanImage(BaseModel, arbitrary_types_allowed=True):
 
         :returns: Normal vectors per pixel in a 3-layer field. Layers are [x,y,z]
         """
-        try:
-            return SurfaceNormals(
-                data=compute_surface_normals(self.data, x_dimension, y_dimension)
-            )
-        except ValueError as e:
-            logger.error(f"Error computing surface normals: {e}")
-            raise ImageGenerationError(f"Error computing surface normals: {e}") from e
+        match compute_surface_normals(self.data, x_dimension, y_dimension):
+            case Success(array):
+                return SurfaceNormals(data=array)
+            case Failure(error):
+                logger.error(f"Error computing surface normals: {error}")
 
     def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanImage":
         """

@@ -1,6 +1,10 @@
 from PIL.Image import Image, fromarray
 import numpy as np
-from typing import Protocol
+from typing import NamedTuple, Protocol
+
+from numpy.typing import NDArray
+from returns.pipeline import flow
+from returns.result import safe
 
 from utils.array_definitions import (
     UnitVector3DArray,
@@ -9,8 +13,77 @@ from utils.array_definitions import (
     ScanTensor3DArray,
     ScanMapRGBA,
 )
+from utils.logger import log_railway_function
 
 
+class GradientComponents(NamedTuple):
+    """Container for gradient components with optional magnitude."""
+
+    x: NDArray
+    y: NDArray
+    magnitude: NDArray | None = None
+
+
+class PhysicalSpacing(NamedTuple):
+    """Physical spacing between samples in x and y directions."""
+
+    x: float
+    y: float
+
+
+# Padding configurations for gradient arrays to maintain original dimensions
+_PAD_X_GRADIENT = ((0, 0), (1, 1))  # Pad left and right (columns)
+_PAD_Y_GRADIENT = ((1, 1), (0, 0))  # Pad top and bottom (rows)
+
+
+def _compute_central_diff_scales(
+    spacing: PhysicalSpacing,
+) -> PhysicalSpacing:
+    """Compute scaling factors for central difference approximation: 1/(2*spacing)."""
+    return PhysicalSpacing(*(1 / (2 * value) for value in spacing))
+
+
+def _pad_gradient(
+    unpadded_gradient: NDArray, pad_width: tuple[tuple[int, int], tuple[int, int]]
+) -> NDArray:
+    """Pad a gradient array with NaN values at the borders."""
+    return np.pad(unpadded_gradient, pad_width, mode="constant", constant_values=np.nan)
+
+
+def _compute_depth_gradients(
+    scales: PhysicalSpacing, depth_data: NDArray
+) -> GradientComponents:
+    """Compute depth gradients (∂z/∂x, ∂z/∂y) using central differences."""
+    return GradientComponents(
+        x=_pad_gradient(
+            (depth_data[:, :-2] - depth_data[:, 2:]) * scales.x,
+            _PAD_X_GRADIENT,
+        ),
+        y=_pad_gradient(
+            (depth_data[:-2, :] - depth_data[2:, :]) * scales.y,
+            _PAD_Y_GRADIENT,
+        ),
+    )
+
+
+def _add_normal_magnitude(gradients: GradientComponents) -> GradientComponents:
+    """Compute and attach the normal vector magnitude to gradient components."""
+    magnitude = np.sqrt(gradients.x**2 + gradients.y**2 + 1)
+    return GradientComponents(gradients.x, gradients.y, magnitude)
+
+
+def _normalize_to_surface_normals(gradients: GradientComponents) -> NDArray:
+    """Normalize gradient components to unit surface normal vectors."""
+    x, y, magnitude = gradients
+    assert magnitude  # for type checker
+    return np.stack([x / magnitude, -y / magnitude, 1 / magnitude], axis=-1)
+
+
+@log_railway_function(
+    failure_message="Failed to compute surface normals from depth data",
+    success_message="Successfully computed surface normal components",
+)
+@safe
 def compute_surface_normals(
     depth_data: ScanMap2DArray,
     x_dimension: float,
@@ -30,19 +103,13 @@ def compute_surface_normals(
     :returns: 3D array of surface normals with shape (Height, Width, 3), where the
               last dimension corresponds to (nx, ny, nz).
     """
-    factor_x = 1 / (2 * x_dimension)
-    factor_y = 1 / (2 * y_dimension)
-
-    hx = (depth_data[:, :-2] - depth_data[:, 2:]) * factor_x
-    hy = (depth_data[:-2, :] - depth_data[2:, :]) * factor_y
-    hx = np.pad(hx, ((0, 0), (1, 1)), mode="constant", constant_values=np.nan)
-    hy = np.pad(hy, ((1, 1), (0, 0)), mode="constant", constant_values=np.nan)
-    norm = np.sqrt(hx * hx + hy * hy + 1)
-
-    nx = hx / norm
-    ny = -hy / norm
-    nz = 1 / norm
-    return np.stack([nx, ny, nz], axis=-1)
+    return flow(
+        PhysicalSpacing(x_dimension, y_dimension),
+        _compute_central_diff_scales,
+        lambda scales: _compute_depth_gradients(scales, depth_data),
+        _add_normal_magnitude,
+        _normalize_to_surface_normals,
+    )
 
 
 def calculate_lighting(

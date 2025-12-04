@@ -1,4 +1,5 @@
 from typing import Protocol
+
 from image_generation.data_formats import ScanImage, LightSource, UnitVector3DArray
 
 
@@ -35,6 +36,7 @@ def generate_3d_image(
     """
     return (
         depth_data.compute_normals(depth_data.scale_x, depth_data.scale_y)
+        .unwrap()
         .apply_lights(light_sources)
         .combined.normalize()
     )
