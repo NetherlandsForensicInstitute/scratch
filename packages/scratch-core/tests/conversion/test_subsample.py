@@ -32,7 +32,7 @@ def test_scan_map_updates_scales(scan_image: ScanMap2DArray):
     input_data = ScanImage(data=scan_image, scale_x=scale_x, scale_y=scale_y)
 
     # Act
-    subsampled = input_data.subsample_data(step_x=step_x, step_y=step_y)
+    subsampled = input_data.subsample(step_x=step_x, step_y=step_y)
 
     # Assert
     assert subsampled.scale_x == scale_x * step_x
