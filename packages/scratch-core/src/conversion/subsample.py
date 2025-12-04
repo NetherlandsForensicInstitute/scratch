@@ -1,7 +1,7 @@
 from image_generation.translations import ScanMap2DArray
 
 
-def subsample_data(
+def subsample_array(
     scan_image: ScanMap2DArray, step_size: tuple[int, int]
 ) -> ScanMap2DArray:
     """

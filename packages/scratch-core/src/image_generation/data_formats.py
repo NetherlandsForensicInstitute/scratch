@@ -2,7 +2,7 @@ from PIL.Image import Image
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
-from conversion.subsample import subsample_data
+from conversion.subsample import subsample_array
 from image_generation.translations import (
     apply_multiple_lights,
     compute_surface_normals,
@@ -97,7 +97,7 @@ class ScanImage(BaseModel, arbitrary_types_allowed=True):
 
     def subsample_data(self, step_x: int = 1, step_y: int = 1) -> "ScanImage":
         """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
-        array = subsample_data(scan_image=self.data, step_size=(step_x, step_y))
+        array = subsample_array(scan_image=self.data, step_size=(step_x, step_y))
         return ScanImage(
             data=array,
             scale_x=self.scale_x * step_x,

@@ -3,7 +3,7 @@ from math import ceil
 import numpy as np
 import pytest
 
-from conversion import subsample_data
+from conversion import subsample_array
 from image_generation.data_formats import ScanImage
 from image_generation.translations import ScanMap2DArray
 
@@ -17,7 +17,7 @@ def test_subsample_matches_size(scan_image: ScanMap2DArray, step_size: tuple[int
     expected_width = ceil(scan_image.shape[1] / step_size[0])  # columns
 
     # Act
-    subsampled = subsample_data(scan_image=scan_image, step_size=step_size)
+    subsampled = subsample_array(scan_image=scan_image, step_size=step_size)
 
     #  Assert
     assert subsampled.shape == (expected_height, expected_width)
@@ -46,13 +46,13 @@ def test_subsample_rejects_incorrect_sizes(
     scan_image: ScanMap2DArray, step_size: tuple[int, int]
 ):
     with pytest.raises(ValueError):
-        _ = subsample_data(scan_image=scan_image, step_size=step_size)
+        _ = subsample_array(scan_image=scan_image, step_size=step_size)
 
 
 def test_subsample_matches_baseline_output(scan_image_replica: ScanImage):
     verified = np.load(BASELINE_IMAGES_DIR / "replica_subsampled.npy")
 
-    subsampled = subsample_data(scan_image=scan_image_replica.data, step_size=(10, 15))
+    subsampled = subsample_array(scan_image=scan_image_replica.data, step_size=(10, 15))
     assert np.allclose(
         subsampled,
         verified,
@@ -62,7 +62,7 @@ def test_subsample_matches_baseline_output(scan_image_replica: ScanImage):
 
 
 def test_subsample_creates_new_object(scan_image_replica: ScanImage):
-    subsampled = subsample_data(scan_image=scan_image_replica.data, step_size=(5, 5))
+    subsampled = subsample_array(scan_image=scan_image_replica.data, step_size=(5, 5))
     assert id(subsampled) != id(scan_image_replica)
     assert id(subsampled) != id(scan_image_replica.data)
     assert scan_image_replica.data.ctypes.data != subsampled.ctypes.data
