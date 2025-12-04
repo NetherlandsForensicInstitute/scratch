@@ -27,7 +27,7 @@ def _prepare_grid(scan_image: ScanImage) -> tuple[NDArray, NDArray, NDArray]:
 
 def _build_design_matrix(
     x_grid: NDArray, y_grid: NDArray, terms: SurfaceTerms
-) -> np.ndarray:
+) -> NDArray:
     """
     Constructs the Least Squares design matrix based on requested terms.
     """
@@ -61,8 +61,8 @@ def _normalize_coordinates(
 
 
 def _denormalize_parameters(
-    coefficients: np.ndarray, x_mean: float, y_mean: float, s: float
-) -> np.ndarray:
+    coefficients: NDArray, x_mean: float, y_mean: float, s: float
+) -> NDArray:
     """
     Converts normalized fit parameters back to real-world physical units.
     Matches the specific algebraic logic from the original MATLAB script.
@@ -98,8 +98,8 @@ def _denormalize_parameters(
 
 
 def _solve_leveling(
-    x_grid: np.ndarray, y_grid: np.ndarray, z_grid: np.ndarray, terms: SurfaceTerms
-) -> tuple[np.ndarray, np.ndarray]:
+    x_grid: NDArray, y_grid: NDArray, z_grid: NDArray, terms: SurfaceTerms
+) -> tuple[NDArray, NDArray]:
     """
     Core solver: fits a surface to the point cloud (xs, ys, zs).
 
