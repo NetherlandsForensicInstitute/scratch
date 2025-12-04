@@ -36,7 +36,7 @@ class FrozenBaseModel(BaseModel):
 def validate_parsed_image(image_data: ScanMap2DArray) -> ScanMap2DArray:
     """Test whether the parsed image data has valid data and a valid shape."""
     if np.isnan(image_data.data).all():
-        raise ValueError("Image data does not contain numerical data points.")
+        raise ValueError("Image does not contain numerical data.")
     if len(image_data.shape) != 2:
         raise ValueError(f"Invalid array shape: {image_data.shape}")
     return image_data
