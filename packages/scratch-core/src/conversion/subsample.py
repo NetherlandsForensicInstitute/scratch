@@ -1,6 +1,8 @@
+from returns.result import safe
 from image_generation.translations import ScanMap2DArray
 
 
+@safe
 def subsample_data(
     scan_image: ScanMap2DArray, step_size_x: int, step_size_y: int
 ) -> ScanMap2DArray:

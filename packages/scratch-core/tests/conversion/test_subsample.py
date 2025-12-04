@@ -6,6 +6,7 @@ import pytest
 from conversion import subsample_data
 from image_generation.data_formats import ScanImage
 from image_generation.translations import ScanMap2DArray
+from returns.pipeline import is_successful
 
 from ..constants import BASELINE_IMAGES_DIR, PRECISION
 
@@ -17,10 +18,10 @@ def test_subsample_matches_size(scan_image: ScanMap2DArray, step_x: int, step_y:
     expected_width = ceil(scan_image.shape[1] / step_x)  # columns
 
     # Act
-    subsampled = subsample_data(scan_image, step_x, step_y)
+    result = subsample_data(scan_image, step_x, step_y)
 
     #  Assert
-    assert subsampled.shape == (expected_height, expected_width)
+    assert result.unwrap().shape == (expected_height, expected_width)
 
 
 def test_scan_map_updates_scales(scan_image: ScanMap2DArray):
@@ -32,7 +33,7 @@ def test_scan_map_updates_scales(scan_image: ScanMap2DArray):
     input_data = ScanImage(data=scan_image, scale_x=scale_x, scale_y=scale_y)
 
     # Act
-    subsampled = input_data.subsample_data(step_x=step_x, step_y=step_y)
+    subsampled = input_data.subsample_data(step_x=step_x, step_y=step_y).unwrap()
 
     # Assert
     assert subsampled.scale_x == scale_x * step_x
@@ -45,23 +46,22 @@ def test_scan_map_updates_scales(scan_image: ScanMap2DArray):
 def test_subsample_rejects_incorrect_sizes(
     scan_image: ScanMap2DArray, step_x: int, step_y: int
 ):
-    with pytest.raises(ValueError):
-        _ = subsample_data(scan_image, step_x, step_y)
+    assert not is_successful(subsample_data(scan_image, step_x, step_y))
 
 
 def test_subsample_matches_baseline_output(scan_image_replica: ScanImage):
     verified = np.load(BASELINE_IMAGES_DIR / "replica_subsampled.npy")
 
-    subsampled = subsample_data(
+    result = subsample_data(
         scan_image=scan_image_replica.data, step_size_x=10, step_size_y=15
     )
-    assert np.allclose(subsampled, verified, equal_nan=True, atol=PRECISION)
+    assert np.allclose(result.unwrap(), verified, equal_nan=True, atol=PRECISION)
 
 
 def test_subsample_creates_new_object(scan_image_replica: ScanImage):
     subsampled = subsample_data(
         scan_image=scan_image_replica.data, step_size_x=5, step_size_y=5
-    )
+    ).unwrap()
     assert id(subsampled) != id(scan_image_replica)
     assert id(subsampled) != id(scan_image_replica.data)
     assert scan_image_replica.data.ctypes.data != subsampled.ctypes.data
