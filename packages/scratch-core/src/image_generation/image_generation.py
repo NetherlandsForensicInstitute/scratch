@@ -30,5 +30,6 @@ def compute_3d_image(
     return (
         depth_data.compute_normals(depth_data.scale_x, depth_data.scale_y)
         .apply_lights(light_sources)
-        .combined.normalize()
+        .reduce_stack()
+        .normalize()
     )

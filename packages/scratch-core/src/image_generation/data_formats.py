@@ -163,11 +163,10 @@ class ScanTensor3D(ImageContainer, arbitrary_types_allowed=True):
 
     data: ScanTensor3DArray
 
-    @property
-    def combined(self) -> ScanImage:
+    def reduce_stack(self, merge_on_axis: int = 2) -> ScanImage:
         """Combine stacked 2d scan maps → (Height × Width)."""
         return ScanImage(
-            data=np.nansum(self.data, axis=2),
+            data=np.nansum(self.data, axis=merge_on_axis),
             scale_x=self.scale_x,
             scale_y=self.scale_y,
         )
