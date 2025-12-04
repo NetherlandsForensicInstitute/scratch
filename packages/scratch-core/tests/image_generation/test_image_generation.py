@@ -3,7 +3,7 @@ from matplotlib.testing.decorators import image_comparison
 
 from image_generation import compute_3d_image
 from image_generation.data_formats import ScanImage
-from parsers.data_types import from_file
+from parsers.data_types import load_scan_image
 from utils.paths import PROJECT_ROOT
 
 from ..utils import plot_test_data  # type: ignore
@@ -11,7 +11,9 @@ from ..utils import plot_test_data  # type: ignore
 
 @pytest.fixture
 def data_in(scan_image: ScanImage) -> ScanImage:
-    return from_file(PROJECT_ROOT / "tests/resources/scans/Klein_non_replica_mode.al3d")
+    return load_scan_image(
+        PROJECT_ROOT / "tests/resources/scans/Klein_non_replica_mode.al3d"
+    )
 
 
 @pytest.mark.integration

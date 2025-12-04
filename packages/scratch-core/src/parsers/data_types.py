@@ -15,7 +15,7 @@ UNIT_CONVERSION_FACTOR = 1e-6  # conversion factor from micrometers (um) to mete
 FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
 
 
-def from_file(scan_file: Path) -> ScanImage:
+def load_scan_image(scan_file: Path) -> ScanImage:
     """
     Load a scan image from a file. Parsed values will be converted to meters (m).
 

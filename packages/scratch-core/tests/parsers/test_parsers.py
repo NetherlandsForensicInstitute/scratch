@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from image_generation.data_formats import ScanImage
-from parsers import from_file, save_to_x3p
+from parsers import load_scan_image, save_to_x3p
 from utils.array_definitions import ScanMap2DArray
 
 from ..constants import PRECISION, SCANS_DIR  # type: ignore
@@ -35,7 +35,7 @@ def test_parser_can_parse(
     filename: Path, image_data: ScanMap2DArray, expected_scale: float
 ):
     file_to_test = SCANS_DIR / filename
-    parsed_image = from_file(file_to_test)
+    parsed_image = load_scan_image(file_to_test)
     validate_image(
         parsed_image=parsed_image,
         expected_image_data=image_data,
@@ -56,10 +56,10 @@ def test_parsed_image_can_be_exported_to_x3p(
 @pytest.mark.integration
 def test_al3d_can_be_converted_to_x3p(tmp_path: PosixPath):
     al3d_file = SCANS_DIR / "circle.al3d"
-    parsed_image = from_file(al3d_file)
+    parsed_image = load_scan_image(al3d_file)
     output_file = tmp_path / "export.x3p"
     save_to_x3p(image=parsed_image, output_path=output_file)
-    parsed_exported_image = from_file(output_file)
+    parsed_exported_image = load_scan_image(output_file)
     # compare the parsed data from the exported .x3p file to the parsed data from the .al3d file
     validate_image(
         parsed_image=parsed_exported_image,
