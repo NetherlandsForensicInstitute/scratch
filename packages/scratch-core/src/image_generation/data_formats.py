@@ -1,5 +1,6 @@
 from PIL.Image import Image
 import numpy as np
+from numpydantic.ndarray import NDArray
 from pydantic import BaseModel, ConfigDict, Field
 
 from conversion.subsample import subsample_array
@@ -15,6 +16,13 @@ from utils.array_definitions import (
     ScanVectorField2DArray,
     UnitVector3DArray,
 )
+
+
+class ImageContainer(BaseModel):
+    data: NDArray
+    scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
+    scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
+    meta_data: dict | None = None
 
 
 class LightSource(BaseModel):
@@ -72,7 +80,7 @@ class LightSource(BaseModel):
         )
 
 
-class ScanImage(BaseModel, arbitrary_types_allowed=True):
+class ScanImage(ImageContainer, arbitrary_types_allowed=True):
     """
     A 2D image/array of floats.
 
@@ -142,7 +150,7 @@ class ScanImage(BaseModel, arbitrary_types_allowed=True):
         return scan_to_image(scan_data=self.data)
 
 
-class ScanTensor3D(BaseModel, arbitrary_types_allowed=True):
+class ScanTensor3D(ImageContainer, arbitrary_types_allowed=True):
     """
     A 3D stack of 2D scan maps.
 
@@ -158,7 +166,7 @@ class ScanTensor3D(BaseModel, arbitrary_types_allowed=True):
         return ScanImage(data=np.nansum(self.data, axis=2))
 
 
-class SurfaceNormals(BaseModel, arbitrary_types_allowed=True):
+class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
     """Normal vectors per pixel in a 3-layer field.
 
     Represents a surface-normal map with components (nx, ny, nz) stored in the
