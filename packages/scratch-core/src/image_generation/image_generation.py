@@ -1,7 +1,7 @@
 from image_generation.data_formats import ScanImage, LightSource, UnitVector3DArray
 
 
-def generate_3d_image(
+def compute_3d_image(
     depth_data: ScanImage,
     light_sources: tuple[UnitVector3DArray, ...] = (
         LightSource(azimuth=90, elevation=45).unit_vector,
