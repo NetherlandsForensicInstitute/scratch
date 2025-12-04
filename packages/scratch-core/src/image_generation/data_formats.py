@@ -100,7 +100,7 @@ class ScanImage(BaseModel, arbitrary_types_allowed=True):
         """Subsample the data in a `ScanImage` instance by skipping `step_size` steps."""
         logger.debug(f"Subsampling data with step size ({step_x}, {step_y})")
         try:
-            array = subsample_data(scan_image=self.data, step_size=(step_x, step_y))
+            array = subsample_data(self.data, step_x, step_y)
         except ValueError as e:
             logger.error(f"Error subsampling data: {e}")
             raise ImageGenerationError(f"Error subsampling data: {e}") from e
