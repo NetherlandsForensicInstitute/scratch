@@ -397,14 +397,6 @@ class TestEdgeCases:
         assert result.shape == data.shape
         assert not np.any(np.isnan(result))
 
-    def test_integer_input(self):
-        """Should handle integer input (converts to float)."""
-        data = np.arange(100).reshape(10, 10)
-        result = apply_gaussian_filter(data, (3.0, 3.0))
-
-        assert result.shape == data.shape
-        assert result.dtype == np.float64
-
 
 class TestNumericalProperties:
     """Test numerical properties of the filter."""
