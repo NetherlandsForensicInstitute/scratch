@@ -56,5 +56,5 @@ def _to_x3p(image: ScanImage, meta_data: X3PMetaData) -> X3Pfile:
 def save_to_x3p(
     image: ScanImage, output_path: Path, meta_data: X3PMetaData | None = None
 ) -> None:
-    """Save an instance of `ScanMap2D` to a .x3p-file."""
+    """Save an instance of `ScanImage` to a .x3p-file."""
     _to_x3p(image, meta_data or X3PMetaData()).write(str(output_path))

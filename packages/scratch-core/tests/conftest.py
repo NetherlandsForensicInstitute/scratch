@@ -10,7 +10,7 @@ from .constants import SCANS_DIR
 
 
 @pytest.fixture
-def image_data() -> ScanMap2DArray:
+def scan_image() -> ScanMap2DArray:
     """Build a fixture with ground truth image data."""
     gray = Image.open(SCANS_DIR / "circle.png").convert("L")
     data = np.asarray(gray, dtype=np.float64)
@@ -18,15 +18,9 @@ def image_data() -> ScanMap2DArray:
 
 
 @pytest.fixture
-def scan_image(image_data: ScanMap2DArray) -> ScanMap2DArray:
+def scan_map_2d(scan_image: ScanMap2DArray) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return image_data
-
-
-@pytest.fixture
-def scan_map_2d(image_data: ScanMap2DArray) -> ScanImage:
-    """Build a `ScanImage` object`."""
-    return ScanImage(data=image_data, scale_x=1, scale_y=1)
+    return ScanImage(data=scan_image, scale_x=1, scale_y=1)
 
 
 @pytest.fixture

@@ -32,13 +32,13 @@ def validate_image(
     [("circle.al3d", 8.7654321e-7), ("circle.x3p", 8.7654321e-7)],
 )
 def test_parser_can_parse(
-    filename: Path, image_data: ScanMap2DArray, expected_scale: float
+    filename: Path, scan_image: ScanMap2DArray, expected_scale: float
 ):
     file_to_test = SCANS_DIR / filename
     parsed_image = load_scan_image(file_to_test)
     validate_image(
         parsed_image=parsed_image,
-        expected_image_data=image_data,
+        expected_image_data=scan_image,
         expected_scale=expected_scale,
     )
 
