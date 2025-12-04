@@ -8,7 +8,7 @@ from returns.result import Result, safe
 from returns.io import impure_safe
 from image_generation.data_formats import ScanImage
 from parsers.exceptions import PreProcessError
-from utils.logger import log_io_railway_function, log_railway_function
+from utils.logger import log_railway_function
 
 
 class X3PMetaData(NamedTuple):
@@ -85,7 +85,7 @@ def parse_to_x3p(image: ScanImage) -> Result[X3Pfile, Exception]:
     )
 
 
-@log_io_railway_function(PreProcessError.X3P_WRITE_ERROR, "Successfully written X3P")
+@log_railway_function(PreProcessError.X3P_WRITE_ERROR, "Successfully written X3P")
 @impure_safe
 def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
     """Save an X3Pfile to disk.

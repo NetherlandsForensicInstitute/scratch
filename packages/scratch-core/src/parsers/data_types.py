@@ -8,7 +8,7 @@ from surfalize.file.al3d import MAGIC
 
 from image_generation.data_formats import ScanImage
 from parsers.exceptions import PreProcessError
-from utils.logger import log_io_railway_function
+from utils.logger import log_railway_function
 
 from .patches.al3d import read_al3d
 from scipy.constants import micro
@@ -18,7 +18,7 @@ from scipy.constants import micro
 FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
 
 
-@log_io_railway_function(
+@log_railway_function(
     PreProcessError.SURFACE_LOAD_ERROR, "Successfully loaded scan file"
 )
 @impure_safe
