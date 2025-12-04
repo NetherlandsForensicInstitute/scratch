@@ -13,8 +13,8 @@ from ..constants import BASELINE_IMAGES_DIR, PRECISION
 @pytest.mark.parametrize("step_size", [(1, 1), (10, 10), (25, 25), (25, 50)])
 def test_subsample_matches_size(scan_image: ScanMap2DArray, step_size: tuple[int, int]):
     # Arrange
-    expected_height = ceil(scan_image.shape[0] / step_size[1])  # rows
-    expected_width = ceil(scan_image.shape[1] / step_size[0])  # columns
+    expected_height = ceil(scan_image.shape[0] / step_size[1])
+    expected_width = ceil(scan_image.shape[1] / step_size[0])
 
     # Act
     subsampled = subsample_array(scan_image=scan_image, step_size=step_size)

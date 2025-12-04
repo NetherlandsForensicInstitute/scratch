@@ -4,7 +4,7 @@ from matplotlib.testing.decorators import image_comparison
 from image_generation import compute_3d_image
 from image_generation.data_formats import ScanImage
 
-from ..utils import plot_test_data  # type: ignore
+from ..utils import plot_test_data
 
 
 @pytest.fixture

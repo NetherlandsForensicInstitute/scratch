@@ -7,7 +7,7 @@ from image_generation.data_formats import ScanImage
 from parsers import load_scan_image, save_to_x3p
 from utils.array_definitions import ScanMap2DArray
 
-from ..constants import PRECISION, SCANS_DIR  # type: ignore
+from ..constants import PRECISION, SCANS_DIR
 
 
 def validate_image(
