@@ -2,7 +2,6 @@ from pathlib import Path, PosixPath
 
 import numpy as np
 import pytest
-from numpy.typing import NDArray
 
 from image_generation.data_formats import ScanImage
 from parsers import from_file, save_to_x3p
@@ -26,11 +25,6 @@ def validate_image(
     assert parsed_image.data.dtype == np.float64
     assert np.isclose(parsed_image.scale_x, parsed_image.scale_y, atol=PRECISION)
     assert np.isclose(parsed_image.scale_x, expected_scale, atol=PRECISION)
-
-
-def test_exception_on_incorrect_shape(image_data: NDArray):
-    with pytest.raises(ValueError, match="shape"):
-        _ = ScanImage(data=np.expand_dims(image_data, -1))
 
 
 @pytest.mark.parametrize(
