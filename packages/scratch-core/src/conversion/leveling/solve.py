@@ -128,7 +128,7 @@ def _solve_leveling(
     return fitted_surface, physical_params
 
 
-def _compute_root_mean_squared(data: NDArray) -> float:
+def _compute_root_mean_square(data: NDArray) -> float:
     return float(np.sqrt(np.mean(data**2)))
 
 
@@ -145,7 +145,7 @@ def level_map(scan_image: ScanImage, terms: SurfaceTerms, is_highpass: bool = Tr
     z_leveled = z_grid - fitted_surface if is_highpass else fitted_surface
 
     # Calculate RMS of residuals
-    residual_rms = _compute_root_mean_squared(z_leveled)
+    residual_rms = _compute_root_mean_square(z_leveled)
 
     return LevelingResult(
         leveled_map=z_leveled,
