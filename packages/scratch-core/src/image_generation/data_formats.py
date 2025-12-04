@@ -1,14 +1,14 @@
-from PIL.Image import Image
 import numpy as np
 from numpydantic.ndarray import NDArray
+from PIL.Image import Image, fromarray
 from pydantic import BaseModel, ConfigDict, Field
 
 from conversion.subsample import subsample_array
 from image_generation.translations import (
     apply_multiple_lights,
     compute_surface_normals,
+    grayscale_to_rgba,
     normalize_2d_array,
-    scan_to_image,
 )
 from utils.array_definitions import (
     ScanMap2DArray,
@@ -150,7 +150,7 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Image representation of the 2D intensity map.
         """
-        return scan_to_image(scan_data=self.data)
+        return fromarray(grayscale_to_rgba(scan_data=self.data))
 
 
 class ScanTensor3D(ImageContainer, arbitrary_types_allowed=True):
