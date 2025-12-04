@@ -165,7 +165,7 @@ class ScanTensor3D(ImageContainer, arbitrary_types_allowed=True):
 
     @property
     def combined(self) -> ScanImage:
-        """Combine stacked lights → (Height × Width)."""
+        """Combine stacked 2d scan maps → (Height × Width)."""
         return ScanImage(
             data=np.nansum(self.data, axis=2),
             scale_x=self.scale_x,
