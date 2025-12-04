@@ -42,7 +42,7 @@ def test_apply_multiple_lights() -> None:
         light_vectors=lights_combined,
         observer_vector=observer_vector,
         lighting_calculator=_simple_calc,
-    )
+    ).unwrap()
 
     # Assert
     assert result.shape == (

@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from PIL.Image import Image, fromarray
 import numpy as np
 from typing import NamedTuple, Protocol
@@ -112,6 +113,74 @@ def compute_surface_normals(
     )
 
 
+class LightingComponents(NamedTuple):
+    """Container for lighting calculation components."""
+
+    light_vector: UnitVector3DArray
+    observer_vector: UnitVector3DArray
+    surface_normals: ScanVectorField2DArray
+    half_vector: UnitVector3DArray | None = None
+    normal_components: tuple[NDArray, NDArray, NDArray] | None = None
+    diffuse: ScanMap2DArray | None = None
+    specular: ScanMap2DArray | None = None
+
+
+def _compute_half_vector(components: LightingComponents) -> LightingComponents:
+    """Compute and normalize the half-vector between light and observer directions."""
+    h_vec = components.light_vector + components.observer_vector
+    h_vec = h_vec / np.linalg.norm(h_vec)
+    return components._replace(half_vector=h_vec)
+
+
+def _extract_normal_components(components: LightingComponents) -> LightingComponents:
+    """Extract individual x, y, z components from surface normal field."""
+    nx, ny, nz = np.moveaxis(components.surface_normals, -1, 0)
+    return components._replace(normal_components=(nx, ny, nz))
+
+
+def _compute_diffuse_lighting(components: LightingComponents) -> LightingComponents:
+    """Compute Lambertian diffuse reflection: max(N · L, 0)."""
+    nx, ny, nz = components.normal_components  # type: ignore
+    light = components.light_vector
+    diffuse = np.maximum(light[0] * nx + light[1] * ny + light[2] * nz, 0)
+    return components._replace(diffuse=diffuse)
+
+
+def _compute_specular_lighting(
+    phong_exponent: int,
+) -> Callable[[LightingComponents], LightingComponents]:
+    """
+    Compute Phong specular reflection: max(cos(2*arccos(max(N · H, 0))), 0)^n.
+
+    Uses the half-vector H between light and observer directions.
+    """
+
+    def _compute(components: LightingComponents) -> LightingComponents:
+        nx, ny, nz = components.normal_components  # type: ignore
+        h_vec = components.half_vector  # type: ignore
+
+        specular = np.maximum(h_vec[0] * nx + h_vec[1] * ny + h_vec[2] * nz, 0)
+        specular = np.clip(specular, -1.0, 1.0)
+        specular = np.maximum(np.cos(2 * np.arccos(specular)), 0) ** phong_exponent
+
+        return components._replace(specular=specular)
+
+    return _compute
+
+
+def _combine_lighting_components(
+    specular_factor: float,
+) -> Callable[[LightingComponents], ScanMap2DArray]:
+    """Combine diffuse and specular components with weighting factor."""
+
+    def _combine(components: LightingComponents) -> ScanMap2DArray:
+        diffuse = components.diffuse  # type: ignore
+        specular = components.specular  # type: ignore
+        return (diffuse + specular_factor * specular) / (1 + specular_factor)
+
+    return _combine
+
+
 def calculate_lighting(
     light_vector: UnitVector3DArray,
     observer_vector: UnitVector3DArray,
@@ -135,25 +204,14 @@ def calculate_lighting(
     :returns: 2D array of combined lighting intensities in ``[0, 1]`` with shape
               (Height, Width).
     """
-    h_vec = light_vector + observer_vector
-    h_norm = np.linalg.norm(h_vec)
-    h_vec /= h_norm
-
-    nx, ny, nz = (
-        surface_normals[..., 0],
-        surface_normals[..., 1],
-        surface_normals[..., 2],
+    return flow(
+        LightingComponents(light_vector, observer_vector, surface_normals),
+        _compute_half_vector,
+        _extract_normal_components,
+        _compute_diffuse_lighting,
+        _compute_specular_lighting(phong_exponent),
+        _combine_lighting_components(specular_factor),
     )
-
-    diffuse = np.maximum(
-        light_vector[0] * nx + light_vector[1] * ny + light_vector[2] * nz, 0
-    )
-
-    specular = np.maximum(h_vec[0] * nx + h_vec[1] * ny + h_vec[2] * nz, 0)
-    specular = np.clip(specular, -1.0, 1.0)
-    specular = np.maximum(np.cos(2 * np.arccos(specular)), 0) ** phong_exponent
-
-    return (diffuse + specular_factor * specular) / (1 + specular_factor)
 
 
 class LightingCalculator(Protocol):
@@ -167,6 +225,7 @@ class LightingCalculator(Protocol):
     ) -> ScanMap2DArray: ...
 
 
+@safe
 def apply_multiple_lights(
     surface_normals: ScanVectorField2DArray,
     light_vectors: tuple[UnitVector3DArray, ...],
