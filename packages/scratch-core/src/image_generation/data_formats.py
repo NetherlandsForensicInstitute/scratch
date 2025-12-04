@@ -89,9 +89,6 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
     """
 
     data: ScanMap2DArray
-    scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
-    scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
-    meta_data: dict | None = None
 
     @property
     def width(self) -> int:
@@ -124,7 +121,9 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
         :returns: Normal vectors per pixel in a 3-layer field. Layers are [x,y,z]
         """
         return SurfaceNormals(
-            data=compute_surface_normals(self.data, x_dimension, y_dimension)
+            data=compute_surface_normals(self.data, x_dimension, y_dimension),
+            scale_x=self.scale_x,
+            scale_y=self.scale_y,
         )
 
     def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanImage":
@@ -137,7 +136,11 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
         :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
         """
         return ScanImage(
-            data=normalize_2d_array(self.data, scale_max=scale_max, scale_min=scale_min)
+            data=normalize_2d_array(
+                self.data, scale_max=scale_max, scale_min=scale_min
+            ),
+            scale_x=self.scale_x,
+            scale_y=self.scale_y,
         )
 
     @property
@@ -161,9 +164,13 @@ class ScanTensor3D(ImageContainer, arbitrary_types_allowed=True):
     data: ScanTensor3DArray
 
     @property
-    def combined(self) -> "ScanImage":
+    def combined(self) -> ScanImage:
         """Combine stacked lights → (Height × Width)."""
-        return ScanImage(data=np.nansum(self.data, axis=2))
+        return ScanImage(
+            data=np.nansum(self.data, axis=2),
+            scale_x=self.scale_x,
+            scale_y=self.scale_y,
+        )
 
 
 class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
@@ -196,5 +203,7 @@ class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
                 surface_normals=self.data,
                 light_vectors=light_vectors,
                 observer_vector=observer,
-            )
+            ),
+            scale_x=self.scale_x,
+            scale_y=self.scale_y,
         )

@@ -26,7 +26,7 @@ def scan_image(image_data: ScanMap2DArray) -> ScanMap2DArray:
 @pytest.fixture
 def scan_map_2d(image_data: ScanMap2DArray) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return ScanImage(data=image_data)
+    return ScanImage(data=image_data, scale_x=1, scale_y=1)
 
 
 @pytest.fixture
