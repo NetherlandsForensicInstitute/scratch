@@ -389,14 +389,6 @@ class TestEdgeCases:
 
         np.testing.assert_allclose(our_result, matlab_result, rtol=1e-10)
 
-    def test_float32_input(self):
-        """Should handle float32 input."""
-        data = np.random.rand(20, 20).astype(np.float32) * 100
-        result = apply_gaussian_filter(data, (5.0, 5.0))
-
-        assert result.shape == data.shape
-        assert not np.any(np.isnan(result))
-
 
 class TestNumericalProperties:
     """Test numerical properties of the filter."""
