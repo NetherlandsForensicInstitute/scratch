@@ -1,14 +1,15 @@
 import numpy as np
 import pytest
 from PIL import Image
-from numpy.typing import NDArray
 
 from parsers.data_types import ScanImage
-from .constants import SCANS_DIR  # type: ignore
+from utils.array_definitions import ScanMap2DArray
+
+from .constants import SCANS_DIR
 
 
 @pytest.fixture
-def image_data() -> NDArray:
+def image_data() -> ScanMap2DArray:
     """Build a fixture with ground truth image data."""
     gray = Image.open(SCANS_DIR / "circle.png").convert("L")
     data = np.asarray(gray, dtype=np.float64)
@@ -16,7 +17,7 @@ def image_data() -> NDArray:
 
 
 @pytest.fixture
-def scan_image(image_data: NDArray) -> ScanImage:
+def scan_image(image_data: ScanMap2DArray) -> ScanImage:
     """Build a `ScanImage` object`."""
     return ScanImage(data=image_data)
 

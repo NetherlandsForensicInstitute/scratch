@@ -1,9 +1,12 @@
-from parsers.data_types import ScanImage
-from conversion import subsample_data
-import pytest
 from math import ceil
+
 import numpy as np
-from ..constants import PRECISION, BASELINE_IMAGES_DIR  # type: ignore
+import pytest
+
+from conversion import subsample_data
+from parsers.data_types import ScanImage
+
+from ..constants import BASELINE_IMAGES_DIR, PRECISION
 
 
 @pytest.mark.parametrize("step_size", [(1, 1), (10, 10), (25, 25), (25, 50)])

@@ -3,11 +3,14 @@ from pathlib import Path
 from typing import Annotated
 
 import numpy as np
-from numpy.typing import NDArray
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from surfalize import Surface
 from surfalize.file import FileHandler
 from surfalize.file.al3d import MAGIC
+
+from utils.array_definitions import (
+    ScanMap2DArray,
+)
 
 from .patches.al3d import read_al3d
 
@@ -30,7 +33,7 @@ class FrozenBaseModel(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
 
-def validate_parsed_image_shape(image_data: NDArray) -> NDArray:
+def validate_parsed_image_shape(image_data: ScanMap2DArray) -> ScanMap2DArray:
     """Test whether the parsed image data has a valid shape."""
     if len(image_data.shape) != 2:
         raise ValueError(f"Invalid array shape: {image_data.shape}")
@@ -49,7 +52,7 @@ class ScanImage(FrozenBaseModel):
     :param meta_data: (Optional) A dictionary containing the metadata.
     """
 
-    data: Annotated[NDArray[np.float64], AfterValidator(validate_parsed_image_shape)]
+    data: Annotated[ScanMap2DArray, AfterValidator(validate_parsed_image_shape)]
     scale_x: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(default=1.0, gt=0.0, description="pixel size in meters (m)")
     meta_data: dict | None = None

@@ -1,11 +1,13 @@
 import numpy as np
-from numpy.typing import NDArray
 
 from conversion.exceptions import NegativeStdScalerException
 from parsers.data_types import ScanImage
+from utils.array_definitions import ScanMap2DArray, ScanMapRGBA
 
 
-def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
+def clip_data(
+    data: ScanMap2DArray, std_scaler: float
+) -> tuple[ScanMap2DArray, float, float]:
     """
     Clip the data so that the values lie in the interval [μ - σ * S, μ + σ * S].
 
@@ -25,7 +27,7 @@ def clip_data(data: NDArray, std_scaler: float) -> tuple[NDArray, float, float]:
     return clipped, lower, upper
 
 
-def grayscale_to_rgba(image: NDArray[int | float]) -> NDArray[np.uint8]:
+def grayscale_to_rgba(image: ScanMap2DArray) -> ScanMapRGBA:
     """
     Convert a 2D grayscale array to an 8-bit RGBA array.
 
@@ -41,7 +43,7 @@ def grayscale_to_rgba(image: NDArray[int | float]) -> NDArray[np.uint8]:
     return rgba
 
 
-def get_array_for_display(image: ScanImage, std_scaler: float = 2.0) -> NDArray:
+def get_array_for_display(image: ScanImage, std_scaler: float = 2.0) -> ScanMap2DArray:
     """
     Clip and normalize image data for displaying purposes.
 
@@ -57,7 +59,9 @@ def get_array_for_display(image: ScanImage, std_scaler: float = 2.0) -> NDArray:
     return normalized
 
 
-def normalize(input_array: NDArray, lower: float, upper: float) -> NDArray:
+def normalize(
+    input_array: ScanMap2DArray, lower: float, upper: float
+) -> ScanMap2DArray:
     """Perform min-max normalization on the input array and scale to the [0, 255] interval."""
     if lower >= upper:
         raise ValueError(

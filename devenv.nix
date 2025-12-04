@@ -8,6 +8,7 @@
       lazygit
       just
       ruff
+      nodejs_22
     ]
     ++ [
       # packages for local GitHub actions

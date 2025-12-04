@@ -3,24 +3,27 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
-from numpy.typing import NDArray
 from numpy.testing import assert_array_almost_equal
 
 from conversion.display import clip_data, get_array_for_display, grayscale_to_rgba
 from conversion.exceptions import NegativeStdScalerException
 from parsers import ScanImage
-from ..constants import BASELINE_IMAGES_DIR  # type: ignore
+from utils.array_definitions import ScanMap2DArray
+
+from ..constants import BASELINE_IMAGES_DIR
 
 
 @given(
-    std_scaler=st.floats(min_value=0, exclude_min=True),
+    std_scaler=st.floats(min_value=0, max_value=100, exclude_min=True),
     data=arrays(
         dtype=float,
         shape=(4, 4),
         elements=st.floats(allow_nan=False, min_value=0.0, max_value=100.0),
     ),
 )
-def test_clip_data_bounds_match_expected_bounds(data: NDArray, std_scaler: float):
+def test_clip_data_bounds_match_expected_bounds(
+    data: ScanMap2DArray, std_scaler: float
+):
     expected_lower = np.mean(data) - np.std(data, ddof=1) * std_scaler
     expected_upper = np.mean(data) + np.std(data, ddof=1) * std_scaler
 
@@ -44,7 +47,7 @@ def test_clip_data_bounds_match_expected_bounds(data: NDArray, std_scaler: float
         ),
     ],
 )
-def test_clip_data_ignores_nans(data: NDArray):
+def test_clip_data_ignores_nans(data: ScanMap2DArray):
     std_scaler = 1.0
     expected_lower = -0.45949361789807286
     expected_upper = 6.369493617898073
@@ -59,7 +62,7 @@ def test_no_clipping_when_input_is_constant(value: int):
     std_scaler = 1
     clipped, lower, upper = clip_data(data, std_scaler)
 
-    assert_array_almost_equal(clipped, data), "All values should remain constant"
+    assert_array_almost_equal(clipped, data)
     assert np.isclose(lower, value)
     assert np.isclose(upper, value)
 

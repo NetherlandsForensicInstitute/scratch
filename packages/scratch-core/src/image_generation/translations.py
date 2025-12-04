@@ -127,7 +127,9 @@ def apply_multiple_lights(
 
 
 def normalize_2d_array(
-    image_to_normalize: ScanMap2DArray, scale_max: float = 255, scale_min: float = 25
+    image_to_normalize: ScanMap2DArray,
+    scale_max: float = 255,
+    scale_min: float = 25,
 ) -> ScanMap2DArray:
     """
     Normalize a 2D intensity map to a specified output range.
