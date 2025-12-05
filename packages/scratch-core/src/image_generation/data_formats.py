@@ -100,7 +100,7 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
         """The image height in pixels."""
         return self.data.shape[0]
 
-    def subsample(self, step_x: int = 1, step_y: int = 1) -> "ScanImage":
+    def subsample(self, step_x: int, step_y: int) -> "ScanImage":
         """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
         array = subsample_array(scan_image=self.data, step_size=(step_x, step_y))
         return ScanImage(
