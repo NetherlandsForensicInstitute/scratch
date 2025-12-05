@@ -3,7 +3,7 @@ import pytest
 from PIL import Image
 
 from parsers.data_types import ScanImage
-from utils.array_definitions import ScanMap2DArray
+from utils.array_definitions import ScanMap2DArray, MaskArray
 
 from .constants import SCANS_DIR
 
@@ -36,3 +36,16 @@ def scan_image_with_nans() -> ScanImage:
     rng = np.random.default_rng(42)
     scan_image.data[rng.random(size=scan_image.data.shape) < 0.1] = np.nan
     return scan_image
+
+
+@pytest.fixture(scope="module")
+def mask_with_nans() -> MaskArray:
+    """Build a `MaskArray` object`."""
+    scan_image = ScanImage.from_file(SCANS_DIR / "Klein_non_replica_mode.al3d")
+    data = np.ones_like(scan_image.data).astype(bool)
+    # Set the borders (edges) to 0
+    data[0, :] = 0  # First row
+    data[-1, :] = 0  # Last row
+    data[:, 0] = 0  # First column
+    data[:, -1] = 0  # Last column
+    return data
