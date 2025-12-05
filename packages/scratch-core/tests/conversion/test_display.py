@@ -14,4 +14,4 @@ def test_get_image_for_display_matches_baseline_image(
 ):
     verified = np.load(BASELINE_IMAGES_DIR / "display_array.npy")
     display_image = get_array_for_display(scan_image_with_nans)
-    assert_array_almost_equal(display_image.data, verified)
+    assert_array_almost_equal(display_image, verified)
