@@ -32,7 +32,6 @@ class BaseFilter(ABC):
     @abstractmethod
     def filter(self, data: ScanMap2DArray) -> ScanMap2DArray:
         """Apply the actual filtering operation."""
-        pass
 
 
 class GaussianFilter(BaseFilter):
