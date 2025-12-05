@@ -5,7 +5,7 @@ from typing import NamedTuple
 import numpy as np
 from x3p import X3Pfile
 
-from .data_types import ScanImage
+from image_generation.data_formats import ScanImage
 
 
 class X3PMetaData(NamedTuple):

@@ -1,3 +1,3 @@
-from conversion.subsample import subsample_data
+from conversion.subsample import subsample_array
 
-__all__ = ("subsample_data",)
+__all__ = ("subsample_array",)
