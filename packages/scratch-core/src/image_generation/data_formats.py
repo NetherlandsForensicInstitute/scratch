@@ -3,6 +3,7 @@ from numpydantic.ndarray import NDArray
 from PIL.Image import Image, fromarray
 from pydantic import BaseModel, ConfigDict, Field
 
+from conversion.exceptions import ConversionError
 from conversion.subsample import subsample_array
 from image_generation.translations import (
     apply_multiple_lights,
@@ -100,7 +101,7 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
         """The image height in pixels."""
         return self.data.shape[0]
 
-    def subsample(self, step_x: int = 1, step_y: int = 1) -> "ScanImage":
+    def subsample(self, step_x: int, step_y: int) -> "ScanImage":
         """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
         array = subsample_array(scan_image=self.data, step_size=(step_x, step_y))
         return ScanImage(
@@ -143,14 +144,19 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
             scale_y=self.scale_y,
         )
 
-    @property
     def image(self) -> Image:
         """
         Convert a 2D intensity map to an image.
 
         :returns: Image representation of the 2D intensity map.
         """
-        return fromarray(grayscale_to_rgba(scan_data=self.data))
+        try:
+            return fromarray(grayscale_to_rgba(scan_data=self.data))
+        except ValueError as err:
+            if "values outside \\[0, 255\\] range" in err.args[0]:
+                raise ConversionError(
+                    "Could not convert data to an RGBA image."
+                ) from err
 
 
 class ScanTensor3D(ImageContainer, arbitrary_types_allowed=True):
