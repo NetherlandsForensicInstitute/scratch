@@ -20,10 +20,7 @@ class TestMask2dArray:
 
         result = mask_2d_array(image, mask)
 
-        assert result[0, 0] == 1
-        assert result[1, 1] == 4
-        assert np.isnan(result[0, 1])
-        assert np.isnan(result[1, 0])
+        np.testing.assert_array_equal(result, np.array([[1, np.nan], [np.nan, 4]]))
 
     def test_does_not_mutate_input(self):
         image = np.array([[1, 2], [3, 4]], dtype=float)
