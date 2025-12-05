@@ -65,4 +65,6 @@ def get_array_for_display(
     """
     clipped, lower, upper = clip_data(data=depth_data.data, std_scaler=std_scaler)
     normalized = normalize(clipped, lower, upper)
-    return ScanImage(data=normalized)
+    return ScanImage(
+        data=normalized, scale_x=depth_data.scale_x, scale_y=depth_data.scale_y
+    )

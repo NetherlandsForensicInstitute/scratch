@@ -25,7 +25,7 @@ def test_export_image_pipeline_raises_error():
 def test_export_image_pipeline_creates_file(tmp_path: Path):
     # Arrange
     def faker(*args, **kwargs) -> ScanImage:
-        return ScanImage(data=np.array([[1.0, 2.0]]))
+        return ScanImage(data=np.array([[1.0, 2.0]]), scale_x=1.0, scale_y=1.0)
 
     # Act
     export_image_pipeline(tmp_path / "test.png", faker, np.array([]))  # pyright: ignore

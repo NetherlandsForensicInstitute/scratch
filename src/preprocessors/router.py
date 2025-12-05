@@ -59,7 +59,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     surface_image_path = upload_scan.output_dir / "surface_map.png"
     preview_image_path = upload_scan.output_dir / "preview.png"
     scan_file_path = upload_scan.output_dir / "scan.x3p"
-    parsed_scan = load_scan_image(upload_scan.scan_file).subsample_data(step_x=1, step_y=1)
+    parsed_scan = load_scan_image(upload_scan.scan_file).subsample(step_x=1, step_y=1)
     try:
         save_to_x3p(image=parsed_scan, output_path=scan_file_path)
     except ExportError as err:
