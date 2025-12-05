@@ -26,3 +26,12 @@ def test_create_small_image_small_values() -> None:
 
     # Assert
     assert np.array_equal(output_array, expected_rgba)
+
+
+def test_create_wrong_values() -> None:
+    # Arrange
+    input_data = np.array([[600.0, 900.0], [200.0, 600.0]], dtype=np.float64)
+    input_image = ScanImage(data=input_data, scale_x=1, scale_y=1)
+
+    # Act
+    np.array(input_image.image())

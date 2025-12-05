@@ -153,16 +153,36 @@ def normalize_2d_array(
     return scale_min + (scale_max - scale_min) * norm
 
 
+def _validate_array_is_normalized(
+    scan_data: ScanMap2DArray, min_value: int = 0, max_value: int = 255
+) -> None:
+    """Validate that the input array is normalized.
+
+    :param scan_data: 3D array of input intensity values.
+    :param min_value: Minimum intensity value. Default is ``0``.
+    :param max_value: Maximum intensity value. Default is ``255``.
+    :raises ValueError: If any value is outside ``min_value`` and ``max_value``
+    """
+    valid_mask = ~np.isnan(scan_data)
+    if valid_mask.any():
+        valid_data = scan_data[valid_mask]
+        if np.any((valid_data < min_value) | (valid_data > max_value)):
+            raise ValueError(
+                f"scan_data contains values outside [0, 255] range. "
+                f"Found min={np.nanmin(scan_data)}, max={np.nanmax(scan_data)}"
+            )
+
+
 def grayscale_to_rgba(scan_data: ScanMap2DArray) -> ScanMapRGBA:
     """
     Convert a 2D grayscale array to an 8-bit RGBA array.
 
-    The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
     NaN values will be converted to black pixels with 100% transparency.
 
-    :param image: The grayscale image data to be converted to an 8-bit RGBA image.
+    :param image: The grayscale image data to be converted to an 8-bit RGBA image values with a value ranging from 0 to 255.
     :returns: Array with the image data in 8-bit RGBA format.
     """
+    _validate_array_is_normalized(scan_data, min_value=0, max_value=255)
     rgba = np.empty(shape=(*scan_data.shape, 4), dtype=np.uint8)
     rgba[..., :-1] = np.expand_dims(scan_data.astype(np.uint8), axis=-1)
     rgba[..., -1] = ~np.isnan(scan_data) * 255

@@ -31,6 +31,32 @@ def test_grayscale_to_rgba_has_same_size(scan_image_with_nans: ScanImage):
     assert rgba.shape[0] == scan_image_with_nans.height
 
 
+@pytest.mark.parametrize(
+    "given_scan_image",
+    [
+        pytest.param(
+            np.array([[-50.0, 100.0, 300.0], [150.0, 500.0, -20.0]]),
+            id="values bigger then 255 and lower then 0",
+        ),
+        pytest.param(
+            np.array([[100.0, -10.0, 200.0], [50.0, 150.0, -5.0]]),
+            id="negative values",
+        ),
+        pytest.param(
+            np.array([[100.0, 200.0, 300.0], [50.0, 400.0, 150.0]]),
+            id="values bigger then 255",
+        ),
+    ],
+)
+def test_grayscale_to_rgba_invalid_values(given_scan_image: ScanMap2DArray) -> None:
+    # Arrange
+    scan_data = np.array([[-50.0, 100.0, 300.0], [150.0, 500.0, -20.0]])
+
+    # Act & Assert
+    with pytest.raises(ValueError, match="values outside \\[0, 255\\] range"):
+        grayscale_to_rgba(scan_data)
+
+
 @given(
     std_scaler=st.floats(min_value=0, max_value=100, exclude_min=True),
     data=arrays(
