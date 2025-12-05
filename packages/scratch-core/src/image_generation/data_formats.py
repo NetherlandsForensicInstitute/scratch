@@ -143,7 +143,6 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
             scale_y=self.scale_y,
         )
 
-    @property
     def image(self) -> Image:
         """
         Convert a 2D intensity map to an image.
