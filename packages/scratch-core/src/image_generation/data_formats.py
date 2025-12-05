@@ -152,12 +152,12 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
         return fromarray(grayscale_to_rgba(scan_data=self.data))
 
 
-class ScanTensor3D(ImageContainer, arbitrary_types_allowed=True):
+class MultiIlluminationScan(ImageContainer, arbitrary_types_allowed=True):
     """
-    A 3D stack of 2D scan maps.
+    Multiple 2D scans captured under different illumination conditions.
 
-    Typically used for multi-illumination data or multichannel measurements.
-    Shape: (height, width, n_layers)
+    Shape: (height, width, n_lights) where the last axis represents
+    different lighting directions applied to the same surface.
     """
 
     data: ScanTensor3DArray
@@ -183,7 +183,7 @@ class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
         self,
         light_vectors: tuple[UnitVector3DArray, ...],
         observer: UnitVector3DArray = LightSource(azimuth=0, elevation=90).unit_vector,
-    ) -> "ScanTensor3D":
+    ) -> "MultiIlluminationScan":
         """
         Apply one or more light vectors to the surface-normal field.
 
@@ -196,7 +196,7 @@ class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Normalized 2D intensity map with shape (Height, Width), suitable for
         """
-        return ScanTensor3D(
+        return MultiIlluminationScan(
             data=apply_multiple_lights(
                 surface_normals=self.data,
                 light_vectors=light_vectors,
