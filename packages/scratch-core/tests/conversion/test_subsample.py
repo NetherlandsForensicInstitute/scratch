@@ -25,10 +25,8 @@ def test_subsample_matches_size(scan_image: ScanMap2DArray, step_size: tuple[int
 
 def test_scan_map_updates_scales(scan_image: ScanMap2DArray):
     # Arrange
-    scale_x = 3
-    scale_y = 3
-    step_x = 10
-    step_y = 10
+    scale_x = scale_y = 3
+    step_x = step_y = 10
     input_data = ScanImage(data=scan_image, scale_x=scale_x, scale_y=scale_y)
 
     # Act
