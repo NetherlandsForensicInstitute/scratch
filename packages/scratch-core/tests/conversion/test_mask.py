@@ -150,10 +150,10 @@ class TestDetermineBoundingBox:
 
 @pytest.mark.integration
 def test_get_image_for_display_matches_baseline_image(
-    scan_image_with_nans: ScanImage, mask_with_nans: MaskArray
+    scan_image_with_nans: ScanImage, mask_array: MaskArray
 ):
     verified = np.load(BASELINE_IMAGES_DIR / "masked_cropped_array.npy")
     masked_cropped_image = mask_and_crop_2d_array(
-        scan_image_with_nans, mask_with_nans, crop=True
+        scan_image_with_nans, mask_array, crop=True
     )
     assert_array_almost_equal(masked_cropped_image.data, verified)

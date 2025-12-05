@@ -39,7 +39,7 @@ def scan_image_with_nans() -> ScanImage:
 
 
 @pytest.fixture(scope="module")
-def mask_with_nans() -> MaskArray:
+def mask_array() -> MaskArray:
     """Build a `MaskArray` object`."""
     scan_image = ScanImage.from_file(SCANS_DIR / "Klein_non_replica_mode.al3d")
     data = np.ones_like(scan_image.data).astype(bool)
