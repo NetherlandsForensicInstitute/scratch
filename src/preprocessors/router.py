@@ -1,14 +1,13 @@
 from fastapi import APIRouter
 from fastapi.exceptions import HTTPException
-from image_generation.image_generation import compute_3d_image,get_array_for_display
+from image_generation.image_generation import compute_3d_image, get_array_for_display
 from loguru import logger
 from parsers import load_scan_image
 from parsers.exceptions import ExportError
 from parsers.x3p import save_to_x3p
 
-from preprocessors.helpers import export_image_pipeline
-from preprocessors.models import ImageGenerationError, ParsingError
-
+from .helpers import export_image_pipeline
+from .models import ImageGenerationError, ParsingError
 from .schemas import ProcessedDataLocation, UploadScan
 
 preprocessor_route = APIRouter(

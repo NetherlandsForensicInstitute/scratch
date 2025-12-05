@@ -2,12 +2,11 @@ import numpy as np
 from image_generation.exceptions import ImageGenerationError
 from PIL.Image import Image
 from numpydantic.ndarray import NDArray
-from PIL.Image import Image, fromarray
+from PIL.Image import fromarray
 from pydantic import BaseModel, ConfigDict, Field
 
-from conversion.subsample import subsample_array
 from loguru import logger
-from conversion.subsample import subsample_data
+from conversion.subsample import subsample_array
 from image_generation.translations import (
     apply_multiple_lights,
     compute_surface_normals,
