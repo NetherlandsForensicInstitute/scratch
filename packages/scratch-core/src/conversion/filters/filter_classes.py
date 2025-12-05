@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 
 import numpy as np
 
@@ -22,16 +22,17 @@ class BaseFilter(ABC):
 
     def apply(self, data: ScanMap2DArray) -> ScanMap2DArray:
         """Apply filter to scan_image."""
-        filtered = self._filter(data)
+        filtered = self.filter(data)
 
         if self.is_high_pass:
             filtered = data - filtered
 
         return filtered
 
-    def _filter(self, data: ScanMap2DArray) -> ScanMap2DArray:
+    @abstractmethod
+    def filter(self, data: ScanMap2DArray) -> ScanMap2DArray:
         """Apply the actual filtering operation."""
-        raise NotImplementedError("Subclasses must implement _filter_data()")
+        pass
 
 
 class GaussianFilter(BaseFilter):
@@ -55,7 +56,7 @@ class GaussianFilter(BaseFilter):
         self.pixel_size = pixel_size
         super().__init__(is_high_pass, nan_out)
 
-    def _filter(self, data: ScanMap2DArray) -> ScanMap2DArray:
+    def filter(self, data: ScanMap2DArray) -> ScanMap2DArray:
         """Apply the actual filtering operation."""
         if np.all(np.isnan(self.cutoff_length)):
             return data

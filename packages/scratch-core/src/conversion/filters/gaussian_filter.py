@@ -1,15 +1,24 @@
 import numpy as np
 from scipy import ndimage
+from scipy.special import lambertw
 
 from utils.array_definitions import ScanMap2DArray
 
 
-def get_alpha(n_order):
-    """Return the appropriate alpha value for the given degree regression filter."""
-    if n_order <= 1:
+def get_alpha(regression_order: int) -> float:
+    """
+    Return the appropriate alpha parameter value for the given regression order.
+
+    :param regression_order: The order of the regression filter.
+    :return: The alpha value corresponding to the given regression filter order.
+    """
+    if regression_order <= 1:
         return np.sqrt(np.log(2) / np.pi)
+    elif regression_order == 2:
+        w = lambertw(-1 / (2 * np.e), k=-1).real
+        return np.sqrt((-1 - w) / np.pi)
     else:
-        return 7.309134280946760e-01
+        raise ValueError(f"Maximum regression order is 2, got {regression_order}")
 
 
 def _cutoff_to_sigma(alpha: float, cutoff_length: float) -> float:
@@ -40,28 +49,21 @@ def _cutoff_to_truncate(cutoff_length: float, sigma: float) -> float:
     return np.ceil(cutoff_length) / sigma
 
 
-def apply_gaussian_filter(
-    data: ScanMap2DArray,
-    cutoff_length: tuple[float, float],
-    pixel_size: tuple[float, float] = (1.0, 1.0),
-    n_order: int = 0,
-    nan_out: bool = True,
+def _apply_nan_weighted_filter(
+    data: np.ndarray,
+    sigma: np.ndarray,
+    radius: np.ndarray,
 ) -> np.ndarray:
-    """Apply Gaussian filter to 2D data with NaN handling.
+    """Apply Gaussian filter with NaN-aware weighting.
 
-    :param data: Input 2D data array.
-    :param cutoff_length: Cutoff wavelength (row, col) in physical units.
-    :param pixel_size: The pixel size in the X-direction en Y-direction in meters (m).
-    :param n_order: Degree regression filter.
-    :param nan_out: If True, preserve NaN positions in output.
-    :return: Filtered data array.
+    NaN values are excluded from the convolution by setting their weight to 0.
+    The result is normalized by the sum of weights to compensate.
+
+    :param data: Input 2D data array (may contain NaN).
+    :param sigma: Gaussian sigma for each axis.
+    :param radius: Kernel radius for each axis.
+    :return: Filtered data (NaN positions will have interpolated values).
     """
-    # Convert cutoff to pixel units and scipy parameters
-    cutoff_pixels = np.array(cutoff_length) / np.array(pixel_size)
-    sigma = np.array([_cutoff_to_sigma(get_alpha(n_order), c) for c in cutoff_pixels])
-    radius = np.ceil(cutoff_pixels).astype(int)
-
-    # Weighted filtering for NaN handling
     weights = (~np.isnan(data)).astype(float)
     data_clean = np.where(np.isnan(data), 0, data)
 
@@ -73,7 +75,34 @@ def apply_gaussian_filter(
     )
 
     with np.errstate(invalid="ignore", divide="ignore"):
-        result = filtered / weight_sum
+        return filtered / weight_sum
+
+
+def apply_gaussian_filter(
+    data: ScanMap2DArray,
+    cutoff_length: tuple[float, float],
+    pixel_size: tuple[float, float] = (1.0, 1.0),
+    regression_order: int = 0,
+    nan_out: bool = True,
+) -> np.ndarray:
+    """Apply Gaussian filter to 2D data with NaN handling.
+
+    :param data: Input 2D data array.
+    :param cutoff_length: Cutoff wavelength (row, col) in physical units.
+    :param pixel_size: The pixel size in the X-direction en Y-direction in meters (m).
+    :param regression_order: Degree regression filter.
+    :param nan_out: If True, preserve NaN positions in output.
+    :return: Filtered data array.
+    """
+    # Convert cutoff to pixel units and scipy parameters
+    cutoff_pixels = np.array(cutoff_length) / np.array(pixel_size)
+    sigma = np.array(
+        [_cutoff_to_sigma(get_alpha(regression_order), c) for c in cutoff_pixels]
+    )
+    radius = np.ceil(cutoff_pixels).astype(int)
+
+    # Weighted filtering for NaN handling
+    result = _apply_nan_weighted_filter(data, sigma, radius)
 
     if nan_out:
         result[np.isnan(data)] = np.nan
