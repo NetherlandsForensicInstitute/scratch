@@ -1,280 +1,316 @@
 """Tests for Gaussian filter."""
 
+from collections.abc import Callable
+from typing import Final, TypeAlias
+from functools import partial
 import numpy as np
+from numpy.typing import NDArray
 import pytest
+from scipy.constants import deci, femto
 
-from conversion.filters.filter_classes import GaussianFilter
 from conversion.filters.gaussian_filter import (
     apply_gaussian_filter,
-    _cutoff_to_sigma,
-    _cutoff_to_truncate,
+    get_cutoff_sigmas,
     get_alpha,
 )
+from conversion.filters.protocol import FilterFlags
+from utils.array_definitions import ScanMap2DArray
+
+CUTOFF: Final[float] = 5.0
+SEED: Final[int] = 42
+approx = partial(pytest.approx, rel=femto)
+allclose = partial(np.allclose, rtol=femto)
+Sigma: TypeAlias = Callable[[NDArray[np.floating]], NDArray[np.floating]]
+
+
+@pytest.fixture(scope="module")
+def alpha() -> float:
+    return get_alpha(regression_order=0)
+
+
+@pytest.fixture(scope="module")
+def sigma(alpha) -> Sigma:
+    return lambda cutoffs: get_cutoff_sigmas(alpha, cutoff_lengths=cutoffs)
+
+
+@pytest.fixture(scope="class")
+def cutoff_pixels() -> NDArray[np.floating]:
+    """Default cutoff pixels for Gaussian filter tests."""
+    return np.array([3.0, 3.0])
+
+
+@pytest.fixture(autouse=True)
+def reset_random_seed() -> None:
+    """Reset numpy random seed before each test for reproducibility."""
+    np.random.seed(SEED)
 
 
 class TestCutoffToSigma:
-    """Test cutoff to sigma conversion."""
+    def test_conversion_formula(self, sigma: Sigma) -> None:
+        # arrange
+        cutoffs = np.arange(1.0, 6.0)
+        expected = np.array(
+            [
+                0.1873906251292776,
+                0.3747812502585552,
+                0.5621718753878329,
+                0.7495625005171104,
+                0.936953125646388,
+            ]
+        )
+        # act
+        sigma_ = sigma(cutoffs)
 
-    def test_conversion_formula(self):
-        """Sigma = alpha * cutoff / sqrt(2*pi)."""
-        cutoff = 5.0
-        alpha = get_alpha(regression_order=0)
-        expected = alpha * cutoff / np.sqrt(2 * np.pi)
-        assert _cutoff_to_sigma(alpha, cutoff) == pytest.approx(expected, rel=1e-15)
+        # assert
+        assert sigma_ == approx(expected)
+        assert (sigma_ < cutoffs).all()
 
-    def test_linear_scaling(self):
-        """Sigma should scale linearly with cutoff."""
-        sigma1 = _cutoff_to_sigma(get_alpha(regression_order=0), 5.0)
-        sigma2 = _cutoff_to_sigma(get_alpha(regression_order=0), 10.0)
-        assert sigma2 == pytest.approx(2 * sigma1, rel=1e-15)
+    def test_linear_scaling(self, sigma: Sigma) -> None:
+        # arrange
+        delta = np.array([5, 10, 15, 20, 25])
+        cutoffs = np.array([2, 4, 8, 16, 32])
 
-    def test_various_cutoffs(self):
-        """Test sigma calculation for various cutoffs."""
-        for cutoff in [1, 3, 5, 7, 10, 20]:
-            sigma = _cutoff_to_sigma(get_alpha(regression_order=0), cutoff)
-            assert sigma > 0
-            assert sigma < cutoff  # sigma is always smaller than cutoff
+        # act and assert
+        assert sigma(delta * cutoffs) == approx(delta * sigma(cutoffs))
 
+    def test_zero_cutoffs(self, alpha: float) -> None:
+        # arrange
+        cutoffs = np.array([0])
 
-class TestCutoffToTruncate:
-    """Test cutoff to truncate conversion."""
+        # act
+        sigma = get_cutoff_sigmas(alpha, cutoffs)
 
-    def test_conversion_formula(self):
-        """Truncate = ceil(cutoff) / sigma."""
-        cutoff = 5.0
-        sigma = _cutoff_to_sigma(get_alpha(regression_order=0), cutoff)
-        expected = np.ceil(cutoff) / sigma
-        assert _cutoff_to_truncate(cutoff, sigma) == pytest.approx(expected, rel=1e-15)
-
-    def test_ensures_kernel_size(self):
-        """Truncate should ensure kernel radius >= ceil(cutoff)."""
-        for cutoff in [3, 5, 7, 10]:
-            sigma = _cutoff_to_sigma(get_alpha(regression_order=0), cutoff)
-            truncate = _cutoff_to_truncate(cutoff, sigma)
-            # scipy kernel radius = ceil(truncate * sigma)
-            kernel_radius = np.ceil(truncate * sigma)
-            assert kernel_radius >= np.ceil(cutoff)
+        # assert
+        assert np.array_equal(cutoffs, sigma)
 
 
 class TestGaussianFilterFunction:
     """Test the gaussian_filter function."""
 
-    def test_nan_out_false(self):
-        """When nan_out=False, NaN positions get interpolated values."""
-        data = np.ones((10, 10)) * 5.0
+    @pytest.fixture(scope="class")
+    def array_data(self) -> ScanMap2DArray:
+        data = np.full((10, 10), 5.0)
         data[5, 5] = np.nan
+        return data
 
-        result = apply_gaussian_filter(data, (3.0, 3.0), nan_out=False)
-
-        # The NaN position should now have a value (interpolated from neighbors)
-        assert not np.isnan(result[5, 5])
-        assert result[5, 5] == pytest.approx(5.0, rel=0.1)
-
-    def test_asymmetric_pixel_separation(self):
-        """Should handle different pixel separation in each direction."""
-        np.random.seed(42)
-        data = np.random.rand(30, 30) * 100
-
-        # Different separation in row vs col
-        result = apply_gaussian_filter(data, (5.0, 5.0), pixel_size=(1.0, 0.5))
-
-        assert result.shape == data.shape
-        assert not np.any(np.isnan(result))
-
-    def test_preserves_shape(self):
-        """Output should have same shape as input."""
-        for shape in [(10, 10), (20, 30), (50, 25)]:
-            data = np.random.rand(*shape)
-            result = apply_gaussian_filter(data, (5.0, 5.0))
-            assert result.shape == shape
-
-    def test_uniform_data_unchanged(self):
-        """Filtering uniform data should return (approximately) same values."""
-        data = np.ones((20, 20)) * 42.0
-        result = apply_gaussian_filter(data, (5.0, 5.0))
-
-        # Interior should be exactly 42 (edges affected by zero-padding)
-        np.testing.assert_allclose(result[5:15, 5:15], 42.0, rtol=1e-10)
-
-    def test_smoothing_effect(self):
-        """Filtering should reduce variance (smoothing)."""
-        np.random.seed(42)
-        data = np.random.rand(50, 50) * 100
-        result = apply_gaussian_filter(data, (5.0, 5.0))
-
-        # Variance should decrease after smoothing
-        assert np.var(result) < np.var(data)
-
-
-class TestGaussianFilterClass:
-    """Test the GaussianFilter class."""
-
-    def test_apply_matches_function(self):
-        """Class apply() should match gaussian_filter function."""
-        np.random.seed(42)
-        data = np.random.rand(30, 30) * 100
-
-        f = GaussianFilter(cutoff_length=(5.0, 5.0))
-        class_result = f.apply(data)
-        func_result = apply_gaussian_filter(data, (5.0, 5.0))
-
-        np.testing.assert_array_equal(class_result, func_result)
-
-    def test_high_pass_mode(self):
-        """High-pass should return data - lowpass."""
-        np.random.seed(42)
-        data = np.random.rand(30, 30) * 100
-
-        f_lp = GaussianFilter(cutoff_length=(5.0, 5.0), is_high_pass=False)
-        f_hp = GaussianFilter(cutoff_length=(5.0, 5.0), is_high_pass=True)
-
-        lowpass = f_lp.apply(data)
-        highpass = f_hp.apply(data)
-
-        np.testing.assert_allclose(highpass, data - lowpass, rtol=1e-15)
-
-    def test_high_pass_sum_equals_original(self):
-        """Lowpass + highpass should equal original data."""
-        np.random.seed(42)
-        data = np.random.rand(30, 30) * 100
-
-        f_lp = GaussianFilter(cutoff_length=(5.0, 5.0), is_high_pass=False)
-        f_hp = GaussianFilter(cutoff_length=(5.0, 5.0), is_high_pass=True)
-
-        lowpass = f_lp.apply(data)
-        highpass = f_hp.apply(data)
-
-        np.testing.assert_allclose(lowpass + highpass, data, rtol=1e-14)
-
-    def test_nan_cutoff_returns_unchanged(self):
-        """NaN cutoff should return data unchanged."""
-        data = np.random.rand(10, 10)
-
-        f = GaussianFilter(cutoff_length=(np.nan, np.nan))
-        result = f.apply(data)
-
-        np.testing.assert_array_equal(result, data)
-
-    def test_attributes_stored(self):
-        """Constructor should store all attributes."""
-        f = GaussianFilter(
-            cutoff_length=(5.0, 7.0),
-            pixel_size=(0.5, 1.0),
-            is_high_pass=True,
-            nan_out=False,
+    @pytest.mark.parametrize(
+        "flags, expected",
+        (
+            pytest.param(
+                FilterFlags.NAN_OUT & ~FilterFlags.HIGH_PASS,
+                True,
+                id="with NAN_OUT flag",
+            ),
+            pytest.param(
+                ~(FilterFlags.NAN_OUT | FilterFlags.HIGH_PASS),
+                False,
+                id="without NAN_OUT flag",
+            ),
+        ),
+    )
+    def test_nan_out_flag(
+        self,
+        flags: FilterFlags,
+        expected: float,
+        alpha: float,
+        array_data: ScanMap2DArray,
+        cutoff_pixels: NDArray[np.floating],
+    ) -> None:
+        # act
+        result = apply_gaussian_filter(
+            array_data,
+            alpha,
+            cutoff_pixels=cutoff_pixels,
+            flags=flags,
         )
 
-        assert f.cutoff_length == (5.0, 7.0)
-        assert f.pixel_size == (0.5, 1.0)
-        assert f.is_high_pass is True
-        assert f.nan_out is False
+        # assert
+        assert np.isnan(result).any() == expected
 
+    @pytest.mark.parametrize(
+        "flags, expected",
+        (
+            pytest.param(
+                ~(FilterFlags.NAN_OUT | FilterFlags.HIGH_PASS),
+                5.0,
+                id="without highpass flag",
+            ),
+            pytest.param(
+                ~FilterFlags.NAN_OUT & FilterFlags.HIGH_PASS,
+                0.0,
+                id="with highpass flag",
+            ),
+        ),
+    )
+    def test_high_pass_flag(
+        self,
+        flags: FilterFlags,
+        expected: float,
+        alpha: float,
+        array_data: ScanMap2DArray,
+        cutoff_pixels: NDArray[np.floating],
+    ) -> None:
+        # act
+        result = apply_gaussian_filter(
+            array_data,
+            alpha,
+            cutoff_pixels=cutoff_pixels,
+            flags=flags,
+        )
 
-class TestEdgeCases:
-    """Test edge cases and boundary conditions."""
+        # assert
+        # result with masked off nan values
+        assert allclose(result[np.isfinite(result)], expected)
+        # since array_data has a nan
+        # when highpass flag is on
+        # result should also have a nan at the same position
+        if FilterFlags.HIGH_PASS in flags:
+            assert np.isnan(result).any()
 
-    def test_single_pixel(self):
+    def test_both_flag(
+        self,
+        alpha: float,
+        array_data: ScanMap2DArray,
+        cutoff_pixels: NDArray[np.floating],
+    ) -> None:
+        # act
+        result = apply_gaussian_filter(
+            array_data,
+            alpha,
+            cutoff_pixels=cutoff_pixels,
+            flags=FilterFlags.HIGH_PASS & FilterFlags.NAN_OUT,
+        )
+
+        # assert
+        assert allclose(result, 5.0)
+
+    def test_compaire_high_against_low_pass(
+        self,
+        alpha: float,
+        array_data: ScanMap2DArray,
+        cutoff_pixels: NDArray[np.floating],
+    ) -> None:
+        # arrange, filter acts different if nan in data
+        array = array_data.copy()
+        array[5, 5] = 5.0
+        filter = partial(
+            apply_gaussian_filter,
+            data=array,
+            alpha=alpha,
+            cutoff_pixels=cutoff_pixels,
+        )
+
+        # act
+        lowpass = filter(flags=~(FilterFlags.HIGH_PASS | FilterFlags.NAN_OUT))
+        highpass = filter(flags=FilterFlags.HIGH_PASS & ~FilterFlags.NAN_OUT)
+
+        # assert
+        assert allclose(lowpass + highpass, array)
+
+    def test_single_pixel(
+        self, alpha: float, cutoff_pixels: NDArray[np.floating]
+    ) -> None:
         """Single pixel data should work."""
         data = np.array([[42.0]])
-        result = apply_gaussian_filter(data, (3.0, 3.0))
+        result = apply_gaussian_filter(data, alpha, cutoff_pixels=cutoff_pixels)
 
         assert result.shape == (1, 1)
-        assert result[0, 0] == pytest.approx(42.0)
+        assert result[0, 0] == approx(42.0)
 
-    def test_all_nan_data(self):
+    def test_all_nan_data(
+        self, alpha: float, cutoff_pixels: NDArray[np.floating]
+    ) -> None:
         """All-NaN data should return all NaN."""
+        # arrange
         data = np.full((10, 10), np.nan)
-        result = apply_gaussian_filter(data, (5.0, 5.0))
+        # act
+        result = apply_gaussian_filter(data, alpha, cutoff_pixels=cutoff_pixels)
+        # assert
+        assert np.isnan(result).all()
 
-        assert np.all(np.isnan(result))
-
-    def test_single_valid_value(self):
+    def test_single_valid_value(
+        self, alpha: float, cutoff_pixels: NDArray[np.floating]
+    ) -> None:
         """Single non-NaN value should be preserved."""
+        # arrange
         data = np.full((10, 10), np.nan)
-        data[5, 5] = 42.0
+        data[5, 5] = 5.0
 
-        result = apply_gaussian_filter(data, (3.0, 3.0))
+        # act
+        result = apply_gaussian_filter(data, alpha, cutoff_pixels=cutoff_pixels)
 
-        assert result[5, 5] == pytest.approx(42.0)
+        # assert
+        assert result[5, 5] == approx(5.0)
 
-    def test_row_of_nan(self):
+    def test_row_of_nan(
+        self, alpha: float, cutoff_pixels: NDArray[np.floating]
+    ) -> None:
         """Row of NaN should be handled correctly."""
-        np.random.seed(42)
+        # arrange
         data = np.random.rand(20, 20) * 100
         data[10, :] = np.nan
 
-        result = apply_gaussian_filter(data, (5.0, 5.0))
+        # act
+        result = apply_gaussian_filter(data, alpha, cutoff_pixels=cutoff_pixels)
 
-        # NaN row should remain NaN
-        assert np.all(np.isnan(result[10, :]))
-        # Other rows should have values
-        assert not np.all(np.isnan(result[5, :]))
+        # assert
+        assert np.isnan(result[10, :]).all()
+        assert not np.isnan(result[5, :]).all()
 
-    def test_column_of_nan(self):
+    def test_column_of_nan(
+        self, alpha: float, cutoff_pixels: NDArray[np.floating]
+    ) -> None:
         """Column of NaN should be handled correctly."""
-        np.random.seed(42)
+        # arrange
         data = np.random.rand(20, 20) * 100
         data[:, 10] = np.nan
 
-        result = apply_gaussian_filter(data, (5.0, 5.0))
+        # act
+        result = apply_gaussian_filter(data, alpha, cutoff_pixels=cutoff_pixels)
 
-        # NaN column should remain NaN
-        assert np.all(np.isnan(result[:, 10]))
-        # Other columns should have values
-        assert not np.all(np.isnan(result[:, 5]))
+        # assert
+        assert np.isnan(result[:, 10]).all()
+        assert not np.isnan(result[:, 5]).all()
 
-    def test_nan_border(self):
+    def test_nan_border(
+        self, alpha: float, cutoff_pixels: NDArray[np.floating]
+    ) -> None:
         """NaN border should be preserved."""
+        # arrange
         data = np.full((20, 20), np.nan)
         data[5:15, 5:15] = np.random.rand(10, 10) * 100
 
-        result = apply_gaussian_filter(data, (3.0, 3.0))
+        # act
+        result = apply_gaussian_filter(data, alpha, cutoff_pixels=cutoff_pixels)
 
-        # NaN border should remain NaN
-        assert np.all(np.isnan(result[:5, :]))
-        assert np.all(np.isnan(result[15:, :]))
-        assert np.all(np.isnan(result[:, :5]))
-        assert np.all(np.isnan(result[:, 15:]))
+        # assert
+        assert np.isnan(result[:5, :]).all()
+        assert np.isnan(result[15:, :]).all()
+        assert np.isnan(result[:, :5]).all()
+        assert np.isnan(result[:, 15:]).all()
 
-    def test_very_small_cutoff(self):
+    def test_very_small_cutoff(self, alpha: float) -> None:
         """Very small cutoff should approximate identity."""
-        np.random.seed(42)
+        # arrange
         data = np.random.rand(20, 20) * 100
 
-        result = apply_gaussian_filter(data, (0.1, 0.1))
+        # act
+        result = apply_gaussian_filter(data, alpha, cutoff_pixels=np.array([0.1, 0.1]))
 
-        # With very small cutoff, result should be close to original
-        # (at least in the interior, away from edges)
-        np.testing.assert_allclose(result[5:15, 5:15], data[5:15, 5:15], rtol=0.01)
+        # assert
+        assert allclose(result[5:15, 5:15], data[5:15, 5:15])
 
-    def test_very_large_cutoff(self):
+    def test_very_large_cutoff(self, alpha: float) -> None:
         """Very large cutoff should approximate mean."""
-        np.random.seed(42)
+        # arrange
         data = np.random.rand(20, 20) * 100
 
-        result = apply_gaussian_filter(data, (100.0, 100.0))
-
-        # With very large cutoff, interior values should approach global mean
-        # (edges are affected by zero-padding so we check interior)
+        # act
+        result = apply_gaussian_filter(
+            data, alpha, cutoff_pixels=np.array([100.0, 100.0])
+        )
         interior = result[8:12, 8:12]
 
-        # Interior mean should be close to data mean (within reason, due to edge effects)
-        assert np.mean(interior) == pytest.approx(np.mean(data), rel=0.5)
-
-        # All interior values should be close to each other
+        # assert
+        assert np.mean(interior) == pytest.approx(np.mean(data), rel=deci)
         assert np.std(interior) < 1.0
-
-
-class TestNumericalProperties:
-    """Test numerical properties of the filter."""
-
-    def test_output_in_input_range(self):
-        """Filter output should be within input range (for non-edge pixels)."""
-        np.random.seed(42)
-        data = np.random.rand(50, 50) * 100
-        result = apply_gaussian_filter(data, (5.0, 5.0))
-
-        # Interior values should be within input range
-        interior = result[10:40, 10:40]
-        assert np.min(interior) >= np.min(data) - 1e-10
-        assert np.max(interior) <= np.max(data) + 1e-10

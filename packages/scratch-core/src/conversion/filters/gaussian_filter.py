@@ -1,7 +1,10 @@
+from functools import partial
 import numpy as np
+from numpy.typing import NDArray
 from scipy import ndimage
 from scipy.special import lambertw
 
+from .protocol import FilterFlags
 from utils.array_definitions import ScanMap2DArray
 
 
@@ -14,14 +17,15 @@ def get_alpha(regression_order: int) -> float:
     """
     if regression_order <= 1:
         return np.sqrt(np.log(2) / np.pi)
-    elif regression_order == 2:
+    if regression_order == 2:
         w = lambertw(-1 / (2 * np.e), k=-1).real
         return np.sqrt((-1 - w) / np.pi)
-    else:
-        raise ValueError(f"Maximum regression order is 2, got {regression_order}")
+    raise ValueError(f"Maximum regression order is 2, got {regression_order}")
 
 
-def _cutoff_to_sigma(alpha: float, cutoff_length: float) -> float:
+def get_cutoff_sigmas(
+    alpha: float, cutoff_lengths: NDArray[np.floating]
+) -> NDArray[np.floating]:
     """Convert MATLAB-style cutoff length to scipy sigma.
 
     MATLAB Gaussian: 1/(alpha*cutoff) * exp(-pi * (x / (alpha * cutoff))^2)
@@ -33,27 +37,26 @@ def _cutoff_to_sigma(alpha: float, cutoff_length: float) -> float:
     :param cutoff_length: Cutoff wavelength in pixels.
     :return: Equivalent scipy sigma.
     """
-    return alpha * cutoff_length / np.sqrt(2 * np.pi)
+    return alpha * cutoff_lengths / np.sqrt(2 * np.pi)
 
 
-def _cutoff_to_truncate(cutoff_length: float, sigma: float) -> float:
-    """Calculate scipy truncate parameter to match MATLAB kernel size.
+def get_cutoff_pixels(
+    cutoff_length: tuple[float, float], pixel_size: tuple[float, float]
+) -> NDArray[np.floating]:
+    """Convert cutoff length from physical units to pixel units.
 
-    MATLAB kernel radius = ceil(cutoff)
-    scipy kernel radius = ceil(truncate * sigma)
-
-    :param cutoff_length: Cutoff wavelength in pixels.
-    :param sigma: scipy sigma parameter.
-    :return: truncate parameter for scipy.
+    :param cutoff_length: Cutoff wavelength (row, col) in physical units.
+    :param pixel_size: Pixel size (row, col) in physical units.
+    :return: Cutoff wavelength (row, col) in pixel units.
     """
-    return np.ceil(cutoff_length) / sigma
+    return np.array(cutoff_length) / np.array(pixel_size)
 
 
 def _apply_nan_weighted_filter(
-    data: np.ndarray,
-    sigma: np.ndarray,
-    radius: np.ndarray,
-) -> np.ndarray:
+    data: NDArray[np.floating],
+    sigma: NDArray[np.floating],
+    radius: NDArray[np.floating],
+) -> NDArray[np.floating]:
     """Apply Gaussian filter with NaN-aware weighting.
 
     NaN values are excluded from the convolution by setting their weight to 0.
@@ -64,15 +67,16 @@ def _apply_nan_weighted_filter(
     :param radius: Kernel radius for each axis.
     :return: Filtered data (NaN positions will have interpolated values).
     """
-    weights = (~np.isnan(data)).astype(float)
-    data_clean = np.where(np.isnan(data), 0, data)
+    gaussian_filter = partial(
+        ndimage.gaussian_filter,
+        sigma=sigma,
+        mode="constant",
+        cval=0,
+        radius=radius,
+    )
 
-    filtered = ndimage.gaussian_filter(
-        data_clean, sigma=sigma, mode="constant", cval=0.0, radius=radius
-    )
-    weight_sum = ndimage.gaussian_filter(
-        weights, sigma=sigma, mode="constant", cval=0.0, radius=radius
-    )
+    filtered = gaussian_filter(np.where(np.isnan(data), 0, data))
+    weight_sum = gaussian_filter((~np.isnan(data)).astype(float))
 
     with np.errstate(invalid="ignore", divide="ignore"):
         return filtered / weight_sum
@@ -80,31 +84,22 @@ def _apply_nan_weighted_filter(
 
 def apply_gaussian_filter(
     data: ScanMap2DArray,
-    cutoff_length: tuple[float, float],
-    pixel_size: tuple[float, float] = (1.0, 1.0),
-    regression_order: int = 0,
-    nan_out: bool = True,
+    alpha: float,
+    *,
+    cutoff_pixels: NDArray[np.floating],
+    flags: FilterFlags = FilterFlags.NAN_OUT & ~FilterFlags.HIGH_PASS,
 ) -> np.ndarray:
-    """Apply Gaussian filter to 2D data with NaN handling.
-
-    :param data: Input 2D data array.
-    :param cutoff_length: Cutoff wavelength (row, col) in physical units.
-    :param pixel_size: The pixel size in the X-direction en Y-direction in meters (m).
-    :param regression_order: Degree regression filter.
-    :param nan_out: If True, preserve NaN positions in output.
-    :return: Filtered data array.
-    """
-    # Convert cutoff to pixel units and scipy parameters
-    cutoff_pixels = np.array(cutoff_length) / np.array(pixel_size)
-    sigma = np.array(
-        [_cutoff_to_sigma(get_alpha(regression_order), c) for c in cutoff_pixels]
-    )
-    radius = np.ceil(cutoff_pixels).astype(int)
-
     # Weighted filtering for NaN handling
-    result = _apply_nan_weighted_filter(data, sigma, radius)
+    filtered = _apply_nan_weighted_filter(
+        data,
+        sigma=get_cutoff_sigmas(alpha, cutoff_pixels),
+        radius=np.ceil(cutoff_pixels).astype(int),
+    )
 
-    if nan_out:
-        result[np.isnan(data)] = np.nan
+    if FilterFlags.NAN_OUT in flags:
+        filtered[np.isnan(data)] = np.nan
 
-    return result
+    if FilterFlags.HIGH_PASS in flags:
+        return data - filtered
+
+    return filtered
