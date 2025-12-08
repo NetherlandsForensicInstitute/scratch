@@ -36,7 +36,7 @@ def test_grayscale_to_rgba_has_same_size(scan_image_with_nans: ScanImage):
     [
         pytest.param(
             np.array([[-50.0, 100.0, 300.0], [150.0, 500.0, -20.0]]),
-            id="values bigger then 255 and lower then 0",
+            id="values bigger than 255 and lower than 0",
         ),
         pytest.param(
             np.array([[100.0, -10.0, 200.0], [50.0, 150.0, -5.0]]),
@@ -44,7 +44,7 @@ def test_grayscale_to_rgba_has_same_size(scan_image_with_nans: ScanImage):
         ),
         pytest.param(
             np.array([[100.0, 200.0, 300.0], [50.0, 400.0, 150.0]]),
-            id="values bigger then 255",
+            id="values bigger than 255",
         ),
     ],
 )
