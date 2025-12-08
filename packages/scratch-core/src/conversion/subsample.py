@@ -1,4 +1,4 @@
-from image_generation.translations import ScanMap2DArray
+from utils.array_definitions import ScanMap2DArray
 
 
 def subsample_array(
