@@ -234,13 +234,13 @@ class TestGaussianFilterFunction:
         """Single non-NaN value should be preserved."""
         # arrange
         data = np.full((10, 10), np.nan)
-        data[5, 5] = 5.0
+        data[5, 5] = 42.0
 
         # act
         result = apply_gaussian_filter(data, alpha, cutoff_pixels=cutoff_pixels)
 
         # assert
-        assert result[5, 5] == approx(5.0)
+        assert result[5, 5] == approx(42.0)
 
     def test_row_of_nan(
         self, alpha: float, cutoff_pixels: NDArray[np.floating]

@@ -34,7 +34,7 @@ def get_cutoff_sigmas(
     Matching: sigma = alpha * cutoff / sqrt(2 * pi)
 
     :param alpha: Alpha value
-    :param cutoff_length: Cutoff wavelength in pixels.
+    :param cutoff_lengths: Cutoff wavelengths in pixels.
     :return: Equivalent scipy sigma.
     """
     return alpha * cutoff_lengths / np.sqrt(2 * np.pi)
