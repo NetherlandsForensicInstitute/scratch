@@ -102,7 +102,7 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
     def subsample(self, step_x: int, step_y: int) -> "ScanImage":
         """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
-        array = subsample_array(scan_image=self.data, step_size=(step_x, step_y))
+        array = subsample_array(scan_data=self.data, step_size=(step_x, step_y))
         return ScanImage(
             data=array,
             scale_x=self.scale_x * step_x,

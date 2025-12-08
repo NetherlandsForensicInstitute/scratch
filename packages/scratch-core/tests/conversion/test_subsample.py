@@ -19,7 +19,7 @@ def test_subsample_matches_size(
     expected_width = ceil(scan_image_array.shape[1] / step_size[0])
 
     # Act
-    subsampled = subsample_array(scan_image=scan_image_array, step_size=step_size)
+    subsampled = subsample_array(scan_data=scan_image_array, step_size=step_size)
 
     #  Assert
     assert subsampled.shape == (expected_height, expected_width)
@@ -46,13 +46,13 @@ def test_subsample_rejects_incorrect_sizes(
     scan_image_array: ScanMap2DArray, step_size: tuple[int, int]
 ):
     with pytest.raises(ValueError):
-        _ = subsample_array(scan_image=scan_image_array, step_size=step_size)
+        _ = subsample_array(scan_data=scan_image_array, step_size=step_size)
 
 
 def test_subsample_matches_baseline_output(scan_image_replica: ScanImage):
     verified = np.load(BASELINE_IMAGES_DIR / "replica_subsampled.npy")
 
-    subsampled = subsample_array(scan_image=scan_image_replica.data, step_size=(10, 15))
+    subsampled = subsample_array(scan_data=scan_image_replica.data, step_size=(10, 15))
     assert np.allclose(
         subsampled,
         verified,
