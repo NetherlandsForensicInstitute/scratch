@@ -179,7 +179,7 @@ def grayscale_to_rgba(scan_data: ScanMap2DArray) -> ScanMapRGBA:
 
     NaN values will be converted to black pixels with 100% transparency.
 
-    :param image: The grayscale image data to be converted to an 8-bit RGBA image values with a value ranging from 0 to 255.
+    :param image: The grayscale image data to be converted to an 8-bit RGBA image.
     :returns: Array with the image data in 8-bit RGBA format.
     """
     _validate_array_is_normalized(scan_data, min_value=0, max_value=255)

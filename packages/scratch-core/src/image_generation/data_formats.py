@@ -103,7 +103,7 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
     def subsample(self, step_x: int, step_y: int) -> "ScanImage":
         """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
-        array = subsample_array(scan_image=self.data, step_size=(step_x, step_y))
+        array = subsample_array(scan_data=self.data, step_size=(step_x, step_y))
         return ScanImage(
             data=array,
             scale_x=self.scale_x * step_x,
@@ -156,12 +156,12 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
             raise ConversionError("Could not convert data to an RGBA image.") from err
 
 
-class ScanTensor3D(ImageContainer, arbitrary_types_allowed=True):
+class MultiIlluminationScan(ImageContainer, arbitrary_types_allowed=True):
     """
-    A 3D stack of 2D scan maps.
+    Multiple 2D scans captured under different illumination conditions.
 
-    Typically used for multi-illumination data or multichannel measurements.
-    Shape: (height, width, n_layers)
+    Shape: (height, width, n_lights) where the last axis represents
+    different lighting directions applied to the same surface.
     """
 
     data: ScanTensor3DArray
@@ -187,7 +187,7 @@ class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
         self,
         light_vectors: tuple[UnitVector3DArray, ...],
         observer: UnitVector3DArray = LightSource(azimuth=0, elevation=90).unit_vector,
-    ) -> "ScanTensor3D":
+    ) -> "MultiIlluminationScan":
         """
         Apply one or more light vectors to the surface-normal field.
 
@@ -200,7 +200,7 @@ class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Normalized 2D intensity map with shape (Height, Width), suitable for
         """
-        return ScanTensor3D(
+        return MultiIlluminationScan(
             data=apply_multiple_lights(
                 surface_normals=self.data,
                 light_vectors=light_vectors,

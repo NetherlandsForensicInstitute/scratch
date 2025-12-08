@@ -32,21 +32,21 @@ def validate_image(
     [("circle.al3d", 8.7654321e-7), ("circle.x3p", 8.7654321e-7)],
 )
 def test_parser_can_parse(
-    filename: Path, scan_image: ScanMap2DArray, expected_scale: float
+    filename: Path, scan_image_array: ScanMap2DArray, expected_scale: float
 ):
     file_to_test = SCANS_DIR / filename
     parsed_image = load_scan_image(file_to_test)
     validate_image(
         parsed_image=parsed_image,
-        expected_image_data=scan_image,
+        expected_image_data=scan_image_array,
         expected_scale=expected_scale,
     )
 
 
 def test_parsed_image_can_be_exported_to_x3p(
-    scan_map_2d: ScanImage, tmp_path: PosixPath
+    scan_image: ScanImage, tmp_path: PosixPath
 ):
-    save_to_x3p(image=scan_map_2d, output_path=tmp_path / "export.x3p")
+    save_to_x3p(image=scan_image, output_path=tmp_path / "export.x3p")
 
     files = list(tmp_path.iterdir())
     assert len(files) == 1

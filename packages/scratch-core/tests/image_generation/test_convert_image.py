@@ -1,6 +1,7 @@
 from conversion.exceptions import ConversionError
 import numpy as np
 from PIL.Image import Image
+
 import pytest
 from image_generation.data_formats import ScanImage
 

@@ -1,8 +1,8 @@
-from image_generation.translations import ScanMap2DArray
+from utils.array_definitions import ScanMap2DArray
 
 
 def subsample_array(
-    scan_image: ScanMap2DArray, step_size: tuple[int, int]
+    scan_data: ScanMap2DArray, step_size: tuple[int, int]
 ) -> ScanMap2DArray:
     """
     Subsample the data in a `ScanImage` instance by skipping `step_size` steps.
@@ -14,10 +14,10 @@ def subsample_array(
 
     """
     step_x, step_y = step_size
-    width, height = scan_image.shape
+    width, height = scan_data.shape
     if step_x >= width or step_y >= height:
         raise ValueError("Step size should be smaller than the image size")
     if step_x <= 0 or step_y <= 0:
         raise ValueError("Step size must be a tuple of positive integers")
 
-    return scan_image[::step_y, ::step_x].copy()
+    return scan_data[::step_y, ::step_x].copy()

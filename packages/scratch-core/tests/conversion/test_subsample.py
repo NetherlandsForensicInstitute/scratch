@@ -11,25 +11,35 @@ from ..constants import BASELINE_IMAGES_DIR, PRECISION
 
 
 @pytest.mark.parametrize("step_size", [(1, 1), (10, 10), (25, 25), (25, 50)])
-def test_subsample_matches_size(scan_image: ScanMap2DArray, step_size: tuple[int, int]):
+def test_subsample_matches_size(
+    scan_image_array: ScanMap2DArray, step_size: tuple[int, int]
+):
     # Arrange
-    expected_height = ceil(scan_image.shape[0] / step_size[1])
-    expected_width = ceil(scan_image.shape[1] / step_size[0])
+    expected_height = ceil(scan_image_array.shape[0] / step_size[1])
+    expected_width = ceil(scan_image_array.shape[1] / step_size[0])
 
     # Act
-    subsampled = subsample_array(scan_image=scan_image, step_size=step_size)
+    subsampled = subsample_array(scan_data=scan_image_array, step_size=step_size)
 
     #  Assert
     assert subsampled.shape == (expected_height, expected_width)
 
 
-def test_scan_map_updates_scales(scan_image: ScanMap2DArray):
+@pytest.mark.parametrize(
+    ("step_x", "step_y"),
+    [
+        pytest.param(10, 10, id="default value"),
+        pytest.param(1, 10, id="only step y"),
+        pytest.param(10, 1, id="only x"),
+        pytest.param(10, 5, id="different x and y"),
+    ],
+)
+def test_scan_map_updates_scales(
+    scan_image_array: ScanMap2DArray, step_x: int, step_y: int
+):
     # Arrange
-    scale_x = 3
-    scale_y = 3
-    step_x = 10
-    step_y = 10
-    input_data = ScanImage(data=scan_image, scale_x=scale_x, scale_y=scale_y)
+    scale_x = scale_y = 3
+    input_data = ScanImage(data=scan_image_array, scale_x=scale_x, scale_y=scale_y)
 
     # Act
     subsampled = input_data.subsample(step_x=step_x, step_y=step_y)
@@ -43,16 +53,16 @@ def test_scan_map_updates_scales(scan_image: ScanMap2DArray):
     "step_size", [(-2, 2), (0, 0), (0, 3), (2, -1), (-1, -1), (1e3, 1e4)]
 )
 def test_subsample_rejects_incorrect_sizes(
-    scan_image: ScanMap2DArray, step_size: tuple[int, int]
+    scan_image_array: ScanMap2DArray, step_size: tuple[int, int]
 ):
     with pytest.raises(ValueError):
-        _ = subsample_array(scan_image=scan_image, step_size=step_size)
+        _ = subsample_array(scan_data=scan_image_array, step_size=step_size)
 
 
 def test_subsample_matches_baseline_output(scan_image_replica: ScanImage):
     verified = np.load(BASELINE_IMAGES_DIR / "replica_subsampled.npy")
 
-    subsampled = subsample_array(scan_image=scan_image_replica.data, step_size=(10, 15))
+    subsampled = subsample_array(scan_data=scan_image_replica.data, step_size=(10, 15))
     assert np.allclose(
         subsampled,
         verified,
