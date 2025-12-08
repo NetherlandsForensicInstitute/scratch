@@ -1,6 +1,6 @@
 from typing import ParamSpec, Protocol
 
-from conversion.display import clip_data, normalize
+from image_generation.translations import clip_data, normalize
 from image_generation.data_formats import LightSource, ScanImage, UnitVector3DArray
 
 P = ParamSpec("P")
@@ -60,6 +60,6 @@ def get_array_for_display(
     :param std_scaler: The multiplier `S` for the standard deviation used above when clipping the image.
     :returns: An array containing the clipped and normalized image data.
     """
-    clipped, lower, upper = clip_data(data=depth_data.data, std_scaler=std_scaler)
+    clipped, lower, upper = clip_data(data=scan_image.data, std_scaler=std_scaler)
     normalized = normalize(clipped, lower, upper)
     return ScanImage(data=normalized)

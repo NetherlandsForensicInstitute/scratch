@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_almost_equal
 
-from conversion.display import get_array_for_display
+from image_generation.image_generation import get_array_for_display
 from image_generation.data_formats import ScanImage
 
 from ..constants import BASELINE_IMAGES_DIR
