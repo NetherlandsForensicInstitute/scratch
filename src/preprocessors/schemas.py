@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Self
 
 from pydantic import DirectoryPath, Field, FilePath, PositiveInt, field_validator, model_validator
-from utils.array_definitions import MaskMap2DArray
 
 from models import BaseModelConfig
 
@@ -78,7 +77,7 @@ class EditImage(BaseModelConfig):
     level: Level | None = Field(None, description="")
     filter: Filter | None = Field(None, description="")
     zoom: bool = Field(False, description="")
-    mask_array: MaskMap2DArray | None = Field(None, description="")
+    # mask_array: MaskArray | None = Field(None, description="")
 
     @field_validator("parsed_file")
     @classmethod

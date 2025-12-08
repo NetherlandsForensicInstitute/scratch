@@ -11,7 +11,7 @@ def _serialize_ndarray(array_: NDArray[Any]) -> list:
     return array_.tolist()
 
 
-def _coerce_to_array(
+def coerce_to_array(
     dtype: DTypeLike, value: Sequence | NDArray | None
 ) -> NDArray | None:
     """Coerce input to dtype numpy array.
@@ -29,19 +29,19 @@ def _coerce_to_array(
 
 ScanMapRGBA: TypeAlias = Annotated[
     NDArray[uint8],
-    BeforeValidator(partial(_coerce_to_array, uint8)),
+    BeforeValidator(partial(coerce_to_array, uint8)),
     PlainSerializer(_serialize_ndarray),
 ]
 
 ScanTensor3DArray = ScanMap2DArray = ScanVectorField2DArray = UnitVector3DArray = (
     Annotated[
         NDArray[float64],
-        BeforeValidator(partial(_coerce_to_array, float64)),
+        BeforeValidator(partial(coerce_to_array, float64)),
         PlainSerializer(_serialize_ndarray),
     ]
 )
 MaskArray = Annotated[
     NDArray[bool_],
-    BeforeValidator(partial(_coerce_to_array, bool_)),
+    BeforeValidator(partial(coerce_to_array, bool_)),
     PlainSerializer(_serialize_ndarray),
 ]

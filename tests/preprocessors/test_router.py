@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from starlette.status import HTTP_200_OK
@@ -51,9 +50,7 @@ def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
 def test_edit_image(client: TestClient) -> None:
     # Arrange
     scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.x3p"
-    input_model = EditImage(
-        parsed_file=scan_file, mask_array=np.array([[50, 100, 200], [50, 100, 200]], dtype=np.uint8)
-    )
+    input_model = EditImage(parsed_file=scan_file, zoom=True)
 
     # Act
     response = client.post("/preprocessor/edit-image", json=input_model.model_dump(mode="json"))
