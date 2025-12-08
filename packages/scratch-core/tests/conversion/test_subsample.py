@@ -25,10 +25,20 @@ def test_subsample_matches_size(
     assert subsampled.shape == (expected_height, expected_width)
 
 
-def test_scan_map_updates_scales(scan_image_array: ScanMap2DArray):
+@pytest.mark.parametrize(
+    ("step_x", "step_y"),
+    [
+        pytest.param(10, 10, id="default value"),
+        pytest.param(1, 10, id="only step y"),
+        pytest.param(10, 1, id="only x"),
+        pytest.param(10, 5, id="different x and y"),
+    ],
+)
+def test_scan_map_updates_scales(
+    scan_image_array: ScanMap2DArray, step_x: int, step_y: int
+):
     # Arrange
     scale_x = scale_y = 3
-    step_x = step_y = 10
     input_data = ScanImage(data=scan_image_array, scale_x=scale_x, scale_y=scale_y)
 
     # Act
