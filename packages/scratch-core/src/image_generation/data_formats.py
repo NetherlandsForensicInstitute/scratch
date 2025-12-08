@@ -153,10 +153,7 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
         try:
             return fromarray(grayscale_to_rgba(scan_data=self.data))
         except ValueError as err:
-            if "values outside \\[0, 255\\] range" in err.args[0]:
-                raise ConversionError(
-                    "Could not convert data to an RGBA image."
-                ) from err
+            raise ConversionError("Could not convert data to an RGBA image.") from err
 
 
 class ScanTensor3D(ImageContainer, arbitrary_types_allowed=True):

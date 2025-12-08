@@ -158,7 +158,7 @@ def _validate_array_is_normalized(
 ) -> None:
     """Validate that the input array is normalized.
 
-    :param scan_data: 3D array of input intensity values.
+    :param scan_data: 2D array of input intensity values.
     :param min_value: Minimum intensity value. Default is ``0``.
     :param max_value: Maximum intensity value. Default is ``255``.
     :raises ValueError: If any value is outside ``min_value`` and ``max_value``
@@ -168,7 +168,7 @@ def _validate_array_is_normalized(
         valid_data = scan_data[valid_mask]
         if np.any((valid_data < min_value) | (valid_data > max_value)):
             raise ValueError(
-                f"scan_data contains values outside [0, 255] range. "
+                f"scan_data contains values outside [{min_value}:{max_value}] range. "
                 f"Found min={np.nanmin(scan_data)}, max={np.nanmax(scan_data)}"
             )
 

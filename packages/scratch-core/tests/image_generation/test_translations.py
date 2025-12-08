@@ -53,7 +53,7 @@ def test_grayscale_to_rgba_invalid_values(given_scan_image: ScanMap2DArray) -> N
     scan_data = np.array([[-50.0, 100.0, 300.0], [150.0, 500.0, -20.0]])
 
     # Act & Assert
-    with pytest.raises(ValueError, match="values outside \\[0, 255\\] range"):
+    with pytest.raises(ValueError, match="values outside \\[0:255\\] range"):
         grayscale_to_rgba(scan_data)
 
 
