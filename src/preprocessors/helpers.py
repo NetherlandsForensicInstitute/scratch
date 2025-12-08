@@ -11,6 +11,6 @@ def export_image_pipeline(file_path: Path, image_generator: ImageGenerator, scan
     try:
         generated_image = image_generator(scan_image)
     except ValueError as err:
-        logger.error("jammer, failed to parse the given scan file")
+        logger.error(f"Image generation failed with:{file_path.stem} from error:{str(err)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate {file_path.stem}: {str(err)}")
     generated_image.image().save(file_path)

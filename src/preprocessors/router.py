@@ -64,7 +64,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     try:
         save_to_x3p(image=parsed_scan, output_path=scan_file_path)
     except ExportError as err:
-        logger.error("jammer man, failed to save the scan file")
+        logger.error(f"Exporting x3p failed to path:{scan_file_path}, from error:{str(err)}")
         raise HTTPException(status_code=500, detail=f"Failed to save the scan file  {scan_file_path}: {str(err)}")
     export_image_pipeline(file_path=surface_image_path, image_generator=compute_3d_image, scan_image=parsed_scan)
     export_image_pipeline(file_path=preview_image_path, image_generator=get_array_for_display, scan_image=parsed_scan)
