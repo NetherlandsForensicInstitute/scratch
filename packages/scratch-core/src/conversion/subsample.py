@@ -1,7 +1,9 @@
-from parsers.data_types import ScanImage
+from utils.array_definitions import ScanMap2DArray
 
 
-def subsample_data(scan_image: ScanImage, step_size: tuple[int, int]) -> ScanImage:
+def subsample_array(
+    scan_data: ScanMap2DArray, step_size: tuple[int, int]
+) -> ScanMap2DArray:
     """
     Subsample the data in a `ScanImage` instance by skipping `step_size` steps.
 
@@ -12,13 +14,10 @@ def subsample_data(scan_image: ScanImage, step_size: tuple[int, int]) -> ScanIma
 
     """
     step_x, step_y = step_size
+    width, height = scan_data.shape
+    if step_x >= width or step_y >= height:
+        raise ValueError("Step size should be smaller than the image size")
     if step_x <= 0 or step_y <= 0:
         raise ValueError("Step size must be a tuple of positive integers")
-    if step_x >= scan_image.width or step_y >= scan_image.height:
-        raise ValueError("Step size should be smaller than the image size")
 
-    return ScanImage(
-        data=scan_image.data[::step_y, ::step_x].copy(),
-        scale_x=scan_image.scale_x * step_x,
-        scale_y=scan_image.scale_y * step_y,
-    )
+    return scan_data[::step_y, ::step_x].copy()
