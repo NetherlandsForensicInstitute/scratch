@@ -10,5 +10,5 @@ from ..utils import plot_test_data
 @pytest.mark.integration
 @image_comparison(baseline_images=["surfaceplot_default"], extensions=["png"])
 def test_get_surface_plot(scan_image_replica: ScanImage) -> None:
-    generated_image = compute_3d_image(depth_data=scan_image_replica)
+    generated_image = compute_3d_image(scan_image=scan_image_replica)
     plot_test_data(generated_image.data)
