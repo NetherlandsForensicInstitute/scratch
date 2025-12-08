@@ -36,19 +36,6 @@ def _cutoff_to_sigma(alpha: float, cutoff_length: float) -> float:
     return alpha * cutoff_length / np.sqrt(2 * np.pi)
 
 
-def _cutoff_to_truncate(cutoff_length: float, sigma: float) -> float:
-    """Calculate scipy truncate parameter to match MATLAB kernel size.
-
-    MATLAB kernel radius = ceil(cutoff)
-    scipy kernel radius = ceil(truncate * sigma)
-
-    :param cutoff_length: Cutoff wavelength in pixels.
-    :param sigma: scipy sigma parameter.
-    :return: truncate parameter for scipy.
-    """
-    return np.ceil(cutoff_length) / sigma
-
-
 def _apply_nan_weighted_filter(
     data: np.ndarray,
     sigma: np.ndarray,
@@ -84,6 +71,7 @@ def apply_gaussian_filter(
     pixel_size: tuple[float, float] = (1.0, 1.0),
     regression_order: int = 0,
     nan_out: bool = True,
+    is_high_pass: bool = False,
 ) -> np.ndarray:
     """Apply Gaussian filter to 2D data with NaN handling.
 
@@ -92,8 +80,12 @@ def apply_gaussian_filter(
     :param pixel_size: The pixel size in the X-direction en Y-direction in meters (m).
     :param regression_order: Degree regression filter.
     :param nan_out: If True, preserve NaN positions in output.
+    :param is_high_pass: Whether to apply as highpass filter (data - filtered).
     :return: Filtered data array.
     """
+    if np.all(np.isnan(cutoff_length)):
+        return data
+
     # Convert cutoff to pixel units and scipy parameters
     cutoff_pixels = np.array(cutoff_length) / np.array(pixel_size)
     sigma = np.array(
@@ -106,5 +98,8 @@ def apply_gaussian_filter(
 
     if nan_out:
         result[np.isnan(data)] = np.nan
+
+    if is_high_pass:
+        result = data - result
 
     return result
