@@ -2,7 +2,8 @@ import numpy as np
 from numpydantic.ndarray import NDArray
 from PIL.Image import Image, fromarray
 from pydantic import BaseModel, ConfigDict, Field
-
+from loguru import logger
+from .exceptions import ImageGenerationError
 from conversion.exceptions import ConversionError
 from conversion.subsample import subsample_array
 from image_generation.translations import (
@@ -103,7 +104,12 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
     def subsample(self, step_x: int, step_y: int) -> "ScanImage":
         """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
-        array = subsample_array(scan_data=self.data, step_size=(step_x, step_y))
+        logger.debug(f"Subsampling data with step size ({step_x}, {step_y})")
+        try:
+            array = subsample_array(scan_data=self.data, step_size=(step_x, step_y))
+        except ValueError as e:
+            logger.error(f"Error subsampling data: {e}")
+            raise ImageGenerationError(f"Error subsampling data: {e}") from e
         return ScanImage(
             data=array,
             scale_x=self.scale_x * step_x,
@@ -121,11 +127,15 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Normal vectors per pixel in a 3-layer field. Layers are [x,y,z]
         """
-        return SurfaceNormals(
-            data=compute_surface_normals(self.data, x_dimension, y_dimension),
-            scale_x=self.scale_x,
-            scale_y=self.scale_y,
-        )
+        try:
+            return SurfaceNormals(
+                data=compute_surface_normals(self.data, x_dimension, y_dimension),
+                scale_x=self.scale_x,
+                scale_y=self.scale_y,
+            )
+        except ValueError as e:
+            logger.error(f"Error computing surface normals: {e}")
+            raise ImageGenerationError(f"Error computing surface normals: {e}") from e
 
     def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanImage":
         """
