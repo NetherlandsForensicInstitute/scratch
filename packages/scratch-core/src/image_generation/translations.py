@@ -1,11 +1,14 @@
-import numpy as np
 from typing import Protocol
 
+import numpy as np
+
+from conversion.exceptions import NegativeStdScalerException
 from utils.array_definitions import (
-    UnitVector3DArray,
     ScanMap2DArray,
-    ScanVectorField2DArray,
+    ScanMapRGBA,
     ScanTensor3DArray,
+    ScanVectorField2DArray,
+    UnitVector3DArray,
 )
 
 
@@ -148,3 +151,72 @@ def normalize_2d_array(
     imax = np.nanmax(image_to_normalize)
     norm = (image_to_normalize - imin) / (imax - imin)
     return scale_min + (scale_max - scale_min) * norm
+
+
+def _validate_array_is_normalized(
+    scan_data: ScanMap2DArray, min_value: int = 0, max_value: int = 255
+) -> None:
+    """Validate that the input array is normalized.
+
+    :param scan_data: 2D array of input intensity values.
+    :param min_value: Minimum intensity value. Default is ``0``.
+    :param max_value: Maximum intensity value. Default is ``255``.
+    :raises ValueError: If any value is outside ``min_value`` and ``max_value``
+    """
+    valid_mask = ~np.isnan(scan_data)
+    if valid_mask.any():
+        valid_data = scan_data[valid_mask]
+        if np.any((valid_data < min_value) | (valid_data > max_value)):
+            raise ValueError(
+                f"scan_data contains values outside [{min_value}:{max_value}] range. "
+                f"Found min={np.nanmin(scan_data)}, max={np.nanmax(scan_data)}"
+            )
+
+
+def grayscale_to_rgba(scan_data: ScanMap2DArray) -> ScanMapRGBA:
+    """
+    Convert a 2D grayscale array to an 8-bit RGBA array.
+
+    NaN values will be converted to black pixels with 100% transparency.
+
+    :param image: The grayscale image data to be converted to an 8-bit RGBA image.
+    :returns: Array with the image data in 8-bit RGBA format.
+    """
+    _validate_array_is_normalized(scan_data, min_value=0, max_value=255)
+    rgba = np.empty(shape=(*scan_data.shape, 4), dtype=np.uint8)
+    rgba[..., :-1] = np.expand_dims(scan_data.astype(np.uint8), axis=-1)
+    rgba[..., -1] = ~np.isnan(scan_data) * 255
+    return rgba
+
+
+def normalize(
+    input_array: ScanMap2DArray, lower: float, upper: float
+) -> ScanMap2DArray:
+    """Perform min-max normalization on the input array and scale to the [0, 255] interval."""
+    if lower >= upper:
+        raise ValueError(
+            f"The lower bound ({lower}) should be smaller than the upper bound ({upper})."
+        )
+    return (input_array - lower) / (upper - lower) * 255.0
+
+
+def clip_data(
+    data: ScanMap2DArray, std_scaler: float
+) -> tuple[ScanMap2DArray, float, float]:
+    """
+    Clip the data so that the values lie in the interval [μ - σ * S, μ + σ * S].
+
+    Here the standard deviation σ is normalized by N-1. Note: NaN values are ignored and unaffected.
+
+    :param data: The data to be clipped.
+    :param std_scaler: The multiplier for the standard deviation of the data to be clipped.
+    :returns: A tuple containing the clipped data, the lower bound, and the upper bound of the clipped data.
+    """
+    if std_scaler <= 0.0:
+        raise NegativeStdScalerException("`std_scaler` must be a positive number.")
+    mean = np.nanmean(data)
+    std = np.nanstd(data, ddof=1) * std_scaler
+    upper = float(mean + std)
+    lower = float(mean - std)
+    clipped = np.clip(data, lower, upper)
+    return clipped, lower, upper

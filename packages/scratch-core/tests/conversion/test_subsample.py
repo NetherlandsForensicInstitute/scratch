@@ -3,49 +3,69 @@ from math import ceil
 import numpy as np
 import pytest
 
-from conversion import subsample_data
-from parsers.data_types import ScanImage
+from conversion import subsample_array
+from image_generation.data_formats import ScanImage
+from image_generation.translations import ScanMap2DArray
 
 from ..constants import BASELINE_IMAGES_DIR, PRECISION
 
 
 @pytest.mark.parametrize("step_size", [(1, 1), (10, 10), (25, 25), (25, 50)])
-def test_subsample_matches_size(scan_image: ScanImage, step_size: tuple[int, int]):
-    subsampled = subsample_data(scan_image=scan_image, step_size=step_size)
-    assert subsampled.width == ceil(scan_image.width / step_size[0])
-    assert subsampled.height == ceil(scan_image.height / step_size[1])
-    assert np.isclose(
-        subsampled.scale_x, scan_image.scale_x * step_size[0], atol=PRECISION
-    )
-    assert np.isclose(
-        subsampled.scale_y, scan_image.scale_y * step_size[1], atol=PRECISION
-    )
+def test_subsample_matches_size(
+    scan_image_array: ScanMap2DArray, step_size: tuple[int, int]
+):
+    # Arrange
+    expected_height = ceil(scan_image_array.shape[0] / step_size[1])
+    expected_width = ceil(scan_image_array.shape[1] / step_size[0])
+
+    # Act
+    subsampled = subsample_array(scan_data=scan_image_array, step_size=step_size)
+
+    #  Assert
+    assert subsampled.shape == (expected_height, expected_width)
+
+
+@pytest.mark.parametrize(
+    ("step_x", "step_y"),
+    [
+        pytest.param(10, 10, id="default value"),
+        pytest.param(1, 10, id="only step y"),
+        pytest.param(10, 1, id="only x"),
+        pytest.param(10, 5, id="different x and y"),
+    ],
+)
+def test_scan_map_updates_scales(
+    scan_image_array: ScanMap2DArray, step_x: int, step_y: int
+):
+    # Arrange
+    scale_x = scale_y = 3
+    input_data = ScanImage(data=scan_image_array, scale_x=scale_x, scale_y=scale_y)
+
+    # Act
+    subsampled = input_data.subsample(step_x=step_x, step_y=step_y)
+
+    # Assert
+    assert subsampled.scale_x == scale_x * step_x
+    assert subsampled.scale_y == scale_y * step_y
 
 
 @pytest.mark.parametrize(
     "step_size", [(-2, 2), (0, 0), (0, 3), (2, -1), (-1, -1), (1e3, 1e4)]
 )
 def test_subsample_rejects_incorrect_sizes(
-    scan_image: ScanImage, step_size: tuple[int, int]
+    scan_image_array: ScanMap2DArray, step_size: tuple[int, int]
 ):
     with pytest.raises(ValueError):
-        _ = subsample_data(scan_image=scan_image, step_size=step_size)
+        _ = subsample_array(scan_data=scan_image_array, step_size=step_size)
 
 
 def test_subsample_matches_baseline_output(scan_image_replica: ScanImage):
     verified = np.load(BASELINE_IMAGES_DIR / "replica_subsampled.npy")
 
-    subsampled = subsample_data(scan_image=scan_image_replica, step_size=(10, 15))
+    subsampled = subsample_array(scan_data=scan_image_replica.data, step_size=(10, 15))
     assert np.allclose(
-        subsampled.data,
+        subsampled,
         verified,
         equal_nan=True,
         atol=PRECISION,
     )
-
-
-def test_subsample_creates_new_object(scan_image_replica: ScanImage):
-    subsampled = subsample_data(scan_image=scan_image_replica, step_size=(5, 5))
-    assert id(subsampled) != id(scan_image_replica)
-    assert id(subsampled.data) != id(scan_image_replica.data)
-    assert scan_image_replica.data.ctypes.data != subsampled.data.ctypes.data

@@ -8,7 +8,7 @@ from conversion.mask import (
     _determine_bounding_box,
     mask_and_crop_2d_array,
 )
-from parsers import ScanImage
+from image_generation.data_formats import ScanImage
 from utils.array_definitions import MaskArray
 from ..constants import BASELINE_IMAGES_DIR
 
