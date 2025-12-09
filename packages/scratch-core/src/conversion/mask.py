@@ -1,6 +1,5 @@
 import numpy as np
 
-from parsers import ScanImage
 from utils.array_definitions import ScanMap2DArray, MaskArray
 
 
@@ -55,16 +54,10 @@ def _determine_bounding_box(mask: MaskArray) -> tuple[slice, slice]:
 
 
 def mask_and_crop_2d_array(
-    image: ScanImage, mask: MaskArray, crop: bool = False
-) -> ScanImage:
+    image: ScanMap2DArray, mask: MaskArray, crop: bool = False
+) -> ScanMap2DArray:
     """Apply the mask to the data and crop to the bounding box of the mask if `crop` is True."""
-    data = image.data
-    data = mask_2d_array(image=data, mask=mask)
+    image = mask_2d_array(image=image, mask=mask)
     if crop:
-        data = crop_to_mask(image=data, mask=mask)
-    return ScanImage(
-        data=data,
-        scale_x=image.scale_x,
-        scale_y=image.scale_y,
-        meta_data=image.meta_data,
-    )
+        image = crop_to_mask(image=image, mask=mask)
+    return image
