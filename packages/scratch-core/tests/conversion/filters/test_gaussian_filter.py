@@ -9,8 +9,8 @@ from scipy.constants import femto
 
 from conversion.filters.gaussian_filter import (
     apply_gaussian_filter,
-    _cutoff_to_sigma,
     get_alpha,
+    get_cutoff_sigmas,
 )
 
 CUTOFF: Final[float] = 5.0
@@ -26,7 +26,7 @@ def alpha() -> float:
 
 @pytest.fixture(scope="module")
 def sigma(alpha):
-    return lambda cutoffs: [_cutoff_to_sigma(alpha, c) for c in cutoffs]
+    return lambda cutoffs: get_cutoff_sigmas(alpha, cutoff_lengths=cutoffs)
 
 
 @pytest.fixture(autouse=True)
@@ -57,11 +57,23 @@ class TestCutoffToSigma:
         assert sigma_ == approx(expected)
         assert (sigma_ < cutoffs).all()
 
-    def test_sigma_scales_linearly(self):
-        """Sigma should scale linearly with cutoff."""
-        sigma1 = _cutoff_to_sigma(get_alpha(regression_order=0), 5.0)
-        sigma2 = _cutoff_to_sigma(get_alpha(regression_order=0), 10.0)
-        assert sigma2 == pytest.approx(2 * sigma1, rel=1e-15)
+    def test_sigma_scales_linearly(self, sigma):
+        # arrange
+        delta = np.array([5, 10, 15, 20, 25])
+        cutoffs = np.array([2, 4, 8, 16, 32])
+
+        # act and assert
+        assert sigma(delta * cutoffs) == approx(delta * sigma(cutoffs))
+
+    def test_zero_cutoffs_gives_zero_sigma(self, alpha: float) -> None:
+        # arrange
+        cutoffs = np.array([0])
+
+        # act
+        sigma = get_cutoff_sigmas(alpha, cutoffs)
+
+        # assert
+        assert np.array_equal(cutoffs, sigma)
 
 
 class TestGaussianFilterFunction:
@@ -200,7 +212,7 @@ class TestGaussianFilterFunction:
         assert np.all(np.isnan(result[:, :5]))
         assert np.all(np.isnan(result[:, 15:]))
 
-    def test_very_small_cutoff_preserves_interor_array(self):
+    def test_very_small_cutoff_preserves_interior_array(self):
         np.random.seed(42)
         data = np.random.rand(20, 20) * 100
 
