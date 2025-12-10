@@ -127,6 +127,7 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Normal vectors per pixel in a 3-layer field. Layers are [x,y,z]
         """
+        logger.debug(f"Compute normals with x:{x_dimension}, y:{y_dimension}")
         try:
             return SurfaceNormals(
                 data=compute_surface_normals(self.data, x_dimension, y_dimension),
@@ -146,6 +147,9 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
         """
+        logger.debug(
+            f"Normalizing scan image array with min:{scale_min}; max:{scale_max}"
+        )
         return ScanImage(
             data=normalize_2d_array(
                 self.data, scale_max=scale_max, scale_min=scale_min
@@ -160,9 +164,11 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Image representation of the 2D intensity map.
         """
+        logger.debug("creating Image from ScanImage array.")
         try:
             return fromarray(grayscale_to_rgba(scan_data=self.data))
         except ValueError as err:
+            logger.error(f"Could not convert data to an RGBA image.: err{str(err)}")
             raise ConversionError("Could not convert data to an RGBA image.") from err
 
 
@@ -178,6 +184,7 @@ class MultiIlluminationScan(ImageContainer, arbitrary_types_allowed=True):
 
     def reduce_stack(self, merge_on_axis: int = 2) -> ScanImage:
         """Combine stacked 2d scan maps → (Height × Width)."""
+        logger.debug(f"Flatten the multi 2d scan image stack on axis:{merge_on_axis}")
         return ScanImage(
             data=np.nansum(self.data, axis=merge_on_axis),
             scale_x=self.scale_x,
@@ -210,6 +217,9 @@ class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Normalized 2D intensity map with shape (Height, Width), suitable for
         """
+        logger.debug(
+            f"Add n:{light_vectors.len()} lights to the scan_image array, with observer vector:{observer}"
+        )
         return MultiIlluminationScan(
             data=apply_multiple_lights(
                 surface_normals=self.data,
