@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
+from image_generation.exceptions import ImageGenerationError
 from parsers.exceptions import ExportError
 from starlette.status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR
 
@@ -51,7 +52,21 @@ def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
             HTTP_500_INTERNAL_SERVER_ERROR,
             "Failed to save the scan file",
             id="save_to_x3p failes",
-        )
+        ),
+        pytest.param(
+            "preprocessors.router.get_array_for_display",
+            ImageGenerationError,
+            HTTP_500_INTERNAL_SERVER_ERROR,
+            "Failed to generate preview",
+            id="Failed to generate preview image",
+        ),
+        pytest.param(
+            "preprocessors.router.compute_3d_image",
+            ImageGenerationError,
+            HTTP_500_INTERNAL_SERVER_ERROR,
+            "Failed to generate surface_map",
+            id="Failed to generate 3d image",
+        ),
     ],
 )
 @pytest.mark.integration
@@ -70,7 +85,7 @@ def test_process_scan_failures(  # noqa
 
     monkeypatch.setattr(target_path, failing_function)
 
-    scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.x3p"
+    scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/Klein_non_replica_mode.al3d"
     input_model = UploadScan(scan_file=scan_file, output_dir=tmp_path)
 
     # Act
