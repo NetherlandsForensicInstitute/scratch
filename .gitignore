@@ -232,3 +232,4 @@ devenv.local.nix
 api.pid
 # generated images of matplotlib
 **/result_images/
+.vscode/
