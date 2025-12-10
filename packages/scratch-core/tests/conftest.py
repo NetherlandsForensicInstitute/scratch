@@ -3,6 +3,7 @@ import pytest
 from PIL import Image
 
 from image_generation.data_formats import ScanImage
+from conversion.data_formats import MarkType, CropType, MarkImage
 from parsers.data_types import load_scan_image
 from utils.array_definitions import ScanMap2DArray, MaskArray
 
@@ -39,7 +40,7 @@ def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
     return scan_image
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def mask_array(scan_image) -> MaskArray:
     """Build a `MaskArray` object`."""
     data = np.ones_like(scan_image.data).astype(bool)
@@ -49,3 +50,14 @@ def mask_array(scan_image) -> MaskArray:
     data[:, 0] = 0  # First column
     data[:, -1] = 0  # Last column
     return data
+
+
+@pytest.fixture(scope="session")
+def mark_image() -> MarkImage:
+    return MarkImage(
+        data=np.zeros((100, 100)),
+        scale_x=1e-6,
+        scale_y=1e-6,
+        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        crop_type=CropType.RECTANGLE,
+    )

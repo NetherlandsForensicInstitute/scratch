@@ -1,19 +1,23 @@
-from typing import Optional
+from typing import Optional, TypeVar
 
 import numpy as np
 from scipy import ndimage
 
 from image_generation.data_formats import ScanImage
+from conversion.data_formats import MarkImage
 from utils.array_definitions import MaskArray
 
 
+T = TypeVar("T", ScanImage, MarkImage)
+
+
 def resample(
-    image: ScanImage,
+    image: T,
     mask: Optional[MaskArray] = None,
     sampling: Optional[float] = None,
     target_sampling_distance: float = 4e-6,
     only_downsample: bool = True,
-) -> tuple[ScanImage, Optional[MaskArray]]:
+) -> tuple[T, Optional[MaskArray]]:
     """
     Resample image (and mask if provided) data.
 
@@ -54,10 +58,12 @@ def resample(
             mode="nearest",
         )
         mask = np.asarray(mask_resampled, dtype=mask.dtype)
-    return ScanImage(
-        data=image_array_resampled,
-        scale_x=image.scale_x / resample_factor_x,
-        scale_y=image.scale_y / resample_factor_y,
+    return image.model_copy(
+        update={
+            "data": image_array_resampled,
+            "scale_x": image.scale_x / resample_factor_x,
+            "scale_y": image.scale_y / resample_factor_y,
+        }
     ), mask
 
 
@@ -96,3 +102,14 @@ def get_resampling_factors(
         resample_factor_x = min(1.0, resample_factor_x)
         resample_factor_y = min(1.0, resample_factor_y)
     return resample_factor_x, resample_factor_y
+
+
+def resample_mark(
+    mark: MarkImage, mask: Optional[MaskArray]
+) -> tuple[MarkImage, Optional[MaskArray]]:
+    return resample(
+        mark,
+        mask,
+        target_sampling_distance=mark.mark_type.sampling_rate,
+        only_downsample=False,
+    )
