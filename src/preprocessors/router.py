@@ -7,7 +7,7 @@ from parsers.exceptions import ExportError
 from parsers.x3p import save_to_x3p
 
 from preprocessors.helpers import export_image_pipeline
-from preprocessors.models import ImageGenerationError, ParsingError
+from preprocessors.models import ErrorImageGenerationModel, ParsingError
 
 from .schemas import ProcessedDataLocation, UploadScan
 
@@ -45,7 +45,7 @@ async def comparison_root() -> dict[str, str]:
         400: {"description": "parse error", "model": ParsingError},
         500: {
             "description": "image generation error",
-            "model": ImageGenerationError,
+            "model": ErrorImageGenerationModel,
         },
     },
 )

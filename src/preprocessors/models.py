@@ -2,13 +2,13 @@ from pydantic import BaseModel
 from pydantic.fields import Field
 
 
-class ImageGenerationError(BaseModel):
+class ErrorImageGenerationModel(BaseModel):
     message: str = Field(
         default="failed to generate preview_image.png",
         examples=[
             "Failed to export scan_image.x3p",
             "Failed to export preview_image.png",
-            "Failed to export surface_map.x3p",
+            "Failed to export surface_map.png",
         ],
     )
     error: str = Field(default="ValueError: ....", examples=["ValueError: ...."])
