@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from conversion.resample import get_resampling_factors, resample
+from conversion.resample import get_resampling_factors, resample, resample_mark
 from image_generation.data_formats import ScanImage
 from utils.array_definitions import MaskArray
 
@@ -184,3 +184,12 @@ class TestResample:
         assert result_mask is not None
         unique_values = np.unique(result_mask)
         assert all(v in [0, 1] for v in unique_values)
+
+
+class TestResampleMark:
+    def test_uses_mark_target_sampling(self, mark_image):
+        resampled, _ = resample_mark(mark_image, None)
+
+        expected_sampling = mark_image.mark_type.sampling_rate
+        assert resampled.scale_x == expected_sampling
+        assert resampled.scale_y == expected_sampling

@@ -1,6 +1,6 @@
 import numpy as np
-from numpydantic.ndarray import NDArray
 from PIL.Image import Image, fromarray
+from numpydantic.ndarray import NDArray
 from pydantic import BaseModel, ConfigDict, Field
 
 from conversion.exceptions import ConversionError
