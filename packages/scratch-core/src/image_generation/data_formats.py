@@ -218,7 +218,7 @@ class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
         :returns: Normalized 2D intensity map with shape (Height, Width), suitable for
         """
         logger.debug(
-            f"Add n:{light_vectors.len()} lights to the scan_image array, with observer vector:{observer}"
+            f"Add n:{light_vectors.count} lights to the scan_image array, with observer vector:{observer}"
         )
         return MultiIlluminationScan(
             data=apply_multiple_lights(
