@@ -58,7 +58,7 @@ def get_array_for_display(
 
     :param image: An instance of `ScanImage`.
     :param std_scaler: The multiplier `S` for the standard deviation used above when clipping the image.
-    :returns: An array containing the clipped and normalized image data.
+    :returns: ScanImage with the data rendered as a 3D image with the shape (Height, Width),
     """
     clipped, lower, upper = clip_data(data=scan_image.data, std_scaler=std_scaler)
     normalized = normalize(clipped, lower, upper)
