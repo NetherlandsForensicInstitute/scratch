@@ -22,10 +22,10 @@ class MarkType(Enum):
     FIRING_PIN_DRAG_STRIATION = auto()
 
     def is_impression(self) -> bool:
-        return "impression" in self.value
+        return "IMPRESSION" in self.name
 
     def is_striation(self) -> bool:
-        return "striation" in self.value
+        return "STRIATION" in self.name
 
     @property
     def sampling_rate(self) -> float:
