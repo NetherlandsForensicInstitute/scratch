@@ -11,7 +11,7 @@ class ImageGenerationError(BaseModel):
             "Failed to export surface_map.x3p",
         ],
     )
-    error: str = Field(default="ZeroDivisionError: ....", examples=["ValueError: ...."])
+    error: str = Field(default="ValueError: ....", examples=["ValueError: ...."])
 
 
 class ParsingError(BaseModel):
