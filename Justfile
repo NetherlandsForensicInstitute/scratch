@@ -41,7 +41,7 @@ check-quality: (log "Checking code quality: Running pre-commit")
 
 # Run python static code check
 check-static:
-    @just log "\nStatic type checking: Running ty"
+    @just log "\nStatic type checking: Running pyright"
     uv run pyright .
 
     @just log "\nChecking for obsolete dependencies: Running deptry"

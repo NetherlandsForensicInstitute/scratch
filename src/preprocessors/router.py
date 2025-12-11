@@ -1,11 +1,15 @@
 from fastapi import APIRouter
-from parsers import ScanImage
+from fastapi.exceptions import HTTPException
+from image_generation.image_generation import compute_3d_image, get_array_for_display
+from loguru import logger
+from parsers import load_scan_image
+from parsers.exceptions import ExportError
+from parsers.x3p import save_to_x3p
+
+from preprocessors.helpers import export_image_pipeline
+from preprocessors.models import ErrorImageGenerationModel, ParsingError
 
 from .schemas import ProcessedDataLocation, UploadScan
-
-
-class ParseError(Exception): ...
-
 
 preprocessor_route = APIRouter(
     prefix="/preprocessor",
@@ -37,6 +41,13 @@ async def comparison_root() -> dict[str, str]:
     an X3P file, a preview image, and a surface map, these files are saved to the output directory given as parameter.
     The endpoint parses and validates the file before running the processing pipeline.
 """,
+    responses={
+        400: {"description": "parse error", "model": ParsingError},
+        500: {
+            "description": "image generation error",
+            "model": ErrorImageGenerationModel,
+        },
+    },
 )
 async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     """
@@ -46,16 +57,19 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     necessary processing steps, and produces several outputs such as an X3P
     file, a preview image, and a surface map saved to the output directory.
     """
-    # parse incoming file
-    _ = ScanImage.from_file(upload_scan.scan_file)
-    # raise Unable to ParseError
-    # subsample the parsed file
-    # export newly created files to output directory
-    # create surface map png
-    # export png to output directory
-    # TODO: replace the arguments with actual calculated results
+    surface_image_path = upload_scan.output_dir / "surface_map.png"
+    preview_image_path = upload_scan.output_dir / "preview.png"
+    scan_file_path = upload_scan.output_dir / "scan.x3p"
+    parsed_scan = load_scan_image(upload_scan.scan_file).subsample(step_x=1, step_y=1)
+    try:
+        save_to_x3p(image=parsed_scan, output_path=scan_file_path)
+    except ExportError as err:
+        logger.error(f"Exporting x3p failed to path:{scan_file_path}, from error:{str(err)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save the scan file  {scan_file_path}: {str(err)}")
+    export_image_pipeline(file_path=surface_image_path, image_generator=compute_3d_image, scan_image=parsed_scan)
+    export_image_pipeline(file_path=preview_image_path, image_generator=get_array_for_display, scan_image=parsed_scan)
     return ProcessedDataLocation(
-        x3p_image=upload_scan.output_dir / "circle.x3p",
-        preview_image=upload_scan.output_dir / "preview.png",
-        surfacemap_image=upload_scan.output_dir / "surface_map.png",
+        x3p_image=scan_file_path,
+        preview_image=preview_image_path,
+        surfacemap_image=surface_image_path,
     )

@@ -2,7 +2,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from conversion.leveling import SurfaceTerms, TERM_FUNCTIONS, LevelingResult
-from parsers import ScanImage
+from image_generation.data_formats import ScanImage
 
 
 def _prepare_grid(scan_image: ScanImage) -> tuple[NDArray, NDArray, NDArray]:

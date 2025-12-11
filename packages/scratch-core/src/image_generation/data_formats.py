@@ -1,9 +1,15 @@
 import numpy as np
+from numpydantic.ndarray import NDArray
+from PIL.Image import Image, fromarray
 from pydantic import BaseModel, ConfigDict, Field
-
+from loguru import logger
+from .exceptions import ImageGenerationError
+from conversion.exceptions import ConversionError
+from conversion.subsample import subsample_array
 from image_generation.translations import (
     apply_multiple_lights,
     compute_surface_normals,
+    grayscale_to_rgba,
     normalize_2d_array,
 )
 from utils.array_definitions import (
@@ -12,6 +18,13 @@ from utils.array_definitions import (
     ScanVectorField2DArray,
     UnitVector3DArray,
 )
+
+
+class ImageContainer(BaseModel):
+    data: NDArray
+    scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
+    scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
+    meta_data: dict | None = None
 
 
 class LightSource(BaseModel):
@@ -69,7 +82,7 @@ class LightSource(BaseModel):
         )
 
 
-class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
+class ScanImage(ImageContainer, arbitrary_types_allowed=True):
     """
     A 2D image/array of floats.
 
@@ -78,6 +91,30 @@ class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
     """
 
     data: ScanMap2DArray
+
+    @property
+    def width(self) -> int:
+        """The image width in pixels."""
+        return self.data.shape[1]
+
+    @property
+    def height(self) -> int:
+        """The image height in pixels."""
+        return self.data.shape[0]
+
+    def subsample(self, step_x: int, step_y: int) -> "ScanImage":
+        """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
+        logger.debug(f"Subsampling data with step size ({step_x}, {step_y})")
+        try:
+            array = subsample_array(scan_data=self.data, step_size=(step_x, step_y))
+        except ValueError as e:
+            logger.error(f"Error subsampling data: {e}")
+            raise ImageGenerationError(f"Error subsampling data: {e}") from e
+        return ScanImage(
+            data=array,
+            scale_x=self.scale_x * step_x,
+            scale_y=self.scale_y * step_y,
+        )
 
     def compute_normals(
         self, x_dimension: float, y_dimension: float
@@ -90,11 +127,18 @@ class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
 
         :returns: Normal vectors per pixel in a 3-layer field. Layers are [x,y,z]
         """
-        return SurfaceNormals(
-            data=compute_surface_normals(self.data, x_dimension, y_dimension)
-        )
+        logger.debug(f"Compute normals with x:{x_dimension}, y:{y_dimension}")
+        try:
+            return SurfaceNormals(
+                data=compute_surface_normals(self.data, x_dimension, y_dimension),
+                scale_x=self.scale_x,
+                scale_y=self.scale_y,
+            )
+        except ValueError as e:
+            logger.error(f"Error computing surface normals: {e}")
+            raise ImageGenerationError(f"Error computing surface normals: {e}") from e
 
-    def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanMap2D":
+    def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanImage":
         """
         Normalize a 2D intensity map to a specified output range.
 
@@ -103,28 +147,52 @@ class ScanMap2D(BaseModel, arbitrary_types_allowed=True):
 
         :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
         """
-        return ScanMap2D(
-            data=normalize_2d_array(self.data, scale_max=scale_max, scale_min=scale_min)
+        logger.debug(
+            f"Normalizing scan image array with min:{scale_min}; max:{scale_max}"
+        )
+        return ScanImage(
+            data=normalize_2d_array(
+                self.data, scale_max=scale_max, scale_min=scale_min
+            ),
+            scale_x=self.scale_x,
+            scale_y=self.scale_y,
         )
 
+    def image(self) -> Image:
+        """
+        Convert a 2D intensity map to an image.
 
-class ScanTensor3D(BaseModel, arbitrary_types_allowed=True):
+        :returns: Image representation of the 2D intensity map.
+        """
+        logger.debug("creating Image from ScanImage array.")
+        try:
+            return fromarray(grayscale_to_rgba(scan_data=self.data))
+        except ValueError as err:
+            logger.error(f"Could not convert data to an RGBA image.: err{str(err)}")
+            raise ConversionError("Could not convert data to an RGBA image.") from err
+
+
+class MultiIlluminationScan(ImageContainer, arbitrary_types_allowed=True):
     """
-    A 3D stack of 2D scan maps.
+    Multiple 2D scans captured under different illumination conditions.
 
-    Typically used for multi-illumination data or multichannel measurements.
-    Shape: (height, width, n_layers)
+    Shape: (height, width, n_lights) where the last axis represents
+    different lighting directions applied to the same surface.
     """
 
     data: ScanTensor3DArray
 
-    @property
-    def combined(self) -> "ScanMap2D":
-        """Combine stacked lights → (Height × Width)."""
-        return ScanMap2D(data=np.nansum(self.data, axis=2))
+    def reduce_stack(self, merge_on_axis: int = 2) -> ScanImage:
+        """Combine stacked 2d scan maps → (Height × Width)."""
+        logger.debug(f"Flatten the multi 2d scan image stack on axis:{merge_on_axis}")
+        return ScanImage(
+            data=np.nansum(self.data, axis=merge_on_axis),
+            scale_x=self.scale_x,
+            scale_y=self.scale_y,
+        )
 
 
-class SurfaceNormals(BaseModel, arbitrary_types_allowed=True):
+class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
     """Normal vectors per pixel in a 3-layer field.
 
     Represents a surface-normal map with components (nx, ny, nz) stored in the
@@ -136,7 +204,7 @@ class SurfaceNormals(BaseModel, arbitrary_types_allowed=True):
         self,
         light_vectors: tuple[UnitVector3DArray, ...],
         observer: UnitVector3DArray = LightSource(azimuth=0, elevation=90).unit_vector,
-    ) -> "ScanTensor3D":
+    ) -> "MultiIlluminationScan":
         """
         Apply one or more light vectors to the surface-normal field.
 
@@ -149,10 +217,15 @@ class SurfaceNormals(BaseModel, arbitrary_types_allowed=True):
 
         :returns: Normalized 2D intensity map with shape (Height, Width), suitable for
         """
-        return ScanTensor3D(
+        logger.debug(
+            f"Add n:{light_vectors.count} lights to the scan_image array, with observer vector:{observer}"
+        )
+        return MultiIlluminationScan(
             data=apply_multiple_lights(
                 surface_normals=self.data,
                 light_vectors=light_vectors,
                 observer_vector=observer,
-            )
+            ),
+            scale_x=self.scale_x,
+            scale_y=self.scale_y,
         )

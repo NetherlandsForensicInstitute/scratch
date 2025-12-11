@@ -1,5 +1,5 @@
 from conversion.leveling import level_map, SurfaceTerms
-from parsers import ScanImage
+from image_generation.data_formats import ScanImage
 
 
 def test_map_level_sphere(scan_image_with_nans: ScanImage):
