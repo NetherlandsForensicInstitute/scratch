@@ -60,7 +60,7 @@ def _clip_data(
 
 @log_railway_function("Failed to retreive array for display")
 @safe
-def get_array_for_display(
+def get_scan_image_for_display(
     scan_image: ScanImage, *, std_scaler: float = 2.0
 ) -> ScanImage:
     """
