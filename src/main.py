@@ -1,3 +1,6 @@
+import tempfile
+from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, FastAPI
 from loguru import logger
 from uvicorn import run
@@ -6,7 +9,31 @@ from comparators.router import comparison_router
 from preprocessors import preprocessor_route
 from processors.router import processors
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Create and cleanup temporary directory for the app lifespan.
+
+    This context manager sets up a temporary directory when the FastAPI application starts
+    and ensures its cleanup when the application shuts down.
+    Args:
+        app (FastAPI): The FastAPI application instance.
+
+    Yields
+    ------
+        None
+    """
+    temp_dir = tempfile.TemporaryDirectory(prefix="surface_comparator_")
+    app.state.temp_dir = temp_dir
+    logger.info(f"Temporary directory created at: {temp_dir.name}")
+    try:
+        yield
+    finally:
+        logger.info(f"Cleaning up temporary directory: {temp_dir.name}")
+        temp_dir.cleanup()
+
+
+app = FastAPI(lifespan=lifespan, title="Surface Comparator API", version="0.1.0")
 prefix_router = APIRouter()
 
 prefix_router.include_router(preprocessor_route)
