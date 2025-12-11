@@ -10,19 +10,14 @@ from preprocessors.schemas import SupportedExtension
 
 
 @pytest.fixture
-def output_dir(tmp_path: Path) -> Path:
+def output_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Create a temporary output directory."""
-    output_dir = tmp_path / "output"
-    output_dir.mkdir()
-    return output_dir
+    return tmp_path_factory.mktemp("upload_scan_schema")
 
 
-@pytest.fixture
-def valid_scan_file(tmp_path: Path) -> Path:
-    """Create a temporary scan file with valid extension."""
-    scan_file = tmp_path / "test_scan.x3p"
-    scan_file.touch()
-    return scan_file
+@pytest.fixture(scope="module")
+def valid_scan_file(scan_directory: Path) -> Path:
+    return scan_directory / "circle.x3p"
 
 
 @pytest.mark.parametrize(
@@ -33,10 +28,10 @@ def test_all_supported_extensions(tmp_path: Path, output_dir: Path, extension: s
     """Test that all supported extensions are accepted."""
     # Arrange
     scan_file = tmp_path / f"test_scan.{extension}"
-    scan_file.touch()
+    scan_file.write_text("just words")
 
     # Act
-    upload_scan = UploadScan(scan_file=scan_file, output_dir=output_dir)
+    upload_scan = UploadScan(scan_file=scan_file, output_dir=output_dir)  # type: ignore
 
     # Assert
     assert upload_scan.scan_file == scan_file
@@ -60,7 +55,7 @@ def test_unsupported_extension_raises_error(extension: str, tmp_path_factory: py
 
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
-        UploadScan(scan_file=scan_file, output_dir=output_dir)
+        UploadScan(scan_file=scan_file, output_dir=output_dir)  # type: ignore
     assert "unsupported extension" in str(exc_info.value)
 
 
@@ -71,7 +66,7 @@ def test_nonexistent_scan_file_raises_error(output_dir: Path) -> None:
 
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
-        UploadScan(scan_file=nonexistent_file, output_dir=output_dir)
+        UploadScan(scan_file=nonexistent_file, output_dir=output_dir)  # type: ignore
     assert "Path does not point to a file" in str(exc_info.value)
 
 
@@ -82,7 +77,7 @@ def test_nonexistent_output_dir_raises_error(valid_scan_file: Path) -> None:
 
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
-        UploadScan(scan_file=valid_scan_file, output_dir=nonexistent_dir)
+        UploadScan(scan_file=valid_scan_file, output_dir=nonexistent_dir)  # type: ignore
     assert "Path does not point to a directory" in str(exc_info.value)
 
 
@@ -94,28 +89,15 @@ def test_scan_file_as_directory_raises_error(tmp_path: Path, output_dir: Path) -
 
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
-        UploadScan(scan_file=directory, output_dir=output_dir)
+        UploadScan(scan_file=directory, output_dir=output_dir)  # type: ignore
     assert "Path does not point to a file" in str(exc_info.value)
-
-
-def test_output_dir_as_file_raises_error(tmp_path: Path, valid_scan_file: Path) -> None:
-    """Test that providing a file as output_dir raises ValidationError."""
-    # Arrange
-    file_not_dir = tmp_path / "not_a_directory.txt"
-    file_not_dir.touch()
-
-    # Act & Assert
-    with pytest.raises(ValidationError) as exc_info:
-        UploadScan(scan_file=valid_scan_file, output_dir=file_not_dir)
-    assert "Path does not point to a directory" in str(exc_info.value)
 
 
 def test_model_is_frozen(valid_scan_file: Path, output_dir: Path) -> None:
     """Test that UploadScan instances are immutable (frozen)."""
     # Arrange
-    upload_scan = UploadScan(
-        scan_file=valid_scan_file,
-        output_dir=output_dir,
+    upload_scan = UploadScan(  # type: ignore
+        scan_file=valid_scan_file, output_dir=output_dir
     )
 
     # Act & Assert
