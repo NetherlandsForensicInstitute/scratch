@@ -54,7 +54,7 @@ class TestContracts:
 
         Returns the post request data, sub_route & expected response.
         """
-        data = UploadScan(scan_file=SCANS_DIR / "circle.x3p", output_dir=tmp_path)
+        data = UploadScan(scan_file=SCANS_DIR / "circle.x3p")
         expected_response = ProcessedDataLocation
         # TODO: when implemented the file touch can ben removed.
         (tmp_path / "scan.x3p").touch()

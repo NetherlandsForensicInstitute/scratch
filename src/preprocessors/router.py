@@ -1,7 +1,7 @@
-from fastapi import APIRouter
 import tempfile
 from pathlib import Path
 
+from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse
 from image_generation.image_generation import compute_3d_image, get_array_for_display
@@ -56,7 +56,7 @@ async def comparison_root() -> dict[str, str]:
         },
     },
 )
-async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
+async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp_dir)) -> ProcessedDataLocation:
     """
     Process an uploaded scan file and generate derived output files.
 
@@ -64,21 +64,27 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
     necessary processing steps, and produces several outputs such as an X3P
     file, a preview image, and a surface map saved to the output directory.
     """
-    surface_image_path = upload_scan.output_dir / "surface_map.png"
-    preview_image_path = upload_scan.output_dir / "preview.png"
-    scan_file_path = upload_scan.output_dir / "scan.x3p"
+    token = temp_dir.name
+    base_image_url = f"{BASE_URL}/preprocessor/image_file/{token}"
+    logger.debug(f"Processing scan file with url:{base_image_url}")
+    scan_file_path = temp_dir / "scan.x3p"
     parsed_scan = load_scan_image(upload_scan.scan_file).subsample(step_x=1, step_y=1)
     try:
         save_to_x3p(image=parsed_scan, output_path=scan_file_path)
     except ExportError as err:
         logger.error(f"Exporting x3p failed to path:{scan_file_path}, from error:{str(err)}")
         raise HTTPException(status_code=500, detail=f"Failed to save the scan file  {scan_file_path}: {str(err)}")
-    export_image_pipeline(file_path=surface_image_path, image_generator=compute_3d_image, scan_image=parsed_scan)
-    export_image_pipeline(file_path=preview_image_path, image_generator=get_array_for_display, scan_image=parsed_scan)
+    export_image_pipeline(
+        file_path=temp_dir / "surface_map.png", image_generator=compute_3d_image, scan_image=parsed_scan
+    )
+    export_image_pipeline(
+        file_path=temp_dir / "preview.png", image_generator=get_array_for_display, scan_image=parsed_scan
+    )
+    logger.info(f"Generated files saved to {temp_dir}")
     return ProcessedDataLocation(
-        x3p_image=scan_file_path,
-        preview_image=preview_image_path,
-        surfacemap_image=surface_image_path,
+        x3p_image=HttpUrl(f"{base_image_url}/scan.x3p"),
+        preview_image=HttpUrl(f"{base_image_url}/preview.png"),
+        surfacemap_image=HttpUrl(f"{base_image_url}/surface_map.png"),
     )
 
 
