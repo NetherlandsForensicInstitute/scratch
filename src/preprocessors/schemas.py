@@ -1,18 +1,40 @@
 from enum import StrEnum, auto
-from pathlib import Path
-from typing import Self
+from typing import Annotated
 
 from container_models.light_source import LightSource
-from pydantic import DirectoryPath, Field, FilePath, field_validator, model_validator
+from pydantic import AfterValidator, Field, FilePath, HttpUrl, field_validator
 
 from models import BaseModelConfig
 
 
-class SupportedExtension(StrEnum):
+class SupportedPostExtension(StrEnum):
     AL3D = auto()
     X3P = auto()
     SUR = auto()
     PLU = auto()
+
+
+class SupportedGetExtension(StrEnum):
+    X3P = auto()
+    PNG = auto()
+
+
+def validate_file_extension(file_name: str) -> str:
+    """Validate that the file has a supported extension."""
+    if not file_name.endswith(tuple(SupportedGetExtension)):
+        raise ValueError(f"File must have one of these extensions: {', '.join(SupportedGetExtension)}")
+    return file_name
+
+
+type FileName = Annotated[
+    str,
+    AfterValidator(validate_file_extension),
+    Field(
+        ...,
+        description=f"Filename of type: {','.join(SupportedGetExtension)}",
+        examples=["example.png", "scan.x3p"],
+    ),
+]
 
 
 class UploadScanParameters(BaseModelConfig):
@@ -59,34 +81,31 @@ class UploadScan(BaseModelConfig):
         ...,
         description="Path to the input scan file. Supported formats: AL3D, X3P, SUR, PLU.",
     )
-    output_dir: DirectoryPath = Field(
-        ...,
-        description="Directory where processed outputs (X3P, preview, and surface map images) will be saved.",
-    )
     parameters: UploadScanParameters = Field(
         default_factory=UploadScanParameters.model_construct,
     )
 
     @property
-    def surfacemap_path(self) -> Path:
-        return self.__output_partial_path("_surfacemap").with_suffix(".png")
+    def name(self) -> str:
+        return self.scan_file.stem
 
     @property
-    def preview_path(self) -> Path:
-        return self.__output_partial_path("_preview").with_suffix(".png")
+    def surfacemap_filename(self) -> str:
+        return f"{self.name}_surfacemap.png"
 
     @property
-    def x3p_path(self) -> Path:
-        return self.__output_partial_path().with_suffix(".x3p")
+    def preview_filename(self) -> str:
+        return f"{self.name}_preview.png"
 
-    def __output_partial_path(self, postfix: str | None = None) -> Path:
-        return self.output_dir / f"{self.scan_file.stem}{postfix or ''}"
+    @property
+    def x3p_filename(self) -> str:
+        return f"{self.name}.x3p"
 
     @field_validator("scan_file", mode="after")
     @classmethod
     def validate_file_extension(cls, scan_file: FilePath) -> FilePath:
         """Validate given file is of a supported type and not empty."""
-        if scan_file.suffix[1:] not in SupportedExtension:
+        if scan_file.suffix[1:] not in SupportedPostExtension:
             raise ValueError(f"unsupported extension: {scan_file.name}")
 
         if scan_file.stat().st_size == 0:
@@ -96,27 +115,18 @@ class UploadScan(BaseModelConfig):
 
 
 class ProcessedDataLocation(BaseModelConfig):
-    x3p_image: FilePath = Field(
-        ..., description="converted subsampled X3P image.", examples=[Path("./documents/project_x/x3p.png")]
+    x3p_image: HttpUrl = Field(
+        ...,
+        description="converted subsampled X3P image.",
+        examples=["http://localhost:8000/preprocessor/file/surface_comparator_859lquto/scan.x3p"],
     )
-    preview_image: FilePath = Field(
+    preview_image: HttpUrl = Field(
         ...,
         description="rgba image made from the x3p converted file.",
-        examples=[Path("./documents/project_x/preview.png")],
+        examples=["http://localhost:8000/preprocessor/file/surface_comparator_859lquto/preview.png"],
     )
-    surfacemap_image: FilePath = Field(
+    surfacemap_image: HttpUrl = Field(
         ...,
         description="surface image made from the x3p converted file.",
-        examples=[Path("./documents/project_x/surfacemap.png")],
+        examples=["http://localhost:8000/preprocessor/file/surface_comparator_859lquto/surface_map.png"],
     )
-
-    @model_validator(mode="after")
-    def same_parent_directory(self) -> Self:
-        """Validate that all files are in the same parent directory."""
-        if not all(
-            getattr(self, field_name).parent == self.x3p_image.parent
-            for field_name, field_info in self.__class__.model_fields.items()
-            if field_info.annotation is Path
-        ):
-            raise ValueError("All fields must point to the same output directory")
-        return self
