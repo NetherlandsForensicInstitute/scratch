@@ -1,12 +1,33 @@
+from pathlib import Path
+import logging
+
 import numpy as np
 import pytest
 from PIL import Image
+from loguru import logger
 
 from image_generation.data_formats import ScanImage
 from parsers.data_types import load_scan_image
 from utils.array_definitions import ScanMap2DArray, MaskArray
 
 from .constants import SCANS_DIR
+
+TEST_ROOT = Path(__file__).parent
+
+
+class PropagateHandler(logging.Handler):
+    """Handler that propagates loguru records to standard logging."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        logging.getLogger(record.name).handle(record)
+
+
+@pytest.fixture
+def caplog(caplog):
+    """Fixture to enable caplog to capture loguru logs."""
+    handler_id = logger.add(PropagateHandler(), format="{message}")
+    yield caplog
+    logger.remove(handler_id)
 
 
 @pytest.fixture(scope="session")
