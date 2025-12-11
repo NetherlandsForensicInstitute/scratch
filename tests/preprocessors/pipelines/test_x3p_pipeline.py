@@ -5,7 +5,7 @@ import pytest
 from container_models.scan_image import ScanImage
 
 from preprocessors.pipelines import parse_scan_pipeline, x3p_pipeline
-from preprocessors.schemas import UploudScanParameters
+from preprocessors.schemas import UploadScanParameters
 
 
 @pytest.mark.integration
@@ -27,7 +27,7 @@ class TestX3pPipeline:
 
     # TODO: can we assert this differently?
     def test_output_file_is_valid_x3p(
-        self, parsed_al3d_file: ScanImage, tmp_path: Path, default_parameters: UploudScanParameters
+        self, parsed_al3d_file: ScanImage, tmp_path: Path, default_parameters: UploadScanParameters
     ) -> None:
         """Test that the output file can be parsed back as a valid X3P file."""
         # Arrange
