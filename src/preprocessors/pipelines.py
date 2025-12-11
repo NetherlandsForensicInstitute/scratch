@@ -13,10 +13,10 @@ from renders import (
 from renders.normalizations import normalize_2d_array
 
 from pipelines import run_pipeline
-from preprocessors.schemas import UploudScanParameters
+from preprocessors.schemas import UploadScanParameters
 
 
-def parse_scan_pipeline(scan_file: Path, parameters: UploudScanParameters) -> ScanImage:
+def parse_scan_pipeline(scan_file: Path, parameters: UploadScanParameters) -> ScanImage:
     """
     Parse a scan file and load it as a ScanImage.
 
@@ -49,7 +49,7 @@ def x3p_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     )
 
 
-def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: UploudScanParameters) -> Path:
+def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: UploadScanParameters) -> Path:
     """
     Generate a 3D surface map image from scan data and save it to the specified path.
 
