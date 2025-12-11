@@ -1,11 +1,18 @@
 from fastapi import APIRouter
+import tempfile
+from pathlib import Path
+
 from fastapi.exceptions import HTTPException
+from fastapi.responses import FileResponse
 from image_generation.image_generation import compute_3d_image, get_array_for_display
 from loguru import logger
 from parsers import load_scan_image
 from parsers.exceptions import ExportError
 from parsers.x3p import save_to_x3p
+from pydantic import HttpUrl
 
+from constants import BASE_URL
+from dependencies import get_tmp_dir
 from preprocessors.helpers import export_image_pipeline
 from preprocessors.models import ErrorImageGenerationModel, ParsingError
 
@@ -72,4 +79,26 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
         x3p_image=scan_file_path,
         preview_image=preview_image_path,
         surfacemap_image=surface_image_path,
+    )
+
+
+@preprocessor_route.get(
+    path="/image_file/{token}/{file_name}",
+    summary="Giving an path returns a image.",
+    description="""
+    given some file path returns the image located at the path.
+    """,
+)
+async def get_image(token: str, file_name: str) -> FileResponse:
+    """Get image from file path."""
+    temp_dir = Path(tempfile.gettempdir()) / token
+    if not temp_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"Temp dir {temp_dir} not found.")
+    if not (temp_dir / file_name).exists():
+        raise HTTPException(status_code=404, detail=f"File {file_name} not found in temp dir.")
+    if not file_name.endswith((".png", ".x3p")):
+        raise HTTPException(status_code=400, detail="Unsupported file type requested.")
+    return FileResponse(
+        path=Path(f"{temp_dir}/{file_name}"),
+        media_type="image/png" if file_name.endswith(".png") else "application/octet-stream",
     )
