@@ -66,7 +66,8 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
     """
     token = temp_dir.name
     base_image_url = f"{BASE_URL}/preprocessor/image_file/{token}"
-    logger.debug(f"Processing scan file with url:{base_image_url}")
+    logger.debug(f"Processing scan file to working dir:{temp_dir}")
+    logger.debug(f"Processing scan file:{upload_scan.scan_file}")
     scan_file_path = temp_dir / "scan.x3p"
     parsed_scan = load_scan_image(upload_scan.scan_file).subsample(step_x=1, step_y=1)
     try:
@@ -94,16 +95,33 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
     description="""
     given some file path returns the image located at the path.
     """,
+    responses={
+        400: {"description": "Unsupported file type requested."},
+        404: {"description": "File/dir not found"},
+    },
 )
 async def get_image(token: str, file_name: str) -> FileResponse:
-    """Get image from file path."""
+    """
+    Get image from file path.
+
+    This endpoint retrieves an image/scan file from a temporary directory and returns it as a FileResponse.
+
+    :param token: Temporary directory token.
+    :param file_name: Name of the file to retrieve.
+    :returns: FileResponse containing the requested image.
+    """
+    logger.debug(f"Fetching image from temp dir with token:{token}, file_name:{file_name}")
     temp_dir = Path(tempfile.gettempdir()) / token
     if not temp_dir.is_dir():
+        logger.error(f"Temp dir {temp_dir} not found.")
         raise HTTPException(status_code=404, detail=f"Temp dir {temp_dir} not found.")
     if not (temp_dir / file_name).exists():
+        logger.error(f"File {file_name} not found in temp dir.")
         raise HTTPException(status_code=404, detail=f"File {file_name} not found in temp dir.")
     if not file_name.endswith((".png", ".x3p")):
+        logger.error("Unsupported file type requested, file_name:{file_name}")
         raise HTTPException(status_code=400, detail="Unsupported file type requested.")
+    logger.debug(f"Returning file from path:{temp_dir / file_name}")
     return FileResponse(
         path=Path(f"{temp_dir}/{file_name}"),
         media_type="image/png" if file_name.endswith(".png") else "application/octet-stream",
