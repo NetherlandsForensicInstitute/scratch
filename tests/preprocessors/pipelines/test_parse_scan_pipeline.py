@@ -6,7 +6,7 @@ from container_models.scan_image import ScanImage
 from pydantic import ValidationError
 
 from preprocessors.pipelines import parse_scan_pipeline
-from preprocessors.schemas import UploudScanParameters
+from preprocessors.schemas import UploadScanParameters
 
 
 @pytest.mark.integration
@@ -16,7 +16,7 @@ class TestParseScanPipeline:
         [".al3d", ".x3p"],
     )
     def test_parse_supported_file_success(
-        self, extension: str, scan_directory: Path, default_parameters: UploudScanParameters
+        self, extension: str, scan_directory: Path, default_parameters: UploadScanParameters
     ) -> None:
         """Test that supported file formats are parsed successfully."""
         # Act
@@ -31,7 +31,7 @@ class TestParseScanPipeline:
         assert np.isfinite(result.scale_x)
         assert np.isfinite(result.scale_y)
 
-    def test_parse_result_is_immutable(self, scan_directory: Path, default_parameters: UploudScanParameters) -> None:
+    def test_parse_result_is_immutable(self, scan_directory: Path, default_parameters: UploadScanParameters) -> None:
         """Test that ScanImage is immutable and cannot be modified after creation."""
         # Act
         result = parse_scan_pipeline(scan_directory / "circle.x3p", default_parameters)
