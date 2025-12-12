@@ -62,7 +62,7 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
 
     This endpoint parses and validates the incoming scan file, performs the
     necessary processing steps, and produces several outputs such as an X3P
-    file, a preview image, and a surface map saved to the output directory.
+    file, a preview image, and a surface map saved to an temp directiory and returns urls to retrieve them.
     """
     token = temp_dir.name
     base_image_url = f"{BASE_URL}/preprocessor/image_file/{token}"
