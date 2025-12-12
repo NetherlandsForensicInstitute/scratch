@@ -21,6 +21,7 @@ def parse_scan_pipeline(scan_file: Path, parameters: UploadScanParameters) -> Sc
     Parse a scan file and load it as a ScanImage.
 
     :param scan_file: The path to the scan file to parse.
+    :param parameters: all parameters used in the pipeline.
     :returns: The parsed scan image data.
     :raises HTTPException: If the file cannot be parsed or read.
     """

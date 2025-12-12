@@ -58,35 +58,28 @@ def run_pipeline(entry_value: Any | ContainerN, *tasks: Callable[[Any], Any], er
     """
     Execute a series of tasks in a functional pipeline and return the final result.
 
-    This function orchestrates a railway-oriented programming pipeline using the returns
-    library. It takes an entry value and a sequence of tasks, executes them in order with
-    monadic binding, and unwraps the final result.
+    This function orchestrates a railway-oriented programming pipeline using the
+    ``returns`` library. It takes an entry value and a sequence of tasks, executes
+    them in order using monadic binding, and unwraps the final result.
 
-    Parameters
-    ----------
-    entry_value : Any | ContainerN
-        The initial value to pass into the pipeline. Can be a raw value or
-        a Container from the returns library (IOResultE, ResultE, etc.).
-    *tasks : Callable[[Any], Any]
-        Variable number of callable tasks to execute in sequence. Each task should
-        accept the output of the previous task and return a Container or compatible type.
-    error_message : str
-        Custom error message to include in the HTTPException if the pipeline
-        fails at any step.
+    :param entry_value: The initial value to pass into the pipeline. This may be a
+        raw value or a Container from the ``returns`` library (e.g. ``IOResultE``,
+        ``ResultE``).
+    :param tasks: Variable number of callable tasks executed sequentially. Each
+        task must accept the output of the previous task and return a Container or
+        a compatible type.
+    :param error_message: Custom error message included in the ``HTTPException`` if
+        the pipeline fails at any step.
+    :type error_message: str
 
-    Returns
-    -------
-    Any
-        The unwrapped success value of type T from the final pipeline result.
+    :returns: The unwrapped success value of the final pipeline result.
+    :rtype: Any
 
-    Raises
-    ------
-    HTTPException
-        With status 500 (INTERNAL_SERVER_ERROR) if any task in the pipeline
-        fails or returns a failure Container. The exception detail will contain the
-        provided error_message.
+    :raises HTTPException: Raised with status code 500 (INTERNAL_SERVER_ERROR) if
+        any task in the pipeline fails or returns a failure Container. The exception
+        detail contains the provided ``error_message``.
 
-    Examples
+    :examples
     --------
     >>> def validate_user(data: dict) -> ResultE[dict]:
     ...     return Success(data) if data.get("id") else Failure("Invalid user")
