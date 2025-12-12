@@ -2,6 +2,7 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Self
 
+from container_models.light_source import LightSource
 from pydantic import DirectoryPath, Field, FilePath, field_validator, model_validator
 
 from models import BaseModelConfig
@@ -14,22 +15,83 @@ class SupportedExtension(StrEnum):
     PLU = auto()
 
 
+class UploudScanParameters(BaseModelConfig):
+    """Configuration parameters for upload scan's surface rendering process."""
+
+    light_sources: tuple[LightSource, ...] = Field(
+        (
+            LightSource(azimuth=90, elevation=45),
+            LightSource(azimuth=180, elevation=45),
+        ),
+        description="Light sources for surface illumination rendering.",
+    )
+    observer: LightSource = Field(
+        LightSource(azimuth=90, elevation=45),
+        description="Observer viewpoint vector for surface rendering.",
+    )
+    scale_x: float = Field(1.0, gt=0.0, description="pixel size in meters (m)")
+    scale_y: float = Field(1.0, gt=0.0, description="pixel size in meters (m)")
+    step_size_x: int = Field(1, gt=0)
+    step_size_y: int = Field(1, gt=0)
+
+    def as_dict(self, *, exclude: set[str] | None = None, include: set[str] | None = None) -> dict:
+        """
+        Get model fields as dict with nested models intact (not serialized).
+
+        :param exclude: Set of field names to exclude
+        :param include: Set of field names to include (mutually exclusive with exclude)
+        """
+        if exclude and include:
+            raise ValueError("Cannot specify both 'exclude' and 'include'")
+
+        fields = set(self.__class__.model_fields)
+
+        if include:
+            fields = include
+        elif exclude:
+            fields = fields - exclude
+
+        return {field: getattr(self, field) for field in fields}
+
+
 class UploadScan(BaseModelConfig):
     scan_file: FilePath = Field(
         ...,
-        description="Upload scan file.",
-        examples=[Path("./temp/scan.al3d"), Path("./temp/scan.x3p"), Path("./temp/scan.sur"), Path("./temp/scan.plu")],
+        description="Path to the input scan file. Supported formats: AL3D, X3P, SUR, PLU.",
     )
     output_dir: DirectoryPath = Field(
-        ..., description="Upload output directory.", examples=[Path("./documents/project_x")]
+        ...,
+        description="Directory where processed outputs (X3P, preview, and surface map images) will be saved.",
     )
+    parameters: UploudScanParameters = Field(
+        default_factory=UploudScanParameters.model_construct,
+    )
+
+    @property
+    def surfacemap_path(self) -> Path:
+        return self.__output_partial_path("_surfacemap").with_suffix(".png")
+
+    @property
+    def preview_path(self) -> Path:
+        return self.__output_partial_path("_preview").with_suffix(".png")
+
+    @property
+    def x3p_path(self) -> Path:
+        return self.__output_partial_path().with_suffix(".x3p")
+
+    def __output_partial_path(self, postfix: str | None = None) -> Path:
+        return self.output_dir / f"{self.scan_file.stem}{postfix or ''}"
 
     @field_validator("scan_file", mode="after")
     @classmethod
     def validate_file_extension(cls, scan_file: FilePath) -> FilePath:
-        """Validate given file is off a supported type."""
+        """Validate given file is of a supported type and not empty."""
         if scan_file.suffix[1:] not in SupportedExtension:
             raise ValueError(f"unsupported extension: {scan_file.name}")
+
+        if scan_file.stat().st_size == 0:
+            raise ValueError(f"file is empty: {scan_file.name}")
+
         return scan_file
 
 
