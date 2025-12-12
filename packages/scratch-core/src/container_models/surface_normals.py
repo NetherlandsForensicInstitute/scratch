@@ -4,10 +4,12 @@ from .base import ScanVectorField2DArray, ConfigBaseModel
 
 
 class SurfaceNormals(ConfigBaseModel):
-    """Normal vectors per pixel in a 3-layer field.
+    """
+    Normal vectors per pixel in a 3-layer field.
 
     Represents a surface-normal map with components (nx, ny, nz) stored in the
-    last dimension. Shape: (height, width, 3)."""
+    last dimension. Shape: (height, width, 3).
+    """
 
     x_normal_vector: ScanVectorField2DArray
     y_normal_vector: ScanVectorField2DArray
