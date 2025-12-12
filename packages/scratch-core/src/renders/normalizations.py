@@ -1,29 +1,12 @@
-from functools import partial
 import numpy as np
-from typing import Final, NamedTuple
+from typing import Final
 
 from numpy.typing import NDArray
 from returns.pipeline import flow
 from returns.result import safe
 
 from container_models.scan_image import ScanImage
-from container_models.surface_normals import SurfaceNormals
 from utils.logger import log_railway_function
-
-
-class GradientComponents(NamedTuple):
-    """Container for gradient components with optional magnitude."""
-
-    x: NDArray
-    y: NDArray
-    magnitude: NDArray | None = None
-
-
-class PhysicalSpacing(NamedTuple):
-    """Physical spacing between samples in x and y directions."""
-
-    x: float
-    y: float
 
 
 # Padding configurations for gradient arrays to maintain original dimensions
@@ -37,11 +20,19 @@ _PAD_Y_GRADIENT: Final[tuple[tuple[int, int], ...]] = (
 )  # Pad top and bottom (rows)
 
 
-def _compute_central_diff_scales(
-    spacing: PhysicalSpacing,
-) -> PhysicalSpacing:
+def _compute_central_diff_scales(scan_image: ScanImage) -> ScanImage:
     """Compute scaling factors for central difference approximation: 1/(2*spacing)."""
-    return PhysicalSpacing(*(1 / (2 * value) for value in spacing))
+
+    def compute(value: float) -> float:
+        return 1 / (2 * value)
+
+    return scan_image.model_copy(
+        update={
+            "scale_x": compute(scan_image.scale_x),
+            "scale_y": compute(scan_image.scale_y),
+        },
+        deep=True,
+    )
 
 
 def _pad_gradient(
@@ -51,37 +42,58 @@ def _pad_gradient(
     return np.pad(unpadded_gradient, pad_width, mode="constant", constant_values=np.nan)
 
 
-def _compute_depth_gradients(
-    scales: PhysicalSpacing, depth_data: NDArray
-) -> GradientComponents:
+def _compute_depth_gradients(scan_image: ScanImage) -> ScanImage:
     """Compute depth gradients (∂z/∂x, ∂z/∂y) using central differences."""
-    return GradientComponents(
-        x=_pad_gradient(
-            (depth_data[:, :-2] - depth_data[:, 2:]) * scales.x,
-            _PAD_X_GRADIENT,
-        ),
-        y=_pad_gradient(
-            (depth_data[:-2, :] - depth_data[2:, :]) * scales.y,
-            _PAD_Y_GRADIENT,
-        ),
+    gradient_x = _pad_gradient(
+        (scan_image.data[:, :-2] - scan_image.data[:, 2:]) * scan_image.scale_x,
+        _PAD_X_GRADIENT,
+    )
+    gradient_y = _pad_gradient(
+        (scan_image.data[:-2, :] - scan_image.data[2:, :]) * scan_image.scale_y,
+        _PAD_Y_GRADIENT,
+    )
+    return scan_image.model_copy(
+        update={
+            "meta_data": {
+                **(scan_image.meta_data or {}),
+                "gradient_x": gradient_x,
+                "gradient_y": gradient_y,
+            }
+        }
     )
 
 
-def _add_normal_magnitude(gradients: GradientComponents) -> GradientComponents:
+def _add_normal_magnitude(scan_image: ScanImage) -> ScanImage:
     """Compute and attach the normal vector magnitude to gradient components."""
-    magnitude = np.sqrt(gradients.x**2 + gradients.y**2 + 1)
-    return GradientComponents(gradients.x, gradients.y, magnitude)
+    meta = scan_image.meta_data
+    magnitude = np.sqrt(meta["gradient_x"] ** 2 + meta["gradient_y"] ** 2 + 1)
+    return scan_image.model_copy(
+        update={
+            "meta_data": {
+                **meta,
+                "magnitude": magnitude,
+            }
+        }
+    )
 
 
-def _normalize_to_surface_normals(gradients: GradientComponents) -> SurfaceNormals:
+def _normalize_to_surface_normals(scan_image: ScanImage) -> ScanImage:
     """Normalize gradient components to unit surface normal vectors."""
-    x, y, magnitude = gradients
-    if magnitude is None:
-        raise ValueError
-    return SurfaceNormals(
-        x_normal_vector=x / magnitude,
-        y_normal_vector=-y / magnitude,
-        z_normal_vector=1 / magnitude,
+    meta = scan_image.meta_data or {}
+    gradient_x = meta.pop("gradient_x")
+    gradient_y = meta.pop("gradient_y")
+    magnitude = meta.pop("magnitude")
+    return scan_image.model_copy(
+        update=dict(
+            data=np.stack(
+                [
+                    gradient_x / magnitude,
+                    -gradient_y / magnitude,
+                    1 / magnitude,
+                ],
+                axis=-1,
+            )
+        )
     )
 
 
@@ -90,7 +102,7 @@ def _normalize_to_surface_normals(gradients: GradientComponents) -> SurfaceNorma
     success_message="Successfully computed surface normal components",
 )
 @safe
-def compute_surface_normals(scan_image: ScanImage) -> SurfaceNormals:
+def compute_surface_normals(scan_image: ScanImage) -> ScanImage:
     """
     Compute per-pixel surface normals from a 2D depth map.
 
@@ -98,18 +110,16 @@ def compute_surface_normals(scan_image: ScanImage) -> SurfaceNormals:
     and the resulting normal vectors are normalized per pixel.
     The border are padded with NaN values to keep the same size as the input data.
 
-    :param depth_data: 2D array of depth values with shape (Height, Width).
-    :param x_dimension: Physical spacing between columns (Δx) in meters.
-    :param y_dimension: Physical spacing between rows (Δy) in meters.
+    :param scan_image: A ScanImage where the mutation/ calculation is being made on.
 
     :returns: 3D array of surface normals with shape (Height, Width, 3), where the
               last dimension corresponds to (nx, ny, nz).
     """
 
     return flow(
-        PhysicalSpacing(scan_image.scale_x, scan_image.scale_y),
+        scan_image,
         _compute_central_diff_scales,
-        partial(_compute_depth_gradients, depth_data=scan_image.data),
+        _compute_depth_gradients,
         _add_normal_magnitude,
         _normalize_to_surface_normals,
     )

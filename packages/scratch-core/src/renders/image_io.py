@@ -58,7 +58,7 @@ def _clip_data(
     return np.clip(data, lower, upper), lower, upper
 
 
-@log_railway_function("Failed to retreive array for display")
+@log_railway_function("Failed to retrieve array for display")
 @safe
 def get_scan_image_for_display(
     scan_image: ScanImage, *, std_scaler: float = 2.0
@@ -69,7 +69,7 @@ def get_scan_image_for_display(
     First the data will be clipped so that the values lie in the interval [μ - σ * S, μ + σ * S].
     Then the values are min-max normalized and scaled to the [0, 255] interval.
 
-    :param image: An instance of `ScanImage`.
+    :param scan_image: An instance of `ScanImage`.
     :param std_scaler: The multiplier `S` for the standard deviation used above when clipping the image.
     :returns: An array containing the clipped and normalized image data.
     """
