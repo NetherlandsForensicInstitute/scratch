@@ -91,14 +91,13 @@ def parse_to_x3p(image: ScanImage) -> X3Pfile:
 )
 @impure_safe
 def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
-    """Save an X3Pfile to disk.
+    """
+    Save an X3P file to disk.
 
-    Args:
-        x3p: The X3Pfile to save
-        output_path: Where to save the file
-
-    Returns:
-        IOResult[Path, Exception]: IOSuccess(Path) on success, IOFailure(Exception) on error
+    :param x3p: The X3P file to save.
+    :param output_path: The path where the file should be written.
+    :returns: An ``IOResult[Path, Exception]`` — ``IOSuccess(Path)`` on success,
+              or ``IOFailure(Exception)`` if an error occurs.
     """
 
     x3p.write(str(output_path))
