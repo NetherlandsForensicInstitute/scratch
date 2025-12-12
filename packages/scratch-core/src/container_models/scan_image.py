@@ -13,7 +13,7 @@ class ScanImage(ConfigBaseModel):
     data: ScanMap2DArray
     scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
-    meta_data: dict | None = None
+    meta_data: dict = Field(default_factory=dict)
 
     @property
     def width(self) -> int:
