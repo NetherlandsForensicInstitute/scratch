@@ -4,7 +4,7 @@ import pytest
 from returns.pipeline import is_successful
 
 from container_models.light_source import LightSource
-from container_models.surface_normals import SurfaceNormals
+from container_models.scan_image import ScanImage
 from renders.shading import apply_multiple_lights
 
 no_scale_apply_multiple_lights = partial(apply_multiple_lights, scale_x=1, scale_y=1)
@@ -21,26 +21,26 @@ def multiple_lights(light_source) -> tuple[LightSource, LightSource, LightSource
 
 
 def test_empty_light_list_returns_failure(
-    flat_surface_normals: SurfaceNormals,
+    flat_normals_scan_image: ScanImage,
     observer: LightSource,
 ) -> None:
     """Test that an empty light list returns a Failure result."""
     # Act
-    result = no_scale_apply_multiple_lights(flat_surface_normals, [], observer)
+    result = no_scale_apply_multiple_lights(flat_normals_scan_image, [], observer)
 
     # Assert
     assert not is_successful(result)
 
 
 def test_constant_normals_give_constant_output(
-    flat_surface_normals: SurfaceNormals,
+    flat_normals_scan_image: ScanImage,
     multiple_lights: tuple[LightSource, ...],
     observer: LightSource,
 ) -> None:
     """Test that constant normals produce constant output across the image."""
     # Act
     result = no_scale_apply_multiple_lights(
-        flat_surface_normals, multiple_lights, observer
+        flat_normals_scan_image, multiple_lights, observer
     )
 
     # Assert
@@ -50,7 +50,7 @@ def test_constant_normals_give_constant_output(
 
 
 def test_more_lights_increase_brightness(
-    flat_surface_normals: SurfaceNormals,
+    flat_normals_scan_image: ScanImage,
     observer: LightSource,
     light_source: LightSource,
     multiple_lights: tuple[LightSource, ...],
@@ -59,10 +59,10 @@ def test_more_lights_increase_brightness(
 
     # Act
     result_one = no_scale_apply_multiple_lights(
-        flat_surface_normals, (light_source,), observer
+        flat_normals_scan_image, (light_source,), observer
     )
     result_two = no_scale_apply_multiple_lights(
-        flat_surface_normals, multiple_lights, observer
+        flat_normals_scan_image, multiple_lights, observer
     )
 
     # Assert
@@ -72,7 +72,7 @@ def test_more_lights_increase_brightness(
 
 
 def test_light_from_opposing_sides(
-    flat_surface_normals: SurfaceNormals,
+    flat_normals_scan_image: ScanImage,
     observer: LightSource,
 ) -> None:
     """Test that lights from opposite horizontal directions produce symmetric results."""
@@ -84,7 +84,7 @@ def test_light_from_opposing_sides(
 
     # Act
     result = no_scale_apply_multiple_lights(
-        flat_surface_normals, lights_opposite, observer
+        flat_normals_scan_image, lights_opposite, observer
     )
 
     # Assert
@@ -96,15 +96,14 @@ def test_light_from_opposing_sides(
 def test_spatial_variation_with_bumpy_surface(
     observer: LightSource,
     light_source: LightSource,
-    flat_surface_normals: SurfaceNormals,
+    flat_normals_scan_image: ScanImage,
 ) -> None:
     """Test that surface variation creates intensity variation."""
     # Arrange - Create a surface with a bump in the center
-    # Add a tilt in the center
-    normals = flat_surface_normals.model_copy(deep=True)
-    center = normals.x_normal_vector.shape[0] // 2
-    normals.x_normal_vector[center, center] = 0.5
-    normals.z_normal_vector[center, center] = 0.866  # To keep it normalized
+    normals = flat_normals_scan_image.model_copy(deep=True)
+    center = normals.data.shape[0] // 2
+    normals.data[center, center, 0] = 0.5  # x-normal
+    normals.data[center, center, 2] = 0.866  # z-normal (to keep it normalized)
 
     # Act
     result = no_scale_apply_multiple_lights(normals, (light_source,), observer)

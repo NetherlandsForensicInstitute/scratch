@@ -4,7 +4,6 @@ import pytest
 from scipy.constants import milli
 
 from container_models.scan_image import ScanImage
-from container_models.surface_normals import SurfaceNormals
 from renders import compute_surface_normals
 from container_models.base import MaskArray
 
@@ -32,32 +31,42 @@ def outer_mask(inner_mask: MaskArray) -> MaskArray:
 
 
 def are_normals_allclose(
-    normals: SurfaceNormals,
+    normals_scan: ScanImage,
     mask: MaskArray,
     expected: tuple[float, float, float],
 ) -> bool:
     """Assert nx, ny, nz at mask match expected 3-tuple."""
-    return all(
-        np.allclose(component[mask], expected_value, atol=milli)
-        for (_, component), expected_value in zip(normals, expected)
+    nx = normals_scan.data[..., 0]
+    ny = normals_scan.data[..., 1]
+    nz = normals_scan.data[..., 2]
+    return (
+        np.allclose(nx[mask], expected[0], atol=milli)
+        and np.allclose(ny[mask], expected[1], atol=milli)
+        and np.allclose(nz[mask], expected[2], atol=milli)
     )
 
 
-def is_all_nan(normals: SurfaceNormals, mask: MaskArray) -> np.bool_:
+def is_all_nan(normals_scan: ScanImage, mask: MaskArray) -> np.bool_:
     """All channels must be NaN within mask."""
+    nx = normals_scan.data[..., 0]
+    ny = normals_scan.data[..., 1]
+    nz = normals_scan.data[..., 2]
     return (
-        np.isnan(normals.x_normal_vector[mask]).all()
-        and np.isnan(normals.y_normal_vector[mask]).all()
-        and np.isnan(normals.z_normal_vector[mask]).all()
+        np.isnan(nx[mask]).all()
+        and np.isnan(ny[mask]).all()
+        and np.isnan(nz[mask]).all()
     )
 
 
-def has_nan(normals: SurfaceNormals, mask: MaskArray) -> np.bool_:
+def has_nan(normals_scan: ScanImage, mask: MaskArray) -> np.bool_:
     """No channel should contain NaN within mask."""
+    nx = normals_scan.data[..., 0]
+    ny = normals_scan.data[..., 1]
+    nz = normals_scan.data[..., 2]
     return (
-        np.isnan(normals.x_normal_vector[mask]).any()
-        and np.isnan(normals.y_normal_vector[mask]).any()
-        and np.isnan(normals.z_normal_vector[mask]).any()
+        np.isnan(nx[mask]).any()
+        and np.isnan(ny[mask]).any()
+        and np.isnan(nz[mask]).any()
     )
 
 
@@ -143,17 +152,14 @@ def test_location_slope_is_where_expected(
 
     # Act
     surface_normals = compute_surface_normals(image_with_bump).unwrap()
+    nx = surface_normals.data[..., 0]
+    ny = surface_normals.data[..., 1]
+    nz = surface_normals.data[..., 2]
 
     # Assert
-    assert np.any(np.abs(surface_normals.x_normal_vector[bump_mask]) > 0), (
-        "nx should have slope inside bump"
-    )
-    assert np.any(np.abs(surface_normals.y_normal_vector[bump_mask]) > 0), (
-        "ny should have slope inside bump"
-    )
-    assert np.any(np.abs(surface_normals.z_normal_vector[bump_mask]) != 1), (
-        "nz should deviate from 1 inside bump"
-    )
+    assert np.any(np.abs(nx[bump_mask]) > 0), "nx should have slope inside bump"
+    assert np.any(np.abs(ny[bump_mask]) > 0), "ny should have slope inside bump"
+    assert np.any(np.abs(nz[bump_mask]) != 1), "nz should deviate from 1 inside bump"
 
     assert are_normals_allclose(surface_normals, outside_bump_mask, (0, 0, 1))
 
@@ -171,8 +177,9 @@ def test_corner_of_slope(image_with_bump: ScanImage) -> None:
 
     # Act
     surface_normals = compute_surface_normals(image_with_bump).unwrap()
+    nz = surface_normals.data[..., 2]
 
     # Assert
-    assert (
-        surface_normals.z_normal_vector[corner[0], corner[1]] == expected_corner_value
-    ), "corner of x and y should have unit normal of x and y"
+    assert nz[corner[0], corner[1]] == expected_corner_value, (
+        "corner of x and y should have unit normal of x and y"
+    )

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from container_models.light_source import LightSource
-from container_models.surface_normals import SurfaceNormals
+from container_models.scan_image import ScanImage
 
 
 TEST_IMAGE_SIZE = 10
@@ -22,20 +22,34 @@ def observer() -> LightSource:
 
 
 @pytest.fixture(scope="module")
-def varied_surface_normals() -> SurfaceNormals:
-    """Surface normals with varied orientation."""
-    return SurfaceNormals(
-        x_normal_vector=np.full((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE), 0.7),
-        y_normal_vector=np.full((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE), 0.6),
-        z_normal_vector=np.full((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE), 0.2),
+def varied_normals_scan_image() -> ScanImage:
+    """ScanImage with 3D surface normals (varied orientation)."""
+    return ScanImage(
+        data=np.stack(
+            [
+                np.full((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE), 0.7),  # nx
+                np.full((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE), 0.6),  # ny
+                np.full((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE), 0.2),  # nz
+            ],
+            axis=-1,
+        ),
+        scale_x=1.0,
+        scale_y=1.0,
     )
 
 
 @pytest.fixture(scope="module")
-def flat_surface_normals() -> SurfaceNormals:
-    """Surface normals all pointing straight up (+Z)."""
-    return SurfaceNormals(
-        x_normal_vector=np.zeros((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE)),
-        y_normal_vector=np.zeros((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE)),
-        z_normal_vector=np.ones((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE)),
+def flat_normals_scan_image() -> ScanImage:
+    """ScanImage with 3D surface normals (all pointing up +Z)."""
+    return ScanImage(
+        data=np.stack(
+            [
+                np.zeros((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE)),  # nx
+                np.zeros((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE)),  # ny
+                np.ones((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE)),  # nz
+            ],
+            axis=-1,
+        ),
+        scale_x=1.0,
+        scale_y=1.0,
     )
