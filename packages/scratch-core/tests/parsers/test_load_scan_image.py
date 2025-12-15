@@ -75,14 +75,16 @@ class TestLoadScanImage:
         # assert
         assert not is_successful(result)
 
-    # TODO: find a better test methology
-    # def test_load_scan_data_matches_baseline_output(
-    #     self, filepath: Path, baseline_images_dir: Path
-    # ) -> None:
-    #     # arrange
-    #     verified = np.load(baseline_images_dir / "replica_subsampled.npy")
-    #     # act
-    #     result = load_scan_image(filepath, step_size_x=10, step_size_y=15)
-    #     scan_image = unwrap_result(result)
-    #     # assert
-    #     assert np.allclose(scan_image.data, verified, equal_nan=True, atol=femto)
+
+# TODO: find a better test methology
+def test_load_scan_data_matches_baseline_output(
+    baseline_images_dir: Path, scans_dir: Path
+) -> None:
+    # arrange
+    filepath = scans_dir / "Klein_non_replica_mode.al3d"
+    verified = np.load(baseline_images_dir / "replica_subsampled.npy")
+    # act
+    result = load_scan_image(filepath, step_size_x=10, step_size_y=15)
+    scan_image = unwrap_result(result)
+    # assert
+    assert np.allclose(scan_image.data, verified, equal_nan=True, atol=1.0e-5)
