@@ -94,6 +94,10 @@ def _combine_lighting_components(scan_image: ScanImage) -> ScanImage:
     )
 
 
+@log_railway_function(
+    failure_message="Calculating 2d maps per lighting source failed.",
+    success_message="Calculated 2d maps per lighting source.",
+)
 def calculate_lighting(
     light: LightSource,
     observer: LightSource,
