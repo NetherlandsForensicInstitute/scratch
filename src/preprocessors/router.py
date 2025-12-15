@@ -4,7 +4,12 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse
-from image_generation.image_generation import compute_3d_image, get_array_for_display
+from image_generation.image_generation import (
+    compute_3d_image,
+    edit_3d_image,
+    edit_array_for_display,
+    get_array_for_display,
+)
 from loguru import logger
 from parsers import load_scan_image
 from parsers.exceptions import ExportError
@@ -16,7 +21,7 @@ from dependencies import get_tmp_dir
 from preprocessors.helpers import export_image_pipeline
 from preprocessors.models import ErrorImageGenerationModel, ParsingError
 
-from .schemas import ProcessedDataLocation, UploadScan
+from .schemas import EditImageOptions, ProcessedDataAndScanLocation, ProcessedDataLocation, UploadScan
 
 preprocessor_route = APIRouter(
     prefix="/preprocessor",
@@ -56,7 +61,7 @@ async def comparison_root() -> dict[str, str]:
         },
     },
 )
-async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp_dir)) -> ProcessedDataLocation:
+async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp_dir)) -> ProcessedDataAndScanLocation:
     """
     Process an uploaded scan file and generate derived output files.
 
@@ -84,7 +89,7 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
         file_path=output_dir / "preview.png", image_generator=get_array_for_display, scan_image=parsed_scan
     )
     logger.info(f"Generated files saved to {temp_dir}")
-    return ProcessedDataLocation(
+    return ProcessedDataAndScanLocation(
         x3p_image=HttpUrl(f"{base_image_url}/scan.x3p"),
         preview_image=HttpUrl(f"{base_image_url}/preview.png"),
         surfacemap_image=HttpUrl(f"{base_image_url}/surface_map.png"),
@@ -128,4 +133,49 @@ async def get_file(token: str, file_name: str, temp_dir: Path = Depends(get_tmp_
     return FileResponse(
         path=file_to_retrieve,
         media_type="image/png" if file_name.endswith(".png") else "application/octet-stream",
+    )
+
+
+@preprocessor_route.post(
+    path="/edit-scan",
+    summary="Create surface_map and preview image from the scan file.",
+    description="""
+    Load the scan file from the given filepath and generates several derived outputs, including
+    a preview image and a surface map, these files are saved to the output directory given as parameter.
+    The endpoint parses and validates the file before running the processing pipeline.
+""",
+    responses={
+        400: {"description": "parse error", "model": ParsingError},
+        500: {
+            "description": "image generation error",
+            "model": ErrorImageGenerationModel,
+        },
+    },
+)
+async def edit_scan(
+    edit_image_options: EditImageOptions, temp_dir: Path = Depends(get_tmp_dir)
+) -> ProcessedDataLocation:
+    """
+    Process an uploaded scan file and generate derived output files.
+
+    This endpoint parses and validates the incoming scan file, performs the
+    necessary processing steps, and produces several outputs such as an X3P
+    file, a preview image, and a surface map saved to an temp directiory and returns urls to retrieve them.
+    """
+    token = str(uuid4())
+    output_dir = temp_dir / token
+    output_dir.mkdir(parents=True, exist_ok=True)
+    base_image_url = f"{BASE_URL}/preprocessor/image_file/{token}"
+    logger.debug(f"Processing scan file to working dir:{temp_dir}")
+    logger.debug(f"Processing scan file:{edit_image_options.scan_file}")
+    parsed_scan = load_scan_image(edit_image_options.scan_file).subsample(step_x=1, step_y=1)
+
+    export_image_pipeline(file_path=temp_dir / "surface_map.png", image_generator=edit_3d_image, scan_image=parsed_scan)
+    export_image_pipeline(
+        file_path=temp_dir / "preview.png", image_generator=edit_array_for_display, scan_image=parsed_scan
+    )
+    logger.info(f"Generated files saved to {temp_dir}")
+    return ProcessedDataLocation(
+        preview_image=HttpUrl(f"{base_image_url}/preview.png"),
+        surfacemap_image=HttpUrl(f"{base_image_url}/surface_map.png"),
     )
