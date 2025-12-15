@@ -1,28 +1,34 @@
 import numpy as np
 from numpy.typing import NDArray
-
+from collections.abc import Mapping
 from conversion.leveling import SurfaceTerms, TERM_FUNCTIONS, LevelingResult
 from image_generation.data_formats import ScanImage
 
 
-def _prepare_grid(scan_image: ScanImage) -> tuple[NDArray, NDArray, NDArray]:
+def _prepare_2d_grid(
+    scan_image: ScanImage, image_center: tuple[float, float] | None = None
+) -> tuple[NDArray, NDArray]:
     """
     TODO: write a docstring
     """
-    mask = ~np.isnan(scan_image.data)
-    z_grid = scan_image.data[mask]
-
     # Generate Grid (ij indexing to match matrix coordinates)
     x_indices, y_indices = np.meshgrid(
         np.arange(scan_image.width), np.arange(scan_image.height), indexing="ij"
     )
     # Center grid
-    center_x = (scan_image.width - 1) * scan_image.scale_x * 0.5
-    center_y = (scan_image.height - 1) * scan_image.scale_y * 0.5
-    x_grid = (x_indices * scan_image.scale_x) - center_x
-    y_grid = (y_indices * scan_image.scale_y) - center_y
+    if not image_center:
+        image_center = (
+            (scan_image.width - 1)
+            * scan_image.scale_x
+            * 0.5,  # X-coordinate of image center
+            (scan_image.height - 1)
+            * scan_image.scale_y
+            * 0.5,  # Y-coordinate of image center
+        )
+    x_grid = (x_indices * scan_image.scale_x) - image_center[0]
+    y_grid = (y_indices * scan_image.scale_y) - image_center[1]
 
-    return x_grid[mask], y_grid[mask], z_grid
+    return x_grid, y_grid
 
 
 def _build_design_matrix(
@@ -32,7 +38,7 @@ def _build_design_matrix(
     Constructs the Least Squares design matrix based on requested terms.
     """
     num_points = x_grid.size
-    matrix = np.zeros((num_points, len(SurfaceTerms)), dtype=np.float64)
+    matrix = np.zeros((num_points, len(terms)), dtype=np.float64)
 
     for column_index, term in enumerate(terms):
         if func := TERM_FUNCTIONS.get(term):
@@ -61,13 +67,18 @@ def _normalize_coordinates(
 
 
 def _denormalize_parameters(
-    coefficients: NDArray, x_mean: float, y_mean: float, s: float
-) -> NDArray:
+    coefficients: Mapping[SurfaceTerms, NDArray], x_mean: float, y_mean: float, s: float
+) -> dict[SurfaceTerms, NDArray]:
     """
     Converts normalized fit parameters back to real-world physical units.
     Matches the specific algebraic logic from the original MATLAB script.
+
+    TODO: explain params
     """
-    params = coefficients.copy()
+    params = np.array(
+        [coefficients.get(term, 0.0) for term in SurfaceTerms], dtype=np.float64
+    )
+
     # Un-normalize scaling
     params[1:3] *= s  # Tilts
     params[3:] *= s**2  # Quadratic terms
@@ -94,12 +105,12 @@ def _denormalize_parameters(
         params[2] - params[3] * x_mean - 2 * params[4] * y_mean + 2 * params[5] * y_mean
     )
 
-    return params
+    return dict(zip(SurfaceTerms, params))
 
 
 def _solve_leveling(
     x_grid: NDArray, y_grid: NDArray, z_grid: NDArray, terms: SurfaceTerms
-) -> tuple[NDArray, NDArray]:
+) -> tuple[NDArray, dict[SurfaceTerms, NDArray]]:
     """
     Core solver: fits a surface to the point cloud (xs, ys, zs).
 
@@ -123,7 +134,9 @@ def _solve_leveling(
     # 4. Calculate deviations
     fitted_surface = design_matrix @ coefficients
     # 5. Recover physical parameters (optional usage, but part of original spec)
-    physical_params = _denormalize_parameters(coefficients, x_mean, y_mean, scale)
+    physical_params = _denormalize_parameters(
+        dict(zip(terms, coefficients)), x_mean, y_mean, scale
+    )
 
     return fitted_surface, physical_params
 
@@ -132,24 +145,38 @@ def _compute_root_mean_square(data: NDArray) -> float:
     return float(np.sqrt(np.mean(data**2)))
 
 
-def level_map(scan_image: ScanImage, terms: SurfaceTerms, is_highpass: bool = True):
+def level_map(
+    scan_image: ScanImage,
+    terms: SurfaceTerms,
+    is_highpass: bool = True,
+    image_center: tuple[float, float] | None = None,
+):
     """
     TODO: write a docstring
     """
-    # Build grid
-    x_grid, y_grid, z_grid = _prepare_grid(scan_image)
+    # Build grids
+    x_grid, y_grid = _prepare_2d_grid(scan_image, image_center=image_center)
+    valid_mask = ~np.isnan(scan_image.data)
+    x_grid, y_grid, z_grid = (
+        x_grid[valid_mask],
+        y_grid[valid_mask],
+        scan_image.data[valid_mask],
+    )
 
     # Solve
     fitted_surface, physical_params = _solve_leveling(x_grid, y_grid, z_grid, terms)
 
+    # Compute leveled map
     z_leveled = z_grid - fitted_surface if is_highpass else fitted_surface
+    leveled_map = np.full_like(scan_image.data, np.nan)
+    leveled_map[valid_mask] = z_leveled
 
     # Calculate RMS of residuals
     residual_rms = _compute_root_mean_square(z_leveled)
 
     return LevelingResult(
-        leveled_map=z_leveled,
-        parameters=dict(zip(SurfaceTerms, physical_params)),
+        leveled_map=leveled_map,
+        parameters=physical_params,
         residual_rms=residual_rms,
         fitted_surface=fitted_surface,
     )
