@@ -15,3 +15,8 @@ def test_map_level_plane(scan_image_with_nans: ScanImage):
 def test_map_level_none(scan_image_with_nans: ScanImage):
     result = level_map(scan_image_with_nans, SurfaceTerms.NONE)
     assert result
+
+
+def test_map_level_offset(scan_image_with_nans: ScanImage):
+    result = level_map(scan_image_with_nans, SurfaceTerms.OFFSET)
+    assert result

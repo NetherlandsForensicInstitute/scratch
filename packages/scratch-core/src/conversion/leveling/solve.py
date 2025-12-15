@@ -61,7 +61,7 @@ def _normalize_coordinates(
     span_y = np.max(vy_norm) - np.min(vy_norm)
     # Avoid division by zero
     max_span = max(span_x, span_y)
-    scale = 1.0 / max_span if max_span > 0 else 1.0
+    scale = 1.0 if np.isclose(max_span, 0.0) else 1 / max_span
 
     return vx_norm * scale, vy_norm * scale, float(x_mean), float(y_mean), float(scale)
 
@@ -164,10 +164,12 @@ def level_map(
     )
 
     # Solve
-    fitted_surface, physical_params = _solve_leveling(x_grid, y_grid, z_grid, terms)
+    fitted, physical_params = _solve_leveling(x_grid, y_grid, z_grid, terms)
+    fitted_surface = np.full_like(scan_image.data, np.nan)
+    fitted_surface[valid_mask] = fitted
 
     # Compute leveled map
-    z_leveled = z_grid - fitted_surface if is_highpass else fitted_surface
+    z_leveled = z_grid - fitted if is_highpass else fitted
     leveled_map = np.full_like(scan_image.data, np.nan)
     leveled_map[valid_mask] = z_leveled
 
