@@ -4,17 +4,24 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+import numpy as nd
 import pytest
 from fastapi.testclient import TestClient
 from image_generation.exceptions import ImageGenerationError
 from parsers.exceptions import ExportError
 from pydantic import HttpUrl
-from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
+from starlette.status import (
+    HTTP_200_OK,
+    HTTP_404_NOT_FOUND,
+    HTTP_422_UNPROCESSABLE_CONTENT,
+    HTTP_500_INTERNAL_SERVER_ERROR,
+)
 
 from constants import PROJECT_ROOT
 from dependencies import get_tmp_dir
 from main import app
 from preprocessors import ProcessedDataLocation, UploadScan
+from preprocessors.schemas import ProcessedDataAndScanLocation
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
@@ -24,6 +31,16 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
     # Assert
     assert response.status_code == HTTP_200_OK, "endpoint is alive"
     assert response.json() == {"message": "Hello from the pre-processors"}, "A placeholder response should be returned"
+
+
+@pytest.fixture
+def fixed_token(monkeypatch) -> str:
+    fixed_token = "test-token-123"  # noqa: S105
+    monkeypatch.setattr(
+        "preprocessors.router.uuid4",
+        lambda: fixed_token,
+    )
+    return fixed_token
 
 
 @pytest.fixture
@@ -41,23 +58,18 @@ def tmp_dir_api(
 
 
 @pytest.mark.integration
-def test_proces_scan(client: TestClient, tmp_dir_api: Path, monkeypatch) -> None:
+def test_proces_scan(client: TestClient, tmp_dir_api: Path, fixed_token: str) -> None:
     # Arrange
     scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.x3p"
     input_model = UploadScan(
         scan_file=scan_file,
-    )
-    fixed_token = "test-token-123"  # noqa: S105
-    monkeypatch.setattr(
-        "preprocessors.router.uuid4",
-        lambda: fixed_token,
     )
     base_url = f"http://localhost:8000/preprocessor/file/{fixed_token}"
     # Act
     response = client.post("/preprocessor/process-scan", json=input_model.model_dump(mode="json"))
 
     # Assert
-    expected_response = ProcessedDataLocation(
+    expected_response = ProcessedDataAndScanLocation(
         x3p_image=HttpUrl(f"{base_url}/scan.x3p"),
         preview_image=HttpUrl(f"{base_url}/preview.png"),
         surfacemap_image=HttpUrl(f"{base_url}/surface_map.png"),
@@ -75,16 +87,11 @@ def test_proces_scan(client: TestClient, tmp_dir_api: Path, monkeypatch) -> None
 
 
 @pytest.mark.integration
-def test_proces_scan_overwrites_files(client: TestClient, tmp_dir_api: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_proces_scan_overwrites_files(client: TestClient, tmp_dir_api: Path, fixed_token: str) -> None:
     # Arrange
     scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.x3p"
     input_model = UploadScan(
         scan_file=scan_file,
-    )
-    fixed_token = "test-token-123"  # noqa: S105
-    monkeypatch.setattr(
-        "preprocessors.router.uuid4",
-        lambda: fixed_token,
     )
     # Act
     _ = client.post("/preprocessor/process-scan", json=input_model.model_dump(mode="json"))
@@ -98,18 +105,11 @@ def test_proces_scan_overwrites_files(client: TestClient, tmp_dir_api: Path, mon
 
 
 @pytest.mark.integration
-def test_proces_scan_files_are_deleted_after_restart(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_proces_scan_files_are_deleted_after_restart(fixed_token: str) -> None:
     # Arrange
     scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.x3p"
     input_model = UploadScan(
         scan_file=scan_file,
-    )
-    fixed_token = "test-token-123"  # noqa: S105
-    monkeypatch.setattr(
-        "preprocessors.router.uuid4",
-        lambda: fixed_token,
     )
     # Act
     with TestClient(app) as client:
@@ -178,19 +178,14 @@ def test_process_scan_failures(  # noqa
 
 def test_get_image_returns_file_response(
     client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
+    fixed_token: str,
     tmp_dir_api: Path,
 ) -> None:
     # Arrange
-    fixed_token = "testtoken"  # noqa: S105
     temp_dir = tmp_dir_api / fixed_token
     temp_dir.mkdir(exist_ok=True)
     file_path = temp_dir / "test.x3p"
     file_path.write_bytes(b"fakeimagecontent")
-    monkeypatch.setattr(
-        "preprocessors.router.uuid4",
-        lambda: fixed_token,
-    )
     # Act
     response = client.get(f"/preprocessor/file/{fixed_token}/test.x3p")
     # Assert
@@ -199,19 +194,12 @@ def test_get_image_returns_file_response(
     assert response.headers["content-type"] == "application/octet-stream"
 
 
-def test_get_image_returns_image_response(
-    client: TestClient, tmp_dir_api: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_get_image_returns_image_response(client: TestClient, tmp_dir_api: Path, fixed_token: str) -> None:
     # Arrange
-    fixed_token = "testtoken"  # noqa: S105
     temp_dir = tmp_dir_api / fixed_token
     temp_dir.mkdir(exist_ok=True)
     file_path = temp_dir / "test.png"
     file_path.write_bytes(b"fakeimagecontent")
-    monkeypatch.setattr(
-        "preprocessors.router.uuid4",
-        lambda: fixed_token,
-    )
     # Act
     response = client.get(f"/preprocessor/file/{fixed_token}/test.png")
     # Assert
@@ -220,35 +208,21 @@ def test_get_image_returns_image_response(
     assert response.headers["content-type"] == "image/png"
 
 
-def test_get_image_returns_404_for_missing_file(
-    client: TestClient, tmp_dir_api: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    fixed_token = "testtoken"  # noqa: S105
+def test_get_image_returns_404_for_missing_file(client: TestClient, tmp_dir_api: Path, fixed_token: str) -> None:
     temp_dir = tmp_dir_api / fixed_token
     temp_dir.mkdir(exist_ok=True)
-    monkeypatch.setattr(
-        "preprocessors.router.uuid4",
-        lambda: fixed_token,
-    )
     wrong_file_name = "nofile.png"
     response = client.get(f"/preprocessor/file/{fixed_token}/{wrong_file_name}")
     assert response.status_code == HTTP_404_NOT_FOUND
     assert response.json()["detail"] == f"File {wrong_file_name} not found in temp dir."
 
 
-def test_get_image_returns_404_for_wrong_token(
-    client: TestClient, tmp_dir_api: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_get_image_returns_404_for_wrong_token(client: TestClient, tmp_dir_api: Path, fixed_token: str) -> None:
     # Arrange
-    fixed_token = "correcttoken"  # noqa: S105
     temp_dir = tmp_dir_api / fixed_token
     temp_dir.mkdir(exist_ok=True)
     file_path = temp_dir / "test.png"
     file_path.write_bytes(b"data")
-    monkeypatch.setattr(
-        "preprocessors.router.uuid4",
-        lambda: fixed_token,
-    )
     # Act: use wrong token
     wrong_token = "wrongtoken"  # noqa: S105
     response = client.get(f"/preprocessor/file/{wrong_token}/test.png")
@@ -256,3 +230,93 @@ def test_get_image_returns_404_for_wrong_token(
     # Assert
     assert response.status_code == HTTP_404_NOT_FOUND
     assert response.json()["detail"] == f"Temp dir {tmp_dir_api / wrong_token} not found."
+
+
+def test_edit_image_with_one_edit(client: TestClient, tmp_dir_api: Path, fixed_token: str) -> None:
+    # Arrange
+    scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.x3p"
+    options = {"mask": None, "zoom": True, "scan_file": scan_file.absolute().as_posix()}
+    base_url = f"http://localhost:8000/preprocessor/image_file/{fixed_token}"
+    # Act
+    response = client.post("/preprocessor/edit-scan", json=options)
+
+    # Assert
+    expected_response = ProcessedDataLocation(
+        preview_image=HttpUrl(f"{base_url}/preview.png"),
+        surfacemap_image=HttpUrl(f"{base_url}/surface_map.png"),
+    )
+
+    assert response.status_code == HTTP_200_OK, "endpoint is alive"
+    response_model = expected_response.model_validate(response.json())
+    assert response_model == expected_response
+    assert response_model.preview_image == HttpUrl(f"{base_url}/preview.png")
+    assert response_model.surfacemap_image == HttpUrl(f"{base_url}/surface_map.png")
+    assert (tmp_dir_api / "preview.png").exists()
+    assert (tmp_dir_api / "surface_map.png").exists()
+
+
+def test_edit_image_with_multiple_edits(client: TestClient, tmp_dir_api: Path, fixed_token: str) -> None:
+    # Arrange
+    scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.x3p"
+    options = {
+        "mask": nd.array([1, 2, 3]),
+        "zoom": True,
+        "scan_file": scan_file.absolute().as_posix(),
+    }  # TODO: how to send mask.
+    base_url = f"http://localhost:8000/preprocessor/image_file/{fixed_token}"
+    # Act
+    response = client.post("/preprocessor/edit-scan", json=options)
+
+    # Assert
+    expected_response = ProcessedDataLocation(
+        preview_image=HttpUrl(f"{base_url}/preview.png"),
+        surfacemap_image=HttpUrl(f"{base_url}/surface_map.png"),
+    )
+
+    assert response.status_code == HTTP_200_OK, "endpoint is alive"
+    response_model = expected_response.model_validate(response.json())
+    assert response_model == expected_response
+    assert response_model.preview_image == HttpUrl(f"{base_url}/preview.png")
+    assert response_model.surfacemap_image == HttpUrl(f"{base_url}/surface_map.png")
+    assert (tmp_dir_api / "preview.png").exists()
+    assert (tmp_dir_api / "surface_map.png").exists()
+
+
+def test_edit_image_with_no_edits(client: TestClient, fixed_token: str) -> None:
+    # Arrange
+    scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.x3p"
+    UploadScan(
+        scan_file=scan_file,
+    )
+    options = {"mask": None, "zoom": False, "scan_file": scan_file.absolute().as_posix()}
+    base_url = f"http://localhost:8000/preprocessor/image_file/{fixed_token}"
+    # Act
+    response = client.post("/preprocessor/edit-scan", json=options)
+
+    # Assert
+    ProcessedDataLocation(
+        preview_image=HttpUrl(f"{base_url}/preview.png"),
+        surfacemap_image=HttpUrl(f"{base_url}/surface_map.png"),
+    )
+
+    assert response.status_code == HTTP_422_UNPROCESSABLE_CONTENT, "endpoint is alive"
+
+
+def test_edit_image_with_invalid_file_extension(client: TestClient, tmp_dir_api: Path, fixed_token: str) -> None:
+    # Arrange
+    scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.al3d"
+    UploadScan(
+        scan_file=scan_file,
+    )
+    options = {"mask": None, "zoom": False, "scan_file": scan_file.absolute().as_posix()}
+    base_url = f"http://localhost:8000/preprocessor/image_file/{fixed_token}"
+    # Act
+    response = client.post("/preprocessor/edit-scan", json=options)
+
+    # Assert
+    ProcessedDataLocation(
+        preview_image=HttpUrl(f"{base_url}/preview.png"),
+        surfacemap_image=HttpUrl(f"{base_url}/surface_map.png"),
+    )
+
+    assert response.status_code == HTTP_422_UNPROCESSABLE_CONTENT, "endpoint is alive"

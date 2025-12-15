@@ -1,7 +1,7 @@
 import pytest
 from pydantic import HttpUrl
 
-from preprocessors import ProcessedDataLocation
+from preprocessors.schemas import ProcessedDataAndScanLocation
 
 
 @pytest.fixture(scope="module")
@@ -17,7 +17,7 @@ def process_scan_files() -> dict[str, HttpUrl]:
 def test_processed_data_is_url(process_scan_files: dict[str, HttpUrl]) -> None:
     """Test that ProcessedDataLocation accepts files from the same parent directory."""
     # Act
-    process_scan = ProcessedDataLocation(**process_scan_files)
+    process_scan = ProcessedDataAndScanLocation(**process_scan_files)
 
     # Assert
     assert isinstance(process_scan.x3p_image, HttpUrl)

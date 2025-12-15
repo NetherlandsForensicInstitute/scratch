@@ -15,6 +15,27 @@ class ImageGenerator(Protocol[P]):
     ) -> ScanImage: ...
 
 
+def edit_3d_image(
+    scan_image: ScanImage,
+    *,
+    light_sources: tuple[UnitVector3DArray, ...] = (
+        LightSource(azimuth=90, elevation=45).unit_vector,
+        LightSource(azimuth=180, elevation=45).unit_vector,
+    ),
+) -> ScanImage:
+    """
+    Will be updated with a functional pipeline list.
+    """
+    return (
+        scan_image.compute_normals(scan_image.scale_x, scan_image.scale_y)
+        .apply_lights(light_sources)
+        # TODO: add Masking
+        # TODO:  add zooming
+        .reduce_stack()
+        .normalize()
+    )
+
+
 def compute_3d_image(
     scan_image: ScanImage,
     *,
@@ -44,6 +65,21 @@ def compute_3d_image(
         .apply_lights(light_sources)
         .reduce_stack()
         .normalize()
+    )
+
+
+def edit_array_for_display(
+    scan_image: ScanImage, *, std_scaler: float = 2.0
+) -> ScanImage:
+    """
+    Will be updated with a functional pipeline list.
+    """
+    clipped, lower, upper = clip_data(data=scan_image.data, std_scaler=std_scaler)
+    normalized = normalize(clipped, lower, upper)
+    # TODO: add Masking
+    # TODO:  add zooming
+    return ScanImage(
+        data=normalized, scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
     )
 
 
