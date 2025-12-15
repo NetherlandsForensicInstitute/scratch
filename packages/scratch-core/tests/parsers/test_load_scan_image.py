@@ -8,9 +8,8 @@ from surfalize import Surface
 
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image
-from returns.pipeline import is_successful
 
-from parsers.loaders import subsample_array
+from parsers.loaders import subsample_scan_image
 from ..helper_function import unwrap_result
 
 
@@ -43,46 +42,66 @@ class TestLoadScanImage:
         assert scan_image.scale_y == surface.step_y * micro
         assert scan_image.scale_x == surface.step_x * micro
 
-    def test_load_scan_data_rejects_incorrect_sizes(
-        self,
-        filepath: Path,
+
+class TestSubSampleScanImage:
+    # TODO: find a better test methology
+    def test_subsample_matches_baseline_output(
+        self, baseline_images_dir: Path, scan_image_replica: ScanImage
     ) -> None:
+        # arrange
+        verified = np.load(baseline_images_dir / "replica_subsampled.npy")
         # act
-        result = load_scan_image(filepath)
+        subsampled = subsample_scan_image(scan_image_replica, step_size=(10, 15))
         # assert
-        assert not is_successful(result)
+        assert np.allclose(
+            subsampled.data,
+            verified,
+            equal_nan=True,
+            atol=0.001,
+        )
 
+    @pytest.mark.parametrize("step_size", [(1, 1), (10, 10), (25, 25), (25, 50)])
+    def test_subsample_matches_size(
+        self, scan_image: ScanImage, step_size: tuple[int, int]
+    ):
+        # Arrange
+        expected_height = ceil(scan_image.data.shape[0] / step_size[1])
+        expected_width = ceil(scan_image.data.shape[1] / step_size[0])
 
-# TODO: find a better test methology
-def test_load_scan_data_matches_baseline_output(
-    baseline_images_dir: Path, scans_dir: Path
-) -> None:
-    # arrange
-    filepath = scans_dir / "Klein_non_replica_mode.al3d"
-    verified = np.load(baseline_images_dir / "replica_subsampled.npy")
-    # act
-    result = load_scan_image(filepath, step_size_x=10, step_size_y=15)
-    scan_image = unwrap_result(result)
-    # assert
-    assert np.allclose(scan_image.data, verified, equal_nan=True, atol=1.0e-5)
+        # Act
+        subsampled = subsample_scan_image(scan_image=scan_image, step_size=step_size)
 
+        #  Assert
+        assert subsampled.data.shape == (expected_height, expected_width)
 
-@pytest.mark.parametrize(
-    ("step_x", "step_y"),
-    [
-        pytest.param(10, 10, id="default value"),
-        pytest.param(1, 10, id="only step y"),
-        pytest.param(10, 1, id="only x"),
-        pytest.param(10, 5, id="different x and y"),
-    ],
-)
-def test_subsample_updates_scan_image(
-    scan_image: ScanImage, step_x: int, step_y: int
-) -> None:
-    # Act
-    result = subsample_array(scan_image, (step_x, step_y))
-    scan_image = unwrap_result(result)
+    @pytest.mark.parametrize(
+        ("step_x", "step_y"),
+        [
+            pytest.param(10, 10, id="default value"),
+            pytest.param(1, 10, id="only step y"),
+            pytest.param(10, 1, id="only x"),
+            pytest.param(10, 5, id="different x and y"),
+        ],
+    )
+    def test_subsample_updates_scan_image_scales(
+        self, scan_image: ScanImage, step_x: int, step_y: int
+    ) -> None:
+        # Act
+        result_scan_image = subsample_scan_image(scan_image, (step_x, step_y))
 
-    # Assert
-    assert np.isclose(scan_image.scale_x, scan_image.scale_x * step_x, atol=1.0e-3)
-    assert np.isclose(scan_image.scale_y, scan_image.scale_y * step_y, atol=1.0e-3)
+        # Assert
+        assert np.isclose(
+            result_scan_image.scale_x, scan_image.scale_x * step_x, atol=1.0e-3
+        )
+        assert np.isclose(
+            result_scan_image.scale_y, scan_image.scale_y * step_y, atol=1.0e-3
+        )
+
+    @pytest.mark.parametrize(
+        "step_size", [(-2, 2), (0, 0), (0, 3), (2, -1), (-1, -1), (1e3, 1e4)]
+    )
+    def test_subsample_rejects_incorrect_sizes(
+        self, scan_image: ScanImage, step_size: tuple[int, int]
+    ):
+        with pytest.raises(ValueError):
+            _ = subsample_scan_image(scan_image=scan_image, step_size=step_size)

@@ -61,8 +61,6 @@ def scan_image_replica(scans_dir: Path) -> ScanImage:
     return unwrap_result(
         load_scan_image(
             scans_dir / "Klein_non_replica_mode.al3d",
-            step_size_x=1,
-            step_size_y=1,
         )
     )
 

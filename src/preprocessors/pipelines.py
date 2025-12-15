@@ -3,7 +3,7 @@ from pathlib import Path
 
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, parse_to_x3p, save_x3p
-from parsers.loaders import subsample_array
+from parsers.loaders import subsample_scan_image
 from renders import (
     apply_multiple_lights,
     compute_surface_normals,
@@ -28,8 +28,8 @@ def parse_scan_pipeline(scan_file: Path, parameters: UploadScanParameters) -> Sc
     """
     return run_pipeline(
         scan_file,
-        partial(load_scan_image, **parameters.as_dict(include={"step_size_x", "step_size_y"})),
-        partial(subsample_array, step_size=(1, 1)),
+        load_scan_image,
+        partial(subsample_scan_image, step_size=(parameters.step_size_x, parameters.step_size_y)),
         error_message=f"Failed to parsed given scan file: {scan_file}",
     )
 

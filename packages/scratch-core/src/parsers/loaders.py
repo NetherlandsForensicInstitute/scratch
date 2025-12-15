@@ -45,8 +45,9 @@ def load_scan_image(scan_file: Path) -> ScanImage:
     "Failed to subsample image file",
     "Successfully subsampled scan file",
 )
-@impure_safe
-def subsample_array(scan_image: ScanImage, step_size: tuple[int, int]) -> ScanImage:
+def subsample_scan_image(
+    scan_image: ScanImage, step_size: tuple[int, int]
+) -> ScanImage:
     """
     Subsample the data in a `ScanImage` instance by skipping `step_size` steps.
     :param scan_image: The instance of `ScanImage` containing the 2D image data to subsample.
