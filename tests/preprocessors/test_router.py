@@ -8,7 +8,7 @@ from PIL import Image
 from starlette.status import HTTP_200_OK
 
 from preprocessors import ProcessedDataLocation, UploadScan
-from preprocessors.schemas import UploudScanParameters
+from preprocessors.schemas import UploadScanParameters
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
@@ -80,7 +80,7 @@ class TestProcessScanEndpoint:
         request_data = UploadScan(
             scan_file=scan_file,
             output_dir=tmp_path,
-            parameters=UploudScanParameters(  # type: ignore
+            parameters=UploadScanParameters(  # type: ignore
                 light_sources=(
                     LightSource(azimuth=0, elevation=90),
                     LightSource(azimuth=90, elevation=45),

@@ -6,7 +6,7 @@ from container_models.scan_image import ScanImage
 from PIL import Image
 
 from preprocessors.pipelines import surface_map_pipeline
-from preprocessors.schemas import UploudScanParameters
+from preprocessors.schemas import UploadScanParameters
 
 
 @pytest.fixture(scope="module")
@@ -31,7 +31,7 @@ class TestSurfaceMapPipeline:
     def test_generate_surface_map_success(
         self,
         parsed_al3d_file: ScanImage,
-        default_parameters: UploudScanParameters,
+        default_parameters: UploadScanParameters,
         tmp_path: Path,
     ) -> None:
         """Test that a surface map image is successfully generated from scan data."""
@@ -50,7 +50,7 @@ class TestSurfaceMapPipeline:
     def test_output_is_valid_png_image(
         self,
         parsed_al3d_file: ScanImage,
-        default_parameters: UploudScanParameters,
+        default_parameters: UploadScanParameters,
         tmp_path: Path,
     ) -> None:
         """Test that the generated file is a valid PNG image that can be opened."""
@@ -67,7 +67,7 @@ class TestSurfaceMapPipeline:
     def test_surface_map_with_multiple_lights(self, parsed_al3d_file: ScanImage, tmp_path: Path) -> None:
         """Test surface map generation with multiple light sources."""
         # Arrange - simulate lighting from 4 cardinal directions
-        parameters = UploudScanParameters(  # type: ignore
+        parameters = UploadScanParameters(  # type: ignore
             light_sources=(
                 LightSource(azimuth=0, elevation=45),  # North
                 LightSource(azimuth=90, elevation=45),  # East

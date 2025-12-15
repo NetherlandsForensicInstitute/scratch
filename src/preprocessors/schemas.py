@@ -15,7 +15,7 @@ class SupportedExtension(StrEnum):
     PLU = auto()
 
 
-class UploudScanParameters(BaseModelConfig):
+class UploadScanParameters(BaseModelConfig):
     """Configuration parameters for upload scan's surface rendering process."""
 
     light_sources: tuple[LightSource, ...] = Field(
@@ -63,8 +63,8 @@ class UploadScan(BaseModelConfig):
         ...,
         description="Directory where processed outputs (X3P, preview, and surface map images) will be saved.",
     )
-    parameters: UploudScanParameters = Field(
-        default_factory=UploudScanParameters.model_construct,
+    parameters: UploadScanParameters = Field(
+        default_factory=UploadScanParameters.model_construct,
     )
 
     @property
