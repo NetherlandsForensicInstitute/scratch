@@ -24,9 +24,9 @@ def resample(
     If `only_downsample` and the current resolution is already coarser than the target,
     no resampling is performed.
 
-    :param image: Input ScanImage
-    :param mask: Mask array
-    :param sampling: Resampling factor (1/sampling is applied). If None, resamples to target_pixelsize.
+    :param image: Input image to resample
+    :param mask: Corresponding mask array
+    :param sampling: Resampling factor (1/sampling is applied). If None, resamples to target_sampling_distance.
     :param target_sampling_distance: Target sampling distance (m) when sampling is not provided
     :param only_downsample: If True, only downsample data
 
@@ -50,6 +50,7 @@ def resample(
         mode="nearest",
     )
     image_array_resampled = np.asarray(image_array_resampled, dtype=image.data.dtype)
+
     if mask is not None:
         mask_resampled = ndimage.zoom(
             mask,
@@ -58,6 +59,7 @@ def resample(
             mode="nearest",
         )
         mask = np.asarray(mask_resampled, dtype=mask.dtype)
+
     return image.model_copy(
         update={
             "data": image_array_resampled,
@@ -87,9 +89,9 @@ def get_resampling_factors(
     :param scale_y: Scale for the y-axis
     :param only_downsample: If True, clamp factors to <= 1 to prevent upsampling
     :param sampling: Direct resampling factor. If provided, overrides target_sampling_distance.
-    :param target_sampling_distance: Target sampling distance [m]. Used when sampling is None.
+    :param target_sampling_distance: Target sampling distance (m). Used when sampling is None.
 
-    :returns: Resampling factors for (x, y) dimensions.
+    :returns: Resampling factors.
     """
     if sampling is not None:
         resample_factor_x = resample_factor_y = 1 / sampling
