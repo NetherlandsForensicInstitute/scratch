@@ -16,13 +16,13 @@ Notes
 
 from .shading import apply_multiple_lights
 from .normalizations import compute_surface_normals, normalize_2d_array
-from .image_io import save_image, scan_to_image, get_array_for_display
+from .image_io import save_image, scan_to_image, get_scan_image_for_display
 
 
 __all__ = (
     "apply_multiple_lights",
     "compute_surface_normals",
-    "get_array_for_display",
+    "get_scan_image_for_display",
     "normalize_2d_array",
     "save_image",
     "scan_to_image",

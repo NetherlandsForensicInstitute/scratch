@@ -6,7 +6,7 @@ from parsers import load_scan_image, parse_to_x3p, save_x3p
 from renders import (
     apply_multiple_lights,
     compute_surface_normals,
-    get_array_for_display,
+    get_scan_image_for_display,
     save_image,
     scan_to_image,
 )
@@ -79,7 +79,7 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     """
     return run_pipeline(
         parsed_scan,
-        get_array_for_display,
+        get_scan_image_for_display,
         scan_to_image,
         partial(save_image, output_path=output_path),
         error_message=f"Failed to create the surface map: {output_path}",
