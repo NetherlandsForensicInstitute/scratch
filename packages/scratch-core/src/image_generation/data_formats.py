@@ -1,5 +1,5 @@
 import numpy as np
-from numpydantic.ndarray import NDArray
+from numpy.typing import NDArray
 from PIL.Image import Image, fromarray
 from pydantic import BaseModel, ConfigDict, Field
 from loguru import logger
@@ -20,7 +20,7 @@ from utils.array_definitions import (
 )
 
 
-class ImageContainer(BaseModel):
+class ImageContainer(BaseModel, arbitrary_types_allowed=True):
     data: NDArray
     scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")

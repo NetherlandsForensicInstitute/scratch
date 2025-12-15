@@ -1,5 +1,5 @@
-import tempfile
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
@@ -64,11 +64,12 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
     necessary processing steps, and produces several outputs such as an X3P
     file, a preview image, and a surface map saved to an temp directiory and returns urls to retrieve them.
     """
-    token = temp_dir.name
+    token = str(uuid4())
+    (temp_dir / token).mkdir(parents=True, exist_ok=True)
     base_image_url = f"{BASE_URL}/preprocessor/image_file/{token}"
     logger.debug(f"Processing scan file to working dir:{temp_dir}")
     logger.debug(f"Processing scan file:{upload_scan.scan_file}")
-    scan_file_path = temp_dir / "scan.x3p"
+    scan_file_path = temp_dir / token / "scan.x3p"
     parsed_scan = load_scan_image(upload_scan.scan_file).subsample(step_x=1, step_y=1)
     try:
         save_to_x3p(image=parsed_scan, output_path=scan_file_path)
@@ -76,10 +77,10 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
         logger.error(f"Exporting x3p failed to path:{scan_file_path}, from error:{str(err)}")
         raise HTTPException(status_code=500, detail=f"Failed to save the scan file  {scan_file_path}: {str(err)}")
     export_image_pipeline(
-        file_path=temp_dir / "surface_map.png", image_generator=compute_3d_image, scan_image=parsed_scan
+        file_path=temp_dir / token / "surface_map.png", image_generator=compute_3d_image, scan_image=parsed_scan
     )
     export_image_pipeline(
-        file_path=temp_dir / "preview.png", image_generator=get_array_for_display, scan_image=parsed_scan
+        file_path=temp_dir / token / "preview.png", image_generator=get_array_for_display, scan_image=parsed_scan
     )
     logger.info(f"Generated files saved to {temp_dir}")
     return ProcessedDataLocation(
@@ -100,7 +101,7 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
         404: {"description": "File/dir not found"},
     },
 )
-async def get_image(token: str, file_name: str) -> FileResponse:
+async def get_file(token: str, file_name: str, temp_dir: Path = Depends(get_tmp_dir)) -> FileResponse:
     """
     Get image from file path.
 
@@ -108,21 +109,22 @@ async def get_image(token: str, file_name: str) -> FileResponse:
 
     :param token: Temporary directory token.
     :param file_name: Name of the file to retrieve.
+    :param temp_dir: Temporary directory to store temporary files.
     :returns: FileResponse containing the requested image.
     """
     logger.debug(f"Fetching image from temp dir with token:{token}, file_name:{file_name}")
-    temp_dir = Path(tempfile.gettempdir()) / token
-    if not temp_dir.is_dir():
-        logger.error(f"Temp dir {temp_dir} not found.")
-        raise HTTPException(status_code=404, detail=f"Temp dir {temp_dir} not found.")
-    if not (temp_dir / file_name).exists():
+    file_to_retrieve = temp_dir / token / file_name
+    if not file_to_retrieve.parent.is_dir():
+        logger.error(f"Temp dir {file_to_retrieve.parent} not found.")
+        raise HTTPException(status_code=404, detail=f"Temp dir {file_to_retrieve.parent} not found.")
+    if not file_to_retrieve.exists():
         logger.error(f"File {file_name} not found in temp dir.")
         raise HTTPException(status_code=404, detail=f"File {file_name} not found in temp dir.")
     if not file_name.endswith((".png", ".x3p")):
-        logger.error("Unsupported file type requested, file_name:{file_name}")
+        logger.error(f"Unsupported file type requested, file_name:{file_name}")
         raise HTTPException(status_code=400, detail="Unsupported file type requested.")
-    logger.debug(f"Returning file from path:{temp_dir / file_name}")
+    logger.debug(f"Returning file from path:{file_to_retrieve}")
     return FileResponse(
-        path=Path(f"{temp_dir}/{file_name}"),
+        path=file_to_retrieve,
         media_type="image/png" if file_name.endswith(".png") else "application/octet-stream",
     )
