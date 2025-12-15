@@ -42,7 +42,7 @@ class TestGetAlpha:
 class TestCutoffToSigma:
     """Test cutoff to sigma conversion."""
 
-    def test_sigma_calculated_from_cutoffs(self, alpha):
+    def test_sigma_calculated_from_cutoffs(self, alpha: float):
         # arrange
         cutoffs = np.arange(1.0, 6.0)
         expected = np.array(
@@ -55,26 +55,26 @@ class TestCutoffToSigma:
             ]
         )
         # act
-        sigmas = get_sigmas(alpha, cutoff_length=cutoffs)
+        sigmas = get_sigmas(alpha, cutoff_lengths=cutoffs)
 
         # assert
         assert sigmas == approx(expected)
         assert (sigmas < cutoffs).all()
 
-    def test_sigma_scales_linearly(self, alpha):
+    def test_sigma_scales_linearly(self, alpha: float):
         # arrange
         cutoffs = np.array([2, 4, 8, 16, 32])
 
         # act and assert
-        sigmas = get_sigmas(alpha, cutoff_length=cutoffs)
+        sigmas = get_sigmas(alpha, cutoff_lengths=cutoffs)
         assert sigmas[1:] == approx(sigmas[:-1] * 2)
 
-    def test_zero_cutoffs_gives_zero_sigma(self, alpha) -> None:
+    def test_zero_cutoffs_gives_zero_sigma(self, alpha: float) -> None:
         # arrange
         cutoffs = np.array([0])
 
         # act
-        sigmas = get_sigmas(alpha, cutoff_length=cutoffs)
+        sigmas = get_sigmas(alpha, cutoff_lengths=cutoffs)
 
         # assert
         assert np.array_equal(cutoffs, sigmas)
@@ -104,7 +104,7 @@ class TestGaussianFilterFunction:
         # The NaN position should now have a value (interpolated from neighbors)
         assert np.isnan(result[5, 5])
 
-    def test_asymmetric_pixel_separation(self, rng):
+    def test_asymmetric_pixel_separation(self, rng: np.random.Generator):
         """Should handle different pixel separation in each direction."""
         data = rng.random((30, 30)) * 100
 
@@ -114,7 +114,7 @@ class TestGaussianFilterFunction:
         assert result.shape == data.shape
         assert not np.any(np.isnan(result))
 
-    def test_preserves_shape(self, rng):
+    def test_preserves_shape(self, rng: np.random.Generator):
         """Output should have same shape as input."""
         for shape in [(10, 10), (20, 30), (50, 25)]:
             data = rng.random(shape)
@@ -129,7 +129,7 @@ class TestGaussianFilterFunction:
         # Interior should be exactly 42 (edges affected by zero-padding)
         np.testing.assert_allclose(result[5:15, 5:15], 42.0, rtol=1e-10)
 
-    def test_smoothing_effect(self, rng):
+    def test_smoothing_effect(self, rng: np.random.Generator):
         """Filtering should reduce variance (smoothing)."""
         data = rng.random((50, 50)) * 100
         result = apply_gaussian_filter(data, (5.0, 5.0))
@@ -137,7 +137,7 @@ class TestGaussianFilterFunction:
         # Variance should decrease after smoothing
         assert np.var(result) < np.var(data)
 
-    def test_high_pass_equals_original_minus_low_pass(self, rng):
+    def test_high_pass_equals_original_minus_low_pass(self, rng: np.random.Generator):
         """High-pass should return data - lowpass."""
         data = rng.random((30, 30)) * 100
 
@@ -150,7 +150,7 @@ class TestGaussianFilterFunction:
 
         np.testing.assert_allclose(highpass, data - lowpass, rtol=1e-15)
 
-    def test_nan_cutoff_returns_unchanged(self, rng):
+    def test_nan_cutoff_returns_unchanged(self, rng: np.random.Generator):
         """NaN cutoff should return data unchanged."""
         data = rng.random((10, 10))
         result = apply_gaussian_filter(
@@ -180,7 +180,7 @@ class TestGaussianFilterFunction:
 
         assert result[5, 5] == pytest.approx(42.0)
 
-    def test_row_of_nan_is_preserved(self, rng):
+    def test_row_of_nan_is_preserved(self, rng: np.random.Generator):
         data = rng.random((20, 20)) * 100
         data[10, :] = np.nan
 
@@ -191,7 +191,7 @@ class TestGaussianFilterFunction:
         # Other rows should have values
         assert not np.all(np.isnan(result[5, :]))
 
-    def test_column_of_nan_is_preserved(self, rng):
+    def test_column_of_nan_is_preserved(self, rng: np.random.Generator):
         data = rng.random((20, 20)) * 100
         data[:, 10] = np.nan
 
@@ -202,7 +202,7 @@ class TestGaussianFilterFunction:
         # Other columns should have values
         assert not np.all(np.isnan(result[:, 5]))
 
-    def test_nan_border_is_preserved(self, rng):
+    def test_nan_border_is_preserved(self, rng: np.random.Generator):
         data = np.full((20, 20), np.nan)
         data[5:15, 5:15] = rng.random((10, 10)) * 100
 
@@ -214,7 +214,7 @@ class TestGaussianFilterFunction:
         assert np.all(np.isnan(result[:, :5]))
         assert np.all(np.isnan(result[:, 15:]))
 
-    def test_very_small_cutoff_preserves_interior_array(self, rng):
+    def test_very_small_cutoff_preserves_interior_array(self, rng: np.random.Generator):
         data = rng.random((20, 20)) * 100
 
         result = apply_gaussian_filter(data, (0.1, 0.1))
@@ -223,7 +223,7 @@ class TestGaussianFilterFunction:
         # (at least in the interior, away from edges)
         np.testing.assert_allclose(result[5:15, 5:15], data[5:15, 5:15], rtol=0.01)
 
-    def test_very_large_cutoff_preserves_mean(self, rng):
+    def test_very_large_cutoff_preserves_mean(self, rng: np.random.Generator):
         data = rng.random((20, 20)) * 100
 
         result = apply_gaussian_filter(data, (100.0, 100.0))
@@ -238,7 +238,7 @@ class TestGaussianFilterFunction:
         # All interior values should be close to each other
         assert np.std(interior) < 1.0
 
-    def test_output_in_input_range(self, rng):
+    def test_output_in_input_range(self, rng: np.random.Generator):
         """Filter output should be within input range (for non-edge pixels)."""
         data = rng.random((50, 50)) * 100
         result = apply_gaussian_filter(data, (5.0, 5.0))

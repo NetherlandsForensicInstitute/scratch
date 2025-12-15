@@ -26,10 +26,10 @@ def get_alpha(regression_order: int) -> float:
 
 
 def get_sigmas(
-    alpha: float, cutoff_length: NDArray[np.floating]
+    alpha: float, cutoff_lengths: NDArray[np.floating]
 ) -> NDArray[np.floating]:
     """
-    Convert MATLAB-style cutoff length to equivalent scipy sigma values for Gaussian filters.
+    Convert MATLAB-style cutoff lengths to equivalent scipy sigma values for Gaussian filters.
 
     The function translates the MATLAB Gaussian filter parameterization to the equivalent
     scipy Gaussian sigma. The formulas for the two filter representations are as follows:
@@ -40,10 +40,10 @@ def get_sigmas(
     sigma = alpha * cutoff / sqrt(2 * pi)
 
     :param alpha: Smoothing parameter that controls the filter's frequency response.
-    :param cutoff_length: Cutoff wavelength in pixels.
+    :param cutoff_lengths: Cutoff wavelength in pixels.
     :return: The standard deviation for a Gaussian kernel
     """
-    return alpha * cutoff_length / np.sqrt(2 * np.pi)
+    return alpha * cutoff_lengths / np.sqrt(2 * np.pi)
 
 
 def _apply_nan_weighted_filter(
