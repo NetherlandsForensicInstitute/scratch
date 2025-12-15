@@ -37,10 +37,12 @@ class LightSource(ConfigBaseModel):
         """
         azimuth = np.deg2rad(self.azimuth)
         elevation = np.deg2rad(self.elevation)
-        return np.array(
+        vec = np.array(
             [
                 -np.cos(azimuth) * np.cos(elevation),
                 np.sin(azimuth) * np.cos(elevation),
                 np.sin(elevation),
             ]
         )
+        vec.setflags(write=False)
+        return vec
