@@ -15,11 +15,12 @@ File Format Support
 **Input Formats** (via load_scan_image):
 - AL3D: Alicona 3D surface files (with custom patch)
 - X3P: ISO 25178-72 XML format for surface texture data
-- Automatic unit conversion to meters (SI base unit)
+
 - Optional subsampling via step_size parameters
 
 **Output Formats**:
 - X3P: ISO 25178-72 XML format for surface texture data
+    - Unit converted to meters (SI base unit)
 - Configurable metadata via X3PMetaData
 
 Railway Integration
