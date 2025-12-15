@@ -65,11 +65,12 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
     file, a preview image, and a surface map saved to an temp directiory and returns urls to retrieve them.
     """
     token = str(uuid4())
-    (temp_dir / token).mkdir(parents=True, exist_ok=True)
+    output_dir = temp_dir / token
+    output_dir.mkdir(parents=True, exist_ok=True)
     base_image_url = f"{BASE_URL}/preprocessor/file/{token}"
     logger.debug(f"Processing scan file to working dir:{temp_dir}")
     logger.debug(f"Processing scan file:{upload_scan.scan_file}")
-    scan_file_path = temp_dir / token / "scan.x3p"
+    scan_file_path = output_dir / "scan.x3p"
     parsed_scan = load_scan_image(upload_scan.scan_file).subsample(step_x=1, step_y=1)
     try:
         save_to_x3p(image=parsed_scan, output_path=scan_file_path)
@@ -77,10 +78,10 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
         logger.error(f"Exporting x3p failed to path:{scan_file_path}, from error:{str(err)}")
         raise HTTPException(status_code=500, detail=f"Failed to save the scan file  {scan_file_path}: {str(err)}")
     export_image_pipeline(
-        file_path=temp_dir / token / "surface_map.png", image_generator=compute_3d_image, scan_image=parsed_scan
+        file_path=output_dir / "surface_map.png", image_generator=compute_3d_image, scan_image=parsed_scan
     )
     export_image_pipeline(
-        file_path=temp_dir / token / "preview.png", image_generator=get_array_for_display, scan_image=parsed_scan
+        file_path=output_dir / "preview.png", image_generator=get_array_for_display, scan_image=parsed_scan
     )
     logger.info(f"Generated files saved to {temp_dir}")
     return ProcessedDataLocation(
