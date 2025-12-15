@@ -110,9 +110,7 @@ def compute_surface_normals(scan_image: ScanImage) -> ScanImage:
     and the resulting normal vectors are normalized per pixel.
     The border are padded with NaN values to keep the same size as the input data.
 
-    :param depth_data: 2D array of depth values with shape (Height, Width).
-    :param x_dimension: Physical spacing between columns (Δx) in meters.
-    :param y_dimension: Physical spacing between rows (Δy) in meters.
+    :param scan_image: A ScanImage where the mutation/ calculation is being made on.
 
     :returns: 3D array of surface normals with shape (Height, Width, 3), where the
               last dimension corresponds to (nx, ny, nz).

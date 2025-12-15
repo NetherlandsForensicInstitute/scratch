@@ -12,7 +12,7 @@ VERBOSE: Final[bool] = False
 
 
 def _debug_function_signature(func: Callable[..., Any], *args, **kwargs):
-    """Print the function signature and return value"""
+    """Print the function signature and return value."""
     signature = ", ".join(
         chain(
             (repr(arg) for arg in args),

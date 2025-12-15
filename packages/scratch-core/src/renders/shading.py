@@ -105,12 +105,9 @@ def calculate_lighting(
     Lighting is computed using Lambertian diffuse reflection combined with a
     Phong specular component.
 
-    :param light_vector: Normalized 3-element vector pointing toward the light source.
-    :param observer_vector: Normalized 3-element vector pointing toward the observer/camera.
+    :param light: LightSource as a Normalized 3-element vector pointing toward the light source.
+    :param observer: LightSource as Normalized 3-element vector pointing toward the observer/camera.
     :param scan_image: ScanImage with 3D surface normals in data field (Height, Width, 3).
-    :param specular_factor: Weight of the specular component. Default is ``1.0``.
-    :param phong_exponent: Exponent controlling the sharpness of specular highlights.
-                           Default is ``4``.
 
     :returns: ScanImage with 2D array of combined lighting intensities in ``[0, 1]``
               with shape (Height, Width).
