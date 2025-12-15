@@ -12,16 +12,15 @@ from processors.router import processors
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create and cleanup temporary directory for the app lifespan.
+    """
+    Create and clean up a temporary directory for the application lifespan.
 
-    This context manager sets up a temporary directory when the FastAPI application starts
-    and ensures its cleanup when the application shuts down.
-    Args:
-        app (FastAPI): The FastAPI application instance.
+    This context manager sets up a temporary directory when the FastAPI application
+    starts and ensures it is cleaned up when the application shuts down.
 
-    Yields
-    ------
-        None
+    :param app: The FastAPI application instance.
+
+    :yields: ``None``
     """
     temp_dir = tempfile.TemporaryDirectory(prefix="surface_comparator_")
     app.state.temp_dir = temp_dir
