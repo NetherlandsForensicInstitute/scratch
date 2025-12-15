@@ -67,7 +67,7 @@ def scan_image_replica(scans_dir: Path) -> ScanImage:
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
     # add random NaN values
     rng = np.random.default_rng(42)
