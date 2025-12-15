@@ -68,7 +68,7 @@ def _normalize_coordinates(
 
 def _denormalize_parameters(
     coefficients: Mapping[SurfaceTerms, NDArray], x_mean: float, y_mean: float, s: float
-) -> dict[SurfaceTerms, NDArray]:
+) -> dict[SurfaceTerms, float]:
     """
     Converts normalized fit parameters back to real-world physical units.
     Matches the specific algebraic logic from the original MATLAB script.
@@ -105,12 +105,12 @@ def _denormalize_parameters(
         params[2] - params[3] * x_mean - 2 * params[4] * y_mean + 2 * params[5] * y_mean
     )
 
-    return dict(zip(SurfaceTerms, params))
+    return dict(zip(SurfaceTerms, map(float, params)))
 
 
 def _solve_leveling(
     x_grid: NDArray, y_grid: NDArray, z_grid: NDArray, terms: SurfaceTerms
-) -> tuple[NDArray, dict[SurfaceTerms, NDArray]]:
+) -> tuple[NDArray, dict[SurfaceTerms, float]]:
     """
     Core solver: fits a surface to the point cloud (xs, ys, zs).
 
