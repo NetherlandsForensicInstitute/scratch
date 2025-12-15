@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
         temp_dir.cleanup()
 
 
-app = FastAPI(lifespan=lifespan, title="Surface Comparator API", version="0.1.0")
+app = FastAPI(lifespan=lifespan, title="Scratch API", version="0.1.0")
 prefix_router = APIRouter()
 
 prefix_router.include_router(preprocessor_route)
