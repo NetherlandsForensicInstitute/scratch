@@ -66,7 +66,7 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
     """
     token = str(uuid4())
     (temp_dir / token).mkdir(parents=True, exist_ok=True)
-    base_image_url = f"{BASE_URL}/preprocessor/image_file/{token}"
+    base_image_url = f"{BASE_URL}/preprocessor/file/{token}"
     logger.debug(f"Processing scan file to working dir:{temp_dir}")
     logger.debug(f"Processing scan file:{upload_scan.scan_file}")
     scan_file_path = temp_dir / token / "scan.x3p"
@@ -91,7 +91,7 @@ async def process_scan(upload_scan: UploadScan, temp_dir: Path = Depends(get_tmp
 
 
 @preprocessor_route.get(
-    path="/image_file/{token}/{file_name}",
+    path="/file/{token}/{file_name}",
     summary="Giving an path returns a image.",
     description="""
     given some file path returns the image located at the path.

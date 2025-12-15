@@ -52,7 +52,7 @@ def test_proces_scan(client: TestClient, tmp_dir_api: Path, monkeypatch) -> None
         "preprocessors.router.uuid4",
         lambda: fixed_token,
     )
-    base_url = f"http://localhost:8000/preprocessor/image_file/{fixed_token}"
+    base_url = f"http://localhost:8000/preprocessor/file/{fixed_token}"
     # Act
     response = client.post("/preprocessor/process-scan", json=input_model.model_dump(mode="json"))
 
@@ -192,7 +192,7 @@ def test_get_image_returns_file_response(
         lambda: fixed_token,
     )
     # Act
-    response = client.get(f"/preprocessor/image_file/{fixed_token}/test.x3p")
+    response = client.get(f"/preprocessor/file/{fixed_token}/test.x3p")
     # Assert
     assert response.status_code == HTTP_200_OK, f"endpoint is alive, {response.text}"
     assert response.content == b"fakeimagecontent"
@@ -213,7 +213,7 @@ def test_get_image_returns_image_response(
         lambda: fixed_token,
     )
     # Act
-    response = client.get(f"/preprocessor/image_file/{fixed_token}/test.png")
+    response = client.get(f"/preprocessor/file/{fixed_token}/test.png")
     # Assert
     assert response.status_code == HTTP_200_OK, f"endpoint is alive, {response.text}"
     assert response.content == b"fakeimagecontent"
@@ -231,7 +231,7 @@ def test_get_image_returns_404_for_missing_file(
         lambda: fixed_token,
     )
     wrong_file_name = "nofile.png"
-    response = client.get(f"/preprocessor/image_file/{fixed_token}/{wrong_file_name}")
+    response = client.get(f"/preprocessor/file/{fixed_token}/{wrong_file_name}")
     assert response.status_code == HTTP_404_NOT_FOUND
     assert response.json()["detail"] == f"File {wrong_file_name} not found in temp dir."
 
@@ -251,7 +251,7 @@ def test_get_image_returns_404_for_wrong_token(
     )
     # Act: use wrong token
     wrong_token = "wrongtoken"  # noqa: S105
-    response = client.get(f"/preprocessor/image_file/{wrong_token}/test.png")
+    response = client.get(f"/preprocessor/file/{wrong_token}/test.png")
 
     # Assert
     assert response.status_code == HTTP_404_NOT_FOUND

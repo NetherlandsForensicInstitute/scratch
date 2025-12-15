@@ -49,15 +49,15 @@ class ProcessedDataLocation(BaseModelConfig):
     x3p_image: HttpUrl = Field(
         ...,
         description="converted subsampled X3P image.",
-        examples=["http://localhost:8000/preprocessor/image_file/surface_comparator_859lquto/scan.x3p"],
+        examples=["http://localhost:8000/preprocessor/file/surface_comparator_859lquto/scan.x3p"],
     )
     preview_image: HttpUrl = Field(
         ...,
         description="rgba image made from the x3p converted file.",
-        examples=["http://localhost:8000/preprocessor/image_file/surface_comparator_859lquto/preview.png"],
+        examples=["http://localhost:8000/preprocessor/file/surface_comparator_859lquto/preview.png"],
     )
     surfacemap_image: HttpUrl = Field(
         ...,
         description="surface image made from the x3p converted file.",
-        examples=["http://localhost:8000/preprocessor/image_file/surface_comparator_859lquto/surface_map.png"],
+        examples=["http://localhost:8000/preprocessor/file/surface_comparator_859lquto/surface_map.png"],
     )
