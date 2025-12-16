@@ -2,14 +2,14 @@ import numpy as np
 from numpy.typing import NDArray
 from collections.abc import Mapping
 from conversion.leveling import SurfaceTerms
-from conversion.leveling.data_types import RescaledCoordinatesResult
+from conversion.leveling.data_types import NormalizedCoordinates
 
 
-def center_and_scale_coordinates(
+def normalize_coordinates(
     xs: NDArray[np.float64], ys: NDArray[np.float64]
-) -> RescaledCoordinatesResult:
+) -> NormalizedCoordinates:
     """
-    Center and scale grid coordinates.
+    Normalize grid coordinates by centering and rescaling.
 
     This method is used to improve numerical stability during fitting.
 
@@ -27,9 +27,9 @@ def center_and_scale_coordinates(
     max_span = max(span_x, span_y)
     scale = 1.0 if np.isclose(max_span, 0.0) else 1 / max_span
 
-    return RescaledCoordinatesResult(
-        xs=vx_norm * scale,
-        ys=vy_norm * scale,
+    return NormalizedCoordinates(
+        xs=vx_norm * scale,  # rescale X-coordinates
+        ys=vy_norm * scale,  # rescale Y-coordinates
         x_mean=float(x_mean),
         y_mean=float(y_mean),
         scale=float(scale),

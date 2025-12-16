@@ -9,7 +9,7 @@ class SurfaceTerms(Flag):
     """
     Surface terms to include in the leveling fit.
 
-    Can be combined using bitwise OR, e.g.: OFFSET | TILT_X | TILT_Y
+    Terms can be combined using bitwise OR, e.g.: OFFSET | TILT_X | TILT_Y
     """
 
     OFFSET = auto()  # Constant offset (z = c)
@@ -52,7 +52,17 @@ class LevelingResult(BaseModel, arbitrary_types_allowed=True):
     fitted_surface: NDArray[np.float64]
 
 
-class RescaledCoordinatesResult(BaseModel, arbitrary_types_allowed=True):
+class NormalizedCoordinates(BaseModel, arbitrary_types_allowed=True):
+    """
+    Container class for storing centered and rescaled coordinates.
+
+    :param xs: The rescaled X-coordinates.
+    :param ys: The rescaled Y-coordinates.
+    :param x_mean: The mean of the X-coordinates before rescaling.
+    :param y_mean: The mean of the Y-coordinates before rescaling.
+    :param scale: The multiplier used for rescaling.
+    """
+
     xs: NDArray[np.float64]
     ys: NDArray[np.float64]
     x_mean: float
@@ -61,5 +71,7 @@ class RescaledCoordinatesResult(BaseModel, arbitrary_types_allowed=True):
 
 
 class FitSurfaceResult(BaseModel, arbitrary_types_allowed=True):
+    """Container class for storing the fitted surface and estimated physical parameters."""
+
     fitted_surface: NDArray[np.float64]
     physical_params: dict[SurfaceTerms, float]
