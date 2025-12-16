@@ -53,8 +53,8 @@ class LevelingResult(BaseModel, arbitrary_types_allowed=True):
 
 
 class RescaledCoordinatesResult(BaseModel, arbitrary_types_allowed=True):
-    x_grid: NDArray[np.float64]
-    y_grid: NDArray[np.float64]
+    xs: NDArray[np.float64]
+    ys: NDArray[np.float64]
     x_mean: float
     y_mean: float
     scale: float

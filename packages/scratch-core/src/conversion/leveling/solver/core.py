@@ -25,7 +25,7 @@ def fit_surface(
     normalized = center_and_scale_coordinates(xs, ys)
 
     # 2. Build the design matrix for the least-squares solver
-    design_matrix = build_design_matrix(normalized.x_grid, normalized.y_grid, terms)
+    design_matrix = build_design_matrix(normalized.xs, normalized.ys, terms)
 
     # 3. Solve (Least Squares)
     (

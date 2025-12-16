@@ -6,20 +6,20 @@ from conversion.leveling.data_types import RescaledCoordinatesResult
 
 
 def center_and_scale_coordinates(
-    x_grid: NDArray[np.float64], y_grid: NDArray[np.float64]
+    xs: NDArray[np.float64], ys: NDArray[np.float64]
 ) -> RescaledCoordinatesResult:
     """
     Center and scale grid coordinates.
 
     This method is used to improve numerical stability during fitting.
 
-    :param x_grid: The X-coordinates of the grid to normalize.
-    :param y_grid: The Y-coordinates of the grid to normalize.
+    :param xs: The X-coordinates to normalize.
+    :param ys: The Y-coordinates to normalize.
     :returns: An instance of `NormalizedCoordinatesResult` containing the rescaled grid coordinates.
     """
-    x_mean, y_mean = np.mean(x_grid), np.mean(y_grid)
-    vx_norm = x_grid - x_mean
-    vy_norm = y_grid - y_mean
+    x_mean, y_mean = np.mean(xs), np.mean(ys)
+    vx_norm = xs - x_mean
+    vy_norm = ys - y_mean
 
     span_x = np.max(vx_norm) - np.min(vx_norm)
     span_y = np.max(vy_norm) - np.min(vy_norm)
@@ -28,8 +28,8 @@ def center_and_scale_coordinates(
     scale = 1.0 if np.isclose(max_span, 0.0) else 1 / max_span
 
     return RescaledCoordinatesResult(
-        x_grid=vx_norm * scale,
-        y_grid=vy_norm * scale,
+        xs=vx_norm * scale,
+        ys=vy_norm * scale,
         x_mean=float(x_mean),
         y_mean=float(y_mean),
         scale=float(scale),
