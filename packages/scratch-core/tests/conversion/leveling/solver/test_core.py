@@ -4,9 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 import pytest
 
-SURFACE_TERMS = list(SurfaceTerms)
-COMBINED_TERMS = [SurfaceTerms.PLANE, SurfaceTerms.SPHERE]
-ALL_TERMS = SURFACE_TERMS + COMBINED_TERMS
+from ..constants import ALL_TERMS, SURFACE_TERMS
 
 
 @pytest.mark.parametrize("terms", ALL_TERMS)
@@ -94,3 +92,11 @@ def test_fit_surface_defocus_is_positive(
 ):
     result_defocus = fit_surface(xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.DEFOCUS)
     assert np.all(result_defocus.fitted_surface > 0.0)
+
+
+def test_fit_surface_none_has_no_effect(
+    xs: NDArray[np.float64], ys: NDArray[np.float64], zs: NDArray[np.float64]
+):
+    result_none = fit_surface(xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.NONE)
+    assert np.allclose(result_none.fitted_surface, 0.0)
+    assert all(np.isclose(v, 0.0) for v in result_none.physical_params.values())
