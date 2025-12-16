@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 from scipy import ndimage
 from scipy.special import lambertw
 
-from utils.array_definitions import ScanMap2DArray
+from container_models.base import ScanMap2DArray
 
 
 @cache
