@@ -150,7 +150,7 @@ def level_map(
     terms: SurfaceTerms,
     is_highpass: bool = True,
     image_center: tuple[float, float] | None = None,
-):
+) -> LevelingResult:
     """
     TODO: write a docstring
     """

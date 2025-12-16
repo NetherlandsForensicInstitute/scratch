@@ -1,6 +1,6 @@
 from enum import Enum, auto
 
-from image_generation.data_formats import ImageContainer
+from image_generation.data_formats import ScanImage
 
 
 class MarkType(Enum):
@@ -41,10 +41,11 @@ class CropType(Enum):
     POLYGON = auto()
 
 
-class MarkImage(ImageContainer):
+class MarkImage(ScanImage):
     """
     Representation of a mark (impression or striation)
     """
 
+    center: tuple[float, float] = (0, 0)
     mark_type: MarkType
     crop_type: CropType
