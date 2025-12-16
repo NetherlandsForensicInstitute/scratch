@@ -6,7 +6,7 @@ from conversion.leveling.data_types import RescaledCoordinatesResult
 
 
 def center_and_scale_coordinates(
-    x_grid: NDArray, y_grid: NDArray
+    x_grid: NDArray[np.float64], y_grid: NDArray[np.float64]
 ) -> RescaledCoordinatesResult:
     """
     Center and scale grid coordinates.
