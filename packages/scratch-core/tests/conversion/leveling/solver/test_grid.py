@@ -38,8 +38,8 @@ def test_grid_is_centered_around_origin_by_default(
     mid_x, mid_y = x_grid.shape[0] // 2, y_grid.shape[1] // 2
     xs, ys = x_grid[:, 0], y_grid[0, :]
 
-    assert xs[mid_x - 1] <= 0.0 <= xs[mid_x]
-    assert ys[mid_y - 1] <= 0.0 <= ys[mid_y]
+    assert xs[mid_x - 1] < 0.0 < xs[mid_x]
+    assert ys[mid_y - 1] < 0.0 < ys[mid_y]
 
 
 def test_grid_is_translated_by_offset(scan_image_rectangular_with_nans: ScanImage):
