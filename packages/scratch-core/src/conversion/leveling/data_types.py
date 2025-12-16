@@ -43,10 +43,23 @@ class LevelingResult(BaseModel, arbitrary_types_allowed=True):
     :param leveled_map: 2D array with the leveled height data
     :param parameters: Dictionary mapping SurfaceTerms to fitted coefficient values
     :param residual_rms: Root mean square of residuals after leveling
-    :param fitted_surface: 2D array of the fitted surface (same shape as input)
+    :param fitted_surface: 2D array of the fitted surface (same shape as `leveled_map`)
     """
 
     leveled_map: NDArray[np.float64]
     parameters: dict[SurfaceTerms, float]
     residual_rms: float
     fitted_surface: NDArray[np.float64]
+
+
+class RescaledCoordinatesResult(BaseModel, arbitrary_types_allowed=True):
+    x_grid: NDArray[np.float64]
+    y_grid: NDArray[np.float64]
+    x_mean: float
+    y_mean: float
+    scale: float
+
+
+class FitSurfaceResult(BaseModel, arbitrary_types_allowed=True):
+    fitted_surface: NDArray[np.float64]
+    physical_params: dict[SurfaceTerms, float]
