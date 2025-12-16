@@ -2,7 +2,7 @@ import numpy as np
 from conversion.leveling import SurfaceTerms, LevelingResult
 from conversion.leveling.solver import (
     fit_surface,
-    prepare_2d_grid,
+    get_2d_grid,
     compute_root_mean_square,
 )
 from image_generation.data_formats import ScanImage
@@ -25,7 +25,7 @@ def level_map(
     :returns: An instance of `LevelingResult` containing the leveled scan data and estimated physical parameters.
     """
     # Build the 2D grids
-    x_grid, y_grid = prepare_2d_grid(scan_image, offset=offset)
+    x_grid, y_grid = get_2d_grid(scan_image, offset=offset)
     valid_mask = ~np.isnan(scan_image.data)
 
     # Get the point cloud (xs, ys, zs) for the numerical data

@@ -3,7 +3,7 @@ from numpy.typing import NDArray
 from image_generation.data_formats import ScanImage
 
 
-def prepare_2d_grid(
+def get_2d_grid(
     scan_image: ScanImage, offset: tuple[float, float] | None = None
 ) -> tuple[NDArray, NDArray]:
     """
@@ -20,7 +20,7 @@ def prepare_2d_grid(
     x_indices, y_indices = np.meshgrid(
         np.arange(scan_image.width), np.arange(scan_image.height), indexing="ij"
     )
-    # Center grid
+
     if not offset:
         offset = (
             (scan_image.width - 1)
@@ -30,7 +30,7 @@ def prepare_2d_grid(
             * scan_image.scale_y
             * 0.5,  # Y-coordinate of image center
         )
-    # Translate the grid so that the image center lies in the origin
+    # Translate the grid by `offset`
     x_grid = (x_indices * scan_image.scale_x) - offset[0]
     y_grid = (y_indices * scan_image.scale_y) - offset[1]
 
