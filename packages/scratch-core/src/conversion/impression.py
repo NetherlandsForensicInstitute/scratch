@@ -7,16 +7,18 @@
 # from skimage.measure import CircleModel, ransac
 #
 # from conversion.data_formats import MarkImage, MarkType
+# from conversion.gaussian_filter import apply_gaussian_filter
+# from conversion.leveling import SurfaceTerms
 # from utils.array_definitions import ScanMap2DArray, MaskArray
 #
 #
 # def _get_mask_edge_points(mask: MaskArray) -> NDArray[np.floating]:
-#     """Get inner edge points of a binary mask in pixel coordinates.
+#     """
+#     Get inner edge points of a binary mask in pixel coordinates.
 #
 #     :param mask: Binary mask array
 #     :return: Array of (col, row) edge points in pixel indices
 #     """
-#
 #     eroded = binary_erosion(mask)
 #     edge = mask & ~eroded
 #
@@ -24,33 +26,55 @@
 #     return np.column_stack([cols, rows]).astype(float)
 #
 #
+# def _points_are_collinear(points: NDArray[np.floating], tol: float = 1e-9) -> bool:
+#     """Check if points are approximately collinear."""
+#     if len(points) < 3:
+#         return True
+#     centered = points - points.mean(axis=0)
+#     _, s, _ = np.linalg.svd(centered, full_matrices=False)
+#     return s[-1] < tol * s[0]
+#
+#
 # def _fit_circle_ransac(
 #     points: NDArray[np.floating],
 #     n_iterations: int = 1000,
 #     threshold: float = 1.0,
 # ) -> tuple[float, float] | None:
-#     """Fit circle to points using RANSAC.
+#     """
+#     Fit a circle to 2D points using RANSAC and return the circle center (x, y).
+#     Returns None when fitting fails or produces an invalid model.
 #
 #     :param points: Array of (x, y) points, shape (N, 2)
 #     :param n_iterations: Number of RANSAC iterations
 #     :param threshold: Inlier distance threshold (in same units as points)
 #     :return: Circle center (x, y) or None if fitting failed
 #     """
+#     if points.ndim != 2 or points.shape[1] != 2:
+#         raise ValueError(f"Expected (N, 2) array, got {points.shape}")
 #
-#     try:
-#         model, _ = ransac(
-#             points,
-#             CircleModel,
-#             min_samples=3,
-#             residual_threshold=threshold,
-#             max_trials=n_iterations,
-#         )
-#         if model is not None:
-#             return (model.params[0], model.params[1])
-#     except Exception:
-#         pass
+#     if _points_are_collinear(points):
+#         return None
+#
+#     model, _ = ransac(
+#         points,
+#         CircleModel,
+#         min_samples=3,
+#         residual_threshold=threshold,
+#         max_trials=n_iterations,
+#     )
+#     if model is not None:
+#         x, y, radius = model.params
+#         if radius > 0 and np.isfinite([x, y, radius]).all():
+#             return x, y
 #
 #     return None
+#
+# def _get_bounding_box_center(mask: NDArray[np.bool_]) -> tuple[float, float]:
+#     """Return center of bounding box for True values in mask."""
+#     rows, cols = np.where(mask)
+#     if len(rows) == 0:
+#         return mask.shape[1] / 2, mask.shape[0] / 2
+#     return (cols.min() + cols.max() + 1) / 2, (rows.min() + rows.max() + 1) / 2
 #
 #
 # def _set_map_center(
@@ -67,17 +91,12 @@
 #
 #     if use_circle:
 #         edge_points = _get_mask_edge_points(valid_mask)
-#         if len(edge_points) >= 3:
-#             center = _fit_circle_ransac(edge_points)
-#             if center is not None:
-#                 return center
+#         center = _fit_circle_ransac(edge_points)
+#         if center is not None:
+#             return center
 #
 #     # Fallback: bounding box center
-#     rows, cols = np.where(valid_mask)
-#     if len(rows) == 0:
-#         return data.shape[1] / 2, data.shape[0] / 2
-#
-#     return (cols.min() + cols.max() + 1) / 2, (rows.min() + rows.max() + 1) / 2
+#     return _get_bounding_box_center(valid_mask)
 #
 #
 # @dataclass
@@ -126,58 +145,73 @@
 #         return terms
 #
 #
-# def _estimate_plane_tilt_degrees(x, y, z) -> tuple[float, float, float]:
-#     """Estimate best-fit plane and return tilt angles in degrees + residuals.
-#
-#     :return: Tuple of (tilt_x_deg, tilt_y_deg)
+# def _estimate_plane_tilt_degrees(
+#     x: NDArray[np.floating],
+#     y: NDArray[np.floating],
+#     z: NDArray[np.floating],
+# ) -> tuple[float, float, NDArray[np.floating]]:
 #     """
-#     # Fit plane: z = ax + by + c
-#     A = np.column_stack([x, y, np.ones_like(x)])
-#     coeffs, *_ = np.linalg.lstsq(A, z, rcond=None)
+#     Estimate best-fit plane and return tilt angles in degrees + residuals.
 #
-#     # Compute tilt angles in degrees
-#     tilt_x_deg = np.degrees(np.arctan(coeffs[0]))
-#     tilt_y_deg = np.degrees(np.arctan(coeffs[1]))
-#     residuals = z - (coeffs[0] * x + coeffs[1] * y + coeffs[2])
+#     Fits z = ax + by + c using least squares.
+#
+#     :param x: X coordinates
+#     :param y: Y coordinates
+#     :param z: Z values at each (x, y)
+#     :return: (tilt_x_deg, tilt_y_deg, residuals)
+#     """
+#     A = np.column_stack([x, y, np.ones_like(x)])
+#     (a, b, c), *_ = np.linalg.lstsq(A, z, rcond=None)
+#
+#     tilt_x_deg = np.degrees(np.arctan(a))
+#     tilt_y_deg = np.degrees(np.arctan(b))
+#     residuals = z - (a * x + b * y + c)
+#
 #     return tilt_x_deg, tilt_y_deg, residuals
 #
+#
+# def _get_valid_coordinates(
+#         mark_image: MarkImage,
+#         center: tuple[float, float],
+# ) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
+#     """Get x, y, z coordinates of valid pixels in meters, centered at origin."""
+#     valid_mask = ~np.isnan(mark_image.data)
+#     rows, cols = np.where(valid_mask)
+#
+#     x = cols * mark_image.scale_x - center[0]
+#     y = rows * mark_image.scale_y - center[1]
+#     z = mark_image.data[valid_mask]
+#
+#     return x, y, z
 #
 # def _adjust_for_plane_tilt_degrees(
 #     mark_image: MarkImage,
 #     center: tuple[float, float],
 # ) -> MarkImage:
-#     """Estimate best-fit plane and return tilt angles in degrees + residuals.
-#
-#     :param mark_image: Mark image
-#     :param center: Center position in meters
-#     :return: Tuple of ((tilt_x_deg, tilt_y_deg), leveled data)
 #     """
-#     valid_mask = ~np.isnan(mark_image.data)
-#     rows, cols = np.where(valid_mask)
-#     data = mark_image.data.copy()
+#     Remove plane tilt from mark image and adjust scale factors.
 #
-#     if len(rows) < 3:
-#         return mark_image
+#     :param mark_image: Mark image to level
+#     :param center: Center position in meters
+#     :return: Leveled mark image with adjusted scale
+#     """
+#     x, y, z = _get_valid_coordinates(mark_image, center)
 #
-#     x = cols * mark_image.scale_x - center[0]
-#     y = rows * mark_image.scale_y - center[1]
-#     z = data[valid_mask]
+#     if len(x) < 3:
+#         raise ValueError("Need at least 3 valid points to estimate plane tilt")
 #
 #     tilt_x_deg, tilt_y_deg, residuals = _estimate_plane_tilt_degrees(x, y, z)
 #
-#     # Compute residuals
-#     data[valid_mask] = residuals
-#     adjusted_scale_x = mark_image.scale_x / np.cos(np.radians(tilt_x_deg))
-#     adjusted_scale_y = mark_image.scale_y / np.cos(np.radians(tilt_y_deg))
+#     data = mark_image.data.copy()
+#     data[~np.isnan(mark_image.data)] = residuals
 #
-#     return MarkImage(
-#         data=data,
-#         scale_x=adjusted_scale_x,
-#         scale_y=adjusted_scale_y,
-#         mark_type=mark_image.mark_type,
-#         crop_type=mark_image.crop_type,
-#         meta_data=mark_image.meta_data,
-#     )
+#     return mark_image.model_copy(
+#     update={
+#         "data": data,
+#         "scale_x": mark_image.scale_x / np.cos(np.radians(tilt_x_deg)),
+#         "scale_y": mark_image.scale_y / np.cos(np.radians(tilt_y_deg)),
+#     }
+# )
 #
 #
 # def _apply_anti_aliasing(
