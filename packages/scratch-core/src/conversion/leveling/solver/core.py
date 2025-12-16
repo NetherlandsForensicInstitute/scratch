@@ -3,7 +3,7 @@ from numpy.typing import NDArray
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.data_types import FitSurfaceResult
 from conversion.leveling.solver import (
-    center_and_scale_coordinates,
+    normalize_coordinates,
     build_design_matrix,
     denormalize_parameters,
 )
@@ -22,7 +22,7 @@ def fit_surface(
     :return: An instance of `FittedSurface` with the fitted surface (z̃s) and the estimated physical parameters.
     """
     # 1. Normalize the grid coordinates by centering and rescaling them
-    normalized = center_and_scale_coordinates(xs, ys)
+    normalized = normalize_coordinates(xs, ys)
 
     # 2. Build the design matrix for the least-squares solver
     design_matrix = build_design_matrix(normalized.xs, normalized.ys, terms)
