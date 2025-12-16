@@ -79,16 +79,16 @@ def _apply_nan_weighted_filter(
 
 
 def get_cutoff_pixels(
-    cutoff_length: tuple[float, float], pixel_size: tuple[float, float]
+    cutoff_lengths: tuple[float, float], pixel_size: tuple[float, float]
 ) -> NDArray[np.floating]:
     """
     Convert cutoff length from physical units to pixel units.
 
-    :param cutoff_length: Cutoff wavelengths in physical units.
+    :param cutoff_lengths: Cutoff wavelengths in physical units.
     :param pixel_size: Pixel size in physical units.
     :return: Cutoff wavelengths in pixel units.
     """
-    return np.array(cutoff_length) / np.array(pixel_size)
+    return np.array(cutoff_lengths) / np.array(pixel_size)
 
 
 def apply_gaussian_filter(
@@ -98,7 +98,7 @@ def apply_gaussian_filter(
     regression_order: int = 0,
     nan_out: bool = True,
     is_high_pass: bool = False,
-) -> np.ndarray:
+) -> NDArray[np.floating]:
     """
     Apply Gaussian filter to 2D data with NaN handling.
 
@@ -111,7 +111,7 @@ def apply_gaussian_filter(
     :return: Filtered data array.
     """
     if np.all(np.isnan(cutoff_lengths)):
-        return data
+        raise ValueError("All cutoff lengths are NaN, no filtering possible.")
 
     # Convert cutoff to pixel units and scipy parameters
     cutoff_pixels = get_cutoff_pixels(cutoff_lengths, pixel_size)

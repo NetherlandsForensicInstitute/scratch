@@ -13,13 +13,9 @@ from conversion.gaussian_filter import (
 
 CUTOFF: float = 5.0
 SEED: int = 42
+ALPHA: float = get_alpha(regression_order=0)
 approx = partial(pytest.approx, rel=1e-15)
 allclose = partial(np.allclose, rtol=1e-15)
-
-
-@pytest.fixture(scope="module")
-def alpha() -> float:
-    return get_alpha(regression_order=0)
 
 
 @pytest.fixture
@@ -42,7 +38,7 @@ class TestGetAlpha:
 class TestCutoffToSigma:
     """Test cutoff to sigma conversion."""
 
-    def test_sigma_calculated_from_cutoffs(self, alpha: float):
+    def test_sigma_calculated_from_cutoffs(self):
         # arrange
         cutoffs = np.arange(1.0, 6.0)
         expected = np.array(
@@ -55,29 +51,55 @@ class TestCutoffToSigma:
             ]
         )
         # act
-        sigmas = get_sigmas(alpha, cutoff_lengths=cutoffs)
+        sigmas = get_sigmas(ALPHA, cutoff_lengths=cutoffs)
 
         # assert
         assert sigmas == approx(expected)
         assert (sigmas < cutoffs).all()
 
-    def test_sigma_scales_linearly(self, alpha: float):
+    def test_sigma_scales_linearly(self):
         # arrange
         cutoffs = np.array([2, 4, 8, 16, 32])
 
         # act and assert
-        sigmas = get_sigmas(alpha, cutoff_lengths=cutoffs)
+        sigmas = get_sigmas(ALPHA, cutoff_lengths=cutoffs)
         assert sigmas[1:] == approx(sigmas[:-1] * 2)
 
-    def test_zero_cutoffs_gives_zero_sigma(self, alpha: float) -> None:
+    def test_zero_cutoffs_gives_zero_sigma(self) -> None:
         # arrange
         cutoffs = np.array([0])
 
         # act
-        sigmas = get_sigmas(alpha, cutoff_lengths=cutoffs)
+        sigmas = get_sigmas(ALPHA, cutoff_lengths=cutoffs)
 
         # assert
         assert np.array_equal(cutoffs, sigmas)
+
+    def test_nan_cutoff_single_value(self) -> None:
+        """Test when a single cutoff value is NaN."""
+        # arrange
+        cutoffs = np.array([np.nan, 2.0, 3.0])
+
+        # act
+        sigmas = get_sigmas(ALPHA, cutoff_lengths=cutoffs)
+
+        # assert
+        assert np.isnan(
+            sigmas[0]
+        )  # The first value should be NaN due to the NaN cutoff.
+        assert not np.isnan(sigmas[1])  # The second value should be a valid sigma.
+        assert not np.isnan(sigmas[2])  # The third value should be a valid sigma.
+
+    def test_nan_cutoff_all_values(self) -> None:
+        """Test when all cutoff values are NaN."""
+        # arrange
+        cutoffs = np.array([np.nan, np.nan, np.nan])
+
+        # act
+        sigmas = get_sigmas(ALPHA, cutoff_lengths=cutoffs)
+
+        # assert
+        assert np.all(np.isnan(sigmas))  # All sigmas should be NaN due to NaN cutoffs.
 
 
 class TestGaussianFilterFunction:
@@ -91,7 +113,6 @@ class TestGaussianFilterFunction:
         result = apply_gaussian_filter(data, (3.0, 3.0), nan_out=False)
 
         # The NaN position should now have a value (interpolated from neighbors)
-        assert not np.isnan(result[5, 5])
         assert result[5, 5] == pytest.approx(5.0, rel=0.1)
 
     def test_nan_out_true(self):
@@ -153,11 +174,12 @@ class TestGaussianFilterFunction:
     def test_nan_cutoff_returns_unchanged(self, rng: np.random.Generator):
         """NaN cutoff should return data unchanged."""
         data = rng.random((10, 10))
-        result = apply_gaussian_filter(
-            data, cutoff_lengths=(np.nan, np.nan), is_high_pass=False
-        )
-
-        np.testing.assert_array_equal(result, data)
+        with pytest.raises(
+            ValueError, match="All cutoff lengths are NaN, no filtering possible."
+        ):
+            apply_gaussian_filter(
+                data, cutoff_lengths=(np.nan, np.nan), is_high_pass=False
+            )
 
     def test_single_pixel_data_gives_single_pixel_result(self):
         data = np.array([[42.0]])
