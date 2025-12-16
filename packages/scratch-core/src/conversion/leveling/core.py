@@ -11,7 +11,7 @@ from image_generation.data_formats import ScanImage
 def level_map(
     scan_image: ScanImage,
     terms: SurfaceTerms,
-    image_center: tuple[float, float] | None = None,
+    offset: tuple[float, float] | None = None,
 ) -> LevelingResult:
     """
     Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
@@ -20,11 +20,12 @@ def level_map(
 
     :param scan_image: The scan image containing the image data to level.
     :param terms: The surface terms to use in the fitting. Note: terms can be combined using the bit-operators.
-    :param image_center: The center of the image to use for rescaling the grid coordinates.
+    :param offset: A tuple containing the physical coordinates of the image offset (in meters) relative to the
+        origin. Used for translating the grid coordinates.
     :returns: An instance of `LevelingResult` containing the leveled scan data and estimated physical parameters.
     """
     # Build the 2D grids
-    x_grid, y_grid = prepare_2d_grid(scan_image, image_center=image_center)
+    x_grid, y_grid = prepare_2d_grid(scan_image, offset=offset)
     valid_mask = ~np.isnan(scan_image.data)
 
     # Get the point cloud (xs, ys, zs) for the numerical data
