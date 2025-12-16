@@ -26,8 +26,8 @@ def test_grid_is_a_meshgrid(scan_image_rectangular_with_nans: ScanImage):
         np.array_equal(y_grid[i, :], y_grid[i + 1, :])
         for i in range(y_grid.shape[0] - 1)
     )
-    assert all(x_grid[i, 0] < x_grid[i + 1, 0] for i in range(x_grid.shape[0] - 1))
-    assert all(y_grid[0, i] < y_grid[0, i + 1] for i in range(y_grid.shape[1] - 1))
+    assert np.all(x_grid[:-1, 0] < x_grid[1:, 0])
+    assert np.all(y_grid[0, :-1] < y_grid[0, 1:])
 
 
 def test_grid_is_centered_around_origin_by_default(

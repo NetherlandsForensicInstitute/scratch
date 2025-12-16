@@ -38,7 +38,7 @@ def fit_surface(
 
     # 5. Recover physical parameters (optional usage, but part of original spec)
     physical_params = denormalize_parameters(
-        dict(zip(terms, coefficients)),
+        dict(zip(terms, map(float, coefficients))),
         normalized.x_mean,
         normalized.y_mean,
         normalized.scale,

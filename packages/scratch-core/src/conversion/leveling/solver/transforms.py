@@ -37,7 +37,7 @@ def normalize_coordinates(
 
 
 def denormalize_parameters(
-    coefficients: Mapping[SurfaceTerms, NDArray],
+    coefficients: Mapping[SurfaceTerms, float],
     x_mean: float,
     y_mean: float,
     scale: float,
