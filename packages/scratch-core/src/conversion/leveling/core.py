@@ -14,7 +14,7 @@ def level_map(
     image_center: tuple[float, float] | None = None,
 ) -> LevelingResult:
     """
-    Compute the leveled map by fitting polynomial terms to the image data and subtracting them from the image data.
+    Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
 
     This computation effectively acts as a high-pass filter on the image data.
 
