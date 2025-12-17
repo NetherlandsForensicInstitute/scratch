@@ -11,32 +11,32 @@ from image_generation.data_formats import ScanImage
 
 def get_cropped_image(
     scan_image: ScanImage,
+    mask: MaskArray,
     terms: SurfaceTerms,
     cutoff_lengths: tuple[float, float],
     regression_order: int = 0,
-    resample_factors: tuple[float, float] | None = None,
-    mask: MaskArray | None = None,
+    resampling_factors: tuple[float, float] | None = None,
     crop: bool = False,
 ) -> NDArray:
     """
     Generate a preview image for the cropping editor by applying resampling, leveling, and filtering to depth data.
 
     :param scan_image: ScanImage to be processed.
+    :param mask: Mask indicating fore/background to be applied to the data in `scan_image`.
     :param terms: The surface terms to be used in the fitting. Note: terms can be combined using bit-operators.
     :param cutoff_lengths: Cutoff wavelengths in physical units.
     :param regression_order: Filter regression order used when filtering the data.
-    :param resample_factors: The resampling factors for the x- and y-axis.
-    :param mask: Mask indicating fore/background to be applied to the data in `scan_image`.
+    :param resampling_factors: The resampling factors for the x- and y-axis.
     :param crop: Whether to crop the result (i.e. remove outer NaNs).
     :returns: A numpy array with the cropped image data.
     """
     # Check whether the mask only consists of background
-    if mask is not None and not np.any(mask):
+    if not np.any(mask):
         return np.full_like(scan_image.data, np.nan)
 
     # Resample image and mask to speed up the processing
     resampled_scan_image, resampled_mask = resample_scan_image_and_mask(
-        scan_image, mask, resample_factors=resample_factors
+        scan_image, mask, resampling_factors=resampling_factors
     )
 
     # Apply mask to the `ScanImage` instance

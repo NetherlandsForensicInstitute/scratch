@@ -30,6 +30,6 @@ def test_get_cropped_image(
         terms=terms,
         regression_order=regression_order,
         cutoff_lengths=(5.0, 5.0),
-        resample_factors=(2, 2),
+        resampling_factors=(2, 2),
     )
     assert result.shape == (mask_array.shape[0] // 2, mask_array.shape[1] // 2)
