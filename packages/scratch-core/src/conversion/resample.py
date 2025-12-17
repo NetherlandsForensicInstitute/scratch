@@ -117,23 +117,23 @@ def get_resampling_factors(
 
     :returns: Resampling factors.
     """
-    resample_factor_x = target_scale / scale_x
-    resample_factor_y = target_scale / scale_y
-    return resample_factor_x, resample_factor_y
+    resampling_factor_x = target_scale / scale_x
+    resampling_factor_y = target_scale / scale_y
+    return resampling_factor_x, resampling_factor_y
 
 
 def clip_resample_factors(
-    resample_factors: tuple[float, float],
+    resampling_factors: tuple[float, float],
     preserve_aspect_ratio: bool,
 ) -> tuple[float, float]:
-    """Clip the resample factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
+    """Clip the resampling factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
     if preserve_aspect_ratio:
         # Scale both factors equally to preserve the aspect ratio
-        max_factor = max(resample_factors)
-        resample_factors = (max_factor, max_factor)
+        max_factor = max(resampling_factors)
+        resampling_factors = (max_factor, max_factor)
 
-    resample_factors = (
-        max(resample_factors[0], 1.0),
-        max(resample_factors[1], 1.0),
+    resampling_factors = (
+        max(resampling_factors[0], 1.0),
+        max(resampling_factors[1], 1.0),
     )
-    return resample_factors
+    return resampling_factors
