@@ -2,7 +2,7 @@ import numpy as np
 from typing import Any
 from numpy.typing import NDArray
 
-from image_generation.data_formats import ScanImage
+from container_models.scan_image import ScanImage
 
 
 def compute_root_mean_square(data: NDArray[Any]) -> float:
