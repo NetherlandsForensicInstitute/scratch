@@ -14,7 +14,7 @@ def test_fit_surface_reduces_variance(
     zs: NDArray[np.float64],
     terms: SurfaceTerms,
 ):
-    fitted_surface, physical_params = fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)
+    fitted_surface, _ = fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)
     leveled_map = zs - fitted_surface
     assert np.var(fitted_surface) < np.var(zs)
     assert np.var(fitted_surface) < np.var(leveled_map)
@@ -27,10 +27,10 @@ def test_fit_surface_plane_reduces_variance(
     zs: NDArray[np.float64],
     terms: SurfaceTerms,
 ):
-    fitted_surface_single_term, _ = fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)
-    leveled_map_single_term = zs - fitted_surface_single_term
-    fitted_surface_plane, _ = fit_surface(xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.PLANE)
-    leveled_map_plane = zs - fitted_surface_plane
+    leveled_map_single_term = zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)[0]
+    leveled_map_plane = (
+        zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.PLANE)[0]
+    )
 
     single_term_var = np.var(leveled_map_single_term)
     plane_var = np.var(leveled_map_plane)
@@ -45,12 +45,10 @@ def test_fit_surface_sphere_reduces_variance(
     zs: NDArray[np.float64],
     terms: SurfaceTerms,
 ):
-    fitted_surface_single_term, _ = fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)
-    leveled_map_single_term = zs - fitted_surface_single_term
-    fitted_surface_sphere, _ = fit_surface(
-        xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.SPHERE
+    leveled_map_single_term = zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)[0]
+    leveled_map_sphere = (
+        zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.SPHERE)[0]
     )
-    leveled_map_sphere = zs - fitted_surface_sphere
 
     assert np.var(leveled_map_sphere) < np.var(leveled_map_single_term)
 
@@ -62,7 +60,7 @@ def test_fit_surface_fits_terms(
     zs: NDArray[np.float64],
     terms: SurfaceTerms,
 ):
-    fitted_surface, physical_params = fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)
+    _, physical_params = fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)
     assert all(not np.isclose(v, 0.0) for p, v in physical_params.items() if p in terms)
     assert all(np.isclose(v, 0.0) for p, v in physical_params.items() if p not in terms)
 
