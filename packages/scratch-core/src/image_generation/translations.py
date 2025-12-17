@@ -5,10 +5,10 @@ import numpy as np
 from conversion.exceptions import NegativeStdScalerException
 from utils.array_definitions import (
     ScanMap2DArray,
-    ScanMapRGBA,
     ScanTensor3DArray,
     ScanVectorField2DArray,
     UnitVector3DArray,
+    ScanMapRGBA,
 )
 
 

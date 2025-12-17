@@ -2,7 +2,8 @@ import numpy as np
 from PIL.Image import Image, fromarray
 from numpydantic.ndarray import NDArray
 from pydantic import BaseModel, ConfigDict, Field
-
+from loguru import logger
+from .exceptions import ImageGenerationError
 from conversion.exceptions import ConversionError
 from conversion.subsample import subsample_array
 from image_generation.translations import (
@@ -103,7 +104,12 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
     def subsample(self, step_x: int, step_y: int) -> "ScanImage":
         """Subsample the data in a `ScanMap2D` instance by skipping `step_size` steps."""
-        array = subsample_array(scan_data=self.data, step_size=(step_x, step_y))
+        logger.debug(f"Subsampling data with step size ({step_x}, {step_y})")
+        try:
+            array = subsample_array(scan_data=self.data, step_size=(step_x, step_y))
+        except ValueError as e:
+            logger.error(f"Error subsampling data: {e}")
+            raise ImageGenerationError(f"Error subsampling data: {e}") from e
         return ScanImage(
             data=array,
             scale_x=self.scale_x * step_x,
@@ -121,11 +127,16 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Normal vectors per pixel in a 3-layer field. Layers are [x,y,z]
         """
-        return SurfaceNormals(
-            data=compute_surface_normals(self.data, x_dimension, y_dimension),
-            scale_x=self.scale_x,
-            scale_y=self.scale_y,
-        )
+        logger.debug(f"Compute normals with x:{x_dimension}, y:{y_dimension}")
+        try:
+            return SurfaceNormals(
+                data=compute_surface_normals(self.data, x_dimension, y_dimension),
+                scale_x=self.scale_x,
+                scale_y=self.scale_y,
+            )
+        except ValueError as e:
+            logger.error(f"Error computing surface normals: {e}")
+            raise ImageGenerationError(f"Error computing surface normals: {e}") from e
 
     def normalize(self, scale_max: float = 255, scale_min: float = 25) -> "ScanImage":
         """
@@ -136,6 +147,9 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
         """
+        logger.debug(
+            f"Normalizing scan image array with min:{scale_min}; max:{scale_max}"
+        )
         return ScanImage(
             data=normalize_2d_array(
                 self.data, scale_max=scale_max, scale_min=scale_min
@@ -150,9 +164,11 @@ class ScanImage(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Image representation of the 2D intensity map.
         """
+        logger.debug("creating Image from ScanImage array.")
         try:
             return fromarray(grayscale_to_rgba(scan_data=self.data))
         except ValueError as err:
+            logger.error(f"Could not convert data to an RGBA image.: err{str(err)}")
             raise ConversionError("Could not convert data to an RGBA image.") from err
 
 
@@ -168,6 +184,7 @@ class MultiIlluminationScan(ImageContainer, arbitrary_types_allowed=True):
 
     def reduce_stack(self, merge_on_axis: int = 2) -> ScanImage:
         """Combine stacked 2d scan maps → (Height × Width)."""
+        logger.debug(f"Flatten the multi 2d scan image stack on axis:{merge_on_axis}")
         return ScanImage(
             data=np.nansum(self.data, axis=merge_on_axis),
             scale_x=self.scale_x,
@@ -200,6 +217,9 @@ class SurfaceNormals(ImageContainer, arbitrary_types_allowed=True):
 
         :returns: Normalized 2D intensity map with shape (Height, Width), suitable for
         """
+        logger.debug(
+            f"Add n:{light_vectors.count} lights to the scan_image array, with observer vector:{observer}"
+        )
         return MultiIlluminationScan(
             data=apply_multiple_lights(
                 surface_normals=self.data,
