@@ -57,3 +57,29 @@ def test_map_level_offset(scan_image_with_nans: ScanImage):
         for p in SurfaceTerms
         if p != SurfaceTerms.OFFSET
     )
+
+
+@pytest.mark.integration
+def test_map_level_reference_point_has_no_effect_with_none(
+    scan_image_with_nans: ScanImage,
+):
+    result_centered = level_map(scan_image_with_nans, SurfaceTerms.NONE)
+    result_ref = level_map(
+        scan_image_with_nans, SurfaceTerms.NONE, reference_point=(10.5, -5.2)
+    )
+    assert np.allclose(
+        result_centered.leveled_map, result_ref.leveled_map, equal_nan=True
+    )
+
+
+@pytest.mark.integration
+def test_map_level_reference_point_has_effect_with_plane(
+    scan_image_with_nans: ScanImage,
+):
+    result_centered = level_map(scan_image_with_nans, SurfaceTerms.PLANE)
+    result_ref = level_map(
+        scan_image_with_nans, SurfaceTerms.NONE, reference_point=(10.5, -5.2)
+    )
+    assert not np.allclose(
+        result_centered.leveled_map, result_ref.leveled_map, equal_nan=True
+    )

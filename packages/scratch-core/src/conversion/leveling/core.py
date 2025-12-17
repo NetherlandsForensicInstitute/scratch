@@ -5,13 +5,14 @@ from conversion.leveling.solver import (
     get_2d_grid,
     compute_root_mean_square,
 )
+from conversion.leveling.solver.utils import compute_image_center
 from image_generation.data_formats import ScanImage
 
 
 def level_map(
     scan_image: ScanImage,
     terms: SurfaceTerms,
-    offset: tuple[float, float] | None = None,
+    reference_point: tuple[float, float] | None = None,
 ) -> LevelingResult:
     """
     Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
@@ -20,12 +21,18 @@ def level_map(
 
     :param scan_image: The scan image containing the image data to level.
     :param terms: The surface terms to use in the fitting. Note: terms can be combined using bit-operators.
-    :param offset: A tuple containing the physical coordinates of the image offset (in meters) relative to the
-        origin.
+    :param reference_point: A tuple representing a reference point (X, Y) in physical coordinate space.
+        If provided, then the coordinates will be translated such that (X, Y) lies in the origin after translation.
+        If `None`, then the coordinates will be translated such that the center of the image lies in the origin.
     :returns: An instance of `LevelingResult` containing the leveled scan data and estimated physical parameters.
     """
-    # Build the 2D grids
-    x_grid, y_grid = get_2d_grid(scan_image, offset=offset)
+    if not reference_point:
+        reference_point = compute_image_center(scan_image)
+
+    # Build the 2D grids and translate in the opposite direction of `reference_point`
+    x_grid, y_grid = get_2d_grid(
+        scan_image, offset=(-reference_point[0], -reference_point[1])
+    )
     valid_mask = ~np.isnan(scan_image.data)
 
     # Get the point cloud (xs, ys, zs) for the numerical data

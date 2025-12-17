@@ -1,6 +1,8 @@
 from conversion.leveling.solver import get_2d_grid
+from conversion.leveling.solver.utils import compute_image_center
 from image_generation.data_formats import ScanImage
 import numpy as np
+import pytest
 
 
 def test_grid_matches_scan_image_shape(scan_image_rectangular_with_nans: ScanImage):
@@ -30,18 +32,6 @@ def test_grid_is_a_meshgrid(scan_image_rectangular_with_nans: ScanImage):
     assert np.all(y_grid[0, :-1] < y_grid[0, 1:])
 
 
-def test_grid_is_centered_around_origin_by_default(
-    scan_image_rectangular_with_nans: ScanImage,
-):
-    x_grid, y_grid = get_2d_grid(scan_image_rectangular_with_nans)
-
-    mid_x, mid_y = x_grid.shape[0] // 2, y_grid.shape[1] // 2
-    xs, ys = x_grid[:, 0], y_grid[0, :]
-
-    assert xs[mid_x - 1] < 0.0 < xs[mid_x]
-    assert ys[mid_y - 1] < 0.0 < ys[mid_y]
-
-
 def test_grid_is_translated_by_offset(scan_image_rectangular_with_nans: ScanImage):
     si = scan_image_rectangular_with_nans
     offset_x, offset_y = 0.1, 0.5
@@ -49,7 +39,23 @@ def test_grid_is_translated_by_offset(scan_image_rectangular_with_nans: ScanImag
 
     xs, ys = x_grid[:, 0], y_grid[0, :]
 
-    assert np.isclose(xs[0], -offset_x)
-    assert np.isclose(xs[-1], -offset_x + (si.width - 1) * si.scale_x)
-    assert np.isclose(ys[0], -offset_y)
-    assert np.isclose(ys[-1], -offset_y + (si.height - 1) * si.scale_y)
+    assert np.isclose(xs[0], offset_x)
+    assert np.isclose(xs[-1], offset_x + (si.width - 1) * si.scale_x)
+    assert np.isclose(ys[0], offset_y)
+    assert np.isclose(ys[-1], offset_y + (si.height - 1) * si.scale_y)
+
+
+@pytest.mark.integration
+def test_grid_is_centered_around_origin(
+    scan_image_rectangular_with_nans: ScanImage,
+):
+    center_x, center_y = compute_image_center(scan_image_rectangular_with_nans)
+    x_grid, y_grid = get_2d_grid(
+        scan_image_rectangular_with_nans, offset=(-center_x, -center_y)
+    )
+
+    mid_x, mid_y = x_grid.shape[0] // 2, y_grid.shape[1] // 2
+    xs, ys = x_grid[:, 0], y_grid[0, :]
+
+    assert xs[mid_x - 1] < 0.0 < xs[mid_x]
+    assert ys[mid_y - 1] < 0.0 < ys[mid_y]
