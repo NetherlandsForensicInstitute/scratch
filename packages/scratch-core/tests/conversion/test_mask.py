@@ -154,6 +154,7 @@ class TestDetermineBoundingBox:
 
 
 class TestCropScanImage:
+    @pytest.mark.integration
     def test_mask_scan_image(
         self, scan_image_replica: ScanImage, mask_array: MaskArray
     ):
@@ -163,6 +164,7 @@ class TestCropScanImage:
         nans = np.isnan(scan_image_replica.data) | ~mask_array
         assert np.array_equal(nans, np.isnan(masked_scan_image.data))
 
+    @pytest.mark.integration
     def test_crop_scan_image(
         self, scan_image_replica: ScanImage, mask_array: MaskArray
     ):
