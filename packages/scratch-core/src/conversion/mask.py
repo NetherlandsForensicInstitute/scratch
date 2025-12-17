@@ -18,7 +18,7 @@ def mask_2d_array(
         raise ValueError(f"Shape mismatch: image {image.shape} vs mask {mask.shape}")
 
     data = image.copy()
-    data[mask == 0] = np.nan
+    data[~mask] = np.nan
     return data
 
 
@@ -44,12 +44,12 @@ def _determine_bounding_box(mask: MaskArray) -> tuple[slice, slice]:
     :param mask: Binary mask array
     :return: Tuple of (y_slice, x_slice) for the bounding box
     """
-    coords = np.argwhere(mask > 0)
-    if coords.size == 0:
+    non_zero_coords = np.nonzero(mask)
+    if not non_zero_coords[0].size:
         raise ValueError("Mask is empty")
 
-    y_min, x_min = coords.min(axis=0)
-    y_max, x_max = coords.max(axis=0)
+    y_min, x_min = np.min(non_zero_coords, axis=1)
+    y_max, x_max = np.max(non_zero_coords, axis=1)
     return slice(x_min, x_max + 1), slice(y_min, y_max + 1)
 
 

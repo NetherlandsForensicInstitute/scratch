@@ -16,7 +16,7 @@ from ..constants import BASELINE_IMAGES_DIR
 class TestMask2dArray:
     def test_mask_sets_background_pixels_to_nan(self):
         image = np.array([[1, 2], [3, 4]], dtype=float)
-        mask = np.array([[1, 0], [0, 1]])
+        mask = np.array([[1, 0], [0, 1]], dtype=bool)
 
         result = mask_2d_array(image, mask)
 
@@ -24,23 +24,23 @@ class TestMask2dArray:
 
     def test_does_not_mutate_input(self):
         image = np.array([[1, 2], [3, 4]], dtype=float)
-        mask = np.array([[1, 0], [0, 1]])
+        mask = np.array([[1, 0], [0, 1]], dtype=bool)
         original = image.copy()
 
-        mask_2d_array(image, mask)
+        _ = mask_2d_array(image, mask)
 
         np.testing.assert_array_equal(image, original)
 
     def test_raises_on_shape_mismatch(self):
         image = np.array([[1, 2], [3, 4]], dtype=float)
-        mask = np.array([[1, 0, 0], [0, 1, 0]])
+        mask = np.array([[1, 0, 0], [0, 1, 0]], dtype=bool)
 
         with pytest.raises(ValueError, match="Shape mismatch"):
             mask_2d_array(image, mask)
 
     def test_full_mask_preserves_all_values(self):
         image = np.array([[1, 2], [3, 4]], dtype=float)
-        mask = np.ones((2, 2)).astype(bool)
+        mask = np.ones((2, 2), dtype=bool)
 
         result = mask_2d_array(image, mask)
 
@@ -48,7 +48,7 @@ class TestMask2dArray:
 
     def test_empty_mask_sets_all_to_nan(self):
         image = np.array([[1, 2], [3, 4]], dtype=float)
-        mask = np.zeros((2, 2)).astype(bool)
+        mask = np.zeros((2, 2), dtype=bool)
 
         result = mask_2d_array(image, mask)
 
@@ -72,7 +72,8 @@ class TestCropToMask:
                 [0, 1, 1, 0],
                 [0, 1, 1, 0],
                 [0, 0, 0, 0],
-            ]
+            ],
+            dtype=bool,
         )
 
         result = crop_to_mask(image, mask)
@@ -94,7 +95,8 @@ class TestCropToMask:
                 [0, 0, 0],
                 [0, 1, 0],
                 [0, 0, 0],
-            ]
+            ],
+            dtype=bool,
         )
 
         result = crop_to_mask(image, mask)
@@ -104,7 +106,7 @@ class TestCropToMask:
 
     def test_full_mask_returns_full_image(self):
         image = np.array([[1, 2], [3, 4]], dtype=float)
-        mask = np.ones((2, 2)).astype(bool)
+        mask = np.ones((2, 2), dtype=bool)
 
         result = crop_to_mask(image, mask)
 
@@ -119,7 +121,8 @@ class TestDetermineBoundingBox:
                 [0, 1, 1, 0],
                 [0, 1, 1, 0],
                 [0, 0, 0, 0],
-            ]
+            ],
+            dtype=bool,
         )
 
         x_slice, y_slice = _determine_bounding_box(mask)
@@ -133,7 +136,8 @@ class TestDetermineBoundingBox:
                 [0, 0, 0, 0, 0],
                 [0, 0, 1, 1, 0],
                 [0, 0, 0, 0, 0],
-            ]
+            ],
+            dtype=bool,
         )
 
         x_slice, y_slice = _determine_bounding_box(mask)
@@ -142,10 +146,10 @@ class TestDetermineBoundingBox:
         assert x_slice == slice(2, 4)
 
     def test_raises_on_empty_mask(self):
-        mask = np.zeros((3, 3))
+        mask = np.zeros((3, 3), dtype=bool)
 
         with pytest.raises(ValueError, match="Mask is empty"):
-            _determine_bounding_box(mask)  # type: ignore
+            _determine_bounding_box(mask)
 
 
 @pytest.mark.integration
