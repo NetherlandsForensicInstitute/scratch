@@ -38,12 +38,13 @@ def get_cropped_image(
     )
 
     # Apply mask to the `ScanImage` instance
-    masked_image = mask_and_crop_scan_image(
-        scan_image=resampled_image, mask=resampled_mask, crop=False
-    )
+    if resampled_mask is not None:
+        scan_image = mask_and_crop_scan_image(
+            scan_image=resampled_image, mask=resampled_mask, crop=False
+        )
 
     # Level the image data
-    level_result = level_map(scan_image=masked_image, terms=terms)
+    level_result = level_map(scan_image=scan_image, terms=terms)
 
     # Filter the leveled results using a Gaussian filter
     data_filtered = apply_gaussian_filter(
