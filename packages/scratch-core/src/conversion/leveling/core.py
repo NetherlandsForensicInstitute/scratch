@@ -21,7 +21,7 @@ def level_map(
     :param scan_image: The scan image containing the image data to level.
     :param terms: The surface terms to use in the fitting. Note: terms can be combined using bit-operators.
     :param offset: A tuple containing the physical coordinates of the image offset (in meters) relative to the
-        origin. Used for translating the grid coordinates.
+        origin.
     :returns: An instance of `LevelingResult` containing the leveled scan data and estimated physical parameters.
     """
     # Build the 2D grids
