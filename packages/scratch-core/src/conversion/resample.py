@@ -25,7 +25,7 @@ def resample_image_and_mask(
 
     :param image: Input ScanImage to resample
     :param mask: Corresponding mask array
-    :param resample_factor: Resampling factor (1/resample_factor is applied). If None, resamples to target_sampling_distance.
+    :param resample_factor: Resampling factor (1/resample_factor is applied). If None, resamples to target_resolution.
     :param target_resolution: Target resolution (m) when resample_factor is not provided
     :param preserve_aspect_ratio: Whether to preserve the aspect ratio of the image.
     :param only_downsample: If True, only downsample data
