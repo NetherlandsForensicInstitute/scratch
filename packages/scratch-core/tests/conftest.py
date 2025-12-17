@@ -1,16 +1,16 @@
-from pathlib import Path
 import logging
+from pathlib import Path
 
 import numpy as np
 import pytest
-from PIL import Image
 from loguru import logger
+from PIL import Image
 
-from image_generation.data_formats import ScanImage
-from parsers.data_types import load_scan_image
-from utils.array_definitions import ScanMap2DArray, MaskArray
+from container_models.base import MaskArray, ScanMap2DArray
+from container_models.scan_image import ScanImage
+from parsers import load_scan_image
+
 from .helper_function import unwrap_result
-
 
 TEST_ROOT = Path(__file__).parent
 

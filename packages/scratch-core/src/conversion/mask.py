@@ -1,6 +1,6 @@
 import numpy as np
 
-from utils.array_definitions import ScanMap2DArray, MaskArray
+from container_models.base import ScanMap2DArray, MaskArray
 
 
 def mask_2d_array(
