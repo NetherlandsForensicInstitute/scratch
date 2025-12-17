@@ -36,20 +36,20 @@ def level_map(
     )
 
     # Fit surface by solving the least-squares solution to a linear matrix equation
-    result = fit_surface(xs, ys, zs, terms)
+    fitted_surface, physical_params = fit_surface(xs, ys, zs, terms)
     fitted_surface_2d = np.full_like(scan_image.data, np.nan)
-    fitted_surface_2d[valid_mask] = result.fitted_surface
+    fitted_surface_2d[valid_mask] = fitted_surface
 
     # Compute the leveled map
     leveled_map_2d = np.full_like(scan_image.data, np.nan)
-    leveled_map_2d[valid_mask] = zs - result.fitted_surface
+    leveled_map_2d[valid_mask] = zs - fitted_surface
 
     # Calculate RMS of residuals
     residual_rms = compute_root_mean_square(leveled_map_2d)
 
     return LevelingResult(
         leveled_map=leveled_map_2d,
-        parameters=result.physical_params,
+        parameters=physical_params,
         residual_rms=residual_rms,
         fitted_surface=fitted_surface_2d,
     )

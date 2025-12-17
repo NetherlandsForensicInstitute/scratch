@@ -68,10 +68,3 @@ class NormalizedCoordinates(BaseModel, arbitrary_types_allowed=True):
     x_mean: float
     y_mean: float
     scale: float
-
-
-class FitSurfaceResult(BaseModel, arbitrary_types_allowed=True):
-    """Container class for storing the fitted surface and estimated physical parameters."""
-
-    fitted_surface: NDArray[np.float64]
-    physical_params: dict[SurfaceTerms, float]

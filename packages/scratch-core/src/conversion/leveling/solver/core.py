@@ -1,7 +1,6 @@
 import numpy as np
 from numpy.typing import NDArray
 from conversion.leveling import SurfaceTerms
-from conversion.leveling.data_types import FitSurfaceResult
 from conversion.leveling.solver import (
     normalize_coordinates,
     build_design_matrix,
@@ -11,7 +10,7 @@ from conversion.leveling.solver import (
 
 def fit_surface(
     xs: NDArray, ys: NDArray, zs: NDArray, terms: SurfaceTerms
-) -> FitSurfaceResult:
+) -> tuple[NDArray[np.float64], dict[SurfaceTerms, float]]:
     """
     Core solver: fits a surface to the point cloud (xs, ys, zs).
 
@@ -19,7 +18,7 @@ def fit_surface(
     :param ys: The Y-coordinates.
     :param zs: The Z-values.
     :param terms: The terms to use in the fitting
-    :return: An instance of `FittedSurface` with the fitted surface (z̃s) and the estimated physical parameters.
+    :return: A tuple containing the fitted surface (z̃s) and the estimated physical parameters.
     """
     # 1. Normalize the grid coordinates by centering and rescaling them
     normalized = normalize_coordinates(xs, ys)
@@ -43,7 +42,4 @@ def fit_surface(
         normalized.y_mean,
         normalized.scale,
     )
-
-    return FitSurfaceResult(
-        fitted_surface=fitted_surface, physical_params=physical_params
-    )
+    return fitted_surface, physical_params
