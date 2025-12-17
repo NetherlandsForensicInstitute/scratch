@@ -11,8 +11,8 @@ from utils.array_definitions import MaskArray
 def resample_image_and_mask(
     image: ScanImage,
     mask: Optional[MaskArray] = None,
-    resample_factor: Optional[float] = None,
-    target_resolution: float = 4e-6,
+    resample_factors: Optional[tuple[float, float]] = None,
+    target_scale: float = 4e-6,
     only_downsample: bool = True,
     preserve_aspect_ratio: bool = False,
 ) -> tuple[ScanImage, Optional[MaskArray]]:
@@ -25,20 +25,21 @@ def resample_image_and_mask(
 
     :param image: Input ScanImage to resample
     :param mask: Corresponding mask array
-    :param resample_factor: Resampling factor (1/resample_factor is applied). If None, resamples to target_resolution.
-    :param target_resolution: Target resolution (m) when resample_factor is not provided
+    :param resample_factors: Resampling factors
+    :param target_scale: Target resolution (m) when resample_factor is not provided
     :param preserve_aspect_ratio: Whether to preserve the aspect ratio of the image.
     :param only_downsample: If True, only downsample data
 
     :returns: Resampled ScanImage and MaskArray
     """
-    resample_factor_x, resample_factor_y = get_resampling_factors(
-        image.scale_x,
-        image.scale_y,
-        only_downsample,
-        resample_factor,
-        target_resolution,
-        preserve_aspect_ratio,
+    if not resample_factors:
+        resample_factors = get_resampling_factors(
+            image.scale_x,
+            image.scale_y,
+            target_scale,
+        )
+    resample_factor_x, resample_factor_y = clip_resample_factors(
+        resample_factors, only_downsample, preserve_aspect_ratio
     )
     if resample_factor_x == 1 and resample_factor_y == 1:
         return image, mask
@@ -94,7 +95,7 @@ def resample_array(
     """
     resampled = ndimage.zoom(
         array,
-        (resample_factor_y, resample_factor_x),
+        (1 / resample_factor_y, 1 / resample_factor_x),
         order=order,
         mode=mode,
     )
@@ -104,10 +105,7 @@ def resample_array(
 def get_resampling_factors(
     scale_x: float,
     scale_y: float,
-    only_downsample: bool,
-    resample_factor: float | None,
     target_resolution: float,
-    preserve_aspect_ratio: bool = False,
 ) -> tuple[float, float]:
     """
     Calculate resampling factors for x and y dimensions. If `resample_factor` is provided, factors are set to 1/resample_factor,
@@ -127,20 +125,26 @@ def get_resampling_factors(
 
     :returns: Resampling factors.
     """
-    if resample_factor is not None:
-        resample_factor_x = resample_factor_y = 1 / resample_factor
-    else:
-        resample_factor_x = scale_x / target_resolution
-        resample_factor_y = scale_y / target_resolution
+    resample_factor_x = target_resolution / scale_x
+    resample_factor_y = target_resolution / scale_y
+    return resample_factor_x, resample_factor_y
 
+
+def clip_resample_factors(
+    resample_factors: tuple[float, float],
+    only_downsample: bool,
+    preserve_aspect_ratio: bool,
+) -> tuple[float, float]:
     if preserve_aspect_ratio:
         # Scale both factors equally to preserve the aspect ratio
-        resample_factor_x = resample_factor_y = min(
-            resample_factor_x, resample_factor_y
-        )
+        max_factor = max(resample_factors)
+        resample_factors = (max_factor, max_factor)
 
     if only_downsample:
-        # if only downsampling is allowed, clip the factors at max 1
-        resample_factor_x = min(1.0, resample_factor_x)
-        resample_factor_y = min(1.0, resample_factor_y)
-    return resample_factor_x, resample_factor_y
+        # If only downsampling is allowed, clip the factors at max 1
+        resample_factors = (
+            min(resample_factors[0], 1.0),
+            min(resample_factors[1], 1.0),
+        )
+
+    return resample_factors
