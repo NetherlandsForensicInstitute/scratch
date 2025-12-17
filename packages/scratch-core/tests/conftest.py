@@ -4,7 +4,7 @@ from PIL import Image
 
 from image_generation.data_formats import ScanImage
 from parsers.data_types import load_scan_image
-from utils.array_definitions import ScanMap2DArray
+from utils.array_definitions import ScanMap2DArray, MaskArray
 
 from .constants import SCANS_DIR
 
@@ -48,3 +48,15 @@ def scan_image_rectangular_with_nans(scan_image_with_nans: ScanImage) -> ScanIma
         scale_y=scan_image_with_nans.scale_y,
     )
     return scan_image
+
+
+@pytest.fixture(scope="module")
+def mask_array(scan_image_replica) -> MaskArray:
+    """Build a `MaskArray` object`."""
+    data = np.ones_like(scan_image_replica.data).astype(bool)
+    # Set the borders (edges) to 0
+    data[0, :] = 0  # First row
+    data[-1, :] = 0  # Last row
+    data[:, 0] = 0  # First column
+    data[:, -1] = 0  # Last column
+    return data
