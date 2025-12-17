@@ -20,7 +20,7 @@ def scan_image_array() -> ScanMap2DArray:
 @pytest.fixture(scope="session")
 def scan_image(scan_image_array: ScanMap2DArray) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return ScanImage(data=scan_image_array, scale_x=1, scale_y=1)
+    return ScanImage(data=scan_image_array, scale_x=4e-6, scale_y=4e-6)
 
 
 @pytest.fixture(scope="session")
