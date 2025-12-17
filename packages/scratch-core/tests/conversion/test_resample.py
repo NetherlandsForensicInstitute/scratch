@@ -3,7 +3,7 @@ import pytest
 
 from conversion.resample import (
     get_resampling_factors,
-    resample_image_and_mask,
+    resample_scan_image_and_mask,
     clip_resample_factors,
 )
 from image_generation.data_formats import ScanImage
@@ -63,26 +63,26 @@ class TestResample:
 
     def test_output_shape_matches_resample_size(self, scan_image: ScanImage):
         """Output array shape matches original shape."""
-        result, _ = resample_image_and_mask(scan_image, target_scale=4e-6)
+        result, _ = resample_scan_image_and_mask(scan_image, target_scale=4e-6)
         assert result.data.shape == scan_image.data.shape
 
     def test_output_shape_matches_clamped_upsampled_size(self, scan_image: ScanImage):
         """Output array shape matches expected size (unchanged since only_downsample is True)."""
-        result, _ = resample_image_and_mask(
+        result, _ = resample_scan_image_and_mask(
             scan_image, target_scale=1e-6, only_downsample=True
         )
         assert result.data.shape == scan_image.data.shape
 
     def test_output_shape_matches_upsampled_size(self, scan_image: ScanImage):
         """Output array shape matches expected upsampled size."""
-        result, _ = resample_image_and_mask(
+        result, _ = resample_scan_image_and_mask(
             scan_image, target_scale=1e-6, only_downsample=False
         )
         assert result.data.shape == tuple(i * 4 for i in scan_image.data.shape)
 
     def test_scale_updated_according_to_target_scale(self, scan_image: ScanImage):
         """Output scales are updated correctly."""
-        result, _ = resample_image_and_mask(scan_image, target_scale=8e-6)
+        result, _ = resample_scan_image_and_mask(scan_image, target_scale=8e-6)
         assert result.scale_x == pytest.approx(8e-6)
         assert result.scale_y == pytest.approx(8e-6)
 
@@ -90,7 +90,7 @@ class TestResample:
         self, scan_image_replica: ScanImage, mask_array: MaskArray
     ):
         """When no resampling needed, returns original objects."""
-        result, result_mask = resample_image_and_mask(
+        result, result_mask = resample_scan_image_and_mask(
             scan_image_replica,
             mask=mask_array,
             target_scale=0.5e-6,
@@ -101,7 +101,7 @@ class TestResample:
 
     def test_mask_none_passthrough(self, scan_image: ScanImage):
         """When mask is None, returns None."""
-        _, result_mask = resample_image_and_mask(
+        _, result_mask = resample_scan_image_and_mask(
             scan_image, mask=None, target_scale=4e-6
         )
         assert result_mask is None
@@ -110,7 +110,7 @@ class TestResample:
         self, scan_image_replica: ScanImage, mask_array: MaskArray
     ):
         """Mask is resampled to same shape as image."""
-        result, result_mask = resample_image_and_mask(
+        result, result_mask = resample_scan_image_and_mask(
             scan_image_replica, mask=mask_array, target_scale=1e-6
         )
         assert result_mask is not None
@@ -120,7 +120,7 @@ class TestResample:
         self, scan_image_replica: ScanImage, mask_array: MaskArray
     ):
         """Mask values remain binary after resampling."""
-        _, result_mask = resample_image_and_mask(
+        _, result_mask = resample_scan_image_and_mask(
             scan_image_replica, mask=mask_array, target_scale=1e-6
         )
         assert result_mask is not None

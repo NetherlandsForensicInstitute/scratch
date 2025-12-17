@@ -97,7 +97,7 @@ def apply_gaussian_filter(
     pixel_size: tuple[float, float] = (1.0, 1.0),
     regression_order: int = 0,
     nan_out: bool = True,
-    is_high_pass: bool = True,
+    is_high_pass: bool = False,
 ) -> NDArray[np.floating]:
     """
     Apply Gaussian filter to 2D data with NaN handling.
@@ -107,7 +107,7 @@ def apply_gaussian_filter(
     :param pixel_size: The pixel size in meters (m).
     :param regression_order: Degree regression filter (0, 1 or 2).
     :param nan_out: If True, preserve NaN positions in output (zeros otherwise)
-    :param is_high_pass: Whether to apply as highpass (default) or lowpass filter
+    :param is_high_pass: Whether to apply as highpass or lowpass filter (default)
     :return: Filtered data array.
     """
     if np.all(np.isnan(cutoff_lengths)):

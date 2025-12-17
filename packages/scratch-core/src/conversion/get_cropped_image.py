@@ -4,7 +4,7 @@ from numpy.typing import NDArray
 from conversion.gaussian_filter import apply_gaussian_filter
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import mask_and_crop_scan_image
-from conversion.resample import resample_image_and_mask
+from conversion.resample import resample_scan_image_and_mask
 from utils.array_definitions import MaskArray
 from image_generation.data_formats import ScanImage
 
@@ -16,6 +16,7 @@ def get_cropped_image(
     regression_order: int = 0,
     resample_factors: tuple[float, float] | None = None,
     mask: MaskArray | None = None,
+    crop: bool = False,
 ) -> NDArray:
     """
     Generate a preview image for the cropping editor by applying resampling, leveling, and filtering to depth data.
@@ -26,6 +27,7 @@ def get_cropped_image(
     :param regression_order: Filter regression order used when filtering the data.
     :param resample_factors: The resampling factors for the x- and y-axis.
     :param mask: Mask indicating fore/background to be applied to the data in `scan_image`.
+    :param crop: Whether to crop the result (i.e. remove outer NaNs).
     :returns: A numpy array with the cropped image data.
     """
     # Check whether the mask only consists of background
@@ -33,18 +35,18 @@ def get_cropped_image(
         return np.full_like(scan_image.data, np.nan)
 
     # Resample image and mask to speed up the processing
-    resampled_image, resampled_mask = resample_image_and_mask(
+    resampled_scan_image, resampled_mask = resample_scan_image_and_mask(
         scan_image, mask, resample_factors=resample_factors
     )
 
     # Apply mask to the `ScanImage` instance
     if resampled_mask is not None:
-        scan_image = mask_and_crop_scan_image(
-            scan_image=resampled_image, mask=resampled_mask, crop=False
+        resampled_scan_image = mask_and_crop_scan_image(
+            scan_image=resampled_scan_image, mask=resampled_mask, crop=crop
         )
 
     # Level the image data
-    level_result = level_map(scan_image=scan_image, terms=terms)
+    level_result = level_map(scan_image=resampled_scan_image, terms=terms)
 
     # Filter the leveled results using a Gaussian filter
     data_filtered = apply_gaussian_filter(
