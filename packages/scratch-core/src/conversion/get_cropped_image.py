@@ -4,15 +4,9 @@ from numpy.typing import NDArray
 from conversion.gaussian_filter import apply_gaussian_filter
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import mask_and_crop_scan_image
+from conversion.resample import resample_image_and_mask
 from utils.array_definitions import MaskArray
 from image_generation.data_formats import ScanImage
-
-
-# place-holder function
-def resample_image_and_mask(
-    scan_image: ScanImage, mask: MaskArray, resample_factors: tuple[float, float]
-) -> tuple[ScanImage, MaskArray]:
-    return scan_image, mask
 
 
 def get_cropped_image(
@@ -31,7 +25,7 @@ def get_cropped_image(
     :param terms: The surface terms to be used in the fitting. Note: terms can be combined using bit-operators.
     :param regression_order: Filter regression order used when filtering the data.
     :param cutoff_lengths: Cutoff wavelengths in physical units.
-    :param resample_factors: TODO
+    :param resample_factors: The resampling factors for the x- and y-axis.
     :returns: A numpy array with the cropped image data.
     """
     # Check whether the mask only consists of background
