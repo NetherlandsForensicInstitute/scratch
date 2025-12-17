@@ -11,7 +11,7 @@ def compute_root_mean_square(data: NDArray[Any]) -> float:
 
 
 def compute_image_center(scan_image: ScanImage) -> tuple[float, float]:
-    """Compute the centerpoint of a scan image in physical coordinate space."""
+    """Compute the centerpoint (X, Y) of a scan image in physical coordinate space."""
     center_x = (scan_image.width - 1) * scan_image.scale_x * 0.5
     center_y = (scan_image.height - 1) * scan_image.scale_y * 0.5
     return center_x, center_y
