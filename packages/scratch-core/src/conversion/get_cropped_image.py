@@ -31,7 +31,7 @@ def get_cropped_image(
     :returns: A numpy array with the cropped image data.
     """
     # Check whether the mask only consists of background
-    if not np.any(mask):
+    if mask is not None and not np.any(mask):
         return np.full_like(scan_image.data, np.nan)
 
     # Resample image and mask to speed up the processing
