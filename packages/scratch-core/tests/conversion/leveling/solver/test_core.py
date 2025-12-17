@@ -27,12 +27,12 @@ def test_fit_surface_plane_reduces_variance(
     zs: NDArray[np.float64],
     terms: SurfaceTerms,
 ):
-    leveled_map_single_term = zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)[0]
+    leveled_map_terms = zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)[0]
     leveled_map_plane = (
         zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.PLANE)[0]
     )
 
-    single_term_var = np.var(leveled_map_single_term)
+    single_term_var = np.var(leveled_map_terms)
     plane_var = np.var(leveled_map_plane)
 
     assert plane_var < single_term_var or np.isclose(plane_var, single_term_var)
@@ -45,12 +45,12 @@ def test_fit_surface_sphere_reduces_variance(
     zs: NDArray[np.float64],
     terms: SurfaceTerms,
 ):
-    leveled_map_single_term = zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)[0]
+    leveled_map_terms = zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)[0]
     leveled_map_sphere = (
         zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.SPHERE)[0]
     )
 
-    assert np.var(leveled_map_sphere) < np.var(leveled_map_single_term)
+    assert np.var(leveled_map_sphere) < np.var(leveled_map_terms)
 
 
 @pytest.mark.parametrize("terms", ALL_TERMS)
