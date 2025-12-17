@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
 
-from conversion.resample import get_resampling_factors, resample_image_and_mask
+from conversion.resample import (
+    get_resampling_factors,
+    resample_image_and_mask,
+    clip_resample_factors,
+)
 from image_generation.data_formats import ScanImage
 from utils.array_definitions import MaskArray
 
@@ -9,87 +13,71 @@ from utils.array_definitions import MaskArray
 class TestGetResamplingFactors:
     """Tests for get_resampling_factors function."""
 
-    def test_resample_factor_overrides_target_resolution(self):
-        factor_x, factor_y = get_resampling_factors(
-            10e-6, 10e-6, False, 2.0, 5e-6, False
-        )
+    def test_upsample_with_scales_bigger_than_target(self):
+        factor_x, factor_y = get_resampling_factors(10e-6, 10e-6, 5e-6)
         assert factor_x == pytest.approx(0.5)
         assert factor_y == pytest.approx(0.5)
 
-    def test_resample_factor_upsample(self):
-        factor_x, factor_y = get_resampling_factors(
-            10e-6, 10e-6, False, 0.5, 5e-6, False
-        )
-        assert factor_x == pytest.approx(2.0)
-        assert factor_y == pytest.approx(2.0)
-
-    def test_upsample_with_scales_bigger_than_target(self):
-        factor_x, factor_y = get_resampling_factors(
-            10e-6, 10e-6, False, None, 5e-6, False
-        )
-        assert factor_x == pytest.approx(2.0)
-        assert factor_y == pytest.approx(2.0)
-
     def test_downsample_with_scales_smaller_than_target(self):
-        factor_x, factor_y = get_resampling_factors(
-            1e-6, 1e-6, False, None, 4e-6, False
-        )
-        assert factor_x == pytest.approx(0.25)
-        assert factor_y == pytest.approx(0.25)
+        factor_x, factor_y = get_resampling_factors(1e-6, 1e-6, 4e-6)
+        assert factor_x == pytest.approx(4.0)
+        assert factor_y == pytest.approx(4.0)
 
     def test_no_resampling_needed(self):
-        factor_x, factor_y = get_resampling_factors(
-            4e-6, 4e-6, False, None, 4e-6, False
-        )
+        factor_x, factor_y = get_resampling_factors(4e-6, 4e-6, 4e-6)
         assert factor_x == pytest.approx(1.0)
         assert factor_y == pytest.approx(1.0)
 
     def test_different_scales_lead_to_different_factors(self):
-        factor_x, factor_y = get_resampling_factors(
-            2e-6, 4e-6, False, None, 4e-6, False
-        )
-        assert factor_x == pytest.approx(0.5)
+        factor_x, factor_y = get_resampling_factors(2e-6, 4e-6, 4e-6)
+        assert factor_x == pytest.approx(2.0)
         assert factor_y == pytest.approx(1.0)
 
-    def test_only_downsample_clamps_factors_to_1(self):
-        factor_x, factor_y = get_resampling_factors(
-            10e-6, 10e-6, True, None, 5e-6, False
+
+class TestClipResampleFactors:
+    """Tests for clip_resample_factors function."""
+
+    def test_only_downsample_clamps_factors_below_1(self):
+        """Factors below 1 (upsampling) get clamped to 1."""
+        result = clip_resample_factors(
+            (0.5, 0.5), only_downsample=True, preserve_aspect_ratio=False
         )
-        assert factor_x == pytest.approx(1.0)
-        assert factor_y == pytest.approx(1.0)
+        assert result == (1.0, 1.0)
 
-    def test_only_downsample_preserves_factors_below_1(self):
-        factor_x, factor_y = get_resampling_factors(1e-6, 1e-6, True, None, 4e-6, False)
-        assert factor_x == pytest.approx(0.25)
-        assert factor_y == pytest.approx(0.25)
-
-    def test_only_downsample_clips_factors_above_1(self):
-        factor_x, factor_y = get_resampling_factors(8e-6, 2e-6, True, None, 4e-6, False)
-        assert factor_x == pytest.approx(1.0)
-        assert factor_y == pytest.approx(0.5)
-
-    def test_only_downsample_clamps_resample_factor_parameter(self):
-        factor_x, factor_y = get_resampling_factors(
-            10e-6, 10e-6, True, 0.5, 5e-6, False
+    def test_only_downsample_preserves_factors_above_1(self):
+        """Factors above 1 (downsampling) are preserved."""
+        result = clip_resample_factors(
+            (4.0, 4.0), only_downsample=True, preserve_aspect_ratio=False
         )
-        assert factor_x == pytest.approx(1.0)
-        assert factor_y == pytest.approx(1.0)
+        assert result == (4.0, 4.0)
 
-    def test_preserve_aspect_ratio_with_upsample(self):
-        """Test that aspect ratio is preserved when upsampling."""
-        factor_x, factor_y = get_resampling_factors(
-            20e-6, 10e-6, False, None, 5e-6, True
+    def test_only_downsample_clips_mixed_factors(self):
+        """Mixed factors: those below 1 get clamped, those above 1 preserved."""
+        result = clip_resample_factors(
+            (0.5, 2.0), only_downsample=True, preserve_aspect_ratio=False
         )
-        assert factor_x == pytest.approx(factor_y)
-        assert factor_x > 1.0
+        assert result == (1.0, 2.0)
 
-    def test_preserve_aspect_ratio_with_downsample(self):
-        """Test that aspect ratio is preserved when downsampling."""
-        factor_x, factor_y = get_resampling_factors(
-            20e-6, 2e-6, False, None, 5e-6, True
+    def test_preserve_aspect_ratio_uses_max_factor(self):
+        """Both factors become the max when preserving aspect ratio."""
+        result = clip_resample_factors(
+            (0.25, 0.5), only_downsample=False, preserve_aspect_ratio=True
         )
-        assert factor_x == pytest.approx(factor_y)
-        assert factor_x < 1.0
+        assert result == (0.5, 0.5)
+
+    def test_preserve_aspect_ratio_with_only_downsample(self):
+        """Aspect ratio preserved first, then clamped if needed."""
+        result = clip_resample_factors(
+            (0.5, 2.0), only_downsample=True, preserve_aspect_ratio=True
+        )
+        assert result == (2.0, 2.0)
+
+    def test_no_modifications_when_flags_false(self):
+        """Factors unchanged when both flags are False."""
+        result = clip_resample_factors(
+            (0.5, 2.0), only_downsample=False, preserve_aspect_ratio=False
+        )
+        assert result == (0.5, 2.0)
 
 
 class TestResample:
@@ -97,26 +85,26 @@ class TestResample:
 
     def test_output_shape_matches_resample_size(self, scan_image: ScanImage):
         """Output array shape matches original shape."""
-        result, _ = resample_image_and_mask(scan_image, target_resolution=4e-6)
+        result, _ = resample_image_and_mask(scan_image, target_scale=4e-6)
         assert result.data.shape == scan_image.data.shape
 
     def test_output_shape_matches_clamped_upsampled_size(self, scan_image: ScanImage):
         """Output array shape matches expected size (unchanged since only_downsample is True)."""
         result, _ = resample_image_and_mask(
-            scan_image, target_resolution=1e-6, only_downsample=True
+            scan_image, target_scale=1e-6, only_downsample=True
         )
         assert result.data.shape == scan_image.data.shape
 
     def test_output_shape_matches_upsampled_size(self, scan_image: ScanImage):
         """Output array shape matches expected upsampled size."""
         result, _ = resample_image_and_mask(
-            scan_image, target_resolution=1e-6, only_downsample=False
+            scan_image, target_scale=1e-6, only_downsample=False
         )
         assert result.data.shape == tuple(i * 4 for i in scan_image.data.shape)
 
-    def test_scale_updated_according_to_target_resolution(self, scan_image: ScanImage):
+    def test_scale_updated_according_to_target_scale(self, scan_image: ScanImage):
         """Output scales are updated correctly."""
-        result, _ = resample_image_and_mask(scan_image, target_resolution=8e-6)
+        result, _ = resample_image_and_mask(scan_image, target_scale=8e-6)
         assert result.scale_x == pytest.approx(8e-6)
         assert result.scale_y == pytest.approx(8e-6)
 
@@ -127,7 +115,7 @@ class TestResample:
         result, result_mask = resample_image_and_mask(
             scan_image,
             mask=mask_array,
-            target_resolution=0.5e-6,
+            target_scale=0.5e-6,
             only_downsample=True,
         )
         assert result is scan_image
@@ -136,7 +124,7 @@ class TestResample:
     def test_mask_none_passthrough(self, scan_image: ScanImage):
         """When mask is None, returns None."""
         _, result_mask = resample_image_and_mask(
-            scan_image, mask=None, target_resolution=4e-6
+            scan_image, mask=None, target_scale=4e-6
         )
         assert result_mask is None
 
@@ -145,7 +133,7 @@ class TestResample:
     ):
         """Mask is resampled to same shape as image."""
         result, result_mask = resample_image_and_mask(
-            scan_image, mask=mask_array, target_resolution=1e-6
+            scan_image, mask=mask_array, target_scale=1e-6
         )
         assert result_mask is not None
         assert result_mask.shape == result.data.shape
@@ -153,7 +141,7 @@ class TestResample:
     def test_mask_stays_binary(self, scan_image: ScanImage, mask_array: MaskArray):
         """Mask values remain binary after resampling."""
         _, result_mask = resample_image_and_mask(
-            scan_image, mask=mask_array, target_resolution=1e-6
+            scan_image, mask=mask_array, target_scale=1e-6
         )
         assert result_mask is not None
         unique_values = np.unique(result_mask)
