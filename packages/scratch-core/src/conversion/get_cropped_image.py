@@ -13,8 +13,8 @@ def get_cropped_image(
     scan_image: ScanImage,
     mask: MaskArray,
     terms: SurfaceTerms,
-    regression_order: int,
     cutoff_lengths: tuple[float, float],
+    regression_order: int = 0,
     resample_factors: tuple[float, float] | None = None,
 ) -> NDArray:
     """
