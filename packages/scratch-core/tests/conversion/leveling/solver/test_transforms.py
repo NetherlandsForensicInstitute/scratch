@@ -3,7 +3,7 @@ from numpy.typing import NDArray
 import pytest
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.solver import normalize_coordinates, denormalize_parameters
-from ..constants import SURFACE_TERMS
+from ..constants import SINGLE_TERMS
 
 
 class TestNormalizeCoordinates:
@@ -39,14 +39,14 @@ class TestNormalizeCoordinates:
 
 
 class TestDenormalizeParameters:
-    @pytest.mark.parametrize("terms", SURFACE_TERMS)
+    @pytest.mark.parametrize("terms", SINGLE_TERMS)
     def test_denormalize_parameters_returns_all_terms(self, terms: SurfaceTerms):
         params = denormalize_parameters(
             coefficients={terms: 1.5}, x_mean=0.1, y_mean=0.5, scale=0.21
         )
         assert all(term in params for term in SurfaceTerms)
 
-    @pytest.mark.parametrize("terms", SURFACE_TERMS)
+    @pytest.mark.parametrize("terms", SINGLE_TERMS)
     def test_denormalize_parameters_adjusts_terms(self, terms: SurfaceTerms):
         initial_value = 1.5
         params = denormalize_parameters(

@@ -4,10 +4,10 @@ import numpy as np
 from numpy.typing import NDArray
 import pytest
 
-from ..constants import ALL_TERMS, SURFACE_TERMS
+from ..constants import SINGLE_AND_COMBINED_TERMS, SINGLE_TERMS
 
 
-@pytest.mark.parametrize("terms", ALL_TERMS)
+@pytest.mark.parametrize("terms", SINGLE_AND_COMBINED_TERMS)
 def test_fit_surface_reduces_variance(
     xs: NDArray[np.float64],
     ys: NDArray[np.float64],
@@ -38,7 +38,7 @@ def test_fit_surface_plane_reduces_variance(
     assert plane_var < single_term_var or np.isclose(plane_var, single_term_var)
 
 
-@pytest.mark.parametrize("terms", SURFACE_TERMS + [SurfaceTerms.PLANE])
+@pytest.mark.parametrize("terms", SINGLE_TERMS + [SurfaceTerms.PLANE])
 def test_fit_surface_sphere_reduces_variance(
     xs: NDArray[np.float64],
     ys: NDArray[np.float64],
@@ -53,7 +53,7 @@ def test_fit_surface_sphere_reduces_variance(
     assert np.var(leveled_map_sphere) < np.var(leveled_map_terms)
 
 
-@pytest.mark.parametrize("terms", ALL_TERMS)
+@pytest.mark.parametrize("terms", SINGLE_AND_COMBINED_TERMS)
 def test_fit_surface_fits_terms(
     xs: NDArray[np.float64],
     ys: NDArray[np.float64],

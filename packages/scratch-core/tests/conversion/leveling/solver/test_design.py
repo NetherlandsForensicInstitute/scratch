@@ -4,10 +4,10 @@ import numpy as np
 from numpy.typing import NDArray
 import pytest
 
-from ..constants import ALL_TERMS, RESOURCES_DIR
+from ..constants import SINGLE_AND_COMBINED_TERMS, RESOURCES_DIR
 
 
-@pytest.mark.parametrize("terms", ALL_TERMS)
+@pytest.mark.parametrize("terms", SINGLE_AND_COMBINED_TERMS)
 def test_design_matrix_shape_matches_number_of_terms(
     xs: NDArray[np.float64], ys: NDArray[np.float64], terms: SurfaceTerms
 ):
