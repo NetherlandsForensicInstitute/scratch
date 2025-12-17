@@ -123,19 +123,16 @@ def get_resampling_factors(
 
 def clip_resample_factors(
     resample_factors: tuple[float, float],
-    only_downsample: bool,
     preserve_aspect_ratio: bool,
 ) -> tuple[float, float]:
+    """Clip the resample factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
     if preserve_aspect_ratio:
         # Scale both factors equally to preserve the aspect ratio
         max_factor = max(resample_factors)
         resample_factors = (max_factor, max_factor)
 
-    if only_downsample:
-        # If only downsampling is allowed, clip the factors at max 1
-        resample_factors = (
-            max(resample_factors[0], 1.0),
-            max(resample_factors[1], 1.0),
-        )
-
+    resample_factors = (
+        max(resample_factors[0], 1.0),
+        max(resample_factors[1], 1.0),
+    )
     return resample_factors
