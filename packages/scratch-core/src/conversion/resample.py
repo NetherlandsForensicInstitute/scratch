@@ -46,7 +46,7 @@ def resample_image_and_mask(
         return image, mask
 
     image = resample_scan_image(image, resample_factors)
-    if mask:
+    if mask is not None:
         mask = resample_mask(mask, resample_factors)
     return image, mask
 

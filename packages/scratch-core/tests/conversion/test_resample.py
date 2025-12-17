@@ -109,16 +109,16 @@ class TestResample:
         assert result.scale_y == pytest.approx(8e-6)
 
     def test_no_resampling_returns_original(
-        self, scan_image: ScanImage, mask_array: MaskArray
+        self, scan_image_replica: ScanImage, mask_array: MaskArray
     ):
         """When no resampling needed, returns original objects."""
         result, result_mask = resample_image_and_mask(
-            scan_image,
+            scan_image_replica,
             mask=mask_array,
             target_scale=0.5e-6,
             only_downsample=True,
         )
-        assert result is scan_image
+        assert result is scan_image_replica
         assert result_mask is mask_array
 
     def test_mask_none_passthrough(self, scan_image: ScanImage):
@@ -129,19 +129,21 @@ class TestResample:
         assert result_mask is None
 
     def test_mask_resampled_to_same_shape_as_image(
-        self, scan_image: ScanImage, mask_array: MaskArray
+        self, scan_image_replica: ScanImage, mask_array: MaskArray
     ):
         """Mask is resampled to same shape as image."""
         result, result_mask = resample_image_and_mask(
-            scan_image, mask=mask_array, target_scale=1e-6
+            scan_image_replica, mask=mask_array, target_scale=1e-6
         )
         assert result_mask is not None
         assert result_mask.shape == result.data.shape
 
-    def test_mask_stays_binary(self, scan_image: ScanImage, mask_array: MaskArray):
+    def test_mask_stays_binary(
+        self, scan_image_replica: ScanImage, mask_array: MaskArray
+    ):
         """Mask values remain binary after resampling."""
         _, result_mask = resample_image_and_mask(
-            scan_image, mask=mask_array, target_scale=1e-6
+            scan_image_replica, mask=mask_array, target_scale=1e-6
         )
         assert result_mask is not None
         unique_values = np.unique(result_mask)
