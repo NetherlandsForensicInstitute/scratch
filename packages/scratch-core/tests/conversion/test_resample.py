@@ -39,45 +39,23 @@ class TestClipResampleFactors:
 
     def test_only_downsample_clamps_factors_below_1(self):
         """Factors below 1 (upsampling) get clamped to 1."""
-        result = clip_resample_factors(
-            (0.5, 0.5), only_downsample=True, preserve_aspect_ratio=False
-        )
+        result = clip_resample_factors((0.5, 0.5), preserve_aspect_ratio=False)
         assert result == (1.0, 1.0)
 
     def test_only_downsample_preserves_factors_above_1(self):
         """Factors above 1 (downsampling) are preserved."""
-        result = clip_resample_factors(
-            (4.0, 4.0), only_downsample=True, preserve_aspect_ratio=False
-        )
+        result = clip_resample_factors((4.0, 4.0), preserve_aspect_ratio=False)
         assert result == (4.0, 4.0)
 
     def test_only_downsample_clips_mixed_factors(self):
         """Mixed factors: those below 1 get clamped, those above 1 preserved."""
-        result = clip_resample_factors(
-            (0.5, 2.0), only_downsample=True, preserve_aspect_ratio=False
-        )
+        result = clip_resample_factors((0.5, 2.0), preserve_aspect_ratio=False)
         assert result == (1.0, 2.0)
-
-    def test_preserve_aspect_ratio_uses_max_factor(self):
-        """Both factors become the max when preserving aspect ratio."""
-        result = clip_resample_factors(
-            (0.25, 0.5), only_downsample=False, preserve_aspect_ratio=True
-        )
-        assert result == (0.5, 0.5)
 
     def test_preserve_aspect_ratio_with_only_downsample(self):
         """Aspect ratio preserved first, then clamped if needed."""
-        result = clip_resample_factors(
-            (0.5, 2.0), only_downsample=True, preserve_aspect_ratio=True
-        )
+        result = clip_resample_factors((0.5, 2.0), preserve_aspect_ratio=True)
         assert result == (2.0, 2.0)
-
-    def test_no_modifications_when_flags_false(self):
-        """Factors unchanged when both flags are False."""
-        result = clip_resample_factors(
-            (0.5, 2.0), only_downsample=False, preserve_aspect_ratio=False
-        )
-        assert result == (0.5, 2.0)
 
 
 class TestResample:

@@ -23,6 +23,11 @@ def resample_image_and_mask(
     than the target scale, no resampling is performed. If `resample_factors` are
     provided, it overrides the target scale.
 
+    The resampling factor determines how the image dimensions will change:
+    - factor < 1: upsampling (more pixels, finer resolution)
+    - factor > 1: downsampling (fewer pixels, coarser resolution)
+    - factor = 1: no change
+
     :param image: Input ScanImage to resample
     :param mask: Corresponding mask array
     :param resample_factors: Resampling factors
@@ -40,7 +45,7 @@ def resample_image_and_mask(
         )
     if only_downsample:
         resample_factors = clip_resample_factors(
-            resample_factors, only_downsample, preserve_aspect_ratio
+            resample_factors, preserve_aspect_ratio
         )
     if resample_factors == (1, 1):
         return image, mask
@@ -102,17 +107,11 @@ def get_resampling_factors(
     target_scale: float,
 ) -> tuple[float, float]:
     """
-    Calculate resampling factors for x and y dimensions. If `resample_factor` is provided, factors are set to 1/resample_factor,
-    otherwise, factors are calculated from current scale and target_scale.
-
-    The resampling factor determines how the image dimensions will change:
-    - factor > 1: upsampling (more pixels, finer resolution)
-    - factor < 1: downsampling (fewer pixels, coarser resolution)
-    - factor = 1: no change
+    Calculate resampling factors for x and y dimensions.
 
     :param scale_x: Scale for the x-axis
     :param scale_y: Scale for the y-axis
-    :param target_scale: Target resolution (m). Used when `resample_factor` is None.
+    :param target_scale: Target pixel size (in meters).
 
     :returns: Resampling factors.
     """
