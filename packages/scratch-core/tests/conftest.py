@@ -39,6 +39,17 @@ def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
     return scan_image
 
 
+@pytest.fixture(scope="session")
+def scan_image_rectangular_with_nans(scan_image_with_nans: ScanImage) -> ScanImage:
+    """Build a `ScanImage` object` with non-square image data."""
+    scan_image = ScanImage(
+        data=scan_image_with_nans.data[:, : scan_image_with_nans.data.shape[1] // 2],
+        scale_x=scan_image_with_nans.scale_x * 1.5,
+        scale_y=scan_image_with_nans.scale_y,
+    )
+    return scan_image
+
+
 @pytest.fixture(scope="module")
 def mask_array(scan_image_replica) -> MaskArray:
     """Build a `MaskArray` object`."""
