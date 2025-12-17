@@ -11,21 +11,21 @@ from image_generation.data_formats import ScanImage
 
 def get_cropped_image(
     scan_image: ScanImage,
-    mask: MaskArray,
     terms: SurfaceTerms,
     cutoff_lengths: tuple[float, float],
     regression_order: int = 0,
     resample_factors: tuple[float, float] | None = None,
+    mask: MaskArray | None = None,
 ) -> NDArray:
     """
     Generate a preview image for the cropping editor by applying resampling, leveling, and filtering to depth data.
 
     :param scan_image: ScanImage to be processed.
-    :param mask: Mask indicating fore/background to be applied to the data in `scan_image`.
     :param terms: The surface terms to be used in the fitting. Note: terms can be combined using bit-operators.
-    :param regression_order: Filter regression order used when filtering the data.
     :param cutoff_lengths: Cutoff wavelengths in physical units.
+    :param regression_order: Filter regression order used when filtering the data.
     :param resample_factors: The resampling factors for the x- and y-axis.
+    :param mask: Mask indicating fore/background to be applied to the data in `scan_image`.
     :returns: A numpy array with the cropped image data.
     """
     # Check whether the mask only consists of background
