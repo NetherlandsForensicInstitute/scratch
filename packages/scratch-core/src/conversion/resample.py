@@ -20,7 +20,7 @@ def resample_image_and_mask(
     Resample the input image and optionally its corresponding mask.
 
     If `only_downsample` is True and the current resolution is already coarser
-    than the target scale, no resampling is performed. If `scale_multipliers` are
+    than the target scale, no resampling is performed. If `factors` are
     provided, it overrides the target scale.
 
     :param scan_image: Input ScanImage to resample.
