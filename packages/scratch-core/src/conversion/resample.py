@@ -80,7 +80,7 @@ def _resample_array(
             1 / factor * array.shape[i] for i, factor in enumerate(factors)
         ),
         mode="edge",
-        anti_aliasing=any(factor > 1 for factor in factors),
+        anti_aliasing=array.dtype != np.bool_ and any(factor > 1 for factor in factors),
     )
     return np.asarray(resampled, dtype=array.dtype)
 
