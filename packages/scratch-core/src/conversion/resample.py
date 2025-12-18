@@ -11,7 +11,7 @@ from utils.array_definitions import MaskArray
 def resample_image_and_mask(
     scan_image: ScanImage,
     mask: Optional[MaskArray] = None,
-    factors: Optional[tuple[float, float]] = None,
+    factors: Optional[tuple[float, ...]] = None,
     target_scale: float = 4e-6,
     only_downsample: bool = True,
     preserve_aspect_ratio: bool = True,
@@ -81,8 +81,8 @@ def _resample_array(
         ),
         mode="edge",
         anti_aliasing=any(factor > 1 for factor in factors),
-    ).astype(array.dtype)
-    return resampled
+    )
+    return np.asarray(resampled, dtype=array.dtype)
 
 
 def get_scaling_factors(

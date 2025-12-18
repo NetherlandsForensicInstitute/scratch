@@ -94,7 +94,7 @@ class TestResampleImageAndMask:
     def test_no_resampling_when_factors_close_to_one(
         self, scan_image_rectangular_with_nans: ScanImage
     ):
-        mask = np.ones((100, 100), dtype=np.uint8)
+        mask = np.ones((100, 100), dtype=np.bool_)
 
         result_img, result_mask = resample_image_and_mask(
             scan_image_rectangular_with_nans, mask, factors=(1.0, 1.0)
@@ -145,7 +145,7 @@ class TestResampleImageAndMask:
     def test_resamples_mask_when_provided(
         self, scan_image_rectangular_with_nans: ScanImage
     ):
-        mask = np.ones((100, 100), dtype=np.uint8)
+        mask = np.ones((100, 100), dtype=np.bool_)
 
         with patch("conversion.resample._resample_array") as mock:
             mock.return_value = np.zeros((50, 50))
