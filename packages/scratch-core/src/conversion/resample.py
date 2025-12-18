@@ -25,8 +25,7 @@ def resample_scan_image_and_mask(
 
     :param scan_image: Input ScanImage to resample.
     :param mask: Corresponding mask array.
-    :param factors: The scaling multipliers for the resolution of the X- and Y-axis.
-        The formula used is `new_scale = factor * old_scale`.
+    :param factors: The multipliers for the scale of the X- and Y-axis. The formula used is `new_scale = factor * old_scale`.
     :param target_scale: Target scale (in meters) when `factors` are not provided.
     :param preserve_aspect_ratio: Whether to preserve the aspect ratio of the image.
     :param only_downsample: If True, only downsample data (default). If False, no rescaling is performed.
@@ -91,12 +90,12 @@ def get_scaling_factors(
     target_scale: float,
 ) -> tuple[float, ...]:
     """
-    Calculate the scaling multipliers for a target scale.
+    Calculate the multipliers for a target scale.
 
     :param scales: Current scales (= pixel size in meters per axis).
     :param target_scale: Target scale (= pixel size in meters).
 
-    :returns: The computed scaling multipliers.
+    :returns: The computed multipliers.
     """
     return tuple(target_scale / scale for scale in scales)
 
