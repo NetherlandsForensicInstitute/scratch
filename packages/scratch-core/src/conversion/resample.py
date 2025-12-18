@@ -39,6 +39,7 @@ def resample_image_and_mask(
         factors = clip_factors(factors, preserve_aspect_ratio)
     if np.allclose(factors, 1.0):
         return scan_image, mask
+
     factor_x, factor_y = factors
 
     image = resample_scan_image(scan_image, factor_x=factor_x, factor_y=factor_y)
