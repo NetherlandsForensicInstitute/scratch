@@ -8,7 +8,7 @@ from image_generation.data_formats import ScanImage
 from utils.array_definitions import MaskArray
 
 
-def resample_image_and_mask(
+def resample_scan_image_and_mask(
     scan_image: ScanImage,
     mask: Optional[MaskArray] = None,
     factors: Optional[tuple[float, ...]] = None,

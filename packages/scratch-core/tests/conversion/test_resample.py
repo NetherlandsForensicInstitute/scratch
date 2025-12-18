@@ -2,7 +2,7 @@ import numpy as np
 from unittest.mock import patch, MagicMock
 
 from conversion.resample import (
-    resample_image_and_mask,
+    resample_scan_image_and_mask,
     resample_scan_image,
     get_scaling_factors,
     clip_factors,
@@ -96,7 +96,7 @@ class TestResampleImageAndMask:
     ):
         mask = np.ones((100, 100), dtype=np.bool_)
 
-        result_img, result_mask = resample_image_and_mask(
+        result_img, result_mask = resample_scan_image_and_mask(
             scan_image_rectangular_with_nans, mask, factors=(1.0, 1.0)
         )
 
@@ -105,7 +105,7 @@ class TestResampleImageAndMask:
 
     def test_uses_explicit_factors(self, scan_image_rectangular_with_nans: ScanImage):
         with patch("conversion.resample.get_scaling_factors") as mock:
-            resample_image_and_mask(
+            resample_scan_image_and_mask(
                 scan_image_rectangular_with_nans, factors=(2.0, 2.0)
             )
             mock.assert_not_called()
@@ -115,7 +115,9 @@ class TestResampleImageAndMask:
     ):
         with patch("conversion.resample.get_scaling_factors") as mock:
             mock.return_value = (2.0, 2.0)
-            resample_image_and_mask(scan_image_rectangular_with_nans, target_scale=4e-6)
+            resample_scan_image_and_mask(
+                scan_image_rectangular_with_nans, target_scale=4e-6
+            )
             mock.assert_called_once()
 
     def test_clips_when_only_downsample(
@@ -123,7 +125,7 @@ class TestResampleImageAndMask:
     ):
         with patch("conversion.resample.clip_factors") as mock_clip:
             mock_clip.return_value = (1.0, 1.0)
-            resample_image_and_mask(
+            resample_scan_image_and_mask(
                 scan_image_rectangular_with_nans,
                 factors=(0.5, 0.5),
                 only_downsample=True,
@@ -135,7 +137,7 @@ class TestResampleImageAndMask:
     ):
         with patch("conversion.resample.clip_factors") as mock_clip:
             with patch("conversion.resample.resample_scan_image"):
-                resample_image_and_mask(
+                resample_scan_image_and_mask(
                     scan_image_rectangular_with_nans,
                     factors=(0.5, 0.5),
                     only_downsample=False,
@@ -150,14 +152,14 @@ class TestResampleImageAndMask:
         with patch("conversion.resample._resample_array") as mock:
             mock.return_value = np.zeros((50, 50))
 
-            _, result_mask = resample_image_and_mask(
+            _, result_mask = resample_scan_image_and_mask(
                 scan_image_rectangular_with_nans, mask, factors=(2.0, 2.0)
             )
 
             assert mock.call_count == 2  # Once for image, once for mask
 
     def test_none_mask_stays_none(self, scan_image_rectangular_with_nans):
-        _, result_mask = resample_image_and_mask(
+        _, result_mask = resample_scan_image_and_mask(
             scan_image_rectangular_with_nans, mask=None, factors=(2.0, 2.0)
         )
 
