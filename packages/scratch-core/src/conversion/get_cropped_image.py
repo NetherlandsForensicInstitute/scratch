@@ -26,7 +26,7 @@ def get_cropped_image(
     :param terms: The surface terms to be used in the fitting. Note: terms can be combined using bit-operators.
     :param cutoff_length: Cutoff wavelength in physical units.
     :param regression_order: Filter regression order used when filtering the data.
-    :param resampling_factors: The resampling factors for the x- and y-axis.
+    :param resampling_factors: The resampling factors for the X- and Y-axis scales.
     :param crop: Whether to crop the result (i.e. remove outer NaNs).
     :returns: A numpy array with the cropped image data.
     """
@@ -36,7 +36,7 @@ def get_cropped_image(
 
     # Resample image and mask to speed up the processing
     resampled_scan_image, resampled_mask = resample_scan_image_and_mask(
-        scan_image, mask, resampling_factors=resampling_factors
+        scan_image, mask, factors=resampling_factors
     )
 
     # Apply mask to the `ScanImage` instance
