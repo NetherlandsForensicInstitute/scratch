@@ -2,7 +2,7 @@ from typing import Optional
 
 import numpy as np
 from numpydantic import NDArray
-from scipy import ndimage
+from skimage.transform import resize
 
 from image_generation.data_formats import ScanImage
 from utils.array_definitions import MaskArray
@@ -52,24 +52,15 @@ def resample_scan_image_and_mask(
 
     image = resample_scan_image(image, resampling_factors)
     if mask is not None:
-        mask = resample_mask(mask, resampling_factors)
+        mask = _resample_array(mask, resampling_factors)
     return image, mask
-
-
-def resample_mask(
-    mask: MaskArray, resampling_factors: tuple[float, float]
-) -> MaskArray:
-    """Resample the provided mask array using the specified resampling factors."""
-    return _resample_array(mask, resampling_factors, order=0, mode="nearest")
 
 
 def resample_scan_image(
     image: ScanImage, resampling_factors: tuple[float, float]
 ) -> ScanImage:
     """Resample the ScanImage object using the specified resampling factors."""
-    image_array_resampled = _resample_array(
-        image.data, resampling_factors, order=1, mode="nearest"
-    )
+    image_array_resampled = _resample_array(image.data, resampling_factors)
     return ScanImage(
         data=image_array_resampled,
         scale_x=image.scale_x * resampling_factors[0],
@@ -80,27 +71,26 @@ def resample_scan_image(
 def _resample_array(
     array: NDArray,
     resample_factors: tuple[float, float],
-    order: int,
-    mode: str,
 ) -> NDArray:
     """
     Resample an array using the specified resampling factors, order, and mode.
 
     :param array: The array to resample.
     :param resample_factors: The resampling factors for the x- and y-axis.
-    :param order: The order of the spline interpolation to use.
-    :param mode: The mode to use for handling boundaries.
 
     :returns: The resampled array.
     """
-    resample_factor_x, resample_factor_y = resample_factors
-    resampled = ndimage.zoom(
-        array,
-        (1 / resample_factor_y, 1 / resample_factor_x),
-        order=order,
-        mode=mode,
+    # Rescale array. We do not need the "order" argument here since `skimage` sets it based on image dtype
+    resampled = resize(
+        image=array,
+        output_shape=tuple(
+            1 / factor * array.shape[i] for i, factor in enumerate(resample_factors)
+        ),
+        mode="edge",
+        anti_aliasing=array.dtype != np.bool_
+        and any(factor > 1 for factor in resample_factors),
     )
-    return np.asarray(resampled).astype(array.dtype)
+    return np.asarray(resampled, dtype=array.dtype)
 
 
 def get_resampling_factors(

@@ -13,7 +13,7 @@ def get_cropped_image(
     scan_image: ScanImage,
     mask: MaskArray,
     terms: SurfaceTerms,
-    cutoff_lengths: tuple[float, float],
+    cutoff_length: float,
     regression_order: int = 0,
     resampling_factors: tuple[float, float] | None = None,
     crop: bool = False,
@@ -24,7 +24,7 @@ def get_cropped_image(
     :param scan_image: ScanImage to be processed.
     :param mask: Mask indicating fore/background to be applied to the data in `scan_image`.
     :param terms: The surface terms to be used in the fitting. Note: terms can be combined using bit-operators.
-    :param cutoff_lengths: Cutoff wavelengths in physical units.
+    :param cutoff_length: Cutoff wavelength in physical units.
     :param regression_order: Filter regression order used when filtering the data.
     :param resampling_factors: The resampling factors for the x- and y-axis.
     :param crop: Whether to crop the result (i.e. remove outer NaNs).
@@ -52,7 +52,8 @@ def get_cropped_image(
     data_filtered = apply_gaussian_filter(
         data=level_result.leveled_map,
         regression_order=regression_order,
-        cutoff_lengths=cutoff_lengths,
+        cutoff_length=cutoff_length,
+        pixel_size=(resampled_scan_image.scale_x, resampled_scan_image.scale_y),
         is_high_pass=True,
     )
 
