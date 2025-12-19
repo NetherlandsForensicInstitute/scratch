@@ -62,7 +62,7 @@ def resample_scan_image(
 
 def _resample_array(
     array: NDArray,
-    factors: tuple[float, ...],
+    factors: tuple[float, float],
 ) -> NDArray:
     """
     Resample an array using the specified resampling factors.
@@ -70,7 +70,7 @@ def _resample_array(
     For example, if the scale factor is 0.5, then the image output shape will be scaled by 1 / 0.5 = 2.
 
     :param array: The array to resample.
-    :param factors: The resampling factors per axis.\
+    :param factors: The resampling factors per axis.
     :returns: The resampled array.
     """
     # Rescale array. We do not need the "order" argument here since `skimage` sets it based on image dtype

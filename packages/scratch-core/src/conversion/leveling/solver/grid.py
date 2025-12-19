@@ -17,7 +17,7 @@ def get_2d_grid(
     """
     # Generate Grid (ij indexing to match matrix coordinates)
     x_indices, y_indices = np.meshgrid(
-        np.arange(scan_image.width), np.arange(scan_image.height), indexing="ij"
+        np.arange(scan_image.width), np.arange(scan_image.height), indexing="xy"
     )
     # Translate the grid by `offset`
     x_grid = (x_indices * scan_image.scale_x) + offset[0]
