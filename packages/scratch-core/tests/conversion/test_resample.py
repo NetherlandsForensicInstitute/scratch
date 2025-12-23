@@ -134,5 +134,5 @@ class TestResampleMark:
         resampled = resample_mark(mark_image)
 
         expected_sampling = mark_image.mark_type.sampling_rate
-        assert resampled.scale_x == expected_sampling
-        assert resampled.scale_y == expected_sampling
+        assert resampled.scan_image.scale_x == expected_sampling
+        assert resampled.scan_image.scale_y == expected_sampling

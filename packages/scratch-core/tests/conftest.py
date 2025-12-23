@@ -64,11 +64,9 @@ def mask_array(scan_image_replica) -> MaskArray:
 
 
 @pytest.fixture(scope="session")
-def mark_image() -> MarkImage:
+def mark_image(scan_image: ScanImage) -> MarkImage:
     return MarkImage(
-        data=np.zeros((100, 100)),
-        scale_x=1e-6,
-        scale_y=1e-6,
+        scan_image=scan_image,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
         crop_type=CropType.RECTANGLE,
     )

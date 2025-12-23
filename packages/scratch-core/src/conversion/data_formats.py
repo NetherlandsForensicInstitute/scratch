@@ -1,6 +1,8 @@
 from enum import Enum, auto
 
-from image_generation.data_formats import ImageContainer
+from pydantic import BaseModel
+
+from image_generation.data_formats import ScanImage
 
 
 class MarkType(Enum):
@@ -41,10 +43,11 @@ class CropType(Enum):
     POLYGON = auto()
 
 
-class MarkImage(ImageContainer):
+class MarkImage(BaseModel):
     """
     Representation of a mark (impression or striation)
     """
 
+    scan_image: ScanImage
     mark_type: MarkType
     crop_type: CropType
