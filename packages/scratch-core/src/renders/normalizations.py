@@ -1,0 +1,155 @@
+import numpy as np
+from typing import Final
+
+from numpy.typing import NDArray
+from returns.pipeline import flow
+from returns.result import safe
+
+from container_models.scan_image import ScanImage
+from utils.logger import log_railway_function
+
+
+# Padding configurations for gradient arrays to maintain original dimensions
+_PAD_X_GRADIENT: Final[tuple[tuple[int, int], ...]] = (
+    (0, 0),
+    (1, 1),
+)  # Pad left and right (columns)
+_PAD_Y_GRADIENT: Final[tuple[tuple[int, int], ...]] = (
+    (1, 1),
+    (0, 0),
+)  # Pad top and bottom (rows)
+
+
+def _compute_central_diff_scales(scan_image: ScanImage) -> ScanImage:
+    """Compute scaling factors for central difference approximation: 1/(2*spacing)."""
+
+    def compute(value: float) -> float:
+        return 1 / (2 * value)
+
+    return scan_image.model_copy(
+        update={
+            "scale_x": compute(scan_image.scale_x),
+            "scale_y": compute(scan_image.scale_y),
+        },
+        deep=True,
+    )
+
+
+def _pad_gradient(
+    unpadded_gradient: NDArray, pad_width: tuple[tuple[int, int], tuple[int, int]]
+) -> NDArray:
+    """Pad a gradient array with NaN values at the borders."""
+    return np.pad(unpadded_gradient, pad_width, mode="constant", constant_values=np.nan)
+
+
+def _compute_depth_gradients(scan_image: ScanImage) -> ScanImage:
+    """Compute depth gradients (∂z/∂x, ∂z/∂y) using central differences."""
+    gradient_x = _pad_gradient(
+        (scan_image.data[:, :-2] - scan_image.data[:, 2:]) * scan_image.scale_x,
+        _PAD_X_GRADIENT,
+    )
+    gradient_y = _pad_gradient(
+        (scan_image.data[:-2, :] - scan_image.data[2:, :]) * scan_image.scale_y,
+        _PAD_Y_GRADIENT,
+    )
+    return scan_image.model_copy(
+        update={
+            "meta_data": {
+                **(scan_image.meta_data or {}),
+                "gradient_x": gradient_x,
+                "gradient_y": gradient_y,
+            }
+        }
+    )
+
+
+def _add_normal_magnitude(scan_image: ScanImage) -> ScanImage:
+    """Compute and attach the normal vector magnitude to gradient components."""
+    meta = scan_image.meta_data
+    magnitude = np.sqrt(meta["gradient_x"] ** 2 + meta["gradient_y"] ** 2 + 1)
+    return scan_image.model_copy(
+        update={
+            "meta_data": {
+                **meta,
+                "magnitude": magnitude,
+            }
+        }
+    )
+
+
+def _normalize_to_surface_normals(scan_image: ScanImage) -> ScanImage:
+    """Normalize gradient components to unit surface normal vectors."""
+    meta = scan_image.meta_data or {}
+    gradient_x = meta.pop("gradient_x")
+    gradient_y = meta.pop("gradient_y")
+    magnitude = meta.pop("magnitude")
+    return scan_image.model_copy(
+        update=dict(
+            data=np.stack(
+                [
+                    gradient_x / magnitude,
+                    -gradient_y / magnitude,
+                    1 / magnitude,
+                ],
+                axis=-1,
+            )
+        )
+    )
+
+
+@log_railway_function(
+    failure_message="Failed to compute surface normals from depth data",
+    success_message="Successfully computed surface normal components",
+)
+@safe
+def compute_surface_normals(scan_image: ScanImage) -> ScanImage:
+    """
+    Compute per-pixel surface normals from a 2D depth map.
+
+    The gradients in both x and y directions are estimated using central differences,
+    and the resulting normal vectors are normalized per pixel.
+    The border are padded with NaN values to keep the same size as the input data.
+
+    :param scan_image: A ScanImage where the mutation/ calculation is being made on.
+
+    :returns: 3D array of surface normals with shape (Height, Width, 3), where the
+              last dimension corresponds to (nx, ny, nz).
+    """
+
+    return flow(
+        scan_image,
+        _compute_central_diff_scales,
+        _compute_depth_gradients,
+        _add_normal_magnitude,
+        _normalize_to_surface_normals,
+    )
+
+
+@log_railway_function(
+    failure_message="Failed to normalize 2D intensity map",
+)
+@safe
+def normalize_2d_array(
+    image_to_normalize: ScanImage,
+    scale_max: float = 255,
+    scale_min: float = 25,
+) -> ScanImage:
+    """
+    Normalize a 2D intensity map to a specified output range.
+
+    The normalization is done by the steps:
+    1. apply min-max normalization to grayscale data
+    2. stretch / scale the normalized data from the unit range to a specified output range
+
+    :param image_to_normalize: 2D array of input intensity values.
+    :param scale_max: Maximum output intensity value. Default is ``255``.
+    :param scale_min: Minimum output intensity value. Default is ``25``.
+
+    :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
+    """
+    imin = np.nanmin(image_to_normalize.data)
+    imax = np.nanmax(image_to_normalize.data)
+    norm = (image_to_normalize.data - imin) / (imax - imin)
+    return image_to_normalize.model_copy(
+        update={"data": scale_min + (scale_max - scale_min) * norm}
+    )

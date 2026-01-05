@@ -2,7 +2,7 @@ from enum import Enum, auto
 
 from pydantic import BaseModel
 
-from image_generation.data_formats import ScanImage
+from container_models.scan_image import ScanImage
 
 
 class MarkType(Enum):

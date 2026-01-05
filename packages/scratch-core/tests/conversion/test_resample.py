@@ -8,8 +8,8 @@ from conversion.resample import (
     clip_resample_factors,
     resample_mark,
 )
-from image_generation.data_formats import ScanImage
-from utils.array_definitions import MaskArray
+from container_models.scan_image import ScanImage
+from container_models.base import MaskArray
 
 
 class TestGetResamplingFactors:

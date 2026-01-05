@@ -1,14 +1,14 @@
+from http import HTTPStatus
 from pathlib import Path
 
 import pytest
-from _pytest.monkeypatch import MonkeyPatch
+from container_models.light_source import LightSource
 from fastapi.testclient import TestClient
-from image_generation.exceptions import ImageGenerationError
-from parsers.exceptions import ExportError
-from starlette.status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR
+from PIL import Image
+from starlette.status import HTTP_200_OK
 
-from constants import PROJECT_ROOT
 from preprocessors import ProcessedDataLocation, UploadScan
+from preprocessors.schemas import UploadScanParameters
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
@@ -20,80 +20,121 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
     assert response.json() == {"message": "Hello from the pre-processors"}, "A placeholder response should be returned"
 
 
-@pytest.mark.integration
-def test_proces_scan(client: TestClient, tmp_path: Path) -> None:
-    # Arrange
-    scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/circle.x3p"
-    input_model = UploadScan(
-        scan_file=scan_file,
-        output_dir=tmp_path,
+@pytest.mark.e2e
+class TestProcessScanEndpoint:
+    """End-to-end tests for the /process-scan endpoint."""
+
+    def test_process_scan_success_with_al3d_file(
+        self, client: TestClient, scan_directory: Path, tmp_path: Path
+    ) -> None:
+        """Test successful scan processing with AL3D input file."""
+        # Arrange
+        scan_file = scan_directory / "circle.al3d"
+        request_data = UploadScan(scan_file=scan_file, output_dir=tmp_path)
+
+        # Act
+        response = client.post(
+            "/preprocessor/process-scan",
+            json=request_data.model_dump(mode="json"),
+        )
+
+        # Assert - verify response
+        assert response.status_code == HTTPStatus.OK
+        result = ProcessedDataLocation.model_validate(response.json())
+
+        # Assert - verify image files are valid PNGs
+        with Image.open(result.preview_image) as img:
+            assert img.format == "PNG"
+
+        with Image.open(result.surfacemap_image) as img:
+            assert img.format == "PNG"
+
+    def test_process_scan_output_filenames_match_input(
+        self, client: TestClient, scan_directory: Path, tmp_path: Path
+    ) -> None:
+        """Test that output filenames are derived from input filename."""
+        # Arrange
+        scan_file = scan_directory / "circle.al3d"
+        request_data = UploadScan(scan_file=scan_file, output_dir=tmp_path)
+
+        # Act
+        response = client.post(
+            "/preprocessor/process-scan",
+            json=request_data.model_dump(mode="json"),
+        )
+
+        # Assert
+        result = ProcessedDataLocation.model_validate(response.json())
+
+        # Verify filenames contain the input stem "circle"
+        assert result.x3p_image.name == "circle.x3p"
+        assert result.preview_image.name == "circle_preview.png"
+        assert result.surfacemap_image.name == "circle_surfacemap.png"
+
+    def test_process_scan_with_custom_light_sources(
+        self, client: TestClient, scan_directory: Path, tmp_path: Path
+    ) -> None:
+        """Test scan processing with custom light source configuration."""
+        # Arrange
+        scan_file = scan_directory / "circle.al3d"
+        request_data = UploadScan(
+            scan_file=scan_file,
+            output_dir=tmp_path,
+            parameters=UploadScanParameters(  # type: ignore
+                light_sources=(
+                    LightSource(azimuth=0, elevation=90),
+                    LightSource(azimuth=90, elevation=45),
+                    LightSource(azimuth=180, elevation=45),
+                    LightSource(azimuth=270, elevation=45),
+                ),
+                observer=LightSource(azimuth=0, elevation=90),
+            ),
+        )
+
+        # Act
+        response = client.post(
+            "/preprocessor/process-scan",
+            json=request_data.model_dump(mode="json"),
+        )
+
+        # Assert
+        assert response.status_code == HTTPStatus.OK
+        result = ProcessedDataLocation.model_validate(response.json())
+
+        # Verify surface map was generated with custom lighting
+        assert result.surfacemap_image.exists()
+        with Image.open(result.surfacemap_image) as img:
+            assert img.format == "PNG"
+
+    @pytest.mark.parametrize(
+        ("filename", "side_effect"),
+        [
+            pytest.param("nonexistent.x3p", "None", id="nonexistent file"),
+            pytest.param("unsuported.txt", "write_text is_unsupported_file", id="unsuported file"),
+            pytest.param("empty.x3p", "touch", id="empty file"),
+        ],
     )
+    def test_process_scan_bad_file(
+        self,
+        filename: str,
+        side_effect: str,
+        client: TestClient,
+        tmp_path: Path,
+    ) -> None:
+        """Test that Pydantic validation rejects nonexistent files."""
+        # Arrange
+        path = tmp_path / filename
+        method, *args = side_effect.strip().split()
+        if func := getattr(path, method, None):
+            func(*args)
 
-    # Act
-    response = client.post("/preprocessor/process-scan", json=input_model.model_dump(mode="json"))
+        # Act - send raw JSON to bypass Pydantic model construction
+        response = client.post(
+            "/preprocessor/process-scan",
+            json={"scan_file": str(path), "output_dir": str(tmp_path)},
+        )
 
-    # Assert
-    expected_response = ProcessedDataLocation(
-        preview_image=input_model.output_dir / "preview.png",
-        surfacemap_image=input_model.output_dir / "surface_map.png",
-        x3p_image=input_model.output_dir / "scan.x3p",
-    )
-    assert response.status_code == HTTP_200_OK, "endpoint is alive"
-    response_model = expected_response.model_validate(response.json())
-    assert response_model == expected_response
-
-
-@pytest.mark.parametrize(
-    ("target_path", "error_kind", "expected_status", "expected_detail"),
-    [
-        pytest.param(
-            "preprocessors.router.save_to_x3p",
-            ExportError,
-            HTTP_500_INTERNAL_SERVER_ERROR,
-            "Failed to save the scan file",
-            id="save_to_x3p failes",
-        ),
-        pytest.param(
-            "preprocessors.router.get_array_for_display",
-            ImageGenerationError,
-            HTTP_500_INTERNAL_SERVER_ERROR,
-            "Failed to generate preview",
-            id="Failed to generate preview image",
-        ),
-        pytest.param(
-            "preprocessors.router.compute_3d_image",
-            ImageGenerationError,
-            HTTP_500_INTERNAL_SERVER_ERROR,
-            "Failed to generate surface_map",
-            id="Failed to generate 3d image",
-        ),
-    ],
-)
-@pytest.mark.integration
-def test_process_scan_failures(  # noqa
-    client: TestClient,
-    tmp_path: Path,
-    monkeypatch: MonkeyPatch,
-    target_path: str,
-    error_kind: type[Exception],
-    expected_status: int,
-    expected_detail: str,
-) -> None:
-    # Arrange
-    def failing_function(*args, **kwargs) -> None:
-        raise error_kind("Test error")
-
-    monkeypatch.setattr(target_path, failing_function)
-
-    scan_file = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans/Klein_non_replica_mode.al3d"
-    input_model = UploadScan(scan_file=scan_file, output_dir=tmp_path)
-
-    # Act
-    response = client.post(
-        "/preprocessor/process-scan",
-        json=input_model.model_dump(mode="json"),
-    )
-
-    # Assert
-    assert response.status_code == expected_status
-    assert expected_detail in response.json()["detail"]
+        # Assert - Pydantic validation should catch this
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        error_detail = response.json()["detail"]
+        assert any("scan_file" in str(err) for err in error_detail)
