@@ -3,7 +3,7 @@ import pytest
 from PIL import Image
 
 from image_generation.data_formats import ScanImage
-from conversion.data_formats import MarkType, CropType, MarkImage
+from conversion.data_formats import MarkType, CropType, Mark
 from parsers.data_types import load_scan_image
 from utils.array_definitions import ScanMap2DArray, MaskArray
 
@@ -64,8 +64,8 @@ def mask_array(scan_image_replica) -> MaskArray:
 
 
 @pytest.fixture(scope="session")
-def mark_image(scan_image: ScanImage) -> MarkImage:
-    return MarkImage(
+def mark(scan_image: ScanImage) -> Mark:
+    return Mark(
         scan_image=scan_image,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
         crop_type=CropType.RECTANGLE,

@@ -4,7 +4,7 @@ import numpy as np
 from numpydantic import NDArray
 from scipy import ndimage
 
-from conversion.data_formats import MarkImage
+from conversion.data_formats import Mark
 from image_generation.data_formats import ScanImage
 from utils.array_definitions import MaskArray
 
@@ -57,11 +57,11 @@ def resample_image_and_mask(
     return image, mask
 
 
-def resample_mark(mark: MarkImage) -> MarkImage:
-    """Resample a MarkImage using the specified mark type specific sampling rate."""
+def resample_mark(mark: Mark) -> Mark:
+    """Resample a MarkImage so that the scale matches the scale specific for the mark type."""
     resampled_scan_image, _ = resample_image_and_mask(
         mark.scan_image,
-        target_scale=mark.mark_type.sampling_rate,
+        target_scale=mark.mark_type.scale,
         only_downsample=False,
     )
     return mark.model_copy(update={"scan_image": resampled_scan_image})

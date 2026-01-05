@@ -30,7 +30,7 @@ class MarkType(Enum):
         return "STRIATION" in self.name
 
     @property
-    def sampling_rate(self) -> float:
+    def scale(self) -> float:
         if self == MarkType.BREECH_FACE_IMPRESSION:
             return 3.5e-6
         return 1.5e-6
@@ -43,7 +43,7 @@ class CropType(Enum):
     POLYGON = auto()
 
 
-class MarkImage(BaseModel):
+class Mark(BaseModel):
     """
     Representation of a mark (impression or striation)
     """
