@@ -1,7 +1,7 @@
 from typing import Optional
 
 import numpy as np
-from numpydantic import NDArray
+from numpy.typing import NDArray
 from scipy import ndimage
 
 from conversion.data_formats import Mark
