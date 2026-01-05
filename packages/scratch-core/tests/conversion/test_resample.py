@@ -1,10 +1,12 @@
 import numpy as np
 import pytest
 
+from conversion.data_formats import Mark
 from conversion.resample import (
     get_resampling_factors,
     resample_image_and_mask,
     clip_resample_factors,
+    resample_mark,
 )
 from container_models.scan_image import ScanImage
 from container_models.base import MaskArray
@@ -126,3 +128,12 @@ class TestResample:
         assert result_mask is not None
         unique_values = np.unique(result_mask)
         assert all(v in [0, 1] for v in unique_values)
+
+
+class TestResampleMark:
+    def test_uses_mark_target_sampling(self, mark: Mark):
+        resampled = resample_mark(mark)
+
+        scale = mark.mark_type.scale
+        assert resampled.scan_image.scale_x == scale
+        assert resampled.scan_image.scale_y == scale
