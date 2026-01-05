@@ -3,13 +3,13 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from loguru import logger
 from PIL import Image
+from loguru import logger
 
-from container_models.base import MaskArray, ScanMap2DArray
+from container_models.base import ScanMap2DArray, MaskArray
 from container_models.scan_image import ScanImage
+from conversion.data_formats import MarkType, CropType, Mark
 from parsers import load_scan_image
-
 from .helper_function import unwrap_result
 
 TEST_ROOT = Path(__file__).parent
@@ -95,3 +95,12 @@ def mask_array(scan_image_replica) -> MaskArray:
     data[:, 0] = 0  # First column
     data[:, -1] = 0  # Last column
     return data
+
+
+@pytest.fixture(scope="session")
+def mark(scan_image: ScanImage) -> Mark:
+    return Mark(
+        scan_image=scan_image,
+        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        crop_type=CropType.RECTANGLE,
+    )
