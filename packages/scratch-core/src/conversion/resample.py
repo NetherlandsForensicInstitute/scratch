@@ -39,12 +39,9 @@ def resample_scan_image_and_mask(
         factors = _clip_factors(factors, preserve_aspect_ratio)
     if np.allclose(factors, 1.0):
         return scan_image, mask
-
-    factor_x, factor_y = factors
-
     image = _resample_scan_image(scan_image, factors=factors)
     if mask is not None:
-        mask = _resample_array(mask, factors=(factor_y, factor_x))
+        mask = _resample_image_array(mask, factors=factors)
     return image, mask
 
 
@@ -66,36 +63,33 @@ def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> Scan
     :param factors: The multipliers for the scale of the X- and Y-axis.
     :returns: The resampled ScanImage.
     """
-    factor_x, factor_y = factors
-    image_array_resampled = _resample_array(image.data, factors=(factor_y, factor_x))
+    image_array_resampled = _resample_image_array(image.data, factors=factors)
     return ScanImage(
         data=image_array_resampled,
-        scale_x=image.scale_x * factor_x,
-        scale_y=image.scale_y * factor_y,
+        scale_x=image.scale_x * factors[0],
+        scale_y=image.scale_y * factors[1],
     )
 
 
-def _resample_array(
+def _resample_image_array(
     array: NDArray,
-    factors: tuple[float, ...],
+    factors: tuple[float, float],
 ) -> NDArray:
     """
     Resample an array using the specified resampling factors.
 
     For example, if the scale factor is 0.5, then the image output shape will be scaled by 1 / 0.5 = 2.
 
-    :param array: The array to resample.
-    :param factors: The resampling factors per axis.
-    :returns: The resampled array.
+    :param array: The array containing the image data to resample.
+    :param factors: The multipliers for the scale of the X- and Y-axis.
+    :returns: A numpy array containing the resampled image data.
     """
-    # Rescale array. We do not need the "order" argument here since `skimage` sets it based on image dtype
+    factor_x, factor_y = factors
     resampled = resize(
         image=array,
-        output_shape=tuple(
-            1 / factor * array.shape[i] for i, factor in enumerate(factors)
-        ),
+        output_shape=(1 / factor_y * array.shape[0], 1 / factor_x * array.shape[1]),
         mode="edge",
-        anti_aliasing=array.dtype != np.bool_ and any(factor > 1 for factor in factors),
+        anti_aliasing=array.dtype != np.bool_ and all(factor > 1 for factor in factors),
     )
     return np.asarray(resampled, dtype=array.dtype)
 
