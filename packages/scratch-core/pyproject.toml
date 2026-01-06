@@ -15,6 +15,7 @@ dependencies = [
   "pillow>=12.0.0",
   "pydantic>=2.12.4",
   "returns>=0.26.0",
+  "scikit-image>=0.25.2",
   "scipy>=1.16.3",
   "surfalize~=0.16.6",
   "x3p @ git+https://github.com/giacomomarchioro/pyx3p.git#81c0f764cf321e56dc41e9e3c71d14e97d5bc3ae",
