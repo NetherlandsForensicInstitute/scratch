@@ -1,12 +1,12 @@
 import numpy as np
 from numpy.typing import NDArray
 
+from container_models.base import MaskArray
+from container_models.scan_image import ScanImage
 from conversion.gaussian_filter import apply_gaussian_filter
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import mask_and_crop_scan_image
 from conversion.resample import resample_scan_image_and_mask
-from utils.array_definitions import MaskArray
-from image_generation.data_formats import ScanImage
 
 
 def get_cropped_image(

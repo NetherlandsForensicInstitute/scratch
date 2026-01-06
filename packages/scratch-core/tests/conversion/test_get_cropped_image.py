@@ -2,11 +2,11 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
+from container_models.base import MaskArray
+from container_models.scan_image import ScanImage
 from conversion.get_cropped_image import get_cropped_image
 from conversion.leveling import SurfaceTerms
-from image_generation.data_formats import ScanImage
-from utils.array_definitions import MaskArray
-from ..constants import BASELINE_IMAGES_DIR
+from pathlib import Path
 
 
 @pytest.mark.integration
@@ -42,31 +42,31 @@ class TestGetCroppedImageMatlabComparison:
     """Test get_cropped_image against MATLAB reference output. Can be removed later."""
 
     @pytest.fixture
-    def matlab_output_plane(self) -> np.ndarray:
+    def matlab_output_plane(self, baseline_images_dir: Path) -> np.ndarray:
         """Load MATLAB reference output from CSV file."""
         return np.load(
-            BASELINE_IMAGES_DIR / "get_cropped_image_output_plane_matlab.npy"
+            baseline_images_dir / "get_cropped_image_output_plane_matlab.npy"
         )
 
     @pytest.fixture
-    def matlab_output_sphere(self) -> np.ndarray:
+    def matlab_output_sphere(self, baseline_images_dir: Path) -> np.ndarray:
         """Load MATLAB reference output from CSV file."""
         return np.load(
-            BASELINE_IMAGES_DIR / "get_cropped_image_output_sphere_matlab.npy"
+            baseline_images_dir / "get_cropped_image_output_sphere_matlab.npy"
         )
 
     @pytest.fixture
-    def input_scan_image(self) -> "ScanImage":
+    def input_scan_image(self, baseline_images_dir: Path) -> "ScanImage":
         """Load input scan image used for MATLAB test."""
-        data = np.load(BASELINE_IMAGES_DIR / "get_cropped_image_input_image.npy")
+        data = np.load(baseline_images_dir / "get_cropped_image_input_image.npy")
         xdim = 8.7479e-07  # meters
         ydim = 8.7479e-07  # meters
         return ScanImage(data=data, scale_x=xdim, scale_y=ydim)
 
     @pytest.fixture
-    def input_mask(self) -> "MaskArray":
+    def input_mask(self, baseline_images_dir: Path) -> "MaskArray":
         """Create mask for input data (True for valid pixels)."""
-        return np.load(BASELINE_IMAGES_DIR / "get_cropped_image_input_mask.npy").astype(
+        return np.load(baseline_images_dir / "get_cropped_image_input_mask.npy").astype(
             bool
         )
 

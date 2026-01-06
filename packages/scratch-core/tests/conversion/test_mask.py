@@ -1,3 +1,4 @@
+from pathlib import Path
 import numpy as np
 import pytest
 from numpy.testing import assert_array_almost_equal
@@ -9,9 +10,8 @@ from conversion.mask import (
     mask_and_crop_2d_array,
     mask_and_crop_scan_image,
 )
-from image_generation.data_formats import ScanImage
-from utils.array_definitions import MaskArray
-from ..constants import BASELINE_IMAGES_DIR
+from container_models.scan_image import ScanImage
+from container_models.base import MaskArray
 
 
 class TestMask2dArray:
@@ -177,9 +177,9 @@ class TestCropScanImage:
 
 @pytest.mark.integration
 def test_get_image_for_display_matches_baseline_image(
-    scan_image_with_nans: ScanImage, mask_array: MaskArray
+    scan_image_with_nans: ScanImage, mask_array: MaskArray, baseline_images_dir: Path
 ):
-    verified = np.load(BASELINE_IMAGES_DIR / "masked_cropped_array.npy")
+    verified = np.load(baseline_images_dir / "masked_cropped_array.npy")
     masked_cropped_array = mask_and_crop_2d_array(
         scan_image_with_nans.data, mask_array, crop=True
     )

@@ -1,7 +1,7 @@
 import numpy as np
 
-from image_generation.data_formats import ScanImage
-from utils.array_definitions import ScanMap2DArray, MaskArray
+from container_models.base import ScanMap2DArray, MaskArray
+from container_models.scan_image import ScanImage
 
 
 def mask_2d_array(

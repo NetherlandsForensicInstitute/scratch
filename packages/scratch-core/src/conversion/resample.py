@@ -1,17 +1,18 @@
 from typing import Optional
 
 import numpy as np
-from numpydantic import NDArray
+from numpy.typing import NDArray
 from skimage.transform import resize
 
-from image_generation.data_formats import ScanImage
-from utils.array_definitions import MaskArray
+from conversion.data_formats import Mark
+from container_models.scan_image import ScanImage
+from container_models.base import MaskArray
 
 
 def resample_scan_image_and_mask(
     scan_image: ScanImage,
     mask: Optional[MaskArray] = None,
-    factors: Optional[tuple[float, ...]] = None,
+    factors: Optional[tuple[float, float]] = None,
     target_scale: float = 4e-6,
     only_downsample: bool = True,
     preserve_aspect_ratio: bool = True,
@@ -19,39 +20,53 @@ def resample_scan_image_and_mask(
     """
     Resample the input image and optionally its corresponding mask.
 
-    If `only_downsample` is True and the current resolution is already coarser
-    than the target scale, no resampling is performed. If `factors` are
-    provided, it overrides the target scale.
+    If `only_downsample` is True and the current resolution is already coarser than the target scale,
+    no resampling is performed. If `factors` are provided, it overrides the target scale.
 
     :param scan_image: Input ScanImage to resample.
     :param mask: Corresponding mask array.
     :param factors: The multipliers for the scale of the X- and Y-axis. The formula used is `new_scale = factor * old_scale`.
     :param target_scale: Target scale (in meters) when `factors` are not provided.
     :param preserve_aspect_ratio: Whether to preserve the aspect ratio of the image.
-    :param only_downsample: If True, only downsample data (default). If False, no rescaling is performed.
+    :param only_downsample: If True, only downsample data (default). If False, allow upsampling.
     :returns: Resampled ScanImage and MaskArray
     """
     if not factors:
-        factors = get_scaling_factors(
+        factors = _get_scaling_factors(
             scales=(scan_image.scale_x, scan_image.scale_y), target_scale=target_scale
         )
     if only_downsample:
-        factors = clip_factors(factors, preserve_aspect_ratio)
+        factors = _clip_factors(factors, preserve_aspect_ratio)
     if np.allclose(factors, 1.0):
         return scan_image, mask
 
     factor_x, factor_y = factors
 
-    image = resample_scan_image(scan_image, factor_x=factor_x, factor_y=factor_y)
+    image = _resample_scan_image(scan_image, factors=factors)
     if mask is not None:
         mask = _resample_array(mask, factors=(factor_y, factor_x))
     return image, mask
 
 
-def resample_scan_image(
-    image: ScanImage, factor_x: float, factor_y: float
-) -> ScanImage:
-    """Resample the ScanImage object using the specified resampling factors."""
+def resample_mark(mark: Mark) -> Mark:
+    """Resample a MarkImage so that the scale matches the scale specific for the mark type."""
+    resampled_scan_image, _ = resample_scan_image_and_mask(
+        mark.scan_image,
+        target_scale=mark.mark_type.scale,
+        only_downsample=False,
+    )
+    return mark.model_copy(update={"scan_image": resampled_scan_image})
+
+
+def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> ScanImage:
+    """
+    Resample the ScanImage object using the specified resampling factors.
+
+    :param image: Input ScanImage to resample.
+    :param factors: The multipliers for the scale of the X- and Y-axis.
+    :returns: The resampled ScanImage.
+    """
+    factor_x, factor_y = factors
     image_array_resampled = _resample_array(image.data, factors=(factor_y, factor_x))
     return ScanImage(
         data=image_array_resampled,
@@ -85,30 +100,29 @@ def _resample_array(
     return np.asarray(resampled, dtype=array.dtype)
 
 
-def get_scaling_factors(
-    scales: tuple[float, ...],
+def _get_scaling_factors(
+    scales: tuple[float, float],
     target_scale: float,
-) -> tuple[float, ...]:
+) -> tuple[float, float]:
     """
     Calculate the multipliers for a target scale.
 
-    :param scales: Current scales (= pixel size in meters per axis).
+    :param scales: Current scales (= pixel size in meters per image dimension).
     :param target_scale: Target scale (= pixel size in meters).
 
     :returns: The computed multipliers.
     """
-    return tuple(target_scale / scale for scale in scales)
+    return target_scale / scales[0], target_scale / scales[1]
 
 
-def clip_factors(
-    factors: tuple[float, ...],
+def _clip_factors(
+    factors: tuple[float, float],
     preserve_aspect_ratio: bool,
-) -> tuple[float, ...]:
+) -> tuple[float, float]:
     """Clip the scaling factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
     if preserve_aspect_ratio:
         # Set the multipliers to equal values to preserve the aspect ratio
         max_factor = max(factors)
-        factors = tuple(max_factor for _ in factors)
+        factors = max_factor, max_factor
 
-    clipped = tuple(max(factor, 1.0) for factor in factors)
-    return clipped
+    return max(factors[0], 1.0), max(factors[1], 1.0)
