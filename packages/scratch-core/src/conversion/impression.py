@@ -6,13 +6,14 @@ from numpy.typing import NDArray
 from scipy.ndimage import binary_erosion
 from skimage.measure import CircleModel, ransac
 
+from container_models.base import MaskArray, ScanMap2DArray
+from container_models.scan_image import ScanImage
 from conversion.crop import crop_nan_borders
-from conversion.data_formats import MarkImage, MarkType
+from conversion.data_formats import Mark, MarkType
 from conversion.gaussian_filter import apply_gaussian_filter
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.parameters import PreprocessingImpressionParams
-from conversion.resample import resample
-from utils.array_definitions import ScanMap2DArray, MaskArray
+from conversion.resample import resample_image_and_mask
 
 
 def _get_mask_edge_points(mask: MaskArray) -> NDArray[np.floating]:
@@ -129,24 +130,24 @@ def _estimate_plane_tilt_degrees(
 
 
 def _get_valid_coordinates(
-    mark_image: MarkImage,
+    scan_image: ScanImage,
     center: tuple[float, float],
 ) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
     """Get x, y, z coordinates of valid pixels in meters, centered at origin."""
-    valid_mask = ~np.isnan(mark_image.data)
+    valid_mask = ~np.isnan(scan_image.data)
     rows, cols = np.where(valid_mask)
 
-    x = cols * mark_image.scale_x - center[0]
-    y = rows * mark_image.scale_y - center[1]
-    z = mark_image.data[valid_mask]
+    x = cols * scan_image.scale_x - center[0]
+    y = rows * scan_image.scale_y - center[1]
+    z = scan_image.data[valid_mask]
 
     return x, y, z
 
 
 def _adjust_for_plane_tilt_degrees(
-    mark_image: MarkImage,
+    scan_image: ScanImage,
     center: tuple[float, float],
-) -> MarkImage:
+) -> tuple[ScanImage, tuple]:
     """
     Remove plane tilt from mark image and adjust scale factors.
 
@@ -154,38 +155,31 @@ def _adjust_for_plane_tilt_degrees(
     :param center: Center position in meters
     :return: Leveled mark image with adjusted scale
     """
-    x, y, z = _get_valid_coordinates(mark_image, center)
+    x, y, z = _get_valid_coordinates(scan_image, center)
 
     if len(x) < 3:
         raise ValueError("Need at least 3 valid points to estimate plane tilt")
 
     tilt_x_deg, tilt_y_deg, residuals = _estimate_plane_tilt_degrees(x, y, z)
 
-    data = mark_image.data.copy()
-    data[~np.isnan(mark_image.data)] = residuals
+    data = scan_image.data.copy()
+    data[~np.isnan(scan_image.data)] = residuals
 
-    scale_x_new = mark_image.scale_x / np.cos(np.radians(tilt_x_deg))
-    scale_y_new = mark_image.scale_y / np.cos(np.radians(tilt_y_deg))
+    scale_x_new = scan_image.scale_x / np.cos(np.radians(tilt_x_deg))
+    scale_y_new = scan_image.scale_y / np.cos(np.radians(tilt_y_deg))
     center_new = (
         center
         * np.array([scale_x_new, scale_y_new])
-        / np.array([mark_image.scale_x, mark_image.scale_y])
+        / np.array([scan_image.scale_x, scan_image.scale_y])
     )
 
-    return mark_image.model_copy(
-        update={
-            "data": data,
-            "scale_x": scale_x_new,
-            "scale_y": scale_y_new,
-            "center": center_new,
-        }
-    )
+    return ScanImage(data=data, scale_x=scale_x_new, scale_y=scale_y_new), center_new
 
 
 def _apply_anti_aliasing(
-    mark_image: MarkImage,
+    scan_image: ScanImage,
     target_spacing: tuple[float, float],
-) -> tuple[MarkImage, tuple[Optional[float], Optional[float]]]:
+) -> tuple[ScanImage, tuple[Optional[float], Optional[float]]]:
     """Apply anti-aliasing filter before downsampling.
 
     Anti-aliasing prevents high-frequency content from appearing as false
@@ -201,30 +195,30 @@ def _apply_anti_aliasing(
     :return: Tuple of (filtered image, cutoff applied) or (original image, None)
     """
     downsample_ratio = (
-        target_spacing[0] / mark_image.scale_x,
-        target_spacing[1] / mark_image.scale_y,
+        target_spacing[0] / scan_image.scale_x,
+        target_spacing[1] / scan_image.scale_y,
     )
 
     # Only filter if downsampling by >1.5x (matching MATLAB's 2*1.5 = 3 threshold)
     if not any(r > 1.5 for r in downsample_ratio):
-        return mark_image, (None, None)
+        return scan_image, (None, None)
 
     cutoffs = (
-        downsample_ratio[0] * mark_image.scale_x,
-        downsample_ratio[1] * mark_image.scale_y,
+        downsample_ratio[0] * scan_image.scale_x,
+        downsample_ratio[1] * scan_image.scale_y,
     )
 
     filtered_data = apply_gaussian_filter(
-        mark_image.data,
+        scan_image.data,
         is_high_pass=False,
         cutoff_lengths=cutoffs,
     )
 
-    return mark_image.model_copy(update={"data": filtered_data}), cutoffs
+    return scan_image.model_copy(update={"data": filtered_data}), cutoffs
 
 
 def _set_center(
-    mark_image: MarkImage,
+    mark_image: Mark,
 ) -> tuple[float, float]:
     """Get global and local center coordinates from metadata or compute from data.
 
@@ -232,18 +226,18 @@ def _set_center(
     :return: center_local (x, y) in meters
     """
     use_circle = mark_image.mark_type == MarkType.BREECH_FACE_IMPRESSION
-    center_px = _set_map_center(mark_image.data, use_circle)
+    center_px = _set_map_center(mark_image.scan_image.data, use_circle)
     center_local = (
-        center_px[0] * mark_image.scale_x,
-        center_px[1] * mark_image.scale_y,
+        center_px[0] * mark_image.scan_image.scale_x,
+        center_px[1] * mark_image.scan_image.scale_y,
     )
     return center_local
 
 
 def preprocess_impression_mark(
-    mark_image: MarkImage,
+    mark: Mark,
     params: PreprocessingImpressionParams,
-) -> tuple[MarkImage, MarkImage]:
+) -> tuple[Mark, Mark]:
     """Preprocess trimmed impression image data.
 
     Processing steps:
@@ -262,35 +256,43 @@ def preprocess_impression_mark(
     :return: tuple[MarkImage, MarkImage] with filtered-and-leveled and just-leveled data
     """
     # 1. Set image center
-    center_local = _set_center(mark_image)
+    center_local = _set_center(mark)
 
     # 2. Crop mark
-    cropped_image = crop_nan_borders(mark_image.data)
-    mark_image = mark_image.model_copy(update={"data": cropped_image})
+    cropped_image = crop_nan_borders(mark.scan_image.data)
+    mark_image = mark.model_copy(update={"data": cropped_image})
 
     # 3. Adjust pixel spacing based on sample tilt (optional)
     interpolated = False
     if params.adjust_pixel_spacing:
-        mark_image = _adjust_for_plane_tilt_degrees(mark_image, center_local)
+        scan_image, center = _adjust_for_plane_tilt_degrees(
+            mark.scan_image, center_local
+        )
+        mark = mark.model_copy(update={"scan_image": scan_image})
 
     # 4. Level data
     leveled_results = level_map(
-        mark_image,
+        mark.scan_image,
         terms=params.surface_terms,
-        is_highpass=False,
-        image_center=center_local,
+        reference_point=center_local,
     )
     fitted_surface = leveled_results.fitted_surface
-    mark_image_leveled = mark_image.model_copy(
+    scan_image_leveled = mark_image.scan_image.model_copy(
         update={"data": leveled_results.leveled_map}
+    )
+    mark_image_leveled = mark_image.model_copy(
+        update={"scan_image": scan_image_leveled}
     )
 
     # 5. Apply anti-aliasing filter
     mark_image_leveled_aa = mark_image_leveled.model_copy()
     cutoff_low = (None, None)
     if params.pixel_size is not None:
-        mark_image_leveled_aa, cutoff_low = _apply_anti_aliasing(
-            mark_image_leveled_aa, params.pixel_size
+        scan_image, cutoff_low = _apply_anti_aliasing(
+            mark_image_leveled_aa.scan_image, params.pixel_size
+        )
+        mark_image_leveled_aa = mark_image_leveled_aa.model_copy(
+            update={"scan_image": scan_image}
         )
 
     # 6. Apply low-pass filter (if no anti-aliasing is performed
@@ -312,21 +314,38 @@ def preprocess_impression_mark(
     # 7. Resample to desired resolution
     if params.pixel_size is not None:
         if not np.allclose(
-            (mark_image_filtered.scale_x, mark_image_filtered.scale_y),
+            (
+                mark_image_filtered.scan_image.scale_x,
+                mark_image_filtered.scan_image.scale_y,
+            ),
             params.pixel_size,
             rtol=1e-7,
         ):
-            mark_image_filtered, _ = resample(
-                mark_image_filtered, target_sampling_distance=params.pixel_size[0]
+            scan_image_filtered, _ = resample_image_and_mask(
+                mark_image_filtered.scan_image,
+                target_scale=params.pixel_size[0],
+                only_downsample=False,
             )
-            mark_image_leveled_aa, _ = resample(
-                mark_image_leveled_aa, target_sampling_distance=params.pixel_size[0]
+            mark_image_filtered = mark_image_filtered.model_copy(
+                update={"scan_image": scan_image_filtered}
             )
+
+            scan_image_leveled_aa, _ = resample_image_and_mask(
+                mark_image_leveled_aa.scan_image,
+                target_scale=params.pixel_size[0],
+                only_downsample=False,
+            )
+            mark_image_leveled_aa = mark_image_leveled_aa.model_copy(
+                update={"scan_image": scan_image_leveled_aa}
+            )
+
             fitted_surface_image = mark_image_leveled.model_copy(
                 update={"data": fitted_surface}
             )
-            fitted_surface_image, _ = resample(
-                fitted_surface_image, target_sampling_distance=params.pixel_size[0]
+            fitted_surface_image, _ = resample_image_and_mask(
+                fitted_surface_image.scan_image,
+                target_scale=params.pixel_size[0],
+                only_downsample=False,
             )
             fitted_surface = fitted_surface_image.data
             interpolated = True
@@ -344,22 +363,29 @@ def preprocess_impression_mark(
 
     # 9. Re-level data
     leveled_results = level_map(
-        mark_image_filtered, terms=params.surface_terms, is_highpass=False
+        mark_image_filtered.scan_image, terms=params.surface_terms
+    )
+    scan_image_filtered = mark_image_filtered.scan_image.model_copy(
+        update={"data": leveled_results.leveled_map}
     )
     mark_image_filtered = mark_image_filtered.model_copy(
-        update={"data": leveled_results.leveled_map}
+        update={"scan_image": scan_image_filtered}
     )
 
     # For leveled-only data: add back the removed form, then level with rigid terms only
+    scan_image_filtered_aa = mark_image_leveled_aa.scan_image.model_copy(
+        update={"data": mark_image_leveled_aa.scan_image.data + fitted_surface}
+    )
     mark_image_leveled_aa = mark_image_leveled_aa.model_copy(
-        update={"data": mark_image_leveled_aa.data + fitted_surface}
+        update={"scan_image": scan_image_filtered_aa}
     )
     rigid_terms = params.surface_terms & SurfaceTerms.PLANE
-    leveled_results = level_map(
-        mark_image_leveled_aa, terms=rigid_terms, is_highpass=False
+    leveled_results = level_map(mark_image_leveled_aa.scan_image, terms=rigid_terms)
+    scan_image_filtered_aa = mark_image_leveled_aa.scan_image.model_copy(
+        update={"data": leveled_results.leveled_map}
     )
     mark_image_leveled_aa = mark_image_leveled_aa.model_copy(
-        update={"data": leveled_results.leveled_map}
+        update={"scan_image": scan_image_filtered_aa}
     )
 
     # Build output metadata
@@ -375,18 +401,22 @@ def preprocess_impression_mark(
             "is_interpolated": interpolated,
         }
     )
-    return MarkImage(
-        data=mark_image_filtered.data,
-        scale_x=params.pixel_size[0],
-        scale_y=params.pixel_size[1],
+    return Mark(
+        scan_image=ScanImage(
+            data=mark_image_filtered.scan_image.data,
+            scale_x=params.pixel_size[0],
+            scale_y=params.pixel_size[1],
+        ),
         mark_type=mark_image_filtered.mark_type,
         crop_type=mark_image_filtered.crop_type,
         meta_data=mark_image_filtered.meta_data
         | {"is_filtered": True, "is_leveled": True},
-    ), MarkImage(
-        data=mark_image_leveled_aa.data,
-        scale_x=params.pixel_size[0],
-        scale_y=params.pixel_size[1],
+    ), Mark(
+        scan_image=ScanImage(
+            data=mark_image_leveled_aa.scan_image.data,
+            scale_x=params.pixel_size[0],
+            scale_y=params.pixel_size[1],
+        ),
         mark_type=mark_image_leveled_aa.mark_type,
         crop_type=mark_image_leveled_aa.crop_type,
         meta_data=mark_image_leveled_aa.meta_data

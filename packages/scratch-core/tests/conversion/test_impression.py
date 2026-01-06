@@ -2,7 +2,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
 
-from conversion.data_formats import MarkImage, MarkType, CropType
+from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark, MarkType, CropType
 from conversion.impression import (
     _get_mask_edge_points,
     _points_are_collinear,
@@ -49,11 +50,9 @@ def make_mark_image(
     scale_x: float = 1.0,
     scale_y: float = 1.0,
     mark_type: MarkType = MarkType.EXTRACTOR_IMPRESSION,
-) -> MarkImage:
-    return MarkImage(
-        data=data,
-        scale_x=scale_x,
-        scale_y=scale_y,
+) -> Mark:
+    return Mark(
+        scan_image=ScanImage(data=data, scale_x=scale_x, scale_y=scale_y),
         mark_type=mark_type,
         crop_type=CropType.RECTANGLE,
     )
@@ -285,12 +284,12 @@ class TestEstimatePlaneTiltDegrees:
 
 class TestGetValidCoordinates:
     def test_returns_empty_arrays_for_all_nan(self):
-        mark_image = make_mark_image(
+        scan_image = ScanImage(
             data=np.full((5, 5), np.nan),
             scale_x=1.0,
             scale_y=1.0,
         )
-        x, y, z = _get_valid_coordinates(mark_image, center=(0, 0))
+        x, y, z = _get_valid_coordinates(scan_image, center=(0, 0))
         assert len(x) == 0
         assert len(y) == 0
         assert len(z) == 0
@@ -298,8 +297,8 @@ class TestGetValidCoordinates:
     def test_returns_coordinates_for_single_pixel(self):
         data = np.full((5, 5), np.nan)
         data[2, 3] = 10.0  # row=2, col=3
-        mark_image = make_mark_image(data=data, scale_x=1.0, scale_y=1.0)
-        x, y, z = _get_valid_coordinates(mark_image, center=(0, 0))
+        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
+        x, y, z = _get_valid_coordinates(scan_image, center=(0, 0))
         assert x == pytest.approx([3.0])
         assert y == pytest.approx([2.0])
         assert z == pytest.approx([10.0])
@@ -307,8 +306,8 @@ class TestGetValidCoordinates:
     def test_applies_scale_factors(self):
         data = np.full((5, 5), np.nan)
         data[2, 3] = 10.0
-        mark_image = make_mark_image(data=data, scale_x=0.5, scale_y=0.25)
-        x, y, z = _get_valid_coordinates(mark_image, center=(0, 0))
+        scan_image = ScanImage(data=data, scale_x=0.5, scale_y=0.25)
+        x, y, z = _get_valid_coordinates(scan_image, center=(0, 0))
         assert x == pytest.approx([1.5])  # 3 * 0.5
         assert y == pytest.approx([0.5])  # 2 * 0.25
         assert z == pytest.approx([10.0])
@@ -316,8 +315,8 @@ class TestGetValidCoordinates:
     def test_subtracts_center(self):
         data = np.full((5, 5), np.nan)
         data[2, 3] = 10.0
-        mark_image = make_mark_image(data=data, scale_x=1.0, scale_y=1.0)
-        x, y, z = _get_valid_coordinates(mark_image, center=(1.0, 0.5))
+        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
+        x, y, z = _get_valid_coordinates(scan_image, center=(1.0, 0.5))
         assert x == pytest.approx([2.0])  # 3 - 1.0
         assert y == pytest.approx([1.5])  # 2 - 0.5
         assert z == pytest.approx([10.0])
@@ -327,8 +326,8 @@ class TestGetValidCoordinates:
         data[0, 0] = 1.0
         data[1, 2] = 2.0
         data[2, 1] = 3.0
-        mark_image = make_mark_image(data=data, scale_x=1.0, scale_y=1.0)
-        x, y, z = _get_valid_coordinates(mark_image, center=(0, 0))
+        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
+        x, y, z = _get_valid_coordinates(scan_image, center=(0, 0))
         assert len(x) == 3
         assert set(z) == {1.0, 2.0, 3.0}
 
@@ -338,17 +337,17 @@ class TestAdjustForPlaneTiltDegrees:
         data = np.full((5, 5), np.nan)
         data[0, 0] = 1.0
         data[1, 1] = 2.0
-        mark_image = make_mark_image(data=data, scale_x=1.0, scale_y=1.0)
+        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
         with pytest.raises(ValueError):
-            _adjust_for_plane_tilt_degrees(mark_image, center=(0, 0))
+            _adjust_for_plane_tilt_degrees(scan_image, center=(0, 0))
 
     def test_returns_flat_data_for_tilted_plane(self):
         data = np.full((5, 5), np.nan)
         for row in range(5):
             for col in range(5):
                 data[row, col] = float(col)  # tilted in x direction
-        mark_image = make_mark_image(data=data, scale_x=1.0, scale_y=1.0)
-        result = _adjust_for_plane_tilt_degrees(mark_image, center=(0, 0))
+        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
+        result, _ = _adjust_for_plane_tilt_degrees(scan_image, center=(0, 0))
         valid_mask = ~np.isnan(result.data)
         assert result.data[valid_mask] == pytest.approx(np.zeros(25), abs=1e-10)
 
@@ -357,23 +356,23 @@ class TestAdjustForPlaneTiltDegrees:
         for row in range(5):
             for col in range(5):
                 data[row, col] = float(col)
-        mark_image = make_mark_image(data=data, scale_x=1.0, scale_y=1.0)
-        result = _adjust_for_plane_tilt_degrees(mark_image, center=(0, 0))
-        assert result.scale_x > mark_image.scale_x
-        assert result.scale_y == pytest.approx(mark_image.scale_y)
+        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
+        result, _ = _adjust_for_plane_tilt_degrees(scan_image, center=(0, 0))
+        assert result.scale_x > scan_image.scale_x
+        assert result.scale_y == pytest.approx(scan_image.scale_y)
 
 
 class TestApplyAntiAliasing:
     def test_returns_original_when_below_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
-        mark_image = make_mark_image(data, scale_x=1.0, scale_y=1.0)
-        result, _ = _apply_anti_aliasing(mark_image, target_spacing=(1.4, 1.4))
-        assert result is mark_image
+        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
+        result, _ = _apply_anti_aliasing(scan_image, target_spacing=(1.4, 1.4))
+        assert result is scan_image
 
     def test_applies_filter_when_above_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
-        mark_image = make_mark_image(data, scale_x=1.0, scale_y=1.0)
-        _, cutoffs = _apply_anti_aliasing(mark_image, target_spacing=(2.0, 2.0))
+        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
+        _, cutoffs = _apply_anti_aliasing(scan_image, target_spacing=(2.0, 2.0))
         assert cutoffs == (2.0, 2.0)
 
 
@@ -435,8 +434,8 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, leveled = preprocess_impression_mark(mark_image, params)
 
-        assert isinstance(filtered, MarkImage)
-        assert isinstance(leveled, MarkImage)
+        assert isinstance(filtered, Mark)
+        assert isinstance(leveled, Mark)
 
     @pytest.mark.integration
     def test_output_has_correct_scale(self):
@@ -456,10 +455,10 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, leveled = preprocess_impression_mark(mark_image, params)
 
-        assert filtered.scale_x == target_size[0]
-        assert filtered.scale_y == target_size[1]
-        assert leveled.scale_x == target_size[0]
-        assert leveled.scale_y == target_size[1]
+        assert filtered.scan_image.scale_x == target_size[0]
+        assert filtered.scan_image.scale_y == target_size[1]
+        assert leveled.scan_image.scale_x == target_size[0]
+        assert leveled.scan_image.scale_y == target_size[1]
 
     @pytest.mark.integration
     def test_output_is_smaller_after_downsampling(self):
@@ -479,10 +478,10 @@ class TestPreprocessImpressionMarkIntegration:
         filtered, leveled = preprocess_impression_mark(mark_image, params)
 
         # After 2x downsampling, size should be roughly half
-        assert filtered.data.shape[0] < mark_image.data.shape[0]
-        assert filtered.data.shape[1] < mark_image.data.shape[1]
-        assert leveled.data.shape[0] < mark_image.data.shape[0]
-        assert leveled.data.shape[1] < mark_image.data.shape[1]
+        assert filtered.scan_image.data.shape[0] < mark_image.scan_image.data.shape[0]
+        assert filtered.scan_image.data.shape[1] < mark_image.scan_image.data.shape[1]
+        assert leveled.scan_image.data.shape[0] < mark_image.scan_image.data.shape[0]
+        assert leveled.scan_image.data.shape[1] < mark_image.scan_image.data.shape[1]
 
     @pytest.mark.integration
     def test_metadata_is_populated(self):
@@ -531,7 +530,9 @@ class TestPreprocessImpressionMarkIntegration:
         filtered, leveled = preprocess_impression_mark(mark_image, params)
 
         # Data should differ due to high-pass filtering
-        assert not np.allclose(filtered.data, leveled.data, equal_nan=True)
+        assert not np.allclose(
+            filtered.scan_image.data, leveled.scan_image.data, equal_nan=True
+        )
 
     @pytest.mark.integration
     def test_breech_face_uses_circle_center(self):
@@ -613,8 +614,8 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, leveled = preprocess_impression_mark(mark_image, params)
 
-        assert isinstance(filtered, MarkImage)
-        assert isinstance(leveled, MarkImage)
+        assert isinstance(filtered, Mark)
+        assert isinstance(leveled, Mark)
 
     @pytest.mark.integration
     def test_without_highpass_filter(self):
@@ -634,8 +635,8 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, leveled = preprocess_impression_mark(mark_image, params)
 
-        assert isinstance(filtered, MarkImage)
-        assert isinstance(leveled, MarkImage)
+        assert isinstance(filtered, Mark)
+        assert isinstance(leveled, Mark)
 
     @pytest.mark.integration
     def test_without_any_filters(self):
@@ -656,8 +657,8 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, leveled = preprocess_impression_mark(mark_image, params)
 
-        assert isinstance(filtered, MarkImage)
-        assert isinstance(leveled, MarkImage)
+        assert isinstance(filtered, Mark)
+        assert isinstance(leveled, Mark)
 
     @pytest.mark.integration
     def test_with_tilt_adjustment(self):
@@ -676,8 +677,8 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, leveled = preprocess_impression_mark(mark_image, params)
 
-        assert isinstance(filtered, MarkImage)
-        assert isinstance(leveled, MarkImage)
+        assert isinstance(filtered, Mark)
+        assert isinstance(leveled, Mark)
 
     @pytest.mark.integration
     def test_with_second_order_leveling(self):
@@ -699,8 +700,8 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, leveled = preprocess_impression_mark(mark_image, params)
 
-        assert isinstance(filtered, MarkImage)
-        assert isinstance(leveled, MarkImage)
+        assert isinstance(filtered, Mark)
+        assert isinstance(leveled, Mark)
 
     @pytest.mark.integration
     def test_output_data_is_finite_where_valid(self):
@@ -720,11 +721,11 @@ class TestPreprocessImpressionMarkIntegration:
         filtered, leveled = preprocess_impression_mark(mark_image, params)
 
         # Valid pixels should be finite
-        filtered_valid = ~np.isnan(filtered.data)
-        leveled_valid = ~np.isnan(leveled.data)
+        filtered_valid = ~np.isnan(filtered.scan_image.data)
+        leveled_valid = ~np.isnan(leveled.scan_image.data)
 
-        assert np.all(np.isfinite(filtered.data[filtered_valid]))
-        assert np.all(np.isfinite(leveled.data[leveled_valid]))
+        assert np.all(np.isfinite(filtered.scan_image.data[filtered_valid]))
+        assert np.all(np.isfinite(leveled.scan_image.data[leveled_valid]))
 
     @pytest.mark.integration
     def test_leveled_preserves_form(self):
@@ -763,8 +764,8 @@ class TestPreprocessImpressionMarkIntegration:
 
         # Leveled should have more variance (curvature preserved)
         # Filtered should have less variance (curvature removed)
-        filtered_var = np.nanvar(filtered.data)
-        leveled_var = np.nanvar(leveled.data)
+        filtered_var = np.nanvar(filtered.scan_image.data)
+        leveled_var = np.nanvar(leveled.scan_image.data)
 
         # Leveled should preserve more of the original form
         assert leveled_var > filtered_var

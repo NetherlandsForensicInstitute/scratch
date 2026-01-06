@@ -1,6 +1,8 @@
 from enum import Enum, auto
 
-from image_generation.data_formats import ScanImage
+from pydantic import BaseModel, Field
+
+from container_models.scan_image import ScanImage
 
 
 class MarkType(Enum):
@@ -28,7 +30,7 @@ class MarkType(Enum):
         return "STRIATION" in self.name
 
     @property
-    def sampling_rate(self) -> float:
+    def scale(self) -> float:
         if self == MarkType.BREECH_FACE_IMPRESSION:
             return 3.5e-6
         return 1.5e-6
@@ -41,11 +43,12 @@ class CropType(Enum):
     POLYGON = auto()
 
 
-class MarkImage(ScanImage):
+class Mark(BaseModel):
     """
     Representation of a mark (impression or striation)
     """
 
-    center: tuple[float, float] = (0, 0)
+    scan_image: ScanImage
     mark_type: MarkType
     crop_type: CropType
+    meta_data: dict = Field(default_factory=dict)

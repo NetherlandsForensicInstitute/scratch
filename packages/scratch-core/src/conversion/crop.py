@@ -1,6 +1,6 @@
 import numpy as np
 
-from utils.array_definitions import ScanMap2DArray
+from container_models.base import ScanMap2DArray
 
 
 def crop_nan_borders(data: ScanMap2DArray) -> ScanMap2DArray:
