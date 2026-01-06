@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.typing import NDArray
-from image_generation.data_formats import ScanImage
+from container_models.scan_image import ScanImage
 
 
 def get_2d_grid(

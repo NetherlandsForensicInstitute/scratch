@@ -1,5 +1,5 @@
 from conversion.leveling import level_map, SurfaceTerms
-from image_generation.data_formats import ScanImage
+from container_models.scan_image import ScanImage
 import pytest
 import numpy as np
 from .constants import RESOURCES_DIR

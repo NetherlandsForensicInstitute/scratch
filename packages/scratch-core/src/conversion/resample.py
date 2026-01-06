@@ -4,8 +4,9 @@ import numpy as np
 from numpy.typing import NDArray
 from skimage.transform import resize
 
-from image_generation.data_formats import ScanImage
-from utils.array_definitions import MaskArray
+from conversion.data_formats import Mark
+from container_models.scan_image import ScanImage
+from container_models.base import MaskArray
 
 
 def resample_scan_image_and_mask(
@@ -45,6 +46,16 @@ def resample_scan_image_and_mask(
     if mask is not None:
         mask = _resample_array(mask, factors=(factor_y, factor_x))
     return image, mask
+
+
+def resample_mark(mark: Mark) -> Mark:
+    """Resample a MarkImage so that the scale matches the scale specific for the mark type."""
+    resampled_scan_image, _ = resample_scan_image_and_mask(
+        mark.scan_image,
+        target_scale=mark.mark_type.scale,
+        only_downsample=False,
+    )
+    return mark.model_copy(update={"scan_image": resampled_scan_image})
 
 
 def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> ScanImage:

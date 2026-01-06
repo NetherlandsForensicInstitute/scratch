@@ -1,14 +1,16 @@
 import numpy as np
 from unittest.mock import patch, MagicMock
 
+from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark
 from conversion.resample import (
     resample_scan_image_and_mask,
     _resample_scan_image,
     _get_scaling_factors,
     _clip_factors,
     _resample_array,
+    resample_mark,
 )
-from image_generation.data_formats import ScanImage
 
 
 class TestGetScalingFactors:
@@ -162,3 +164,12 @@ class TestResampleImageAndMask:
         )
 
         assert result_mask is None
+
+
+class TestResampleMark:
+    def test_uses_mark_target_sampling(self, mark: Mark):
+        resampled = resample_mark(mark)
+
+        scale = mark.mark_type.scale
+        assert resampled.scan_image.scale_x == scale
+        assert resampled.scan_image.scale_y == scale
