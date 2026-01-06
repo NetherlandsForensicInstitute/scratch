@@ -2,17 +2,17 @@ from typing import Optional
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy import ndimage
+from skimage.transform import resize
 
 from conversion.data_formats import Mark
 from container_models.scan_image import ScanImage
 from container_models.base import MaskArray
 
 
-def resample_image_and_mask(
-    image: ScanImage,
+def resample_scan_image_and_mask(
+    scan_image: ScanImage,
     mask: Optional[MaskArray] = None,
-    resample_factors: Optional[tuple[float, float]] = None,
+    factors: Optional[tuple[float, float]] = None,
     target_scale: float = 4e-6,
     only_downsample: bool = True,
     preserve_aspect_ratio: bool = True,
@@ -20,46 +20,34 @@ def resample_image_and_mask(
     """
     Resample the input image and optionally its corresponding mask.
 
-    If `only_downsample` is True and the current resolution is already coarser
-    than the target scale, no resampling is performed. If `resample_factors` are
-    provided, it overrides the target scale.
+    If `only_downsample` is True and the current resolution is already coarser than the target scale,
+    no resampling is performed. If `factors` are provided, it overrides the target scale.
 
-    The resampling factor determines how the image dimensions will change:
-    - factor < 1: upsampling (more pixels, finer resolution)
-    - factor > 1: downsampling (fewer pixels, coarser resolution)
-    - factor = 1: no change
-
-    :param image: Input ScanImage to resample
-    :param mask: Corresponding mask array
-    :param resample_factors: Resampling factors
-    :param target_scale: Target scale (m) when resample_factors are not provided
+    :param scan_image: Input ScanImage to resample.
+    :param mask: Corresponding mask array.
+    :param factors: The multipliers for the scale of the X- and Y-axis. The formula used is `new_scale = factor * old_scale`.
+    :param target_scale: Target scale (in meters) when `factors` are not provided.
     :param preserve_aspect_ratio: Whether to preserve the aspect ratio of the image.
-    :param only_downsample: If True, only downsample data
-
+    :param only_downsample: If True, only downsample data (default). If False, allow upsampling.
     :returns: Resampled ScanImage and MaskArray
     """
-    if not resample_factors:
-        resample_factors = get_resampling_factors(
-            image.scale_x,
-            image.scale_y,
-            target_scale,
+    if not factors:
+        factors = _get_scaling_factors(
+            scales=(scan_image.scale_x, scan_image.scale_y), target_scale=target_scale
         )
     if only_downsample:
-        resample_factors = clip_resample_factors(
-            resample_factors, preserve_aspect_ratio
-        )
-    if resample_factors == (1, 1):
-        return image, mask
-
-    image = resample_scan_image(image, resample_factors)
+        factors = _clip_factors(factors, preserve_aspect_ratio)
+    if np.allclose(factors, 1.0):
+        return scan_image, mask
+    image = _resample_scan_image(scan_image, factors=factors)
     if mask is not None:
-        mask = resample_mask(mask, resample_factors)
+        mask = _resample_image_array(mask, factors=factors)
     return image, mask
 
 
 def resample_mark(mark: Mark) -> Mark:
     """Resample a MarkImage so that the scale matches the scale specific for the mark type."""
-    resampled_scan_image, _ = resample_image_and_mask(
+    resampled_scan_image, _ = resample_scan_image_and_mask(
         mark.scan_image,
         target_scale=mark.mark_type.scale,
         only_downsample=False,
@@ -67,82 +55,68 @@ def resample_mark(mark: Mark) -> Mark:
     return mark.model_copy(update={"scan_image": resampled_scan_image})
 
 
-def resample_mask(mask: MaskArray, resample_factors: tuple[float, float]) -> MaskArray:
-    """Resample the provided mask array using the specified resampling factors."""
-    return _resample_array(mask, resample_factors, order=0, mode="nearest")
+def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> ScanImage:
+    """
+    Resample the ScanImage object using the specified resampling factors.
 
-
-def resample_scan_image(
-    image: ScanImage, resample_factors: tuple[float, float]
-) -> ScanImage:
-    """Resample the ScanImage object using the specified resampling factors."""
-    image_array_resampled = _resample_array(
-        image.data, resample_factors, order=1, mode="nearest"
-    )
+    :param image: Input ScanImage to resample.
+    :param factors: The multipliers for the scale of the X- and Y-axis.
+    :returns: The resampled ScanImage.
+    """
+    image_array_resampled = _resample_image_array(image.data, factors=factors)
     return ScanImage(
         data=image_array_resampled,
-        scale_x=image.scale_x * resample_factors[0],
-        scale_y=image.scale_y * resample_factors[1],
+        scale_x=image.scale_x * factors[0],
+        scale_y=image.scale_y * factors[1],
     )
 
 
-def _resample_array(
+def _resample_image_array(
     array: NDArray,
-    resample_factors: tuple[float, float],
-    order: int,
-    mode: str,
+    factors: tuple[float, float],
 ) -> NDArray:
     """
-    Resample an array using the specified resampling factors, order, and mode.
+    Resample an array using the specified resampling factors.
 
-    :param array: The array to resample.
-    :param resample_factors: The resampling factors for the x- and y-axis.
-    :param order: The order of the spline interpolation to use.
-    :param mode: The mode to use for handling boundaries.
+    For example, if the scale factor is 0.5, then the image output shape will be scaled by 1 / 0.5 = 2.
 
-    :returns: The resampled array.
+    :param array: The array containing the image data to resample.
+    :param factors: The multipliers for the scale of the X- and Y-axis.
+    :returns: A numpy array containing the resampled image data.
     """
-    resample_factor_x, resample_factor_y = resample_factors
-    resampled = ndimage.zoom(
-        array,
-        (1 / resample_factor_y, 1 / resample_factor_x),
-        order=order,
-        mode=mode,
+    factor_x, factor_y = factors
+    resampled = resize(
+        image=array,
+        output_shape=(1 / factor_y * array.shape[0], 1 / factor_x * array.shape[1]),
+        mode="edge",
+        anti_aliasing=array.dtype != np.bool_ and all(factor > 1 for factor in factors),
     )
-    return np.asarray(resampled).astype(array.dtype)
+    return np.asarray(resampled, dtype=array.dtype)
 
 
-def get_resampling_factors(
-    scale_x: float,
-    scale_y: float,
+def _get_scaling_factors(
+    scales: tuple[float, float],
     target_scale: float,
 ) -> tuple[float, float]:
     """
-    Calculate resampling factors for x and y dimensions.
+    Calculate the multipliers for a target scale.
 
-    :param scale_x: Scale for the x-axis
-    :param scale_y: Scale for the y-axis
-    :param target_scale: Target pixel size (in meters).
+    :param scales: Current scales (= pixel size in meters per image dimension).
+    :param target_scale: Target scale (= pixel size in meters).
 
-    :returns: Resampling factors.
+    :returns: The computed multipliers.
     """
-    resample_factor_x = target_scale / scale_x
-    resample_factor_y = target_scale / scale_y
-    return resample_factor_x, resample_factor_y
+    return target_scale / scales[0], target_scale / scales[1]
 
 
-def clip_resample_factors(
-    resample_factors: tuple[float, float],
+def _clip_factors(
+    factors: tuple[float, float],
     preserve_aspect_ratio: bool,
 ) -> tuple[float, float]:
-    """Clip the resample factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
+    """Clip the scaling factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
     if preserve_aspect_ratio:
-        # Scale both factors equally to preserve the aspect ratio
-        max_factor = max(resample_factors)
-        resample_factors = (max_factor, max_factor)
+        # Set the multipliers to equal values to preserve the aspect ratio
+        max_factor = max(factors)
+        factors = max_factor, max_factor
 
-    resample_factors = (
-        max(resample_factors[0], 1.0),
-        max(resample_factors[1], 1.0),
-    )
-    return resample_factors
+    return max(factors[0], 1.0), max(factors[1], 1.0)
