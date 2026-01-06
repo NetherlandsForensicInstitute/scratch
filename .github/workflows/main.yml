@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          lfs: true
 
       - name: Set up shell environment
         uses: ./.github/actions/setup-devenv
