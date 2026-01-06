@@ -151,8 +151,9 @@ def _apply_polynomial_filter(
     n_params = len(exponents)
 
     # 3. Construct the Linear System Components (A matrix and b vector)
-    weights = np.where(np.isnan(data), 0.0, 1.0)
-    weighted_data = np.where(np.isnan(data), 0.0, data * weights)
+    nan_mask = np.isnan(data)
+    weights = np.where(nan_mask, 0.0, 1.0)
+    weighted_data = np.where(nan_mask, 0.0, data * weights)
 
     # Calculate RHS vector 'b' (Data Moments)
     # b_k = Convolution(weighted_data, x^px * y^py * Kernel)
