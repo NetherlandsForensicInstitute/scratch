@@ -45,20 +45,24 @@ class TestGetCroppedImageMatlabComparison:
     def matlab_output_plane(self, baseline_images_dir: Path) -> np.ndarray:
         """Load MATLAB reference output from CSV file."""
         return np.load(
-            baseline_images_dir / "get_cropped_image_output_plane_matlab.npy"
+            baseline_images_dir / "get_cropped_image_output_plane_matlab.npy",
+            allow_pickle=True,
         )
 
     @pytest.fixture
     def matlab_output_sphere(self, baseline_images_dir: Path) -> np.ndarray:
         """Load MATLAB reference output from CSV file."""
         return np.load(
-            baseline_images_dir / "get_cropped_image_output_sphere_matlab.npy"
+            baseline_images_dir / "get_cropped_image_output_sphere_matlab.npy",
+            allow_pickle=True,
         )
 
     @pytest.fixture
     def input_scan_image(self, baseline_images_dir: Path) -> "ScanImage":
         """Load input scan image used for MATLAB test."""
-        data = np.load(baseline_images_dir / "get_cropped_image_input_image.npy")
+        data = np.load(
+            baseline_images_dir / "get_cropped_image_input_image.npy", allow_pickle=True
+        )
         xdim = 8.7479e-07  # meters
         ydim = 8.7479e-07  # meters
         return ScanImage(data=data, scale_x=xdim, scale_y=ydim)
@@ -66,9 +70,9 @@ class TestGetCroppedImageMatlabComparison:
     @pytest.fixture
     def input_mask(self, baseline_images_dir: Path) -> "MaskArray":
         """Create mask for input data (True for valid pixels)."""
-        return np.load(baseline_images_dir / "get_cropped_image_input_mask.npy").astype(
-            bool
-        )
+        return np.load(
+            baseline_images_dir / "get_cropped_image_input_mask.npy", allow_pickle=True
+        ).astype(bool)
 
     @pytest.mark.integration
     def test_correlation_with_matlab_plane(
