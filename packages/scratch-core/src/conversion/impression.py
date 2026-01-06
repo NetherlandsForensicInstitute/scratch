@@ -1,5 +1,11 @@
+"""Preprocessing pipeline for impression mark scan images.
+
+This module provides functions to preprocess 2D scan images of impression marks
+(e.g., breech face impressions) through leveling, filtering, and resampling steps.
+"""
+
 from dataclasses import asdict
-from typing import Optional
+from typing import NamedTuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -16,42 +22,93 @@ from conversion.parameters import PreprocessingImpressionParams
 from conversion.resample import resample_image_and_mask
 
 
+# Type aliases
+Point2D = tuple[float, float]
+FilterCutoff = tuple[float | None, float | None]
+
+
+class TiltEstimate(NamedTuple):
+    """Result of plane tilt estimation."""
+
+    tilt_x_deg: float
+    tilt_y_deg: float
+    residuals: NDArray[np.floating]
+
+
+# ---------------------------------------------------------------------------
+# Mark/ScanImage update helpers
+# ---------------------------------------------------------------------------
+
+
+def _update_mark_data(mark: Mark, data: NDArray) -> Mark:
+    """
+    Return a new Mark with updated scan data.
+
+    :param mark: Original mark.
+    :param data: New data array.
+    :return: New Mark instance with updated data.
+    """
+    scan_image = mark.scan_image.model_copy(update={"data": data})
+    return mark.model_copy(update={"scan_image": scan_image})
+
+
+def _update_mark_scan_image(mark: Mark, scan_image: ScanImage) -> Mark:
+    """
+    Return a new Mark with updated scan image.
+
+    :param mark: Original mark.
+    :param scan_image: New scan image.
+    :return: New Mark instance with updated scan image.
+    """
+    return mark.model_copy(update={"scan_image": scan_image})
+
+
+# ---------------------------------------------------------------------------
+# Geometry helpers
+# ---------------------------------------------------------------------------
+
+
 def _get_mask_edge_points(mask: MaskArray) -> NDArray[np.floating]:
     """
-    Get inner edge points of a binary mask in pixel coordinates.
+    Extract inner edge points of a binary mask.
 
-    :param mask: Binary mask array
-    :return: Array of (col, row) edge points in pixel indices
+    :param mask: Binary mask array.
+    :return: Array of (col, row) edge points in pixel coordinates.
     """
     eroded = binary_erosion(mask).astype(bool)
     edge = mask & ~eroded
-
     rows, cols = np.where(edge)
     return np.column_stack([cols, rows]).astype(float)
 
 
 def _points_are_collinear(points: NDArray[np.floating], tol: float = 1e-9) -> bool:
-    """Check if points are approximately collinear."""
+    """
+    Check if points are approximately collinear using SVD.
+
+    :param points: Array of 2D points.
+    :param tol: Tolerance for collinearity check.
+    :return: True if points are collinear.
+    """
     if len(points) < 3:
         return True
     centered = points - points.mean(axis=0)
-    _, s, _ = np.linalg.svd(centered, full_matrices=False)
-    return s[-1] < tol * s[0]
+    _, singular_values, _ = np.linalg.svd(centered, full_matrices=False)
+    return singular_values[-1] < tol * singular_values[0]
 
 
 def _fit_circle_ransac(
     points: NDArray[np.floating],
     n_iterations: int = 1000,
     threshold: float = 1.0,
-) -> tuple[float, float] | None:
+) -> Point2D | None:
     """
-    Fit a circle to 2D points using RANSAC and return the circle center (x, y).
-    Returns None when fitting fails or produces an invalid model.
+    Fit a circle to 2D points using RANSAC.
 
-    :param points: Array of (x, y) points, shape (N, 2)
-    :param n_iterations: Number of RANSAC iterations
-    :param threshold: Inlier distance threshold (in same units as points)
-    :return: Circle center (x, y) or None if fitting failed
+    :param points: Array of (x, y) points with shape (N, 2).
+    :param n_iterations: Maximum RANSAC iterations.
+    :param threshold: Inlier distance threshold in same units as points.
+    :return: Circle center (x, y) or None if fitting failed.
+    :raises ValueError: If points array has wrong shape.
     """
     if points.ndim != 2 or points.shape[1] != 2:
         raise ValueError(f"Expected (N, 2) array, got {points.shape}")
@@ -66,74 +123,95 @@ def _fit_circle_ransac(
         residual_threshold=threshold,
         max_trials=n_iterations,
     )
-    if model is not None:
-        x, y, radius = model.params
-        if radius > 0 and np.isfinite([x, y, radius]).all():
-            return x, y
+
+    if model is None:
+        return None
+
+    x, y, radius = model.params
+    if radius > 0 and np.isfinite([x, y, radius]).all():
+        return (x, y)
 
     return None
 
 
-def _get_bounding_box_center(mask: NDArray[np.bool_]) -> tuple[float, float]:
-    """Return center of bounding box for True values in mask."""
+def _get_bounding_box_center(mask: NDArray[np.bool_]) -> Point2D:
+    """
+    Compute center of bounding box for True values in mask.
+
+    :param mask: Boolean mask array.
+    :return: Center (x, y) in pixel coordinates.
+    """
     rows, cols = np.where(mask)
     if len(rows) == 0:
-        return mask.shape[1] / 2, mask.shape[0] / 2
-    return (cols.min() + cols.max() + 1) / 2, (rows.min() + rows.max() + 1) / 2
+        return (mask.shape[1] / 2, mask.shape[0] / 2)
+    return (
+        (cols.min() + cols.max() + 1) / 2,
+        (rows.min() + rows.max() + 1) / 2,
+    )
 
 
-def _set_map_center(
+def _compute_map_center(
     data: ScanMap2DArray,
-    use_circle: bool = False,
-) -> tuple[float, float]:
-    """Compute map center from data bounds or circle fit.
+    use_circle_fit: bool = False,
+) -> Point2D:
+    """
+    Compute map center from data bounds or circle fit.
 
-    :param data: Height map array
-    :param use_circle: Use RANSAC circle fitting (for breech face impressions)
-    :return: Center position (col, row) in pixel coordinates
+    :param data: Height map array.
+    :param use_circle_fit: If True, attempt RANSAC circle fitting first.
+    :return: Center position (col, row) in pixel coordinates.
     """
     valid_mask = ~np.isnan(data)
 
-    if use_circle:
+    if use_circle_fit:
         edge_points = _get_mask_edge_points(valid_mask)
-        center = _fit_circle_ransac(edge_points)
-        if center is not None:
+        if (center := _fit_circle_ransac(edge_points)) is not None:
             return center
 
-    # Fallback: bounding box center
     return _get_bounding_box_center(valid_mask)
 
 
-def _estimate_plane_tilt_degrees(
+# ---------------------------------------------------------------------------
+# Tilt estimation and correction
+# ---------------------------------------------------------------------------
+
+
+def _estimate_plane_tilt(
     x: NDArray[np.floating],
     y: NDArray[np.floating],
     z: NDArray[np.floating],
-) -> tuple[float, float, NDArray[np.floating]]:
+) -> TiltEstimate:
     """
-    Estimate best-fit plane and return tilt angles in degrees + residuals.
+    Estimate best-fit plane tilt angles using least squares.
 
-    Fits z = ax + by + c using least squares.
+    Fits z = ax + by + c to the data points.
 
-    :param x: X coordinates
-    :param y: Y coordinates
-    :param z: Z values at each (x, y)
-    :return: (tilt_x_deg, tilt_y_deg, residuals)
+    :param x: X coordinates.
+    :param y: Y coordinates.
+    :param z: Z values at each (x, y).
+    :return: TiltEstimate with tilt angles in degrees and residuals.
     """
-    A = np.column_stack([x, y, np.ones_like(x)])
-    (a, b, c), *_ = np.linalg.lstsq(A, z, rcond=None)
+    design_matrix = np.column_stack([x, y, np.ones_like(x)])
+    (a, b, c), *_ = np.linalg.lstsq(design_matrix, z, rcond=None)
 
-    tilt_x_deg = np.degrees(np.arctan(a))
-    tilt_y_deg = np.degrees(np.arctan(b))
-    residuals = z - (a * x + b * y + c)
-
-    return tilt_x_deg, tilt_y_deg, residuals
+    return TiltEstimate(
+        tilt_x_deg=np.degrees(np.arctan(a)),
+        tilt_y_deg=np.degrees(np.arctan(b)),
+        residuals=z - (a * x + b * y + c),
+    )
 
 
 def _get_valid_coordinates(
     scan_image: ScanImage,
-    center: tuple[float, float],
+    center: Point2D,
 ) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
-    """Get x, y, z coordinates of valid pixels in meters, centered at origin."""
+    """
+    Extract x, y, z coordinates of valid pixels, centered at origin.
+
+    :param scan_image: Input scan image.
+    :param center: Center point to subtract (in pixel coordinates).
+    :return: Tuple of (x, y, z) coordinate arrays in meters.
+    """
     valid_mask = ~np.isnan(scan_image.data)
     rows, cols = np.where(valid_mask)
 
@@ -144,62 +222,89 @@ def _get_valid_coordinates(
     return x, y, z
 
 
-def _adjust_for_plane_tilt_degrees(
+def _adjust_for_plane_tilt(
     scan_image: ScanImage,
-    center: tuple[float, float],
-) -> tuple[ScanImage, tuple]:
+    center: Point2D,
+) -> tuple[ScanImage, Point2D]:
     """
-    Remove plane tilt from mark image and adjust scale factors.
+    Remove plane tilt from scan image and adjust scale factors.
 
-    :param mark_image: Mark image to level
-    :param center: Center position in meters
-    :return: Leveled mark image with adjusted scale
+    :param scan_image: Input scan image.
+    :param center: Center position in meters.
+    :return: Tuple of (leveled scan image, adjusted center).
+    :raises ValueError: If fewer than 3 valid points exist.
     """
     x, y, z = _get_valid_coordinates(scan_image, center)
 
     if len(x) < 3:
         raise ValueError("Need at least 3 valid points to estimate plane tilt")
 
-    tilt_x_deg, tilt_y_deg, residuals = _estimate_plane_tilt_degrees(x, y, z)
+    tilt = _estimate_plane_tilt(x, y, z)
 
+    # Update data with residuals
     data = scan_image.data.copy()
-    data[~np.isnan(scan_image.data)] = residuals
+    data[~np.isnan(scan_image.data)] = tilt.residuals
 
-    scale_x_new = scan_image.scale_x / np.cos(np.radians(tilt_x_deg))
-    scale_y_new = scan_image.scale_y / np.cos(np.radians(tilt_y_deg))
+    # Adjust scales for tilt
+    cos_x = np.cos(np.radians(tilt.tilt_x_deg))
+    cos_y = np.cos(np.radians(tilt.tilt_y_deg))
+    scale_x_new = scan_image.scale_x / cos_x
+    scale_y_new = scan_image.scale_y / cos_y
+
+    # Adjust center for new scales
     center_new = (
-        center
-        * np.array([scale_x_new, scale_y_new])
-        / np.array([scan_image.scale_x, scan_image.scale_y])
+        center[0] * scale_x_new / scan_image.scale_x,
+        center[1] * scale_y_new / scan_image.scale_y,
     )
 
     return ScanImage(data=data, scale_x=scale_x_new, scale_y=scale_y_new), center_new
 
 
+# ---------------------------------------------------------------------------
+# Center computation
+# ---------------------------------------------------------------------------
+
+
+def _compute_center_local(mark: Mark) -> Point2D:
+    """
+    Compute local center coordinates from mark data.
+
+    :param mark: Input mark image.
+    :return: Center (x, y) in meters.
+    """
+    use_circle = mark.mark_type == MarkType.BREECH_FACE_IMPRESSION
+    center_px = _compute_map_center(mark.scan_image.data, use_circle_fit=use_circle)
+    return (
+        center_px[0] * mark.scan_image.scale_x,
+        center_px[1] * mark.scan_image.scale_y,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Filtering operations
+# ---------------------------------------------------------------------------
+
+
 def _apply_anti_aliasing(
     scan_image: ScanImage,
-    target_spacing: tuple[float, float],
-) -> tuple[ScanImage, tuple[Optional[float], Optional[float]]]:
-    """Apply anti-aliasing filter before downsampling.
+    target_spacing: Point2D,
+) -> tuple[ScanImage, FilterCutoff]:
+    """
+    Apply anti-aliasing filter before downsampling.
 
-    Anti-aliasing prevents high-frequency content from appearing as false
-    low-frequency patterns (aliasing artifacts) when resampling to a coarser
-    resolution. This is achieved by low-pass filtering to remove frequencies
-    above the Nyquist limit of the target resolution before downsampling.
+    Anti-aliasing prevents high-frequency content from aliasing when
+    resampling to a coarser resolution. Applied when downsampling by >1.5x.
 
-    The filter is applied when downsampling by more than 1.5x
-    (target spacing > 1.5 * current spacing).
-
-    :param mark_image: Input mark image
-    :param target_spacing: Target pixel spacing in meters
-    :return: Tuple of (filtered image, cutoff applied) or (original image, None)
+    :param scan_image: Input scan image.
+    :param target_spacing: Target pixel spacing in meters.
+    :return: Tuple of (filtered image, cutoff wavelengths applied).
     """
     downsample_ratio = (
         target_spacing[0] / scan_image.scale_x,
         target_spacing[1] / scan_image.scale_y,
     )
 
-    # Only filter if downsampling by >1.5x (matching MATLAB's 2*1.5 = 3 threshold)
+    # Only filter if downsampling by >1.5x
     if not any(r > 1.5 for r in downsample_ratio):
         return scan_image, (None, None)
 
@@ -217,208 +322,380 @@ def _apply_anti_aliasing(
     return scan_image.model_copy(update={"data": filtered_data}), cutoffs
 
 
-def _set_center(
-    mark_image: Mark,
-) -> tuple[float, float]:
-    """Get global and local center coordinates from metadata or compute from data.
-
-    :param mark_image: Input mark image
-    :return: center_local (x, y) in meters
+def _apply_gaussian_filter_to_mark(
+    mark: Mark,
+    cutoff: float,
+    *,
+    is_high_pass: bool,
+) -> Mark:
     """
-    use_circle = mark_image.mark_type == MarkType.BREECH_FACE_IMPRESSION
-    center_px = _set_map_center(mark_image.scan_image.data, use_circle)
-    center_local = (
-        center_px[0] * mark_image.scan_image.scale_x,
-        center_px[1] * mark_image.scan_image.scale_y,
+    Apply Gaussian filter to mark data.
+
+    :param mark: Input mark.
+    :param cutoff: Filter cutoff length.
+    :param is_high_pass: If True, apply high-pass filter; otherwise low-pass.
+    :return: Filtered mark.
+    """
+    filtered_data = apply_gaussian_filter(
+        mark.scan_image.data,
+        is_high_pass=is_high_pass,
+        cutoff_lengths=(cutoff, cutoff),
     )
-    return center_local
+    return _update_mark_data(mark, filtered_data)
+
+
+def _apply_lowpass_if_needed(
+    mark: Mark,
+    cutoff: float | None,
+    anti_alias_cutoff: FilterCutoff,
+) -> Mark:
+    """
+    Apply low-pass filter if stronger than anti-aliasing.
+
+    :param mark: Input mark.
+    :param cutoff: Low-pass cutoff length, or None to skip.
+    :param anti_alias_cutoff: Anti-aliasing cutoffs already applied.
+    :return: Filtered mark (or original if skipped).
+    """
+    if cutoff is None:
+        return mark
+
+    # Check if low-pass is stronger than anti-aliasing
+    valid_cutoffs = [c for c in anti_alias_cutoff if c is not None]
+    if valid_cutoffs and cutoff >= min(valid_cutoffs):
+        return mark
+
+    return _apply_gaussian_filter_to_mark(mark, cutoff, is_high_pass=False)
+
+
+def _apply_highpass_if_needed(mark: Mark, cutoff: float | None) -> Mark:
+    """
+    Apply high-pass filter if cutoff is specified.
+
+    :param mark: Input mark.
+    :param cutoff: High-pass cutoff length, or None to skip.
+    :return: Filtered mark (or original if skipped).
+    """
+    if cutoff is None:
+        return mark
+    return _apply_gaussian_filter_to_mark(mark, cutoff, is_high_pass=True)
+
+
+# ---------------------------------------------------------------------------
+# Leveling operations
+# ---------------------------------------------------------------------------
+
+
+def _level_mark(
+    mark: Mark,
+    terms: SurfaceTerms,
+    reference_point: Point2D | None = None,
+) -> tuple[Mark, NDArray[np.floating]]:
+    """
+    Level mark data and return leveled mark with fitted surface.
+
+    :param mark: Input mark.
+    :param terms: Surface terms to fit.
+    :param reference_point: Optional reference point for leveling.
+    :return: Tuple of (leveled mark, fitted surface).
+    """
+    result = level_map(mark.scan_image, terms=terms, reference_point=reference_point)
+    leveled_mark = _update_mark_data(mark, result.leveled_map)
+    return leveled_mark, result.fitted_surface
+
+
+# ---------------------------------------------------------------------------
+# Resampling operations
+# ---------------------------------------------------------------------------
+
+
+def _needs_resampling(mark: Mark, target_scale: float) -> bool:
+    """
+    Check if mark needs resampling to target scale.
+
+    :param mark: Input mark.
+    :param target_scale: Target pixel scale.
+    :return: True if resampling is needed.
+    """
+    current_scale = (mark.scan_image.scale_x, mark.scan_image.scale_y)
+    return not np.allclose(current_scale, (target_scale, target_scale), rtol=1e-7)
+
+
+def _resample_mark(mark: Mark, target_scale: float) -> Mark:
+    """
+    Resample mark to target pixel scale.
+
+    :param mark: Input mark.
+    :param target_scale: Target pixel scale.
+    :return: Resampled mark.
+    """
+    resampled, _ = resample_image_and_mask(
+        mark.scan_image,
+        target_scale=target_scale,
+        only_downsample=False,
+    )
+    return _update_mark_scan_image(mark, resampled)
+
+
+def _resample_if_needed(mark: Mark, target_scale: float | None) -> tuple[Mark, bool]:
+    """
+    Resample mark if target scale differs from current scale.
+
+    :param mark: Input mark.
+    :param target_scale: Target pixel scale, or None to skip.
+    :return: Tuple of (resampled mark, whether resampling occurred).
+    """
+    if target_scale is None or not _needs_resampling(mark, target_scale):
+        return mark, False
+    return _resample_mark(mark, target_scale), True
+
+
+# ---------------------------------------------------------------------------
+# Output construction
+# ---------------------------------------------------------------------------
+
+
+def _build_output_mark(
+    mark: Mark,
+    pixel_size: Point2D,
+    *,
+    is_filtered: bool,
+) -> Mark:
+    """
+    Construct output Mark with proper scale and metadata.
+
+    :param mark: Source mark.
+    :param pixel_size: Output pixel size (x, y).
+    :param is_filtered: Whether filtering was applied.
+    :return: New Mark with updated scale and metadata.
+    """
+    scan_image = ScanImage(
+        data=mark.scan_image.data,
+        scale_x=pixel_size[0],
+        scale_y=pixel_size[1],
+    )
+    return Mark(
+        scan_image=scan_image,
+        mark_type=mark.mark_type,
+        crop_type=mark.crop_type,
+        meta_data=mark.meta_data | {"is_filtered": is_filtered, "is_leveled": True},
+    )
+
+
+def _build_preprocessing_metadata(
+    params: PreprocessingImpressionParams,
+    center_local: Point2D,
+    interpolated: bool,
+) -> dict:
+    """
+    Build metadata dictionary for preprocessed mark.
+
+    :param params: Preprocessing parameters.
+    :param center_local: Local center coordinates.
+    :param interpolated: Whether interpolation was performed.
+    :return: Metadata dictionary.
+    """
+    return {
+        **asdict(params),
+        "center_g_x": 0,
+        "center_g_y": 0,
+        "center_l_x": center_local[0],
+        "center_l_y": center_local[1],
+        "is_crop": True,
+        "is_prep": True,
+        "is_interpolated": interpolated,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Pipeline stages
+# ---------------------------------------------------------------------------
+
+
+def _prepare_mark(mark: Mark) -> tuple[Mark, Point2D]:
+    """
+    Initial preparation: compute center and crop NaN borders.
+
+    :param mark: Input mark.
+    :return: Tuple of (cropped mark, local center in meters).
+    """
+    center_local = _compute_center_local(mark)
+    cropped_data = crop_nan_borders(mark.scan_image.data)
+    return _update_mark_data(mark, cropped_data), center_local
+
+
+def _apply_tilt_correction(
+    mark: Mark,
+    center_local: Point2D,
+    should_adjust: bool,
+) -> tuple[Mark, Point2D]:
+    """
+    Apply tilt correction if requested.
+
+    :param mark: Input mark.
+    :param center_local: Local center coordinates.
+    :param should_adjust: Whether to apply tilt correction.
+    :return: Tuple of (corrected mark, updated center).
+    """
+    if not should_adjust:
+        return mark, center_local
+
+    adjusted_scan, center_local = _adjust_for_plane_tilt(mark.scan_image, center_local)
+    return _update_mark_scan_image(mark, adjusted_scan), center_local
+
+
+def _apply_filtering_pipeline(
+    mark: Mark,
+    params: PreprocessingImpressionParams,
+) -> tuple[Mark, Mark, FilterCutoff]:
+    """
+    Apply the filtering pipeline: anti-aliasing and low-pass.
+
+    :param mark: Leveled mark.
+    :param params: Preprocessing parameters.
+    :return: Tuple of (filtered mark, anti-aliased-only mark, anti-alias cutoffs).
+    """
+    if params.pixel_size is not None:
+        anti_aliased_scan, anti_alias_cutoff = _apply_anti_aliasing(
+            mark.scan_image, params.pixel_size
+        )
+        mark_anti_aliased = _update_mark_scan_image(mark, anti_aliased_scan)
+    else:
+        mark_anti_aliased = mark
+        anti_alias_cutoff = (None, None)
+
+    mark_filtered = _apply_lowpass_if_needed(
+        mark_anti_aliased, params.lowpass_cutoff, anti_alias_cutoff
+    )
+
+    return mark_filtered, mark_anti_aliased, anti_alias_cutoff
+
+
+def _apply_resampling_pipeline(
+    mark_filtered: Mark,
+    mark_anti_aliased: Mark,
+    fitted_surface: NDArray[np.floating],
+    mark_leveled: Mark,
+    target_scale: float | None,
+) -> tuple[Mark, Mark, NDArray[np.floating], bool]:
+    """
+    Resample marks and fitted surface to target scale.
+
+    :param mark_filtered: Filtered mark.
+    :param mark_anti_aliased: Anti-aliased-only mark.
+    :param fitted_surface: Fitted surface array (same shape as mark_leveled).
+    :param mark_leveled: Original leveled mark (used as template for surface resampling).
+    :param target_scale: Target pixel scale, or None to skip.
+    :return: Tuple of (resampled filtered, resampled anti-aliased, resampled surface, interpolated flag).
+    """
+    if target_scale is None:
+        return mark_filtered, mark_anti_aliased, fitted_surface, False
+
+    mark_filtered, filtered_resampled = _resample_if_needed(mark_filtered, target_scale)
+    mark_anti_aliased, anti_aliased_resampled = _resample_if_needed(
+        mark_anti_aliased, target_scale
+    )
+
+    interpolated = filtered_resampled or anti_aliased_resampled
+
+    if interpolated:
+        # Resample fitted_surface using mark_leveled as template (same original scale)
+        surface_mark = _update_mark_data(mark_leveled, fitted_surface)
+        surface_mark = _resample_mark(surface_mark, target_scale)
+        fitted_surface = surface_mark.scan_image.data
+
+    return mark_filtered, mark_anti_aliased, fitted_surface, interpolated
+
+
+def _finalize_leveled_output(
+    mark_anti_aliased: Mark,
+    fitted_surface: NDArray[np.floating],
+    surface_terms: SurfaceTerms,
+) -> Mark:
+    """
+    Prepare the leveled-only output by restoring form and re-leveling.
+
+    :param mark_anti_aliased: Anti-aliased-only mark.
+    :param fitted_surface: Fitted surface to restore.
+    :param surface_terms: Original surface terms (will be masked to PLANE).
+    :return: Final leveled mark.
+    """
+    restored_data = mark_anti_aliased.scan_image.data + fitted_surface
+    mark_restored = _update_mark_data(mark_anti_aliased, restored_data)
+
+    rigid_terms = surface_terms & SurfaceTerms.PLANE
+    leveled_mark, _ = _level_mark(mark_restored, rigid_terms)
+    return leveled_mark
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
 
 
 def preprocess_impression_mark(
     mark: Mark,
     params: PreprocessingImpressionParams,
 ) -> tuple[Mark, Mark]:
-    """Preprocess trimmed impression image data.
-
-    Processing steps:
-    1. Set image center
-    2. Crop to smallest size -> skip?
-    3. Adjust pixel spacing based on sample tilt (optional)
-    4. Level data
-    5. Apply anti-aliasing filter
-    6. Apply low-pass filter
-    7. Resample to desired resolution
-    8. Apply high-pass filter
-    9. Re-level data
-
-    :param mark_image: MarkImage for trimmed impression data
-    :param params: Processing parameters
-    :return: tuple[MarkImage, MarkImage] with filtered-and-leveled and just-leveled data
     """
-    # 1. Set image center
-    center_local = _set_center(mark)
+    Preprocess trimmed impression image data.
 
-    # 2. Crop mark
-    cropped_image = crop_nan_borders(mark.scan_image.data)
-    mark_image = mark.model_copy(update={"data": cropped_image})
+    Processing pipeline:
 
-    # 3. Adjust pixel spacing based on sample tilt (optional)
-    interpolated = False
-    if params.adjust_pixel_spacing:
-        scan_image, center = _adjust_for_plane_tilt_degrees(
-            mark.scan_image, center_local
+    1. Compute image center and crop NaN borders
+    2. Adjust pixel spacing for sample tilt (optional)
+    3. Level data with configured surface terms
+    4. Apply anti-aliasing filter (if downsampling)
+    5. Apply low-pass filter (if stronger than anti-aliasing)
+    6. Resample to target resolution
+    7. Apply high-pass filter
+    8. Final leveling pass
+
+    :param mark: Input mark with trimmed impression data.
+    :param params: Processing parameters.
+    :return: Tuple of (filtered mark, leveled-only mark).
+    """
+    # Stage 1: Preparation
+    mark, center_local = _prepare_mark(mark)
+
+    # Stage 2: Tilt correction
+    mark, center_local = _apply_tilt_correction(
+        mark, center_local, params.adjust_pixel_spacing
+    )
+
+    # Stage 3: Initial leveling
+    mark_leveled, fitted_surface = _level_mark(mark, params.surface_terms, center_local)
+
+    # Stage 4-5: Filtering (anti-aliasing + low-pass)
+    mark_filtered, mark_anti_aliased, _ = _apply_filtering_pipeline(
+        mark_leveled, params
+    )
+
+    # Stage 6: Resampling
+    target_scale = params.pixel_size[0] if params.pixel_size else None
+    mark_filtered, mark_anti_aliased, fitted_surface, interpolated = (
+        _apply_resampling_pipeline(
+            mark_filtered, mark_anti_aliased, fitted_surface, mark_leveled, target_scale
         )
-        mark = mark.model_copy(update={"scan_image": scan_image})
-
-    # 4. Level data
-    leveled_results = level_map(
-        mark.scan_image,
-        terms=params.surface_terms,
-        reference_point=center_local,
-    )
-    fitted_surface = leveled_results.fitted_surface
-    scan_image_leveled = mark_image.scan_image.model_copy(
-        update={"data": leveled_results.leveled_map}
-    )
-    mark_image_leveled = mark_image.model_copy(
-        update={"scan_image": scan_image_leveled}
     )
 
-    # 5. Apply anti-aliasing filter
-    mark_image_leveled_aa = mark_image_leveled.model_copy()
-    cutoff_low = (None, None)
-    if params.pixel_size is not None:
-        scan_image, cutoff_low = _apply_anti_aliasing(
-            mark_image_leveled_aa.scan_image, params.pixel_size
-        )
-        mark_image_leveled_aa = mark_image_leveled_aa.model_copy(
-            update={"scan_image": scan_image}
-        )
+    # Stage 7: High-pass filter
+    mark_filtered = _apply_highpass_if_needed(mark_filtered, params.highpass_cutoff)
 
-    # 6. Apply low-pass filter (if no anti-aliasing is performed
-    mark_image_filtered = mark_image_leveled_aa.model_copy()
-    if params.lowpass_cutoff is not None:
-        # Low-pass is configured - check if it's stronger than anti-aliasing
-        if cutoff_low == (None, None) or params.lowpass_cutoff < min(
-            c for c in cutoff_low if c is not None
-        ):
-            data_filtered = apply_gaussian_filter(
-                mark_image_leveled.data,
-                is_high_pass=False,
-                cutoff_lengths=(params.lowpass_cutoff, params.lowpass_cutoff),
-            )
-            mark_image_filtered = mark_image_leveled.model_copy(
-                update={"data": data_filtered}
-            )
+    # Stage 8: Final leveling
+    mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms)
 
-    # 7. Resample to desired resolution
-    if params.pixel_size is not None:
-        if not np.allclose(
-            (
-                mark_image_filtered.scan_image.scale_x,
-                mark_image_filtered.scan_image.scale_y,
-            ),
-            params.pixel_size,
-            rtol=1e-7,
-        ):
-            scan_image_filtered, _ = resample_image_and_mask(
-                mark_image_filtered.scan_image,
-                target_scale=params.pixel_size[0],
-                only_downsample=False,
-            )
-            mark_image_filtered = mark_image_filtered.model_copy(
-                update={"scan_image": scan_image_filtered}
-            )
-
-            scan_image_leveled_aa, _ = resample_image_and_mask(
-                mark_image_leveled_aa.scan_image,
-                target_scale=params.pixel_size[0],
-                only_downsample=False,
-            )
-            mark_image_leveled_aa = mark_image_leveled_aa.model_copy(
-                update={"scan_image": scan_image_leveled_aa}
-            )
-
-            fitted_surface_image = mark_image_leveled.model_copy(
-                update={"data": fitted_surface}
-            )
-            fitted_surface_image, _ = resample_image_and_mask(
-                fitted_surface_image.scan_image,
-                target_scale=params.pixel_size[0],
-                only_downsample=False,
-            )
-            fitted_surface = fitted_surface_image.data
-            interpolated = True
-
-    # 8. Apply high-pass filter
-    if params.highpass_cutoff is not None:
-        data_filtered = apply_gaussian_filter(
-            mark_image_filtered.data,
-            is_high_pass=True,
-            cutoff_lengths=(params.highpass_cutoff, params.highpass_cutoff),
-        )
-        mark_image_filtered = mark_image_filtered.model_copy(
-            update={"data": data_filtered}
-        )
-
-    # 9. Re-level data
-    leveled_results = level_map(
-        mark_image_filtered.scan_image, terms=params.surface_terms
-    )
-    scan_image_filtered = mark_image_filtered.scan_image.model_copy(
-        update={"data": leveled_results.leveled_map}
-    )
-    mark_image_filtered = mark_image_filtered.model_copy(
-        update={"scan_image": scan_image_filtered}
-    )
-
-    # For leveled-only data: add back the removed form, then level with rigid terms only
-    scan_image_filtered_aa = mark_image_leveled_aa.scan_image.model_copy(
-        update={"data": mark_image_leveled_aa.scan_image.data + fitted_surface}
-    )
-    mark_image_leveled_aa = mark_image_leveled_aa.model_copy(
-        update={"scan_image": scan_image_filtered_aa}
-    )
-    rigid_terms = params.surface_terms & SurfaceTerms.PLANE
-    leveled_results = level_map(mark_image_leveled_aa.scan_image, terms=rigid_terms)
-    scan_image_filtered_aa = mark_image_leveled_aa.scan_image.model_copy(
-        update={"data": leveled_results.leveled_map}
-    )
-    mark_image_leveled_aa = mark_image_leveled_aa.model_copy(
-        update={"scan_image": scan_image_filtered_aa}
+    # Prepare leveled-only output
+    mark_leveled_final = _finalize_leveled_output(
+        mark_anti_aliased, fitted_surface, params.surface_terms
     )
 
     # Build output metadata
-    mark_image.meta_data.update(asdict(params))
-    mark_image.meta_data.update(
-        {
-            "center_g_x": 0,
-            "center_g_y": 0,
-            "center_l_x": center_local[0],
-            "center_l_y": center_local[1],
-            "is_crop": True,
-            "is_prep": True,
-            "is_interpolated": interpolated,
-        }
+    mark.meta_data.update(
+        _build_preprocessing_metadata(params, center_local, interpolated)
     )
-    return Mark(
-        scan_image=ScanImage(
-            data=mark_image_filtered.scan_image.data,
-            scale_x=params.pixel_size[0],
-            scale_y=params.pixel_size[1],
-        ),
-        mark_type=mark_image_filtered.mark_type,
-        crop_type=mark_image_filtered.crop_type,
-        meta_data=mark_image_filtered.meta_data
-        | {"is_filtered": True, "is_leveled": True},
-    ), Mark(
-        scan_image=ScanImage(
-            data=mark_image_leveled_aa.scan_image.data,
-            scale_x=params.pixel_size[0],
-            scale_y=params.pixel_size[1],
-        ),
-        mark_type=mark_image_leveled_aa.mark_type,
-        crop_type=mark_image_leveled_aa.crop_type,
-        meta_data=mark_image_leveled_aa.meta_data
-        | {"is_filtered": False, "is_leveled": True},
+
+    return (
+        _build_output_mark(mark_filtered, params.pixel_size, is_filtered=True),
+        _build_output_mark(mark_leveled_final, params.pixel_size, is_filtered=False),
     )
