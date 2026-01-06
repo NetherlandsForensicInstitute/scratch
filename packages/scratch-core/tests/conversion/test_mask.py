@@ -8,6 +8,7 @@ from conversion.mask import (
     crop_to_mask,
     _determine_bounding_box,
     mask_and_crop_2d_array,
+    mask_and_crop_scan_image,
 )
 from container_models.scan_image import ScanImage
 from container_models.base import MaskArray
@@ -150,6 +151,28 @@ class TestDetermineBoundingBox:
 
         with pytest.raises(ValueError, match="Mask is empty"):
             _determine_bounding_box(mask)
+
+
+class TestCropScanImage:
+    @pytest.mark.integration
+    def test_mask_scan_image(
+        self, scan_image_replica: ScanImage, mask_array: MaskArray
+    ):
+        masked_scan_image = mask_and_crop_scan_image(
+            scan_image=scan_image_replica, mask=mask_array, crop=False
+        )
+        nans = np.isnan(scan_image_replica.data) | ~mask_array
+        assert np.array_equal(nans, np.isnan(masked_scan_image.data))
+
+    @pytest.mark.integration
+    def test_crop_scan_image(
+        self, scan_image_replica: ScanImage, mask_array: MaskArray
+    ):
+        cropped_scan_image = mask_and_crop_scan_image(
+            scan_image=scan_image_replica, mask=mask_array, crop=True
+        )
+        assert cropped_scan_image.width < scan_image_replica.width
+        assert cropped_scan_image.height < scan_image_replica.height
 
 
 @pytest.mark.integration

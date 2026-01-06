@@ -1,6 +1,7 @@
 import numpy as np
 
 from container_models.base import ScanMap2DArray, MaskArray
+from container_models.scan_image import ScanImage
 
 
 def mask_2d_array(
@@ -61,3 +62,13 @@ def mask_and_crop_2d_array(
     if crop:
         image = crop_to_mask(image=image, mask=mask)
     return image
+
+
+def mask_and_crop_scan_image(
+    scan_image: ScanImage, mask: MaskArray, crop: bool = False
+) -> ScanImage:
+    """Apply masking to the data in an instance of `ScanImage`."""
+    masked_data = mask_and_crop_2d_array(image=scan_image.data, mask=mask, crop=crop)
+    return ScanImage(
+        data=masked_data, scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
+    )
