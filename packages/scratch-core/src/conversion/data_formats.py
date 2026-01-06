@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -43,6 +44,28 @@ class CropType(Enum):
     POLYGON = auto()
 
 
+# TODO: in java code kijken of er meer dan 1 cropinfo meegegeven kan worden -> ja, en alleen als 1e rectangle, dan
+#  rotaten
+# TODO: in java code de rotation angle default kijken (is die ooit anders door gebruiker?)
+
+
+class CropInfo(BaseModel):
+    """
+    Representation of the cropped area. Parameter `is_foreground` is used to indicate whether keep or delete the
+    selected area.
+    TODO crop_type classes maken
+    The points dict differs per CropType:
+    CIRCLE: {'center': ScanMap2DArray, 'radius': float}
+        RECTANGLE: {'corner': ScanMap2DArray}
+        POLYGON: {'point': ScanMap2DArray}
+        ELLIPSE: {'center': ScanMap2DArray, 'majoraxis': float, 'minoraxis': float, angle_majoraxis: float}
+    """
+
+    data: dict[str, Any]
+    crop_type: CropType
+    is_foreground: bool  # save crop or delete crop
+
+
 class Mark(BaseModel):
     """
     Representation of a mark (impression or striation)
@@ -50,4 +73,4 @@ class Mark(BaseModel):
 
     scan_image: ScanImage
     mark_type: MarkType
-    crop_type: CropType
+    crop_info: CropInfo  # kan wss weggelaten worden
