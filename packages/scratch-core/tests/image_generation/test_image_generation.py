@@ -1,10 +1,8 @@
 import pytest
-from matplotlib.testing.decorators import image_comparison
 
 from image_generation import compute_3d_image, get_array_for_display
 from image_generation.data_formats import ScanImage
 
-from ..utils import plot_test_data
 import numpy as np
 from numpy.testing import assert_array_almost_equal
 
@@ -13,10 +11,10 @@ from ..constants import BASELINE_IMAGES_DIR
 
 
 @pytest.mark.integration
-@image_comparison(baseline_images=["surfaceplot_default"], extensions=["png"])
 def test_get_surface_plot(scan_image_replica: ScanImage) -> None:
+    verified = np.load(BASELINE_IMAGES_DIR / "surface_plot.npy")
     generated_image = compute_3d_image(scan_image=scan_image_replica)
-    plot_test_data(generated_image.data)
+    assert np.array_equal(generated_image.data, verified)
 
 
 @pytest.mark.integration

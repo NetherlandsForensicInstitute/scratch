@@ -3,9 +3,9 @@ from unittest.mock import patch, MagicMock
 
 from conversion.resample import (
     resample_scan_image_and_mask,
-    resample_scan_image,
-    get_scaling_factors,
-    clip_factors,
+    _resample_scan_image,
+    _get_scaling_factors,
+    _clip_factors,
     _resample_array,
 )
 from image_generation.data_formats import ScanImage
@@ -13,27 +13,27 @@ from image_generation.data_formats import ScanImage
 
 class TestGetScalingFactors:
     def test_basic_calculation(self):
-        assert get_scaling_factors((2e-6, 2e-6), 4e-6) == (2.0, 2.0)
+        assert _get_scaling_factors((2e-6, 2e-6), 4e-6) == (2.0, 2.0)
 
     def test_different_axes(self):
-        assert get_scaling_factors((1e-6, 2e-6), 4e-6) == (4.0, 2.0)
+        assert _get_scaling_factors((1e-6, 2e-6), 4e-6) == (4.0, 2.0)
 
     def test_upsampling(self):
-        assert get_scaling_factors((8e-6, 8e-6), 4e-6) == (0.5, 0.5)
+        assert _get_scaling_factors((8e-6, 8e-6), 4e-6) == (0.5, 0.5)
 
 
 class TestClipFactors:
     def test_no_clipping_needed(self):
-        assert clip_factors((2.0, 1.5), False) == (2.0, 1.5)
+        assert _clip_factors((2.0, 1.5), False) == (2.0, 1.5)
 
     def test_clip_below_one(self):
-        assert clip_factors((0.5, 2.0), False) == (1.0, 2.0)
+        assert _clip_factors((0.5, 2.0), False) == (1.0, 2.0)
 
     def test_preserve_aspect_ratio_clips_to_max(self):
-        assert clip_factors((0.5, 2.0), True) == (2.0, 2.0)
+        assert _clip_factors((0.5, 2.0), True) == (2.0, 2.0)
 
     def test_preserve_aspect_ratio_all_below_one(self):
-        assert clip_factors((0.5, 0.8), True) == (1.0, 1.0)
+        assert _clip_factors((0.5, 0.8), True) == (1.0, 1.0)
 
 
 class TestResampleArray:
@@ -71,7 +71,7 @@ class TestResampleScanImage:
         with patch("conversion.resample._resample_array") as mock:
             mock.return_value = np.zeros((50, 50))
 
-            result = resample_scan_image(scan_image_rectangular_with_nans, 2.0, 2.0)
+            result = _resample_scan_image(scan_image_rectangular_with_nans, (2.0, 2.0))
 
             assert result.scale_x == scan_image_rectangular_with_nans.scale_x * 2.0
             assert result.scale_y == scan_image_rectangular_with_nans.scale_y * 2.0
@@ -82,9 +82,7 @@ class TestResampleScanImage:
         with patch("conversion.resample._resample_array") as mock:
             mock.return_value = np.zeros((50, 60))
 
-            resample_scan_image(
-                scan_image_rectangular_with_nans, factor_x=1.5, factor_y=2.0
-            )
+            _resample_scan_image(scan_image_rectangular_with_nans, factors=(1.5, 2.0))
 
             mock.assert_called_once()
             assert mock.call_args[1]["factors"] == (2.0, 1.5)  # y, x order
@@ -104,7 +102,7 @@ class TestResampleImageAndMask:
         assert result_mask is mask
 
     def test_uses_explicit_factors(self, scan_image_rectangular_with_nans: ScanImage):
-        with patch("conversion.resample.get_scaling_factors") as mock:
+        with patch("conversion.resample._get_scaling_factors") as mock:
             resample_scan_image_and_mask(
                 scan_image_rectangular_with_nans, factors=(2.0, 2.0)
             )
@@ -113,7 +111,7 @@ class TestResampleImageAndMask:
     def test_calculates_factors_when_not_provided(
         self, scan_image_rectangular_with_nans: ScanImage
     ):
-        with patch("conversion.resample.get_scaling_factors") as mock:
+        with patch("conversion.resample._get_scaling_factors") as mock:
             mock.return_value = (2.0, 2.0)
             resample_scan_image_and_mask(
                 scan_image_rectangular_with_nans, target_scale=4e-6
@@ -123,7 +121,7 @@ class TestResampleImageAndMask:
     def test_clips_when_only_downsample(
         self, scan_image_rectangular_with_nans: ScanImage
     ):
-        with patch("conversion.resample.clip_factors") as mock_clip:
+        with patch("conversion.resample._clip_factors") as mock_clip:
             mock_clip.return_value = (1.0, 1.0)
             resample_scan_image_and_mask(
                 scan_image_rectangular_with_nans,
@@ -135,8 +133,8 @@ class TestResampleImageAndMask:
     def test_no_clip_when_only_downsample_false(
         self, scan_image_rectangular_with_nans: ScanImage
     ):
-        with patch("conversion.resample.clip_factors") as mock_clip:
-            with patch("conversion.resample.resample_scan_image"):
+        with patch("conversion.resample._clip_factors") as mock_clip:
+            with patch("conversion.resample._resample_scan_image"):
                 resample_scan_image_and_mask(
                     scan_image_rectangular_with_nans,
                     factors=(0.5, 0.5),
