@@ -1,15 +1,17 @@
 import numpy as np
+from scipy.ndimage import binary_dilation
 
+from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import CropType, CropInfo
+from conversion.mask import crop_to_mask
 
 
-def rotate_image(
+def get_rotation_angle(
     scan_image: ScanImage,
     rotation_angle: float = 0.0,  # Kan deze parameter weg? is altijd 0.0
     crop_info: list[CropInfo] = None,
-) -> ScanImage:
-    rotated_scan_image = scan_image.model_copy(deep=True)
+) -> float:
     if crop_info and crop_info[0].crop_type == CropType.RECTANGLE:
         points = crop_info[0]["corner"]
 
@@ -78,15 +80,14 @@ def rotate_image(
         if rotation_angle == -180:
             rotation_angle = 180
 
-    return rotated_scan_image
+    return rotation_angle
 
 
-def simpler_rotate(
+def get_rotatation_angle_simpler(
     scan_image: ScanImage,
     rotation_angle: float = 0.0,  # Kan deze parameter weg? is altijd 0.0
     crop_info: list[CropInfo] = None,
-) -> ScanImage:
-    rotated_scan_image = scan_image.model_copy(deep=True)
+) -> float:
     if crop_info and crop_info[0].crop_type == CropType.RECTANGLE:
         # Get rectangle corner points
         point_array = np.array(crop_info[0][1]["corner"], dtype=float)
@@ -122,4 +123,17 @@ def simpler_rotate(
         rotation_angle = np.mean(rotation_angles)
         if rotation_angle == -180:
             rotation_angle = 180
-    return rotated_scan_image
+    return rotation_angle
+
+
+def remove_holes_and_stitches(
+    scan_image: ScanImage, mask: MaskArray, rotation_angle: float = 0.0
+) -> ScanImage:
+    if rotation_angle != 0.0:
+        dilate_steps = 3
+        mask = (mask > 0.5).astype(float)
+        mask = binary_dilation(mask, iterations=dilate_steps).astype(float)
+
+    scan_image_cropped = crop_to_mask(scan_image, mask)
+    mask_cropped = crop_to_mask(mask, mask)
+    print(f"{scan_image_cropped.shape} {mask_cropped.shape}")
