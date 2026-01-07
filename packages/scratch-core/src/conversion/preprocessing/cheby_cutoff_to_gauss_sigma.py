@@ -7,11 +7,11 @@ filters used in surface metrology.
 Migrated from MATLAB: ChebyCutoffToGaussSigma.m
 """
 
-# ISO standard constant for Gaussian filter conversion.
-# Derived from: sqrt(2 * ln(2)) / (2 * pi) = 0.187390625
+import math
+
 # This ensures the Gaussian filter satisfies the ISO 16610-21 standard
 # for surface texture analysis.
-ISO_GAUSSIAN_CONSTANT: float = 0.187390625
+ISO_GAUSSIAN_CONSTANT = math.sqrt(2 * math.log(2)) / (2 * math.pi)
 
 
 def cheby_cutoff_to_gauss_sigma(cutoff_um: float, xdim_m: float) -> float:
