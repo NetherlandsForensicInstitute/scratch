@@ -1,75 +1,80 @@
+from collections.abc import Callable
 from http import HTTPStatus
 from io import BytesIO
 from pathlib import Path
-from uuid import UUID
 
 import numpy as np
 import pytest
 from container_models.light_source import LightSource
 from fastapi.testclient import TestClient
+from httpx import Response
 from PIL import Image
 from pydantic import HttpUrl
 
-from main import app
-from preprocessors import ProcessedDataLocation, UploadScan
-from preprocessors.router import ROUTE
-from preprocessors.schemas import UploadScanParameters
+from constants import EXTRACTOR_ROUTE, PREPROCESSOR_ROUTE
+from extractors.schemas import ProcessedDataAccess
+from models import DirectoryAccess
+from preprocessors.schemas import UploadScan, UploadScanParameters
+from settings import get_settings
 
 
 @pytest.fixture(scope="module")
 def upload_scan(scan_directory: Path) -> UploadScan:
     """Fixture that provides a default UploadScan model using circle.al3d."""
-    return UploadScan(scan_file=scan_directory / "Klein_non_replica_mode.al3d")
+    return UploadScan(scan_file=scan_directory / "Klein_non_replica_mode.al3d")  # type: ignore
 
 
 @pytest.fixture
-def post_process_scan(client: TestClient, upload_scan: UploadScan):
+def post_process_scan(client: TestClient, upload_scan: UploadScan) -> Callable[[UploadScan | None], Response]:
     """Fixture that provides a function to post to the process-scan endpoint.
 
     Uses upload_scan (AL3D) by default, but can accept a custom UploadScan model.
     """
 
-    def _post(input_model: UploadScan | None = None):
-        model = input_model if input_model is not None else upload_scan
-        return client.post(f"{ROUTE}/process-scan", json=model.model_dump(mode="json"))
+    def _post(input_model: UploadScan | None = None) -> Response:
+        return client.post(
+            f"{PREPROCESSOR_ROUTE}/process-scan",
+            json=(input_model or upload_scan).model_dump(mode="json"),
+        )
 
     return _post
 
 
 @pytest.mark.e2e
+@pytest.mark.usefixtures("tmp_dir_api")
 class TestProcessScanEndpoint:
     """End-to-end tests for the /process-scan endpoint."""
 
-    def test_process_scan_success_with_al3d_file(self, post_process_scan, client: TestClient) -> None:
+    def test_process_scan_success_with_al3d_file(self, upload_scan: UploadScan, client: TestClient) -> None:
         """Test successful scan processing with AL3D input file."""
         # Act I
-        response = post_process_scan()
+        response = client.post(f"{PREPROCESSOR_ROUTE}/process-scan", json=upload_scan.model_dump(mode="json"))
 
         # Assert - verify response
         assert response.status_code == HTTPStatus.OK
-        result = ProcessedDataLocation.model_validate(response.json())
+        result = ProcessedDataAccess.model_validate(response.json())
         assert result.preview_image.path
-        assert result.surfacemap_image.path
-        assert result.x3p_image.path
+        assert result.surface_map_image.path
+        assert result.scan_image.path
 
         # Act II
         preview = client.get(result.preview_image.path)
-        surfacemap = client.get(result.surfacemap_image.path)
-        x3p_response = client.get(result.x3p_image.path)
+        surface_map = client.get(result.surface_map_image.path)
+        x3p_response = client.get(result.scan_image.path)
 
         # Assert - verify response status codes
         assert preview.status_code == HTTPStatus.OK
-        assert surfacemap.status_code == HTTPStatus.OK
+        assert surface_map.status_code == HTTPStatus.OK
         assert x3p_response.status_code == HTTPStatus.OK
 
         # Assert - verify content types
         assert preview.headers["content-type"] == "image/png"
-        assert surfacemap.headers["content-type"] == "image/png"
+        assert surface_map.headers["content-type"] == "image/png"
         assert x3p_response.headers["content-type"] == "application/octet-stream"
 
         # Assert - verify PNG files are valid images
         assert Image.open(BytesIO(preview.content))
-        assert Image.open(BytesIO(surfacemap.content))
+        assert Image.open(BytesIO(surface_map.content))
 
         # Assert - verify x3p file has content
         assert len(x3p_response.content) > 0
@@ -107,20 +112,20 @@ class TestProcessScanEndpoint:
         # Assert
         assert control_response.status_code == HTTPStatus.OK
         assert response.status_code == HTTPStatus.OK
-        result_location = ProcessedDataLocation.model_validate(response.json())
-        control_location = ProcessedDataLocation.model_validate(control_response.json())
-        assert result_location.surfacemap_image.path
-        assert control_location.surfacemap_image.path
+        result_location = ProcessedDataAccess.model_validate(response.json())
+        control_location = ProcessedDataAccess.model_validate(control_response.json())
+        assert result_location.surface_map_image.path
+        assert control_location.surface_map_image.path
 
         # Act II
-        control = client.get(control_location.surfacemap_image.path)
-        result = client.get(result_location.surfacemap_image.path)
+        control = client.get(control_location.surface_map_image.path)
+        result = client.get(result_location.surface_map_image.path)
 
         # Assert - verify responses are successful
         assert control.status_code == HTTPStatus.OK
         assert result.status_code == HTTPStatus.OK
 
-        # Assert - verify that the two surfacemaps are not the same
+        # Assert - verify that the two surface_maps are not the same
         assert control.content != result.content, "Surfacemaps should differ with different light sources"
 
         # Assert - verify that result with doubled light sources is brighter
@@ -137,79 +142,87 @@ class TestProcessScanEndpoint:
         )
 
 
+@pytest.mark.usefixtures("tmp_dir_api")
 @pytest.mark.integration
 class TestProcessScan:
     """Integration tests for the /process-scan endpoint with file system operations."""
 
-    def test_process_scan(self, post_process_scan, tmp_dir_api: Path, token: UUID) -> None:
+    def test_process_scan(
+        self,
+        post_process_scan,
+        directory_access: DirectoryAccess,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test that process-scan creates expected output files with correct URLs and file structure."""
         # Arrange
-        tokenized_base_name = f"{token}/Klein_non_replica_mode"
-        base_url = f"http://localhost:8000{ROUTE}/file/{tokenized_base_name}"
+        base_url = f"{get_settings().base_url}{EXTRACTOR_ROUTE}/files/{directory_access.token}"
+        directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
         # Act
-        response = post_process_scan()
+        with monkeypatch.context() as mp:
+            mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+            response = post_process_scan()
 
         # Assert
-        expected_response = ProcessedDataLocation(
-            x3p_image=HttpUrl(f"{base_url}.x3p"),
-            preview_image=HttpUrl(f"{base_url}_preview.png"),
-            surfacemap_image=HttpUrl(f"{base_url}_surfacemap.png"),
+        expected_response = ProcessedDataAccess(
+            scan=HttpUrl(f"{base_url}/scan.x3p"),
+            preview=HttpUrl(f"{base_url}/preview.png"),
+            surface_map=HttpUrl(f"{base_url}/surface_map.png"),
         )
 
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"
-        response_model = ProcessedDataLocation.model_validate(response.json())
+        response_model = ProcessedDataAccess.model_validate(response.json())
         assert response_model == expected_response
-        assert (tmp_dir_api / f"{tokenized_base_name}.x3p").exists()
-        assert (tmp_dir_api / f"{tokenized_base_name}_preview.png").exists()
-        assert (tmp_dir_api / f"{tokenized_base_name}_surfacemap.png").exists()
+        assert (directory / "scan.x3p").exists()
+        assert (directory / "preview.png").exists()
+        assert (directory / "surface_map.png").exists()
 
-    def test_process_scan_overwrites_files(self, post_process_scan, tmp_dir_api: Path, token: UUID) -> None:
+    def test_process_scan_overwrites_files(
+        self,
+        post_process_scan,
+        directory_access: DirectoryAccess,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test that processing the same scan file twice overwrites existing output files."""
         # Arrange
-        tokenized_base_name = f"{token}/Klein_non_replica_mode"
+        monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
-        # Act
+        # Act I
         _ = post_process_scan()
-        x3p_first_post_time = (tmp_dir_api / f"{tokenized_base_name}.x3p").stat().st_mtime
-        preview_first_post_time = (tmp_dir_api / f"{tokenized_base_name}_preview.png").stat().st_mtime
+        x3p_first_post_time = (directory / "scan.x3p").stat().st_mtime
+        preview_first_post_time = (directory / "preview.png").stat().st_mtime
+
+        # Assert
+        assert x3p_first_post_time
+        assert preview_first_post_time
+
+        # Act II
         _ = post_process_scan()
 
         # Assert
-        assert (tmp_dir_api / f"{tokenized_base_name}.x3p").stat().st_mtime > x3p_first_post_time
-        assert (tmp_dir_api / f"{tokenized_base_name}_preview.png").stat().st_mtime > preview_first_post_time
-
-    def test_process_scan_files_are_deleted_after_restart(self, upload_scan: UploadScan, token: UUID) -> None:
-        """Test that temporary files are automatically cleaned up when the application shuts down."""
-        # Arrange
-        preview_path = f"{token}/Klein_non_replica_mode_preview.png"
-        # Act
-        with TestClient(app) as client:
-            client.post(f"{ROUTE}/process-scan", json=upload_scan.model_dump(mode="json"))
-            # Assert
-            tmp_dir = Path(str(app.state.temp_dir.name))
-            assert (tmp_dir / preview_path).exists()
-        assert not (tmp_dir / preview_path).exists(), "Temp dir should be removed after app shutdown"
+        assert (directory / "scan.x3p").stat().st_mtime > x3p_first_post_time
+        assert (directory / "preview.png").stat().st_mtime > preview_first_post_time
 
     @pytest.mark.parametrize(
-        ("filename", "side_effect"),
+        ("filename", "overhead"),
         [
             pytest.param("nonexistent.x3p", "None", id="nonexistent file"),
             pytest.param("unsuported.txt", "write_text is_unsupported_file", id="unsuported file"),
             pytest.param("empty.x3p", "touch", id="empty file"),
         ],
     )
-    def test_process_scan_bad_file(self, filename: str, side_effect: str, client: TestClient, tmp_path: Path) -> None:
+    def test_process_scan_bad_file(self, filename: str, overhead: str, client: TestClient, tmp_path: Path) -> None:
         """Test that invalid scan files (nonexistent, unsupported, or empty) are rejected with 422 status."""
         # Arrange
         path = tmp_path / filename
-        method, *args = side_effect.strip().split()
-        if func := getattr(path, method, None):
+        cmd, *args = overhead.strip().split()
+        if func := getattr(path, cmd, None):
             func(*args)
 
         # Act - send raw JSON to bypass Pydantic model construction
         response = client.post(
-            f"{ROUTE}/process-scan",
+            f"{PREPROCESSOR_ROUTE}/process-scan",
             json={"scan_file": str(path)},
         )
 
