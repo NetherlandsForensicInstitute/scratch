@@ -87,14 +87,18 @@ def get_rotation_angle(
     return rotation_angle
 
 
-def get_rotatation_angle_simpler(
+def get_rotation_angle_simpler(
     scan_image: ScanImage,
     rotation_angle: float = 0.0,  # Kan deze parameter weg? is altijd 0.0
     crop_info: list[CropInfo] = None,
 ) -> float:
-    if crop_info and crop_info[0].crop_type == CropType.RECTANGLE:
+    if (
+        rotation_angle == 0.0
+        and crop_info
+        and crop_info[0].crop_type == CropType.RECTANGLE
+    ):
         # Get rectangle corner points
-        point_array = np.array(crop_info[0][1]["corner"], dtype=float)
+        point_array = np.array(crop_info[0].data["corner"], dtype=float)
 
         # Sort points counter-clockwise starting from the first original point
         mean_xy = np.mean(point_array, axis=0)
