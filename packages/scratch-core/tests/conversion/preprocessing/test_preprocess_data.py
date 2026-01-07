@@ -7,7 +7,7 @@ including the short data handling and slope correction paths.
 import numpy as np
 import pytest
 
-from conversion.form_noise_removal import (
+from conversion.preprocess_data import (
     FormNoiseRemovalResult,
     apply_form_noise_removal,
 )
