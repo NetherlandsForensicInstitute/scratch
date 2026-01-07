@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
-from preprocessors.router import ROUTE
+from extractors.router import ROUTE
 
 
 def test_get_file_returns_file_response(client: TestClient, token: UUID, tmp_dir_api: Path) -> None:
@@ -71,4 +71,4 @@ def test_get_file_rejects_invalid_extension(client: TestClient, token: UUID, tmp
 
     # Assert
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-    assert response.json()["detail"][0]["msg"] == "Value error, File must have one of these extensions: x3p, png"
+    assert response.json()["detail"][0]["msg"] == "Value error, unsupported file type: test.txt, try: x3p, png"

@@ -10,10 +10,11 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from pydantic import HttpUrl
 
+from extractors.router import ROUTE as EXTRACT_ROUTE
+from extractors.schemas import ProcessedDataAccess
 from main import app
-from preprocessors import ProcessedDataLocation, UploadScan
 from preprocessors.router import ROUTE
-from preprocessors.schemas import UploadScanParameters
+from preprocessors.schemas import UploadScan, UploadScanParameters
 
 
 @pytest.fixture(scope="module")
@@ -47,7 +48,7 @@ class TestProcessScanEndpoint:
 
         # Assert - verify response
         assert response.status_code == HTTPStatus.OK
-        result = ProcessedDataLocation.model_validate(response.json())
+        result = ProcessedDataAccess.model_validate(response.json())
         assert result.preview_image.path
         assert result.surfacemap_image.path
         assert result.x3p_image.path
@@ -107,8 +108,8 @@ class TestProcessScanEndpoint:
         # Assert
         assert control_response.status_code == HTTPStatus.OK
         assert response.status_code == HTTPStatus.OK
-        result_location = ProcessedDataLocation.model_validate(response.json())
-        control_location = ProcessedDataLocation.model_validate(control_response.json())
+        result_location = ProcessedDataAccess.model_validate(response.json())
+        control_location = ProcessedDataAccess.model_validate(control_response.json())
         assert result_location.surfacemap_image.path
         assert control_location.surfacemap_image.path
 
@@ -145,20 +146,20 @@ class TestProcessScan:
         """Test that process-scan creates expected output files with correct URLs and file structure."""
         # Arrange
         tokenized_base_name = f"{token}/Klein_non_replica_mode"
-        base_url = f"http://localhost:8000{ROUTE}/file/{tokenized_base_name}"
+        base_url = f"http://localhost:8000{EXTRACT_ROUTE}/file/{tokenized_base_name}"
 
         # Act
         response = post_process_scan()
 
         # Assert
-        expected_response = ProcessedDataLocation(
+        expected_response = ProcessedDataAccess(
             x3p_image=HttpUrl(f"{base_url}.x3p"),
             preview_image=HttpUrl(f"{base_url}_preview.png"),
             surfacemap_image=HttpUrl(f"{base_url}_surfacemap.png"),
         )
 
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"
-        response_model = ProcessedDataLocation.model_validate(response.json())
+        response_model = ProcessedDataAccess.model_validate(response.json())
         assert response_model == expected_response
         assert (tmp_dir_api / f"{tokenized_base_name}.x3p").exists()
         assert (tmp_dir_api / f"{tokenized_base_name}_preview.png").exists()

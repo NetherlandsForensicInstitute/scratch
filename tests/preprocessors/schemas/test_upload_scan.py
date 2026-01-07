@@ -5,8 +5,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from preprocessors import UploadScan
-from preprocessors.schemas import SupportedPostExtension
+from preprocessors.schemas import SupportedExtension, UploadScan
 
 
 @pytest.fixture
@@ -22,7 +21,7 @@ def valid_scan_file(scan_directory: Path) -> Path:
 
 @pytest.mark.parametrize(
     "extension",
-    [ext.value for ext in SupportedPostExtension],
+    [ext.value for ext in SupportedExtension],
 )
 def test_all_supported_extensions(tmp_path: Path, extension: str) -> None:
     """Test that all supported extensions are accepted."""
@@ -42,7 +41,7 @@ def test_all_supported_extensions(tmp_path: Path, extension: str) -> None:
         alphabet=st.characters(whitelist_categories=("Ll", "Lu", "Nd")),
         min_size=1,
         max_size=10,
-    ).filter(lambda ext: ext not in [e.value for e in SupportedPostExtension])
+    ).filter(lambda ext: ext not in [e.value for e in SupportedExtension])
 )
 def test_unsupported_extension_raises_error(extension: str, tmp_path_factory: pytest.TempPathFactory) -> None:
     """Test that unsupported file extensions raise ValueError using property-based testing."""
@@ -56,7 +55,9 @@ def test_unsupported_extension_raises_error(extension: str, tmp_path_factory: py
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
         UploadScan(scan_file=scan_file)
-    assert "unsupported extension" in str(exc_info.value)
+    error_message = str(exc_info.value)
+    assert "unsupported file type" in error_message
+    assert "try: al3d, x3p, sur, plu" in error_message
 
 
 def test_nonexistent_scan_file_raises_error() -> None:
