@@ -9,11 +9,15 @@ from conversion.mask import crop_to_mask
 
 def get_rotation_angle(
     scan_image: ScanImage,
-    rotation_angle: float = 0.0,  # Kan deze parameter weg? is altijd 0.0
+    rotation_angle: float = 0.0,
     crop_info: list[CropInfo] = None,
 ) -> float:
-    if crop_info and crop_info[0].crop_type == CropType.RECTANGLE:
-        points = crop_info[0]["corner"]
+    if (
+        rotation_angle == 0.0
+        and crop_info
+        and crop_info[0].crop_type == CropType.RECTANGLE
+    ):
+        points = crop_info[0].data["corner"]
 
         # Make sure the points are ordered counter clockwise in the Java reference,
         # thus first coordinate right, second up
@@ -126,9 +130,9 @@ def get_rotatation_angle_simpler(
     return rotation_angle
 
 
-def remove_holes_and_stitches(
+def dilate_and_crop_image_and_mask(
     scan_image: ScanImage, mask: MaskArray, rotation_angle: float = 0.0
-) -> ScanImage:
+) -> tuple[ScanImage, MaskArray]:
     if rotation_angle != 0.0:
         dilate_steps = 3
         mask = (mask > 0.5).astype(float)
@@ -136,4 +140,5 @@ def remove_holes_and_stitches(
 
     scan_image_cropped = crop_to_mask(scan_image, mask)
     mask_cropped = crop_to_mask(mask, mask)
-    print(f"{scan_image_cropped.shape} {mask_cropped.shape}")
+
+    return scan_image_cropped, mask_cropped

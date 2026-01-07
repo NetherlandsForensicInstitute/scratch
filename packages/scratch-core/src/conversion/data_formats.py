@@ -73,4 +73,4 @@ class Mark(BaseModel):
 
     scan_image: ScanImage
     mark_type: MarkType
-    crop_info: CropInfo  # kan wss weggelaten worden
+    crop_info: list[CropInfo]  # kan wss weggelaten worden
