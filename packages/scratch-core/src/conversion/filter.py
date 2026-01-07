@@ -301,7 +301,8 @@ def _solve_pixelwise_regression(
         solutions = np.linalg.solve(A_valid, b_valid)
         result[valid_indices] = solutions[:, 0, 0]  # c0 is the smoothed value
     except np.linalg.LinAlgError:
-        # Pass the tuple as is, but we ensure the recipient expects a 2D tuple
+        # Pass the tuple as is, but we ensure the recipient expects a 2D tuple.
+        # This modifies `result` in place.
         _solve_fallback_lstsq(result, lhs_matrix, rhs_prepared, valid_indices)
 
     return result
