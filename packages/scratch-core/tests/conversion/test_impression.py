@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
@@ -23,6 +25,11 @@ from conversion.impression import (
     preprocess_impression_mark,
 )
 from conversion.parameters import PreprocessingImpressionParams
+from tests.conversion.helper_function import (
+    _crop_to_common_shape,
+    _compute_correlation,
+    _compute_difference_stats,
+)
 
 
 def make_circular_data(
@@ -37,15 +44,25 @@ def make_circular_data(
     return data
 
 
-def make_rectangular_data(shape: tuple[int, int], margin: int = 10) -> np.ndarray:
-    """Create rectangular height map data with NaN border."""
+def make_rectangular_data(
+    shape: tuple[int, int], margin: int = 10, scale: float = 1e-6
+) -> np.ndarray:
+    """Create rectangular height map data with NaN border.
+
+    :param shape: Shape of the output array.
+    :param margin: Size of NaN border.
+    :param scale: Scale factor for height values (should match pixel scale).
+    :return: Height map with tilted plane and noise.
+    """
     data = np.full(shape, np.nan)
-    # Add tilted plane with some noise
+    # Add tilted plane with some noise, scaled appropriately
     y, x = np.mgrid[: shape[0], : shape[1]]
     data[margin:-margin, margin:-margin] = (
-        0.1 * x[margin:-margin, margin:-margin]
-        + 0.05 * y[margin:-margin, margin:-margin]
-        + np.random.normal(0, 0.01, (shape[0] - 2 * margin, shape[1] - 2 * margin))
+        0.1 * x[margin:-margin, margin:-margin] * scale
+        + 0.05 * y[margin:-margin, margin:-margin] * scale
+        + np.random.normal(
+            0, 0.01 * scale, (shape[0] - 2 * margin, shape[1] - 2 * margin)
+        )
     )
     return data
 
@@ -424,7 +441,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_basic_pipeline_runs(self):
         """Basic pipeline should run without errors."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -447,7 +464,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_output_has_correct_scale(self):
         """Output should have the target pixel size."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -470,7 +487,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_output_is_smaller_after_downsampling(self):
         """Downsampling should reduce array size."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -493,7 +510,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_metadata_is_populated(self):
         """Output metadata should contain processing info."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -521,7 +538,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_filtered_and_leveled_differ(self):
         """Filtered and leveled outputs should be different."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -529,7 +546,6 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),
             adjust_pixel_spacing=False,
             highpass_cutoff=50e-6,  # Apply high-pass to create difference
         )
@@ -568,7 +584,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_no_resampling_when_pixel_size_matches(self):
         """No resampling should occur when pixel size already matches."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -587,7 +603,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_interpolated_flag_set_on_resampling(self):
         """Interpolated flag should be True after resampling."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -606,7 +622,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_without_lowpass_filter(self):
         """Pipeline should work without low-pass filter."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -627,7 +643,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_without_highpass_filter(self):
         """Pipeline should work without high-pass filter."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -648,7 +664,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_without_any_filters(self):
         """Pipeline should work without any filters."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -670,7 +686,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_with_tilt_adjustment(self):
         """Pipeline should work with tilt adjustment enabled."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -690,7 +706,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_with_second_order_leveling(self):
         """Pipeline should work with second order leveling."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -713,7 +729,7 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_output_data_is_finite_where_valid(self):
         """Output data should be finite where input was valid."""
-        data = make_rectangular_data((100, 100))
+        data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
             scale_x=1e-6,
@@ -851,7 +867,7 @@ class TestApplyLowpassIfNeeded:
         mark = make_mark(np.random.default_rng(42).random((10, 10)))
 
         result = _apply_lowpass_if_needed(
-            mark, cutoff=None, anti_alias_cutoff=(None, None)
+            mark, cutoff=None, anti_alias_cutoff=(None, None), regression_order=0
         )
 
         assert result is mark
@@ -862,7 +878,7 @@ class TestApplyLowpassIfNeeded:
 
         # Low-pass cutoff (5.0) is larger (weaker) than anti-alias cutoff (2.0)
         result = _apply_lowpass_if_needed(
-            mark, cutoff=5.0, anti_alias_cutoff=(2.0, 2.0)
+            mark, cutoff=5.0, anti_alias_cutoff=(2.0, 2.0), regression_order=0
         )
 
         assert result is mark
@@ -872,7 +888,7 @@ class TestApplyLowpassIfNeeded:
         mark = make_mark(np.random.default_rng(42).random((10, 10)))
 
         result = _apply_lowpass_if_needed(
-            mark, cutoff=2.0, anti_alias_cutoff=(2.0, 2.0)
+            mark, cutoff=2.0, anti_alias_cutoff=(2.0, 2.0), regression_order=0
         )
 
         assert result is mark
@@ -885,7 +901,7 @@ class TestApplyLowpassIfNeeded:
 
         # Low-pass cutoff (1.0) is smaller (stronger) than anti-alias cutoff (5.0)
         result = _apply_lowpass_if_needed(
-            mark, cutoff=1.0, anti_alias_cutoff=(5.0, 5.0)
+            mark, cutoff=1.0, anti_alias_cutoff=(5.0, 5.0), regression_order=0
         )
 
         assert result is not mark
@@ -899,7 +915,7 @@ class TestApplyLowpassIfNeeded:
         mark = make_mark(data, scale_x=1.0, scale_y=1.0)
 
         result = _apply_lowpass_if_needed(
-            mark, cutoff=2.0, anti_alias_cutoff=(None, None)
+            mark, cutoff=2.0, anti_alias_cutoff=(None, None), regression_order=0
         )
 
         assert result is not mark
@@ -912,7 +928,7 @@ class TestApplyLowpassIfNeeded:
 
         # Only one direction had anti-aliasing
         result = _apply_lowpass_if_needed(
-            mark, cutoff=1.0, anti_alias_cutoff=(5.0, None)
+            mark, cutoff=1.0, anti_alias_cutoff=(5.0, None), regression_order=0
         )
 
         assert result is not mark
@@ -925,7 +941,7 @@ class TestApplyHighpassIfNeeded:
         """Should return original mark when cutoff is None."""
         mark = make_mark(np.random.default_rng(42).random((10, 10)))
 
-        result = _apply_highpass_if_needed(mark, cutoff=None)
+        result = _apply_highpass_if_needed(mark, cutoff=None, regression_order=0)
 
         assert result is mark
 
@@ -936,7 +952,7 @@ class TestApplyHighpassIfNeeded:
         data = 0.1 * x + 0.05 * y + np.random.default_rng(42).random((20, 20)) * 0.01
         mark = make_mark(data.astype(float), scale_x=1.0, scale_y=1.0)
 
-        result = _apply_highpass_if_needed(mark, cutoff=5.0)
+        result = _apply_highpass_if_needed(mark, cutoff=5.0, regression_order=0)
 
         assert result is not mark
         # High-pass should remove the trend, reducing mean
@@ -951,7 +967,7 @@ class TestApplyHighpassIfNeeded:
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
 
-        result = _apply_highpass_if_needed(mark, cutoff=2.0)
+        result = _apply_highpass_if_needed(mark, cutoff=2.0, regression_order=0)
 
         assert result.mark_type == MarkType.BREECH_FACE_IMPRESSION
         assert result.scan_image.scale_x == 0.5
@@ -1055,3 +1071,169 @@ class TestBuildPreprocessingMetadata:
         result = _build_preprocessing_metadata(params, (0, 0), interpolated=False)
 
         assert result["is_interpolated"] is False
+
+
+class TestMatlabPythonComparison:
+    """Compare Python preprocessing output against MATLAB reference output."""
+
+    @pytest.fixture
+    def input_mark(self, baseline_images_dir: Path) -> "Mark":
+        """Load input used for MATLAB test."""
+        data = np.load(
+            baseline_images_dir / "preprocessing_impression_input.npy",
+            allow_pickle=True,
+        )
+        scan_image = ScanImage(data=data, scale_x=3.5000e-06, scale_y=3.5000e-06)
+        return Mark(
+            scan_image=scan_image,
+            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            crop_type=CropType.RECTANGLE,
+        )
+
+    @pytest.fixture
+    def matlab_outputs(self, baseline_images_dir: Path):
+        """Load MATLAB reference outputs.
+
+        Override this fixture to provide paths to your MATLAB output files.
+        Expected to return dict with 'processed' and 'leveled' arrays.
+        """
+        matlab_processed_path = Path(
+            "preprocessing_impression_output_matlab_processed.npy"
+        )
+        matlab_leveled_path = Path("preprocessing_impression_output_matlab_leveled.npy")
+
+        return {
+            "processed": np.load(baseline_images_dir / matlab_processed_path),
+            "leveled": np.load(baseline_images_dir / matlab_leveled_path),
+        }
+
+    @pytest.fixture
+    def python_outputs(self, input_mark: Mark):
+        """Generate Python preprocessing outputs.
+
+        Override this fixture to load your test input and run preprocessing.
+        """
+        params = PreprocessingImpressionParams()
+        processed, leveled = preprocess_impression_mark(input_mark, params)
+        return {
+            "processed": processed.scan_image.data,
+            "leveled": leveled.scan_image.data,
+        }
+
+    def test_processed_output_correlation(self, matlab_outputs, python_outputs):
+        """Test that processed outputs have high correlation (>0.999)."""
+        matlab_proc, python_proc = _crop_to_common_shape(
+            matlab_outputs["processed"], python_outputs["processed"]
+        )
+
+        correlation = _compute_correlation(matlab_proc, python_proc)
+
+        assert correlation > 0.999, (
+            f"Processed correlation {correlation} below threshold"
+        )
+
+    def test_processed_output_range(self, matlab_outputs, python_outputs):
+        """Test that processed outputs have similar value ranges."""
+        matlab_proc = matlab_outputs["processed"]
+        python_proc = python_outputs["processed"]
+
+        matlab_range = (np.nanmin(matlab_proc), np.nanmax(matlab_proc))
+        python_range = (np.nanmin(python_proc), np.nanmax(python_proc))
+
+        # Check ranges are within 10% of each other
+        matlab_span = matlab_range[1] - matlab_range[0]
+        python_span = python_range[1] - python_range[0]
+
+        range_ratio = python_span / matlab_span if matlab_span != 0 else np.inf
+
+        assert 0.9 < range_ratio < 1.1, (
+            f"Range mismatch: MATLAB {matlab_range}, Python {python_range}"
+        )
+
+    def test_processed_output_difference(self, matlab_outputs, python_outputs):
+        """Test that processed outputs have small absolute differences."""
+        matlab_proc, python_proc = _crop_to_common_shape(
+            matlab_outputs["processed"], python_outputs["processed"]
+        )
+
+        stats = _compute_difference_stats(python_proc, matlab_proc)
+
+        # Mean difference should be near zero
+        assert abs(stats["mean"]) < 1e-9, f"Mean difference {stats['mean']} too large"
+
+        # Std of differences should be small relative to signal
+        signal_std = np.nanstd(matlab_proc)
+        relative_std = stats["std"] / signal_std if signal_std != 0 else np.inf
+
+        assert relative_std < 0.01, f"Relative std {relative_std} too large"
+
+    def test_leveled_output_correlation(self, matlab_outputs, python_outputs):
+        """Test that leveled outputs have high correlation (>0.999)."""
+        matlab_lev, python_lev = _crop_to_common_shape(
+            matlab_outputs["leveled"], python_outputs["leveled"]
+        )
+
+        correlation = _compute_correlation(matlab_lev, python_lev)
+
+        assert correlation > 0.999, f"Leveled correlation {correlation} below threshold"
+
+    def test_leveled_output_range(self, matlab_outputs, python_outputs):
+        """Test that leveled outputs have similar value ranges."""
+        matlab_lev = matlab_outputs["leveled"]
+        python_lev = python_outputs["leveled"]
+
+        matlab_range = (np.nanmin(matlab_lev), np.nanmax(matlab_lev))
+        python_range = (np.nanmin(python_lev), np.nanmax(python_lev))
+
+        # Check ranges are within 10% of each other
+        matlab_span = matlab_range[1] - matlab_range[0]
+        python_span = python_range[1] - python_range[0]
+
+        range_ratio = python_span / matlab_span if matlab_span != 0 else np.inf
+
+        assert 0.9 < range_ratio < 1.1, (
+            f"Range mismatch: MATLAB {matlab_range}, Python {python_range}"
+        )
+
+    def test_leveled_output_difference(self, matlab_outputs, python_outputs):
+        """Test that leveled outputs have small absolute differences."""
+        matlab_lev, python_lev = _crop_to_common_shape(
+            matlab_outputs["leveled"], python_outputs["leveled"]
+        )
+        stats = _compute_difference_stats(python_lev, matlab_lev)
+
+        # Mean difference should be near zero
+        assert abs(stats["mean"]) < 1e-9, f"Mean difference {stats['mean']} too large"
+
+        # Std of differences should be small relative to signal
+        signal_std = np.nanstd(matlab_lev)
+        relative_std = stats["std"] / signal_std if signal_std != 0 else np.inf
+
+        assert relative_std < 0.01, f"Relative std {relative_std} too large"
+
+    def test_shape_similarity(self, matlab_outputs, python_outputs):
+        """Test that output shapes are within 1 pixel of each other."""
+        matlab_proc_shape = matlab_outputs["processed"].shape
+        python_proc_shape = python_outputs["processed"].shape
+
+        row_diff = abs(matlab_proc_shape[0] - python_proc_shape[0])
+        col_diff = abs(matlab_proc_shape[1] - python_proc_shape[1])
+
+        assert row_diff <= 1, f"Row difference {row_diff} too large"
+        assert col_diff <= 1, f"Column difference {col_diff} too large"
+
+    def test_nan_pattern_similarity(self, matlab_outputs, python_outputs):
+        """Test that NaN patterns are similar between outputs."""
+        matlab_proc, python_proc = _crop_to_common_shape(
+            matlab_outputs["processed"], python_outputs["processed"]
+        )
+
+        matlab_nan = np.isnan(matlab_proc)
+        python_nan = np.isnan(python_proc)
+
+        # Calculate percentage of matching NaN positions
+        matching = np.sum(matlab_nan == python_nan)
+        total = matlab_nan.size
+        match_ratio = matching / total
+
+        assert match_ratio > 0.99, f"NaN pattern match ratio {match_ratio} too low"

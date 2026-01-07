@@ -19,10 +19,9 @@ class PreprocessingImpressionParams:
     :param lowpass_cutoff: Low-pass filter cutoff length in meters (None to disable)
     """
 
-    pixel_size: tuple[float, float] = (
-        1.0,
-        1.0,
-    )  # Not set anywhere, always (1,1) or even (np.nan, np.nan)?
+    pixel_size: tuple[float, float] | None = (
+        None  # Not set anywhere, always (1,1) or even (np.nan, np.nan)?
+    )
     adjust_pixel_spacing: bool = True  # Not set anywhere, always False? set when initialising NIST params, always True?
 
     # in Java Preprocessing/Impression parameter group

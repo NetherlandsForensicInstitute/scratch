@@ -19,8 +19,7 @@ from conversion.data_formats import Mark, MarkType
 from conversion.gaussian_filter import apply_gaussian_filter
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.parameters import PreprocessingImpressionParams
-from conversion.resample import resample_image_and_mask
-
+from conversion.resample import resample_scan_image_and_mask
 
 # Type aliases
 Point2D = tuple[float, float]
@@ -127,9 +126,8 @@ def _fit_circle_ransac(
     if model is None:
         return None
 
-    x, y, radius = model.params
-    if radius > 0 and np.isfinite([x, y, radius]).all():
-        return (x, y)
+    if model.radius > 0 and np.isfinite(model.params).all():
+        return model.center
 
     return None
 
@@ -316,7 +314,9 @@ def _apply_anti_aliasing(
     filtered_data = apply_gaussian_filter(
         scan_image.data,
         is_high_pass=False,
-        cutoff_lengths=cutoffs,
+        regression_order=0,
+        pixel_size=(scan_image.scale_x, scan_image.scale_y),  # todo klopt dit?
+        cutoff_length=cutoffs[0],
     )
 
     return scan_image.model_copy(update={"data": filtered_data}), cutoffs
@@ -325,6 +325,7 @@ def _apply_anti_aliasing(
 def _apply_gaussian_filter_to_mark(
     mark: Mark,
     cutoff: float,
+    regression_order: int,
     *,
     is_high_pass: bool,
 ) -> Mark:
@@ -339,7 +340,9 @@ def _apply_gaussian_filter_to_mark(
     filtered_data = apply_gaussian_filter(
         mark.scan_image.data,
         is_high_pass=is_high_pass,
-        cutoff_lengths=(cutoff, cutoff),
+        cutoff_length=cutoff,
+        regression_order=regression_order,
+        pixel_size=(mark.scan_image.scale_x, mark.scan_image.scale_y),
     )
     return _update_mark_data(mark, filtered_data)
 
@@ -347,6 +350,7 @@ def _apply_gaussian_filter_to_mark(
 def _apply_lowpass_if_needed(
     mark: Mark,
     cutoff: float | None,
+    regression_order: int,
     anti_alias_cutoff: FilterCutoff,
 ) -> Mark:
     """
@@ -365,10 +369,14 @@ def _apply_lowpass_if_needed(
     if valid_cutoffs and cutoff >= min(valid_cutoffs):
         return mark
 
-    return _apply_gaussian_filter_to_mark(mark, cutoff, is_high_pass=False)
+    return _apply_gaussian_filter_to_mark(
+        mark, cutoff, regression_order, is_high_pass=False
+    )
 
 
-def _apply_highpass_if_needed(mark: Mark, cutoff: float | None) -> Mark:
+def _apply_highpass_if_needed(
+    mark: Mark, cutoff: float | None, regression_order: int
+) -> Mark:
     """
     Apply high-pass filter if cutoff is specified.
 
@@ -378,7 +386,9 @@ def _apply_highpass_if_needed(mark: Mark, cutoff: float | None) -> Mark:
     """
     if cutoff is None:
         return mark
-    return _apply_gaussian_filter_to_mark(mark, cutoff, is_high_pass=True)
+    return _apply_gaussian_filter_to_mark(
+        mark, cutoff, regression_order, is_high_pass=True
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -391,14 +401,6 @@ def _level_mark(
     terms: SurfaceTerms,
     reference_point: Point2D | None = None,
 ) -> tuple[Mark, NDArray[np.floating]]:
-    """
-    Level mark data and return leveled mark with fitted surface.
-
-    :param mark: Input mark.
-    :param terms: Surface terms to fit.
-    :param reference_point: Optional reference point for leveling.
-    :return: Tuple of (leveled mark, fitted surface).
-    """
     result = level_map(mark.scan_image, terms=terms, reference_point=reference_point)
     leveled_mark = _update_mark_data(mark, result.leveled_map)
     return leveled_mark, result.fitted_surface
@@ -429,7 +431,7 @@ def _resample_mark(mark: Mark, target_scale: float) -> Mark:
     :param target_scale: Target pixel scale.
     :return: Resampled mark.
     """
-    resampled, _ = resample_image_and_mask(
+    resampled, _ = resample_scan_image_and_mask(
         mark.scan_image,
         target_scale=target_scale,
         only_downsample=False,
@@ -564,9 +566,23 @@ def _apply_filtering_pipeline(
         mark_anti_aliased = mark
         anti_alias_cutoff = (None, None)
 
-    mark_filtered = _apply_lowpass_if_needed(
-        mark_anti_aliased, params.lowpass_cutoff, anti_alias_cutoff
-    )
+    # Low-pass decision (for map path)
+    if params.lowpass_cutoff is None:
+        # No low-pass configured, use anti-aliased
+        mark_filtered = mark_anti_aliased
+    else:
+        valid_cutoffs = [c for c in anti_alias_cutoff if c is not None]
+        if valid_cutoffs and params.lowpass_cutoff >= min(valid_cutoffs):
+            # Anti-aliasing is sufficient
+            mark_filtered = mark_anti_aliased
+        else:
+            # Apply low-pass to original leveled (not anti-aliased)
+            mark_filtered = _apply_gaussian_filter_to_mark(
+                mark,
+                params.lowpass_cutoff,
+                params.regression_order_low,
+                is_high_pass=False,
+            )
 
     return mark_filtered, mark_anti_aliased, anti_alias_cutoff
 
@@ -577,7 +593,7 @@ def _apply_resampling_pipeline(
     fitted_surface: NDArray[np.floating],
     mark_leveled: Mark,
     target_scale: float | None,
-) -> tuple[Mark, Mark, NDArray[np.floating], bool]:
+) -> tuple[Mark, Mark, NDArray, bool]:
     """
     Resample marks and fitted surface to target scale.
 
@@ -611,6 +627,7 @@ def _finalize_leveled_output(
     mark_anti_aliased: Mark,
     fitted_surface: NDArray[np.floating],
     surface_terms: SurfaceTerms,
+    reference_point: Point2D,
 ) -> Mark:
     """
     Prepare the leveled-only output by restoring form and re-leveling.
@@ -624,7 +641,7 @@ def _finalize_leveled_output(
     mark_restored = _update_mark_data(mark_anti_aliased, restored_data)
 
     rigid_terms = surface_terms & SurfaceTerms.PLANE
-    leveled_mark, _ = _level_mark(mark_restored, rigid_terms)
+    leveled_mark, _ = _level_mark(mark_restored, rigid_terms, reference_point)
     return leveled_mark
 
 
@@ -656,22 +673,27 @@ def preprocess_impression_mark(
     :return: Tuple of (filtered mark, leveled-only mark).
     """
     # Stage 1: Preparation
+    print("stage 1")
     mark, center_local = _prepare_mark(mark)
 
     # Stage 2: Tilt correction
+    print("stage 2")
     mark, center_local = _apply_tilt_correction(
         mark, center_local, params.adjust_pixel_spacing
     )
 
     # Stage 3: Initial leveling
+    print("stage 3")
     mark_leveled, fitted_surface = _level_mark(mark, params.surface_terms, center_local)
 
     # Stage 4-5: Filtering (anti-aliasing + low-pass)
-    mark_filtered, mark_anti_aliased, _ = _apply_filtering_pipeline(
+    print("stage 4-5")
+    mark_filtered, mark_anti_aliased, anti_alias_cutoff = _apply_filtering_pipeline(
         mark_leveled, params
     )
 
     # Stage 6: Resampling
+    print("stage 6")
     target_scale = params.pixel_size[0] if params.pixel_size else None
     mark_filtered, mark_anti_aliased, fitted_surface, interpolated = (
         _apply_resampling_pipeline(
@@ -680,14 +702,19 @@ def preprocess_impression_mark(
     )
 
     # Stage 7: High-pass filter
-    mark_filtered = _apply_highpass_if_needed(mark_filtered, params.highpass_cutoff)
+    print("stage 7")
+    mark_filtered = _apply_highpass_if_needed(
+        mark_filtered, params.highpass_cutoff, params.regression_order_high
+    )
 
     # Stage 8: Final leveling
+    print("stage 8")
     mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms)
 
     # Prepare leveled-only output
+    print("prepare output")
     mark_leveled_final = _finalize_leveled_output(
-        mark_anti_aliased, fitted_surface, params.surface_terms
+        mark_anti_aliased, fitted_surface, params.surface_terms, center_local
     )
 
     # Build output metadata
@@ -695,7 +722,11 @@ def preprocess_impression_mark(
         _build_preprocessing_metadata(params, center_local, interpolated)
     )
 
+    output_pixel_size = params.pixel_size or (
+        mark.scan_image.scale_x,
+        mark.scan_image.scale_y,
+    )
     return (
-        _build_output_mark(mark_filtered, params.pixel_size, is_filtered=True),
-        _build_output_mark(mark_leveled_final, params.pixel_size, is_filtered=False),
+        _build_output_mark(mark_filtered, output_pixel_size, is_filtered=True),
+        _build_output_mark(mark_leveled_final, output_pixel_size, is_filtered=False),
     )
