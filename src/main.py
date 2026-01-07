@@ -1,4 +1,4 @@
-import tempfile
+import shutil
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
@@ -6,41 +6,55 @@ from loguru import logger
 from uvicorn import run
 
 from comparators.router import comparison_router
+from extractors.router import extractor_route
 from preprocessors import preprocessor_route
 from processors.router import processors
+from settings import get_settings
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def _lifespan(_: FastAPI):
     """
-    Create and clean up a temporary directory for the application lifespan.
+    Initialize application resources on startup and cleanup on shutdown.
 
-    This context manager sets up a temporary directory when the FastAPI application
-    starts and ensures it is cleaned up when the application shuts down.
-
-    :param app: The FastAPI application instance.
-
-    :yields: ``None``
+    This context manager configures the application with settings and
+    manages the storage directory lifecycle.
     """
-    temp_dir = tempfile.TemporaryDirectory(prefix="surface_comparator_")
-    app.state.temp_dir = temp_dir
-    logger.info(f"Temporary directory created at: {temp_dir.name}")
-    try:
-        yield
-    finally:
-        logger.info(f"Cleaning up temporary directory: {temp_dir.name}")
-        temp_dir.cleanup()
+    settings = get_settings()
+    settings.log_startup_config()
+
+    yield  # Application runs here
+
+    # Cleanup storage directory on shutdown if storage is NOT persistent
+    if not settings.persistent_storage:
+        try:
+            if settings.storage.exists():
+                shutil.rmtree(settings.storage)
+                logger.info(f"Cleaned up default storage directory: {settings.storage}")
+        except (OSError, PermissionError) as e:
+            logger.error(f"Failed to cleanup storage directory {settings.storage}: {e}")
+    elif settings.persistent_storage:
+        logger.info(f"Persistent storage enabled - keeping directory: {settings.storage}")
+
+    logger.info("Application shutdown")
 
 
-app = FastAPI(lifespan=lifespan, title="Scratch API", version="0.1.0")
+settings = get_settings()
+app = FastAPI(
+    lifespan=_lifespan,
+    title=settings.app_title,
+    version=settings.app_version,
+)
 prefix_router = APIRouter()
 
 prefix_router.include_router(preprocessor_route)
 prefix_router.include_router(processors)
 prefix_router.include_router(comparison_router)
+prefix_router.include_router(extractor_route)
 app.include_router(prefix_router)
 
 
 if __name__ == "__main__":
+    settings = get_settings()
     logger.info("Starting server...")
-    run(app, host="127.0.0.1", port=8000, reload=False, workers=1)
+    run(app, host=settings.api_host, port=settings.api_port, reload=False, workers=1)
