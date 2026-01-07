@@ -6,10 +6,11 @@ from scipy.signal import fftconvolve
 # Standard Gaussian alpha for 50% transmission
 ALPHA_GAUSSIAN = np.sqrt(np.log(2) / np.pi)
 # Adjusted alpha often used for higher-order regression filters to maintain properties
+# alpha = Sqrt((-1 - LambertW(-1, -1 / (2 * exp(1)))) / Pi)
 ALPHA_REGRESSION = 0.7309134280946760
 
 
-def apply_gaussian_filter(
+def apply_gaussian_regression_filter(
     data: NDArray[np.floating],
     cutoff_length: float,
     pixel_size: tuple[float, float] = (1.0, 1.0),
@@ -18,20 +19,26 @@ def apply_gaussian_filter(
     is_high_pass: bool = False,
 ) -> NDArray[np.floating]:
     """
-    Apply a Gaussian filter to 2D data using local polynomial regression (ISO 16610-21).
+    Apply a 2D Savitzky-Golay filter with Gaussian weighting via local polynomial regression (ISO 16610-21).
 
-    This implementation generalizes standard Gaussian filtering to handle missing data (NaNs) using local regression techniques.
-    It supports 0th order (weighted average), 1st order (planar fit), and 2nd order (quadratic fit) regression.
+    This implementation generalizes standard Gaussian filtering to handle missing data (NaNs) using local
+    regression techniques. It supports 0th order (Gaussian Kernel weighted average), 1st order (planar fit),
+    and 2nd order (quadratic fit) regression.
 
-    Mathematical Basis:
-      - **Order 0**: Equivalent to the Nadaraya-Watson estimator (Kernel Regression).
-        It calculates a weighted average where weights are determined by the
-        Gaussian kernel and the validity (non-NaN status) of neighboring pixels.
+    Explanation of Regression Orders:
+      - **Order 0**: Equivalent to the Nadaraya-Watson estimator. It calculates a weighted average where weights
+        are determined by the Gaussian kernel and the validity (non-NaN status) of neighboring pixels.
+      - **Order 1 & 2**: Local Weighted Least Squares (LOESS). It fits a polynomial surface (plane or quadratic) to
+        the local neighborhood weighted by the Gaussian kernel. This acts as a robust 2D Savitzky-Golay filter.
 
-      - **Order 1 & 2**: Local Weighted Least Squares (LOESS).
-        It fits a polynomial surface (plane or quadratic) to the local neighborhood
-        weighted by the Gaussian kernel. This is effectively a 2D Savitzky-Golay
-        filter that is robust to missing data.
+    Mathematical basis:
+      - Approximate a signal s(x, y) from noisy data f(x, y) = s(x, y) + e(x, y) using weighted local regression.
+      - The approximation b(x, y) is calculated as the fitted value at point (x, y) using a weighted least squares
+        approach. Weights are non-zero within the neighborhood [x - rx, x + rx] and [y - ry, y + ry], following a
+        Gaussian distribution with standard deviations proportional to rx and ry.
+      - Optimization:
+        For **Order 0**, the operation is mathematically equivalent to a normalized convolution. This implementation
+        uses FFT-based convolution for performance gains compared to pixel-wise regression.
 
     :param data: 2D input array containing float data. May contain NaNs.
     :param cutoff_length: The filter cutoff wavelength in physical units.
@@ -39,8 +46,9 @@ def apply_gaussian_filter(
     :param regression_order: Order of the local polynomial fit (0, 1, or 2).
         0 = Gaussian weighted average.
         1 = Local planar fit (corrects for tilt).
-        2 = Local quadratic fit (corrects for curvature).
-    :param nan_out: If True, input NaNs remain NaNs in output. If False, the filter attempts to fill gaps based on the local regression.
+        2 = Local quadratic fit (corrects for quadratic curvature).
+    :param nan_out: If True, input NaNs remain NaNs in output. If False, the filter attempts to
+        fill gaps based on the local regression.
     :param is_high_pass: If True, returns (input - smoothed). If False, returns smoothed.
     :returns: The filtered 2D array of the same shape as input.
     """
@@ -67,7 +75,16 @@ def apply_gaussian_filter(
 def _create_normalized_separable_kernels(
     alpha: float, cutoff_pixels: NDArray[np.floating]
 ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
-    """Create normalized 1D Gaussian kernels for the Y and X axes."""
+    """
+    Create normalized 1D Gaussian kernels for the X and Y axes, where:
+      - `kernel_x` is the 1D horizontal kernel (row vector).
+      - `kernel_y` is the 1D vertical kernel (column vector).
+      - The outer product of these kernels sums to approx 1.0.
+
+    :param alpha: The Gaussian constant (ISO 16610).
+    :param cutoff_pixels: Array of [cutoff_y, cutoff_x] in pixel units.
+    :returns: A tuple `(kernel_x, kernel_y)`.
+    """
     # Ensure kernel size is odd and covers sufficient standard deviations
     kernel_dims = 1 + np.ceil(len(cutoff_pixels) * cutoff_pixels).astype(int)
     kernel_dims += 1 - kernel_dims % 2
@@ -81,7 +98,14 @@ def _create_normalized_separable_kernels(
 
 
 def _gaussian_1d(size: int, cutoff_pixel: float, alpha: float) -> NDArray[np.floating]:
-    """Generate a standard 1D unnormalized Gaussian bell curve."""
+    """
+    Generate a 1D Gaussian curve scaled by the cutoff wavelength.
+
+    :param size: The length of the kernel (must be odd).
+    :param cutoff_pixel: The cutoff wavelength in pixel units.
+    :param alpha: The Gaussian constant.
+    :returns: 1D array of Gaussian weights.
+    """
     radius = (size - 1) // 2
     # Coordinate vector centered at 0
     coords = np.arange(-radius, radius + 1)
@@ -110,14 +134,22 @@ def _apply_order0_filter(
     kernel_y: NDArray[np.floating],
 ) -> NDArray[np.floating]:
     """
-    Apply Order-0 Regression (Weighted Moving Average).
+    Perform a 2D weighted moving average (Order-0 Regression) using separable kernels.
 
-    Equation: Smoothed = (Weights * Data) * K  /  (Weights * K)
+    This function treats NaNs in the input data as missing values with zero weight,
+    ensuring they do not corrupt the local average. The result is a convolution-based
+    smoothing where each pixel is the weighted mean of its neighbors.
+
+    :param data: The 2D input array to be smoothed, potentially containing NaNs.
+    :param kernel_x: The 1D horizontal component of the separable smoothing kernel.
+    :param kernel_y: The 1D vertical component of the separable smoothing kernel.
+    :returns: A 2D array of the same shape as `data` containing the smoothed values.
     """
-    weights = np.where(np.isnan(data), 0.0, 1.0)
-    data_filled = np.where(np.isnan(data), 0.0, data)
+    nan_mask = np.isnan(data)
+    data_filled = np.where(nan_mask, 0.0, data)
+    weights = np.where(nan_mask, 0.0, 1.0)
 
-    numerator = _convolve_2d_separable(data_filled * weights, kernel_x, kernel_y)
+    numerator = _convolve_2d_separable(data_filled, kernel_x, kernel_y)
     denominator = _convolve_2d_separable(weights, kernel_x, kernel_y)
 
     with np.errstate(invalid="ignore", divide="ignore"):
@@ -131,12 +163,23 @@ def _apply_polynomial_filter(
     order: int,
 ) -> NDArray[np.floating]:
     """
-    Apply Order-1 or Order-2 Regression (Local Polynomial Fit).
+    Apply Order-1 or Order-2 Local Polynomial Regression.
 
-    Solves the linear system A * c = b at each pixel, where:
-    - c: vector of polynomial coefficients (c0 is the smoothed value).
-    - A: Matrix of weighted coordinate moments.
-    - b: Vector of weighted data moments.
+    This function performs a Weighted Least Squares (WLS) fit of a polynomial surface within a local window
+    defined by the kernels. For each pixel, it solves the linear system A * c = b, where 'c' contains the
+    coefficients of the polynomial. The smoothed value is the first coefficient (c0).
+
+    The kernels (kernel_x, kernel_y) serve as spatial weight functions. They determine the importance of
+    neighboring pixels in the regression. A non-uniform kernel (e.g., Gaussian) ensures that points closer
+    to the target pixel have a higher influence on the fit than points at the window's edge, providing better
+    localization and noise suppression.
+
+    :param data: The 2D input array to be filtered. Can contain NaNs, which are treated as zero-weight during
+        the regression.
+    :param kernel_x: 1D array representing the horizontal weight distribution.
+    :param kernel_y: 1D array representing the vertical weight distribution.
+    :param order: The degree of the polynomial to fit (typically 1 for linear or 2 for quadratic).
+    :returns: The filtered (smoothed) version of the input data.
     """
     # 1. Setup Coordinate Systems (Normalized to [-1, 1] for stability)
     ny, nx = len(kernel_y), len(kernel_x)
