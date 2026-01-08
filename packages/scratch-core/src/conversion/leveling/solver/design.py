@@ -21,4 +21,5 @@ def build_design_matrix(
     for column_index, term in enumerate(terms):
         if func := TERM_FUNCTIONS.get(term):
             matrix[:, column_index] = func(xs, ys)
+
     return matrix
