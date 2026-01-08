@@ -8,10 +8,7 @@ curved surfaces and detects the highest point.
 import numpy as np
 import pytest
 
-from conversion.unfold_bullet import (
-    UnfoldBulletResult,
-    unfold_bullet,
-)
+from conversion.preprocessing.unfold_bullet import unfold_bullet
 
 SEED: int = 42
 
@@ -22,27 +19,21 @@ def rng() -> np.random.Generator:
     return np.random.default_rng(SEED)
 
 
-class TestUnfoldBulletResult:
-    """Test the UnfoldBulletResult dataclass."""
+class TestUnfoldBulletReturnType:
+    """Test the return type of unfold_bullet."""
 
-    def test_result_has_expected_attributes(self) -> None:
-        """Verify result dataclass has all expected attributes."""
-        depth_data = np.zeros((10, 10))
-        striations = np.zeros((8, 10))
-        mask = None
-        relative_pos = 0.5
+    def test_returns_tuple_of_four(self) -> None:
+        """Verify function returns a tuple of (depth_data, striations, mask, highest_point)."""
+        data = np.random.randn(500, 100)
+        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
 
-        result = UnfoldBulletResult(
-            depth_data=depth_data,
-            striations=striations,
-            mask=mask,
-            relative_highest_point_location=relative_pos,
-        )
+        assert isinstance(result, tuple)
+        assert len(result) == 4
 
-        assert hasattr(result, "depth_data")
-        assert hasattr(result, "striations")
-        assert hasattr(result, "mask")
-        assert hasattr(result, "relative_highest_point_location")
+        depth_data, striations, mask, highest_point = result
+        assert isinstance(depth_data, np.ndarray)
+        assert isinstance(striations, np.ndarray)
+        assert isinstance(highest_point, float)
 
 
 class TestUnfoldBulletBasic:
@@ -52,11 +43,13 @@ class TestUnfoldBulletBasic:
         """Function should produce valid output without errors."""
         data = rng.random((500, 100))
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        depth_data, striations, _, highest_point = unfold_bullet(
+            data, xdim=1e-6, cutoff_hi=2000
+        )
 
-        assert result.depth_data is not None
-        assert result.striations is not None
-        assert 0 <= result.relative_highest_point_location <= 1
+        assert depth_data is not None
+        assert striations is not None
+        assert 0 <= highest_point <= 1
 
     def test_striations_shape_reduced(self, rng: np.random.Generator) -> None:
         """Striations should have reduced row count due to cropping.

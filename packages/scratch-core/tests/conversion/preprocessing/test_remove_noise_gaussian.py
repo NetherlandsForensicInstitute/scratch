@@ -8,10 +8,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_almost_equal
 
-from conversion.remove_noise_gaussian import (
-    NoiseRemovalResult,
-    remove_noise_gaussian,
-)
+from conversion.preprocessing.remove_noise_gaussian import remove_noise_gaussian
 
 SEED: int = 42
 
@@ -22,24 +19,21 @@ def rng() -> np.random.Generator:
     return np.random.default_rng(SEED)
 
 
-class TestNoiseRemovalResult:
-    """Test the NoiseRemovalResult dataclass."""
+class TestRemoveNoiseGaussianReturnType:
+    """Test the return type of remove_noise_gaussian."""
 
-    def test_result_has_expected_attributes(self) -> None:
-        """Verify result dataclass has all expected attributes."""
-        depth_data = np.zeros((10, 10))
-        range_indices = np.arange(10)
-        mask = np.ones((10, 10), dtype=bool)
+    def test_returns_tuple_of_three(self) -> None:
+        """Verify function returns a tuple of (depth_data, range_indices, mask)."""
+        data = np.zeros((100, 50))
+        result = remove_noise_gaussian(data, xdim=1e-6, cutoff_lo=250)
 
-        result = NoiseRemovalResult(
-            depth_data=depth_data,
-            range_indices=range_indices,
-            mask=mask,
-        )
+        assert isinstance(result, tuple)
+        assert len(result) == 3
 
-        assert hasattr(result, "depth_data")
-        assert hasattr(result, "range_indices")
-        assert hasattr(result, "mask")
+        depth_data, range_indices, mask = result
+        assert isinstance(depth_data, np.ndarray)
+        assert isinstance(range_indices, np.ndarray)
+        assert isinstance(mask, np.ndarray)
 
 
 class TestRemoveNoiseGaussianBasic:
@@ -50,10 +44,10 @@ class TestRemoveNoiseGaussianBasic:
     ) -> None:
         """Output shape should match input when cropping is disabled."""
         data = rng.random((100, 50))
-        result = remove_noise_gaussian(
+        depth_data, _, _ = remove_noise_gaussian(
             data, xdim=1e-6, cutoff_lo=250, cut_borders_after_smoothing=False
         )
-        assert result.depth_data.shape == data.shape
+        assert depth_data.shape == data.shape
 
     def test_output_shape_reduced_with_cropping(self, rng: np.random.Generator) -> None:
         """Output shape should be reduced when border cropping is enabled."""

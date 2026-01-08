@@ -8,7 +8,7 @@ import math
 
 import pytest
 
-from conversion.cheby_cutoff_to_gauss_sigma import (
+from conversion.preprocessing.cheby_cutoff_to_gauss_sigma import (
     ISO_GAUSSIAN_CONSTANT,
     cheby_cutoff_to_gauss_sigma,
     gauss_sigma_to_cheby_cutoff,

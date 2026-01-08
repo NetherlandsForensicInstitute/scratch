@@ -1,4 +1,5 @@
-"""Correct striation marks for bullet surface curvature (unfolding).
+"""
+Correct striation marks for bullet surface curvature (unfolding).
 
 This module provides functionality to correct for the curved surface of a
 bullet shell when analyzing striation marks. The bullet surface is curved
@@ -11,41 +12,18 @@ The algorithm works in four steps:
     2. Lowpass filter to get the global bullet shape/curvature
     3. Calculate curvature angles and unfold the surface
     4. Interpolate data onto the unfolded grid
-
-Migrated from MATLAB: UnfoldBullet.m
 """
 
-from dataclasses import dataclass
 from math import ceil
 
 import numpy as np
 from numpy.typing import NDArray
 
-from conversion.cheby_cutoff_to_gauss_sigma import cheby_cutoff_to_gauss_sigma
-from conversion.remove_noise_gaussian import remove_noise_gaussian
-from conversion.remove_shape_gaussian import remove_shape_gaussian
-
-
-@dataclass
-class UnfoldBulletResult:
-    """Result container for bullet unfolding operation.
-
-    Attributes:
-        depth_data: The unfolded depth data. This is placeholder for now as
-            the original MATLAB didn't update the main output properly.
-        striations: The extracted striation marks (bandpass filtered and cropped).
-            This is the primary output used for comparison.
-        mask: Boolean mask for valid data regions (may be None if no masking).
-        relative_highest_point_location: Relative position (0 to 1) of the
-            highest point on the bullet surface. This indicates how well
-            the bullet was positioned in the scanner. A value near 0.5
-            means the highest point is in the middle of the scan.
-    """
-
-    depth_data: NDArray[np.floating]
-    striations: NDArray[np.floating]
-    mask: NDArray[np.bool_] | None
-    relative_highest_point_location: float
+from conversion.preprocessing.cheby_cutoff_to_gauss_sigma import (
+    cheby_cutoff_to_gauss_sigma,
+)
+from conversion.preprocessing.remove_noise_gaussian import remove_noise_gaussian
+from conversion.preprocessing.remove_shape_gaussian import remove_shape_gaussian
 
 
 def _compute_gradient(
@@ -71,7 +49,7 @@ def unfold_bullet(
     cutoff_lo: float = 1000.0,
     cut_borders_after_smoothing: bool = False,
     mask: NDArray[np.bool_] | None = None,
-) -> UnfoldBulletResult:
+) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.bool_] | None, float]:
     """
     Correct striation marks for bullet surface curvature.
 
@@ -103,42 +81,58 @@ def unfold_bullet(
         - Shift grid so highest point stays fixed
         - Interpolate each column onto the new uniform grid
 
-    :param depth_data: 2D depth/height data array. Rows should be along
-        the bullet's longitudinal axis (direction of curvature).
-    :param xdim: Pixel spacing in meters (m). Distance between adjacent
-        measurements in the scan.
-    :param cutoff_hi: High-frequency cutoff wavelength in micrometers (um)
-        for shape removal. Typically 2000 um.
-    :param cutoff_lo: Low-frequency cutoff wavelength in micrometers (um)
-        for extracting global shape. Default 1000 um preserves the
-        overall bullet curvature while removing fine detail.
-    :param cut_borders_after_smoothing: If True, crop borders after
-        filtering. Default False for unfolding to preserve data extent.
-    :param mask: Optional boolean mask array (True = valid data).
-        Currently not fully implemented - passed through.
-    :return: UnfoldBulletResult containing:
-        - depth_data: Unfolded striation data
-        - striations: Cropped striation marks (before unfolding)
-        - mask: Output mask (may be None)
-        - relative_highest_point_location: Position of highest point (0-1)
+    Parameters
+    ----------
+    depth_data : NDArray[np.floating]
+        2D depth/height data array. Rows should be along the bullet's
+        longitudinal axis (direction of curvature).
+    xdim : float
+        Pixel spacing in meters (m). Distance between adjacent measurements.
+    cutoff_hi : float
+        High-frequency cutoff wavelength in micrometers (um) for shape removal.
+        Typically 2000 um.
+    cutoff_lo : float, optional
+        Low-frequency cutoff wavelength in micrometers (um) for extracting
+        global shape. Default 1000 um preserves the overall bullet curvature
+        while removing fine detail.
+    cut_borders_after_smoothing : bool, optional
+        If True, crop borders after filtering. Default False for unfolding
+        to preserve data extent.
+    mask : NDArray[np.bool_] | None, optional
+        Boolean mask array (True = valid data). Currently not fully
+        implemented - passed through.
 
-    Example:
-        >>> import numpy as np
-        >>> # Create synthetic curved bullet surface with striations
-        >>> rows = np.linspace(-10, 10, 500)
-        >>> curvature = -0.1 * rows**2  # Parabolic curve (convex)
-        >>> striations = np.sin(2 * np.pi * rows / 5) * 0.01  # Small striations
-        >>> surface = np.tile((curvature + striations).reshape(-1, 1), (1, 100))
-        >>> # Unfold the bullet
-        >>> result = unfold_bullet(surface, xdim=1e-6, cutoff_hi=2000)
-        >>> print(f"Highest point at: {result.relative_highest_point_location:.2%}")
-        Highest point at: 50.00%
+    Returns
+    -------
+    depth_data : NDArray[np.floating]
+        The unfolded depth data interpolated onto flat reference grid.
+    striations : NDArray[np.floating]
+        The extracted striation marks (bandpass filtered and cropped).
+        This is the primary output used for comparison.
+    mask : NDArray[np.bool_] | None
+        Boolean mask for valid data regions (may be None if no masking).
+    relative_highest_point_location : float
+        Relative position (0 to 1) of the highest point on the bullet
+        surface. Indicates how well the bullet was positioned in the
+        scanner. A value near 0.5 means the highest point is in the middle.
 
-    Note:
-        - The highest point detection uses a margin of 150 pixels from edges
-        - Unfolding is performed column-by-column using linear interpolation
-        - The highest point position is fixed during unfolding to prevent drift
-        - The function matches MATLAB UnfoldBullet.m behavior
+    Example
+    -------
+    >>> import numpy as np
+    >>> rows = np.linspace(-10, 10, 500)
+    >>> curvature = -0.1 * rows**2  # Parabolic curve (convex)
+    >>> striations = np.sin(2 * np.pi * rows / 5) * 0.01
+    >>> surface = np.tile((curvature + striations).reshape(-1, 1), (1, 100))
+    >>> depth_data, striations, mask, highest_point = unfold_bullet(
+    ...     surface, xdim=1e-6, cutoff_hi=2000
+    ... )
+
+    Notes
+    -----
+    - The highest point detection uses a margin of 150 pixels from edges
+    - Unfolding is performed column-by-column using linear interpolation
+    - The highest point position is fixed during unfolding to prevent drift
+    - The function matches MATLAB UnfoldBullet.m behavior
     """
     # Ensure 2D input
     depth_data = np.atleast_2d(depth_data)
@@ -155,7 +149,7 @@ def unfold_bullet(
     # This isolates the striation features from both curvature and fine noise
 
     # Shape removal: removes large-scale curvature
-    shape_result = remove_shape_gaussian(
+    shape_data, _, shape_mask = remove_shape_gaussian(
         depth_data,
         xdim=xdim,
         cutoff_hi=cutoff_hi,
@@ -164,16 +158,13 @@ def unfold_bullet(
     )
 
     # Noise removal: removes high-frequency noise from the residuals
-    noise_result = remove_noise_gaussian(
-        shape_result.depth_data,
+    data_striations, _, _ = remove_noise_gaussian(
+        shape_data,
         xdim=xdim,
         cutoff_lo=cutoff_lo if cutoff_lo > 0 else 250.0,  # Default noise cutoff
         cut_borders_after_smoothing=False,
-        mask=shape_result.mask,
+        mask=shape_mask,
     )
-
-    # The bandpass result contains just the striation marks
-    data_striations = noise_result.depth_data
 
     # Calculate sigma for cropping
     sigma = cheby_cutoff_to_gauss_sigma(cutoff_hi, xdim)
@@ -190,7 +181,7 @@ def unfold_bullet(
     # -------------------------------------------------------------------------
     # Apply lowpass filter to get smooth bullet curvature (remove striations)
 
-    smooth_result = remove_noise_gaussian(
+    smooth_data, _, _ = remove_noise_gaussian(
         depth_data,
         xdim=xdim,
         cutoff_lo=1000.0,  # Fixed cutoff for shape extraction
@@ -199,10 +190,10 @@ def unfold_bullet(
     )
 
     # Crop the smoothed data to match striation cropping
-    if sigma_int > 0 and smooth_result.depth_data.shape[0] > 2 * sigma_int:
-        data_smoothed = smooth_result.depth_data[sigma_int:-sigma_int, :]
+    if sigma_int > 0 and smooth_data.shape[0] > 2 * sigma_int:
+        data_smoothed = smooth_data[sigma_int:-sigma_int, :]
     else:
-        data_smoothed = smooth_result.depth_data
+        data_smoothed = smooth_data
 
     # Calculate the angle of curvature at each position
     # Gradient gives the slope (dz/dx), divide by xdim to get proper units
@@ -268,9 +259,4 @@ def unfold_bullet(
     # -------------------------------------------------------------------------
     # STEP 4: Prepare output
     # -------------------------------------------------------------------------
-    return UnfoldBulletResult(
-        depth_data=new_data,
-        striations=striations_cropped,
-        mask=mask_out,
-        relative_highest_point_location=relative_highest_point_location,
-    )
+    return new_data, striations_cropped, mask_out, relative_highest_point_location

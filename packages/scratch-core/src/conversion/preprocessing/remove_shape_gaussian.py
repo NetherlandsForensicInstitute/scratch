@@ -1,4 +1,5 @@
-"""Remove large-scale shape/form from surface data using Gaussian highpass filter.
+"""
+Remove large-scale shape/form from surface data using Gaussian highpass filter.
 
 This module provides functionality to remove the large-scale form (curvature,
 tilt, waviness) from surface scan data, leaving only the fine-scale features
@@ -7,11 +8,8 @@ such as striation marks. This is achieved using a Gaussian highpass filter.
 The highpass filter works by:
 1. Applying a Gaussian lowpass filter to extract the shape
 2. Subtracting the shape from the original data (residuals = original - smoothed)
-
-Migrated from MATLAB: RemoveShapeGaussian.m
 """
 
-from dataclasses import dataclass
 from functools import partial
 from math import ceil
 
@@ -19,26 +17,9 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage
 
-from conversion.cheby_cutoff_to_gauss_sigma import cheby_cutoff_to_gauss_sigma
-
-
-@dataclass
-class ShapeRemovalResult:
-    """Result container for shape removal operation.
-
-    Attributes:
-        depth_data: The filtered depth data with shape removed (residuals).
-            This contains the high-frequency content (striation marks).
-        range_indices: Array of row indices that are valid after cropping.
-            If cut_borders_after_smoothing=True, this indicates which rows
-            from the original data are included in the output.
-        mask: Boolean mask indicating valid data points in the output.
-            True = valid data, False = invalid/masked region.
-    """
-
-    depth_data: NDArray[np.floating]
-    range_indices: NDArray[np.intp]
-    mask: NDArray[np.bool_]
+from conversion.preprocessing.cheby_cutoff_to_gauss_sigma import (
+    cheby_cutoff_to_gauss_sigma,
+)
 
 
 def _apply_nan_weighted_gaussian(
@@ -125,7 +106,7 @@ def remove_shape_gaussian(
     cutoff_hi: float = 2000.0,
     cut_borders_after_smoothing: bool = True,
     mask: NDArray[np.bool_] | None = None,
-) -> ShapeRemovalResult:
+) -> tuple[NDArray[np.floating], NDArray[np.intp], NDArray[np.bool_]]:
     """
     Remove toolmark/surface shape using Gaussian highpass filter.
 
@@ -143,37 +124,52 @@ def remove_shape_gaussian(
         3. Compute residuals: output = input - smoothed (highpass)
         4. Optionally crop border artifacts (sigma pixels from each edge)
 
-    :param depth_data: 2D depth/height data array, or 1D profile. For 2D data,
+    Parameters
+    ----------
+    depth_data : NDArray[np.floating]
+        2D depth/height data array, or 1D profile. For 2D data,
         rows should be perpendicular to striation direction.
-    :param xdim: Pixel spacing in meters (m). Distance between adjacent
+    xdim : float
+        Pixel spacing in meters (m). Distance between adjacent
         measurements in the scan.
-    :param cutoff_hi: High-frequency cutoff wavelength in micrometers (um).
+    cutoff_hi : float, optional
+        High-frequency cutoff wavelength in micrometers (um).
         Larger values remove more of the surface form. Default 2000 um is
         typical for shape removal while preserving striation features.
-    :param cut_borders_after_smoothing: If True, crop ceil(sigma) pixels
-        from top and bottom edges to remove filter artifacts. Default True.
-    :param mask: Optional boolean mask array (True = valid data). If provided,
+    cut_borders_after_smoothing : bool, optional
+        If True, crop ceil(sigma) pixels from top and bottom edges to
+        remove filter artifacts. Default True.
+    mask : NDArray[np.bool_] | None, optional
+        Boolean mask array (True = valid data). If provided,
         masked regions are excluded from filtering. Must match depth_data shape.
-    :return: ShapeRemovalResult containing:
-        - depth_data: Filtered data with shape removed
-        - range_indices: Valid row indices after cropping
-        - mask: Output mask after processing
 
-    Example:
-        >>> import numpy as np
-        >>> # Create synthetic surface with shape + noise
-        >>> x = np.linspace(0, 100, 500)
-        >>> shape = 0.5 * x**2  # Parabolic shape
-        >>> noise = np.random.randn(500) * 0.1  # Fine detail
-        >>> surface = np.tile(shape + noise, (100, 1)).T
-        >>> # Remove shape
-        >>> result = remove_shape_gaussian(surface, xdim=1e-6, cutoff_hi=2000)
-        >>> # result.depth_data now contains mostly noise, shape removed
+    Returns
+    -------
+    depth_data : NDArray[np.floating]
+        Filtered data with shape removed (residuals). Contains the
+        high-frequency content (striation marks).
+    range_indices : NDArray[np.intp]
+        Array of row indices that are valid after cropping. If
+        cut_borders_after_smoothing=True, indicates which rows from
+        the original data are included in the output.
+    mask : NDArray[np.bool_]
+        Boolean mask indicating valid data points in the output.
+        True = valid data, False = invalid/masked region.
 
-    Note:
-        - For 2D data, filtering is 1D along rows only (sigma_col = 0)
-        - NaN values are handled using weighted filtering
-        - The function matches MATLAB RemoveShapeGaussian.m behavior
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.linspace(0, 100, 500)
+    >>> shape = 0.5 * x**2  # Parabolic shape
+    >>> noise = np.random.randn(500) * 0.1  # Fine detail
+    >>> surface = np.tile(shape + noise, (100, 1)).T
+    >>> depth_data, range_indices, mask = remove_shape_gaussian(surface, xdim=1e-6)
+
+    Notes
+    -----
+    - For 2D data, filtering is 1D along rows only (sigma_col = 0)
+    - NaN values are handled using weighted filtering
+    - The function matches MATLAB RemoveShapeGaussian.m behavior
     """
     # Ensure depth_data is 2D
     depth_data = np.atleast_2d(depth_data)
@@ -259,8 +255,4 @@ def remove_shape_gaussian(
         cropped_mask = mask_filtered
         range_indices = np.arange(depth_data.shape[0])
 
-    return ShapeRemovalResult(
-        depth_data=cropped_data,
-        range_indices=range_indices,
-        mask=cropped_mask,
-    )
+    return cropped_data, range_indices, cropped_mask

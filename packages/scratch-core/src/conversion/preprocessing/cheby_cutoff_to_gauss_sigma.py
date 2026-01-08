@@ -1,10 +1,9 @@
-"""Convert Chebyshev filter cutoff wavelength to Gaussian filter sigma.
+"""
+Convert Chebyshev filter cutoff wavelength to Gaussian filter sigma.
 
 This module provides the conversion from Chebyshev filter cutoff wavelength
 to Gaussian filter sigma parameter, following the ISO standard for Gaussian
 filters used in surface metrology.
-
-Migrated from MATLAB: ChebyCutoffToGaussSigma.m
 """
 
 import math

@@ -1,4 +1,5 @@
-"""Remove high-frequency noise from surface data using Gaussian lowpass filter.
+"""
+Remove high-frequency noise from surface data using Gaussian lowpass filter.
 
 This module provides functionality to remove high-frequency noise (such as
 scanner noise or fine scratches) from surface scan data, preserving the
@@ -6,11 +7,8 @@ larger-scale features like striation marks.
 
 Unlike shape removal (highpass), noise removal uses a lowpass filter that
 returns the smoothed data directly (not residuals).
-
-Migrated from MATLAB: RemoveNoiseGaussian.m
 """
 
-from dataclasses import dataclass
 from functools import partial
 from math import ceil
 
@@ -18,26 +16,9 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage
 
-from conversion.cheby_cutoff_to_gauss_sigma import cheby_cutoff_to_gauss_sigma
-
-
-@dataclass
-class NoiseRemovalResult:
-    """Result container for noise removal operation.
-
-    Attributes:
-        depth_data: The filtered depth data with noise removed (smoothed).
-            This contains low-frequency content (striation marks without noise).
-        range_indices: Array of row indices that are valid after cropping.
-            If cut_borders_after_smoothing=True, this indicates which rows
-            from the original data are included in the output.
-        mask: Boolean mask indicating valid data points in the output.
-            True = valid data, False = invalid/masked region.
-    """
-
-    depth_data: NDArray[np.floating]
-    range_indices: NDArray[np.intp]
-    mask: NDArray[np.bool_]
+from conversion.preprocessing.cheby_cutoff_to_gauss_sigma import (
+    cheby_cutoff_to_gauss_sigma,
+)
 
 
 def _apply_nan_weighted_gaussian(
@@ -124,7 +105,7 @@ def remove_noise_gaussian(
     cutoff_lo: float = 250.0,
     cut_borders_after_smoothing: bool = True,
     mask: NDArray[np.bool_] | None = None,
-) -> NoiseRemovalResult:
+) -> tuple[NDArray[np.floating], NDArray[np.intp], NDArray[np.bool_]]:
     """
     Remove noise from surface data using Gaussian lowpass filter.
 
@@ -144,38 +125,53 @@ def remove_noise_gaussian(
         3. Return smoothed data (not residuals)
         4. Optionally crop border artifacts (sigma pixels from each edge)
 
-    :param depth_data: 2D depth/height data array, or 1D profile. For 2D data,
+    Parameters
+    ----------
+    depth_data : NDArray[np.floating]
+        2D depth/height data array, or 1D profile. For 2D data,
         rows should be perpendicular to striation direction.
-    :param xdim: Pixel spacing in meters (m). Distance between adjacent
+    xdim : float
+        Pixel spacing in meters (m). Distance between adjacent
         measurements in the scan.
-    :param cutoff_lo: Low-frequency cutoff wavelength in micrometers (um).
+    cutoff_lo : float, optional
+        Low-frequency cutoff wavelength in micrometers (um).
         Smaller values remove more high-frequency noise. Default 250 um is
         typical for noise removal while preserving striation features.
-    :param cut_borders_after_smoothing: If True, crop ceil(sigma) pixels
-        from top and bottom edges to remove filter artifacts. Default True.
-    :param mask: Optional boolean mask array (True = valid data). If provided,
+    cut_borders_after_smoothing : bool, optional
+        If True, crop ceil(sigma) pixels from top and bottom edges to
+        remove filter artifacts. Default True.
+    mask : NDArray[np.bool_] | None, optional
+        Boolean mask array (True = valid data). If provided,
         masked regions are excluded from filtering. Must match depth_data shape.
-    :return: NoiseRemovalResult containing:
-        - depth_data: Smoothed data with noise removed
-        - range_indices: Valid row indices after cropping
-        - mask: Output mask after processing
 
-    Example:
-        >>> import numpy as np
-        >>> # Create synthetic surface with signal + noise
-        >>> x = np.linspace(0, 100, 500)
-        >>> signal = np.sin(2 * np.pi * x / 20)  # Striation pattern
-        >>> noise = np.random.randn(500) * 0.5  # High-frequency noise
-        >>> surface = np.tile(signal + noise, (100, 1)).T
-        >>> # Remove noise
-        >>> result = remove_noise_gaussian(surface, xdim=1e-6, cutoff_lo=250)
-        >>> # result.depth_data now contains mostly signal, noise removed
+    Returns
+    -------
+    depth_data : NDArray[np.floating]
+        Smoothed data with noise removed. Contains the low-frequency
+        content (striation marks without noise).
+    range_indices : NDArray[np.intp]
+        Array of row indices that are valid after cropping. If
+        cut_borders_after_smoothing=True, indicates which rows from
+        the original data are included in the output.
+    mask : NDArray[np.bool_]
+        Boolean mask indicating valid data points in the output.
+        True = valid data, False = invalid/masked region.
 
-    Note:
-        - For 2D data, filtering is 1D along rows only (sigma_col = 0)
-        - NaN values are handled using weighted filtering
-        - Returns smoothed data (lowpass), not residuals (unlike shape removal)
-        - The function matches MATLAB RemoveNoiseGaussian.m behavior
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.linspace(0, 100, 500)
+    >>> signal = np.sin(2 * np.pi * x / 20)  # Striation pattern
+    >>> noise = np.random.randn(500) * 0.5  # High-frequency noise
+    >>> surface = np.tile(signal + noise, (100, 1)).T
+    >>> depth_data, range_indices, mask = remove_noise_gaussian(surface, xdim=1e-6)
+
+    Notes
+    -----
+    - For 2D data, filtering is 1D along rows only (sigma_col = 0)
+    - NaN values are handled using weighted filtering
+    - Returns smoothed data (lowpass), not residuals (unlike shape removal)
+    - The function matches MATLAB RemoveNoiseGaussian.m behavior
     """
     # Ensure depth_data is 2D
     depth_data = np.atleast_2d(depth_data)
@@ -256,8 +252,4 @@ def remove_noise_gaussian(
         cropped_mask = mask_filtered
         range_indices = np.arange(depth_data.shape[0])
 
-    return NoiseRemovalResult(
-        depth_data=cropped_data,
-        range_indices=range_indices,
-        mask=cropped_mask,
-    )
+    return cropped_data, range_indices, cropped_mask

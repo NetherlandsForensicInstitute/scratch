@@ -7,11 +7,10 @@ including the short data handling and slope correction paths.
 import numpy as np
 import pytest
 
-from conversion.preprocess_data import (
-    FormNoiseRemovalResult,
-    apply_form_noise_removal,
+from conversion.preprocessing.preprocess_data import apply_form_noise_removal
+from conversion.preprocessing.cheby_cutoff_to_gauss_sigma import (
+    cheby_cutoff_to_gauss_sigma,
 )
-from conversion.cheby_cutoff_to_gauss_sigma import cheby_cutoff_to_gauss_sigma
 
 SEED: int = 42
 
@@ -22,33 +21,32 @@ def rng() -> np.random.Generator:
     return np.random.default_rng(SEED)
 
 
-class TestFormNoiseRemovalResult:
-    """Test the FormNoiseRemovalResult dataclass."""
+class TestApplyFormNoiseRemovalReturnType:
+    """Test the return type of apply_form_noise_removal."""
 
-    def test_result_has_expected_attributes(self) -> None:
-        """Verify result dataclass has all expected attributes."""
-        depth_data = np.zeros((10, 10))
-        mask = np.ones((10, 10), dtype=bool)
+    def test_returns_tuple_of_three(self) -> None:
+        """Verify function returns a tuple of (depth_data, mask, highest_point)."""
+        data = np.random.randn(500, 100)
+        result = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=2000)
 
-        result = FormNoiseRemovalResult(
-            depth_data=depth_data,
-            mask=mask,
-            relative_highest_point_location=None,
+        assert isinstance(result, tuple)
+        assert len(result) == 3
+
+        depth_data, mask, highest_point = result
+        assert isinstance(depth_data, np.ndarray)
+        assert isinstance(mask, np.ndarray)
+        # highest_point is None when slope_correction=False
+        assert highest_point is None
+
+    def test_returns_highest_point_with_slope_correction(self) -> None:
+        """Verify highest_point is returned with slope_correction=True."""
+        data = np.random.randn(500, 100)
+        depth_data, mask, highest_point = apply_form_noise_removal(
+            data, xdim=1e-6, cutoff_hi=2000, slope_correction=True
         )
 
-        assert hasattr(result, "depth_data")
-        assert hasattr(result, "mask")
-        assert hasattr(result, "relative_highest_point_location")
-
-    def test_result_with_highest_point(self) -> None:
-        """Verify result can store highest point location."""
-        result = FormNoiseRemovalResult(
-            depth_data=np.zeros((10, 10)),
-            mask=np.ones((10, 10), dtype=bool),
-            relative_highest_point_location=0.5,
-        )
-
-        assert result.relative_highest_point_location == 0.5
+        assert isinstance(highest_point, float)
+        assert 0 <= highest_point <= 1
 
 
 class TestApplyFormNoiseRemovalBasic:
