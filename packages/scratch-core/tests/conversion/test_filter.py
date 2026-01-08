@@ -1,0 +1,246 @@
+"""Tests for Gaussian filter."""
+
+from functools import partial
+
+import numpy as np
+import pytest
+
+from conversion.filter import apply_gaussian_regression_filter
+
+
+CUTOFF: float = 5.0
+SEED: int = 42
+approx = partial(pytest.approx, rel=1e-15)
+allclose = partial(np.allclose, rtol=1e-15)
+
+
+@pytest.fixture
+def rng() -> np.random.Generator:
+    return np.random.default_rng(SEED)
+
+
+class TestGaussianFilterFunction:
+    """Test the gaussian_filter function."""
+
+    def test_nan_out_false(self):
+        """When nan_out=False, NaN positions get interpolated values."""
+        data = np.ones((10, 10)) * 5.0
+        data[5, 5] = np.nan
+
+        result = apply_gaussian_regression_filter(data, 3.0, nan_out=False)
+
+        # The NaN position should now have a value (interpolated from neighbors)
+        assert result[5, 5] == pytest.approx(5.0, rel=0.1)
+
+    def test_nan_out_true(self):
+        """When nan_out=True, NaN positions remain NaN."""
+        data = np.ones((10, 10)) * 5.0
+        data[5, 5] = np.nan
+
+        result = apply_gaussian_regression_filter(data, 3.0, nan_out=True)
+
+        # The NaN position should remain NaN
+        assert np.isnan(result[5, 5])
+
+    def test_asymmetric_pixel_separation(self, rng: np.random.Generator):
+        """Should handle different pixel separation in each direction."""
+        data = rng.random((30, 30)) * 100
+
+        # Different separation in row vs col
+        result = apply_gaussian_regression_filter(data, 5.0, pixel_size=(1.0, 0.5))
+
+        assert result.shape == data.shape
+        assert not np.any(np.isnan(result))
+
+    def test_preserves_shape(self, rng: np.random.Generator):
+        """Output should have same shape as input."""
+        for shape in [(10, 10), (20, 30), (50, 25)]:
+            data = rng.random(shape)
+            result = apply_gaussian_regression_filter(data, 5.0)
+            assert result.shape == shape
+
+    def test_uniform_data_unchanged(self):
+        """Filtering uniform data should return (approximately) same values."""
+        data = np.ones((20, 20)) * 42.0
+        result = apply_gaussian_regression_filter(data, 5.0)
+
+        # Interior should be close to 42 (edges may be affected by boundary handling)
+        np.testing.assert_allclose(result[5:15, 5:15], 42.0, rtol=1e-6)
+
+    def test_smoothing_effect(self, rng: np.random.Generator):
+        """Filtering should reduce variance (smoothing)."""
+        data = rng.random((50, 50)) * 100
+        result = apply_gaussian_regression_filter(data, 5.0)
+
+        # Variance should decrease after smoothing
+        assert np.var(result) < np.var(data)
+
+    def test_high_pass_equals_original_minus_low_pass(self, rng: np.random.Generator):
+        """High-pass should return data - lowpass."""
+        data = rng.random((30, 30)) * 100
+
+        lowpass = apply_gaussian_regression_filter(
+            data, cutoff_length=5.0, is_high_pass=False
+        )
+        highpass = apply_gaussian_regression_filter(
+            data, cutoff_length=5.0, is_high_pass=True
+        )
+
+        np.testing.assert_allclose(highpass, data - lowpass, rtol=1e-10)
+
+    def test_single_pixel_data_gives_single_pixel_result(self):
+        data = np.array([[42.0]])
+        result = apply_gaussian_regression_filter(data, 3.0)
+
+        assert result.shape == (1, 1)
+        assert result[0, 0] == pytest.approx(42.0)
+
+    def test_all_nan_data_returns_all_nan_result(self):
+        data = np.full((10, 10), np.nan)
+        result = apply_gaussian_regression_filter(data, 5.0)
+
+        assert np.all(np.isnan(result))
+
+    def test_single_valid_value_is_preserved(self):
+        data = np.full((10, 10), np.nan)
+        data[5, 5] = 42.0
+
+        result = apply_gaussian_regression_filter(data, 3.0)
+
+        assert result[5, 5] == pytest.approx(42.0)
+
+    def test_row_of_nan_is_preserved(self, rng: np.random.Generator):
+        data = rng.random((20, 20)) * 100
+        data[10, :] = np.nan
+
+        result = apply_gaussian_regression_filter(data, 5.0)
+
+        # NaN row should remain NaN
+        assert np.all(np.isnan(result[10, :]))
+        # Other rows should have values
+        assert not np.all(np.isnan(result[5, :]))
+
+    def test_column_of_nan_is_preserved(self, rng: np.random.Generator):
+        data = rng.random((20, 20)) * 100
+        data[:, 10] = np.nan
+
+        result = apply_gaussian_regression_filter(data, 5.0)
+
+        # NaN column should remain NaN
+        assert np.all(np.isnan(result[:, 10]))
+        # Other columns should have values
+        assert not np.all(np.isnan(result[:, 5]))
+
+    def test_nan_border_is_preserved(self, rng: np.random.Generator):
+        data = np.full((20, 20), np.nan)
+        data[5:15, 5:15] = rng.random((10, 10)) * 100
+
+        result = apply_gaussian_regression_filter(data, 3.0)
+
+        # NaN border should remain NaN
+        assert np.all(np.isnan(result[:5, :]))
+        assert np.all(np.isnan(result[15:, :]))
+        assert np.all(np.isnan(result[:, :5]))
+        assert np.all(np.isnan(result[:, 15:]))
+
+    def test_very_small_cutoff_preserves_interior_array(self, rng: np.random.Generator):
+        data = rng.random((20, 20)) * 100
+
+        result = apply_gaussian_regression_filter(data, 0.1)
+
+        # With very small cutoff, result should be close to original
+        # (at least in the interior, away from edges)
+        np.testing.assert_allclose(result[5:15, 5:15], data[5:15, 5:15], rtol=0.01)
+
+    def test_very_large_cutoff_preserves_mean(self, rng: np.random.Generator):
+        data = rng.random((20, 20)) * 100
+
+        result = apply_gaussian_regression_filter(data, 100.0)
+
+        # With very large cutoff, interior values should approach global mean
+        interior = result[8:12, 8:12]
+
+        # Interior mean should be close to data mean (within reason, due to edge effects)
+        assert np.mean(interior) == pytest.approx(np.mean(data), rel=0.5)
+
+        # All interior values should be close to each other
+        assert np.std(interior) < 1.0
+
+    def test_output_in_input_range(self, rng: np.random.Generator):
+        """Filter output should be within input range (for non-edge pixels)."""
+        data = rng.random((50, 50)) * 100
+        result = apply_gaussian_regression_filter(data, 5.0)
+
+        # Interior values should be within input range
+        interior = result[10:40, 10:40]
+        assert np.min(interior) >= np.min(data) - 1e-10
+        assert np.max(interior) <= np.max(data) + 1e-10
+
+
+class TestRegressionOrders:
+    """Test different regression orders."""
+
+    def test_order_0_runs(self, rng: np.random.Generator):
+        data = rng.random((20, 20)) * 100
+        result = apply_gaussian_regression_filter(data, 5.0, regression_order=0)
+
+        assert result.shape == data.shape
+        assert not np.all(np.isnan(result))
+
+    def test_order_1_runs(self, rng: np.random.Generator):
+        data = rng.random((20, 20)) * 100
+        result = apply_gaussian_regression_filter(data, 5.0, regression_order=1)
+
+        assert result.shape == data.shape
+        assert not np.all(np.isnan(result))
+
+    def test_order_2_runs(self, rng: np.random.Generator):
+        data = rng.random((20, 20)) * 100
+        result = apply_gaussian_regression_filter(data, 5.0, regression_order=2)
+
+        assert result.shape == data.shape
+        assert not np.all(np.isnan(result))
+
+    def test_higher_order_preserves_more_detail(self, rng: np.random.Generator):
+        """Higher regression orders should preserve more local structure."""
+        data = rng.random((30, 30)) * 100
+
+        result_r0 = apply_gaussian_regression_filter(
+            data, 5.0, regression_order=0, is_high_pass=True
+        )
+        result_r1 = apply_gaussian_regression_filter(
+            data, 5.0, regression_order=1, is_high_pass=True
+        )
+        result_r2 = apply_gaussian_regression_filter(
+            data, 5.0, regression_order=2, is_high_pass=True
+        )
+
+        # Higher orders should have lower std in high-pass output
+        # (they preserve more structure, so less ends up in high-pass)
+        std_r0 = np.nanstd(result_r0)
+        std_r1 = np.nanstd(result_r1)
+        std_r2 = np.nanstd(result_r2)
+
+        assert std_r1 <= std_r0 * 1.1  # Allow some tolerance
+        assert std_r2 <= std_r1 * 1.1
+
+    def test_all_orders_handle_nan(self, rng: np.random.Generator):
+        """All regression orders should handle NaN values correctly."""
+        data = rng.random((20, 20)) * 100
+        data[5:10, 5:10] = np.nan
+
+        for order in [0, 1, 2]:
+            result = apply_gaussian_regression_filter(data, 3.0, regression_order=order)
+
+            # NaN region should remain NaN
+            assert np.all(np.isnan(result[5:10, 5:10]))
+            # Non-NaN region should have values
+            assert not np.all(np.isnan(result[15:, 15:]))
+
+    def test_all_orders_uniform_data(self):
+        """All regression orders should preserve uniform data."""
+        data = np.ones((20, 20)) * 42.0
+
+        for order in [0, 1, 2]:
+            result = apply_gaussian_regression_filter(data, 5.0, regression_order=order)
+            np.testing.assert_allclose(result[5:15, 5:15], 42.0, rtol=1e-6)

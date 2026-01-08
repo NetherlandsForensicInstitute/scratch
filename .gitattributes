@@ -6,7 +6,8 @@ packages/scratch-core/tests/resources/scans/circle.x3p -filter -diff -merge text
 
 packages/scratch-core/tests/resources/scans/Klein*.al3d -filter -diff -merge text
 packages/scratch-core/tests/resources/scans/Klein*.x3p -filter -diff -merge text
-
 *.al3d binary
 *.x3p binary
 *.npy binary
+packages/scratch-core/tests/resources/baseline_images/get_cropped_image_input_mask.npy filter=lfs diff=lfs merge=lfs -text
+packages/scratch-core/tests/resources/baseline_images/get_cropped_image_input_image.npy filter=lfs diff=lfs merge=lfs -text
