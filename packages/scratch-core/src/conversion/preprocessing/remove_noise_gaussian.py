@@ -176,17 +176,9 @@ def remove_noise_gaussian(
     - Returns smoothed data (lowpass), not residuals (unlike shape removal)
     - The function matches MATLAB RemoveNoiseGaussian.m behavior
     """
-    # If input was 1D row vector, transpose to column
-    if depth_data.shape[0] == 1:
-        depth_data = depth_data.T
-
     # Initialize mask if not provided
     if mask is None:
         mask = np.ones(depth_data.shape, dtype=bool)
-    else:
-        mask = np.atleast_2d(mask)
-        if mask.shape[0] == 1:
-            mask = mask.T
 
     # Check if there are any masked (invalid) regions
     has_masked_regions = np.any(~mask)

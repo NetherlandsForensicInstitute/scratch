@@ -134,11 +134,6 @@ def unfold_bullet(
     - The highest point position is fixed during unfolding to prevent drift
     - The function matches MATLAB UnfoldBullet.m behavior
     """
-    # Ensure 2D input
-    depth_data = np.atleast_2d(depth_data)
-    if depth_data.shape[0] == 1:
-        depth_data = depth_data.T
-
     # Initialize output mask
     mask_out: NDArray[np.bool_] | None = None
 
@@ -206,7 +201,7 @@ def unfold_bullet(
     # When surface is tilted, distance between points on surface is 1/cos(angle)
     new_grid_spacing = 1.0 / np.cos(np.radians(gradient_angles))
 
-    # Determine highest point (location with lowest gradient magnitude)
+    # Determine the highest point (location with the lowest gradient magnitude)
     # Use margin of 150 pixels from edges to avoid boundary effects
     margin = 150
     n_rows = gradient_angles.shape[0]

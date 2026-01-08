@@ -62,20 +62,20 @@ class TestUnfoldBulletBasic:
         data = rng.random((500, 100))
 
         # Use smaller cutoff so sigma allows cropping
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=200)
+        depth_data, striations, _, _ = unfold_bullet(data, xdim=1e-6, cutoff_hi=200)
 
         # Striations should be cropped (smaller than input)
-        assert result.striations.shape[0] < data.shape[0]
+        assert striations.shape[0] < data.shape[0]
         # Column count should be preserved
-        assert result.striations.shape[1] == data.shape[1]
+        assert striations.shape[1] == data.shape[1]
 
     def test_relative_position_in_valid_range(self, rng: np.random.Generator) -> None:
         """Relative highest point should be between 0 and 1."""
         data = rng.random((500, 100))
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        _, _, _, highest_point = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
 
-        assert 0 <= result.relative_highest_point_location <= 1
+        assert 0 <= highest_point <= 1
 
 
 class TestHighestPointDetection:
@@ -88,10 +88,10 @@ class TestHighestPointDetection:
         curvature = -0.01 * rows**2  # Negative quadratic = convex (highest at 0)
         data = np.tile(curvature.reshape(-1, 1), (1, 100))
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        _, _, _, highest_point = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
 
         # Highest point should be near center (0.5)
-        assert 0.3 < result.relative_highest_point_location < 0.7
+        assert 0.3 < highest_point < 0.7
 
     def test_highest_point_offset_for_asymmetric_curve(self) -> None:
         """Asymmetric curve should have offset highest point."""
@@ -101,11 +101,11 @@ class TestHighestPointDetection:
         curvature = -0.01 * (rows - 5) ** 2
         data = np.tile(curvature.reshape(-1, 1), (1, 100))
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        _, _, _, highest_point = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
 
         # Highest point should be in first half
         # Note: exact position depends on filtering and margins
-        assert result.relative_highest_point_location < 0.6
+        assert highest_point < 0.6
 
     def test_flat_surface_has_middle_highest_point(
         self, rng: np.random.Generator
@@ -114,11 +114,11 @@ class TestHighestPointDetection:
         # Flat surface with small random variations
         data = np.ones((500, 100)) + rng.random((500, 100)) * 0.001
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        _, _, _, highest_point = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
 
         # For flat surface, highest point detection is less meaningful
         # but should still be in valid range
-        assert 0 <= result.relative_highest_point_location <= 1
+        assert 0 <= highest_point <= 1
 
 
 class TestUnfoldingBehavior:
@@ -128,9 +128,9 @@ class TestUnfoldingBehavior:
         """Unfolded data should preserve column count."""
         data = rng.random((500, 100))
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        depth_data, _, _, _ = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
 
-        assert result.depth_data.shape[1] == data.shape[1]
+        assert depth_data.shape[1] == data.shape[1]
 
     def test_unfolded_data_size_changes_with_curvature(self) -> None:
         """Curved surface should produce different unfolded size than flat."""
@@ -138,18 +138,18 @@ class TestUnfoldingBehavior:
 
         # Flat surface
         flat_data = np.zeros((500, 100))
-        flat_result = unfold_bullet(flat_data, xdim=1e-6, cutoff_hi=2000)
+        flat_depth, _, _, _ = unfold_bullet(flat_data, xdim=1e-6, cutoff_hi=2000)
 
         # Curved surface (concave = longer when unfolded)
         curved = 0.05 * rows**2
         curved_data = np.tile(curved.reshape(-1, 1), (1, 100))
-        curved_result = unfold_bullet(curved_data, xdim=1e-6, cutoff_hi=2000)
+        curved_depth, _, _, _ = unfold_bullet(curved_data, xdim=1e-6, cutoff_hi=2000)
 
         # Curved surface should unfold to different size
         # (may be larger or smaller depending on curvature direction)
         # Just verify both produce valid output
-        assert flat_result.depth_data.shape[0] > 0
-        assert curved_result.depth_data.shape[0] > 0
+        assert flat_depth.shape[0] > 0
+        assert curved_depth.shape[0] > 0
 
     def test_striations_extracted_correctly(self) -> None:
         """Striation features should be preserved in extraction."""
@@ -160,11 +160,11 @@ class TestUnfoldingBehavior:
         surface = striations + curvature
         data = np.tile(surface.reshape(-1, 1), (1, 100))
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=5000)
+        _, striations_out, _, _ = unfold_bullet(data, xdim=1e-6, cutoff_hi=5000)
 
         # Striations should have periodic structure
         # Check variance is reasonable (not all zeros or all same value)
-        assert np.std(result.striations) > 0
+        assert np.std(striations_out) > 0
 
 
 class TestParameterEffects:
@@ -174,26 +174,26 @@ class TestParameterEffects:
         """Different cutoff values should affect filtering."""
         data = rng.random((500, 100))
 
-        result_small = unfold_bullet(data, xdim=1e-6, cutoff_hi=1000)
-        result_large = unfold_bullet(data, xdim=1e-6, cutoff_hi=5000)
+        _, striations_small, _, _ = unfold_bullet(data, xdim=1e-6, cutoff_hi=1000)
+        _, striations_large, _, _ = unfold_bullet(data, xdim=1e-6, cutoff_hi=5000)
 
         # Both should produce valid output
-        assert result_small.striations.shape[0] > 0
-        assert result_large.striations.shape[0] > 0
+        assert striations_small.shape[0] > 0
+        assert striations_large.shape[0] > 0
 
         # Larger cutoff means larger sigma, more cropping
-        assert result_large.striations.shape[0] <= result_small.striations.shape[0]
+        assert striations_large.shape[0] <= striations_small.shape[0]
 
     def test_different_xdim_values(self, rng: np.random.Generator) -> None:
         """Different xdim values should affect sigma calculation."""
         data = rng.random((500, 100))
 
-        result_fine = unfold_bullet(data, xdim=0.5e-6, cutoff_hi=2000)
-        result_coarse = unfold_bullet(data, xdim=2e-6, cutoff_hi=2000)
+        _, striations_fine, _, _ = unfold_bullet(data, xdim=0.5e-6, cutoff_hi=2000)
+        _, striations_coarse, _, _ = unfold_bullet(data, xdim=2e-6, cutoff_hi=2000)
 
         # Both should produce valid output
-        assert result_fine.striations.shape[0] > 0
-        assert result_coarse.striations.shape[0] > 0
+        assert striations_fine.shape[0] > 0
+        assert striations_coarse.shape[0] > 0
 
 
 class TestEdgeCases:
@@ -203,19 +203,19 @@ class TestEdgeCases:
         """Small data should be handled without crash."""
         data = np.random.randn(50, 20)
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=100)
+        depth_data, striations, _, _ = unfold_bullet(data, xdim=1e-6, cutoff_hi=100)
 
-        assert result.depth_data is not None
-        assert result.striations is not None
+        assert depth_data is not None
+        assert striations is not None
 
     def test_single_column(self) -> None:
         """Single column data should be handled."""
         data = np.random.randn(500, 1)
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        depth_data, striations, _, _ = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
 
-        assert result.depth_data.shape[1] == 1
-        assert result.striations.shape[1] == 1
+        assert depth_data.shape[1] == 1
+        assert striations.shape[1] == 1
 
     def test_data_with_nan(self) -> None:
         """Data with NaN values should not crash."""
@@ -236,15 +236,17 @@ class TestMatlabCompatibility:
         # Create test data
         data = rng.random((500, 100))
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        depth_data, striations, _, highest_point = unfold_bullet(
+            data, xdim=1e-6, cutoff_hi=2000
+        )
 
         # Verify output structure matches MATLAB
         # - depth_data: unfolded striations
         # - striations: bandpass filtered and cropped
-        # - relative_highest_point_location: 0-1 position
-        assert result.depth_data.ndim == 2
-        assert result.striations.ndim == 2
-        assert isinstance(result.relative_highest_point_location, float)
+        # - highest_point: 0-1 position
+        assert depth_data.ndim == 2
+        assert striations.ndim == 2
+        assert isinstance(highest_point, float)
 
     def test_margin_of_150_used(self) -> None:
         """Verify margin of 150 pixels is used for highest point detection."""
@@ -255,11 +257,11 @@ class TestMatlabCompatibility:
         curvature = 0.01 * rows  # Linear slope, zero gradient at start
         data = np.tile(curvature.reshape(-1, 1), (1, 100))
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        _, _, _, highest_point = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
 
         # Highest point should not be at the very edge due to margin
         # It should be at least margin/n_rows ≈ 0.3 from edge
-        assert result.relative_highest_point_location > 0.25
+        assert highest_point > 0.25
 
     def test_interpolation_uses_linear_method(self) -> None:
         """Verify linear interpolation is used (as in MATLAB interp1 'linear')."""
@@ -267,12 +269,12 @@ class TestMatlabCompatibility:
         rows = np.arange(500).astype(float)
         data = np.tile(rows.reshape(-1, 1), (1, 10))
 
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        depth_data, _, _, _ = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
 
         # With linear interpolation on a ramp, output should still be monotonic
         # (though values will differ due to filtering)
         # Just verify we get reasonable output
-        assert not np.all(np.isnan(result.depth_data))
+        assert not np.all(np.isnan(depth_data))
 
 
 class TestIntegration:
@@ -300,12 +302,14 @@ class TestIntegration:
         data += rng.random(data.shape) * 0.0001
 
         # Run unfolding
-        result = unfold_bullet(data, xdim=1e-6, cutoff_hi=2000)
+        depth_data, striations_out, _, highest_point = unfold_bullet(
+            data, xdim=1e-6, cutoff_hi=2000
+        )
 
         # Verify outputs
-        assert result.depth_data.shape[1] == n_cols
-        assert result.striations.shape[1] == n_cols
-        assert 0.4 < result.relative_highest_point_location < 0.6  # Near center
+        assert depth_data.shape[1] == n_cols
+        assert striations_out.shape[1] == n_cols
+        assert 0.4 < highest_point < 0.6  # Near center
 
         # Striations should have reduced row count
-        assert result.striations.shape[0] < n_rows
+        assert striations_out.shape[0] < n_rows

@@ -56,40 +56,40 @@ class TestApplyFormNoiseRemovalBasic:
         """Function should produce valid output without errors."""
         data = rng.random((500, 100))
 
-        result = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=2000)
+        depth_data, mask, _ = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=2000)
 
-        assert result.depth_data is not None
-        assert result.mask is not None
-        assert result.depth_data.ndim == 2
+        assert depth_data is not None
+        assert mask is not None
+        assert depth_data.ndim == 2
 
     def test_output_shape_changes_with_cropping(self, rng: np.random.Generator) -> None:
         """Output shape should be reduced due to border cropping."""
         data = rng.random((500, 100))
 
-        result = apply_form_noise_removal(
+        depth_data, _, _ = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=True
         )
 
         # Output should be smaller than input
-        assert result.depth_data.shape[0] < data.shape[0]
+        assert depth_data.shape[0] < data.shape[0]
 
     def test_output_shape_preserved_no_cropping(self, rng: np.random.Generator) -> None:
         """Output shape should match input when cropping disabled."""
         data = rng.random((500, 100))
 
-        result = apply_form_noise_removal(
+        depth_data, _, _ = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
         )
 
-        assert result.depth_data.shape == data.shape
+        assert depth_data.shape == data.shape
 
     def test_mask_shape_matches_output(self, rng: np.random.Generator) -> None:
         """Output mask shape should match output data shape."""
         data = rng.random((200, 50))
 
-        result = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=2000)
+        depth_data, mask, _ = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=2000)
 
-        assert result.mask.shape == result.depth_data.shape
+        assert mask.shape == depth_data.shape
 
 
 class TestShortDataHandling:
@@ -113,12 +113,12 @@ class TestShortDataHandling:
 
         data = np.random.randn(short_height, 50)
 
-        result = apply_form_noise_removal(
+        depth_data, _, _ = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=True
         )
 
         # Output should have same shape as input (cropping disabled)
-        assert result.depth_data.shape == data.shape
+        assert depth_data.shape == data.shape
 
     def test_long_data_enables_cropping(self) -> None:
         """Long data should allow border cropping."""
@@ -128,12 +128,12 @@ class TestShortDataHandling:
 
         data = np.random.randn(long_height, 50)
 
-        result = apply_form_noise_removal(
+        depth_data, _, _ = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=True
         )
 
         # Output should be smaller than input (cropping enabled)
-        assert result.depth_data.shape[0] < data.shape[0]
+        assert depth_data.shape[0] < data.shape[0]
 
 
 class TestSlopeCorrection:
@@ -145,11 +145,11 @@ class TestSlopeCorrection:
         """Without slope correction, highest point should be None."""
         data = rng.random((500, 100))
 
-        result = apply_form_noise_removal(
+        _, _, highest_point = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, slope_correction=False
         )
 
-        assert result.relative_highest_point_location is None
+        assert highest_point is None
 
     def test_slope_correction_true_returns_highest_point(
         self, rng: np.random.Generator
@@ -157,12 +157,12 @@ class TestSlopeCorrection:
         """With slope correction, highest point should be returned."""
         data = rng.random((500, 100))
 
-        result = apply_form_noise_removal(
+        _, _, highest_point = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, slope_correction=True
         )
 
-        assert result.relative_highest_point_location is not None
-        assert 0 <= result.relative_highest_point_location <= 1
+        assert highest_point is not None
+        assert 0 <= highest_point <= 1
 
     def test_slope_correction_uses_unfold_bullet(self) -> None:
         """Slope correction should use UnfoldBullet for curved surfaces."""
@@ -171,12 +171,12 @@ class TestSlopeCorrection:
         curvature = -0.05 * rows**2
         data = np.tile(curvature.reshape(-1, 1), (1, 100))
 
-        result = apply_form_noise_removal(
+        _, _, highest_point = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, slope_correction=True
         )
 
         # Should have highest point near center for symmetric curvature
-        assert 0.3 < result.relative_highest_point_location < 0.7
+        assert 0.3 < highest_point < 0.7
 
 
 class TestMaskHandling:
@@ -186,9 +186,11 @@ class TestMaskHandling:
         """Function should work without mask."""
         data = rng.random((200, 50))
 
-        result = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=2000, mask=None)
+        depth_data, _, _ = apply_form_noise_removal(
+            data, xdim=1e-6, cutoff_hi=2000, mask=None
+        )
 
-        assert result.depth_data is not None
+        assert depth_data is not None
 
     def test_with_mask_works(self, rng: np.random.Generator) -> None:
         """Function should work with mask."""
@@ -196,9 +198,11 @@ class TestMaskHandling:
         mask = np.ones(data.shape, dtype=bool)
         mask[50:100, 20:30] = False
 
-        result = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=2000, mask=mask)
+        depth_data, _, _ = apply_form_noise_removal(
+            data, xdim=1e-6, cutoff_hi=2000, mask=mask
+        )
 
-        assert result.depth_data is not None
+        assert depth_data is not None
 
 
 class TestParameterEffects:
@@ -208,30 +212,30 @@ class TestParameterEffects:
         """Different cutoff_hi should affect shape removal."""
         data = rng.random((500, 100))
 
-        result_small = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=1000)
-        result_large = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=5000)
+        depth_small, _, _ = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=1000)
+        depth_large, _, _ = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=5000)
 
         # Both should produce valid output
-        assert result_small.depth_data.shape[0] > 0
-        assert result_large.depth_data.shape[0] > 0
+        assert depth_small.shape[0] > 0
+        assert depth_large.shape[0] > 0
 
         # Larger cutoff means more cropping
-        assert result_large.depth_data.shape[0] <= result_small.depth_data.shape[0]
+        assert depth_large.shape[0] <= depth_small.shape[0]
 
     def test_different_cutoff_lo_values(self, rng: np.random.Generator) -> None:
         """Different cutoff_lo should affect noise removal."""
         data = rng.random((500, 100))
 
-        result_small = apply_form_noise_removal(
+        depth_small, _, _ = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, cutoff_lo=100
         )
-        result_large = apply_form_noise_removal(
+        depth_large, _, _ = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, cutoff_lo=1000
         )
 
         # Both should produce valid output
-        assert result_small.depth_data.shape[0] > 0
-        assert result_large.depth_data.shape[0] > 0
+        assert depth_small.shape[0] > 0
+        assert depth_large.shape[0] > 0
 
 
 class TestMatlabCompatibility:
@@ -252,21 +256,21 @@ class TestMatlabCompatibility:
 
         # Data just below threshold
         short_data = np.random.randn(threshold_height - 10, 50)
-        result_short = apply_form_noise_removal(
+        depth_short, _, _ = apply_form_noise_removal(
             short_data, xdim=xdim, cutoff_hi=cutoff_hi, cut_borders_after_smoothing=True
         )
 
         # Data just above threshold
         long_data = np.random.randn(threshold_height + 100, 50)
-        result_long = apply_form_noise_removal(
+        depth_long, _, _ = apply_form_noise_removal(
             long_data, xdim=xdim, cutoff_hi=cutoff_hi, cut_borders_after_smoothing=True
         )
 
         # Short data should not be cropped
-        assert result_short.depth_data.shape == short_data.shape
+        assert depth_short.shape == short_data.shape
 
         # Long data should be cropped
-        assert result_long.depth_data.shape[0] < long_data.shape[0]
+        assert depth_long.shape[0] < long_data.shape[0]
 
     def test_shape_then_noise_order(self, rng: np.random.Generator) -> None:
         """Verify shape removal happens before noise removal.
@@ -281,7 +285,7 @@ class TestMatlabCompatibility:
 
         data = np.tile((shape + noise).reshape(-1, 1), (1, 50))
 
-        result = apply_form_noise_removal(
+        depth_data, _, _ = apply_form_noise_removal(
             data,
             xdim=1e-6,
             cutoff_hi=2000,
@@ -291,7 +295,7 @@ class TestMatlabCompatibility:
 
         # Output should have reduced shape component
         # Check by looking at variance reduction
-        output_var = np.var(result.depth_data)
+        output_var = np.var(depth_data)
         input_var = np.var(data)
 
         # Variance should be reduced (shape removed, noise smoothed)
@@ -322,14 +326,14 @@ class TestIntegration:
         data = np.tile(surface.reshape(-1, 1), (1, n_cols))
 
         # Apply form and noise removal
-        result = apply_form_noise_removal(
+        depth_data, _, highest_point = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, cutoff_lo=250
         )
 
         # Verify output
-        assert result.depth_data.ndim == 2
-        assert result.depth_data.shape[1] == n_cols
-        assert result.relative_highest_point_location is None  # No slope correction
+        assert depth_data.ndim == 2
+        assert depth_data.shape[1] == n_cols
+        assert highest_point is None  # No slope correction
 
     def test_full_pipeline_synthetic_bullet(self, rng: np.random.Generator) -> None:
         """Test full pipeline with synthetic bullet surface."""
@@ -352,16 +356,16 @@ class TestIntegration:
         data = np.tile(surface.reshape(-1, 1), (1, n_cols))
 
         # Apply with slope correction
-        result = apply_form_noise_removal(
+        depth_data, _, highest_point = apply_form_noise_removal(
             data, xdim=1e-6, cutoff_hi=2000, slope_correction=True
         )
 
         # Verify output
-        assert result.depth_data.ndim == 2
-        assert result.depth_data.shape[1] == n_cols
-        assert result.relative_highest_point_location is not None
+        assert depth_data.ndim == 2
+        assert depth_data.shape[1] == n_cols
+        assert highest_point is not None
         # Highest point should be near center for symmetric curvature
-        assert 0.3 < result.relative_highest_point_location < 0.7
+        assert 0.3 < highest_point < 0.7
 
 
 class TestEdgeCases:
@@ -371,25 +375,17 @@ class TestEdgeCases:
         """Small data should be handled without crash."""
         data = np.random.randn(50, 20)
 
-        result = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=100)
+        depth_data, _, _ = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=100)
 
-        assert result.depth_data is not None
+        assert depth_data is not None
 
     def test_single_column(self) -> None:
         """Single column data should be handled."""
         data = np.random.randn(500, 1)
 
-        result = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=2000)
+        depth_data, _, _ = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=2000)
 
-        assert result.depth_data.shape[1] == 1
-
-    def test_1d_input(self) -> None:
-        """1D input should be handled."""
-        data = np.random.randn(500)
-
-        result = apply_form_noise_removal(data, xdim=1e-6, cutoff_hi=2000)
-
-        assert result.depth_data.ndim == 2
+        assert depth_data.shape[1] == 1
 
     def test_data_with_nan(self) -> None:
         """Data with NaN values should not crash."""

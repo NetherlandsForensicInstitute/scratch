@@ -109,18 +109,9 @@ def apply_form_noise_removal(
     - For bullet data, use slope_correction=True to correct for curvature
     - The function assumes data has been coarsely aligned (Step 1 complete)
     """
-    # Ensure 2D input
-    depth_data = np.atleast_2d(depth_data)
-    if depth_data.shape[0] == 1:
-        depth_data = depth_data.T
-
     # Initialize mask if not provided
     if mask is None:
         mask = np.ones(depth_data.shape, dtype=bool)
-    else:
-        mask = np.atleast_2d(mask)
-        if mask.shape[0] == 1:
-            mask = mask.T
 
     # Initialize output variables
     relative_highest_point_location: float | None = None
