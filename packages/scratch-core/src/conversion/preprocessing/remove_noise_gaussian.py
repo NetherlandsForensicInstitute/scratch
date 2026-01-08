@@ -7,6 +7,9 @@ larger-scale features like striation marks.
 
 Unlike shape removal (highpass), noise removal uses a lowpass filter that
 returns the smoothed data directly (not residuals).
+
+The same principle as the order 0 filter in filter.py, the main difference is applied to 1D and perpendicular gaussian
+kernel to the ridges. The filter.py does a 2D filter instead.
 """
 
 from functools import partial
@@ -173,9 +176,6 @@ def remove_noise_gaussian(
     - Returns smoothed data (lowpass), not residuals (unlike shape removal)
     - The function matches MATLAB RemoveNoiseGaussian.m behavior
     """
-    # Ensure depth_data is 2D
-    depth_data = np.atleast_2d(depth_data)
-
     # If input was 1D row vector, transpose to column
     if depth_data.shape[0] == 1:
         depth_data = depth_data.T
