@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.ndimage import binary_dilation
+from scipy.ndimage import binary_dilation, rotate
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
@@ -146,3 +146,19 @@ def dilate_and_crop_image_and_mask(
     mask_cropped = crop_to_mask(mask, mask)
 
     return scan_image_cropped, mask_cropped
+
+
+def rotate_scan_image(scan_image: ScanImage, rotation_angle: float = 0.0) -> ScanImage:
+    """Rotate scan image by given angle."""
+    data = scan_image.data.copy()
+    data[np.isnan(data)] = 0.0
+    # TODO: do we want to reshape to fit the entire image rotated, or crop to original size
+    data_rotated = rotate(data, rotation_angle, reshape=True)
+    # TODO: scipy rotate interpolates, which changes values
+    data_rotated[np.where(data_rotated == 0.0)] = np.nan
+    return ScanImage(
+        data=data_rotated,
+        scale_x=scan_image.scale_x,
+        scale_y=scan_image.scale_y,
+        meta_data=scan_image.meta_data,
+    )

@@ -2,7 +2,11 @@ import pytest
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import CropInfo
-from conversion.rotate import get_rotation_angle, get_rotation_angle_simpler
+from conversion.rotate import (
+    get_rotation_angle,
+    get_rotation_angle_simpler,
+    rotate_scan_image,
+)
 
 
 class TestGetRotationAngle:
@@ -73,3 +77,9 @@ class TestGetRotationAngle:
             crop_info=crop_info_multiple_shapes_rectangle_first,
         )
         assert rotation_angle_old == pytest.approx(rotation_angle_new)
+
+
+class TestRotateScanImage:
+    def test_rotate_scan_image(self, scan_image_before_crop_and_rotate: ScanImage):
+        _ = rotate_scan_image(scan_image_before_crop_and_rotate, rotation_angle=50)
+        # TODO: determine ground truth, assert things
