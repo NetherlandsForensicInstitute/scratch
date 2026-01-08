@@ -1,14 +1,18 @@
 from http import HTTPStatus
+from pathlib import Path
+from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from loguru import logger
+
+from dependencies import get_tmp_dir, get_token
+from extractors import ProcessedDataAccess, get_file_access
 
 from .pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
-from .schemas import ProcessedDataLocation, UploadScan
+from .schemas import UploadScan
 
-preprocessor_route = APIRouter(
-    prefix="/preprocessor",
-    tags=["preprocessor"],
-)
+ROUTE = "/preprocessor"
+preprocessor_route = APIRouter(prefix=ROUTE, tags=[ROUTE])
 
 
 @preprocessor_route.get(
@@ -17,7 +21,8 @@ preprocessor_route = APIRouter(
     description="""Some description of pre-processors endpoint, you can use basic **markup**""",
 )
 async def comparison_root() -> dict[str, str]:
-    """Fetch a simple message from the REST API.
+    """
+    Fetch a simple message from the REST API.
 
     Here is some more information about the function some notes what is expected.
     Special remarks what the function is doing.
@@ -39,17 +44,26 @@ async def comparison_root() -> dict[str, str]:
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
-async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
+async def process_scan(
+    upload_scan: UploadScan,
+    temp_dir: Path = Depends(get_tmp_dir),
+    token: UUID = Depends(get_token),
+) -> ProcessedDataAccess:
     """
     Process an uploaded scan file and generate derived output files.
 
     This endpoint parses and validates the incoming scan file, performs the
     necessary processing steps, and produces several outputs such as an X3P
-    file, a preview image, and a surface map saved to the output directory.
+    file, a preview image, and a surface map saved to a temp directory and returns urls to retrieve them.
     """
+    image_access = get_file_access(temp_dir, token)
+
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.parameters)
-    return ProcessedDataLocation(
-        x3p_image=x3p_pipeline(parsed_scan, upload_scan.x3p_path),
-        surfacemap_image=surface_map_pipeline(parsed_scan, upload_scan.surfacemap_path, upload_scan.parameters),
-        preview_image=preview_pipeline(parsed_scan, upload_scan.preview_path),
+    x3p_pipeline(parsed_scan, image_access.resource_path / upload_scan.x3p_filename)
+    surface_map_pipeline(
+        parsed_scan, image_access.resource_path / upload_scan.surface_map_filename, upload_scan.parameters
     )
+    preview_pipeline(parsed_scan, image_access.resource_path / upload_scan.preview_filename)
+
+    logger.info(f"Generated files saved to {temp_dir}")
+    return ProcessedDataAccess.from_access_point(image_access.access_url, upload_scan)
