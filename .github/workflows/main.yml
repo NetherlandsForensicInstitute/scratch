@@ -28,7 +28,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          lfs: true
 
       - name: Set up shell environment
         uses: ./.github/actions/setup-devenv
