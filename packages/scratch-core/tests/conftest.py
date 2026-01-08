@@ -126,15 +126,6 @@ def mask_array(scan_image_replica) -> MaskArray:
 
 
 @pytest.fixture(scope="session")
-def mark(scan_image: ScanImage, crop_info_single_rectangle: list[CropInfo]) -> Mark:
-    return Mark(
-        scan_image=scan_image,
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
-        crop_info=crop_info_single_rectangle,
-    )
-
-
-@pytest.fixture(scope="session")
 def crop_info_single_rectangle() -> list[CropInfo]:
     """
     CropInfo object for single, straight positioned rectangle crop,
@@ -226,3 +217,12 @@ def crop_info_multiple_shapes_rectangle_not_first(
     crop_info_copy = crop_info_multiple_shapes_rectangle_first.copy()
     crop_info_copy.reverse()
     return crop_info_copy
+
+
+@pytest.fixture(scope="session")
+def mark(scan_image: ScanImage, crop_info_single_rectangle: list[CropInfo]) -> Mark:
+    return Mark(
+        scan_image=scan_image,
+        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        crop_info=crop_info_single_rectangle,
+    )
