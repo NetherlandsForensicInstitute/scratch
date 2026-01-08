@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from loguru import logger
 
 from dependencies import get_tmp_dir, get_token
-from extractors import ProcessedDataAccess, get_image_access
+from extractors import ProcessedDataAccess, get_file_access
 
 from .pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
 from .schemas import UploadScan
@@ -21,7 +21,8 @@ preprocessor_route = APIRouter(prefix=ROUTE, tags=[ROUTE])
     description="""Some description of pre-processors endpoint, you can use basic **markup**""",
 )
 async def comparison_root() -> dict[str, str]:
-    """Fetch a simple message from the REST API.
+    """
+    Fetch a simple message from the REST API.
 
     Here is some more information about the function some notes what is expected.
     Special remarks what the function is doing.
@@ -53,14 +54,14 @@ async def process_scan(
 
     This endpoint parses and validates the incoming scan file, performs the
     necessary processing steps, and produces several outputs such as an X3P
-    file, a preview image, and a surface map saved to an temp directiory and returns urls to retrieve them.
+    file, a preview image, and a surface map saved to a temp directory and returns urls to retrieve them.
     """
-    image_access = get_image_access(temp_dir, token)
+    image_access = get_file_access(temp_dir, token)
 
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.parameters)
     x3p_pipeline(parsed_scan, image_access.resource_path / upload_scan.x3p_filename)
     surface_map_pipeline(
-        parsed_scan, image_access.resource_path / upload_scan.surfacemap_filename, upload_scan.parameters
+        parsed_scan, image_access.resource_path / upload_scan.surface_map_filename, upload_scan.parameters
     )
     preview_pipeline(parsed_scan, image_access.resource_path / upload_scan.preview_filename)
 

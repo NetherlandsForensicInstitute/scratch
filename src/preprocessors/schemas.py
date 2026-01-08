@@ -66,8 +66,8 @@ class UploadScan(BaseModelConfig):
         return self.scan_file.stem
 
     @property
-    def surfacemap_filename(self) -> str:
-        return f"{self.name}_surfacemap.png"
+    def surface_map_filename(self) -> str:
+        return f"{self.name}_surface_map.png"
 
     @property
     def preview_filename(self) -> str:

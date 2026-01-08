@@ -11,8 +11,8 @@ class BaseModelConfig(BaseModel):
     )
 
 
-def validate_file_extension(file_name: str, extensions: type[StrEnum]) -> str:
+def validate_file_extension(filename: str, extensions: type[StrEnum]) -> str:
     """Validate that the file has a supported extension."""
-    if not file_name.endswith(tuple(extensions)):
-        raise ValueError(f"unsupported file type: {file_name}, try: {', '.join(extensions)}")
-    return file_name
+    if not filename.endswith(tuple(extensions)):
+        raise ValueError(f"unsupported file type: {filename}, try: {', '.join(extensions)}")
+    return filename

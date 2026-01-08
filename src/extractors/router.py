@@ -16,20 +16,19 @@ extractor_route = APIRouter(prefix=ROUTE, tags=[ROUTE])
 
 
 @extractor_route.get(
-    path="/file/{token}/{file_name}",
-    summary="Giving an path returns a image.",
+    path="/files/{token}/{filename}",
+    summary="Return the file at the given filepath.",
     description="""
     given some file path returns the image located at the path.
     """,
     responses={
-        HTTPStatus.BAD_REQUEST: {"description": "Unsupported file type requested."},
         HTTPStatus.BAD_REQUEST: {"description": "Invalid token."},
         HTTPStatus.NOT_FOUND: {"description": "File not found"},
     },
 )
 async def get_file(
     token: UUID4,
-    file_name: FileName,
+    filename: FileName,
     temp_dir: Path = Depends(get_tmp_dir),
 ) -> FileResponse:
     """
@@ -38,18 +37,18 @@ async def get_file(
     This endpoint retrieves an image/scan file from a temporary directory and returns it as a FileResponse.
 
     :param token: Temporary directory token.
-    :param file_name: Name of the file to retrieve (must end with .png or .x3p).
+    :param filename: Name of the file to retrieve (must end with .png or .x3p).
     :param temp_dir: Temporary directory to store temporary files.
     :returns: FileResponse containing the requested image.
     """
     if not next(temp_dir.glob(str(token)), None):
-        logger.error(f"Directory not found {temp_dir}/{token}")
+        logger.error(f"Directory not found {temp_dir / str(token)}")
         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=f"Expired or invalid token: {token}")
-    if not (file_path := temp_dir / str(token) / file_name).exists():
-        logger.error(f"File not found in temp dir: {file_path}")
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=f"File {file_path.name} not found.")
+    if not (filepath := temp_dir / str(token) / filename).exists():
+        logger.error(f"File not found in temp dir: {filepath}")
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=f"File {filepath.name} not found.")
 
     return FileResponse(
-        path=file_path,
-        media_type="image/png" if file_name.endswith(".png") else "application/octet-stream",
+        path=filepath,
+        media_type="image/png" if filename.endswith(".png") else "application/octet-stream",
     )

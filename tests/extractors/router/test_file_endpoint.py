@@ -12,10 +12,10 @@ def test_get_file_returns_file_response(client: TestClient, token: UUID, tmp_dir
     # Arrange
     temp_dir = tmp_dir_api / str(token)
     temp_dir.mkdir(exist_ok=True)
-    file_path = temp_dir / "test.x3p"
-    file_path.write_bytes(b"fakeimagecontent")
+    filepath = temp_dir / "test.x3p"
+    filepath.write_bytes(b"fakeimagecontent")
     # Act
-    response = client.get(f"{ROUTE}/file/{token}/test.x3p")
+    response = client.get(f"{ROUTE}/files/{token}/test.x3p")
     # Assert
     assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
     assert response.content == b"fakeimagecontent"
@@ -27,10 +27,10 @@ def test_get_file_returns_image_response(client: TestClient, tmp_dir_api: Path, 
     # Arrange
     temp_dir = tmp_dir_api / str(token)
     temp_dir.mkdir(exist_ok=True)
-    file_path = temp_dir / "test.png"
-    file_path.write_bytes(b"fakeimagecontent")
+    filepath = temp_dir / "test.png"
+    filepath.write_bytes(b"fakeimagecontent")
     # Act
-    response = client.get(f"{ROUTE}/file/{token}/test.png")
+    response = client.get(f"{ROUTE}/files/{token}/test.png")
     # Assert
     assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
     assert response.content == b"fakeimagecontent"
@@ -41,10 +41,10 @@ def test_get_file_returns_404_for_missing_file(client: TestClient, tmp_dir_api: 
     """Test that requesting a nonexistent file returns 404 with appropriate error message."""
     temp_dir = tmp_dir_api / str(token)
     temp_dir.mkdir(exist_ok=True)
-    wrong_file_name = "nofile.png"
-    response = client.get(f"{ROUTE}/file/{token}/{wrong_file_name}")
+    wrong_filename = "nofile.png"
+    response = client.get(f"{ROUTE}/files/{token}/{wrong_filename}")
     assert response.status_code == HTTPStatus.NOT_FOUND
-    assert response.json()["detail"] == f"File {wrong_file_name} not found."
+    assert response.json()["detail"] == f"File {wrong_filename} not found."
 
 
 def test_get_file_returns_400_for_wrong_token(client: TestClient, tmp_dir_api: Path) -> None:
@@ -53,7 +53,7 @@ def test_get_file_returns_400_for_wrong_token(client: TestClient, tmp_dir_api: P
     wrong_token = uuid4()
 
     # Act: use wrong token
-    response = client.get(f"{ROUTE}/file/{wrong_token}/test.png")
+    response = client.get(f"{ROUTE}/files/{wrong_token}/test.png")
 
     # Assert
     assert response.status_code == HTTPStatus.BAD_REQUEST
@@ -67,7 +67,7 @@ def test_get_file_rejects_invalid_extension(client: TestClient, token: UUID, tmp
     temp_dir.mkdir(exist_ok=True)
 
     # Act
-    response = client.get(f"{ROUTE}/file/{token}/test.txt")
+    response = client.get(f"{ROUTE}/files/{token}/test.txt")
 
     # Assert
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY

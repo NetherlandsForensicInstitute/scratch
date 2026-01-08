@@ -50,27 +50,27 @@ class TestProcessScanEndpoint:
         assert response.status_code == HTTPStatus.OK
         result = ProcessedDataAccess.model_validate(response.json())
         assert result.preview_image.path
-        assert result.surfacemap_image.path
+        assert result.surface_map_image.path
         assert result.x3p_image.path
 
         # Act II
         preview = client.get(result.preview_image.path)
-        surfacemap = client.get(result.surfacemap_image.path)
+        surface_map = client.get(result.surface_map_image.path)
         x3p_response = client.get(result.x3p_image.path)
 
         # Assert - verify response status codes
         assert preview.status_code == HTTPStatus.OK
-        assert surfacemap.status_code == HTTPStatus.OK
+        assert surface_map.status_code == HTTPStatus.OK
         assert x3p_response.status_code == HTTPStatus.OK
 
         # Assert - verify content types
         assert preview.headers["content-type"] == "image/png"
-        assert surfacemap.headers["content-type"] == "image/png"
+        assert surface_map.headers["content-type"] == "image/png"
         assert x3p_response.headers["content-type"] == "application/octet-stream"
 
         # Assert - verify PNG files are valid images
         assert Image.open(BytesIO(preview.content))
-        assert Image.open(BytesIO(surfacemap.content))
+        assert Image.open(BytesIO(surface_map.content))
 
         # Assert - verify x3p file has content
         assert len(x3p_response.content) > 0
@@ -110,18 +110,18 @@ class TestProcessScanEndpoint:
         assert response.status_code == HTTPStatus.OK
         result_location = ProcessedDataAccess.model_validate(response.json())
         control_location = ProcessedDataAccess.model_validate(control_response.json())
-        assert result_location.surfacemap_image.path
-        assert control_location.surfacemap_image.path
+        assert result_location.surface_map_image.path
+        assert control_location.surface_map_image.path
 
         # Act II
-        control = client.get(control_location.surfacemap_image.path)
-        result = client.get(result_location.surfacemap_image.path)
+        control = client.get(control_location.surface_map_image.path)
+        result = client.get(result_location.surface_map_image.path)
 
         # Assert - verify responses are successful
         assert control.status_code == HTTPStatus.OK
         assert result.status_code == HTTPStatus.OK
 
-        # Assert - verify that the two surfacemaps are not the same
+        # Assert - verify that the two surface_maps are not the same
         assert control.content != result.content, "Surfacemaps should differ with different light sources"
 
         # Assert - verify that result with doubled light sources is brighter
@@ -146,7 +146,7 @@ class TestProcessScan:
         """Test that process-scan creates expected output files with correct URLs and file structure."""
         # Arrange
         tokenized_base_name = f"{token}/Klein_non_replica_mode"
-        base_url = f"http://localhost:8000{EXTRACT_ROUTE}/file/{tokenized_base_name}"
+        base_url = f"http://localhost:8000{EXTRACT_ROUTE}/files/{tokenized_base_name}"
 
         # Act
         response = post_process_scan()
@@ -155,7 +155,7 @@ class TestProcessScan:
         expected_response = ProcessedDataAccess(
             x3p_image=HttpUrl(f"{base_url}.x3p"),
             preview_image=HttpUrl(f"{base_url}_preview.png"),
-            surfacemap_image=HttpUrl(f"{base_url}_surfacemap.png"),
+            surface_map_image=HttpUrl(f"{base_url}_surface_map.png"),
         )
 
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"
@@ -163,7 +163,7 @@ class TestProcessScan:
         assert response_model == expected_response
         assert (tmp_dir_api / f"{tokenized_base_name}.x3p").exists()
         assert (tmp_dir_api / f"{tokenized_base_name}_preview.png").exists()
-        assert (tmp_dir_api / f"{tokenized_base_name}_surfacemap.png").exists()
+        assert (tmp_dir_api / f"{tokenized_base_name}_surface_map.png").exists()
 
     def test_process_scan_overwrites_files(self, post_process_scan, tmp_dir_api: Path, token: UUID) -> None:
         """Test that processing the same scan file twice overwrites existing output files."""

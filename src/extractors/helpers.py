@@ -7,8 +7,9 @@ from .router import ROUTE
 from .schemas import ImageAccess
 
 
-def get_image_access(temp_dir: Path, token: UUID) -> ImageAccess:
-    """Generate a base URL for file retrieval and create the token directory.
+def get_file_access(temp_dir: Path, token: UUID) -> ImageAccess:
+    """
+    Generate a base URL for file retrieval and create the token directory.
 
     Creates a token-specific subdirectory within the temporary directory
     and returns the base URL that can be used to retrieve files from that directory.
@@ -17,5 +18,5 @@ def get_image_access(temp_dir: Path, token: UUID) -> ImageAccess:
     :param token: Unique token identifying the directory.
     :returns: Base URL string for file retrieval endpoints.
     """
-    (output_dir := temp_dir / str(token)).mkdir(parents=True, exist_ok=True)
-    return ImageAccess(output_dir, f"{BASE_URL}{ROUTE}/file/{token}")
+    (resource_path := temp_dir / str(token)).mkdir(parents=True, exist_ok=True)
+    return ImageAccess(resource_path, access_url=f"{BASE_URL}{ROUTE}/files/{token}")
