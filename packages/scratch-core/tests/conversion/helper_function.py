@@ -22,8 +22,8 @@ def _compute_difference_stats(arr1: np.ndarray, arr2: np.ndarray) -> dict[str, f
     """Compute difference statistics between two arrays."""
     diff = arr1 - arr2
     return {
-        "min": np.nanmin(diff),
-        "max": np.nanmax(diff),
-        "mean": np.nanmean(diff),
-        "std": np.nanstd(diff),
+        "min": float(np.nanmin(diff)),
+        "max": float(np.nanmax(diff)),
+        "mean": float(np.nanmean(diff)),
+        "std": float(np.nanstd(diff)),
     }

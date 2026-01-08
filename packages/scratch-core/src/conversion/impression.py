@@ -16,7 +16,7 @@ from container_models.base import MaskArray, ScanMap2DArray
 from container_models.scan_image import ScanImage
 from conversion.crop import crop_nan_borders
 from conversion.data_formats import Mark, MarkType
-from conversion.gaussian_filter import apply_gaussian_filter
+from conversion.filter import apply_gaussian_regression_filter
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.parameters import PreprocessingImpressionParams
 from conversion.resample import resample_scan_image_and_mask
@@ -32,11 +32,6 @@ class TiltEstimate(NamedTuple):
     tilt_x_deg: float
     tilt_y_deg: float
     residuals: NDArray[np.floating]
-
-
-# ---------------------------------------------------------------------------
-# Mark/ScanImage update helpers
-# ---------------------------------------------------------------------------
 
 
 def _update_mark_data(mark: Mark, data: NDArray) -> Mark:
@@ -60,11 +55,6 @@ def _update_mark_scan_image(mark: Mark, scan_image: ScanImage) -> Mark:
     :return: New Mark instance with updated scan image.
     """
     return mark.model_copy(update={"scan_image": scan_image})
-
-
-# ---------------------------------------------------------------------------
-# Geometry helpers
-# ---------------------------------------------------------------------------
 
 
 def _get_mask_edge_points(mask: MaskArray) -> NDArray[np.floating]:
@@ -126,8 +116,9 @@ def _fit_circle_ransac(
     if model is None:
         return None
 
-    if model.radius > 0 and np.isfinite(model.params).all():
-        return model.center
+    x, y, radius = model.params
+    if radius > 0 and np.isfinite([x, y, radius]).all():
+        return x, y
 
     return None
 
@@ -141,7 +132,7 @@ def _get_bounding_box_center(mask: NDArray[np.bool_]) -> Point2D:
     """
     rows, cols = np.where(mask)
     if len(rows) == 0:
-        return (mask.shape[1] / 2, mask.shape[0] / 2)
+        return mask.shape[1] / 2, mask.shape[0] / 2
     return (
         (cols.min() + cols.max() + 1) / 2,
         (rows.min() + rows.max() + 1) / 2,
@@ -167,11 +158,6 @@ def _compute_map_center(
             return center
 
     return _get_bounding_box_center(valid_mask)
-
-
-# ---------------------------------------------------------------------------
-# Tilt estimation and correction
-# ---------------------------------------------------------------------------
 
 
 def _estimate_plane_tilt(
@@ -301,7 +287,7 @@ def _apply_anti_aliasing(
         downsample_ratio[1] * scan_image.scale_y,
     )
 
-    filtered_data = apply_gaussian_filter(
+    filtered_data = apply_gaussian_regression_filter(
         scan_image.data,
         is_high_pass=False,
         regression_order=0,
@@ -327,7 +313,7 @@ def _apply_gaussian_filter_to_mark(
     :param is_high_pass: If True, apply high-pass filter; otherwise low-pass.
     :return: Filtered mark.
     """
-    filtered_data = apply_gaussian_filter(
+    filtered_data = apply_gaussian_regression_filter(
         mark.scan_image.data,
         is_high_pass=is_high_pass,
         cutoff_length=cutoff,
@@ -528,20 +514,28 @@ def _apply_resampling_pipeline(
 
 
 def _finalize_leveled_output(
-    mark_anti_aliased: Mark,
+    mark_after_tilt: Mark,
+    target_scale: float | None,
     surface_terms: SurfaceTerms,
     reference_point: Point2D,
 ) -> Mark:
     """
-    Prepare the leveled-only output by restoring form and re-leveling.
+    Prepare the leveled-only output.
 
-    :param mark_anti_aliased: Anti-aliased-only mark.
-    :param fitted_surface: Fitted surface to restore.
+    :param mark_after_tilt: Mark after tilt correction, before SPHERE leveling.
+    :param target_scale: Target pixel scale for resampling, or None to skip.
     :param surface_terms: Original surface terms (will be masked to PLANE).
+    :param reference_point: Reference point for leveling.
     :return: Final leveled mark.
     """
+    # Apply PLANE-only leveling (preserves curvature)
     rigid_terms = surface_terms & SurfaceTerms.PLANE
-    leveled_mark = _level_mark(mark_anti_aliased, rigid_terms, reference_point)
+    leveled_mark = _level_mark(mark_after_tilt, rigid_terms, reference_point)
+
+    # Resample if needed
+    if target_scale is not None:
+        leveled_mark, _ = _resample(leveled_mark, target_scale)
+
     return leveled_mark
 
 
@@ -603,7 +597,7 @@ def preprocess_impression_mark(
 
     # Prepare leveled-only output
     mark_leveled_final = _finalize_leveled_output(
-        mark_anti_aliased, params.surface_terms, center_local
+        mark, target_scale, params.surface_terms, center_local
     )
 
     # Build output metadata
