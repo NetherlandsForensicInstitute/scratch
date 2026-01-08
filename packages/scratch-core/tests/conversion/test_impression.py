@@ -9,8 +9,6 @@ from conversion.data_formats import CropType, Mark, MarkType
 from conversion.impression import (
     _adjust_for_plane_tilt,
     _apply_anti_aliasing,
-    _apply_highpass_if_needed,
-    _apply_lowpass_if_needed,
     _build_preprocessing_metadata,
     _compute_center_local,
     _compute_map_center,
@@ -857,121 +855,6 @@ class TestUpdateMarkData:
         assert np.isnan(result.scan_image.data[0, 1])
         assert np.isnan(result.scan_image.data[1, 0])
         assert result.scan_image.data[0, 0] == 1.0
-
-
-class TestApplyLowpassIfNeeded:
-    """Tests for _apply_lowpass_if_needed."""
-
-    def test_returns_original_when_cutoff_is_none(self):
-        """Should return original mark when cutoff is None."""
-        mark = make_mark(np.random.default_rng(42).random((10, 10)))
-
-        result = _apply_lowpass_if_needed(
-            mark, cutoff=None, anti_alias_cutoff=(None, None), regression_order=0
-        )
-
-        assert result is mark
-
-    def test_returns_original_when_cutoff_weaker_than_anti_alias(self):
-        """Should skip filtering when low-pass cutoff is weaker than anti-aliasing."""
-        mark = make_mark(np.random.default_rng(42).random((10, 10)))
-
-        # Low-pass cutoff (5.0) is larger (weaker) than anti-alias cutoff (2.0)
-        result = _apply_lowpass_if_needed(
-            mark, cutoff=5.0, anti_alias_cutoff=(2.0, 2.0), regression_order=0
-        )
-
-        assert result is mark
-
-    def test_returns_original_when_cutoff_equals_anti_alias(self):
-        """Should skip filtering when low-pass cutoff equals anti-aliasing."""
-        mark = make_mark(np.random.default_rng(42).random((10, 10)))
-
-        result = _apply_lowpass_if_needed(
-            mark, cutoff=2.0, anti_alias_cutoff=(2.0, 2.0), regression_order=0
-        )
-
-        assert result is mark
-
-    def test_applies_filter_when_cutoff_stronger_than_anti_alias(self):
-        """Should apply filter when low-pass cutoff is stronger than anti-aliasing."""
-        rng = np.random.default_rng(42)
-        data = rng.random((20, 20))
-        mark = make_mark(data, scale_x=1.0, scale_y=1.0)
-
-        # Low-pass cutoff (1.0) is smaller (stronger) than anti-alias cutoff (5.0)
-        result = _apply_lowpass_if_needed(
-            mark, cutoff=1.0, anti_alias_cutoff=(5.0, 5.0), regression_order=0
-        )
-
-        assert result is not mark
-        # Data should be smoothed (lower variance)
-        assert np.var(result.scan_image.data) < np.var(data)
-
-    def test_applies_filter_when_no_anti_aliasing(self):
-        """Should apply filter when no anti-aliasing was performed."""
-        rng = np.random.default_rng(42)
-        data = rng.random((20, 20))
-        mark = make_mark(data, scale_x=1.0, scale_y=1.0)
-
-        result = _apply_lowpass_if_needed(
-            mark, cutoff=2.0, anti_alias_cutoff=(None, None), regression_order=0
-        )
-
-        assert result is not mark
-
-    def test_handles_partial_anti_alias_cutoff(self):
-        """Should handle anti-alias cutoff with one None value."""
-        rng = np.random.default_rng(42)
-        data = rng.random((20, 20))
-        mark = make_mark(data, scale_x=1.0, scale_y=1.0)
-
-        # Only one direction had anti-aliasing
-        result = _apply_lowpass_if_needed(
-            mark, cutoff=1.0, anti_alias_cutoff=(5.0, None), regression_order=0
-        )
-
-        assert result is not mark
-
-
-class TestApplyHighpassIfNeeded:
-    """Tests for _apply_highpass_if_needed."""
-
-    def test_returns_original_when_cutoff_is_none(self):
-        """Should return original mark when cutoff is None."""
-        mark = make_mark(np.random.default_rng(42).random((10, 10)))
-
-        result = _apply_highpass_if_needed(mark, cutoff=None, regression_order=0)
-
-        assert result is mark
-
-    def test_applies_filter_when_cutoff_specified(self):
-        """Should apply high-pass filter when cutoff is specified."""
-        # Create data with low-frequency component
-        y, x = np.mgrid[:20, :20]
-        data = 0.1 * x + 0.05 * y + np.random.default_rng(42).random((20, 20)) * 0.01
-        mark = make_mark(data.astype(float), scale_x=1.0, scale_y=1.0)
-
-        result = _apply_highpass_if_needed(mark, cutoff=5.0, regression_order=0)
-
-        assert result is not mark
-        # High-pass should remove the trend, reducing mean
-        assert abs(np.mean(result.scan_image.data)) < abs(np.mean(data))
-
-    def test_preserves_mark_properties(self):
-        """Should preserve mark type and crop type."""
-        mark = make_mark(
-            np.random.default_rng(42).random((10, 10)),
-            scale_x=0.5,
-            scale_y=0.25,
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
-        )
-
-        result = _apply_highpass_if_needed(mark, cutoff=2.0, regression_order=0)
-
-        assert result.mark_type == MarkType.BREECH_FACE_IMPRESSION
-        assert result.scan_image.scale_x == 0.5
-        assert result.scan_image.scale_y == 0.25
 
 
 class TestNeedsResampling:
