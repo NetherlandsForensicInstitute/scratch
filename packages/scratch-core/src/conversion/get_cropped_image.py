@@ -3,7 +3,7 @@ from numpy.typing import NDArray
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
-from conversion.gaussian_filter import apply_gaussian_filter
+from conversion.filter import apply_gaussian_regression_filter
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import mask_and_crop_scan_image
 from conversion.resample import resample_scan_image_and_mask
@@ -48,8 +48,8 @@ def get_cropped_image(
     # Level the image data
     level_result = level_map(scan_image=resampled_scan_image, terms=terms)
 
-    # Filter the leveled results using a Gaussian filter
-    data_filtered = apply_gaussian_filter(
+    # Filter the leveled results using a Gaussian regression filter
+    data_filtered = apply_gaussian_regression_filter(
         data=level_result.leveled_map,
         regression_order=regression_order,
         cutoff_length=cutoff_length,
