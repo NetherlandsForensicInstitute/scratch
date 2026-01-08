@@ -109,6 +109,7 @@ markers = [
   "integration: Tests related to more than one unit (examples: modules, interfaces)",
   "e2e: End to end test (full system test)",
   "contract_testing: all tests used for checking if the interface to the outside is same as contract",
+  "lfs: Tests that utilizes resuorces stored in the large file storage",
 ]
 
 [tool.coverage.report]

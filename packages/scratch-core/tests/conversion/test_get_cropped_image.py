@@ -38,6 +38,7 @@ def test_get_cropped_image(
     assert result.shape == (mask_array.shape[0] // 2, mask_array.shape[1] // 2)
 
 
+@pytest.mark.lfs
 class TestGetCroppedImageMatlabComparison:
     """Test get_cropped_image against MATLAB reference output. Can be removed later."""
 
