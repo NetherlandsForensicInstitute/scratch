@@ -103,7 +103,7 @@ def _remove_zero_border(
 def remove_shape_gaussian(
     depth_data: NDArray[np.floating],
     xdim: float,
-    cutoff_hi: float = 2000.0,
+    cutoff_hi: float = 2000e-6,
     cut_borders_after_smoothing: bool = True,
     mask: NDArray[np.bool_] | None = None,
 ) -> tuple[NDArray[np.floating], NDArray[np.intp], NDArray[np.bool_]]:
@@ -133,9 +133,10 @@ def remove_shape_gaussian(
         Pixel spacing in meters (m). Distance between adjacent
         measurements in the scan.
     cutoff_hi : float, optional
-        High-frequency cutoff wavelength in micrometers (um).
-        Larger values remove more of the surface form. Default 2000 um is
-        typical for shape removal while preserving striation features.
+        High-frequency cutoff wavelength in meters (m).
+        Larger values remove more of the surface form. Default 2000e-6 m
+        (2000 um) is typical for shape removal while preserving striation
+        features.
     cut_borders_after_smoothing : bool, optional
         If True, crop ceil(sigma) pixels from top and bottom edges to
         remove filter artifacts. Default True.

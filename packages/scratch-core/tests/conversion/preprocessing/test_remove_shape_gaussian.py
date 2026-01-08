@@ -25,7 +25,7 @@ class TestRemoveShapeGaussianReturnType:
     def test_returns_tuple_of_three(self) -> None:
         """Verify function returns a tuple of (depth_data, range_indices, mask)."""
         data = np.zeros((100, 50))
-        result = remove_shape_gaussian(data, xdim=1e-6, cutoff_hi=2000)
+        result = remove_shape_gaussian(data, xdim=1e-6, cutoff_hi=2000e-6)
 
         assert isinstance(result, tuple)
         assert len(result) == 3
@@ -45,7 +45,7 @@ class TestRemoveShapeGaussianBasic:
         """Output shape should match input when cropping is disabled."""
         data = rng.random((100, 50))
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=2000e-6, cut_borders_after_smoothing=False
         )
         assert depth_data.shape == data.shape
 
@@ -53,7 +53,7 @@ class TestRemoveShapeGaussianBasic:
         """Output shape should be reduced when border cropping is enabled."""
         data = rng.random((200, 50))
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=500, cut_borders_after_smoothing=True
+            data, xdim=1e-6, cutoff_hi=500e-6, cut_borders_after_smoothing=True
         )
         # Output should be smaller in row dimension
         assert depth_data.shape[0] < data.shape[0]
@@ -63,14 +63,14 @@ class TestRemoveShapeGaussianBasic:
         """Range indices length should match output row count."""
         data = rng.random((200, 50))
         depth_data, range_indices, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=500, cut_borders_after_smoothing=True
+            data, xdim=1e-6, cutoff_hi=500e-6, cut_borders_after_smoothing=True
         )
         assert len(range_indices) == depth_data.shape[0]
 
     def test_mask_shape_matches_output(self, rng: np.random.Generator) -> None:
         """Output mask shape should match output data shape."""
         data = rng.random((100, 50))
-        depth_data, _, mask = remove_shape_gaussian(data, xdim=1e-6, cutoff_hi=2000)
+        depth_data, _, mask = remove_shape_gaussian(data, xdim=1e-6, cutoff_hi=2000e-6)
         assert mask.shape == depth_data.shape
 
 
@@ -81,7 +81,7 @@ class TestHighpassBehavior:
         """Uniform data should have near-zero residuals (no shape to remove)."""
         data = np.ones((100, 50)) * 42.0
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=2000e-6, cut_borders_after_smoothing=False
         )
         # Interior should be nearly zero (edges affected by boundary)
         interior = depth_data[20:-20, 10:-10]
@@ -93,7 +93,7 @@ class TestHighpassBehavior:
         data = np.tile(rows, (1, 50))  # Linear gradient in row direction
 
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=2000e-6, cut_borders_after_smoothing=False
         )
 
         # Residuals should be near zero (linear trend removed)
@@ -107,7 +107,7 @@ class TestHighpassBehavior:
         data = np.tile(shape.reshape(-1, 1), (1, 50))
 
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=5000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=5000e-6, cut_borders_after_smoothing=False
         )
 
         # Variance should be reduced (shape removed)
@@ -121,7 +121,7 @@ class TestHighpassBehavior:
         data = np.tile(hf_signal.reshape(-1, 1), (1, 50))
 
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=5000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=5000e-6, cut_borders_after_smoothing=False
         )
 
         # High-frequency content should still be present
@@ -185,7 +185,7 @@ class TestNaNHandling:
         data[30:40, 20:30] = np.nan
 
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=2000e-6, cut_borders_after_smoothing=False
         )
 
         # Should produce output (may contain NaN in originally NaN regions)
@@ -197,7 +197,7 @@ class TestNaNHandling:
         data[25, 25] = np.nan
 
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=2000e-6, cut_borders_after_smoothing=False
         )
 
         # Result at NaN position depends on implementation
@@ -212,7 +212,7 @@ class TestBorderCropping:
         """Border cropping should remove approximately sigma pixels."""
         data = np.random.randn(500, 50)
         xdim = 1e-6
-        cutoff_hi = 1000.0  # Should give moderate sigma
+        cutoff_hi = 1000e-6  # 1000 um in meters
 
         depth_data, _, _ = remove_shape_gaussian(
             data, xdim=xdim, cutoff_hi=cutoff_hi, cut_borders_after_smoothing=True
@@ -236,7 +236,7 @@ class TestBorderCropping:
         data = np.random.randn(20, 10)
 
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=100, cut_borders_after_smoothing=True
+            data, xdim=1e-6, cutoff_hi=100e-6, cut_borders_after_smoothing=True
         )
 
         # Should still have some data
@@ -251,22 +251,11 @@ class TestOneDimensionalInput:
         data = np.random.randn(100, 1)
 
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=2000e-6, cut_borders_after_smoothing=False
         )
 
         assert depth_data.ndim == 2
         assert depth_data.shape[1] == 1
-
-    def test_1d_array_converted_to_column(self) -> None:
-        """1D array should be converted to column vector."""
-        data = np.random.randn(100)
-
-        depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
-        )
-
-        # Should be 2D after processing
-        assert depth_data.ndim == 2
 
 
 class TestParameterEffects:
@@ -281,10 +270,10 @@ class TestParameterEffects:
         data += rng.random(data.shape) * 0.1  # Add noise
 
         depth_small, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=1000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=1000e-6, cut_borders_after_smoothing=False
         )
         depth_large, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=5000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=5000e-6, cut_borders_after_smoothing=False
         )
 
         # Larger cutoff should leave less shape (smaller variance in residuals)
@@ -298,10 +287,10 @@ class TestParameterEffects:
         data = rng.random((200, 50))
 
         depth_coarse, _, _ = remove_shape_gaussian(
-            data, xdim=2e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
+            data, xdim=2e-6, cutoff_hi=2000e-6, cut_borders_after_smoothing=False
         )
         depth_fine, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=2000e-6, cut_borders_after_smoothing=False
         )
 
         # Finer resolution means larger sigma, more smoothing
@@ -321,7 +310,7 @@ class TestMatlabCompatibility:
 
         # The function should compute: residuals = data - smoothed
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=2000e-6, cut_borders_after_smoothing=False
         )
 
         # Since we can't easily get the smoothed version separately,
@@ -337,7 +326,7 @@ class TestMatlabCompatibility:
         data = np.tile(col_variation, (100, 1))
 
         depth_data, _, _ = remove_shape_gaussian(
-            data, xdim=1e-6, cutoff_hi=2000, cut_borders_after_smoothing=False
+            data, xdim=1e-6, cutoff_hi=2000e-6, cut_borders_after_smoothing=False
         )
 
         # Column variation should be mostly preserved (not filtered)

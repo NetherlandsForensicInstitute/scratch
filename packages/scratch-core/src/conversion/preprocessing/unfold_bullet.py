@@ -46,7 +46,7 @@ def unfold_bullet(
     depth_data: NDArray[np.floating],
     xdim: float,
     cutoff_hi: float,
-    cutoff_lo: float = 1000.0,
+    cutoff_lo: float = 1000e-6,
     cut_borders_after_smoothing: bool = False,
     mask: NDArray[np.bool_] | None = None,
 ) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.bool_] | None, float]:
@@ -89,12 +89,12 @@ def unfold_bullet(
     xdim : float
         Pixel spacing in meters (m). Distance between adjacent measurements.
     cutoff_hi : float
-        High-frequency cutoff wavelength in micrometers (um) for shape removal.
-        Typically 2000 um.
+        High-frequency cutoff wavelength in meters (m) for shape removal.
+        Typically 2000e-6 m (2000 um).
     cutoff_lo : float, optional
-        Low-frequency cutoff wavelength in micrometers (um) for extracting
-        global shape. Default 1000 um preserves the overall bullet curvature
-        while removing fine detail.
+        Low-frequency cutoff wavelength in meters (m) for extracting
+        global shape. Default 1000e-6 m (1000 um) preserves the overall
+        bullet curvature while removing fine detail.
     cut_borders_after_smoothing : bool, optional
         If True, crop borders after filtering. Default False for unfolding
         to preserve data extent.
@@ -124,7 +124,7 @@ def unfold_bullet(
     >>> striations = np.sin(2 * np.pi * rows / 5) * 0.01
     >>> surface = np.tile((curvature + striations).reshape(-1, 1), (1, 100))
     >>> depth_data, striations, mask, highest_point = unfold_bullet(
-    ...     surface, xdim=1e-6, cutoff_hi=2000
+    ...     surface, xdim=1e-6, cutoff_hi=2000e-6
     ... )
 
     Notes
@@ -156,7 +156,7 @@ def unfold_bullet(
     data_striations, _, _ = remove_noise_gaussian(
         shape_data,
         xdim=xdim,
-        cutoff_lo=cutoff_lo if cutoff_lo > 0 else 250.0,  # Default noise cutoff
+        cutoff_lo=cutoff_lo if cutoff_lo > 0 else 250e-6,  # Default noise cutoff
         cut_borders_after_smoothing=False,
         mask=shape_mask,
     )
@@ -179,7 +179,7 @@ def unfold_bullet(
     smooth_data, _, _ = remove_noise_gaussian(
         depth_data,
         xdim=xdim,
-        cutoff_lo=1000.0,  # Fixed cutoff for shape extraction
+        cutoff_lo=1000e-6,  # Fixed cutoff for shape extraction
         cut_borders_after_smoothing=False,
         mask=mask,
     )

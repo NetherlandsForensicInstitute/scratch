@@ -105,7 +105,7 @@ def _remove_zero_border(
 def remove_noise_gaussian(
     depth_data: NDArray[np.floating],
     xdim: float,
-    cutoff_lo: float = 250.0,
+    cutoff_lo: float = 250e-6,
     cut_borders_after_smoothing: bool = True,
     mask: NDArray[np.bool_] | None = None,
 ) -> tuple[NDArray[np.floating], NDArray[np.intp], NDArray[np.bool_]]:
@@ -137,9 +137,10 @@ def remove_noise_gaussian(
         Pixel spacing in meters (m). Distance between adjacent
         measurements in the scan.
     cutoff_lo : float, optional
-        Low-frequency cutoff wavelength in micrometers (um).
-        Smaller values remove more high-frequency noise. Default 250 um is
-        typical for noise removal while preserving striation features.
+        Low-frequency cutoff wavelength in meters (m).
+        Smaller values remove more high-frequency noise. Default 250e-6 m
+        (250 um) is typical for noise removal while preserving striation
+        features.
     cut_borders_after_smoothing : bool, optional
         If True, crop ceil(sigma) pixels from top and bottom edges to
         remove filter artifacts. Default True.

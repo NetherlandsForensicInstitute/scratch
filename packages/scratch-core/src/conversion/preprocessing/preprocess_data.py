@@ -27,7 +27,7 @@ def apply_form_noise_removal(
     mask: NDArray[np.bool_] | None = None,
     slope_correction: bool = False,
     cut_borders_after_smoothing: bool = True,
-    cutoff_lo: float = 250.0,
+    cutoff_lo: float = 250e-6,
 ) -> tuple[NDArray[np.floating], NDArray[np.bool_], float | None]:
     """
     Apply form and noise removal (Step 2 of PreprocessData).
@@ -62,8 +62,8 @@ def apply_form_noise_removal(
     xdim : float
         Pixel spacing in meters (m). Distance between adjacent measurements.
     cutoff_hi : float
-        High-frequency cutoff wavelength in micrometers (um) for shape
-        removal. Larger values remove more form. Typical: 2000 um.
+        High-frequency cutoff wavelength in meters (m) for shape removal.
+        Larger values remove more form. Typical: 2000e-6 m (2000 um).
     mask : NDArray[np.bool_] | None, optional
         Boolean mask array (True = valid data). Masked regions are excluded
         from processing. Must match depth_data shape.
@@ -74,8 +74,8 @@ def apply_form_noise_removal(
         If True, crop filter edge artifacts. May be automatically disabled
         for short data. Default True.
     cutoff_lo : float, optional
-        Low-frequency cutoff wavelength in micrometers (um) for noise removal.
-        Smaller values remove more noise. Default 250 um.
+        Low-frequency cutoff wavelength in meters (m) for noise removal.
+        Smaller values remove more noise. Default 250e-6 m (250 um).
 
     Returns
     -------
@@ -99,7 +99,7 @@ def apply_form_noise_removal(
     >>> noise = np.random.randn(500) * 0.001
     >>> surface = np.tile((shape + striations + noise).reshape(-1, 1), (1, 100))
     >>> depth_data, mask, highest_point = apply_form_noise_removal(
-    ...     surface, xdim=1e-6, cutoff_hi=2000
+    ...     surface, xdim=1e-6, cutoff_hi=2000e-6
     ... )
 
     Notes
