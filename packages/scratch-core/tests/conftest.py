@@ -114,7 +114,7 @@ def multi_shape_mask(masks_dir: Path) -> MaskArray:
 
 
 @pytest.fixture(scope="module")
-def mask_array(scan_image_replica) -> MaskArray:
+def mask_array(scan_image_replica: ScanImage) -> MaskArray:
     """Build a `MaskArray` object`."""
     data = np.ones_like(scan_image_replica.data).astype(bool)
     # Set the borders (edges) to 0
