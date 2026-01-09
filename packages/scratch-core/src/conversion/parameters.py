@@ -1,7 +1,5 @@
 from dataclasses import dataclass
 
-from scipy.constants import micro
-
 from conversion.leveling import SurfaceTerms
 
 
@@ -17,25 +15,20 @@ class PreprocessingImpressionParams:
     :param interp_method: Interpolation method ('nearest', 'linear', 'cubic')
     :param highpass_cutoff: High-pass filter cutoff length in meters (None to disable)
     :param lowpass_cutoff: Low-pass filter cutoff length in meters (None to disable)
+    :param highpass_regression_order: Order of the local polynomial fit (0, 1, or 2) in high pass filters.
+    :param lowpass_regression_order: Order of the local polynomial fit (0, 1, or 2) in low pass filters.
     """
 
-    pixel_size: tuple[float, float] | None = (
-        None  # Not set anywhere, always (1,1) or even (np.nan, np.nan)?
-    )
-    adjust_pixel_spacing: bool = True  # Not set anywhere, always False? set when initialising NIST params, always True?
-
-    # in Java Preprocessing/Impression parameter group
+    pixel_size: tuple[float, float] | None = None
+    adjust_pixel_spacing: bool = True
     level_offset: bool = True
     level_tilt: bool = True
     level_2nd: bool = True
     interp_method: str = "cubic"
-    highpass_cutoff: float | None = 250.0 * micro
-    lowpass_cutoff: float | None = 5.0 * micro
-    regression_order_high: int = 2
-    regression_order_low: int = 0
-    n_contiguous = None  # Not needed?
-    min_outlier_slope = None  # Not needed?
-    min_pixel_area = None  # Not needed?
+    highpass_cutoff: float | None = 250.0e-6
+    lowpass_cutoff: float | None = 5.0e-6
+    highpass_regression_order: int = 2
+    lowpass_regression_order: int = 0
 
     @property
     def surface_terms(self) -> SurfaceTerms:

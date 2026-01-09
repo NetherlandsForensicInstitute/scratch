@@ -5,20 +5,24 @@ from numpy.testing import assert_array_equal
 from container_models.scan_image import ScanImage
 from conversion.data_formats import CropType, Mark, MarkType
 from conversion.impression import (
-    _adjust_for_plane_tilt,
-    _apply_anti_aliasing,
     _build_preprocessing_metadata,
-    _compute_center_local,
-    _compute_map_center,
+    preprocess_impression_mark,
+)
+from conversion.preprocess_impression.resample import _needs_resampling
+from conversion.preprocess_impression.filter import _apply_anti_aliasing
+from conversion.preprocess_impression.utils import update_mark_data
+from conversion.preprocess_impression.tilt import (
     _estimate_plane_tilt,
+    _get_valid_coordinates,
+    _adjust_for_plane_tilt,
+)
+from conversion.preprocess_impression.center import (
+    _get_mask_edge_points,
+    _points_are_collinear,
     _fit_circle_ransac,
     _get_bounding_box_center,
-    _get_mask_edge_points,
-    _get_valid_coordinates,
-    _needs_resampling,
-    _points_are_collinear,
-    _update_mark_data,
-    preprocess_impression_mark,
+    _compute_map_center,
+    compute_center_local,
 )
 from conversion.parameters import PreprocessingImpressionParams
 
@@ -401,7 +405,7 @@ class TestComputeCenterLocal:
         data = np.full((10, 10), np.nan)
         data[2:8, 2:8] = 1.0
         mark = make_mark(data, scale_x=1e-6, scale_y=2e-6)
-        center_local = _compute_center_local(mark)
+        center_local = compute_center_local(mark)
 
         # Pixel center is (5, 5), scaled: (5 * 1e-6, 5 * 2e-6)
         assert center_local[0] == pytest.approx(5e-6)
@@ -419,7 +423,7 @@ class TestComputeCenterLocal:
             data, scale_x=1e-6, scale_y=1e-6, mark_type=MarkType.BREECH_FACE_IMPRESSION
         )
 
-        center_local = _compute_center_local(mark)
+        center_local = compute_center_local(mark)
 
         # Should be close to (20, 20) in pixels -> (20e-6, 20e-6) in meters
         assert center_local[0] == pytest.approx(20e-6)
@@ -794,7 +798,7 @@ class TestUpdateMarkData:
         mark = make_mark(original_data, scale_x=1.0, scale_y=1.0)
 
         new_data = np.array([[5.0, 6.0], [7.0, 8.0]])
-        result = _update_mark_data(mark, new_data)
+        result = update_mark_data(mark, new_data)
 
         assert_array_equal(result.scan_image.data, new_data)
 
@@ -804,7 +808,7 @@ class TestUpdateMarkData:
         mark = make_mark(original_data, scale_x=1.0, scale_y=1.0)
 
         new_data = np.array([[5.0, 6.0], [7.0, 8.0]])
-        _update_mark_data(mark, new_data)
+        update_mark_data(mark, new_data)
 
         assert_array_equal(mark.scan_image.data, original_data)
 
@@ -812,7 +816,7 @@ class TestUpdateMarkData:
         """Scale factors should be preserved."""
         mark = make_mark(np.zeros((3, 3)), scale_x=0.5, scale_y=0.25)
 
-        result = _update_mark_data(mark, np.ones((3, 3)))
+        result = update_mark_data(mark, np.ones((3, 3)))
 
         assert result.scan_image.scale_x == 0.5
         assert result.scan_image.scale_y == 0.25
@@ -824,7 +828,7 @@ class TestUpdateMarkData:
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
 
-        result = _update_mark_data(mark, np.ones((3, 3)))
+        result = update_mark_data(mark, np.ones((3, 3)))
 
         assert result.mark_type == MarkType.BREECH_FACE_IMPRESSION
 
@@ -832,7 +836,7 @@ class TestUpdateMarkData:
         """Crop type should be preserved."""
         mark = make_mark(np.zeros((3, 3)))
 
-        result = _update_mark_data(mark, np.ones((3, 3)))
+        result = update_mark_data(mark, np.ones((3, 3)))
 
         assert result.crop_type == CropType.RECTANGLE
 
@@ -843,7 +847,7 @@ class TestUpdateMarkData:
             [[1.0, np.nan, 2.0], [np.nan, 3.0, np.nan], [4.0, 5.0, 6.0]]
         )
 
-        result = _update_mark_data(mark, new_data)
+        result = update_mark_data(mark, new_data)
 
         assert np.isnan(result.scan_image.data[0, 1])
         assert np.isnan(result.scan_image.data[1, 0])

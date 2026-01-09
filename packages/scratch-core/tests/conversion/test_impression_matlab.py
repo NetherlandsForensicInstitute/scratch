@@ -1,3 +1,8 @@
+"""
+This file contains tests to explicitly compare the Python output with the original Matlab output. Upon completion of
+the translation and incorporation of the , it will be redundant and can be removed.
+"""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -263,8 +268,8 @@ def matlab_params_to_python_params(
         pixel_size=pixel_size,
         highpass_cutoff=highpass_cutoff,
         lowpass_cutoff=lowpass_cutoff,
-        regression_order_high=regression_order_high,
-        regression_order_low=regression_order_low,
+        highpass_regression_order=regression_order_high,
+        lowpass_regression_order=regression_order_low,
     )
 
 
