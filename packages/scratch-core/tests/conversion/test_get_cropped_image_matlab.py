@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from scipy.io import loadmat
 
-from tests.conversion.helper_function import (
+from .helper_function import (
     _compute_correlation,
     _crop_to_common_shape,
     _compute_difference_stats,
