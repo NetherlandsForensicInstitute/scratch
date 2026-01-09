@@ -1,6 +1,6 @@
 from enum import Enum, auto
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from container_models.scan_image import ScanImage
 
@@ -51,3 +51,4 @@ class Mark(BaseModel):
     scan_image: ScanImage
     mark_type: MarkType
     crop_type: CropType
+    meta_data: dict = Field(default_factory=dict)

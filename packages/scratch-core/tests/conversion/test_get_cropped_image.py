@@ -8,6 +8,8 @@ from conversion.get_cropped_image import get_cropped_image
 from conversion.leveling import SurfaceTerms
 from pathlib import Path
 
+from tests.conversion.helper_function import _compute_correlation
+
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
@@ -105,10 +107,7 @@ class TestGetCroppedImageMatlabComparison:
         )
 
         # Compute correlation on valid (non-NaN) pixels
-        valid_mask = ~(np.isnan(matlab_output_plane) | np.isnan(python_output))
-        correlation = np.corrcoef(
-            matlab_output_plane[valid_mask], python_output[valid_mask]
-        )[0, 1]
+        correlation = _compute_correlation(matlab_output_plane, python_output)
 
         assert correlation > 0.99, (
             f"Correlation {correlation:.6f} is below threshold 0.99"
@@ -144,11 +143,7 @@ class TestGetCroppedImageMatlabComparison:
         )
 
         # Compute correlation on valid (non-NaN) pixels
-        valid_mask = ~(np.isnan(matlab_output_sphere) | np.isnan(python_output))
-        correlation = np.corrcoef(
-            matlab_output_sphere[valid_mask], python_output[valid_mask]
-        )[0, 1]
-
+        correlation = _compute_correlation(matlab_output_sphere, python_output)
         assert correlation > 0.99, (
             f"Correlation {correlation:.6f} is below threshold 0.99"
         )
