@@ -7,10 +7,10 @@ This module provides functions to preprocess 2D scan images of impression marks
 from dataclasses import asdict
 
 from container_models.scan_image import ScanImage
-from conversion.crop import crop_nan_borders
+from conversion.preprocess_impression.crop import crop_nan_borders
 from conversion.data_formats import Mark
 from conversion.leveling import SurfaceTerms, level_map
-from conversion.parameters import PreprocessingImpressionParams
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.center import compute_center_local
 from conversion.preprocess_impression.filter import (
     apply_gaussian_filter_to_mark,

@@ -1,7 +1,7 @@
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import apply_gaussian_regression_filter
-from conversion.parameters import PreprocessingImpressionParams
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.utils import (
     update_mark_data,
     _update_mark_scan_image,

@@ -4,7 +4,7 @@ from numpy.testing import assert_array_equal
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import CropType, Mark, MarkType
-from conversion.impression import (
+from conversion.preprocess_impression.impression import (
     _build_preprocessing_metadata,
     preprocess_impression_mark,
 )
@@ -24,7 +24,7 @@ from conversion.preprocess_impression.center import (
     _compute_map_center,
     compute_center_local,
 )
-from conversion.parameters import PreprocessingImpressionParams
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 
 
 def make_circular_data(
