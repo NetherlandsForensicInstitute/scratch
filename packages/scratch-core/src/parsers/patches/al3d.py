@@ -33,7 +33,7 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
         key, value = read_tag(filehandle, encoding=encoding)
         header[key] = value
 
-    # nx = int(header['Cols']) # ignore the 'Cols' tag since the value is often incorrect
+    nx_tag = int(header["Cols"])  # the 'Cols' tag often contains an incorrect value
     ny = int(header["Rows"])
     step_x = float(header["PixelSizeXMeter"]) * 1e6
     step_y = float(header["PixelSizeYMeter"]) * 1e6
@@ -52,6 +52,9 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
     # compute `nx` from the data shape
     nx = data.shape[0] // ny
     data = data.reshape(ny, nx)
+    if nx > nx_tag:
+        # ensure only valid data is returned
+        data = data[:, :nx_tag]
     # === Our Patch End ===
 
     invalidValue = float(header["InvalidPixelValue"])

@@ -10,6 +10,7 @@ from returns.result import safe
 from returns.io import impure_safe
 from container_models.scan_image import ScanImage
 from utils.logger import log_railway_function
+from x3p._x3pfileclasses import Ax
 
 
 class X3PMetaData(NamedTuple):
@@ -26,15 +27,18 @@ class X3PMetaData(NamedTuple):
     measurement_type: str = "NonContacting"
 
 
+def _set_incremental_axis(axis: Ax, scale: float):
+    axis.set_axistype("I")
+    axis.set_increment(scale)
+    axis.set_datatype("D")
+    axis.set_offset(0.0)
+
+
 def _set_record1_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
     """Set Record1 entries (axes configuration)."""
     x3p.record1.set_featuretype("SUR")
-    x3p.record1.axes.CX.set_axistype("I")
-    x3p.record1.axes.CX.set_increment(image.scale_x)
-    x3p.record1.axes.CX.set_datatype("D")
-    x3p.record1.axes.CY.set_axistype("I")
-    x3p.record1.axes.CY.set_increment(image.scale_y)
-    x3p.record1.axes.CY.set_datatype("D")
+    _set_incremental_axis(x3p.record1.axes.CX, image.scale_x)
+    _set_incremental_axis(x3p.record1.axes.CY, image.scale_y)
     x3p.record1.axes.CZ.set_datatype("D")
     return x3p
 
