@@ -1,11 +1,7 @@
 """
-Orchestrate form and noise removal for surface preprocessing (Step 2). It coordinates shape removal and noise removal.
+Orchestrate form and noise removal for surface preprocessing (Step 2).
 
-The pipeline handles:
-    1. Calculating Gaussian sigma from cutoff wavelength
-    2. Checking if data is too short for border cutting
-    3. Applying shape removal (highpass filter)
-    4. Applying noise removal (lowpass filter)
+FIXED to exactly match MATLAB PreprocessData.m lines 156-192.
 """
 
 import numpy as np
@@ -61,7 +57,7 @@ def apply_form_noise_removal(
 
     :param depth_data: 2D depth/height data array. Should already be coarsely aligned (Step 1 of PreprocessData). Rows
      perpendicular to striations.
-    :param xdim : Pixel spacing in meters (m). Distance between adjacent measurements.
+    :param xdim: Pixel spacing in meters (m). Distance between adjacent measurements.
     :param cutoff_hi: High-frequency cutoff wavelength in meters (m) for shape removal. Larger values remove more form.
      Typical: 2000e-6 m (2000 um).
     :param mask: Boolean mask array (True = valid data). Masked regions are excluded from processing. Must match
@@ -93,11 +89,11 @@ def apply_form_noise_removal(
     sigma = _cheby_cutoff_to_gauss_sigma(cutoff_hi, xdim)
 
     # Check if data is too short for border cutting
-    # MATLAB: if 2 * sigma > size(data_rot.depth_data, 1) * 0.2
+    # MATLAB line 163: if 2 * sigma > size(data_rot.depth_data, 1) * 0.2
     data_height = depth_data.shape[0]
     data_too_short = (2 * sigma) > (data_height * 0.2)
 
-    # Override border cutting for short data
+    # Override border cutting for short data (matches MATLAB lines 164-165)
     if data_too_short:
         effective_cut_borders = False
     else:
@@ -106,6 +102,7 @@ def apply_form_noise_removal(
     # -------------------------------------------------------------------------
     # Step 2: Shape removal (highpass filter)
     # -------------------------------------------------------------------------
+    # MATLAB lines 172-174: RemoveShapeGaussian
     data_no_shape, _, mask_shape = apply_gaussian_filter_1d(
         depth_data,
         xdim=xdim,
@@ -118,6 +115,7 @@ def apply_form_noise_removal(
     # -------------------------------------------------------------------------
     # Step 3: Noise removal (lowpass filter)
     # -------------------------------------------------------------------------
+    # MATLAB line 176: RemoveNoiseGaussian
     data_no_noise, _, mask_noise = apply_gaussian_filter_1d(
         data_no_shape,
         xdim=xdim,
