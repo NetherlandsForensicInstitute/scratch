@@ -1,23 +1,9 @@
 from math import ceil
+from scipy import ndimage
+from functools import partial
 
 import numpy as np
 from numpy.typing import NDArray
-
-# Constants based on ISO 16610 surface texture standards
-ALPHA_GAUSSIAN = np.sqrt(np.log(2) / np.pi)
-ALPHA_REGRESSION = 0.7309134280946760
-
-
-def _cheby_cutoff_to_gauss_sigma(cutoff: float, pixel_size: float) -> float:
-    """
-    Convert cutoff wavelength to Gaussian sigma using ISO 16610 standard.
-
-    :param cutoff: Cutoff wavelength in physical units (e.g., meters).
-    :param pixel_size: Pixel spacing in the same units as cutoff.
-    :return: Gaussian sigma in pixel units.
-    """
-    cutoff_pixels = cutoff / pixel_size
-    return cutoff_pixels * ALPHA_GAUSSIAN
 
 
 def _apply_nan_weighted_gaussian_1d(
@@ -37,17 +23,13 @@ def _apply_nan_weighted_gaussian_1d(
     :returns: Filtered data array. NaN positions will have interpolated values
         based on neighboring valid data.
     """
-    from scipy import ndimage
-    from functools import partial
 
-    # FIXED: Filter along axis 0 (rows), matching MATLAB's column filtering
-    # MATLAB uses sigma_2d = [0 sigma] which means filter along 2nd dimension (columns in MATLAB = rows in numpy)
     gaussian_filter = partial(
         ndimage.gaussian_filter,
         sigma=(sigma, 0),  # Filter only along first axis (rows)
         mode="constant",
         cval=0,
-        radius=(radius, 0),  # FIXED: Was (radius, 1), should be (radius, 0)
+        radius=(radius, 0),
     )
 
     nan_mask = np.isnan(data)
@@ -73,14 +55,13 @@ def _remove_zero_border(
     """
     Remove zero/invalid borders from masked data.
 
-    FIXED: Now matches MATLAB's RemoveZeroImageBorder behavior exactly.
     Finds the bounding box of valid (non-NaN, masked) data and crops to that region.
 
     :param data: 2D data array (may contain NaN).
     :param mask: Boolean mask (True = valid data).
-    :returns: Tuple of (cropped_data, cropped_mask, row_indices).
+    :returns: Tuple of (cropped_data, cropped_mask, row_indices of the bounding box).
     """
-    # FIXED: Consider both mask and NaN values when finding valid region
+    # Consider both mask and NaN values when finding valid region
     valid_data = mask & ~np.isnan(data)
 
     # Find rows and columns with any valid data
@@ -108,6 +89,19 @@ def _remove_zero_border(
     range_indices = np.arange(row_start, row_end)
 
     return cropped_data, cropped_mask, range_indices
+
+
+def cheby_cutoff_to_gauss_sigma(cutoff: float, pixel_size: float) -> float:
+    """
+    Convert cutoff wavelength to Gaussian sigma using ISO 16610 standard.
+
+    :param cutoff: Cutoff wavelength in physical units (e.g., meters).
+    :param pixel_size: Pixel spacing in the same units as cutoff.
+    :return: Gaussian sigma in pixel units.
+    """
+    alpha_gaussian = np.sqrt(np.log(2) / np.pi)
+    cutoff_pixels = cutoff / pixel_size
+    return cutoff_pixels * alpha_gaussian
 
 
 def apply_gaussian_filter_1d(
@@ -156,7 +150,7 @@ def apply_gaussian_filter_1d(
     has_masked_regions = np.any(~mask)
 
     # Calculate Gaussian sigma from cutoff
-    sigma = _cheby_cutoff_to_gauss_sigma(cutoff, xdim)
+    sigma = cheby_cutoff_to_gauss_sigma(cutoff, xdim)
     radius = int(ceil(sigma)) + 1
 
     # Apply Gaussian lowpass filter

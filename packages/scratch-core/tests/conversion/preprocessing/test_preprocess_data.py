@@ -14,7 +14,7 @@ from conversion.preprocessing.preprocess_data_filter import (
     apply_gaussian_filter_1d,
 )
 from conversion.preprocessing.preprocess_data import (
-    _cheby_cutoff_to_gauss_sigma as preprocess_cheby_cutoff_to_gauss_sigma,
+    cheby_cutoff_to_gauss_sigma as preprocess_cheby_cutoff_to_gauss_sigma,
     apply_form_noise_removal,
 )
 

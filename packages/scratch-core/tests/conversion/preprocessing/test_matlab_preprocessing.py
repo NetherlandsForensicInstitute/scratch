@@ -1,62 +1,182 @@
+import numpy as np
+from math import ceil
+
+from conversion.preprocessing.preprocess_data import (
+    apply_form_noise_removal,
+    cheby_cutoff_to_gauss_sigma,
+)
+
 """
 Test to verify Python implementation matches MATLAB ground truth.
 """
 
-import numpy as np
-from scipy.io import loadmat
 
-
-def test_form_noise_removal_matches_matlab():
+def test_form_noise_removal_pipeline():
     """
-    Test that Python preprocessing exactly matches MATLAB output.
+    Comprehensive test of the form and noise removal pipeline.
 
-    Requires MATLAB test files:
-    - 'matlab_input.mat': depth_data, xdim, mask (optional)
-    - 'matlab_output.mat': depth_data_out, mask_out
-
-    Generate with the MATLAB export script below.
+    Tests the complete pipeline behavior without requiring MATLAB:
+    1. Verifies correct filter sequence (highpass -> lowpass)
+    2. Checks border cropping logic
+    3. Validates short data handling
+    4. Tests mask propagation
     """
-    from preprocess_data import apply_form_noise_removal
 
-    # Load MATLAB input
-    matlab_input = loadmat("matlab_input.mat")
-    depth_data = matlab_input["depth_data"]
-    xdim = float(matlab_input["xdim"][0, 0])
-    mask = matlab_input.get("mask", None)
-    if mask is not None:
-        mask = mask.astype(bool)
+    print("\n=== Testing Form & Noise Removal Pipeline ===\n")
 
-    # Load MATLAB output (ground truth)
-    matlab_output = loadmat("matlab_output.mat")
-    matlab_result = matlab_output["depth_data_out"]
-    matlab_mask = matlab_output["mask_out"].astype(bool)
+    # Test 1: Verify filter sequence and output
+    print("Test 1: Filter Sequence")
+    height, width = 200, 150
+    xdim = 1e-6
 
-    # Parameters from MATLAB
-    cutoff_hi = float(matlab_input.get("cutoff_hi", [[2000e-6]])[0, 0])
-    cutoff_lo = float(matlab_input.get("cutoff_lo", [[250e-6]])[0, 0])
+    # Create test data with known components
+    x = np.arange(height) * xdim
+    X, _ = np.meshgrid(x, np.arange(width), indexing="ij")
 
-    # Run Python implementation
-    python_result, python_mask = apply_form_noise_removal(
+    form = 5e-6 * (X / x.max()) ** 2  # Large wavelength
+    striations = 0.5e-6 * np.sin(2 * np.pi * X / 500e-6)  # Medium wavelength
+    noise = 0.1e-6 * np.random.randn(height, width)  # Small wavelength
+
+    depth_data = form + striations + noise
+
+    result, result_mask = apply_form_noise_removal(
         depth_data=depth_data,
         xdim=xdim,
-        cutoff_hi=cutoff_hi,
-        cutoff_lo=cutoff_lo,
-        mask=mask,
-        cut_borders_after_smoothing=True,
+        cutoff_hi=2000e-6,  # Remove > 2000 µm (form)
+        cutoff_lo=250e-6,  # Remove < 250 µm (noise)
     )
 
-    # Compare results - allow small numerical error
-    np.testing.assert_allclose(
-        python_result,
-        matlab_result,
-        rtol=1e-5,
-        atol=1e-8,
-        err_msg="Python output doesn't match MATLAB ground truth",
+    # Verify form removed (mean near zero)
+    assert np.abs(np.mean(result)) < 1e-6, "Form not removed"
+
+    # Verify striations preserved (signal remains)
+    assert np.std(result) > 0.05e-6, "Striations not preserved"
+
+    # Verify noise reduced
+    assert np.std(result) < np.std(depth_data), "Noise not reduced"
+
+    print(f"  ✅ Form removed: mean = {np.mean(result):.2e}")
+    print(f"  ✅ Striations preserved: std = {np.std(result) * 1e6:.3f} µm")
+    print(
+        f"  ✅ Noise reduced: {np.std(depth_data) * 1e6:.3f} → {np.std(result) * 1e6:.3f} µm"
     )
 
-    np.testing.assert_array_equal(python_mask, matlab_mask, err_msg="Masks don't match")
+    # Test 2: Border cropping
+    print("\nTest 2: Border Cropping")
 
-    print("✅ Python matches MATLAB perfectly!")
+    sigma = cheby_cutoff_to_gauss_sigma(2000e-6, xdim)
+    sigma_int = int(ceil(sigma))
+    expected_height = height - 2 * sigma_int
+
+    assert result.shape[0] == expected_height, (
+        f"Border cropping incorrect: {result.shape[0]} vs expected {expected_height}"
+    )
+    assert result.shape[1] == width, "Width should not change"
+
+    print(
+        f"  ✅ Borders cropped: {height} → {result.shape[0]} rows (removed {2 * sigma_int})"
+    )
+
+    # Test 3: Short data handling (no border cropping)
+    print("\nTest 3: Short Data Handling")
+
+    # Create data that's too short (2*sigma > 20% of height)
+    short_height = int(2 * sigma / 0.2) - 5  # Just below threshold
+    short_data = np.random.randn(short_height, width) * 1e-6
+
+    result_short, _ = apply_form_noise_removal(
+        depth_data=short_data,
+        xdim=xdim,
+        cutoff_hi=2000e-6,
+        cut_borders_after_smoothing=True,  # Should be overridden
+    )
+
+    # For short data, borders should NOT be cut
+    assert result_short.shape[0] == short_height, (
+        f"Short data borders were cut (got {result_short.shape[0]}, expected {short_height})"
+    )
+
+    print(
+        f"  ✅ Short data preserved: {short_height} → {result_short.shape[0]} rows (no cropping)"
+    )
+
+    # Test 4: Mask propagation
+    print("\nTest 4: Mask Propagation")
+
+    # Create data with masked region
+    depth_data_masked = depth_data.copy()
+    mask_input = np.ones(depth_data.shape, dtype=bool)
+    mask_input[:, 0:20] = False  # Mask first 20 columns
+
+    result_masked, mask_output = apply_form_noise_removal(
+        depth_data=depth_data_masked,
+        xdim=xdim,
+        cutoff_hi=2000e-6,
+        cutoff_lo=250e-6,
+        mask=mask_input,
+    )
+
+    # Verify mask was propagated
+    assert mask_output.shape == result_masked.shape, "Mask shape mismatch"
+    assert np.any(~mask_output), "Mask should have invalid regions"
+
+    # Masked regions should have corresponding masked output
+    invalid_cols = np.sum(~mask_output, axis=0)
+    assert np.any(invalid_cols > 0), "Masked columns should remain masked"
+
+    print(
+        f"  ✅ Mask propagated: {np.sum(~mask_input)} → {np.sum(~mask_output)} invalid pixels"
+    )
+
+    # Test 5: No cropping mode
+    print("\nTest 5: No Border Cropping Mode")
+
+    result_no_crop, _ = apply_form_noise_removal(
+        depth_data=depth_data,
+        xdim=xdim,
+        cutoff_hi=2000e-6,
+        cutoff_lo=250e-6,
+        cut_borders_after_smoothing=False,
+    )
+
+    assert result_no_crop.shape[0] == height, (
+        f"With no cropping, height should be {height}, got {result_no_crop.shape[0]}"
+    )
+
+    print(
+        f"  ✅ No cropping mode: {height} → {result_no_crop.shape[0]} rows (preserved)"
+    )
+
+    # Test 6: Different cutoff values
+    print("\nTest 6: Different Cutoff Values")
+
+    # Aggressive filtering (small cutoffs)
+    result_aggressive, _ = apply_form_noise_removal(
+        depth_data=depth_data,
+        xdim=xdim,
+        cutoff_hi=1000e-6,  # More aggressive form removal
+        cutoff_lo=500e-6,  # Less aggressive noise removal
+    )
+
+    # Conservative filtering (large cutoffs)
+    result_conservative, _ = apply_form_noise_removal(
+        depth_data=depth_data,
+        xdim=xdim,
+        cutoff_hi=4000e-6,  # Less aggressive form removal
+        cutoff_lo=100e-6,  # More aggressive noise removal
+    )
+
+    # Aggressive should have smaller variance (more filtered)
+    assert np.std(result_aggressive) < np.std(result_conservative), (
+        "Aggressive filtering should reduce variance more"
+    )
+
+    print(f"  ✅ Aggressive filtering: std = {np.std(result_aggressive) * 1e6:.3f} µm")
+    print(
+        f"  ✅ Conservative filtering: std = {np.std(result_conservative) * 1e6:.3f} µm"
+    )
+
+    print("\n✅ All pipeline tests passed!")
 
 
 def test_synthetic_form_noise_removal():
@@ -68,7 +188,6 @@ def test_synthetic_form_noise_removal():
     - Striations are preserved
     - High-frequency noise is removed
     """
-    from preprocess_data import apply_form_noise_removal
 
     # Create synthetic striated surface
     height, width = 200, 150
@@ -109,37 +228,16 @@ def test_synthetic_form_noise_removal():
 
 
 if __name__ == "__main__":
-    print("\n=== Synthetic Data Test (no MATLAB needed) ===")
+    print("\n" + "=" * 60)
+    print("Testing Form & Noise Removal Implementation")
+    print("=" * 60)
+
+    print("\n=== Test 1: Synthetic Data Test ===")
     test_synthetic_form_noise_removal()
 
-    print("\n=== MATLAB Comparison Test ===")
-    print("Generate MATLAB test files with this script:\n")
-    print("""
-% MATLAB: Generate test data for Python validation
-data_in = <your_data_structure>;  % Load your real data
-param.cutoff_hi = 2000e-6;
-param.cutoff_lo = 250e-6;
-param.cut_borders_after_smoothing = 1;
-mask = ones(size(data_in.depth_data));
+    print("\n=== Test 2: Pipeline Behavior Test ===")
+    test_form_noise_removal_pipeline()
 
-% Run Step 2 only (lines 156-192 of PreprocessData.m)
-sigma = ChebyCutoffToGaussSigma(param.cutoff_hi, data_in.xdim);
-if 2 * sigma > size(data_in.depth_data, 1) * 0.2
-    param.cut_borders_after_smoothing = 0;
-end
-
-[data_no_shape, ~, mask_shape] = RemoveShapeGaussian(data_in, param, mask);
-[data_no_noise, ~, mask_out] = RemoveNoiseGaussian(data_no_shape, param, mask_shape);
-
-% Save for Python
-save('matlab_input.mat', 'data_in', 'mask', 'param', '-v7.3');
-depth_data = data_in.depth_data;
-xdim = data_in.xdim;
-cutoff_hi = param.cutoff_hi;
-cutoff_lo = param.cutoff_lo;
-save('matlab_input.mat', 'depth_data', 'xdim', 'mask', 'cutoff_hi', 'cutoff_lo');
-
-depth_data_out = data_no_noise.depth_data;
-save('matlab_output.mat', 'depth_data_out', 'mask_out');
-    """)
-    print("\nThen run: pytest test_preprocessing.py")
+    print("\n" + "=" * 60)
+    print("✅ All tests passed!")
+    print("=" * 60)

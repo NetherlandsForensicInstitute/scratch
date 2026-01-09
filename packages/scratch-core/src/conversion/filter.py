@@ -1,13 +1,14 @@
 import numpy as np
 from numpy.typing import NDArray
 from scipy.signal import fftconvolve
+from scipy.special import lambertw
 
 # Constants based on ISO 16610 surface texture standards
 # Standard Gaussian alpha for 50% transmission
 ALPHA_GAUSSIAN = np.sqrt(np.log(2) / np.pi)
 # Adjusted alpha often used for higher-order regression filters to maintain properties
-# alpha = Sqrt((-1 - LambertW(-1, -1 / (2 * exp(1)))) / Pi)
-ALPHA_REGRESSION = 0.7309134280946760
+# alpha = Real(Sqrt((-1 - LambertW(-1 / (2 * exp(1)), -1)) / Pi))
+ALPHA_REGRESSION = np.real(np.sqrt((-1 - lambertw(-1 / (2 * np.exp(1)), -1)) / np.pi))
 
 
 def apply_gaussian_regression_filter(
