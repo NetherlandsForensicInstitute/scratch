@@ -15,7 +15,7 @@ from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType, CropType
 from conversion.preprocess_impression.impression import preprocess_impression_mark
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
-from tests.conversion.helper_function import (
+from .helper_function import (
     _compute_correlation,
     _crop_to_common_shape,
     _compute_difference_stats,
