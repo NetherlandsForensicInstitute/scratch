@@ -27,8 +27,8 @@ def resample_scan_image_and_mask(
     :param mask: Corresponding mask array.
     :param factors: The multipliers for the scale of the X- and Y-axis. The formula used is `new_scale = factor * old_scale`.
     :param target_scale: Target scale (in meters) when `factors` are not provided.
-    :param preserve_aspect_ratio: Whether to preserve the aspect ratio of the image.
     :param only_downsample: If True, only downsample data (default). If False, allow upsampling.
+    :param preserve_aspect_ratio: Whether to preserve the aspect ratio of the image.
     :returns: Resampled ScanImage and MaskArray
     """
     if not factors:
