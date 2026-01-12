@@ -4,7 +4,6 @@ from container_models.scan_image import ScanImage
 from conversion.data_formats import CropInfo
 from conversion.rotate import (
     get_rotation_angle,
-    get_rotation_angle_simpler,
     rotate_scan_image,
 )
 
@@ -61,22 +60,6 @@ class TestGetRotationAngle:
             crop_info=crop_info_multiple_shapes_rectangle_not_first,
         )
         assert rotation_angle == 0.0
-
-    def test_old_new_method(
-        self,
-        scan_image_before_crop_and_rotate: ScanImage,
-        crop_info_multiple_shapes_rectangle_first: list[CropInfo],
-    ):
-        """Test for debugging purposes: does the refactored function do the same as the old one?"""
-        rotation_angle_old = get_rotation_angle(
-            scan_image_before_crop_and_rotate,
-            crop_info=crop_info_multiple_shapes_rectangle_first,
-        )
-        rotation_angle_new = get_rotation_angle_simpler(
-            scan_image_before_crop_and_rotate,
-            crop_info=crop_info_multiple_shapes_rectangle_first,
-        )
-        assert rotation_angle_old == pytest.approx(rotation_angle_new)
 
 
 class TestRotateScanImage:

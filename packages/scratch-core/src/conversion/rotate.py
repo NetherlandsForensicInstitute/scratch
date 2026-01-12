@@ -3,8 +3,9 @@ from scipy.ndimage import binary_dilation, rotate
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
+from conversion.remove_needles import remove_needles
 from conversion.data_formats import CropType, CropInfo
-from conversion.mask import crop_to_mask
+from conversion.mask import crop_to_mask, mask_2d_array
 
 
 def get_rotation_angle(
@@ -87,53 +88,6 @@ def get_rotation_angle(
     return rotation_angle
 
 
-def get_rotation_angle_simpler(
-    scan_image: ScanImage,
-    rotation_angle: float = 0.0,  # Kan deze parameter weg? is altijd 0.0
-    crop_info: list[CropInfo] = None,
-) -> float:
-    if (
-        rotation_angle == 0.0
-        and crop_info
-        and crop_info[0].crop_type == CropType.RECTANGLE
-    ):
-        # Get rectangle corner points
-        point_array = np.array(crop_info[0].data["corner"], dtype=float)
-
-        # Sort points counter-clockwise starting from the first original point
-        mean_xy = np.mean(point_array, axis=0)
-        angles = np.degrees(
-            np.arctan2(point_array[:, 1] - mean_xy[1], point_array[:, 0] - mean_xy[0])
-        )
-        order = np.argsort(angles)
-        point_array_sorted = point_array[order, :]
-
-        # Find where the first original point ended up and rotate array to start there
-        first_point_idx = np.where((point_array_sorted == point_array[0]).all(axis=1))[
-            0
-        ][0]
-        point_array = np.roll(point_array_sorted, -first_point_idx, axis=0)
-
-        # Convert Java coordinates to Matlab coordinates by y-flipping and adding 1
-        point_array[:, 1] = (scan_image.width - 1) - point_array[:, 1]
-        point_array += 1
-
-        # Calculate rotation angle from consecutive points
-        P = point_array
-        dx = np.diff(P[:, 1], append=P[0, 1])  # Wrap around to first point
-        dy = np.diff(P[:, 0], append=P[0, 0])
-        rotation_angles = np.degrees(np.arctan2(dx, dy)) - np.array([0, -90, 0, -90])
-
-        # Unwrap angles to handle -180/180 discontinuity
-        rotation_angles = np.unwrap(rotation_angles, period=360)
-
-        # Calculate average rotation
-        rotation_angle = np.mean(rotation_angles)
-        if rotation_angle == -180:
-            rotation_angle = 180
-    return rotation_angle
-
-
 def dilate_and_crop_image_and_mask(
     scan_image: ScanImage, mask: MaskArray, rotation_angle: float = 0.0
 ) -> tuple[ScanImage, MaskArray]:
@@ -142,7 +96,11 @@ def dilate_and_crop_image_and_mask(
         mask = (mask > 0.5).astype(float)
         mask = binary_dilation(mask, iterations=dilate_steps).astype(float)
 
-    scan_image_cropped = crop_to_mask(scan_image, mask)
+    scan_image_cropped = ScanImage(
+        data=crop_to_mask(scan_image.data, mask),
+        scale_x=scan_image.scale_x,
+        scale_y=scan_image.scale_y,
+    )
     mask_cropped = crop_to_mask(mask, mask)
 
     return scan_image_cropped, mask_cropped
@@ -169,7 +127,14 @@ def rotate_crop_image(
     mask: MaskArray,
     rotation_angle: float = 0.0,
     crop_info: list[CropInfo] | None = None,
-    interpolate_data: bool = False,
-    times_median: float = 15.0,
+    times_median: int = 15,
 ) -> tuple[ScanImage, MaskArray]:
-    pass
+    # TODO: maskarray is zeros and ones, not boolean. gives errors
+    rotation_angle = get_rotation_angle(scan_image, rotation_angle, crop_info)
+    scan_image_dilated, mask_dilated = dilate_and_crop_image_and_mask(
+        scan_image, mask, rotation_angle
+    )
+    scan_image_cleaned = remove_needles(scan_image_dilated, mask_dilated, times_median)
+    scan_image_masked = mask_2d_array(scan_image_cleaned.data, mask_dilated)
+    scan_image_rotated = rotate_scan_image(scan_image_masked, rotation_angle)
+    return scan_image_rotated, mask_dilated

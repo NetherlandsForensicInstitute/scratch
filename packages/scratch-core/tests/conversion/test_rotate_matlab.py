@@ -29,7 +29,7 @@ from tests.conversion.helper_function import (
 
 
 # TODO: Import the main function once available
-# from conversion.rotate_crop import rotate_crop_image
+from conversion.rotate import rotate_crop_image
 
 
 @dataclass
@@ -49,7 +49,7 @@ class MatlabTestCase:
     crop_info_foreground: bool
     # Parameters
     interpolate_data: bool
-    times_median: float
+    times_median: int
     # Output data
     output_depth_data: np.ndarray
     output_mask: np.ndarray
@@ -248,21 +248,15 @@ def run_python_preprocessing(
         print(f"Interpolate data: {test_case.interpolate_data}")
         print(f"MATLAB output shape: {test_case.output_depth_data.shape}")
 
-    # =======================================================================
-    # TODO: Once rotate_crop_image is implemented, replace the code below with:
-    #
-    # from conversion.rotate_crop import rotate_crop_image
-    #
-    # data_out, mask_out = rotate_crop_image(
-    #     scan_image=scan_image,
-    #     mask=mask,
-    #     rotation_angle=test_case.rotation_angle_input,
-    #     crop_info=crop_info,
-    #     interpolate_data=test_case.interpolate_data,
-    #     times_median=test_case.times_median,
-    # )
-    # return data_out.data, mask_out
-    # =======================================================================
+    data_out, mask_out = rotate_crop_image(
+        scan_image=scan_image,
+        mask=mask,
+        rotation_angle=test_case.rotation_angle_input,
+        crop_info=crop_info,
+        interpolate_data=test_case.interpolate_data,
+        times_median=test_case.times_median,
+    )
+    return data_out.data, mask_out
 
     # --- Current step-by-step implementation for debugging ---
 
