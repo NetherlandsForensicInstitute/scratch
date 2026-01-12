@@ -143,7 +143,3 @@ def test_apply_form_noise_removal():
     assert mask.all()
     # Output shape should match input when not cutting borders
     assert result.shape == surface.shape
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
