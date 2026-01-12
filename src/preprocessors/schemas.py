@@ -54,15 +54,39 @@ class UploadScan(BaseParameters):
             LightSource(azimuth=180, elevation=45),
         ),
         description="Light sources for surface illumination rendering.",
+        examples=[
+            (
+                LightSource(azimuth=90, elevation=45),
+                LightSource(azimuth=180, elevation=45),
+            ),
+        ],
     )
     observer: LightSource = Field(
         LightSource(azimuth=90, elevation=45),
         description="Observer viewpoint vector for surface rendering.",
+        examples=[LightSource(azimuth=90, elevation=45)],
     )
-    scale_x: PositiveFloat = Field(1.0, description="pixel size in meters (m)")
-    scale_y: PositiveFloat = Field(1.0, description="pixel size in meters (m)")
-    step_size_x: PositiveInt = Field(1)
-    step_size_y: PositiveInt = Field(1)
+    scale_x: PositiveFloat = Field(
+        1.0,
+        gt=0.0,
+        description="Horizontal pixel size in meters (m). Defines physical spacing between pixels in x-direction.",
+        examples=[1.0, 0.5, 2.0],
+    )
+    scale_y: PositiveFloat = Field(
+        1.0,
+        description="Vertical pixel size in meters (m). Defines physical spacing between pixels in y-direction.",
+        examples=[1.0, 0.5, 2.0],
+    )
+    step_size_x: PositiveInt = Field(
+        1,
+        description="Subsampling step in x-direction. Values > 1 reduce resolution by skipping pixels.",
+        examples=[1, 2, 4],
+    )
+    step_size_y: PositiveInt = Field(
+        1,
+        description="Subsampling step in y-direction. Values > 1 reduce resolution by skipping pixels.",
+        examples=[1, 2, 4],
+    )
 
 
 class CropInfo(BaseModelConfig):
