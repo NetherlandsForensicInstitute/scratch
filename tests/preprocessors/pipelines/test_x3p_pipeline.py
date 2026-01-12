@@ -44,4 +44,4 @@ class TestX3pPipeline:
         assert reparsed_scan.data.shape == parsed_al3d_file.data.shape
         assert np.isclose(reparsed_scan.scale_x, parsed_al3d_file.scale_x, atol=TOLERANCE)
         assert np.isclose(reparsed_scan.scale_y, parsed_al3d_file.scale_y, atol=TOLERANCE)
-        assert np.allclose(reparsed_scan.data, parsed_al3d_file.data, atol=TOLERANCE)
+        assert np.allclose(reparsed_scan.data, parsed_al3d_file.data, atol=TOLERANCE, equal_nan=True)

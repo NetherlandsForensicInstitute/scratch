@@ -33,7 +33,7 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
         key, value = read_tag(filehandle, encoding=encoding)
         header[key] = value
 
-    nx_tag = int(header["Cols"])  # the 'Cols' tag often contains an incorrect value
+    nx = int(header["Cols"])  # the 'Cols' tag often contains an incorrect value
     ny = int(header["Rows"])
     step_x = float(header["PixelSizeXMeter"]) * 1e6
     step_y = float(header["PixelSizeYMeter"]) * 1e6
@@ -43,23 +43,24 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
     # data = read_array(filehandle, dtype=np.float32, count=nx * ny, offset=0).reshape(ny, nx)
 
     # === Our Patch Start ===
-    offset_texture = int(header["TextureImageOffset"])
-    # if no texture data is present, read until end of file or buffer
-    count = (
-        offset_texture - offset if offset_texture > 0 else -1
-    )  # TODO: check if this is correct?
+    count = ny * (nx + (1 if nx % 2 else 0))
     data = read_array(filehandle, dtype=np.float32, count=count, offset=0)
-    # compute `nx` from the data shape
-    nx = data.shape[0] // ny
-    data = data.reshape(ny, nx)
-    if nx > nx_tag:
-        # ensure only valid data is returned
-        data = data[:, :nx_tag]
+    # Compute the image width from the data shape
+    image_width = data.shape[0] // ny
+    data = data.reshape(ny, image_width)
+    if image_width > nx:
+        # Ensure only valid data is returned
+        data = data[:, :nx]
     # === Our Patch End ===
 
     invalidValue = float(header["InvalidPixelValue"])
-    data[data == invalidValue] = np.nan
+    # data[data == invalidValue] = np.nan   # This does not work
 
     data *= 1e6  # Conversion from m to um
+
+    # === Our Patch Start ===
+    # Ensure the comparison is done after the conversion to um
+    data[data > invalidValue - 1] = np.nan
+    # === Our Patch End ===
 
     return RawSurface(data, step_x, step_y)
