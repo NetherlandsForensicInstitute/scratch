@@ -44,7 +44,7 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
 
     # === Our Patch Start ===
     # Compute the stride depending on whether `nx` is odd or even
-    stride = nx + (1 if nx % 2 else 0)
+    stride = nx + (nx % 2)
     data = read_array(filehandle, dtype=np.float32, count=ny * stride, offset=0)
     data = data.reshape(ny, stride)
     if stride > nx:
