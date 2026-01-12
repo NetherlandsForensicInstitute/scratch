@@ -5,7 +5,7 @@ Tests for fine alignment functions in preprocess_data.py.
 import numpy as np
 import pytest
 
-from conversion.preprocess_striations.preprocess_data import (
+from conversion.preprocess_striation.preprocess_data import (
     _smooth_2d,
     _remove_zero_image_border,
     _rotate_data_by_shifting_profiles,
@@ -16,6 +16,7 @@ from conversion.preprocess_striations.preprocess_data import (
     extract_profile,
     preprocess_data,
 )
+from container_models.scan_image import ScanImage
 
 
 def test_smooth_2d():
@@ -136,9 +137,9 @@ def test_fine_align_bullet_marks():
     angle_rad = np.radians(angle_input)
     striations = np.sin(2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 8)
 
+    scan_image = ScanImage(data=striations, scale_x=1e-6, scale_y=1e-6)
     aligned, _, detected_angle = fine_align_bullet_marks(
-        striations,
-        xdim=1e-6,
+        scan_image=scan_image,
         angle_accuracy=0.5,
         cut_y_after_shift=False,
         max_iter=10,
@@ -186,9 +187,9 @@ def test_preprocess_data():
     noise = np.random.randn(height, width) * 0.001
     depth_data = form + striations + noise
 
+    scan_image = ScanImage(data=depth_data, scale_x=1e-6, scale_y=1e-6)
     aligned, profile, mask, angle = preprocess_data(
-        depth_data,
-        xdim=1e-6,
+        scan_image=scan_image,
         cutoff_hi=2000e-6,
         cutoff_lo=250e-6,
         cut_borders_after_smoothing=False,

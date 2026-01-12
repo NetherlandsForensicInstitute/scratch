@@ -7,15 +7,16 @@ import numpy as np
 import pytest
 from math import ceil
 
-from conversion.preprocess_striations.preprocess_data_filter import (
+from conversion.preprocess_striation.preprocess_data_filter import (
     _apply_nan_weighted_gaussian_1d,
     _remove_zero_border,
     apply_gaussian_filter_1d,
     cheby_cutoff_to_gauss_sigma,
 )
-from conversion.preprocess_striations.preprocess_data import (
+from conversion.preprocess_striation.preprocess_data import (
     apply_shape_noise_removal,
 )
+from container_models.scan_image import ScanImage
 
 
 # =============================================================================
@@ -76,9 +77,9 @@ def test_apply_gaussian_filter_1d_lowpass():
 
     surface = np.tile((low_freq + high_freq).reshape(-1, 1), (1, 20))
 
+    scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
     smoothed, indices, mask = apply_gaussian_filter_1d(
-        surface,
-        xdim=1e-6,
+        scan_image=scan_image,
         cutoff=250e-6,
         is_high_pass=False,
         cut_borders_after_smoothing=False,
@@ -98,9 +99,9 @@ def test_apply_gaussian_filter_1d_highpass():
     surface = np.tile((shape + detail).reshape(-1, 1), (1, 20))
 
     # Use pixel size that makes cutoff effective for shape removal
+    scan_image = ScanImage(data=surface, scale_x=1e-3, scale_y=1e-3)
     residuals, indices, mask = apply_gaussian_filter_1d(
-        surface,
-        xdim=1e-3,
+        scan_image=scan_image,
         cutoff=50e-3,
         is_high_pass=True,
         cut_borders_after_smoothing=False,
@@ -127,20 +128,17 @@ def test_apply_shape_noise_removal():
 
     surface = np.tile((shape + striations + noise).reshape(-1, 1), (1, 50))
 
+    scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
     result, mask = apply_shape_noise_removal(
-        surface,
-        xdim=1e-6,
+        scan_image=scan_image,
         highpass_cutoff=2000e-6,
         lowpass_cutoff=250e-6,
-        cut_borders_after_smoothing=False,
     )
 
     # Result should have form removed (smaller range than input)
     assert np.ptp(result) < np.ptp(surface)
     # Mask should be all True (no invalid regions)
     assert mask.all()
-    # Output shape should match input when not cutting borders
-    assert result.shape == surface.shape
 
 
 def test_form_noise_removal_pipeline():
@@ -157,10 +155,10 @@ def test_form_noise_removal_pipeline():
 
     # Test 1: Verify filter sequence and output
     height, width = 200, 150
-    xdim = 1e-6
+    scale = 1e-6
 
     # Create test data with known components
-    x = np.arange(height) * xdim
+    x = np.arange(height) * scale
     X, _ = np.meshgrid(x, np.arange(width), indexing="ij")
 
     form = 5e-6 * (X / x.max()) ** 2  # Large wavelength
@@ -169,9 +167,9 @@ def test_form_noise_removal_pipeline():
 
     depth_data = form + striations + noise
 
+    scan_image = ScanImage(data=depth_data, scale_x=scale, scale_y=scale)
     result, _ = apply_shape_noise_removal(
-        depth_data=depth_data,
-        xdim=xdim,
+        scan_image=scan_image,
         highpass_cutoff=2000e-6,
         lowpass_cutoff=250e-6,
     )
@@ -186,7 +184,7 @@ def test_form_noise_removal_pipeline():
     assert np.std(result) < np.std(depth_data), "Noise not reduced"
 
     # Test 2: Border cropping behavior
-    sigma = cheby_cutoff_to_gauss_sigma(2000e-6, xdim)
+    sigma = cheby_cutoff_to_gauss_sigma(2000e-6, scale)
     data_too_short = (2 * sigma) > (height * 0.2)
 
     if data_too_short:
@@ -200,17 +198,17 @@ def test_form_noise_removal_pipeline():
     )
     assert result.shape[1] == width, "Width should not change"
 
-    # Test 3: Short data handling (no border cropping)
+    # Test 3: Short data handling (no border cropping due to data size)
     short_height = int(2 * sigma / 0.2) - 5
     short_data = np.random.randn(short_height, width) * 1e-6
 
+    short_scan_image = ScanImage(data=short_data, scale_x=scale, scale_y=scale)
     result_short, _ = apply_shape_noise_removal(
-        depth_data=short_data,
-        xdim=xdim,
+        scan_image=short_scan_image,
         highpass_cutoff=2000e-6,
-        cut_borders_after_smoothing=True,
     )
 
+    # Short data should not have borders cut (automatic detection)
     assert result_short.shape[0] == short_height, (
         f"Short data borders were cut (got {result_short.shape[0]}, expected {short_height})"
     )
@@ -219,9 +217,9 @@ def test_form_noise_removal_pipeline():
     mask_input = np.ones(depth_data.shape, dtype=bool)
     mask_input[:, 0:20] = False
 
+    masked_scan_image = ScanImage(data=depth_data.copy(), scale_x=scale, scale_y=scale)
     result_masked, mask_output = apply_shape_noise_removal(
-        depth_data=depth_data.copy(),
-        xdim=xdim,
+        scan_image=masked_scan_image,
         highpass_cutoff=2000e-6,
         lowpass_cutoff=250e-6,
         mask=mask_input,
@@ -229,19 +227,6 @@ def test_form_noise_removal_pipeline():
 
     assert mask_output.shape == result_masked.shape, "Mask shape mismatch"
     assert np.any(~mask_output), "Mask should have invalid regions"
-
-    # Test 5: No cropping mode
-    result_no_crop, _ = apply_shape_noise_removal(
-        depth_data=depth_data,
-        xdim=xdim,
-        highpass_cutoff=2000e-6,
-        lowpass_cutoff=250e-6,
-        cut_borders_after_smoothing=False,
-    )
-
-    assert result_no_crop.shape[0] == height, (
-        f"With no cropping, height should be {height}, got {result_no_crop.shape[0]}"
-    )
 
 
 def test_synthetic_form_noise_removal():
@@ -256,10 +241,10 @@ def test_synthetic_form_noise_removal():
     np.random.seed(42)
 
     height, width = 200, 150
-    xdim = 1e-6
+    scale = 1e-6
 
-    x = np.arange(height) * xdim
-    y = np.arange(width) * xdim
+    x = np.arange(height) * scale
+    y = np.arange(width) * scale
     X, _ = np.meshgrid(x, y, indexing="ij")
 
     form = 5e-6 * (X / x.max()) ** 2
@@ -268,9 +253,9 @@ def test_synthetic_form_noise_removal():
 
     depth_data = form + striations + noise
 
+    scan_image = ScanImage(data=depth_data, scale_x=scale, scale_y=scale)
     result, _ = apply_shape_noise_removal(
-        depth_data=depth_data,
-        xdim=xdim,
+        scan_image=scan_image,
         highpass_cutoff=2000e-6,
         lowpass_cutoff=250e-6,
     )
@@ -285,7 +270,3 @@ def test_synthetic_form_noise_removal():
     # Verify noise reduced (result std should be less than original)
     std_original = np.std(depth_data)
     assert std_result < std_original, "Noise not reduced"
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

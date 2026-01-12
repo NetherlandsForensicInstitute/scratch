@@ -3,9 +3,6 @@
 This module implements the PreprocessData pipeline from MATLAB:
 - Step 2: Form and noise removal (shape removal via highpass, noise removal via lowpass)
 - Step 3: Fine rotation to align striations horizontally + profile extraction
-
-Translated from MATLAB: PreprocessData.m, FineAlignBulletMarks.m, RotateImageGradVector.m,
-RotateDataByShiftingProfiles.m, RemoveZeroImageBorder.m, ResampleMarkTypeSpecific.m
 """
 
 import numpy as np
@@ -14,7 +11,8 @@ from scipy.ndimage import gaussian_filter, zoom
 from scipy.interpolate import interp1d
 
 from container_models.base import MaskArray
-from conversion.preprocess_striations.preprocess_data_filter import (
+from container_models.scan_image import ScanImage
+from conversion.preprocess_striation.preprocess_data_filter import (
     apply_gaussian_filter_1d,
     cheby_cutoff_to_gauss_sigma,
 )
@@ -26,10 +24,8 @@ from conversion.preprocess_striations.preprocess_data_filter import (
 
 
 def apply_shape_noise_removal(
-    depth_data: NDArray[np.floating],
-    xdim: float,
+    scan_image: ScanImage,
     mask: MaskArray | None = None,
-    cut_borders_after_smoothing: bool = True,
     lowpass_cutoff: float = 5e-6,
     highpass_cutoff: float = 250e-6,
 ) -> tuple[NDArray[np.floating], MaskArray]:
@@ -52,15 +48,17 @@ def apply_shape_noise_removal(
         to remove high-frequency noise while preserving striation features.
 
 
-    :param depth_data: 2D depth/height data array. Should already be coarsely aligned.
-    :param xdim: Pixel spacing in meters (m).
+    :param scan_image: ScanImage containing depth data and pixel spacing.
     :param mask: Boolean mask array (True = valid data).
-    :param cut_borders_after_smoothing: If True, crop filter edge artifacts.
     :param lowpass_cutoff: Low-frequency cutoff wavelength in meters (m) for noise removal.
     :param highpass_cutoff: High-frequency cutoff wavelength in meters (m) for shape removal.
 
     :returns: Tuple of (processed_data, mask).
     """
+    # Extract data and pixel spacing from ScanImage
+    depth_data = scan_image.data
+    xdim = scan_image.scale_x
+
     # Initialize mask if not provided
     if mask is None:
         mask = np.ones(depth_data.shape, dtype=bool)
@@ -70,35 +68,34 @@ def apply_shape_noise_removal(
 
     # Check if data is too short for border cutting
     data_height = depth_data.shape[0]
-    data_too_short = (2 * sigma) > (data_height * 0.2)
-
-    # Override border cutting for short data
-    if data_too_short:
-        cut_borders = False
-    else:
-        cut_borders = cut_borders_after_smoothing
+    cut_borders = (2 * sigma) <= (data_height * 0.2)
 
     # Shape removal (highpass filter)
     data_no_shape, _, mask_shape = apply_gaussian_filter_1d(
-        depth_data,
-        xdim=xdim,
+        scan_image=scan_image,
         cutoff=highpass_cutoff,
         is_high_pass=True,
         cut_borders_after_smoothing=cut_borders,
         mask=mask,
     )
 
+    # Create intermediate ScanImage for noise removal
+    intermediate_scan_image = ScanImage(
+        data=data_no_shape,
+        scale_x=xdim,
+        scale_y=scan_image.scale_y,
+    )
+
     # Noise removal (lowpass filter)
-    data_no_noise, _, mask_noise = apply_gaussian_filter_1d(
-        data_no_shape,
-        xdim=xdim,
+    data_no_noise, _, mask_no_noise = apply_gaussian_filter_1d(
+        scan_image=intermediate_scan_image,
         cutoff=lowpass_cutoff,
         is_high_pass=False,
         cut_borders_after_smoothing=cut_borders,
         mask=mask_shape,
     )
 
-    return data_no_noise, mask_noise
+    return data_no_noise, mask_no_noise
 
 
 # =============================================================================
@@ -396,9 +393,7 @@ def _resample_mark_type_specific(
 
 
 def fine_align_bullet_marks(
-    depth_data: NDArray[np.floating],
-    xdim: float,
-    ydim: float | None = None,
+    scan_image: ScanImage,
     mark_type: str | None = None,
     mask: MaskArray | None = None,
     angle_accuracy: float = 0.1,
@@ -412,9 +407,7 @@ def fine_align_bullet_marks(
     Iteratively determines the direction of striation marks and rotates the
     depth data so that striations are horizontal.
 
-    :param depth_data: 2D depth data array.
-    :param xdim: X-dimension pixel spacing in meters.
-    :param ydim: Y-dimension pixel spacing in meters (optional, for resampling).
+    :param scan_image: ScanImage containing depth data and pixel spacing.
     :param mark_type: Mark type string (optional, for resampling).
     :param mask: Optional boolean mask (True = valid).
     :param angle_accuracy: Target angle accuracy in degrees (default 0.1).
@@ -423,6 +416,11 @@ def fine_align_bullet_marks(
     :param extra_sub_samp: Additional subsampling factor for gradient detection.
     :returns: Tuple of (aligned_data, aligned_mask, total_angle).
     """
+    # Extract data and pixel spacing from ScanImage
+    depth_data = scan_image.data
+    xdim = scan_image.scale_x
+    ydim = scan_image.scale_y
+
     # Initialize
     data_tmp = depth_data.copy()
     mask_tmp = mask.copy() if mask is not None else None
@@ -532,9 +530,7 @@ def extract_profile(
 
 
 def preprocess_data(
-    depth_data: NDArray[np.floating],
-    xdim: float,
-    ydim: float | None = None,
+    scan_image: ScanImage,
     mark_type: str | None = None,
     mask: MaskArray | None = None,
     cutoff_hi: float = 2000e-6,
@@ -564,9 +560,7 @@ def preprocess_data(
         - Rotate data to align striations horizontally
         - Extract mean or median profile
 
-    :param depth_data: 2D depth/height data array.
-    :param xdim: X-dimension pixel spacing in meters.
-    :param ydim: Y-dimension pixel spacing in meters (optional, for resampling).
+    :param scan_image: ScanImage containing depth data and pixel spacing.
     :param mark_type: Mark type string (optional, for resampling).
     :param mask: Boolean mask array (True = valid data).
     :param cutoff_hi: Cutoff wavelength for shape removal (default 2000e-6 m).
@@ -579,15 +573,16 @@ def preprocess_data(
 
     :returns: Tuple of (aligned_data, profile, mask, total_angle).
     """
+    # Extract pixel spacing from ScanImage
+    xdim = scan_image.scale_x
+
     # -------------------------------------------------------------------------
     # Step 2: Form and noise removal
     # -------------------------------------------------------------------------
     data_filtered, mask_filtered = apply_shape_noise_removal(
-        depth_data=depth_data,
-        xdim=xdim,
+        scan_image=scan_image,
         highpass_cutoff=cutoff_hi,
         mask=mask,
-        cut_borders_after_smoothing=cut_borders_after_smoothing,
         lowpass_cutoff=cutoff_lo,
     )
 
@@ -596,10 +591,14 @@ def preprocess_data(
     # -------------------------------------------------------------------------
     # Only perform fine alignment if data has more than 1 column
     if data_filtered.shape[1] > 1:
+        # Create new ScanImage with filtered data
+        filtered_scan_image = ScanImage(
+            data=data_filtered,
+            scale_x=xdim,
+            scale_y=scan_image.scale_y,
+        )
         data_aligned, mask_aligned, total_angle = fine_align_bullet_marks(
-            depth_data=data_filtered,
-            xdim=xdim,
-            ydim=ydim,
+            scan_image=filtered_scan_image,
             mark_type=mark_type,
             mask=mask_filtered,
             angle_accuracy=angle_accuracy,

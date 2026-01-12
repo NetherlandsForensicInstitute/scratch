@@ -1,3 +1,4 @@
+# noqa
 """
 This file contains tests to explicitly compare the Python PreprocessData output with the original MATLAB output.
 Upon completion of the translation and validation, it can be used for regression testing.
