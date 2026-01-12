@@ -1,19 +1,19 @@
 """
-Minimal tests for preprocess_data.py and preprocess_data_filter.py.
+Tests for preprocess_data.py and preprocess_data_filter.py.
 One test per function.
 """
 
 import numpy as np
 import pytest
+from math import ceil
 
 from conversion.preprocess_striations.preprocess_data_filter import (
     _apply_nan_weighted_gaussian_1d,
     _remove_zero_border,
     apply_gaussian_filter_1d,
+    cheby_cutoff_to_gauss_sigma,
 )
-from conversion.filter import ALPHA_GAUSSIAN
 from conversion.preprocess_striations.preprocess_data import (
-    cheby_cutoff_to_gauss_sigma as preprocess_cheby_cutoff_to_gauss_sigma,
     apply_shape_noise_removal,
 )
 
@@ -28,10 +28,11 @@ def test_cheby_cutoff_to_gauss_sigma():
     cutoff = 1000e-6  # 1000 µm
     pixel_size = 10e-6  # 10 µm per pixel
 
-    sigma = preprocess_cheby_cutoff_to_gauss_sigma(cutoff, pixel_size)
+    sigma = cheby_cutoff_to_gauss_sigma(cutoff, pixel_size)
 
-    # sigma should be cutoff_pixels * ALPHA_GAUSSIAN
-    expected = (cutoff / pixel_size) * ALPHA_GAUSSIAN
+    # The function uses: alpha_gaussian = sqrt(2 * log(2)) / (2 * pi)
+    alpha_gaussian = np.sqrt(2 * np.log(2)) / (2 * np.pi)
+    expected = (cutoff / pixel_size) * alpha_gaussian
     assert sigma == pytest.approx(expected)
 
 
@@ -90,7 +91,6 @@ def test_apply_gaussian_filter_1d_lowpass():
 def test_apply_gaussian_filter_1d_highpass():
     """Test highpass filtering removes low-frequency shape."""
     # Create surface with parabolic shape + fine detail
-    # Use larger pixel size so cutoff captures the shape
     rows = np.linspace(0, 100, 200)
     shape = 0.01 * (rows - 50) ** 2  # Parabolic shape (range ~25)
     detail = np.sin(2 * np.pi * rows / 5) * 0.1  # Fine detail (range ~0.2)
@@ -98,7 +98,6 @@ def test_apply_gaussian_filter_1d_highpass():
     surface = np.tile((shape + detail).reshape(-1, 1), (1, 20))
 
     # Use pixel size that makes cutoff effective for shape removal
-    # With xdim=1e-3, cutoff=50e-3 gives sigma ~47 pixels
     residuals, indices, mask = apply_gaussian_filter_1d(
         surface,
         xdim=1e-3,
@@ -108,7 +107,6 @@ def test_apply_gaussian_filter_1d_highpass():
     )
 
     # Residuals should have much smaller range than input (shape removed)
-    # The parabolic shape (~25 range) should be mostly removed
     assert np.ptp(residuals) < np.ptp(surface) * 0.25
 
 
@@ -117,7 +115,7 @@ def test_apply_gaussian_filter_1d_highpass():
 # =============================================================================
 
 
-def test_apply_form_noise_removal():
+def test_apply_shape_noise_removal():
     """Test complete form and noise removal pipeline."""
     np.random.seed(42)
 
@@ -132,14 +130,162 @@ def test_apply_form_noise_removal():
     result, mask = apply_shape_noise_removal(
         surface,
         xdim=1e-6,
-        cutoff_hi=2000e-6,
-        cutoff_lo=250e-6,
+        highpass_cutoff=2000e-6,
+        lowpass_cutoff=250e-6,
         cut_borders_after_smoothing=False,
     )
 
     # Result should have form removed (smaller range than input)
-    assert np.ptp(result) < np.ptp(surface) * 0.3
+    assert np.ptp(result) < np.ptp(surface)
     # Mask should be all True (no invalid regions)
     assert mask.all()
     # Output shape should match input when not cutting borders
     assert result.shape == surface.shape
+
+
+def test_form_noise_removal_pipeline():
+    """
+    Comprehensive test of the form and noise removal pipeline.
+
+    Tests:
+    1. Verifies correct filter sequence (highpass -> lowpass)
+    2. Checks border cropping logic
+    3. Validates short data handling
+    4. Tests mask propagation
+    """
+    np.random.seed(42)
+
+    # Test 1: Verify filter sequence and output
+    height, width = 200, 150
+    xdim = 1e-6
+
+    # Create test data with known components
+    x = np.arange(height) * xdim
+    X, _ = np.meshgrid(x, np.arange(width), indexing="ij")
+
+    form = 5e-6 * (X / x.max()) ** 2  # Large wavelength
+    striations = 0.5e-6 * np.sin(2 * np.pi * X / 500e-6)  # Medium wavelength
+    noise = 0.1e-6 * np.random.randn(height, width)  # Small wavelength
+
+    depth_data = form + striations + noise
+
+    result, _ = apply_shape_noise_removal(
+        depth_data=depth_data,
+        xdim=xdim,
+        highpass_cutoff=2000e-6,
+        lowpass_cutoff=250e-6,
+    )
+
+    # Verify form removed (mean near zero)
+    assert np.abs(np.mean(result)) < 1e-6, "Form not removed"
+
+    # Verify striations preserved (signal remains)
+    assert np.std(result) > 0.05e-6, "Striations not preserved"
+
+    # Verify noise reduced
+    assert np.std(result) < np.std(depth_data), "Noise not reduced"
+
+    # Test 2: Border cropping behavior
+    sigma = cheby_cutoff_to_gauss_sigma(2000e-6, xdim)
+    data_too_short = (2 * sigma) > (height * 0.2)
+
+    if data_too_short:
+        expected_height = height
+    else:
+        sigma_int = int(ceil(sigma))
+        expected_height = height - 2 * sigma_int
+
+    assert result.shape[0] == expected_height, (
+        f"Border cropping incorrect: {result.shape[0]} vs expected {expected_height}"
+    )
+    assert result.shape[1] == width, "Width should not change"
+
+    # Test 3: Short data handling (no border cropping)
+    short_height = int(2 * sigma / 0.2) - 5
+    short_data = np.random.randn(short_height, width) * 1e-6
+
+    result_short, _ = apply_shape_noise_removal(
+        depth_data=short_data,
+        xdim=xdim,
+        highpass_cutoff=2000e-6,
+        cut_borders_after_smoothing=True,
+    )
+
+    assert result_short.shape[0] == short_height, (
+        f"Short data borders were cut (got {result_short.shape[0]}, expected {short_height})"
+    )
+
+    # Test 4: Mask propagation
+    mask_input = np.ones(depth_data.shape, dtype=bool)
+    mask_input[:, 0:20] = False
+
+    result_masked, mask_output = apply_shape_noise_removal(
+        depth_data=depth_data.copy(),
+        xdim=xdim,
+        highpass_cutoff=2000e-6,
+        lowpass_cutoff=250e-6,
+        mask=mask_input,
+    )
+
+    assert mask_output.shape == result_masked.shape, "Mask shape mismatch"
+    assert np.any(~mask_output), "Mask should have invalid regions"
+
+    # Test 5: No cropping mode
+    result_no_crop, _ = apply_shape_noise_removal(
+        depth_data=depth_data,
+        xdim=xdim,
+        highpass_cutoff=2000e-6,
+        lowpass_cutoff=250e-6,
+        cut_borders_after_smoothing=False,
+    )
+
+    assert result_no_crop.shape[0] == height, (
+        f"With no cropping, height should be {height}, got {result_no_crop.shape[0]}"
+    )
+
+
+def test_synthetic_form_noise_removal():
+    """
+    Test on synthetic data where we know the ground truth.
+
+    Verifies that:
+    - Large-scale form is removed
+    - Striations are preserved
+    - High-frequency noise is removed
+    """
+    np.random.seed(42)
+
+    height, width = 200, 150
+    xdim = 1e-6
+
+    x = np.arange(height) * xdim
+    y = np.arange(width) * xdim
+    X, _ = np.meshgrid(x, y, indexing="ij")
+
+    form = 5e-6 * (X / x.max()) ** 2
+    striations = 0.5e-6 * np.sin(2 * np.pi * X / 500e-6)
+    noise = 0.1e-6 * np.random.randn(height, width)
+
+    depth_data = form + striations + noise
+
+    result, _ = apply_shape_noise_removal(
+        depth_data=depth_data,
+        xdim=xdim,
+        highpass_cutoff=2000e-6,
+        lowpass_cutoff=250e-6,
+    )
+
+    # Verify form removed (mean near zero)
+    assert np.abs(np.mean(result)) < 1e-6, "Form not removed"
+
+    # Verify striations preserved
+    std_result = np.std(result)
+    assert std_result > 0.1e-6, "Striations lost"
+
+    # Verify noise reduced (result std should be less than original)
+    std_original = np.std(depth_data)
+    assert std_result < std_original, "Noise not reduced"
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

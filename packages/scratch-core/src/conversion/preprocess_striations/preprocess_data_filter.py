@@ -5,6 +5,8 @@ from functools import partial
 import numpy as np
 from numpy.typing import NDArray
 
+from conversion.mask import _determine_bounding_box
+
 
 def _apply_nan_weighted_gaussian_1d(
     data: NDArray[np.floating],
@@ -76,17 +78,12 @@ def _remove_zero_border(
             np.array([], dtype=np.intp),
         )
 
-    # Find bounding box
-    row_indices = np.where(valid_rows)[0]
-    col_indices = np.where(valid_cols)[0]
-
-    row_start, row_end = row_indices[0], row_indices[-1] + 1
-    col_start, col_end = col_indices[0], col_indices[-1] + 1
-
-    # Crop to bounding box
-    cropped_data = data[row_start:row_end, col_start:col_end]
-    cropped_mask = mask[row_start:row_end, col_start:col_end]
-    range_indices = np.arange(row_start, row_end)
+    # Find bounding box and crop
+    # _determine_bounding_box returns (x_slice, y_slice) i.e. (col_slice, row_slice)
+    x_slice, y_slice = _determine_bounding_box(valid_data)
+    cropped_data = data[y_slice, x_slice]
+    cropped_mask = mask[y_slice, x_slice]
+    range_indices = np.arange(y_slice.start, y_slice.stop)
 
     return cropped_data, cropped_mask, range_indices
 
@@ -99,7 +96,7 @@ def cheby_cutoff_to_gauss_sigma(cutoff: float, pixel_size: float) -> float:
     :param pixel_size: Pixel spacing in the same units as cutoff.
     :return: Gaussian sigma in pixel units.
     """
-    alpha_gaussian = np.sqrt(np.log(2) / np.pi)
+    alpha_gaussian = np.sqrt(2 * np.log(2)) / (2 * np.pi)
     cutoff_pixels = cutoff / pixel_size
     return cutoff_pixels * alpha_gaussian
 

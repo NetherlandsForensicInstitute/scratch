@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter, zoom
 from scipy.interpolate import interp1d
 
+from container_models.base import MaskArray
 from conversion.preprocess_striations.preprocess_data_filter import (
     apply_gaussian_filter_1d,
     cheby_cutoff_to_gauss_sigma,
@@ -27,11 +28,11 @@ from conversion.preprocess_striations.preprocess_data_filter import (
 def apply_shape_noise_removal(
     depth_data: NDArray[np.floating],
     xdim: float,
-    cutoff_hi: float,
-    mask: NDArray[np.bool_] | None = None,
+    mask: MaskArray | None = None,
     cut_borders_after_smoothing: bool = True,
-    cutoff_lo: float = 250e-6,
-) -> tuple[NDArray[np.floating], NDArray[np.bool_]]:
+    lowpass_cutoff: float = 5e-6,
+    highpass_cutoff: float = 250e-6,
+) -> tuple[NDArray[np.floating], MaskArray]:
     """
     Apply large-scale shape and noise removal to isolate striation features.
 
@@ -53,10 +54,10 @@ def apply_shape_noise_removal(
 
     :param depth_data: 2D depth/height data array. Should already be coarsely aligned.
     :param xdim: Pixel spacing in meters (m).
-    :param cutoff_hi: High-frequency cutoff wavelength in meters (m) for shape removal.
     :param mask: Boolean mask array (True = valid data).
     :param cut_borders_after_smoothing: If True, crop filter edge artifacts.
-    :param cutoff_lo: Low-frequency cutoff wavelength in meters (m) for noise removal.
+    :param lowpass_cutoff: Low-frequency cutoff wavelength in meters (m) for noise removal.
+    :param highpass_cutoff: High-frequency cutoff wavelength in meters (m) for shape removal.
 
     :returns: Tuple of (processed_data, mask).
     """
@@ -65,7 +66,7 @@ def apply_shape_noise_removal(
         mask = np.ones(depth_data.shape, dtype=bool)
 
     # Calculate Gaussian sigma from cutoff wavelength
-    sigma = cheby_cutoff_to_gauss_sigma(cutoff_hi, xdim)
+    sigma = cheby_cutoff_to_gauss_sigma(highpass_cutoff, xdim)
 
     # Check if data is too short for border cutting
     data_height = depth_data.shape[0]
@@ -81,7 +82,7 @@ def apply_shape_noise_removal(
     data_no_shape, _, mask_shape = apply_gaussian_filter_1d(
         depth_data,
         xdim=xdim,
-        cutoff=cutoff_hi,
+        cutoff=highpass_cutoff,
         is_high_pass=True,
         cut_borders_after_smoothing=cut_borders,
         mask=mask,
@@ -91,7 +92,7 @@ def apply_shape_noise_removal(
     data_no_noise, _, mask_noise = apply_gaussian_filter_1d(
         data_no_shape,
         xdim=xdim,
-        cutoff=cutoff_lo,
+        cutoff=lowpass_cutoff,
         is_high_pass=False,
         cut_borders_after_smoothing=cut_borders,
         mask=mask_shape,
@@ -136,8 +137,8 @@ def _smooth_2d(
 
 def _remove_zero_image_border(
     data: NDArray[np.floating],
-    mask: NDArray[np.bool_],
-) -> tuple[NDArray[np.floating], NDArray[np.bool_]]:
+    mask: MaskArray,
+) -> tuple[NDArray[np.floating], MaskArray]:
     """
     Remove zero/invalid borders from masked data.
 
@@ -231,7 +232,7 @@ def _rotate_data_by_shifting_profiles(
 def _rotate_image_grad_vector(
     depth_data: NDArray[np.floating],
     xdim: float,
-    mask: NDArray[np.bool_] | None = None,
+    mask: MaskArray | None = None,
     extra_sub_samp: int = 1,
 ) -> float:
     """
@@ -343,8 +344,8 @@ def _resample_mark_type_specific(
     xdim: float,
     ydim: float,
     mark_type: str,
-    mask: NDArray[np.bool_] | None = None,
-) -> tuple[NDArray[np.floating], float, float, NDArray[np.bool_] | None]:
+    mask: MaskArray | None = None,
+) -> tuple[NDArray[np.floating], float, float, MaskArray | None]:
     """
     Resample depth data to target sampling distance based on mark type.
 
@@ -399,12 +400,12 @@ def fine_align_bullet_marks(
     xdim: float,
     ydim: float | None = None,
     mark_type: str | None = None,
-    mask: NDArray[np.bool_] | None = None,
+    mask: MaskArray | None = None,
     angle_accuracy: float = 0.1,
     cut_y_after_shift: bool = True,
     max_iter: int = 25,
     extra_sub_samp: int = 1,
-) -> tuple[NDArray[np.floating], NDArray[np.bool_] | None, float]:
+) -> tuple[NDArray[np.floating], MaskArray | None, float]:
     """
     Fine alignment of striated marks by iteratively detecting striation direction.
 
@@ -499,7 +500,7 @@ def fine_align_bullet_marks(
 
 def extract_profile(
     depth_data: NDArray[np.floating],
-    mask: NDArray[np.bool_] | None = None,
+    mask: MaskArray | None = None,
     use_mean: bool = True,
 ) -> NDArray[np.floating]:
     """
@@ -535,7 +536,7 @@ def preprocess_data(
     xdim: float,
     ydim: float | None = None,
     mark_type: str | None = None,
-    mask: NDArray[np.bool_] | None = None,
+    mask: MaskArray | None = None,
     cutoff_hi: float = 2000e-6,
     cutoff_lo: float = 250e-6,
     cut_borders_after_smoothing: bool = True,
@@ -546,7 +547,7 @@ def preprocess_data(
 ) -> tuple[
     NDArray[np.floating],
     NDArray[np.floating],
-    NDArray[np.bool_] | None,
+    MaskArray | None,
     float,
 ]:
     """
@@ -584,10 +585,10 @@ def preprocess_data(
     data_filtered, mask_filtered = apply_shape_noise_removal(
         depth_data=depth_data,
         xdim=xdim,
-        cutoff_hi=cutoff_hi,
+        highpass_cutoff=cutoff_hi,
         mask=mask,
         cut_borders_after_smoothing=cut_borders_after_smoothing,
-        cutoff_lo=cutoff_lo,
+        lowpass_cutoff=cutoff_lo,
     )
 
     # -------------------------------------------------------------------------

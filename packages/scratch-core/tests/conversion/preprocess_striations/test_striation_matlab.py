@@ -69,7 +69,7 @@ def load_matlab_string(mat_dict: dict, key: str, default: str = "") -> str:
     val = mat_dict[key]
     if isinstance(val, np.ndarray):
         # MATLAB strings are stored as character arrays
-        if val.dtype.kind in ('U', 'S'):  # Unicode or byte string
+        if val.dtype.kind in ("U", "S"):  # Unicode or byte string
             return str(val.flat[0]) if val.size == 1 else str(val)
         elif val.size == 1:
             return str(val.flat[0])
@@ -98,7 +98,9 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
     output_rotation_angle = None
     if (case_dir / "output_rotation.mat").exists():
         output_rotation_mat = loadmat(case_dir / "output_rotation.mat")
-        output_rotation_angle = load_matlab_scalar(output_rotation_mat, "rotation_angle")
+        output_rotation_angle = load_matlab_scalar(
+            output_rotation_mat, "rotation_angle"
+        )
 
     # Load metadata
     metadata_mat = loadmat(case_dir / "metadata.mat")
@@ -108,7 +110,9 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
     depth_data = input_data_mat["depth_data"]
     xdim = load_matlab_scalar(input_data_mat, "xdim", 1.5e-6)
     ydim = load_matlab_scalar(input_data_mat, "ydim", 1.5e-6)
-    mark_type = load_matlab_string(input_data_mat, "mark_type", "Bullet LEA striation mark")
+    mark_type = load_matlab_string(
+        input_data_mat, "mark_type", "Bullet LEA striation mark"
+    )
 
     # Extract parameters
     params = {
@@ -118,7 +122,9 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
         "slope_correction": load_matlab_scalar(input_param_mat, "slope_correction", 0),
         "times_median": load_matlab_scalar(input_param_mat, "times_median", 15.0),
         "use_mean": load_matlab_scalar(input_param_mat, "use_mean", 1),
-        "shape_noise_removal": load_matlab_scalar(input_param_mat, "shape_noise_removal", 1),
+        "shape_noise_removal": load_matlab_scalar(
+            input_param_mat, "shape_noise_removal", 1
+        ),
         "show_info": load_matlab_scalar(input_param_mat, "show_info", 1),
     }
 
@@ -226,10 +232,10 @@ def pytest_generate_tests(metafunc):
     if "test_case_name" in metafunc.fixturenames:
         # Path from tests/conversion/test_file.py to tests/resources/baseline_images/preprocess_striation
         test_cases_dir = (
-                Path(__file__).parent.parent
-                / "resources"
-                / "baseline_images"
-                / "preprocess_striation"
+            Path(__file__).parent.parent
+            / "resources"
+            / "baseline_images"
+            / "preprocess_striation"
         )
 
         if test_cases_dir.exists():
@@ -369,8 +375,7 @@ class TestPreprocessDataMatlabComparison:
         matlab_profile = matlab_profile[:min_len]
 
         correlation = _compute_correlation(
-            python_profile.reshape(-1, 1),
-            matlab_profile.reshape(-1, 1)
+            python_profile.reshape(-1, 1), matlab_profile.reshape(-1, 1)
         )
         corr_threshold, _ = self._get_thresholds(test_case)
 
@@ -421,8 +426,7 @@ class TestPreprocessDataMatlabComparison:
         iou = intersection / union if union > 0 else 1.0
 
         assert iou > 0.95, (
-            f"Test case {test_case.name}: "
-            f"Mask IoU {iou:.4f} below threshold 0.95"
+            f"Test case {test_case.name}: Mask IoU {iou:.4f} below threshold 0.95"
         )
 
 
