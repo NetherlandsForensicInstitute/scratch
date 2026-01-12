@@ -1,20 +1,14 @@
-from enum import StrEnum, auto
-from typing import Annotated
+from __future__ import annotations
+
+from typing import Any
 
 from container_models.light_source import LightSource
-from pydantic import AfterValidator, Field, FilePath, field_validator
+from pydantic import ConfigDict, Field, FilePath, HttpUrl, RootModel, field_validator, model_validator
 
-from models import BaseModelConfig, ProjectTag, validate_file_extension, validate_not_executable
-
-
-class SupportedExtension(StrEnum):
-    AL3D = auto()
-    X3P = auto()
-    SUR = auto()
-    PLU = auto()
+from models import BaseModelConfig, ParametersModel, ProjectTag, ScanFile, SupportedScanExtension
 
 
-class UploadScanParameters(BaseModelConfig):
+class UploadScanParameters(ParametersModel):
     """Configuration parameters for upload scan's surface rendering process."""
 
     light_sources: tuple[LightSource, ...] = Field(
@@ -33,20 +27,9 @@ class UploadScanParameters(BaseModelConfig):
     step_size_x: int = Field(1, gt=0)
     step_size_y: int = Field(1, gt=0)
 
-    def as_dict(self, *, exclude: set[str] | None = None, include: set[str] | None = None) -> dict:
-        """Get model fields as dict with optional filtering."""
-        return {field: getattr(self, field) for field in self.model_dump(exclude=exclude, include=include)}
-
 
 class UploadScan(BaseModelConfig):
-    scan_file: Annotated[
-        FilePath,
-        AfterValidator(lambda filepath: validate_file_extension(filepath, SupportedExtension)),
-        AfterValidator(validate_not_executable),
-    ] = Field(
-        ...,
-        description=f"Path to the input scan file. Supported formats: {', '.join(SupportedExtension)}",
-    )
+    scan_file: ScanFile
     project_name: ProjectTag | None = Field(None, description="", examples=[])
     parameters: UploadScanParameters = Field(default_factory=UploadScanParameters.model_construct)
 
@@ -63,3 +46,49 @@ class UploadScan(BaseModelConfig):
             raise ValueError(f"file is empty: {scan_file.name}")
 
         return scan_file
+
+
+class EditImageParameters(ParametersModel):
+    mask: Any | None = Field(None, description="Mask to mask the image or crop the image in combination with zoom.")
+    zoom: bool = Field(
+        False, description="Whether to zoom into the image based on the masked fields(can be from earlier eddits)."
+    )
+    step_size_x: int = Field(1, gt=0)
+    step_size_y: int = Field(1, gt=0)
+    overwrite: bool = False
+
+    @model_validator(mode="after")
+    def validate_edits_are_chosen(self) -> EditImageParameters:
+        """Validate at least one edit option is chosen."""
+        if self.mask is None and not self.zoom:
+            raise ValueError("At least one  zoom must be provided.")
+        return self
+
+
+class EditImage(BaseModelConfig):
+    scan_file: ScanFile
+    project_name: ProjectTag | None = Field(None, description="", examples=[])
+    parameters: EditImageParameters = Field(default_factory=EditImageParameters.model_construct)
+
+    @property
+    def tag(self) -> str:
+        """Get the tag to use for directory naming."""
+        return self.project_name or self.scan_file.stem
+
+    @field_validator("scan_file", mode="after")
+    @classmethod
+    def validate_file_extension(cls, scan_file: FilePath) -> FilePath:
+        """Validate given file is off a supported type."""
+        if scan_file.suffix[1:] != SupportedScanExtension.X3P:
+            raise ValueError(f"unsupported extension: {scan_file.name}")
+        return scan_file
+
+
+class ProcessDataUrls(RootModel):
+    root: tuple[HttpUrl, ...]
+    model_config = ConfigDict(frozen=True, regex_engine="rust-regex")
+
+
+class ProcessScanOutput(BaseModelConfig):
+    edit_scan: HttpUrl = Field(..., description="next endpoint")
+    downloads: ProcessDataUrls = Field(..., description="")
