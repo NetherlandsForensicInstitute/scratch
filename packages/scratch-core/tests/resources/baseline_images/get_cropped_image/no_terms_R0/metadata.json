@@ -1,0 +1,13 @@
+{
+  "input_xdim": 3.5e-06,
+  "input_ydim": 3.5e-06,
+  "cutoff_hi": 250,
+  "cutoff_lo": 5,
+  "level_method": "None",
+  "filter_method": "R0",
+  "has_mask": false,
+  "has_sampling": false,
+  "sampling": null,
+  "output_xdim": 4e-06,
+  "output_ydim": 4e-06
+}
