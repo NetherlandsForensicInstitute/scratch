@@ -6,13 +6,13 @@ One test per function.
 import numpy as np
 import pytest
 
-from conversion.preprocessing.preprocess_data_filter import (
+from conversion.preprocess_striations.preprocess_data_filter import (
     _apply_nan_weighted_gaussian_1d,
     _remove_zero_border,
     apply_gaussian_filter_1d,
 )
 from conversion.filter import ALPHA_GAUSSIAN
-from conversion.preprocessing.preprocess_data import (
+from conversion.preprocess_striations.preprocess_data import (
     cheby_cutoff_to_gauss_sigma as preprocess_cheby_cutoff_to_gauss_sigma,
     apply_shape_noise_removal,
 )

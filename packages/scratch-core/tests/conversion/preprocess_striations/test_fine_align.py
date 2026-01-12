@@ -5,7 +5,7 @@ Tests for fine alignment functions in preprocess_data.py.
 import numpy as np
 import pytest
 
-from conversion.preprocessing.preprocess_data import (
+from conversion.preprocess_striations.preprocess_data import (
     _smooth_2d,
     _remove_zero_image_border,
     _rotate_data_by_shifting_profiles,
@@ -172,7 +172,7 @@ def test_extract_profile():
 
 
 def test_preprocess_data():
-    """Test complete preprocessing pipeline."""
+    """Test complete preprocess_striations pipeline."""
     np.random.seed(42)
 
     height, width = 80, 80

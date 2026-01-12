@@ -1,7 +1,7 @@
 import numpy as np
 from math import ceil
 
-from conversion.preprocessing.preprocess_data import (
+from conversion.preprocess_striations.preprocess_data import (
     apply_shape_noise_removal,
     cheby_cutoff_to_gauss_sigma,
 )
@@ -170,7 +170,7 @@ def test_synthetic_form_noise_removal():
 
     depth_data = form + striations + noise
 
-    # Apply preprocessing
+    # Apply preprocess_striations
     result, mask = apply_shape_noise_removal(
         depth_data=depth_data,
         xdim=xdim,

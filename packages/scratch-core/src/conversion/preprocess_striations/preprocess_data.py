@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter, zoom
 from scipy.interpolate import interp1d
 
-from conversion.preprocessing.preprocess_data_filter import (
+from conversion.preprocess_striations.preprocess_data_filter import (
     apply_gaussian_filter_1d,
     cheby_cutoff_to_gauss_sigma,
 )
@@ -550,7 +550,7 @@ def preprocess_data(
     float,
 ]:
     """
-    Complete preprocessing pipeline for striated marks.
+    Complete preprocess_striations pipeline for striated marks.
 
     Implements Steps 2 and 3 of PreprocessData.m:
 
