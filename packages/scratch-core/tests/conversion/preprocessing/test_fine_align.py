@@ -1,8 +1,3 @@
-"""
-Tests for fine_align.py.
-One test per function.
-"""
-
 import numpy as np
 import pytest
 
@@ -96,9 +91,24 @@ def test_rotate_image_grad_vector():
 def test_get_target_sampling_distance():
     """Test mark type to sampling distance lookup."""
     # Test known mark types
-    assert get_target_sampling_distance("Bullet GEA striation") == 1.5e-6
-    assert get_target_sampling_distance("Breech face impression") == 3.5e-6
-    assert get_target_sampling_distance("Firing pin drag striation") == 1.5e-6
+    assert np.isclose(
+        get_target_sampling_distance("Bullet GEA striation"),
+        1.5e-6,
+        rtol=1e-09,
+        atol=1e-09,
+    )
+    assert np.isclose(
+        get_target_sampling_distance("Breech face impression"),
+        3.5e-6,
+        rtol=1e-09,
+        atol=1e-09,
+    )
+    assert np.isclose(
+        get_target_sampling_distance("Firing pin drag striation"),
+        1.5e-6,
+        rtol=1e-09,
+        atol=1e-09,
+    )
 
     # Test unknown mark type raises error
     with pytest.raises(ValueError, match="not recognized"):
@@ -120,8 +130,8 @@ def test_resample_mark_type_specific():
     # Data should be downsampled (1.0 µm -> 1.5 µm means smaller output)
     assert resampled.shape[0] < data.shape[0]
     assert resampled.shape[1] < data.shape[1]
-    assert new_xdim == 1.5e-6
-    assert new_ydim == 1.5e-6
+    assert np.isclose(new_xdim, 1.5e-6, rtol=1e-09, atol=1e-09)
+    assert np.isclose(new_ydim, 1.5e-6, rtol=1e-09, atol=1e-09)
 
 
 def test_fine_align_bullet_marks():
@@ -139,7 +149,7 @@ def test_fine_align_bullet_marks():
     angle_rad = np.radians(angle_input)
     striations = np.sin(2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 8)
 
-    aligned, mask, detected_angle = fine_align_bullet_marks(
+    aligned, _, detected_angle = fine_align_bullet_marks(
         striations,
         xdim=1e-6,
         angle_accuracy=0.5,
@@ -179,7 +189,3 @@ def test_extract_profile():
     assert profile_masked.shape == (10,)
     # Should still get same values since all columns have same value per row
     assert profile_masked[5] == pytest.approx(10.0)
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

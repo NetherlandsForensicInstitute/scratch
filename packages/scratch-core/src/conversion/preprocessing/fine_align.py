@@ -3,9 +3,6 @@
 This module implements Step 3 of the PreprocessData pipeline:
 - Fine rotation to align striations horizontally
 - Profile extraction (mean/median)
-
-Translated from MATLAB: FineAlignBulletMarks.m, RotateImageGradVector.m,
-RotateDataByShiftingProfiles.m, RemoveZeroImageBorder.m, ResampleMarkTypeSpecific.m
 """
 
 import numpy as np
@@ -61,14 +58,14 @@ def remove_zero_image_border(
     """
     # Find row bounds
     row_sum = np.sum(mask, axis=1)
-    valid_rows = np.where(row_sum > 0)[0]
+    valid_rows = np.nonzero(row_sum > 0)[0]
     if len(valid_rows) == 0:
         return data, mask
     start_row, end_row = valid_rows[0], valid_rows[-1] + 1
 
     # Find column bounds
     col_sum = np.sum(mask, axis=0)
-    valid_cols = np.where(col_sum > 0)[0]
+    valid_cols = np.nonzero(col_sum > 0)[0]
     if len(valid_cols) == 0:
         return data, mask
     start_col, end_col = valid_cols[0], valid_cols[-1] + 1
