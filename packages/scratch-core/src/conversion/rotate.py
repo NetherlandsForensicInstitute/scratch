@@ -162,3 +162,14 @@ def rotate_scan_image(scan_image: ScanImage, rotation_angle: float = 0.0) -> Sca
         scale_y=scan_image.scale_y,
         meta_data=scan_image.meta_data,
     )
+
+
+def rotate_crop_image(
+    scan_image: ScanImage,
+    mask: MaskArray,
+    rotation_angle: float = 0.0,
+    crop_info: list[CropInfo] | None = None,
+    interpolate_data: bool = False,
+    times_median: float = 15.0,
+) -> tuple[ScanImage, MaskArray]:
+    pass
