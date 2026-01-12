@@ -55,13 +55,12 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
     # === Our Patch End ===
 
     invalidValue = float(header["InvalidPixelValue"])
-    # data[data == invalidValue] = np.nan   # This does not work
-
-    data *= 1e6  # Conversion from m to um
+    # data[data == invalidValue] = np.nan   # This comparison may fail for certain cases
 
     # === Our Patch Start ===
-    # Ensure the comparison is done after the conversion to um
-    data[data > invalidValue - 1] = np.nan
+    data[np.isclose(data, invalidValue)] = np.nan
     # === Our Patch End ===
+
+    data *= 1e6  # Conversion from m to um
 
     return RawSurface(data, step_x, step_y)
