@@ -2,7 +2,7 @@ import numpy as np
 from math import ceil
 
 from conversion.preprocessing.preprocess_data import (
-    apply_form_noise_removal,
+    apply_shape_noise_removal,
     cheby_cutoff_to_gauss_sigma,
 )
 
@@ -22,10 +22,7 @@ def test_form_noise_removal_pipeline():
     4. Tests mask propagation
     """
 
-    print("\n=== Testing Form & Noise Removal Pipeline ===\n")
-
     # Test 1: Verify filter sequence and output
-    print("Test 1: Filter Sequence")
     height, width = 200, 150
     xdim = 1e-6
 
@@ -39,7 +36,7 @@ def test_form_noise_removal_pipeline():
 
     depth_data = form + striations + noise
 
-    result, result_mask = apply_form_noise_removal(
+    result, _ = apply_shape_noise_removal(
         depth_data=depth_data,
         xdim=xdim,
         cutoff_hi=2000e-6,  # Remove > 2000 µm (form)
@@ -55,36 +52,30 @@ def test_form_noise_removal_pipeline():
     # Verify noise reduced
     assert np.std(result) < np.std(depth_data), "Noise not reduced"
 
-    print(f"  ✅ Form removed: mean = {np.mean(result):.2e}")
-    print(f"  ✅ Striations preserved: std = {np.std(result) * 1e6:.3f} µm")
-    print(
-        f"  ✅ Noise reduced: {np.std(depth_data) * 1e6:.3f} → {np.std(result) * 1e6:.3f} µm"
-    )
-
-    # Test 2: Border cropping
-    print("\nTest 2: Border Cropping")
-
+    # Test 2: Border cropping behavior
+    # With these parameters (cutoff_hi=2000e-6, xdim=1e-6), sigma ≈ 940 pixels
+    # Since 2*sigma > 0.2*height, border cutting is automatically disabled
     sigma = cheby_cutoff_to_gauss_sigma(2000e-6, xdim)
-    sigma_int = int(ceil(sigma))
-    expected_height = height - 2 * sigma_int
+    data_too_short = (2 * sigma) > (height * 0.2)
+
+    if data_too_short:
+        # Border cutting disabled for short data
+        expected_height = height
+    else:
+        sigma_int = int(ceil(sigma))
+        expected_height = height - 2 * sigma_int
 
     assert result.shape[0] == expected_height, (
         f"Border cropping incorrect: {result.shape[0]} vs expected {expected_height}"
     )
     assert result.shape[1] == width, "Width should not change"
 
-    print(
-        f"  ✅ Borders cropped: {height} → {result.shape[0]} rows (removed {2 * sigma_int})"
-    )
-
     # Test 3: Short data handling (no border cropping)
-    print("\nTest 3: Short Data Handling")
-
     # Create data that's too short (2*sigma > 20% of height)
     short_height = int(2 * sigma / 0.2) - 5  # Just below threshold
     short_data = np.random.randn(short_height, width) * 1e-6
 
-    result_short, _ = apply_form_noise_removal(
+    result_short, _ = apply_shape_noise_removal(
         depth_data=short_data,
         xdim=xdim,
         cutoff_hi=2000e-6,
@@ -96,19 +87,13 @@ def test_form_noise_removal_pipeline():
         f"Short data borders were cut (got {result_short.shape[0]}, expected {short_height})"
     )
 
-    print(
-        f"  ✅ Short data preserved: {short_height} → {result_short.shape[0]} rows (no cropping)"
-    )
-
     # Test 4: Mask propagation
-    print("\nTest 4: Mask Propagation")
-
     # Create data with masked region
     depth_data_masked = depth_data.copy()
     mask_input = np.ones(depth_data.shape, dtype=bool)
     mask_input[:, 0:20] = False  # Mask first 20 columns
 
-    result_masked, mask_output = apply_form_noise_removal(
+    result_masked, mask_output = apply_shape_noise_removal(
         depth_data=depth_data_masked,
         xdim=xdim,
         cutoff_hi=2000e-6,
@@ -124,14 +109,8 @@ def test_form_noise_removal_pipeline():
     invalid_cols = np.sum(~mask_output, axis=0)
     assert np.any(invalid_cols > 0), "Masked columns should remain masked"
 
-    print(
-        f"  ✅ Mask propagated: {np.sum(~mask_input)} → {np.sum(~mask_output)} invalid pixels"
-    )
-
     # Test 5: No cropping mode
-    print("\nTest 5: No Border Cropping Mode")
-
-    result_no_crop, _ = apply_form_noise_removal(
+    result_no_crop, _ = apply_shape_noise_removal(
         depth_data=depth_data,
         xdim=xdim,
         cutoff_hi=2000e-6,
@@ -143,15 +122,9 @@ def test_form_noise_removal_pipeline():
         f"With no cropping, height should be {height}, got {result_no_crop.shape[0]}"
     )
 
-    print(
-        f"  ✅ No cropping mode: {height} → {result_no_crop.shape[0]} rows (preserved)"
-    )
-
     # Test 6: Different cutoff values
-    print("\nTest 6: Different Cutoff Values")
-
     # Aggressive filtering (small cutoffs)
-    result_aggressive, _ = apply_form_noise_removal(
+    result_aggressive, _ = apply_shape_noise_removal(
         depth_data=depth_data,
         xdim=xdim,
         cutoff_hi=1000e-6,  # More aggressive form removal
@@ -159,7 +132,7 @@ def test_form_noise_removal_pipeline():
     )
 
     # Conservative filtering (large cutoffs)
-    result_conservative, _ = apply_form_noise_removal(
+    result_conservative, _ = apply_shape_noise_removal(
         depth_data=depth_data,
         xdim=xdim,
         cutoff_hi=4000e-6,  # Less aggressive form removal
@@ -170,13 +143,6 @@ def test_form_noise_removal_pipeline():
     assert np.std(result_aggressive) < np.std(result_conservative), (
         "Aggressive filtering should reduce variance more"
     )
-
-    print(f"  ✅ Aggressive filtering: std = {np.std(result_aggressive) * 1e6:.3f} µm")
-    print(
-        f"  ✅ Conservative filtering: std = {np.std(result_conservative) * 1e6:.3f} µm"
-    )
-
-    print("\n✅ All pipeline tests passed!")
 
 
 def test_synthetic_form_noise_removal():
@@ -205,7 +171,7 @@ def test_synthetic_form_noise_removal():
     depth_data = form + striations + noise
 
     # Apply preprocessing
-    result, mask = apply_form_noise_removal(
+    result, mask = apply_shape_noise_removal(
         depth_data=depth_data,
         xdim=xdim,
         cutoff_hi=2000e-6,  # Remove > 2000 µm (form)
@@ -222,22 +188,3 @@ def test_synthetic_form_noise_removal():
     # Verify noise reduced
     std_original = np.std(depth_data)
     assert std_result < std_original * 0.5, "Noise not reduced"
-
-    print("✅ Synthetic test passed!")
-    print(f"   Noise reduction: {std_original * 1e6:.3f} → {std_result * 1e6:.3f} µm")
-
-
-if __name__ == "__main__":
-    print("\n" + "=" * 60)
-    print("Testing Form & Noise Removal Implementation")
-    print("=" * 60)
-
-    print("\n=== Test 1: Synthetic Data Test ===")
-    test_synthetic_form_noise_removal()
-
-    print("\n=== Test 2: Pipeline Behavior Test ===")
-    test_form_noise_removal_pipeline()
-
-    print("\n" + "=" * 60)
-    print("✅ All tests passed!")
-    print("=" * 60)

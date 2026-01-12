@@ -7,15 +7,14 @@ import numpy as np
 import pytest
 
 from conversion.preprocessing.preprocess_data_filter import (
-    ALPHA_GAUSSIAN,
-    _cheby_cutoff_to_gauss_sigma,
     _apply_nan_weighted_gaussian_1d,
     _remove_zero_border,
     apply_gaussian_filter_1d,
 )
+from conversion.filter import ALPHA_GAUSSIAN
 from conversion.preprocessing.preprocess_data import (
     cheby_cutoff_to_gauss_sigma as preprocess_cheby_cutoff_to_gauss_sigma,
-    apply_form_noise_removal,
+    apply_shape_noise_removal,
 )
 
 
@@ -29,7 +28,7 @@ def test_cheby_cutoff_to_gauss_sigma():
     cutoff = 1000e-6  # 1000 µm
     pixel_size = 10e-6  # 10 µm per pixel
 
-    sigma = _cheby_cutoff_to_gauss_sigma(cutoff, pixel_size)
+    sigma = preprocess_cheby_cutoff_to_gauss_sigma(cutoff, pixel_size)
 
     # sigma should be cutoff_pixels * ALPHA_GAUSSIAN
     expected = (cutoff / pixel_size) * ALPHA_GAUSSIAN
@@ -118,17 +117,6 @@ def test_apply_gaussian_filter_1d_highpass():
 # =============================================================================
 
 
-def test_preprocess_cheby_cutoff_to_gauss_sigma():
-    """Test that preprocess_data's sigma conversion matches filter module."""
-    cutoff = 500e-6
-    pixel_size = 5e-6
-
-    sigma1 = preprocess_cheby_cutoff_to_gauss_sigma(cutoff, pixel_size)
-    sigma2 = _cheby_cutoff_to_gauss_sigma(cutoff, pixel_size)
-
-    assert sigma1 == pytest.approx(sigma2)
-
-
 def test_apply_form_noise_removal():
     """Test complete form and noise removal pipeline."""
     np.random.seed(42)
@@ -141,7 +129,7 @@ def test_apply_form_noise_removal():
 
     surface = np.tile((shape + striations + noise).reshape(-1, 1), (1, 50))
 
-    result, mask = apply_form_noise_removal(
+    result, mask = apply_shape_noise_removal(
         surface,
         xdim=1e-6,
         cutoff_hi=2000e-6,
