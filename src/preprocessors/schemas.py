@@ -33,28 +33,66 @@ class UploadScanParameters(BaseModelConfig):
             LightSource(azimuth=180, elevation=45),
         ),
         description="Light sources for surface illumination rendering.",
+        examples=[
+            (
+                LightSource(azimuth=90, elevation=45),
+                LightSource(azimuth=180, elevation=45),
+            ),
+        ],
     )
     observer: LightSource = Field(
         LightSource(azimuth=90, elevation=45),
         description="Observer viewpoint vector for surface rendering.",
+        examples=[LightSource(azimuth=90, elevation=45)],
     )
-    scale_x: float = Field(1.0, gt=0.0, description="pixel size in meters (m)")
-    scale_y: float = Field(1.0, gt=0.0, description="pixel size in meters (m)")
-    step_size_x: int = Field(1, gt=0)
-    step_size_y: int = Field(1, gt=0)
-
-    def as_dict(self, *, exclude: set[str] | None = None, include: set[str] | None = None) -> dict:
-        """Get model fields as dict with optional filtering."""
-        return {field: getattr(self, field) for field in self.model_dump(exclude=exclude, include=include)}
+    scale_x: float = Field(
+        1.0,
+        gt=0.0,
+        description="Horizontal pixel size in meters (m). Defines physical spacing between pixels in x-direction.",
+        examples=[1.0, 0.5, 2.0],
+    )
+    scale_y: float = Field(
+        1.0,
+        gt=0.0,
+        description="Vertical pixel size in meters (m). Defines physical spacing between pixels in y-direction.",
+        examples=[1.0, 0.5, 2.0],
+    )
+    step_size_x: int = Field(
+        1,
+        gt=0,
+        description="Subsampling step in x-direction. Values > 1 reduce resolution by skipping pixels.",
+        examples=[1, 2, 4],
+    )
+    step_size_y: int = Field(
+        1,
+        gt=0,
+        description="Subsampling step in y-direction. Values > 1 reduce resolution by skipping pixels.",
+        examples=[1, 2, 4],
+    )
 
 
 class UploadScan(BaseModelConfig):
+    """Request model for uploading and processing scan files."""
+
     scan_file: ScanFile = Field(
         ...,
         description=f"Path to the input scan file. Supported formats: {', '.join(SupportedScanExtension)}",
     )
-    project_name: ProjectTag | None = Field(None, description="", examples=[])
-    parameters: UploadScanParameters = Field(default_factory=UploadScanParameters.model_construct)
+    project_name: ProjectTag | None = Field(
+        None,
+        description=(
+            "Optional project identifier for organizing uploaded scans. "
+            "Used as directory tag if provided, otherwise defaults to scan filename."
+        ),
+        examples=["forensic_analysis_2026", "case_12345"],
+    )
+    parameters: UploadScanParameters = Field(
+        default_factory=UploadScanParameters.model_construct,
+        description=(
+            "Configuration parameters controlling scan processing, "
+            "including lighting, scaling, and subsampling settings."
+        ),
+    )
 
     @property
     def tag(self) -> str:

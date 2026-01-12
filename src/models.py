@@ -109,8 +109,20 @@ class DirectoryAccess(BaseModelConfig):
     Uses application settings for storage location configuration.
     """
 
-    token: UUID4 = Field(default_factory=_generate_unique_token)
-    tag: ProjectTag
+    token: UUID4 = Field(
+        default_factory=_generate_unique_token,
+        description=(
+            "Unique UUID4 identifier for the storage directory. "
+            "Auto-generated to ensure no collisions with existing directories."
+        ),
+    )
+    tag: ProjectTag = Field(
+        ...,
+        description=(
+            "Project tag for directory organization. "
+            "Combined with token to create unique directory names in format '{tag}-{token.hex}'."
+        ),
+    )
 
     @property
     def access_url(self) -> str:
