@@ -1,12 +1,11 @@
 from http import HTTPStatus
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import FileResponse
 from pydantic import UUID4
 
 from constants import EXTRACTOR_ROUTE
-from file_services import fetch_resource_path
-from settings import SettingsDep
+from file_services import fetch_directory_access, fetch_resource_file
 
 from .schemas import RelativePath
 
@@ -43,7 +42,7 @@ async def extractor_root() -> dict[str, str]:
         HTTPStatus.NOT_FOUND: {"description": "File not found"},
     },
 )
-async def get_file(token: UUID4, filename: RelativePath, settings: SettingsDep) -> FileResponse:
+async def get_file(token: UUID4, filename: RelativePath) -> FileResponse:
     """
     Retrieve a processed file from vault storage.
 
@@ -58,14 +57,7 @@ async def get_file(token: UUID4, filename: RelativePath, settings: SettingsDep) 
     :return: FileResponse with appropriate media type (image/png or application/octet-stream).
     :raises HTTPException: 403 if path traversal detected, 404 if file not found.
     """
-    filepath = fetch_resource_path(token) / filename
-    if not filepath.resolve().is_relative_to(settings.storage.resolve()):
-        raise HTTPException(HTTPStatus.FORBIDDEN, "Access denied")
-
-    if not filepath.exists():
-        raise HTTPException(HTTPStatus.NOT_FOUND, f"File {filename} not found.")
-
     return FileResponse(
-        path=filepath,
+        path=fetch_resource_file(fetch_directory_access(token).resource_path, filename),
         media_type="image/png" if filename.suffix == ".png" else "application/octet-stream",
     )
