@@ -43,12 +43,11 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
     # data = read_array(filehandle, dtype=np.float32, count=nx * ny, offset=0).reshape(ny, nx)
 
     # === Our Patch Start ===
-    count = ny * (nx + (1 if nx % 2 else 0))
-    data = read_array(filehandle, dtype=np.float32, count=count, offset=0)
-    # Compute the image width from the data shape
-    image_width = data.shape[0] // ny
-    data = data.reshape(ny, image_width)
-    if image_width > nx:
+    # Compute the stride depending on whether `nx` is odd or even
+    stride = nx + (1 if nx % 2 else 0)
+    data = read_array(filehandle, dtype=np.float32, count=ny * stride, offset=0)
+    data = data.reshape(ny, stride)
+    if stride > nx:
         # Ensure only valid data is returned
         data = data[:, :nx]
     # === Our Patch End ===
