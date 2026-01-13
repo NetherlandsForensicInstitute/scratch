@@ -17,7 +17,7 @@ TEST_ROOT = Path(__file__).parent
 
 @pytest.fixture
 def case_dir() -> Path:
-    return TEST_ROOT / "resources" / "preprocess_striations"
+    return TEST_ROOT / "resources" / "preprocess_striation"
 
 
 class PropagateHandler(logging.Handler):

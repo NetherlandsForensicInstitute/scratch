@@ -19,11 +19,8 @@ from ..helper_function import (
 )
 
 
-# # TODO: Update these imports to match your actual module structure
-# from conversion.preprocess_striations.preprocess_data import preprocess_data
-# from conversion.preprocess_striations.parameters import PreprocessingStriationParams
-# from container_models.scan_image import ScanImage
-# from conversion.data_formats import Mark, MarkType, CropType
+from container_models.scan_image import ScanImage
+from conversion.preprocess_striation.preprocess_data import preprocess_data
 
 
 @dataclass
@@ -152,13 +149,13 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
     )
 
 
-def discover_test_cases(test_cases_dir: Path) -> list[MatlabTestCase]:
+def discover_test_cases(case_dir: Path) -> list[MatlabTestCase]:
     """Discover all test cases in the test cases directory."""
-    if not test_cases_dir.exists():
+    if not case_dir.exists():
         return []
 
     cases = []
-    for case_dir in sorted(test_cases_dir.iterdir()):
+    for case_dir in sorted(case_dir.iterdir()):
         if case_dir.is_dir() and (case_dir / "input_data.mat").exists():
             try:
                 cases.append(load_test_case(case_dir))
@@ -168,79 +165,61 @@ def discover_test_cases(test_cases_dir: Path) -> list[MatlabTestCase]:
     return cases
 
 
-# TODO: Uncomment and update this function once your Python implementation is ready
-# def matlab_params_to_python_params(
-#     matlab_params: dict,
-# ) -> PreprocessingStriationParams:
-#     """
-#     Convert MATLAB parameters to Python PreprocessingStriationParams.
-#     """
-#     return PreprocessingStriationParams(
-#         angle_accuracy=float(matlab_params.get("angle_accuracy", 90.0)),
-#         cutoff_hi=float(matlab_params.get("cutoff_hi", 250.0)),
-#         cutoff_lo=float(matlab_params.get("cutoff_lo", 5.0)),
-#         slope_correction=bool(matlab_params.get("slope_correction", 0)),
-#         times_median=float(matlab_params.get("times_median", 15.0)),
-#         use_mean=bool(matlab_params.get("use_mean", 1)),
-#         shape_noise_removal=bool(matlab_params.get("shape_noise_removal", 1)),
-#     )
+def run_python_preprocessing(
+    test_case: MatlabTestCase,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, float | None]:
+    """
+    Run Python preprocess_striations on input data.
 
+    Returns:
+        Tuple of (processed_depth_data, output_mask, mean_profile, rotation_angle)
+    """
+    # Create input data structure
+    scan_image = ScanImage(
+        data=test_case.input_depth_data,
+        scale_x=test_case.input_xdim,
+        scale_y=test_case.input_ydim,
+    )
 
-# TODO: Uncomment and update this function once your Python implementation is ready
-# def run_python_preprocessing(
-#     test_case: MatlabTestCase,
-# ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, float | None]:
-#     """
-#     Run Python preprocess_striations on input data.
-#
-#     Returns:
-#         Tuple of (processed_depth_data, output_mask, mean_profile, rotation_angle)
-#     """
-#     params = matlab_params_to_python_params(test_case.params)
-#
-#     # Create input data structure matching your Python implementation
-#     # This will depend on your actual data model
-#     scan_image = ScanImage(
-#         data=test_case.input_depth_data,
-#         scale_x=test_case.input_xdim,
-#         scale_y=test_case.input_ydim,
-#     )
-#
-#     mark = Mark(
-#         scan_image=scan_image,
-#         mark_type=MarkType.BULLET_LEA_STRIATION,
-#         crop_type=CropType.RECTANGLE,
-#     )
-#
-#     # Call your Python implementation
-#     result = preprocess_data(
-#         data=mark,
-#         param=params,
-#         mask=test_case.input_mask,
-#         data_type='bullet',
-#     )
-#
-#     return (
-#         result.depth_data,
-#         result.mask,
-#         result.mean_profile,
-#         result.rotation_angle,
-#     )
+    # Convert MATLAB parameters to Python parameters
+    # MATLAB stores cutoffs in microns, Python expects meters
+    cutoff_hi = float(test_case.params.get("cutoff_hi", 250.0)) * 1e-6
+    cutoff_lo = float(test_case.params.get("cutoff_lo", 5.0)) * 1e-6
+    use_mean = bool(test_case.params.get("use_mean", 1))
+    angle_accuracy = float(test_case.params.get("angle_accuracy", 90.0))
+
+    # Convert mask to boolean
+    mask = test_case.input_mask.astype(bool) if test_case.has_mask else None
+
+    # Call Python implementation
+    aligned_data, profile, mask_out, total_angle = preprocess_data(
+        scan_image=scan_image,
+        mark_type=test_case.input_mark_type,
+        mask=mask,
+        cutoff_hi=cutoff_hi,
+        cutoff_lo=cutoff_lo,
+        use_mean=use_mean,
+        angle_accuracy=angle_accuracy,
+    )
+
+    return (
+        aligned_data,
+        mask_out,
+        profile,
+        total_angle,
+    )
 
 
 def pytest_generate_tests(metafunc):
     """Generate test cases dynamically for MATLAB comparison tests."""
     if "test_case_name" in metafunc.fixturenames:
-        # Path from tests/conversion/test_file.py to tests/resources/baseline_images/preprocess_striation
-        test_cases_dir = (
-            Path(__file__).parent.parent
-            / "resources"
-            / "baseline_images"
-            / "preprocess_striation"
+        # Path to tests/resources/preprocess_striation
+        case_dir = (
+            Path(__file__).parent.parent.parent / "resources" / "preprocess_striation"
         )
 
-        if test_cases_dir.exists():
-            cases = discover_test_cases(test_cases_dir)
+        if case_dir.exists():
+            cases = discover_test_cases(case_dir)
             if cases:
                 metafunc.parametrize("test_case_name", [c.name for c in cases])
                 return
@@ -250,17 +229,17 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="module")
-def test_cases_dir(baseline_images_dir) -> Path:
-    """Get the test cases directory."""
-    return baseline_images_dir / "preprocess_striation"
+def striation_test_cases_dir() -> Path:
+    """Get the test cases directory for preprocess_striation tests."""
+    return Path(__file__).parent.parent.parent / "resources" / "preprocess_striation"
 
 
 @pytest.fixture(scope="module")
-def test_cases(test_cases_dir) -> list[MatlabTestCase]:
+def test_cases(striation_test_cases_dir) -> list[MatlabTestCase]:
     """Load all MATLAB test cases."""
-    cases = discover_test_cases(test_cases_dir)
+    cases = discover_test_cases(striation_test_cases_dir)
     if not cases:
-        pytest.skip(f"No test cases found in {test_cases_dir}")
+        pytest.skip(f"No test cases found in {striation_test_cases_dir}")
     return cases
 
 
@@ -293,7 +272,6 @@ class TestPreprocessDataMatlabComparison:
             )
         return self.CORRELATION_THRESHOLD, self.RELATIVE_STD_THRESHOLD
 
-    @pytest.mark.skip(reason="Python implementation not yet available")
     def test_processed_output_correlation(self, test_case: MatlabTestCase):
         """Test that processed output has high correlation with MATLAB."""
         python_depth, _, _, _ = run_python_preprocessing(test_case)
@@ -310,7 +288,6 @@ class TestPreprocessDataMatlabComparison:
             f"{' (masked)' if test_case.has_mask else ''}"
         )
 
-    @pytest.mark.skip(reason="Python implementation not yet available")
     def test_processed_output_difference(self, test_case: MatlabTestCase):
         """Test that processed output has small differences from MATLAB."""
         python_depth, _, _, _ = run_python_preprocessing(test_case)
@@ -330,7 +307,6 @@ class TestPreprocessDataMatlabComparison:
             f"{' (masked)' if test_case.has_mask else ''}"
         )
 
-    @pytest.mark.skip(reason="Python implementation not yet available")
     def test_output_shape(self, test_case: MatlabTestCase):
         """Test that output shape matches MATLAB within tolerance."""
         python_depth, _, _, _ = run_python_preprocessing(test_case)
@@ -355,7 +331,6 @@ class TestPreprocessDataMatlabComparison:
             f"(MATLAB: {matlab_shape[1]}, Python: {python_shape[1]})"
         )
 
-    @pytest.mark.skip(reason="Python implementation not yet available")
     def test_profile_correlation(self, test_case: MatlabTestCase):
         """Test that mean/median profile has high correlation with MATLAB."""
         if test_case.output_profile is None:
@@ -385,7 +360,6 @@ class TestPreprocessDataMatlabComparison:
             f"Profile correlation {correlation:.6f} below threshold {corr_threshold}"
         )
 
-    @pytest.mark.skip(reason="Python implementation not yet available")
     def test_rotation_angle(self, test_case: MatlabTestCase):
         """Test that rotation angle matches MATLAB."""
         if test_case.output_rotation_angle is None:
@@ -405,7 +379,6 @@ class TestPreprocessDataMatlabComparison:
             f"(MATLAB: {test_case.output_rotation_angle}, Python: {python_rotation})"
         )
 
-    @pytest.mark.skip(reason="Python implementation not yet available")
     def test_mask_output(self, test_case: MatlabTestCase):
         """Test that output mask matches MATLAB."""
         if not test_case.has_mask:
@@ -434,11 +407,11 @@ class TestPreprocessDataMatlabComparison:
 class TestMatlabTestCaseLoading:
     """Tests for verifying test case loading works correctly."""
 
-    def test_discover_test_cases(self, test_cases_dir):
+    def test_discover_test_cases(self, striation_test_cases_dir):
         """Test that test cases can be discovered."""
-        cases = discover_test_cases(test_cases_dir)
+        cases = discover_test_cases(striation_test_cases_dir)
         # This will pass even with 0 cases, just logs the count
-        print(f"Found {len(cases)} test cases in {test_cases_dir}")
+        print(f"Found {len(cases)} test cases in {striation_test_cases_dir}")
 
     def test_load_test_case_structure(self, test_cases: list[MatlabTestCase]):
         """Test that loaded test cases have valid structure."""
