@@ -540,6 +540,7 @@ def preprocess_data(
     angle_accuracy: float = 0.1,
     max_iter: int = 25,
     extra_sub_samp: int = 1,
+    shape_noise_removal: bool = True,
 ) -> tuple[
     NDArray[np.floating],
     NDArray[np.floating],
@@ -551,7 +552,7 @@ def preprocess_data(
 
     Implements Steps 2 and 3 of PreprocessData.m:
 
-    **Step 2: Form and noise removal**
+    **Step 2: Form and noise removal** (optional, controlled by shape_noise_removal)
         - Highpass filter to remove large-scale shape (curvature, tilt)
         - Lowpass filter to remove high-frequency noise
 
@@ -570,6 +571,7 @@ def preprocess_data(
     :param angle_accuracy: Target angle accuracy in degrees (default 0.1).
     :param max_iter: Maximum iterations for fine alignment.
     :param extra_sub_samp: Additional subsampling factor for gradient detection.
+    :param shape_noise_removal: If True, apply shape and noise removal filters.
 
     :returns: Tuple of (aligned_data, profile, mask, total_angle).
     """
@@ -577,14 +579,19 @@ def preprocess_data(
     xdim = scan_image.scale_x
 
     # -------------------------------------------------------------------------
-    # Step 2: Form and noise removal
+    # Step 2: Form and noise removal (optional)
     # -------------------------------------------------------------------------
-    data_filtered, mask_filtered = apply_shape_noise_removal(
-        scan_image=scan_image,
-        highpass_cutoff=cutoff_hi,
-        mask=mask,
-        lowpass_cutoff=cutoff_lo,
-    )
+    if shape_noise_removal:
+        data_filtered, mask_filtered = apply_shape_noise_removal(
+            scan_image=scan_image,
+            highpass_cutoff=cutoff_hi,
+            mask=mask,
+            lowpass_cutoff=cutoff_lo,
+        )
+    else:
+        # Skip filtering - use original data
+        data_filtered = scan_image.data.copy()
+        mask_filtered = mask
 
     # -------------------------------------------------------------------------
     # Step 3: Fine rotation and profile extraction
