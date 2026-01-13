@@ -11,7 +11,6 @@ import numpy as np
 import pytest
 from scipy.io import loadmat
 
-# TODO: Update these imports to match your actual module structure
 from container_models.scan_image import ScanImage
 from conversion.data_formats import CropType, CropInfo
 
@@ -28,7 +27,6 @@ from tests.conversion.helper_function import (
 )
 
 
-# TODO: Import the main function once available
 from conversion.rotate import rotate_crop_image
 
 
@@ -48,8 +46,7 @@ class MatlabTestCase:
     crop_info_corners: np.ndarray | None
     crop_info_foreground: bool
     # Parameters
-    interpolate_data: bool
-    times_median: int
+    times_median: float
     # Output data
     output_depth_data: np.ndarray
     output_mask: np.ndarray
@@ -142,7 +139,7 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
     depth_data = input_data_mat["depth_data"]
     xdim = load_matlab_scalar(input_data_mat, "xdim", 3.5e-6)
     ydim = load_matlab_scalar(input_data_mat, "ydim", 3.5e-6)
-    mask = input_mask_mat["mask"]
+    mask = input_mask_mat["mask"].astype(bool)
 
     # Extract rotation angle
     rotation_angle_input = load_matlab_scalar(input_rotation_mat, "rotation_angle", 0.0)
@@ -151,7 +148,6 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
     crop_type, corners, is_foreground = load_crop_info(case_dir)
 
     # Extract parameters
-    interpolate_data = bool(load_matlab_scalar(input_param_mat, "interpolate_data", 0))
     times_median = load_matlab_scalar(input_param_mat, "times_median", 15.0)
 
     # Extract metadata
@@ -159,7 +155,7 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
 
     # Extract output data
     output_depth_data = output_data_mat["depth_data"]
-    output_mask = output_mask_mat["mask_out"]
+    output_mask = output_mask_mat["mask_out"].astype(bool)
 
     return MatlabTestCase(
         name=case_dir.name,
@@ -171,7 +167,6 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
         crop_type=crop_type,
         crop_info_corners=corners,
         crop_info_foreground=is_foreground,
-        interpolate_data=interpolate_data,
         times_median=float(times_median),
         output_depth_data=output_depth_data,
         output_mask=output_mask,
@@ -245,7 +240,6 @@ def run_python_preprocessing(
         print(f"Rotation angle input: {test_case.rotation_angle_input}")
         print(f"Crop type: {test_case.crop_type}")
         print(f"Has holes: {test_case.has_holes}")
-        print(f"Interpolate data: {test_case.interpolate_data}")
         print(f"MATLAB output shape: {test_case.output_depth_data.shape}")
 
     data_out, mask_out = rotate_crop_image(
@@ -253,7 +247,6 @@ def run_python_preprocessing(
         mask=mask,
         rotation_angle=test_case.rotation_angle_input,
         crop_info=crop_info,
-        interpolate_data=test_case.interpolate_data,
         times_median=test_case.times_median,
     )
     return data_out.data, mask_out
@@ -559,4 +552,3 @@ class TestMatlabTestCaseLoading:
             print(f"  Rotation angle input: {case.rotation_angle_input}")
             print(f"  Crop type: {case.crop_type}")
             print(f"  Has holes: {case.has_holes}")
-            print(f"  Interpolate data: {case.interpolate_data}")

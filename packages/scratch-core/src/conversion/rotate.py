@@ -93,15 +93,14 @@ def dilate_and_crop_image_and_mask(
 ) -> tuple[ScanImage, MaskArray]:
     if rotation_angle != 0.0:
         dilate_steps = 3
-        mask = (mask > 0.5).astype(float)
-        mask = binary_dilation(mask, iterations=dilate_steps).astype(float)
+        mask = binary_dilation(mask, iterations=dilate_steps)
 
     scan_image_cropped = ScanImage(
         data=crop_to_mask(scan_image.data, mask),
         scale_x=scan_image.scale_x,
         scale_y=scan_image.scale_y,
     )
-    mask_cropped = crop_to_mask(mask, mask)
+    mask_cropped = crop_to_mask(mask, mask).astype(bool)
 
     return scan_image_cropped, mask_cropped
 
@@ -127,7 +126,7 @@ def rotate_crop_image(
     mask: MaskArray,
     rotation_angle: float = 0.0,
     crop_info: list[CropInfo] | None = None,
-    times_median: int = 15,
+    times_median: float = 15,
 ) -> tuple[ScanImage, MaskArray]:
     # TODO: maskarray is zeros and ones, not boolean. gives errors
     rotation_angle = get_rotation_angle(scan_image, rotation_angle, crop_info)
@@ -135,6 +134,10 @@ def rotate_crop_image(
         scan_image, mask, rotation_angle
     )
     scan_image_cleaned = remove_needles(scan_image_dilated, mask_dilated, times_median)
-    scan_image_masked = mask_2d_array(scan_image_cleaned.data, mask_dilated)
+    scan_image_masked = ScanImage(
+        data=mask_2d_array(scan_image_cleaned.data, mask_dilated),
+        scale_x=scan_image_cleaned.scale_x,
+        scale_y=scan_image_cleaned.scale_y,
+    )
     scan_image_rotated = rotate_scan_image(scan_image_masked, rotation_angle)
     return scan_image_rotated, mask_dilated

@@ -4,11 +4,12 @@ from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.mask import mask_2d_array
 from conversion.resample import resample_scan_image_and_mask
+from conversion.utils import unwrap_result
 from parsers import subsample_scan_image
 
 
 def remove_needles(
-    scan_image: ScanImage, mask: MaskArray, times_median: int = 15
+    scan_image: ScanImage, mask: MaskArray, times_median: float = 15.0
 ) -> ScanImage:
     """
     Remove needle artifacts (outliers) from depth measurement data using median filtering.
@@ -32,7 +33,7 @@ def remove_needles(
     times_median = times_median * 6
 
     # Check if this is a small strip of data
-    is_small_strip = scan_image.width <= 20
+    is_small_strip = scan_image.width <= 20 or scan_image.height <= 20
 
     if not is_small_strip:
         # Calculate subsampling factor for computational efficiency
@@ -50,8 +51,10 @@ def remove_needles(
 
         # Subsample if needed
         if subsample_factor > 1:
-            scan_image_subsampled = subsample_scan_image(
-                scan_image_masked, subsample_factor, subsample_factor
+            scan_image_subsampled = unwrap_result(
+                subsample_scan_image(
+                    scan_image_masked, subsample_factor, subsample_factor
+                )
             )
             # Apply median filter (using nanmedian equivalent)
             scan_image_subsampled_filtered = apply_median_filter(
@@ -59,7 +62,7 @@ def remove_needles(
             )
             # Upsample back to original resolution
             upsample_factors = (1 / subsample_factor, 1 / subsample_factor)
-            scan_image_filtered = resample_scan_image_and_mask(
+            scan_image_filtered, _ = resample_scan_image_and_mask(
                 scan_image_subsampled_filtered,
                 factors=upsample_factors,
                 only_downsample=False,
@@ -86,7 +89,7 @@ def remove_needles(
         scan_image_filtered = apply_median_filter(scan_image, filter_size_adjusted)
 
         # Handle transposition for single-row data
-        if scan_image_filtered.data.shape[0] == 1:
+        if scan_image_filtered.width == 1:
             residual_image = scan_image.data - scan_image_filtered.data.T
         else:
             residual_image = scan_image.data - scan_image_filtered.data
@@ -96,10 +99,14 @@ def remove_needles(
     indices_invalid = np.abs(residual_image) > threshold
 
     # Remove outliers by setting them to NaN
-    scan_image_filtered = scan_image.data.copy()
-    scan_image_filtered[indices_invalid] = np.nan
+    scan_image_without_outliers = scan_image.data.copy()
+    scan_image_without_outliers[indices_invalid] = np.nan
 
-    return scan_image_filtered
+    return ScanImage(
+        data=scan_image_without_outliers,
+        scale_x=scan_image.scale_x,
+        scale_y=scan_image.scale_y,
+    )
 
 
 def apply_median_filter(scan_image: ScanImage, filter_size: int) -> ScanImage:
