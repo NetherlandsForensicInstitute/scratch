@@ -214,7 +214,7 @@ def matlab_crop_info_to_python(test_case: MatlabTestCase) -> list[CropInfo] | No
 
 def run_python_preprocessing(
     test_case: MatlabTestCase,
-    debug: bool = False,
+    debug: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Run Python rotate_crop_image on input data.
@@ -255,7 +255,6 @@ def run_python_preprocessing(
 
     # Step 1: Calculate rotation angle (if not provided)
     rotation_angle = get_rotation_angle(
-        scan_image=scan_image,
         rotation_angle=test_case.rotation_angle_input,
         crop_info=crop_info,
     )
@@ -482,16 +481,9 @@ class TestRotateCropImageMatlabComparison:
         if test_case.rotation_angle_input != 0:
             pytest.skip("Rotation angle was pre-specified")
 
-        scan_image = ScanImage(
-            data=test_case.input_depth_data,
-            scale_x=test_case.input_xdim,
-            scale_y=test_case.input_ydim,
-        )
-
         crop_info = matlab_crop_info_to_python(test_case)
 
         calculated_angle = get_rotation_angle(
-            scan_image=scan_image,
             rotation_angle=0.0,
             crop_info=crop_info,
         )
@@ -502,10 +494,10 @@ class TestRotateCropImageMatlabComparison:
             # Test name format: XX_rotation_YYdeg
             import re
 
-            match = re.search(r"rotation_?(neg)?(\d+)deg", test_case.name.lower())
+            match = re.findall(r"rotation_?(neg)?(\d+)deg", test_case.name.lower())
             if match:
-                expected = int(match.group(2))
-                if match.group(1):  # neg prefix
+                expected = float(match[0][1])
+                if match[0][0]:  # neg prefix
                     expected = -expected
 
                 assert abs(calculated_angle - expected) < 1.0, (

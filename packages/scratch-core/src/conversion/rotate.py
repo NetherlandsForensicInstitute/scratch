@@ -9,7 +9,6 @@ from conversion.mask import crop_to_mask, mask_2d_array
 
 
 def get_rotation_angle(
-    scan_image: ScanImage,
     rotation_angle: float = 0.0,
     crop_info: list[CropInfo] = None,
 ) -> float:
@@ -20,43 +19,18 @@ def get_rotation_angle(
     ):
         points = crop_info[0].data["corner"]
 
-        # Make sure the points are ordered counter clockwise in the Java reference,
-        # thus first coordinate right, second up
-        mean_xy = np.mean(points, axis=0)  # coordinates center of rectangle
-        a = np.degrees(
-            np.arctan2(points[:, 1] - mean_xy[1], points[:, 0] - mean_xy[0])
-        )  # angular position corners wrt center
-        order = np.argsort(a)
-        points_ordered = points[order, :]
+        # Sort points counter-clockwise by angle from center
+        mean_xy = np.mean(points, axis=0)
+        angles = np.arctan2(points[:, 1] - mean_xy[1], points[:, 0] - mean_xy[0])
+        points_ordered = points[np.argsort(angles)]
 
-        index = None
-        for count in range(4):
-            if np.array_equal(points_ordered[count, :], points[0, :]):
-                index = count
-                break
-
-        if index > 0:
-            points = np.vstack([points_ordered[index:, :], points_ordered[:index, :]])
-        else:
-            points = points_ordered
-
-        # Convert Java coordinates to Matlab coordinates by y-flipping and adding 1
-        # NOTE: First dimension is the IMAGE X-AXIS
-        points[:, 1] = (scan_image.width - 1) - points[:, 1]
-        points = points + 1
-
-        P1 = points[0, :]
-        P2 = points[1, :]
-        P3 = points[2, :]
-        P4 = points[3, :]
+        index = np.where(np.all(points_ordered == points[0, :], axis=1))[0][0]
+        points_ordered = np.roll(points_ordered, shift=-index, axis=0)
 
         # Determine the rotation angle
+        P1, P2, P3, P4 = points_ordered
         dx = np.array([P2[1] - P1[1], P3[1] - P2[1], P3[1] - P4[1], P4[1] - P1[1]])
         dy = np.array([P2[0] - P1[0], P3[0] - P2[0], P3[0] - P4[0], P4[0] - P1[0]])
-
-        # The angle is a rotation counter clockwise of rotation_angle degrees in
-        # the Java reference frame. This corresponds to a rotation clockwise when
-        # flipped in the y-dimension.
         rotation_angles = np.degrees(np.arctan2(dx, dy))
 
         # A rectangle that was not rotated should have resulted in [0, -90, 0, -90]
@@ -141,3 +115,17 @@ def rotate_crop_image(
     )
     scan_image_rotated = rotate_scan_image(scan_image_masked, rotation_angle)
     return scan_image_rotated, mask_dilated
+
+
+def plot_rectangle(corners: list[tuple[float, float]]) -> None:
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Close the rectangle by adding the first point at the end
+    corners_closed = np.vstack([corners, corners[0]])
+
+    plt.plot(corners_closed[:, 0], corners_closed[:, 1], "r-", linewidth=2)
+    plt.plot(corners[:, 0], corners[:, 1], "bo", markersize=8)  # Show corner points
+    plt.axis("equal")
+    plt.grid(True)
+    plt.show()
