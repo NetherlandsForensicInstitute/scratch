@@ -14,6 +14,9 @@ https://github.com/fredericjs/surfalize/blob/d47b9b68636aae76e77329ac58ee0390765
 """
 
 
+DTYPE = np.float32
+
+
 def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
     magic = filehandle.read(17)
     if magic != MAGIC:
@@ -45,7 +48,7 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
     # === Our Patch Start ===
     # Compute the stride depending on whether `nx` is odd or even
     stride = nx + (nx % 2)
-    data = read_array(filehandle, dtype=np.float32, count=ny * stride, offset=0)
+    data = read_array(filehandle, dtype=DTYPE, count=ny * stride, offset=0)
     # Compute the image width from the parsed buffer shape
     image_width = data.shape[0] // ny
     data = data.reshape(ny, image_width)
@@ -54,11 +57,12 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
         data = data[:, :nx]
     # === Our Patch End ===
 
-    invalidValue = float(header["InvalidPixelValue"])
+    # invalidValue = float(header["InvalidPixelValue"])
     # data[data == invalidValue] = np.nan   # This comparison may fail for certain cases
 
     # === Our Patch Start ===
-    data[np.isclose(data, invalidValue)] = np.nan
+    sentinel = DTYPE(header["InvalidPixelValue"])
+    data[np.isclose(data, sentinel, rtol=0.0, atol=1e-6)] = np.nan
     # === Our Patch End ===
 
     data *= 1e6  # Conversion from m to um
