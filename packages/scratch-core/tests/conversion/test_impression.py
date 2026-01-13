@@ -17,7 +17,7 @@ from conversion.preprocess_impression.tilt import (
     _adjust_for_plane_tilt,
 )
 from conversion.preprocess_impression.center import (
-    _get_mask_edge_points,
+    _get_mask_inner_edge_points,
     _points_are_collinear,
     _fit_circle_ransac,
     _get_bounding_box_center,
@@ -83,20 +83,20 @@ def make_mark(
 class TestGetMaskEdgePoints:
     def test_returns_empty_array_for_empty_mask(self):
         mask = np.zeros((5, 5), dtype=bool)
-        result = _get_mask_edge_points(mask)
+        result = _get_mask_inner_edge_points(mask)
         assert result.shape == (0, 2)
 
     def test_returns_empty_array_for_single_pixel(self):
         mask = np.zeros((5, 5), dtype=bool)
         mask[2, 2] = True
-        result = _get_mask_edge_points(mask)
+        result = _get_mask_inner_edge_points(mask)
         # Single pixel erodes to nothing, so edge is the pixel itself
         assert_array_equal(result, [[2, 2]])
 
     def test_returns_edge_pixels_for_filled_rectangle(self):
         mask = np.zeros((5, 5), dtype=bool)
         mask[1:4, 1:4] = True
-        result = _get_mask_edge_points(mask)
+        result = _get_mask_inner_edge_points(mask)
         # 3x3 block: center erodes away, leaving 8 edge pixels
         assert len(result) == 8
         assert [2, 2] not in result.tolist()
@@ -104,12 +104,12 @@ class TestGetMaskEdgePoints:
     def test_returns_coordinates_as_col_row(self):
         mask = np.zeros((10, 20), dtype=bool)
         mask[2, 15] = True  # row=2, col=15
-        result = _get_mask_edge_points(mask)
+        result = _get_mask_inner_edge_points(mask)
         assert_array_equal(result, [[15, 2]])
 
     def test_returns_only_border_pixels_for_filled_mask(self):
         mask = np.ones((5, 5), dtype=bool)
-        result = _get_mask_edge_points(mask)
+        result = _get_mask_inner_edge_points(mask)
         assert len(result) == 16
         # Interior pixels should not be present
         interior = {
@@ -200,10 +200,6 @@ class TestFitCircleRansac:
 
 
 class TestGetBoundingBoxCenter:
-    def test_returns_mask_center_for_empty_mask(self):
-        mask = np.zeros((10, 20), dtype=bool)
-        assert _get_bounding_box_center(mask) == (10, 5)
-
     def test_returns_pixel_center_for_single_pixel(self):
         mask = np.zeros((10, 10), dtype=bool)
         mask[3, 7] = True  # row=3, col=7
@@ -235,10 +231,6 @@ class TestComputeMapCenter:
         data = np.full((10, 10), np.nan)
         data[5, :] = 1.0
         assert _compute_map_center(data, use_circle_fit=True) == (5, 5.5)
-
-    def test_returns_array_center_for_all_nan(self):
-        data = np.full((10, 20), np.nan)
-        assert _compute_map_center(data) == (10, 5)
 
 
 class TestEstimatePlaneTilt:
@@ -388,15 +380,15 @@ class TestApplyAntiAliasing:
     def test_returns_original_when_below_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        result, cutoffs = _apply_anti_aliasing(scan_image, target_spacing=(1.4, 1.4))
+        result, cutoff = _apply_anti_aliasing(scan_image, target_scale=1.4)
         assert result is scan_image
-        assert cutoffs == (None, None)
+        assert cutoff is None
 
     def test_applies_filter_when_above_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        _, cutoffs = _apply_anti_aliasing(scan_image, target_spacing=(2.0, 2.0))
-        assert cutoffs == (2.0, 2.0)
+        _, cutoff = _apply_anti_aliasing(scan_image, target_scale=2.0)
+        assert cutoff == 2.0
 
 
 class TestComputeCenterLocal:
@@ -444,7 +436,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),
+            pixel_size=2e-6,
             adjust_pixel_spacing=False,
             level_offset=True,
             level_tilt=True,
@@ -466,7 +458,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=1e-6,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        target_size = (2e-6, 2e-6)
+        target_size = 2e-6
         params = PreprocessingImpressionParams(
             pixel_size=target_size,
             adjust_pixel_spacing=False,
@@ -474,10 +466,10 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, leveled = preprocess_impression_mark(mark, params)
 
-        assert filtered.scan_image.scale_x == target_size[0]
-        assert filtered.scan_image.scale_y == target_size[1]
-        assert leveled.scan_image.scale_x == target_size[0]
-        assert leveled.scan_image.scale_y == target_size[1]
+        assert filtered.scan_image.scale_x == target_size
+        assert filtered.scan_image.scale_y == target_size
+        assert leveled.scan_image.scale_x == target_size
+        assert leveled.scan_image.scale_y == target_size
 
     @pytest.mark.integration
     def test_output_is_smaller_after_downsampling(self):
@@ -490,7 +482,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),  # 2x downsampling
+            pixel_size=2e-6,  # 2x downsampling
             adjust_pixel_spacing=False,
         )
 
@@ -513,7 +505,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),
+            pixel_size=2e-6,
             adjust_pixel_spacing=False,
         )
 
@@ -564,7 +556,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(1e-6, 1e-6),  # No resampling
+            pixel_size=1e-6,  # No resampling
             adjust_pixel_spacing=False,
         )
 
@@ -587,7 +579,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(1e-6, 1e-6),  # Same as input
+            pixel_size=1e-6,  # Same as input
             adjust_pixel_spacing=False,
         )
 
@@ -606,7 +598,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),  # Different from input
+            pixel_size=2e-6,  # Different from input
             adjust_pixel_spacing=False,
         )
 
@@ -625,7 +617,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),
+            pixel_size=2e-6,
             adjust_pixel_spacing=False,
             lowpass_cutoff=None,
         )
@@ -646,7 +638,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),
+            pixel_size=2e-6,
             adjust_pixel_spacing=False,
             highpass_cutoff=None,
         )
@@ -667,7 +659,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),
+            pixel_size=2e-6,
             adjust_pixel_spacing=False,
             lowpass_cutoff=None,
             highpass_cutoff=None,
@@ -689,7 +681,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),
+            pixel_size=2e-6,
             adjust_pixel_spacing=True,
         )
 
@@ -709,7 +701,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),
+            pixel_size=2e-6,
             adjust_pixel_spacing=False,
             level_offset=True,
             level_tilt=True,
@@ -732,7 +724,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(2e-6, 2e-6),
+            pixel_size=2e-6,
             adjust_pixel_spacing=False,
         )
 
@@ -769,7 +761,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=(1e-6, 1e-6),
+            pixel_size=1e-6,
             adjust_pixel_spacing=False,
             level_offset=True,
             level_tilt=True,
@@ -901,7 +893,7 @@ class TestBuildPreprocessingMetadata:
     def test_includes_params_fields(self):
         """Should include all preprocessing params fields."""
         params = PreprocessingImpressionParams(
-            pixel_size=(1e-6, 1e-6),
+            pixel_size=1e-6,
             adjust_pixel_spacing=True,
             lowpass_cutoff=10e-6,
             highpass_cutoff=50e-6,
@@ -910,14 +902,14 @@ class TestBuildPreprocessingMetadata:
 
         result = _build_preprocessing_metadata(params, center_local, interpolated=True)
 
-        assert result["pixel_size"] == (1e-6, 1e-6)
+        assert result["pixel_size"] == 1e-6
         assert result["adjust_pixel_spacing"] is True
         assert result["lowpass_cutoff"] == 10e-6
         assert result["highpass_cutoff"] == 50e-6
 
     def test_includes_center_coordinates(self):
         """Should include local center coordinates."""
-        params = PreprocessingImpressionParams(pixel_size=(1e-6, 1e-6))
+        params = PreprocessingImpressionParams(pixel_size=1e-6)
         center_local = (5e-6, 10e-6)
 
         result = _build_preprocessing_metadata(params, center_local, interpolated=False)
@@ -927,7 +919,7 @@ class TestBuildPreprocessingMetadata:
 
     def test_includes_global_center_as_zero(self):
         """Should include global center as zero."""
-        params = PreprocessingImpressionParams(pixel_size=(1e-6, 1e-6))
+        params = PreprocessingImpressionParams(pixel_size=1e-6)
 
         result = _build_preprocessing_metadata(params, (0, 0), interpolated=False)
 
@@ -936,7 +928,7 @@ class TestBuildPreprocessingMetadata:
 
     def test_includes_processing_flags(self):
         """Should include processing flags."""
-        params = PreprocessingImpressionParams(pixel_size=(1e-6, 1e-6))
+        params = PreprocessingImpressionParams(pixel_size=1e-6)
 
         result = _build_preprocessing_metadata(params, (0, 0), interpolated=True)
 
@@ -946,7 +938,7 @@ class TestBuildPreprocessingMetadata:
 
     def test_interpolated_flag_false(self):
         """Should set interpolated flag to False when specified."""
-        params = PreprocessingImpressionParams(pixel_size=(1e-6, 1e-6))
+        params = PreprocessingImpressionParams(pixel_size=1e-6)
 
         result = _build_preprocessing_metadata(params, (0, 0), interpolated=False)
 

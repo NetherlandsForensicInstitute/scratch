@@ -5,15 +5,16 @@ from skimage.measure import ransac, CircleModel
 
 from container_models.base import MaskArray, ScanMap2DArray
 from conversion.data_formats import Mark, MarkType
+from conversion.mask import _determine_bounding_box
 from conversion.preprocess_impression.utils import Point2D
 
 
-def _get_mask_edge_points(mask: MaskArray) -> NDArray[np.floating]:
+def _get_mask_inner_edge_points(mask: MaskArray) -> NDArray[np.floating]:
     """
     Extract inner edge points of a binary mask.
 
     :param mask: Binary mask array.
-    :return: Array of (col, row) edge points in pixel coordinates.
+    :return: Array of (x, y) edge points in pixel coordinates.
     """
     eroded = binary_erosion(mask).astype(bool)
     edge = mask & ~eroded
@@ -25,15 +26,16 @@ def _points_are_collinear(points: NDArray[np.floating], tol: float = 1e-9) -> bo
     """
     Check if points are approximately collinear using SVD.
 
-    :param points: Array of 2D points.
+    :param points: Array of 2D points. Shape: (n_points, 2)
     :param tol: Tolerance for collinearity check.
     :return: True if points are collinear.
     """
     if len(points) < 3:
         return True
     centered = points - points.mean(axis=0)
-    _, singular_values, _ = np.linalg.svd(centered, full_matrices=False)
-    return singular_values[-1] < tol * singular_values[0]
+    cov = centered.T @ centered
+    eigenvalues = np.linalg.eigvalsh(cov)
+    return eigenvalues[0] < tol * eigenvalues[-1]
 
 
 def _fit_circle_ransac(
@@ -74,19 +76,17 @@ def _fit_circle_ransac(
     return None
 
 
-def _get_bounding_box_center(mask: NDArray[np.bool_]) -> Point2D:
+def _get_bounding_box_center(mask: MaskArray) -> Point2D:
     """
     Compute center of bounding box for True values in mask.
 
     :param mask: Boolean mask array.
     :return: Center (x, y) in pixel coordinates.
     """
-    rows, cols = np.where(mask)
-    if len(rows) == 0:
-        return mask.shape[1] / 2, mask.shape[0] / 2
+    x_slice, y_slice = _determine_bounding_box(mask)
     return (
-        (cols.min() + cols.max() + 1) / 2,
-        (rows.min() + rows.max() + 1) / 2,
+        (x_slice.start + x_slice.stop) / 2,
+        (y_slice.start + y_slice.stop) / 2,
     )
 
 
@@ -99,12 +99,12 @@ def _compute_map_center(
 
     :param data: Height map array.
     :param use_circle_fit: If True, attempt RANSAC circle fitting first.
-    :return: Center position (col, row) in pixel coordinates.
+    :return: Center position (x, y) in pixel coordinates.
     """
     valid_mask = ~np.isnan(data)
 
     if use_circle_fit:
-        edge_points = _get_mask_edge_points(valid_mask)
+        edge_points = _get_mask_inner_edge_points(valid_mask)
         if (center := _fit_circle_ransac(edge_points)) is not None:
             return center
 
@@ -113,14 +113,18 @@ def _compute_map_center(
 
 def compute_center_local(mark: Mark) -> Point2D:
     """
-    Compute local center coordinates from mark data.
+    Compute center of mark data in local (image) coordinates.
 
-    :param mark: Input mark image.
-    :return: Center (x, y) in meters.
+    For breech face impressions, uses RANSAC circle fitting on the data
+    boundary (these marks are typically circular). For other mark types, uses the center of the bounding box
+    of valid (non-NaN) data.
+
+    :param mark: Input mark containing scan image and mark type.
+    :return: Center (x, y) in meters, relative to image origin (top-left).
     """
     use_circle = mark.mark_type == MarkType.BREECH_FACE_IMPRESSION
-    center_px = _compute_map_center(mark.scan_image.data, use_circle_fit=use_circle)
+    cx, cy = _compute_map_center(mark.scan_image.data, use_circle_fit=use_circle)
     return (
-        center_px[0] * mark.scan_image.scale_x,
-        center_px[1] * mark.scan_image.scale_y,
+        cx * mark.scan_image.scale_x,
+        cy * mark.scan_image.scale_y,
     )

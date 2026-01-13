@@ -8,7 +8,7 @@ from conversion.get_cropped_image import get_cropped_image
 from conversion.leveling import SurfaceTerms
 from pathlib import Path
 
-from .helper_function import _compute_correlation
+from .helper_functions import _compute_correlation
 
 
 @pytest.mark.integration

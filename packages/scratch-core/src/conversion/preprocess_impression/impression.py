@@ -6,16 +6,17 @@ This module provides functions to preprocess 2D scan images of impression marks
 
 from dataclasses import asdict
 
+from container_models.base import ScanMap2DArray
 from container_models.scan_image import ScanImage
-from conversion.preprocess_impression.crop import crop_nan_borders
 from conversion.data_formats import Mark
 from conversion.leveling import SurfaceTerms, level_map
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.center import compute_center_local
+from conversion.preprocess_impression.crop import crop_nan_borders
 from conversion.preprocess_impression.filter import (
     apply_gaussian_filter_to_mark,
     apply_filtering_pipeline,
 )
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.resample import (
     resample,
     apply_resampling_pipeline,
@@ -28,30 +29,30 @@ def _level_mark(
     mark: Mark,
     terms: SurfaceTerms,
     reference_point: Point2D | None = None,
-) -> Mark:
+) -> tuple[Mark, ScanMap2DArray]:
     result = level_map(mark.scan_image, terms=terms, reference_point=reference_point)
     leveled_mark = update_mark_data(mark, result.leveled_map)
-    return leveled_mark
+    return leveled_mark, result.fitted_surface
 
 
 def _build_output_mark(
     mark: Mark,
-    pixel_size: Point2D,
+    output_scale: tuple[float, float],
     *,
     is_filtered: bool,
 ) -> Mark:
     """
-    Construct output Mark with proper scale and metadata.
+    Construct output Mark with proper scale and  metadata.
 
     :param mark: Source mark.
-    :param pixel_size: Output pixel size (x, y).
+    :param output_scale: Output scale(x, y).
     :param is_filtered: Whether filtering was applied.
     :return: New Mark with updated scale and metadata.
     """
     scan_image = ScanImage(
         data=mark.scan_image.data,
-        scale_x=pixel_size[0],
-        scale_y=pixel_size[1],
+        scale_x=output_scale[0],
+        scale_y=output_scale[1],
     )
     return Mark(
         scan_image=scan_image,
@@ -99,7 +100,8 @@ def _prepare_mark(mark: Mark) -> tuple[Mark, Point2D]:
 
 
 def _finalize_leveled_output(
-    mark_after_tilt: Mark,
+    mark: Mark,
+    fitted_surface: ScanMap2DArray,
     target_scale: float | None,
     surface_terms: SurfaceTerms,
     reference_point: Point2D,
@@ -107,19 +109,23 @@ def _finalize_leveled_output(
     """
     Prepare the leveled-only output.
 
-    :param mark_after_tilt: Mark after tilt correction, before SPHERE leveling.
+    :param mark: Mark after tilt correction, before SPHERE leveling.
     :param target_scale: Target pixel scale for resampling, or None to skip.
     :param surface_terms: Original surface terms (will be masked to PLANE).
     :param reference_point: Reference point for leveling.
     :return: Final leveled mark.
     """
-    # Apply PLANE-only leveling (preserves curvature)
-    rigid_terms = surface_terms & SurfaceTerms.PLANE
-    leveled_mark = _level_mark(mark_after_tilt, rigid_terms, reference_point)
+    # Add back fitted surface (restores curvature)
+    restored_data = mark.scan_image.data + fitted_surface
+    mark_restored = update_mark_data(mark, restored_data)
 
     # Resample if needed
     if target_scale is not None:
-        leveled_mark, _ = resample(leveled_mark, target_scale)
+        mark_restored, _ = resample(mark_restored, target_scale)
+
+    # Apply PLANE-only leveling (after resampling, like MATLAB)
+    rigid_terms = surface_terms & SurfaceTerms.PLANE
+    leveled_mark, _ = _level_mark(mark_restored, rigid_terms, reference_point)
 
     return leveled_mark
 
@@ -134,13 +140,13 @@ def preprocess_impression_mark(
     Processing pipeline:
 
     1. Compute image center and crop NaN borders
-    2. Adjust pixel spacing for sample tilt (optional)
-    3. Level data with configured surface terms
-    4. Apply anti-aliasing filter (if downsampling)
-    5. Apply low-pass filter (if stronger than anti-aliasing)
+    2. Remove tilt from image (optional)
+    3. Level data with configured surface terms (either with mean, mean+tilt or mean+tilt+quadratic curve)
+    4. Apply antialiasing filter (if downsampling)
+    5. Apply low-pass filter (if stronger than antialiasing) to avoid resolution artifacts when downsampling
     6. Resample to target resolution
     7. Apply high-pass filter
-    8. Final leveling pass
+    8. Final leveling pass (same as 3.)
 
     :param mark: Input mark with trimmed impression data.
     :param params: Processing parameters.
@@ -155,18 +161,24 @@ def preprocess_impression_mark(
     )
 
     # Stage 3: Initial leveling
-    mark_leveled = _level_mark(mark, params.surface_terms, center_local)
+    mark_leveled, fitted_surface = _level_mark(mark, params.surface_terms, center_local)
 
-    # Stage 4-5: Filtering (anti-aliasing + low-pass)
+    # Stage 4-5: Filtering (antialiasing + low-pass)
     mark_filtered, mark_anti_aliased, anti_alias_cutoff = apply_filtering_pipeline(
-        mark_leveled, params
+        mark_leveled,
+        pixel_size=params.pixel_size,
+        lowpass_cutoff=params.lowpass_cutoff,
+        lowpass_regression_order=params.lowpass_regression_order,
     )
 
     # Stage 6: Resampling
-    target_scale = params.pixel_size[0] if params.pixel_size else None
-    mark_filtered, mark_anti_aliased, interpolated = apply_resampling_pipeline(
-        mark_filtered, mark_anti_aliased, target_scale
-    )
+    interpolated = False
+    if params.pixel_size is not None:
+        mark_filtered, mark_anti_aliased, fitted_surface, interpolated = (
+            apply_resampling_pipeline(
+                mark_filtered, mark_anti_aliased, fitted_surface, params.pixel_size
+            )
+        )
 
     # Stage 7: High-pass filter
     if params.highpass_cutoff is not None:
@@ -178,11 +190,15 @@ def preprocess_impression_mark(
         )
 
     # Stage 8: Final leveling
-    mark_filtered = _level_mark(mark_filtered, params.surface_terms)
+    mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms, center_local)
 
     # Prepare leveled-only output
     mark_leveled_final = _finalize_leveled_output(
-        mark, target_scale, params.surface_terms, center_local
+        mark_anti_aliased,
+        fitted_surface,
+        params.pixel_size,
+        params.surface_terms,
+        center_local,
     )
 
     # Build output metadata
@@ -190,9 +206,13 @@ def preprocess_impression_mark(
         _build_preprocessing_metadata(params, center_local, interpolated)
     )
 
-    output_pixel_size = params.pixel_size or (
-        mark.scan_image.scale_x,
-        mark.scan_image.scale_y,
+    output_pixel_size = (
+        (params.pixel_size, params.pixel_size)
+        if params.pixel_size
+        else (
+            mark.scan_image.scale_x,
+            mark.scan_image.scale_y,
+        )
     )
     return (
         _build_output_mark(mark_filtered, output_pixel_size, is_filtered=True),

@@ -19,7 +19,7 @@ class PreprocessingImpressionParams:
     :param lowpass_regression_order: Order of the local polynomial fit (0, 1, or 2) in low pass filters.
     """
 
-    pixel_size: tuple[float, float] | None = None
+    pixel_size: float | None = None
     adjust_pixel_spacing: bool = True
     level_offset: bool = True
     level_tilt: bool = True
