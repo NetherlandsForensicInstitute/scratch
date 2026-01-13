@@ -299,6 +299,7 @@ class TestPreprocessDataMatlabComparison:
         python_depth, matlab_depth = _crop_to_common_shape(
             python_depth, test_case.output_depth_data, center_crop=test_case.has_mask
         )
+
         stats = _compute_difference_stats(python_depth, matlab_depth)
         signal_std = np.nanstd(test_case.output_depth_data)
         relative_std = stats["std"] / signal_std if signal_std > 0 else np.inf
@@ -372,9 +373,10 @@ class TestPreprocessDataMatlabComparison:
             python_profile.reshape(-1, 1), matlab_profile.reshape(-1, 1)
         )
 
-        assert correlation > self.PROFILE_CORRELATION_THRESHOLD, (
+        corr_threshold, _ = self._get_thresholds(test_case)
+        assert correlation > corr_threshold, (
             f"Test case {test_case.name}: "
-            f"Profile correlation {correlation:.6f} below threshold {self.PROFILE_CORRELATION_THRESHOLD}"
+            f"Profile correlation {correlation:.6f} below threshold {corr_threshold}"
         )
 
     def test_rotation_angle(self, test_case: MatlabTestCase):

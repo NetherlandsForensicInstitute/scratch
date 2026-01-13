@@ -13,7 +13,7 @@ from conversion.mask import _determine_bounding_box
 def _apply_nan_weighted_gaussian_1d(
     data: NDArray[np.floating],
     sigma: float,
-    radius: int,
+    truncate: float = 4.0,
 ) -> NDArray[np.floating]:
     """
     Apply 1D Gaussian filter along rows with NaN-aware weighting.
@@ -23,7 +23,7 @@ def _apply_nan_weighted_gaussian_1d(
 
     :param data: Input 2D data array (may contain NaN values).
     :param sigma: Standard deviation of Gaussian kernel (in pixels).
-    :param radius: Kernel radius in pixels.
+    :param truncate: Truncate filter at this many standard deviations (default 4.0).
     :returns: Filtered data array. NaN positions will have interpolated values
         based on neighboring valid data.
     """
@@ -31,9 +31,8 @@ def _apply_nan_weighted_gaussian_1d(
     gaussian_filter = partial(
         ndimage.gaussian_filter,
         sigma=(sigma, 0),  # Filter only along first axis (rows)
-        mode="constant",
-        cval=0,
-        radius=(radius, 0),
+        mode="reflect",  # Match MATLAB's symmetric boundary conditions
+        truncate=truncate,
     )
 
     nan_mask = np.isnan(data)
@@ -149,12 +148,11 @@ def apply_gaussian_filter_1d(
 
     # Calculate Gaussian sigma from cutoff
     sigma = cheby_cutoff_to_gauss_sigma(cutoff, xdim)
-    radius = int(ceil(sigma)) + 1
 
     # Apply Gaussian lowpass filter, Use weighted filtering for masked data
     depth_with_nan = depth_data.copy()
     depth_with_nan[~mask] = np.nan
-    filtered = _apply_nan_weighted_gaussian_1d(depth_with_nan, sigma, radius)
+    filtered = _apply_nan_weighted_gaussian_1d(depth_with_nan, sigma)
 
     # Compute output based on filter type
     if is_high_pass:
