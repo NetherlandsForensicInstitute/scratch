@@ -3,7 +3,7 @@ Tests comparing Python get_cropped_image output with MATLAB GetPreviewImageForCr
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 import numpy as np
@@ -53,21 +53,26 @@ class MatlabTestCase:
     """Container for a single MATLAB test case."""
 
     name: str
-    # Input
     input_data: ScanMap2DArray
-    input_xdim: float
-    input_ydim: float
     input_mask: MaskArray
-    # Processing options
-    terms: SurfaceTerms
-    regression_order: int
-    cutoff_length: float
-    resampling_factor: float | None
-    # Expected output
     output_data: ScanMap2DArray
-    output_xdim: float
-    output_ydim: float
-    has_mask: bool
+
+    input_xdim: float = 3.5e-6
+    input_ydim: float = 3.5e-6
+    terms: SurfaceTerms = field(default_factory=lambda: to_surface_terms("Plane"))
+    regression_order: int = field(default_factory=lambda: to_regression_order("R0"))
+    cutoff_length: float = 250.0
+    resampling_factor: float | None = None
+    output_xdim: float | None = None
+    output_ydim: float | None = None
+    has_mask: bool = False
+
+    def __post_init__(self) -> None:
+        """Set output dimensions to input dimensions if not specified."""
+        if self.output_xdim is None:
+            self.output_xdim = self.input_xdim
+        if self.output_ydim is None:
+            self.output_ydim = self.input_ydim
 
     @classmethod
     def from_directory(cls, case_dir: Path) -> "MatlabTestCase":
@@ -78,31 +83,29 @@ class MatlabTestCase:
         return cls(
             name=case_dir.name,
             input_data=np.load(case_dir / "input_data.npy"),
-            input_xdim=float(meta.get("input_xdim", 3.5e-6)),
-            input_ydim=float(meta.get("input_ydim", 3.5e-6)),
             input_mask=np.load(case_dir / "input_mask.npy"),
-            terms=to_surface_terms(meta.get("level_method", "Plane")),
-            regression_order=to_regression_order(meta.get("filter_method", "R0")),
-            cutoff_length=float(meta.get("cutoff_hi", 250.0)),
-            resampling_factor=float(meta["sampling"])
-            if meta.get("sampling") is not None
-            else None,
             output_data=np.load(case_dir / "output_data.npy"),
-            output_xdim=float(
-                meta.get("output_xdim") or meta.get("input_xdim", 3.5e-6)
-            ),
-            output_ydim=float(
-                meta.get("output_ydim") or meta.get("input_ydim", 3.5e-6)
-            ),
-            has_mask=meta.get("has_mask", False),
+            **cls._parse_metadata(meta, {f.name for f in fields(cls) if f.init}),
         )
+
+    @staticmethod
+    def _parse_metadata(meta: dict, valid_keys: set) -> dict:
+        """Parse metadata JSON into dataclass field values."""
+        meta["terms"] = to_surface_terms(meta["level_method"])
+        meta["regression_order"] = to_regression_order(meta["filter_method"])
+        meta["cutoff_length"] = meta["cutoff_hi"]
+        meta["resampling_factor"] = meta["sampling"]
+        meta["output_xdim"] = meta["output_xdim"] or meta["input_xdim"]
+        meta["output_ydim"] = meta["output_ydim"] or meta["input_ydim"]
+        return {k: v for k, v in meta.items() if k in valid_keys}
 
     @property
     def involves_resampling(self) -> bool:
         """Check if test case involves resampling."""
         if self.resampling_factor is not None and self.resampling_factor != 1.0:
             return True
-            # Or check if output dims differ from input dims
+        if not self.output_xdim or not self.output_ydim:
+            return False
         return (
             abs(self.output_xdim - self.input_xdim) > 1e-12
             or abs(self.output_ydim - self.input_ydim) > 1e-12
@@ -194,17 +197,14 @@ class TestGetCroppedImageMatlabComparison:
 
     THRESHOLDS = {
         "default": (0.999, 0.01),
-        "resampled": (0.95, 0.25),
-        "masked": (0.95, 0.20),
-        "resampled_masked": (0.90, 0.30),
+        "resampled": (0.97, 0.18),
+        "resampled_masked": (0.98, 0.13),
     }
 
     def _get_thresholds(self, test_case: MatlabTestCase) -> tuple[float, float]:
         """Get thresholds based on test case characteristics."""
         if test_case.involves_resampling and test_case.has_mask:
             return self.THRESHOLDS["resampled_masked"]
-        if test_case.has_mask:
-            return self.THRESHOLDS["masked"]
         if test_case.involves_resampling:
             return self.THRESHOLDS["resampled"]
         return self.THRESHOLDS["default"]
@@ -244,8 +244,10 @@ class TestGetCroppedImageMatlabComparison:
 
         # Difference check
         stats = _compute_difference_stats(python_result, matlab_result)
-        signal_std = np.nanstd(test_case.output_data)
-        relative_std = stats["std"] / signal_std if signal_std > 0 else np.inf
+        python_result_std = np.nanstd(python_result)
+        matlab_result_std = np.nanstd(matlab_result)
+        combined_std = np.sqrt(python_result_std**2 + matlab_result_std**2)
+        relative_std = stats["std"] / combined_std if combined_std > 0 else np.inf
         assert relative_std < std_threshold, (
             f"{test_case.name}: relative_std {relative_std:.4f} > {std_threshold}"
         )
