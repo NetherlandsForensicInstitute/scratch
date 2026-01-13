@@ -12,6 +12,23 @@ def get_rotation_angle(
     rotation_angle: float = 0.0,
     crop_info: list[CropInfo] = None,
 ) -> float:
+    """
+    Calculate the rotation angle of a rectangular crop region.
+
+    Determines the rotation angle either from an explicitly provided angle or by
+    computing it from the corner points of a rectangular crop. When computing from
+    corners, the function orders the points counter-clockwise, analyzes the angles
+    of each side relative to the expected orientation of a non-rotated rectangle,
+    and returns the average rotation angle.
+
+    :param rotation_angle: Explicit rotation angle in degrees. If non-zero, this
+                          value is returned directly without computation.
+    :param crop_info: List of crop information objects. If provided and the first
+                     crop is of type RECTANGLE, the rotation angle is computed
+                     from the corner points in the crop data.
+    :return: The rotation angle in degrees, ranging from -180 to 180 (exclusive
+            of -180, which is normalized to 180).
+    """
     if (
         rotation_angle == 0.0
         and crop_info
@@ -37,25 +54,11 @@ def get_rotation_angle(
         # The angle over which each side of the rectangle is rotated is
         rotation_angles = rotation_angles - np.array([0, -90, 0, -90])
 
-        # We know that all 4 rotation angles should be almost similar, but due
-        # to the fact that atan2d jumps from -180 to 180 degrees, some strange results might have occurred.
-        # Therefore the following checks are performed...
-        while rotation_angles[1] - rotation_angles[0] > 180:
-            rotation_angles[1] = rotation_angles[1] - 360
-        while rotation_angles[1] - rotation_angles[0] < -180:
-            rotation_angles[1] = rotation_angles[1] + 360
-        while rotation_angles[2] - rotation_angles[0] > 180:
-            rotation_angles[2] = rotation_angles[2] - 360
-        while rotation_angles[2] - rotation_angles[0] < -180:
-            rotation_angles[2] = rotation_angles[2] + 360
-        while rotation_angles[3] - rotation_angles[0] > 180:
-            rotation_angles[3] = rotation_angles[3] - 360
-        while rotation_angles[3] - rotation_angles[0] < -180:
-            rotation_angles[3] = rotation_angles[3] + 360
-
-        # Calc the average rotation
+        # The 4 rotation angles should be almost similar, but due
+        # to the fact that arctan2 jumps from -180 to 180 degrees, some strange results may occur.
+        # Therefore, the following checks are performed
+        rotation_angles = np.unwrap(rotation_angles, period=360)
         rotation_angle = np.mean(rotation_angles)
-
         if rotation_angle == -180:
             rotation_angle = 180
 
@@ -102,7 +105,6 @@ def rotate_crop_image(
     crop_info: list[CropInfo] | None = None,
     times_median: float = 15,
 ) -> tuple[ScanImage, MaskArray]:
-    # TODO: maskarray is zeros and ones, not boolean. gives errors
     rotation_angle = get_rotation_angle(scan_image, rotation_angle, crop_info)
     scan_image_dilated, mask_dilated = dilate_and_crop_image_and_mask(
         scan_image, mask, rotation_angle
