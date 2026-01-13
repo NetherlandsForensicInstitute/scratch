@@ -20,7 +20,7 @@ from .helper_functions import (
 )
 
 LEVEL_METHOD_MAP = {
-    "none": SurfaceTerms(0),
+    "none": SurfaceTerms.NONE,
     "plane": SurfaceTerms.PLANE,
     "sphere": SurfaceTerms.SPHERE,
 }
@@ -54,7 +54,7 @@ class MatlabTestCase:
 
     name: str
     # Input
-    input_depth_data: ScanMap2DArray
+    input_data: ScanMap2DArray
     input_xdim: float
     input_ydim: float
     input_mask: MaskArray
@@ -62,9 +62,9 @@ class MatlabTestCase:
     terms: SurfaceTerms
     regression_order: int
     cutoff_length: float
-    sampling: float | None
+    resampling_factor: float | None
     # Expected output
-    output_depth_data: ScanMap2DArray
+    output_data: ScanMap2DArray
     output_xdim: float
     output_ydim: float
     has_mask: bool
@@ -77,17 +77,17 @@ class MatlabTestCase:
 
         return cls(
             name=case_dir.name,
-            input_depth_data=np.load(case_dir / "input_data.npy"),
+            input_data=np.load(case_dir / "input_data.npy"),
             input_xdim=float(meta.get("input_xdim", 3.5e-6)),
             input_ydim=float(meta.get("input_ydim", 3.5e-6)),
             input_mask=np.load(case_dir / "input_mask.npy"),
             terms=to_surface_terms(meta.get("level_method", "Plane")),
             regression_order=to_regression_order(meta.get("filter_method", "R0")),
             cutoff_length=float(meta.get("cutoff_hi", 250.0)),
-            sampling=float(meta["sampling"])
+            resampling_factor=float(meta["sampling"])
             if meta.get("sampling") is not None
             else None,
-            output_depth_data=np.load(case_dir / "output_data.npy"),
+            output_data=np.load(case_dir / "output_data.npy"),
             output_xdim=float(
                 meta.get("output_xdim") or meta.get("input_xdim", 3.5e-6)
             ),
@@ -100,9 +100,13 @@ class MatlabTestCase:
     @property
     def involves_resampling(self) -> bool:
         """Check if test case involves resampling."""
-        if self.sampling is not None:
+        if self.resampling_factor is not None and self.resampling_factor != 1.0:
             return True
-        return self.input_xdim / 4e-6 < 1
+            # Or check if output dims differ from input dims
+        return (
+            abs(self.output_xdim - self.input_xdim) > 1e-12
+            or abs(self.output_ydim - self.input_ydim) > 1e-12
+        )
 
     @property
     def is_empty_mask(self) -> bool:
@@ -164,13 +168,15 @@ def test_case(
 def run_python_preprocessing(test_case: MatlabTestCase) -> np.ndarray:
     """Run Python get_cropped_image and return the result."""
     scan_image = ScanImage(
-        data=test_case.input_depth_data,
+        data=test_case.input_data,
         scale_x=test_case.input_xdim,
         scale_y=test_case.input_ydim,
     )
 
     resampling_factors = (
-        (test_case.sampling, test_case.sampling) if test_case.sampling else None
+        (test_case.resampling_factor, test_case.resampling_factor)
+        if test_case.resampling_factor
+        else None
     )
     return get_cropped_image(
         scan_image=scan_image,
@@ -206,7 +212,7 @@ class TestGetCroppedImageMatlabComparison:
     def test_matlab_comparison(self, test_case: MatlabTestCase):
         """Test that Python output matches MATLAB reference."""
         python_result = run_python_preprocessing(test_case)
-        matlab_result = test_case.output_depth_data
+        matlab_result = test_case.output_data
 
         # Empty mask case
         if test_case.is_empty_mask:
@@ -238,7 +244,7 @@ class TestGetCroppedImageMatlabComparison:
 
         # Difference check
         stats = _compute_difference_stats(python_result, matlab_result)
-        signal_std = np.nanstd(test_case.output_depth_data)
+        signal_std = np.nanstd(test_case.output_data)
         relative_std = stats["std"] / signal_std if signal_std > 0 else np.inf
         assert relative_std < std_threshold, (
             f"{test_case.name}: relative_std {relative_std:.4f} > {std_threshold}"
