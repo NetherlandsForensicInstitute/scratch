@@ -13,7 +13,6 @@ The original method can be found here:
 https://github.com/fredericjs/surfalize/blob/d47b9b68636aae76e77329ac58ee0390765d7fb5/surfalize/file/al3d.py#L48
 """
 
-
 DTYPE = np.float32
 
 
