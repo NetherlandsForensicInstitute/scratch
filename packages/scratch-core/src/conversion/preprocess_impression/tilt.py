@@ -5,15 +5,30 @@ from numpy._typing import NDArray
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
-from conversion.preprocess_impression.utils import _update_mark_scan_image, Point2D
+from conversion.preprocess_impression.utils import update_mark_scan_image, Point2D
 
 
 class TiltEstimate(NamedTuple):
     """Result of plane tilt estimation."""
 
-    tilt_x_deg: float
-    tilt_y_deg: float
+    tilt_x_rad: float
+    tilt_y_rad: float
     residuals: NDArray[np.floating]
+
+
+def apply_tilt_correction(
+    mark: Mark,
+    center_local: Point2D,
+) -> tuple[Mark, Point2D]:
+    """
+    Apply tilt correction if requested.
+
+    :param mark: Input mark.
+    :param center_local: Local center coordinates.
+    :return: Tuple of (corrected mark, updated center).
+    """
+    adjusted_scan, center_local = _adjust_for_plane_tilt(mark.scan_image, center_local)
+    return update_mark_scan_image(mark, adjusted_scan), center_local
 
 
 def _estimate_plane_tilt(
@@ -24,7 +39,9 @@ def _estimate_plane_tilt(
     """
     Estimate best-fit plane tilt angles using least squares.
 
-    Fits z = ax + by + c to the data points.
+    Fits z = ax + by + c to the data points. The tilt angles represent the
+    inclination of the fitted plane relative to the horizontal (x-y) plane:
+    tilt_x is the angle along the x-axis, tilt_y along the y-axis.
 
     :param x: X coordinates.
     :param y: Y coordinates.
@@ -35,8 +52,8 @@ def _estimate_plane_tilt(
     (a, b, c), *_ = np.linalg.lstsq(design_matrix, z, rcond=None)
 
     return TiltEstimate(
-        tilt_x_deg=np.degrees(np.arctan(a)),
-        tilt_y_deg=np.degrees(np.arctan(b)),
+        tilt_x_rad=np.arctan(a),
+        tilt_y_rad=np.arctan(b),
         residuals=z - (a * x + b * y + c),
     )
 
@@ -49,17 +66,17 @@ def _get_valid_coordinates(
     Extract x, y, z coordinates of valid pixels, centered at origin.
 
     :param scan_image: Input scan image.
-    :param center: Center point to subtract (in pixel coordinates).
+    :param center: Center point to subtract (in meters).
     :return: Tuple of (x, y, z) coordinate arrays in meters.
     """
     valid_mask = ~np.isnan(scan_image.data)
     rows, cols = np.where(valid_mask)
 
-    x = cols * scan_image.scale_x - center[0]
-    y = rows * scan_image.scale_y - center[1]
-    z = scan_image.data[valid_mask]
+    xs = cols * scan_image.scale_x - center[0]
+    ys = rows * scan_image.scale_y - center[1]
+    zs = scan_image.data[valid_mask]
 
-    return x, y, z
+    return xs, ys, zs
 
 
 def _adjust_for_plane_tilt(
@@ -74,20 +91,20 @@ def _adjust_for_plane_tilt(
     :return: Tuple of (leveled scan image, adjusted center).
     :raises ValueError: If fewer than 3 valid points exist.
     """
-    x, y, z = _get_valid_coordinates(scan_image, center)
+    xs, ys, zs = _get_valid_coordinates(scan_image, center)
 
-    if len(x) < 3:
+    if len(xs) < 3:
         raise ValueError("Need at least 3 valid points to estimate plane tilt")
 
-    tilt = _estimate_plane_tilt(x, y, z)
+    tilt = _estimate_plane_tilt(xs, ys, zs)
 
     # Update data with residuals
     data = scan_image.data.copy()
     data[~np.isnan(scan_image.data)] = tilt.residuals
 
     # Adjust scales for tilt
-    cos_x = np.cos(np.radians(tilt.tilt_x_deg))
-    cos_y = np.cos(np.radians(tilt.tilt_y_deg))
+    cos_x = np.cos(tilt.tilt_x_rad)
+    cos_y = np.cos(tilt.tilt_y_rad)
     scale_x_new = scan_image.scale_x / cos_x
     scale_y_new = scan_image.scale_y / cos_y
 
@@ -98,23 +115,3 @@ def _adjust_for_plane_tilt(
     )
 
     return ScanImage(data=data, scale_x=scale_x_new, scale_y=scale_y_new), center_new
-
-
-def apply_tilt_correction(
-    mark: Mark,
-    center_local: Point2D,
-    should_adjust: bool,
-) -> tuple[Mark, Point2D]:
-    """
-    Apply tilt correction if requested.
-
-    :param mark: Input mark.
-    :param center_local: Local center coordinates.
-    :param should_adjust: Whether to apply tilt correction.
-    :return: Tuple of (corrected mark, updated center).
-    """
-    if not should_adjust:
-        return mark, center_local
-
-    adjusted_scan, center_local = _adjust_for_plane_tilt(mark.scan_image, center_local)
-    return _update_mark_scan_image(mark, adjusted_scan), center_local

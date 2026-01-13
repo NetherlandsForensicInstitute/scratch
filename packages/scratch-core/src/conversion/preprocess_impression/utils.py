@@ -13,10 +13,10 @@ def update_mark_data(mark: Mark, data: NDArray) -> Mark:
     :return: New Mark instance with updated data.
     """
     scan_image = mark.scan_image.model_copy(update={"data": data})
-    return _update_mark_scan_image(mark, scan_image)
+    return update_mark_scan_image(mark, scan_image)
 
 
-def _update_mark_scan_image(mark: Mark, scan_image: ScanImage) -> Mark:
+def update_mark_scan_image(mark: Mark, scan_image: ScanImage) -> Mark:
     """
     Return a new Mark with updated scan image.
 

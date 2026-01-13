@@ -239,8 +239,8 @@ class TestEstimatePlaneTilt:
         y = np.array([0, 0, 0, 1, 1, 1])
         z = np.array([5, 5, 5, 5, 5, 5])
         result = _estimate_plane_tilt(x, y, z)
-        assert result.tilt_x_deg == pytest.approx(0)
-        assert result.tilt_y_deg == pytest.approx(0)
+        assert result.tilt_x_rad == pytest.approx(0)
+        assert result.tilt_y_rad == pytest.approx(0)
         assert result.residuals == pytest.approx(np.zeros(6))
 
     def test_returns_45_degree_tilt_x(self):
@@ -248,8 +248,8 @@ class TestEstimatePlaneTilt:
         y = np.array([0, 0, 0, 1, 1, 1])
         z = x.astype(float)  # z = x, slope of 1
         result = _estimate_plane_tilt(x, y, z)
-        assert result.tilt_x_deg == pytest.approx(45)
-        assert result.tilt_y_deg == pytest.approx(0)
+        assert result.tilt_x_rad == pytest.approx(np.pi / 4)
+        assert result.tilt_y_rad == pytest.approx(0)
         assert result.residuals == pytest.approx(np.zeros(6))
 
     def test_returns_45_degree_tilt_y(self):
@@ -257,8 +257,8 @@ class TestEstimatePlaneTilt:
         y = np.array([0, 0, 0, 1, 1, 1])
         z = y.astype(float)  # z = y, slope of 1
         result = _estimate_plane_tilt(x, y, z)
-        assert result.tilt_x_deg == pytest.approx(0)
-        assert result.tilt_y_deg == pytest.approx(45)
+        assert result.tilt_x_rad == pytest.approx(0)
+        assert result.tilt_y_rad == pytest.approx(np.pi / 4)
         assert result.residuals == pytest.approx(np.zeros(6))
 
     def test_returns_negative_tilt(self):
@@ -266,16 +266,16 @@ class TestEstimatePlaneTilt:
         y = np.array([0, 0, 0, 1, 1, 1])
         z = -x.astype(float)
         result = _estimate_plane_tilt(x, y, z)
-        assert result.tilt_x_deg == pytest.approx(-45)
-        assert result.tilt_y_deg == pytest.approx(0)
+        assert result.tilt_x_rad == pytest.approx(-np.pi / 4)
+        assert result.tilt_y_rad == pytest.approx(0)
 
     def test_returns_combined_tilt(self):
         x = np.array([0, 1, 2, 0, 1, 2])
         y = np.array([0, 0, 0, 1, 1, 1])
         z = x + y  # z = x + y, slope of 1 in both directions
         result = _estimate_plane_tilt(x, y, z.astype(float))
-        assert result.tilt_x_deg == pytest.approx(45)
-        assert result.tilt_y_deg == pytest.approx(45)
+        assert result.tilt_x_rad == pytest.approx(np.pi / 4)
+        assert result.tilt_y_rad == pytest.approx(np.pi / 4)
         assert result.residuals == pytest.approx(np.zeros(6))
 
     def test_returns_residuals_for_noisy_data(self):
@@ -283,8 +283,8 @@ class TestEstimatePlaneTilt:
         y = np.array([0, 0, 0, 1, 1, 1])
         z = x + y + np.array([0.01, -0.01, 0.01, -0.01, 0.01, -0.01])
         result = _estimate_plane_tilt(x, y, z)
-        assert result.tilt_x_deg == pytest.approx(45, abs=1)
-        assert result.tilt_y_deg == pytest.approx(45, abs=1)
+        assert result.tilt_x_rad == pytest.approx(np.pi / 4, abs=0.02)
+        assert result.tilt_y_rad == pytest.approx(np.pi / 4, abs=0.02)
         assert not np.allclose(result.residuals, 0)
 
     def test_returns_small_tilt_angle(self):
@@ -292,8 +292,8 @@ class TestEstimatePlaneTilt:
         y = np.array([0, 0, 0, 1, 1, 1])
         z = 0.1 * x  # slope of 0.1
         result = _estimate_plane_tilt(x, y, z.astype(float))
-        assert result.tilt_x_deg == pytest.approx(np.degrees(np.arctan(0.1)))
-        assert result.tilt_y_deg == pytest.approx(0)
+        assert result.tilt_x_rad == pytest.approx(np.arctan(0.1))
+        assert result.tilt_y_rad == pytest.approx(0)
 
 
 class TestGetValidCoordinates:
@@ -303,37 +303,37 @@ class TestGetValidCoordinates:
             scale_x=1.0,
             scale_y=1.0,
         )
-        x, y, z = _get_valid_coordinates(scan_image, center=(0, 0))
-        assert len(x) == 0
-        assert len(y) == 0
-        assert len(z) == 0
+        xs, ys, zs = _get_valid_coordinates(scan_image, center=(0, 0))
+        assert len(xs) == 0
+        assert len(ys) == 0
+        assert len(zs) == 0
 
     def test_returns_coordinates_for_single_pixel(self):
         data = np.full((5, 5), np.nan)
         data[2, 3] = 10.0  # row=2, col=3
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        x, y, z = _get_valid_coordinates(scan_image, center=(0, 0))
-        assert x == pytest.approx([3.0])
-        assert y == pytest.approx([2.0])
-        assert z == pytest.approx([10.0])
+        xs, ys, zs = _get_valid_coordinates(scan_image, center=(0, 0))
+        assert xs == pytest.approx([3.0])
+        assert ys == pytest.approx([2.0])
+        assert zs == pytest.approx([10.0])
 
     def test_applies_scale_factors(self):
         data = np.full((5, 5), np.nan)
         data[2, 3] = 10.0
         scan_image = ScanImage(data=data, scale_x=0.5, scale_y=0.25)
-        x, y, z = _get_valid_coordinates(scan_image, center=(0, 0))
-        assert x == pytest.approx([1.5])  # 3 * 0.5
-        assert y == pytest.approx([0.5])  # 2 * 0.25
-        assert z == pytest.approx([10.0])
+        xs, ys, zs = _get_valid_coordinates(scan_image, center=(0, 0))
+        assert xs == pytest.approx([1.5])  # 3 * 0.5
+        assert ys == pytest.approx([0.5])  # 2 * 0.25
+        assert zs == pytest.approx([10.0])
 
     def test_subtracts_center(self):
         data = np.full((5, 5), np.nan)
         data[2, 3] = 10.0
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        x, y, z = _get_valid_coordinates(scan_image, center=(1.0, 0.5))
-        assert x == pytest.approx([2.0])  # 3 - 1.0
-        assert y == pytest.approx([1.5])  # 2 - 0.5
-        assert z == pytest.approx([10.0])
+        xs, ys, zs = _get_valid_coordinates(scan_image, center=(1.0, 0.5))
+        assert xs == pytest.approx([2.0])  # 3 - 1.0
+        assert ys == pytest.approx([1.5])  # 2 - 0.5
+        assert zs == pytest.approx([10.0])
 
     def test_returns_all_valid_pixels(self):
         data = np.full((3, 3), np.nan)
@@ -341,9 +341,9 @@ class TestGetValidCoordinates:
         data[1, 2] = 2.0
         data[2, 1] = 3.0
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        x, y, z = _get_valid_coordinates(scan_image, center=(0, 0))
-        assert len(x) == 3
-        assert set(z) == {1.0, 2.0, 3.0}
+        xs, ys, zs = _get_valid_coordinates(scan_image, center=(0, 0))
+        assert len(xs) == 3
+        assert set(zs) == {1.0, 2.0, 3.0}
 
 
 class TestAdjustForPlaneTilt:
@@ -379,15 +379,23 @@ class TestAdjustForPlaneTilt:
 class TestApplyAntiAliasing:
     def test_returns_original_when_below_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
-        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        result, cutoff = _apply_anti_aliasing(scan_image, target_scale=1.4)
-        assert result is scan_image
+        mark = Mark(
+            scan_image=ScanImage(data=data, scale_x=1.0, scale_y=1.0),
+            crop_type=CropType.RECTANGLE,
+            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        )
+        result, cutoff = _apply_anti_aliasing(mark, target_scale=1.4)
+        assert result is mark
         assert cutoff is None
 
     def test_applies_filter_when_above_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
-        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        _, cutoff = _apply_anti_aliasing(scan_image, target_scale=2.0)
+        mark = Mark(
+            scan_image=ScanImage(data=data, scale_x=1.0, scale_y=1.0),
+            crop_type=CropType.RECTANGLE,
+            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        )
+        _, cutoff = _apply_anti_aliasing(mark, target_scale=2.0)
         assert cutoff == 2.0
 
 
