@@ -18,7 +18,7 @@ from conversion.data_formats import CropType, CropInfo
 from conversion.rotate import (
     get_rotation_angle,
     dilate_and_crop_image_and_mask,
-    rotate_scan_image,
+    rotate_and_crop_scan_image,
 )
 from tests.conversion.helper_function import (
     _compute_correlation,
@@ -27,7 +27,7 @@ from tests.conversion.helper_function import (
 )
 
 
-from conversion.rotate import rotate_crop_image
+from conversion.rotate import rotate_crop_image_full_flow
 
 
 @dataclass
@@ -242,7 +242,7 @@ def run_python_preprocessing(
         print(f"Has holes: {test_case.has_holes}")
         print(f"MATLAB output shape: {test_case.output_depth_data.shape}")
 
-    data_out, mask_out = rotate_crop_image(
+    data_out, mask_out = rotate_crop_image_full_flow(
         scan_image=scan_image,
         mask=mask,
         rotation_angle=test_case.rotation_angle_input,
@@ -292,7 +292,9 @@ def run_python_preprocessing(
             scale_x=scan_image_no_holes.scale_x,
             scale_y=scan_image_no_holes.scale_y,
         )
-        scan_image_rotated = rotate_scan_image(scan_image_masked, rotation_angle)
+        scan_image_rotated, mask_rotated = rotate_and_crop_scan_image(
+            scan_image_masked, mask_cropped, rotation_angle
+        )
         data_out = scan_image_rotated.data
 
         # TODO: Rotate and crop mask similarly
