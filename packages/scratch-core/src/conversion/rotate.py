@@ -77,7 +77,7 @@ def dilate_and_crop_image_and_mask(
         scale_x=scan_image.scale_x,
         scale_y=scan_image.scale_y,
     )
-    mask_cropped = crop_to_mask(mask, mask).astype(bool)
+    mask_cropped = crop_to_mask(mask.astype(float), mask).astype(bool)
 
     return scan_image_cropped, mask_cropped
 
@@ -131,7 +131,9 @@ def rotate_and_crop_scan_image(
     scan_image_cropped = scan_image_rotated[x_min:x_max, y_min:y_max]
     mask_cropped = mask_rotated[x_min:x_max, y_min:y_max]
 
-    return scan_image_cropped, mask_cropped
+    return ScanImage(
+        data=scan_image_cropped, scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
+    ), mask_cropped
 
 
 def rotate_and_crop_scan_image_long_version(

@@ -17,8 +17,6 @@ from conversion.data_formats import CropType, CropInfo
 # Individual functions used for debugging/step-by-step comparison
 from conversion.rotate import (
     get_rotation_angle,
-    dilate_and_crop_image_and_mask,
-    rotate_and_crop_scan_image,
 )
 from tests.conversion.helper_function import (
     _compute_correlation,
@@ -251,69 +249,6 @@ def run_python_preprocessing(
     )
     return data_out.data, mask_out
 
-    # --- Current step-by-step implementation for debugging ---
-
-    # Step 1: Calculate rotation angle (if not provided)
-    rotation_angle = get_rotation_angle(
-        rotation_angle=test_case.rotation_angle_input,
-        crop_info=crop_info,
-    )
-
-    if debug:
-        print(f"Calculated rotation angle: {rotation_angle}")
-
-    # Step 2: Dilate mask and crop to bounding box
-    scan_image_cropped, mask_cropped = dilate_and_crop_image_and_mask(
-        scan_image=scan_image,
-        mask=mask,
-        rotation_angle=rotation_angle,
-    )
-
-    if debug:
-        print(f"After crop shape: {scan_image_cropped.data.shape}")
-
-    # Step 3: TODO - Remove holes and stitches
-    # This corresponds to RemoveHolesAndStitchesNew in MATLAB
-    # from conversion.remove_holes import remove_holes_and_stitches
-    # scan_image_no_holes = remove_holes_and_stitches(
-    #     scan_image_cropped, mask_cropped, interpolate=test_case.interpolate_data
-    # )
-    scan_image_no_holes = scan_image_cropped
-
-    # Step 4: Set NaN outside mask
-    data_masked = scan_image_no_holes.data.copy()
-    if mask_cropped is not None:
-        data_masked[mask_cropped == 0] = np.nan
-
-    # Step 5: Rotate if needed
-    if rotation_angle != 0:
-        scan_image_masked = ScanImage(
-            data=data_masked,
-            scale_x=scan_image_no_holes.scale_x,
-            scale_y=scan_image_no_holes.scale_y,
-        )
-        scan_image_rotated, mask_rotated = rotate_and_crop_scan_image(
-            scan_image_masked, mask_cropped, rotation_angle
-        )
-        data_out = scan_image_rotated.data
-
-        # TODO: Rotate and crop mask similarly
-        mask_out = mask_cropped  # Placeholder
-    else:
-        data_out = data_masked
-        mask_out = mask_cropped
-
-    if debug:
-        print(f"Python output shape: {data_out.shape}")
-        print(
-            f"Python output range: [{np.nanmin(data_out):.6e}, {np.nanmax(data_out):.6e}]"
-        )
-        print(
-            f"MATLAB output range: [{np.nanmin(test_case.output_depth_data):.6e}, {np.nanmax(test_case.output_depth_data):.6e}]"
-        )
-
-    return data_out, mask_out
-
 
 def pytest_generate_tests(metafunc):
     """Generate test cases dynamically for MATLAB comparison tests."""
@@ -456,7 +391,7 @@ class TestRotateCropImageMatlabComparison:
 
     def test_output_shape(self, test_case: MatlabTestCase):
         """Test that output shape matches MATLAB within tolerance."""
-        python_data, _ = run_python_preprocessing(test_case)
+        python_data, mask = run_python_preprocessing(test_case)
 
         matlab_shape = test_case.output_depth_data.shape
         python_shape = python_data.shape
