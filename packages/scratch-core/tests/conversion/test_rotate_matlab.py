@@ -257,7 +257,7 @@ def pytest_generate_tests(metafunc):
             Path(__file__).parent.parent
             / "resources"
             / "baseline_images"
-            / "rotate_crop_image"
+            / "rotate_crop_image_old"
         )
 
         if test_cases_dir.exists():
@@ -272,7 +272,7 @@ def pytest_generate_tests(metafunc):
 @pytest.fixture(scope="module")
 def test_cases_dir(baseline_images_dir) -> Path:
     """Get the test cases directory."""
-    return baseline_images_dir / "rotate_crop_image"
+    return baseline_images_dir / "rotate_crop_image_old"
 
 
 @pytest.fixture(scope="module")
