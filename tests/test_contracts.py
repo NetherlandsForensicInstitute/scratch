@@ -7,14 +7,17 @@ from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
-from preprocessors import ProcessedDataLocation, UploadScan
+from extractors.schemas import ProcessedDataAccess
+from models import DirectoryAccess
+from preprocessors.schemas import UploadScan
+from settings import get_settings
 
-ROOT_URL = "http://127.0.0.1:8000"
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
 
 
 class RoutePrefix(StrEnum):
     COMPARATOR = "comparator"
+    EXTRACTOR = "extractor"
     PREPROCESSOR = "preprocessor"
     PROCESSOR = "processor"
 
@@ -36,6 +39,14 @@ class TestContracts:
       - checks if input and output are in correct format (schema definitions).
     """
 
+    @pytest.fixture(scope="class")
+    def process_scan(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
+        """Create dummy files for the expected response.
+
+        Returns the post request data, sub_route & expected response.
+        """
+        return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
+
     @pytest.mark.parametrize(
         ("route", "expected_response"),
         (pytest.param(f"/{route}", TemplateResponse, id=route) for route in RoutePrefix),
@@ -43,24 +54,10 @@ class TestContracts:
     def test_root(self, route: str, expected_response: BaseModel) -> None:
         """Check if the root is still returning the hello world response."""
         # Act
-        response = requests.get(f"{ROOT_URL}{route}", timeout=5)
+        response = requests.get(f"{get_settings().base_url}{route}", timeout=5)
         # Assert
         assert response.status_code == HTTP_200_OK
         expected_response.model_validate(response.json())
-
-    @pytest.fixture
-    def process_scan(self, tmp_path: Path) -> tuple[BaseModel, type[BaseModel]]:
-        """Create dummy files for the expected response.
-
-        Returns the post request data, sub_route & expected response.
-        """
-        data = UploadScan(scan_file=SCANS_DIR / "circle.x3p", output_dir=tmp_path)
-        expected_response = ProcessedDataLocation
-        # TODO: when implemented the file touch can ben removed.
-        (tmp_path / "scan.x3p").touch()
-        (tmp_path / "preview.png").touch()
-        (tmp_path / "surface_map.png").touch()
-        return data, expected_response
 
     @pytest.mark.parametrize(
         ("fixture_name", "sub_route"), [pytest.param("process_scan", "process-scan", id="process_scan")]
@@ -72,15 +69,29 @@ class TestContracts:
         data, expected_response = request.getfixturevalue(fixture_name)
         # Act
         response = requests.post(
-            f"{ROOT_URL}/{RoutePrefix.PREPROCESSOR}/{sub_route}", json=data.model_dump(mode="json"), timeout=5
+            f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{sub_route}",
+            json=data.model_dump(mode="json"),
+            timeout=5,
         )
         # Assert
         assert response.status_code == HTTP_200_OK
         expected_response.model_validate(response.json())
 
+    def test_extractor_get_file_endpoint(self, directory_access: DirectoryAccess) -> None:
+        """Test if extractor /files/{token}/{filename} endpoint retrieves processed files.
+
+        First creates files via process-scan, then retrieves each file type and validates
+        response status and content types.
+        """
+        # Arrange: Create files via process-scan endpoint
+        (directory_access.resource_path / "scan.x3p").write_bytes(b"x3p content")
+        response = requests.get(f"{directory_access.access_url}/scan.x3p", timeout=5)
+        assert response.status_code == HTTP_200_OK, "Failed to retrieve x3p"
+        assert response.headers["content-type"] == "application/octet-stream", "Wrong content type for x3p"
+
     def test_non_existing_contract(self) -> None:
         """Test if a non-existent contract returns 404."""
         # Act
-        response = requests.get(f"{ROOT_URL}/non-existing-path", timeout=5)
+        response = requests.get(f"{get_settings().base_url}/non-existing-path", timeout=5)
         # Assert
         assert response.status_code == HTTP_404_NOT_FOUND
