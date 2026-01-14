@@ -33,23 +33,22 @@ def level_map(
     x_grid, y_grid = get_2d_grid(
         scan_image, offset=(-reference_point[0], -reference_point[1])
     )
-    valid_mask = ~np.isnan(scan_image.data)
 
     # Get the point cloud (xs, ys, zs) for the numerical data
     xs, ys, zs = (
-        x_grid[valid_mask],
-        y_grid[valid_mask],
-        scan_image.data[valid_mask],
+        x_grid[scan_image.valid_mask],
+        y_grid[scan_image.valid_mask],
+        scan_image.valid_data,
     )
 
     # Fit surface by solving the least-squares solution to a linear matrix equation
     fitted_surface, physical_params = fit_surface(xs, ys, zs, terms)
     fitted_surface_2d = np.full_like(scan_image.data, np.nan)
-    fitted_surface_2d[valid_mask] = fitted_surface
+    fitted_surface_2d[scan_image.valid_mask] = fitted_surface
 
     # Compute the leveled map
     leveled_map_2d = np.full_like(scan_image.data, np.nan)
-    leveled_map_2d[valid_mask] = zs - fitted_surface
+    leveled_map_2d[scan_image.valid_mask] = zs - fitted_surface
 
     # Calculate RMS of residuals
     residual_rms = compute_root_mean_square(leveled_map_2d)

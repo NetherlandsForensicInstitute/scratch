@@ -69,12 +69,11 @@ def _get_valid_coordinates(
     :param center: Center point to subtract (in meters).
     :return: Tuple of (x, y, z) coordinate arrays in meters.
     """
-    valid_mask = ~np.isnan(scan_image.data)
-    rows, cols = np.where(valid_mask)
+    rows, cols = np.where(scan_image.valid_mask)
 
     xs = cols * scan_image.scale_x - center[0]
     ys = rows * scan_image.scale_y - center[1]
-    zs = scan_image.data[valid_mask]
+    zs = scan_image.valid_data
 
     return xs, ys, zs
 
@@ -100,7 +99,7 @@ def _adjust_for_plane_tilt(
 
     # Update data with residuals
     data = scan_image.data.copy()
-    data[~np.isnan(scan_image.data)] = tilt.residuals
+    data[scan_image.valid_mask] = tilt.residuals
 
     # Adjust scales for tilt
     cos_x = np.cos(tilt.tilt_x_rad)

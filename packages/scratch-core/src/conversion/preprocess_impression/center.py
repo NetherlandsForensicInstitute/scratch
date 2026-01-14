@@ -3,7 +3,7 @@ from numpy._typing import NDArray
 from scipy.ndimage import binary_erosion
 from skimage.measure import ransac, CircleModel
 
-from container_models.base import MaskArray, ScanMap2DArray
+from container_models.base import MaskArray
 from conversion.data_formats import Mark, MarkType
 from conversion.mask import _determine_bounding_box
 from conversion.preprocess_impression.utils import Point2D
@@ -91,24 +91,22 @@ def _get_bounding_box_center(mask: MaskArray) -> Point2D:
 
 
 def _compute_map_center(
-    data: ScanMap2DArray,
+    array: MaskArray,
     use_circle_fit: bool = False,
 ) -> Point2D:
     """
     Compute map center from data bounds or circle fit.
 
-    :param data: Height map array.
+    :param array: boolean array to get the center for.
     :param use_circle_fit: If True, attempt RANSAC circle fitting first.
     :return: Center position (x, y) in pixel coordinates.
     """
-    valid_mask = ~np.isnan(data)
-
     if use_circle_fit:
-        edge_points = _get_mask_inner_edge_points(valid_mask)
+        edge_points = _get_mask_inner_edge_points(array)
         if (center := _fit_circle_ransac(edge_points)) is not None:
             return center
 
-    return _get_bounding_box_center(valid_mask)
+    return _get_bounding_box_center(array)
 
 
 def compute_center_local(mark: Mark) -> Point2D:
@@ -123,7 +121,7 @@ def compute_center_local(mark: Mark) -> Point2D:
     :return: Center (x, y) in meters, relative to image origin (top-left).
     """
     use_circle = mark.mark_type == MarkType.BREECH_FACE_IMPRESSION
-    cx, cy = _compute_map_center(mark.scan_image.data, use_circle_fit=use_circle)
+    cx, cy = _compute_map_center(mark.scan_image.valid_mask, use_circle_fit=use_circle)
     return (
         cx * mark.scan_image.scale_x,
         cy * mark.scan_image.scale_y,

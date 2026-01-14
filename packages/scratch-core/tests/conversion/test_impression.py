@@ -223,14 +223,14 @@ class TestGetBoundingBoxCenter:
 
 class TestComputeMapCenter:
     def test_uses_bounding_box_when_circle_disabled(self):
-        data = np.full((10, 10), np.nan)
-        data[2:6, 3:9] = 1.0
-        assert _compute_map_center(data, use_circle_fit=False) == (6, 4)
+        mask = np.zeros((10, 10), dtype=bool)
+        mask[2:6, 3:9] = 1.0
+        assert _compute_map_center(mask, use_circle_fit=False) == (6, 4)
 
     def test_falls_back_to_bounding_box_for_collinear_edge(self):
-        data = np.full((10, 10), np.nan)
-        data[5, :] = 1.0
-        assert _compute_map_center(data, use_circle_fit=True) == (5, 5.5)
+        mask = np.zeros((10, 10), dtype=bool)
+        mask[5, :] = 1.0
+        assert _compute_map_center(mask, use_circle_fit=True) == (5, 5.5)
 
 
 class TestEstimatePlaneTilt:
@@ -362,8 +362,7 @@ class TestAdjustForPlaneTilt:
                 data[row, col] = float(col)  # tilted in x direction
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
         result, _ = _adjust_for_plane_tilt(scan_image, center=(0, 0))
-        valid_mask = ~np.isnan(result.data)
-        assert result.data[valid_mask] == pytest.approx(np.zeros(25), abs=1e-10)
+        assert result.valid_data == pytest.approx(np.zeros(25), abs=1e-10)
 
     def test_adjusts_scale_for_tilt(self):
         data = np.full((5, 5), np.nan)
@@ -738,12 +737,8 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, leveled = preprocess_impression_mark(mark, params)
 
-        # Valid pixels should be finite
-        filtered_valid = ~np.isnan(filtered.scan_image.data)
-        leveled_valid = ~np.isnan(leveled.scan_image.data)
-
-        assert np.all(np.isfinite(filtered.scan_image.data[filtered_valid]))
-        assert np.all(np.isfinite(leveled.scan_image.data[leveled_valid]))
+        assert np.all(np.isfinite(filtered.scan_image.valid_data))
+        assert np.all(np.isfinite(leveled.scan_image.valid_data))
 
     @pytest.mark.integration
     def test_leveled_preserves_form(self):

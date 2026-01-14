@@ -195,7 +195,7 @@ def _prepare_mark(mark: Mark) -> tuple[Mark, Point2D]:
     :return: Tuple of (cropped mark, local center in meters).
     """
     center_local = compute_center_local(mark)
-    cropped_data = crop_nan_borders(mark.scan_image.data)
+    cropped_data = crop_nan_borders(mark.scan_image.data, mark.scan_image.valid_mask)
     return update_mark_data(mark, cropped_data), center_local
 
 
