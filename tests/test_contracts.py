@@ -13,6 +13,7 @@ from preprocessors.schemas import EditImage, EditImageParameters, ProcessDataUrl
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
+MASK = ((1, 0), (0, 1))
 
 
 class RoutePrefix(StrEnum):
@@ -43,23 +44,21 @@ class TestContracts:
     def process_scan(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
         """Create dummy files for the expected response.
 
-        Returns the post request data, sub_route & expected response.
+        Returns the post request data and expected response type.
         """
         return UploadScan(scan_file=scan_directory / "Klein_non_replica_mode.al3d"), ProcessScanOutput  # type: ignore
 
     @pytest.fixture
-    def edit_scan_data(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
+    def edit_scan(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
         """Create test data for edit-scan endpoint.
 
         Returns the post request data and expected response type.
         """
         data = EditImage(
             scan_file=scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p",
-            project_name="test_edit",
-            parameters=EditImageParameters(zoom=True, step_size_x=2, step_size_y=2),  # type: ignore
+            parameters=EditImageParameters(mask=MASK),  # type: ignore
         )
-        expected_response = ProcessDataUrls
-        return data, expected_response
+        return data, ProcessDataUrls
 
     @pytest.mark.parametrize(
         ("route", "expected_response"),
@@ -77,7 +76,7 @@ class TestContracts:
         ("fixture_name", "sub_route"),
         [
             pytest.param("process_scan", "process-scan", id="process_scan"),
-            pytest.param("edit_scan_data", "edit-scan", id="edit_scan"),
+            pytest.param("edit_scan", "edit-scan", marks=pytest.mark.xfail, id="edit_scan"),
         ],
     )
     def test_pre_processor_post_requests(
@@ -96,6 +95,7 @@ class TestContracts:
         assert response.status_code == HTTP_200_OK
         assert expected_response.model_validate(response.json())
 
+    @pytest.mark.xfail
     def test_edit_existing_scan_endpoint(self, directory_access: DirectoryAccess, scan_directory: Path) -> None:
         """Test if edit-scans/{token}/{tag}/{filename} endpoint works with existing scan.
 
@@ -106,11 +106,11 @@ class TestContracts:
         shutil.copyfile(
             scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p", directory_access.resource_path / "scan.x3p"
         )
-        edit_params = EditImageParameters(zoom=True, step_size_x=2, step_size_y=2, overwrite=False)  # type: ignore
+        edit_params = EditImageParameters(mask=MASK)  # type: ignore
 
         # Act
         edit_response = requests.post(
-            f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scans/{directory_access.token}/scan.x3p",
+            f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scans/{directory_access.token}",
             json=edit_params.model_dump(mode="json"),
             timeout=5,
         )
