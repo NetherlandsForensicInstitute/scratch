@@ -49,14 +49,14 @@ def preprocess_impression_mark(
     :return: Tuple of (filtered mark, leveled-only mark).
     """
     # Stage 1: Preparation
-    mark, center_local = _prepare_mark(mark)
+    mark = _prepare_mark(mark)
 
     # Stage 2: Tilt correction
     if params.adjust_pixel_spacing:
-        mark, center_local = apply_tilt_correction(mark, center_local)
+        mark = apply_tilt_correction(mark)
 
     # Stage 3: Initial leveling
-    mark_leveled, fitted_surface = _level_mark(mark, params.surface_terms, center_local)
+    mark_leveled, fitted_surface = _level_mark(mark, params.surface_terms)
 
     # Stage 4-5: Filtering (antialiasing + low-pass)
     mark_filtered, mark_anti_aliased, anti_alias_cutoff = apply_filtering_pipeline(
@@ -95,7 +95,7 @@ def preprocess_impression_mark(
         )
 
     # Stage 8: Final leveling
-    mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms, center_local)
+    mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms, mark.center)
 
     # Prepare leveled-only output
     mark_leveled_final = _finalize_leveled_output(
@@ -103,12 +103,12 @@ def preprocess_impression_mark(
         fitted_surface,
         params.pixel_size,
         params.surface_terms,
-        center_local,
+        mark.center,
     )
 
     # Build output metadata
     mark.meta_data.update(
-        _build_preprocessing_metadata(params, center_local, interpolated)
+        _build_preprocessing_metadata(params, mark.center, interpolated)
     )
 
     output_pixel_size = (
@@ -130,7 +130,9 @@ def _level_mark(
     terms: SurfaceTerms,
     reference_point: Point2D | None = None,
 ) -> tuple[Mark, ScanMap2DArray]:
-    result = level_map(mark.scan_image, terms=terms, reference_point=reference_point)
+    result = level_map(
+        mark.scan_image, terms=terms, reference_point=reference_point or mark.center
+    )
     leveled_mark = update_mark_data(mark, result.leveled_map)
     return leveled_mark, result.fitted_surface
 
@@ -187,16 +189,16 @@ def _build_preprocessing_metadata(
     }
 
 
-def _prepare_mark(mark: Mark) -> tuple[Mark, Point2D]:
+def _prepare_mark(mark: Mark) -> Mark:
     """
     Initial preparation: compute center and crop NaN borders.
 
     :param mark: Input mark.
-    :return: Tuple of (cropped mark, local center in meters).
+    :return: Cropped mark
     """
     center_local = compute_center_local(mark)
     cropped_data = crop_nan_borders(mark.scan_image.data, mark.scan_image.valid_mask)
-    return update_mark_data(mark, cropped_data), center_local
+    return update_mark_data(mark, data=cropped_data, center=center_local)
 
 
 def _finalize_leveled_output(

@@ -18,17 +18,15 @@ class TiltEstimate(NamedTuple):
 
 def apply_tilt_correction(
     mark: Mark,
-    center_local: Point2D,
-) -> tuple[Mark, Point2D]:
+) -> Mark:
     """
     Apply tilt correction if requested.
 
     :param mark: Input mark.
-    :param center_local: Local center coordinates.
-    :return: Tuple of (corrected mark, updated center).
+    :return: Corrected mark.
     """
-    adjusted_scan, center_local = _adjust_for_plane_tilt(mark.scan_image, center_local)
-    return update_mark_scan_image(mark, adjusted_scan), center_local
+    adjusted_scan, center_local = _adjust_for_plane_tilt(mark.scan_image, mark.center)
+    return update_mark_scan_image(mark, adjusted_scan, center_local)
 
 
 def _estimate_plane_tilt(

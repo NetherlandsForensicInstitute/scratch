@@ -1,6 +1,6 @@
 from enum import Enum, auto
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from container_models.scan_image import ScanImage
 
@@ -52,3 +52,14 @@ class Mark(BaseModel):
     mark_type: MarkType
     crop_type: CropType
     meta_data: dict = Field(default_factory=dict)
+    _center: tuple[float, float] | None = None
+
+    @computed_field
+    @property
+    def center(self) -> tuple[float, float]:
+        if self._center is not None:
+            return self._center
+        data = self.scan_image.data
+        return data.shape[0] / 2, data.shape[1] / 2
+
+    model_config = {"arbitrary_types_allowed": True}
