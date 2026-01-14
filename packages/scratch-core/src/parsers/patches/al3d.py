@@ -13,6 +13,8 @@ The original method can be found here:
 https://github.com/fredericjs/surfalize/blob/d47b9b68636aae76e77329ac58ee0390765d7fb5/surfalize/file/al3d.py#L48
 """
 
+DTYPE = np.float32
+
 
 def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
     magic = filehandle.read(17)
@@ -33,29 +35,35 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
         key, value = read_tag(filehandle, encoding=encoding)
         header[key] = value
 
-    # nx = int(header['Cols']) # ignore the 'Cols' tag since the value is often incorrect
+    nx = int(header["Cols"])  # the 'Cols' tag often contains an incorrect value
     ny = int(header["Rows"])
     step_x = float(header["PixelSizeXMeter"]) * 1e6
     step_y = float(header["PixelSizeYMeter"]) * 1e6
     offset = int(header["DepthImageOffset"])
     filehandle.seek(offset)
-
     # data = read_array(filehandle, dtype=np.float32, count=nx * ny, offset=0).reshape(ny, nx)
 
-    # === Our Patch Start ===
-    offset_texture = int(header["TextureImageOffset"])
-    # if no texture data is present, read until end of file or buffer
-    count = (
-        offset_texture - offset if offset_texture > 0 else -1
-    )  # TODO: check if this is correct?
-    data = read_array(filehandle, dtype=np.float32, count=count, offset=0)
-    # compute `nx` from the data shape
-    nx = data.shape[0] // ny
-    data = data.reshape(ny, nx)
-    # === Our Patch End ===
+    # invalidValue = float(header["InvalidPixelValue"])
+    # data[data == invalidValue] = np.nan   # This comparison may fail for certain cases
 
-    invalidValue = float(header["InvalidPixelValue"])
-    data[data == invalidValue] = np.nan
+    # === Our Patch Start ===
+    # Compute the correct stride depending on whether `nx` is odd or even
+    stride = nx + (nx % 2)
+    data = read_array(filehandle, dtype=DTYPE, count=ny * stride, offset=0)
+    # Compute the image width from the parsed buffer shape
+    # Note: we cannot reuse `stride` for this, since the number of values parsed from the buffer can be smaller than `ny * stride`
+    image_width = data.shape[0] // ny
+    data = data.reshape(ny, image_width)
+    # When `nx` is odd, the computed image width may exceed the tag value `nx`
+    # In that case, the values parsed from the buffer are undefined or zero's
+    if image_width > nx:
+        # Ensure only valid data is returned
+        data = data[:, :nx]
+    # Store the numerical value for invalid pixels as a float32
+    sentinel = DTYPE(header["InvalidPixelValue"])
+    # Replace these values with NaN values
+    data[np.isclose(data, sentinel, rtol=0.0, atol=1e-6)] = np.nan
+    # === Our Patch End ===
 
     data *= 1e6  # Conversion from m to um
 
