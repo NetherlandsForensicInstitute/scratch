@@ -81,7 +81,7 @@ def apply_shape_noise_removal(
 
     # Create intermediate ScanImage for noise removal
     intermediate_scan_image = ScanImage(
-        data=data_no_shape,
+        data=data_no_shape.astype(np.float64),
         scale_x=xdim,
         scale_y=scan_image.scale_y,
     )
@@ -364,17 +364,19 @@ def _resample_mark_type_specific(
     resample_factor_y = ydim / target_sampling
 
     # Resample depth data using bilinear interpolation
-    depth_data_resampled = zoom(
-        depth_data,
-        (resample_factor_x, resample_factor_y),
-        order=1,
-        mode="nearest",
+    depth_data_resampled: NDArray[np.floating] = np.asarray(
+        zoom(
+            depth_data,
+            (resample_factor_x, resample_factor_y),
+            order=1,
+            mode="nearest",
+        )
     )
 
     # Resample mask if provided (nearest neighbor)
-    mask_resampled = None
+    mask_resampled: MaskArray | None = None
     if mask is not None:
-        mask_resampled = (
+        mask_resampled = np.asarray(
             zoom(
                 mask.astype(float),
                 (resample_factor_x, resample_factor_y),
@@ -600,7 +602,7 @@ def preprocess_data(
     if data_filtered.shape[1] > 1:
         # Create new ScanImage with filtered data
         filtered_scan_image = ScanImage(
-            data=data_filtered,
+            data=data_filtered.astype(np.float64),
             scale_x=xdim,
             scale_y=scan_image.scale_y,
         )

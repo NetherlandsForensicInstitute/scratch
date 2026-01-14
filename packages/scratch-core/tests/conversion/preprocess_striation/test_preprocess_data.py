@@ -42,7 +42,7 @@ def test_apply_nan_weighted_gaussian_1d():
     data = np.ones((20, 10), dtype=float)
     data[10, 5] = np.nan  # Single NaN value
 
-    result = _apply_nan_weighted_gaussian_1d(data, sigma=2.0, radius=3)
+    result = _apply_nan_weighted_gaussian_1d(data, sigma=2.0, truncate=4.0)
 
     # Result should not have NaN propagation (NaN is interpolated)
     assert not np.isnan(result[10, 5])

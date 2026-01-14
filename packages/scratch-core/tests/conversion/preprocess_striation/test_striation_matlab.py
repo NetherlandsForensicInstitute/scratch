@@ -167,7 +167,7 @@ def discover_test_cases(case_dir: Path) -> list[MatlabTestCase]:
 
 def run_python_preprocessing(
     test_case: MatlabTestCase,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, float | None]:
+) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None, float | None]:
     """
     Run Python preprocess_striations on input data.
 
@@ -404,6 +404,7 @@ class TestPreprocessDataMatlabComparison:
             pytest.skip("Test case has no mask")
 
         _, python_mask, _, _ = run_python_preprocessing(test_case)
+        assert python_mask is not None, "Expected mask output for mask test case"
 
         # Use center cropping since MATLAB extracts a central region
         python_mask, matlab_mask = _crop_to_common_shape(
