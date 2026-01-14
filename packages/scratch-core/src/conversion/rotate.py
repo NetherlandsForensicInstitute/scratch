@@ -34,33 +34,24 @@ def get_rotation_angle(
         and crop_info
         and crop_info[0].crop_type == CropType.RECTANGLE
     ):
-        points = crop_info[0].data["corner"]
+        corners = crop_info[0].data["corner"]
+        # Calculate all edge lengths
+        edges = []
+        for i in range(4):
+            p1 = corners[i]
+            p2 = corners[(i + 1) % 4]
+            length = np.linalg.norm(p2 - p1)
+            angle = np.degrees(np.arctan2(p2[1] - p1[1], p2[0] - p1[0]))
+            edges.append((length, angle))
 
-        # Sort points counter-clockwise by angle from center
-        mean_xy = np.mean(points, axis=0)
-        angles = np.arctan2(points[:, 1] - mean_xy[1], points[:, 0] - mean_xy[0])
-        points_ordered = points[np.argsort(angles)]
+        # find smallest angle
+        rotation_angle = min(edges, key=lambda x: abs(x[1]))[1]
 
-        index = np.where(np.all(points_ordered == points[0, :], axis=1))[0][0]
-        points_ordered = np.roll(points_ordered, shift=-index, axis=0)
-
-        # Determine the rotation angle
-        P1, P2, P3, P4 = points_ordered
-        dx = np.array([P2[1] - P1[1], P3[1] - P2[1], P3[1] - P4[1], P4[1] - P1[1]])
-        dy = np.array([P2[0] - P1[0], P3[0] - P2[0], P3[0] - P4[0], P4[0] - P1[0]])
-        rotation_angles = np.degrees(np.arctan2(dx, dy))
-
-        # A rectangle that was not rotated should have resulted in [0, -90, 0, -90]
-        # The angle over which each side of the rectangle is rotated is
-        rotation_angles = rotation_angles - np.array([0, -90, 0, -90])
-
-        # The 4 rotation angles should be almost similar, but due
-        # to the fact that arctan2 jumps from -180 to 180 degrees, some strange results may occur.
-        # Therefore, the following checks are performed
-        rotation_angles = np.unwrap(rotation_angles, period=360)
-        rotation_angle = np.mean(rotation_angles)
-        if rotation_angle == -180:
-            rotation_angle = 180
+        # Normalize to [-90, 90] range
+        if rotation_angle > 90:
+            rotation_angle -= 180
+        elif rotation_angle < -90:
+            rotation_angle += 180
 
     return rotation_angle
 
@@ -290,6 +281,7 @@ def rotate_crop_image_full_flow(
     times_median: float = 15,
 ) -> tuple[ScanImage, MaskArray]:
     rotation_angle = get_rotation_angle(rotation_angle, crop_info)
+    print(f"found rotation angle: {rotation_angle}")
     scan_image_dilated, mask_dilated = dilate_and_crop_image_and_mask(
         scan_image, mask, rotation_angle
     )

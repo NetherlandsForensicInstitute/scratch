@@ -469,7 +469,7 @@ class TestMatlabTestCaseLoading:
             assert case.output_depth_data.ndim == 2
 
             # Check crop type
-            assert case.crop_type.lower() in ("rectangle", "polygon")
+            assert case.crop_type.lower() in ("rectangle", "polygon", "circle")
 
     def test_print_test_case_summary(self, test_cases: list[MatlabTestCase]):
         """Print summary of all test cases for debugging."""
