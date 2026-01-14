@@ -36,16 +36,15 @@ def get_rotation_angle(
     ):
         corners = crop_info[0].data["corner"]
         # Calculate all edge lengths
-        edges = []
+        angles = []
         for i in range(4):
             p1 = corners[i]
             p2 = corners[(i + 1) % 4]
-            length = np.linalg.norm(p2 - p1)
             angle = np.degrees(np.arctan2(p2[1] - p1[1], p2[0] - p1[0]))
-            edges.append((length, angle))
+            angles.append((abs(angle), angle))
 
-        # find smallest angle
-        rotation_angle = min(edges, key=lambda x: abs(x[1]))[1]
+        # find smallest absolute angle
+        rotation_angle = min(angles, key=lambda x: abs(x[0]))[1]
 
         # Normalize to [-90, 90] range
         if rotation_angle > 90:
