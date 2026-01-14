@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from enum import StrEnum, auto
-from typing import Any
 
+import numpy as np
 from container_models.light_source import LightSource
+from numpy.typing import NDArray
 from pydantic import (
     UUID4,
     ConfigDict,
@@ -52,6 +53,8 @@ class UploadScanParameters(BaseModelConfig):
 
 
 class UploadScan(BaseModelConfig):
+    """Request model for uploading and processing scan files."""
+
     scan_file: ScanFile
     project_name: ProjectTag | None = Field(
         None,
@@ -99,6 +102,9 @@ class RegressionOrder(StrEnum):
     R2 = auto()
 
 
+type Mask = tuple[tuple[bool, ...], tuple[bool, ...]]
+
+
 class EditImageParameters(BaseModelConfig):
     """Configuration parameters for scan image editing and transformation operations."""
 
@@ -116,12 +122,16 @@ class EditImageParameters(BaseModelConfig):
         default=RegressionOrder.RO,
         description="Polynomial regression order for surface fitting. R0 (constant), R1 (linear), or R2 (quadratic).",
     )
-    mask: Any | None = Field(
-        None,
+    mask: Mask = Field(
         description=(
             "Binary mask array for selective processing or cropping. "
-            "Regions marked True are processed, False regions are excluded."
+            "Must be a 2D boolean array with shape matching the scan image dimensions. "
+            "Regions marked true (1) are processed, false (0) regions are excluded. "
         ),
+        examples=[
+            [[True, True, False], [False, True, True]],
+            [[1, 1, 0], [0, 1, 1]],
+        ],
     )
     crop: bool = Field(
         default=False,
@@ -142,12 +152,24 @@ class EditImageParameters(BaseModelConfig):
         description="Whether to overwrite the original scan file with edited results.",
     )
 
-    @model_validator(mode="after")
-    def validate_edits_are_chosen(self) -> EditImageParameters:
-        """Validate at least one edit option is chosen."""
-        if self.mask is None and not self.crop:
-            raise ValueError("At least one  crop must be provided.")
-        return self
+    @field_validator("mask", mode="after")
+    @classmethod
+    def validate_mask_is_2d(cls, mask: Mask) -> Mask:
+        """Validate that mask is a 2D array if provided."""
+        # Validate all rows have the same length
+        row_lengths = {len(row) for row in mask}
+        if len(row_lengths) > 1:
+            raise ValueError(f"All mask rows must have equal length, got varying lengths: {row_lengths}")
+
+        # Validate at least one value in row
+        if not row_lengths.pop():
+            raise ValueError("Mask rows cannot be empty")
+
+        return mask
+
+    @property
+    def mask_array(self) -> NDArray:
+        return np.array(self.mask, np.bool_)
 
 
 class EditImage(BaseModelConfig):
@@ -204,6 +226,13 @@ class ProcessDataUrls(RootModel):
         ],
     )
     model_config = ConfigDict(frozen=True, regex_engine="rust-regex")
+
+    @model_validator(mode="after")
+    def validate_non_empty(self) -> ProcessDataUrls:
+        """Validate that the URL collection contains at least one URL."""
+        if not self.root:
+            raise ValueError("ProcessDataUrls must contain at least 1 item, received empty tuple")
+        return self
 
 
 class ProcessScanOutput(BaseModelConfig):
