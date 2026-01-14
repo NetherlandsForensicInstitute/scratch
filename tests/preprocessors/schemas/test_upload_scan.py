@@ -5,8 +5,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from preprocessors import UploadScan
-from preprocessors.schemas import SupportedExtension
+from preprocessors.schemas import SupportedExtension, UploadScan
 
 
 @pytest.fixture
@@ -24,14 +23,14 @@ def valid_scan_file(scan_directory: Path) -> Path:
     "extension",
     [ext.value for ext in SupportedExtension],
 )
-def test_all_supported_extensions(tmp_path: Path, output_dir: Path, extension: str) -> None:
+def test_all_supported_extensions(tmp_path: Path, extension: str) -> None:
     """Test that all supported extensions are accepted."""
     # Arrange
     scan_file = tmp_path / f"test_scan.{extension}"
     scan_file.write_text("just words")
 
     # Act
-    upload_scan = UploadScan(scan_file=scan_file, output_dir=output_dir)  # type: ignore
+    upload_scan = UploadScan(scan_file=scan_file)  # type: ignore
 
     # Assert
     assert upload_scan.scan_file == scan_file
@@ -55,33 +54,24 @@ def test_unsupported_extension_raises_error(extension: str, tmp_path_factory: py
 
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
-        UploadScan(scan_file=scan_file, output_dir=output_dir)  # type: ignore
-    assert "unsupported extension" in str(exc_info.value)
+        UploadScan(scan_file=scan_file)  # type: ignore
+    error_message = str(exc_info.value)
+    assert "unsupported file type" in error_message
+    assert "try: al3d, x3p, sur, plu" in error_message
 
 
-def test_nonexistent_scan_file_raises_error(output_dir: Path) -> None:
+def test_nonexistent_scan_file_raises_error() -> None:
     """Test that non-existent scan file raises ValidationError."""
     # Arrange
     nonexistent_file = Path("/nonexistent/path/scan.mat")
 
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
-        UploadScan(scan_file=nonexistent_file, output_dir=output_dir)  # type: ignore
+        UploadScan(scan_file=nonexistent_file)  # type: ignore
     assert "Path does not point to a file" in str(exc_info.value)
 
 
-def test_nonexistent_output_dir_raises_error(valid_scan_file: Path) -> None:
-    """Test that non-existent output directory raises ValidationError."""
-    # Arrange
-    nonexistent_dir = Path("/nonexistent/output/dir")
-
-    # Act & Assert
-    with pytest.raises(ValidationError) as exc_info:
-        UploadScan(scan_file=valid_scan_file, output_dir=nonexistent_dir)  # type: ignore
-    assert "Path does not point to a directory" in str(exc_info.value)
-
-
-def test_scan_file_as_directory_raises_error(tmp_path: Path, output_dir: Path) -> None:
+def test_scan_file_as_directory_raises_error(tmp_path: Path) -> None:
     """Test that providing a directory as scan_file raises ValidationError."""
     # Arrange
     directory = tmp_path / "not_a_file"
@@ -89,30 +79,51 @@ def test_scan_file_as_directory_raises_error(tmp_path: Path, output_dir: Path) -
 
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
-        UploadScan(scan_file=directory, output_dir=output_dir)  # type: ignore
+        UploadScan(scan_file=directory)  # type: ignore
     assert "Path does not point to a file" in str(exc_info.value)
 
 
-def test_model_is_frozen(valid_scan_file: Path, output_dir: Path) -> None:
-    """Test that UploadScan instances are immutable (frozen)."""
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param(b"#!/bin/bash\necho 'malicious script'", id="shebang"),
+        pytest.param(b"\x7fELF\x02\x01\x01\x00" + b"\x00" * 100, id="elf"),
+        pytest.param(b"MZ" + b"\x00" * 100, id="pe"),
+    ],
+)
+def test_executable_files_rejected(tmp_path: Path, content: bytes) -> None:
+    """Test that executable files are rejected."""
     # Arrange
-    upload_scan = UploadScan(  # type: ignore
-        scan_file=valid_scan_file, output_dir=output_dir
-    )
+    executable_file = tmp_path / "test.x3p"
+    executable_file.write_bytes(content)
 
     # Act & Assert
     with pytest.raises(ValidationError) as exc_info:
-        upload_scan.scan_file = valid_scan_file
-    assert "Instance is frozen" in str(exc_info.value)
+        UploadScan(scan_file=executable_file)  # type: ignore
+    assert "executable files are not allowed" in str(exc_info.value)
 
 
-def test_extra_fields_forbidden(valid_scan_file: Path, output_dir: Path) -> None:
-    """Test that extra fields are not allowed."""
-    # Act & Assert
-    with pytest.raises(ValidationError) as exc_info:
-        UploadScan(
-            scan_file=valid_scan_file,
-            output_dir=output_dir,
-            extra_field="not allowed",  # type: ignore[call-arg]
-        )
-    assert "Extra inputs are not permitted" in str(exc_info.value)
+def test_tag_defaults_to_stem_when_project_name_not_provided(tmp_path: Path) -> None:
+    """Test that tag property defaults to scan file stem when project_name is not provided."""
+    # Arrange
+    scan_file = tmp_path / "my_scan_file.x3p"
+    scan_file.write_text("content")
+
+    # Act
+    upload_scan = UploadScan(scan_file=scan_file)  # type: ignore
+
+    # Assert
+    assert upload_scan.tag == "my_scan_file"
+
+
+def test_tag_uses_project_name_when_provided(tmp_path: Path) -> None:
+    """Test that tag property uses project_name when it is provided."""
+    # Arrange
+    scan_file = tmp_path / "scan_file.x3p"
+    scan_file.write_text("content")
+
+    # Act
+    upload_scan = UploadScan(scan_file=scan_file, project_name="custom-project")  # type: ignore
+
+    # Assert
+    assert upload_scan.tag == "custom-project"

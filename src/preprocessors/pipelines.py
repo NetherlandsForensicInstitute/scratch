@@ -21,8 +21,8 @@ def parse_scan_pipeline(scan_file: Path, parameters: UploadScanParameters) -> Sc
     Parse a scan file and load it as a ScanImage.
 
     :param scan_file: The path to the scan file to parse.
-    :param parameters: all parameters used in the pipeline.
-    :returns: The parsed scan image data.
+    :param parameters: All parameters used in the pipeline.
+    :return: The parsed scan image data.
     :raises HTTPException: If the file cannot be parsed or read.
     """
     return run_pipeline(
@@ -39,7 +39,7 @@ def x3p_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
 
     :param parsed_scan: The scan image data to convert to X3P format.
     :param output_path: The file path where the X3P file will be saved.
-    :returns: The path to the saved X3P file.
+    :return: The path to the saved X3P file.
     :raises HTTPException: If conversion or saving fails.
     """
     return run_pipeline(
@@ -56,7 +56,8 @@ def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: 
 
     :param parsed_scan: The scan image data to generate a surface map from.
     :param output_path: The file path where the surface map image will be saved.
-    :returns: The path to the saved surface map image file.
+    :param parameters: All parameters used in the pipeline.
+    :return: The path to the saved surface map image file.
     :raises HTTPException: If image generation or saving fails.
     """
     return run_pipeline(
@@ -74,9 +75,9 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     """
     Generate a preview image from scan data and save it to the specified path.
 
-    :param parsed_scan: The scan image data to generate a surface map from.
+    :param parsed_scan: The scan image data to generate a preview from.
     :param output_path: The file path where the preview image will be saved.
-    :returns: The path to the saved preview image file.
+    :return: The path to the saved preview image file.
     :raises HTTPException: If image generation or saving fails.
     """
     return run_pipeline(
