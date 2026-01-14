@@ -27,6 +27,8 @@ dependencies = [
   "uvicorn>=0.38.0",
   "scratch-core",
   "returns>=0.26.0",
+  "numpy>=2.3.5",
+  "scipy>=1.16.3",
 ]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
