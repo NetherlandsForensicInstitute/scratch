@@ -34,8 +34,8 @@ def crop_to_mask(
     :param mask: Binary mask
     :return: Cropped image containing only the masked region
     """
-    x_slice, y_slice = _determine_bounding_box(mask)
-    return image[x_slice, y_slice]
+    y_slice, x_slice = _determine_bounding_box(mask)
+    return image[y_slice, x_slice]
 
 
 def _determine_bounding_box(mask: MaskArray) -> tuple[slice, slice]:
@@ -43,7 +43,7 @@ def _determine_bounding_box(mask: MaskArray) -> tuple[slice, slice]:
     Determines the bounding box of non-zero values in a mask.
 
     :param mask: Binary mask array
-    :return: Tuple of (x_slice, y_slice) for the bounding box
+    :return: Tuple of (y_slice, x_slice) for the bounding box
     """
     non_zero_coords = np.nonzero(mask)
     if not non_zero_coords[0].size:
@@ -51,7 +51,7 @@ def _determine_bounding_box(mask: MaskArray) -> tuple[slice, slice]:
 
     y_min, x_min = np.min(non_zero_coords, axis=1)
     y_max, x_max = np.max(non_zero_coords, axis=1)
-    return slice(x_min, x_max + 1), slice(y_min, y_max + 1)
+    return slice(y_min, y_max + 1), slice(x_min, x_max + 1)
 
 
 def mask_and_crop_2d_array(

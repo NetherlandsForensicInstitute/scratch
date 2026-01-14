@@ -27,7 +27,7 @@ def apply_shape_noise_removal(
     scan_image: ScanImage,
     mask: MaskArray | None = None,
     lowpass_cutoff: float = 5e-6,
-    highpass_cutoff: float = 250e-6,
+    highpass_cutoff: float = 2.5e-4,
 ) -> tuple[NDArray[np.floating], MaskArray]:
     """
     Apply large-scale shape and noise removal to isolate striation features.
@@ -55,23 +55,19 @@ def apply_shape_noise_removal(
 
     :returns: Tuple of (processed_data, mask).
     """
-    # Extract data and pixel spacing from ScanImage
-    depth_data = scan_image.data
-    xdim = scan_image.scale_x
-
     # Initialize mask if not provided
     if mask is None:
-        mask = np.ones(depth_data.shape, dtype=bool)
+        mask = np.ones(scan_image.data.shape, dtype=bool)
 
     # Calculate Gaussian sigma from cutoff wavelength
-    sigma = cheby_cutoff_to_gauss_sigma(highpass_cutoff, xdim)
+    sigma = cheby_cutoff_to_gauss_sigma(highpass_cutoff, scan_image.scale_x)
 
     # Check if data is too short for border cutting
-    data_height = depth_data.shape[0]
+    data_height = scan_image.data.shape[0]
     cut_borders = (2 * sigma) <= (data_height * 0.2)
 
     # Shape removal (highpass filter)
-    data_no_shape, _, mask_shape = apply_gaussian_filter_1d(
+    data_high_pass, _, mask_high_pass = apply_gaussian_filter_1d(
         scan_image=scan_image,
         cutoff=highpass_cutoff,
         is_high_pass=True,
@@ -81,8 +77,8 @@ def apply_shape_noise_removal(
 
     # Create intermediate ScanImage for noise removal
     intermediate_scan_image = ScanImage(
-        data=data_no_shape.astype(np.float64),
-        scale_x=xdim,
+        data=data_high_pass.astype(np.float64),
+        scale_x=scan_image.scale_x,
         scale_y=scan_image.scale_y,
     )
 
@@ -92,7 +88,7 @@ def apply_shape_noise_removal(
         cutoff=lowpass_cutoff,
         is_high_pass=False,
         cut_borders_after_smoothing=cut_borders,
-        mask=mask_shape,
+        mask=mask_high_pass,
     )
 
     return data_no_noise, mask_no_noise
@@ -577,9 +573,6 @@ def preprocess_data(
 
     :returns: Tuple of (aligned_data, profile, mask, total_angle).
     """
-    # Extract pixel spacing from ScanImage
-    xdim = scan_image.scale_x
-
     # -------------------------------------------------------------------------
     # Step 2: Form and noise removal (optional)
     # -------------------------------------------------------------------------
@@ -603,7 +596,7 @@ def preprocess_data(
         # Create new ScanImage with filtered data
         filtered_scan_image = ScanImage(
             data=data_filtered.astype(np.float64),
-            scale_x=xdim,
+            scale_x=scan_image.scale_x,
             scale_y=scan_image.scale_y,
         )
         data_aligned, mask_aligned, total_angle = fine_align_bullet_marks(

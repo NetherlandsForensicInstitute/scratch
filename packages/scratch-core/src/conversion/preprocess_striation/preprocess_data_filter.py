@@ -80,8 +80,8 @@ def _remove_zero_border(
         )
 
     # Find bounding box and crop
-    # _determine_bounding_box returns (x_slice, y_slice) i.e. (col_slice, row_slice)
-    x_slice, y_slice = _determine_bounding_box(valid_data)
+    # _determine_bounding_box returns (y_slice, x_slice) i.e. (row_slice, col_slice)
+    y_slice, x_slice = _determine_bounding_box(valid_data)
     cropped_data = data[y_slice, x_slice]
     cropped_mask = mask[y_slice, x_slice]
     range_indices = np.arange(y_slice.start, y_slice.stop)
@@ -99,7 +99,7 @@ def cheby_cutoff_to_gauss_sigma(cutoff: float, pixel_size: float) -> float:
     """
     alpha_gaussian = np.sqrt(2 * np.log(2)) / (2 * np.pi)
     cutoff_pixels = cutoff / pixel_size
-    return cutoff_pixels * alpha_gaussian
+    return float(cutoff_pixels * alpha_gaussian)
 
 
 def apply_gaussian_filter_1d(
@@ -138,26 +138,22 @@ def apply_gaussian_filter_1d(
     :returns range_indices: Array of row indices that are valid after cropping.
     :returns mask: Boolean mask indicating valid data points in the output.
     """
-    # Extract data and pixel spacing from ScanImage
-    depth_data = scan_image.data
-    xdim = scan_image.scale_x
-
     # Initialize mask if not provided
     if mask is None:
-        mask = np.ones(depth_data.shape, dtype=bool)
+        mask = np.ones(scan_image.data.shape, dtype=bool)
 
     # Calculate Gaussian sigma from cutoff
-    sigma = cheby_cutoff_to_gauss_sigma(cutoff, xdim)
+    sigma = cheby_cutoff_to_gauss_sigma(cutoff, scan_image.scale_x)
 
     # Apply Gaussian lowpass filter, Use weighted filtering for masked data
-    depth_with_nan = depth_data.copy()
+    depth_with_nan = scan_image.data.copy()
     depth_with_nan[~mask] = np.nan
     filtered = _apply_nan_weighted_gaussian_1d(depth_with_nan, sigma)
 
     # Compute output based on filter type
     if is_high_pass:
         # Highpass: return residuals (original - smoothed)
-        output = depth_data - filtered
+        output = scan_image.data - filtered
     else:
         # Lowpass: return smoothed data directly
         output = filtered
@@ -176,15 +172,15 @@ def apply_gaussian_filter_1d(
             output_with_nan, mask
         )
     elif cut_borders_after_smoothing and (
-        sigma_int > 0 and depth_data.shape[0] > 2 * sigma_int
+        sigma_int > 0 and scan_image.data.shape[0] > 2 * sigma_int
     ):
         cropped_data = output[sigma_int:-sigma_int, :]
         cropped_mask = mask[sigma_int:-sigma_int, :]
-        range_indices = np.arange(sigma_int, depth_data.shape[0] - sigma_int)
+        range_indices = np.arange(sigma_int, scan_image.data.shape[0] - sigma_int)
     else:
         # Data too small to crop so no cropping
         cropped_data = output
         cropped_mask = mask
-        range_indices = np.arange(depth_data.shape[0])
+        range_indices = np.arange(scan_image.data.shape[0])
 
     return cropped_data, range_indices, cropped_mask
