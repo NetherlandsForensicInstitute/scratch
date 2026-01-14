@@ -12,11 +12,11 @@ from renders import (
 )
 from renders.normalizations import normalize_2d_array
 
-from models import Parameters
 from pipelines import run_pipeline
+from preprocessors.schemas import UploadScanParameters
 
 
-def parse_scan_pipeline(scan_file: Path, parameters: Parameters) -> ScanImage:
+def parse_scan_pipeline(scan_file: Path, parameters: UploadScanParameters) -> ScanImage:
     """
     Parse a scan file and load it as a ScanImage.
 
@@ -28,7 +28,11 @@ def parse_scan_pipeline(scan_file: Path, parameters: Parameters) -> ScanImage:
     return run_pipeline(
         scan_file,
         load_scan_image,
-        partial(subsample_scan_image, **parameters.as_dict(include={"step_size_x", "step_size_y"})),
+        partial(
+            subsample_scan_image,
+            step_size_x=parameters.step_size_x,
+            step_size_y=parameters.step_size_y,
+        ),
         error_message=f"Failed to parsed given scan file: {scan_file}",
     )
 
@@ -50,7 +54,7 @@ def x3p_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     )
 
 
-def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: Parameters) -> Path:
+def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: UploadScanParameters) -> Path:
     """
     Generate a 3D surface map image from scan data and save it to the specified path.
 
@@ -63,7 +67,13 @@ def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: 
     return run_pipeline(
         parsed_scan,
         compute_surface_normals,
-        partial(apply_multiple_lights, **parameters.as_dict(exclude={"step_size_x", "step_size_y"})),
+        partial(
+            apply_multiple_lights,
+            light_sources=parameters.light_sources,
+            observer=parameters.observer,
+            scale_x=parameters.scale_x,
+            scale_y=parameters.scale_y,
+        ),
         normalize_2d_array,
         scan_to_image,
         partial(save_image, output_path=output_path),

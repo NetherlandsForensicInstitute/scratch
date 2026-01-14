@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Annotated, Any, Protocol
+from typing import Annotated
 from uuid import uuid4
 
 from pydantic import UUID4, AfterValidator, BaseModel, ConfigDict, Field, FilePath, StringConstraints
@@ -99,18 +99,6 @@ def _generate_unique_token() -> UUID4:
     while True:
         if not tuple(storage.glob((token := uuid4()).hex)):
             return token
-
-
-class Parameters(Protocol):
-    def as_dict(self, *, exclude: set[str] | None = None, include: set[str] | None = None) -> dict[str, Any]:
-        """Serve unserialized Pydantic field values."""
-        ...
-
-
-class ParametersModel(BaseModelConfig):
-    def as_dict(self, *, exclude: set[str] | None = None, include: set[str] | None = None) -> dict[str, Any]:
-        """Get model fields as dict with optional filtering."""
-        return {field: getattr(self, field) for field in self.model_dump(exclude=exclude, include=include)}
 
 
 class DirectoryAccess(BaseModelConfig):

@@ -6,10 +6,10 @@ from typing import Any
 from container_models.light_source import LightSource
 from pydantic import ConfigDict, Field, FilePath, HttpUrl, PositiveFloat, RootModel, field_validator, model_validator
 
-from models import BaseModelConfig, ParametersModel, ProjectTag, ScanFile, SupportedScanExtension
+from models import BaseModelConfig, ProjectTag, ScanFile, SupportedScanExtension
 
 
-class UploadScanParameters(ParametersModel):
+class UploadScanParameters(BaseModelConfig):
     """Configuration parameters for upload scan's surface rendering process."""
 
     light_sources: tuple[LightSource, ...] = Field(
@@ -89,7 +89,7 @@ class RegressionOrder(StrEnum):
     R2 = auto()
 
 
-class EditImageParameters(ParametersModel):
+class EditImageParameters(BaseModelConfig):
     """Configuration parameters for scan image editing and transformation operations."""
 
     resampling_factor: PositiveFloat = Field(
