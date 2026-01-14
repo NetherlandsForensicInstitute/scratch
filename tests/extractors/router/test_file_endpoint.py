@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from constants import EXTRACTOR_ROUTE
+from constants import RoutePrefix
 from models import DirectoryAccess
 
 
@@ -20,7 +20,7 @@ def test_get_file_returns_file_response(client: TestClient, written_directory_ac
     filepath = written_directory_access.resource_path / "test.x3p"
     filepath.write_bytes(b"fakeimagecontent")
     # Act
-    response = client.get(f"{EXTRACTOR_ROUTE}/files/{written_directory_access.token}/test.x3p")
+    response = client.get(f"{written_directory_access.access_url}/test.x3p")
     # Assert
     assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
     assert response.content == b"fakeimagecontent"
@@ -33,7 +33,7 @@ def test_get_file_returns_image_response(client: TestClient, written_directory_a
     filepath = written_directory_access.resource_path / "test.png"
     filepath.write_bytes(b"fakeimagecontent")
     # Act
-    response = client.get(f"{EXTRACTOR_ROUTE}/files/{written_directory_access.token}/test.png")
+    response = client.get(f"{written_directory_access.access_url}/test.png")
     # Assert
     assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
     assert response.content == b"fakeimagecontent"
@@ -45,7 +45,7 @@ def test_get_file_returns_404_for_missing_file(client: TestClient, written_direc
     # Arrange
     wrong_filename = "nofile.png"
     # Act
-    response = client.get(f"{EXTRACTOR_ROUTE}/files/{written_directory_access.token}/{wrong_filename}")
+    response = client.get(f"{written_directory_access.access_url}/{wrong_filename}")
     # Assert
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json()["detail"] == f"File {wrong_filename} not found."
@@ -54,7 +54,7 @@ def test_get_file_returns_404_for_missing_file(client: TestClient, written_direc
 def test_get_file_rejects_invalid_extension(client: TestClient, directory_access: DirectoryAccess) -> None:
     """Test that requesting a file with an unsupported extension returns 422 validation error."""
     # Act
-    response = client.get(f"{EXTRACTOR_ROUTE}/files/{directory_access.token}/test.txt")
+    response = client.get(f"{directory_access.access_url}/test.txt")
 
     # Assert
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -67,7 +67,7 @@ def test_get_file_returns_422_for_invalid_token(client: TestClient) -> None:
     fake_token = uuid4()
 
     # Act
-    response = client.get(f"{EXTRACTOR_ROUTE}/files/{fake_token}/test.png")
+    response = client.get(f"/{RoutePrefix.EXTRACTOR}/files/{fake_token}/test.png")
 
     # Assert
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
