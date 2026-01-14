@@ -7,7 +7,6 @@ import pytest
 
 from conversion.preprocess_striation.preprocess_data import (
     _smooth_2d,
-    _remove_zero_image_border,
     _rotate_data_by_shifting_profiles,
     _rotate_image_grad_vector,
     _get_target_sampling_distance,
@@ -31,27 +30,16 @@ def test_smooth_2d():
     assert result[0, 0] == pytest.approx(1.0, rel=0.1)
 
 
-def test_remove_zero_image_border():
-    """Test that zero borders are correctly removed."""
-    data = np.zeros((15, 15), dtype=float)
-    mask = np.zeros((15, 15), dtype=bool)
-
-    data[4:10, 3:12] = 1.0
-    mask[4:10, 3:12] = True
-
-    cropped_data, cropped_mask = _remove_zero_image_border(data, mask)
-
-    assert cropped_data.shape == (6, 9)
-    assert cropped_mask.shape == (6, 9)
-    assert cropped_mask.all()
-
-
 def test_rotate_data_by_shifting_profiles():
     """Test rotation by profile shifting."""
     data = np.zeros((50, 50), dtype=float)
     data[25, :] = 1.0
 
-    rotated = _rotate_data_by_shifting_profiles(data, angle=5.0, cut_y_after_shift=True)
+    # 5 degrees = 0.087 radians
+    angle_rad = np.radians(5.0)
+    rotated = _rotate_data_by_shifting_profiles(
+        data, angle_rad=angle_rad, cut_y_after_shift=True
+    )
 
     assert rotated.shape[0] < data.shape[0]
     max_positions = np.argmax(rotated, axis=0)
@@ -74,7 +62,7 @@ def test_rotate_image_grad_vector():
 
     detected_angle = _rotate_image_grad_vector(
         striations,
-        xdim=1e-6,
+        scale_x=1e-6,
         extra_sub_samp=1,
     )
 

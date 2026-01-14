@@ -5,16 +5,18 @@ This module implements the PreprocessData pipeline from MATLAB:
 - Step 3: Fine rotation to align striations horizontally + profile extraction
 """
 
+from math import ceil
+
 import numpy as np
 from numpy.typing import NDArray
-from scipy.ndimage import gaussian_filter, zoom
-from scipy.interpolate import interp1d
+from scipy.ndimage import gaussian_filter, map_coordinates, zoom
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
+from conversion.filter import cutoff_to_gaussian_sigma
+from conversion.mask import _determine_bounding_box
 from conversion.preprocess_striation.preprocess_data_filter import (
     apply_gaussian_filter_1d,
-    cheby_cutoff_to_gauss_sigma,
 )
 
 
@@ -60,9 +62,10 @@ def apply_shape_noise_removal(
         mask = np.ones(scan_image.data.shape, dtype=bool)
 
     # Calculate Gaussian sigma from cutoff wavelength
-    sigma = cheby_cutoff_to_gauss_sigma(highpass_cutoff, scan_image.scale_x)
+    sigma = cutoff_to_gaussian_sigma(highpass_cutoff, scan_image.scale_x)
 
-    # Check if data is too short for border cutting
+    # Only crop borders if total removed (2*sigma for top+bottom) is ≤20% of height.
+    # This preserves at least 80% of the data while removing edge artifacts.
     data_height = scan_image.data.shape[0]
     cut_borders = (2 * sigma) <= (data_height * 0.2)
 
@@ -128,103 +131,84 @@ def _smooth_2d(
         return gaussian_filter(data, sigma, mode="nearest")
 
 
-def _remove_zero_image_border(
-    data: NDArray[np.floating],
-    mask: MaskArray,
-) -> tuple[NDArray[np.floating], MaskArray]:
-    """
-    Remove zero/invalid borders from masked data.
-
-    :param data: 2D depth data array.
-    :param mask: Boolean mask (True = valid).
-    :returns: Tuple of (cropped_data, cropped_mask).
-    """
-    # Find row bounds
-    row_sum = np.sum(mask, axis=1)
-    valid_rows = np.nonzero(row_sum > 0)[0]
-    if len(valid_rows) == 0:
-        return data, mask
-    start_row, end_row = valid_rows[0], valid_rows[-1] + 1
-
-    # Find column bounds
-    col_sum = np.sum(mask, axis=0)
-    valid_cols = np.nonzero(col_sum > 0)[0]
-    if len(valid_cols) == 0:
-        return data, mask
-    start_col, end_col = valid_cols[0], valid_cols[-1] + 1
-
-    # Apply mask to data and crop
-    data_masked = data * mask.astype(float)
-    cropped_data = data_masked[start_row:end_row, start_col:end_col]
-    cropped_mask = mask[start_row:end_row, start_col:end_col]
-
-    return cropped_data, cropped_mask
-
-
 def _rotate_data_by_shifting_profiles(
     depth_data: NDArray[np.floating],
-    angle: float,
+    angle_rad: float,
     cut_y_after_shift: bool = True,
 ) -> NDArray[np.floating]:
     """
-    Rotate depth data by shifting profiles (columns) vertically.
+    Rotate depth data by shifting each column (profile) vertically.
+
+    This implements a shear-based rotation that preserves striation features.
+    Instead of true 2D rotation (which would require interpolation in both
+    dimensions), each column is shifted up or down by an amount proportional
+    to its x-position. This creates a rotation effect while keeping each
+    vertical profile intact.
+
+    Example for a 5° (0.087 rad) rotation on a 100-pixel wide image:
+        - Left edge (col 0): shifts up by ~4.4 pixels
+        - Center (col 50): no shift
+        - Right edge (col 99): shifts down by ~4.4 pixels
+
+    This is equivalent to the MATLAB RotateDataByShiftingProfiles function.
 
     :param depth_data: 2D depth data array (rows x cols).
-    :param angle: Rotation angle in degrees.
-    :param cut_y_after_shift: If True, crop borders after shifting.
+    :param angle_rad: Rotation angle in radians (positive = clockwise).
+        Expected range: ±0.175 rad (±10°). Angles < 0.00175 rad (0.1°) are skipped.
+    :param cut_y_after_shift: If True, crop NaN borders introduced by shifting.
     :returns: Rotated depth data.
     """
-    if abs(angle) <= 0.1:
+    # Skip rotation for angles smaller than ~0.1° (0.00175 rad)
+    if abs(angle_rad) <= 0.00175:
         return depth_data.copy()
 
-    depth_data = depth_data.astype(float)
     height, width = depth_data.shape
 
-    # Calculate total vertical shift across the image
-    total_shift = np.tan(np.radians(angle)) * width
+    # Calculate total vertical shift: tan(angle) * width
+    # For small angles, tan(angle) ≈ angle, so shift ≈ angle_rad * width
+    total_shift = np.tan(angle_rad) * width
 
-    # Calculate shift for each column
+    # Calculate shift for each column, centered around the middle column (pivot point).
+    # Left edge shifts up by +total_shift/2, right edge shifts down by -total_shift/2.
     shift_y = np.linspace(total_shift / 2, -total_shift / 2, width)
 
-    # Amount of padding needed
-    amount_zeros = int(np.ceil(abs(total_shift) / 2))
-    padding = amount_zeros + 2
+    # Number of padding rows needed
+    num_shift_rows = int(np.ceil(abs(total_shift) / 2))
+    padding = num_shift_rows + 2
 
     # Pad data with NaN
     padded_height = height + 2 * padding
-    depth_data_new = np.full((padded_height, width), np.nan)
-    depth_data_new[padding : padding + height, :] = depth_data
+    padded_data = np.full((padded_height, width), np.nan)
+    padded_data[padding : padding + height, :] = depth_data
 
-    # Shift each column
-    original_indices = np.arange(padded_height)
-    for col in range(width):
-        col_data = depth_data_new[:, col]
-        valid_mask = ~np.isnan(col_data)
+    # Create coordinate grids for vectorized interpolation
+    row_idx = np.arange(padded_height)
+    col_idx = np.arange(width)
 
-        if np.sum(valid_mask) > 1:
-            interp_func = interp1d(
-                original_indices[valid_mask],
-                col_data[valid_mask],
-                kind="linear",
-                bounds_error=False,
-                fill_value=np.nan,
-            )
-            new_indices = original_indices - shift_y[col]
-            depth_data_new[:, col] = interp_func(new_indices)
+    # Source row for each output position: source_row = output_row - shift_y[col]
+    # Broadcasting: (padded_height, 1) - (1, width) -> (padded_height, width)
+    source_rows = row_idx[:, np.newaxis] - shift_y[np.newaxis, :]
+    source_cols = np.broadcast_to(col_idx, (padded_height, width)).astype(float)
+
+    # Stack coordinates for map_coordinates: shape (2, padded_height, width)
+    coords = np.array([source_rows, source_cols])
+
+    # Apply vectorized interpolation (order=1 for linear)
+    output = map_coordinates(padded_data, coords, order=1, mode="constant", cval=np.nan)
 
     # Crop borders if requested
     if cut_y_after_shift:
-        amount_of_nans = int(np.ceil(max(abs(shift_y[0]), abs(shift_y[-1])))) + 1
-        crop_start = padding + amount_of_nans
-        crop_end = padded_height - padding - amount_of_nans
-        depth_data_new = depth_data_new[crop_start:crop_end, :]
+        num_nan_rows = int(np.ceil(max(abs(shift_y[0]), abs(shift_y[-1])))) + 1
+        crop_start = padding + num_nan_rows
+        crop_end = padded_height - padding - num_nan_rows
+        output = output[crop_start:crop_end, :]
 
-    return depth_data_new
+    return output
 
 
 def _rotate_image_grad_vector(
     depth_data: NDArray[np.floating],
-    xdim: float,
+    scale_x: float,
     mask: MaskArray | None = None,
     extra_sub_samp: int = 1,
 ) -> float:
@@ -232,35 +216,33 @@ def _rotate_image_grad_vector(
     Determine striation direction using gradient analysis.
 
     :param depth_data: 2D depth data array.
-    :param xdim: Pixel spacing in meters.
+    :param scale_x: Pixel spacing in meters.
     :param mask: Optional boolean mask (True = valid).
     :param extra_sub_samp: Additional subsampling factor.
     :returns: Detected rotation angle in degrees.
     """
     # Determine subsampling factor
-    if xdim < 1e-6:
-        sub_samp = int(round(1e-6 / xdim)) * extra_sub_samp
+    if scale_x < 1e-6:
+        sub_samp = ceil(1e-6 / scale_x) * extra_sub_samp
     else:
         sub_samp = 1 * extra_sub_samp
 
-    # Determine sigma for smoothing
-    sigma = round(10 * 1.75e-6 / xdim / sub_samp)
-    if sigma < 3:
-        sigma = 3
+    # Determine sigma for smoothing (minimum of 3)
+    sigma = max(3, round(1.75e-5 / scale_x / sub_samp))
 
-    # Subsample depth data
+    # Subsample data
     if sub_samp > 1 and depth_data.shape[1] // sub_samp >= 2:
-        depth_data_res = depth_data[:, ::sub_samp]
+        data_subsampled = depth_data[:, ::sub_samp]
         if mask is not None:
-            mask_res = mask[:, ::sub_samp]
+            mask_subsampled = mask[:, ::sub_samp]
         else:
-            mask_res = None
+            mask_subsampled = None
     else:
-        depth_data_res = depth_data
-        mask_res = mask
+        data_subsampled = depth_data
+        mask_subsampled = mask
 
     # Smooth data
-    smoothed = _smooth_2d(depth_data_res, (sigma, sigma))
+    smoothed = _smooth_2d(data_subsampled, (sigma, sigma))
 
     # Calculate gradient
     fy, fx = np.gradient(smoothed)
@@ -273,25 +255,24 @@ def _rotate_image_grad_vector(
     grad_mask = grad_tmp > grad_threshold
 
     # Combine with input mask if provided
-    if mask_res is not None:
-        grad_mask = grad_mask & (mask_res > 0.5)
+    if mask_subsampled is not None:
+        grad_mask = grad_mask & (mask_subsampled > 0.5)
 
-    # Normalize fx by gradient magnitude
+    # Compute striation tilt angle from gradient direction.
+    # For horizontal striations, gradients point vertically (fx=0, fy≠0).
+    # Tilted striations produce a horizontal gradient component: sin(θ) = fx/|grad|.
     with np.errstate(divide="ignore", invalid="ignore"):
         fx_norm = fx / grad_tmp
 
-    # Correct sign based on fy direction
-    sign_correction = np.sign(fy)
-    fx_norm = fx_norm * sign_correction
+    # Ensure consistent sign by aligning with fy direction
+    fx_norm = fx_norm * np.sign(fy)
 
-    # Flatten and apply mask
+    # Convert normalized fx to tilt angle in degrees via arcsin
     fx_flat = fx_norm.flatten()
     mask_flat = grad_mask.flatten()
-
-    # Calculate angles
     angles = np.degrees(np.arcsin(np.clip(fx_flat[mask_flat], -1, 1)))
 
-    # Keep only angles between -10 and 10 degrees
+    # Filter outliers: keep only angles within ±10° (expected range for fine alignment)
     angles = angles[np.abs(angles) < 10]
 
     if len(angles) == 0:
@@ -334,8 +315,8 @@ def _get_target_sampling_distance(mark_type: str) -> float:
 
 def _resample_mark_type_specific(
     depth_data: NDArray[np.floating],
-    xdim: float,
-    ydim: float,
+    scale_x: float,
+    scale_y: float,
     mark_type: str,
     mask: MaskArray | None = None,
 ) -> tuple[NDArray[np.floating], float, float, MaskArray | None]:
@@ -343,21 +324,21 @@ def _resample_mark_type_specific(
     Resample depth data to target sampling distance based on mark type.
 
     :param depth_data: 2D depth data array.
-    :param xdim: Current x-dimension pixel spacing in meters.
-    :param ydim: Current y-dimension pixel spacing in meters.
+    :param scale_x: Current x-dimension pixel spacing in meters.
+    :param scale_y: Current y-dimension pixel spacing in meters.
     :param mark_type: Mark type string.
     :param mask: Optional boolean mask.
-    :returns: Tuple of (resampled_data, new_xdim, new_ydim, resampled_mask).
+    :returns: Tuple of (resampled_data, new_scale_x, new_scale_y, resampled_mask).
     """
     target_sampling = _get_target_sampling_distance(mark_type)
 
     # Check if data meets minimum requirements
-    if xdim > target_sampling and ydim > target_sampling:
-        return depth_data, xdim, ydim, mask
+    if scale_x > target_sampling and scale_y > target_sampling:
+        return depth_data, scale_x, scale_y, mask
 
     # Calculate resample factors
-    resample_factor_x = xdim / target_sampling
-    resample_factor_y = ydim / target_sampling
+    resample_factor_x = scale_x / target_sampling
+    resample_factor_y = scale_y / target_sampling
 
     # Resample depth data using bilinear interpolation
     depth_data_resampled: NDArray[np.floating] = np.asarray(
@@ -416,8 +397,8 @@ def fine_align_bullet_marks(
     """
     # Extract data and pixel spacing from ScanImage
     depth_data = scan_image.data
-    xdim = scan_image.scale_x
-    ydim = scan_image.scale_y
+    scale_x = scan_image.scale_x
+    scale_y = scan_image.scale_y
 
     # Initialize
     data_tmp = depth_data.copy()
@@ -432,24 +413,28 @@ def fine_align_bullet_marks(
     while abs(a) > angle_accuracy and iteration < max_iter:
         a = _rotate_image_grad_vector(
             data_tmp,
-            xdim,
+            scale_x,
             mask=mask_tmp,
             extra_sub_samp=extra_sub_samp,
         )
 
         if not np.isnan(a):
             a_tot = a_tot + a
+            # Convert accumulated angle from degrees to radians for rotation
+            a_tot_rad = np.radians(a_tot)
             data_tmp = _rotate_data_by_shifting_profiles(
-                depth_data, a_tot, cut_y_after_shift
+                depth_data, a_tot_rad, cut_y_after_shift
             )
 
             if mask is not None:
                 mask_float = mask.astype(float)
                 mask_rotated = _rotate_data_by_shifting_profiles(
-                    mask_float, a_tot, cut_y_after_shift
+                    mask_float, a_tot_rad, cut_y_after_shift
                 )
                 mask_tmp = mask_rotated > 0.5
-                data_tmp, mask_tmp = _remove_zero_image_border(data_tmp, mask_tmp)
+                y_slice, x_slice = _determine_bounding_box(mask_tmp)
+                data_tmp = data_tmp[y_slice, x_slice]
+                mask_tmp = mask_tmp[y_slice, x_slice]
 
             if a == a_last:
                 iteration = max_iter - 1
@@ -466,29 +451,31 @@ def fine_align_bullet_marks(
         result_data = depth_data.copy()
         result_mask = mask
     else:
+        # Convert final angle from degrees to radians for rotation
+        a_tot_rad = np.radians(a_tot)
         result_data = _rotate_data_by_shifting_profiles(
-            depth_data, a_tot, cut_y_after_shift
+            depth_data, a_tot_rad, cut_y_after_shift
         )
 
         if mask is not None:
             mask_float = mask.astype(float)
             mask_rotated = _rotate_data_by_shifting_profiles(
-                mask_float, a_tot, cut_y_after_shift
+                mask_float, a_tot_rad, cut_y_after_shift
             )
             result_mask = mask_rotated > 0.5
-            result_data, result_mask = _remove_zero_image_border(
-                result_data, result_mask
-            )
+            y_slice, x_slice = _determine_bounding_box(result_mask)
+            result_data = result_data[y_slice, x_slice]
+            result_mask = result_mask[y_slice, x_slice]
 
-            if mark_type is not None and ydim is not None:
+            if mark_type is not None and scale_y is not None:
                 result_data, _, _, result_mask = _resample_mark_type_specific(
-                    result_data, xdim, ydim, mark_type, result_mask
+                    result_data, scale_x, scale_y, mark_type, result_mask
                 )
         else:
             result_mask = None
-            if mark_type is not None and ydim is not None:
+            if mark_type is not None and scale_y is not None:
                 result_data, _, _, _ = _resample_mark_type_specific(
-                    result_data, xdim, ydim, mark_type
+                    result_data, scale_x, scale_y, mark_type
                 )
 
     return result_data, result_mask, a_tot

@@ -7,11 +7,11 @@ import numpy as np
 import pytest
 from math import ceil
 
+from conversion.filter import cutoff_to_gaussian_sigma
 from conversion.preprocess_striation.preprocess_data_filter import (
     _apply_nan_weighted_gaussian_1d,
     _remove_zero_border,
     apply_gaussian_filter_1d,
-    cheby_cutoff_to_gauss_sigma,
 )
 from conversion.preprocess_striation.preprocess_data import (
     apply_shape_noise_removal,
@@ -24,16 +24,16 @@ from container_models.scan_image import ScanImage
 # =============================================================================
 
 
-def test_cheby_cutoff_to_gauss_sigma():
+def test_cutoff_to_gaussian_sigma():
     """Test conversion from cutoff wavelength to Gaussian sigma."""
     cutoff = 1000e-6  # 1000 µm
     pixel_size = 10e-6  # 10 µm per pixel
 
-    sigma = cheby_cutoff_to_gauss_sigma(cutoff, pixel_size)
+    sigma = cutoff_to_gaussian_sigma(cutoff, pixel_size)
 
-    # The function uses: alpha_gaussian = sqrt(2 * log(2)) / (2 * pi)
-    alpha_gaussian = np.sqrt(2 * np.log(2)) / (2 * np.pi)
-    expected = (cutoff / pixel_size) * alpha_gaussian
+    # The function uses: σ = α·λc/√(2π) where α = √(ln(2)/π)
+    alpha_gaussian = np.sqrt(np.log(2) / np.pi)
+    expected = alpha_gaussian * (cutoff / pixel_size) / np.sqrt(2 * np.pi)
     assert sigma == pytest.approx(expected)
 
 
@@ -184,7 +184,7 @@ def test_form_noise_removal_pipeline():
     assert np.std(result) < np.std(depth_data), "Noise not reduced"
 
     # Test 2: Border cropping behavior
-    sigma = cheby_cutoff_to_gauss_sigma(2000e-6, scale)
+    sigma = cutoff_to_gaussian_sigma(2000e-6, scale)
     data_too_short = (2 * sigma) > (height * 0.2)
 
     if data_too_short:

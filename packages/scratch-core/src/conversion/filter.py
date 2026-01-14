@@ -12,6 +12,25 @@ ALPHA_REGRESSION = np.sqrt(
 ).real  # 0.7309...
 
 
+def cutoff_to_gaussian_sigma(cutoff: float, pixel_size: float) -> float:
+    """
+    Convert cutoff wavelength to Gaussian sigma for use with scipy's gaussian_filter.
+
+    This function converts the ISO 16610 cutoff wavelength to a standard deviation (sigma)
+    compatible with scipy.ndimage.gaussian_filter, which uses exp(-x²/(2σ²)).
+
+    The conversion derives from matching the ISO Gaussian G(x) = exp(-π(x/(α·λc))²)
+    to scipy's Gaussian exp(-x²/(2σ²)), yielding σ = α·λc/√(2π).
+
+    :param cutoff: Cutoff wavelength in physical units (e.g., meters).
+    :param pixel_size: Pixel spacing in the same units as cutoff.
+    :return: Gaussian sigma in pixel units.
+    """
+    cutoff_pixels = cutoff / pixel_size
+    # σ = α·λc/√(2π) where α = √(ln(2)/π) is the ISO 16610 Gaussian constant
+    return float(ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi))
+
+
 def apply_gaussian_regression_filter(
     data: NDArray[np.floating],
     cutoff_length: float,

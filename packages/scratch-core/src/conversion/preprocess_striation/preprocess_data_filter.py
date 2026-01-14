@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
+from conversion.filter import cutoff_to_gaussian_sigma
 from conversion.mask import _determine_bounding_box
 
 
@@ -16,10 +17,14 @@ def _apply_nan_weighted_gaussian_1d(
     truncate: float = 4.0,
 ) -> NDArray[np.floating]:
     """
-    Apply 1D Gaussian filter along rows with NaN-aware weighting.
+    Apply 1D Gaussian filter along rows (y-direction) with NaN-aware weighting.
 
+    This filters vertically along each column, preserving horizontal striation features.
     NaN values are excluded from the convolution by setting their weight to 0.
     The result is normalized by the sum of weights to compensate for missing data.
+
+    Note: MATLAB's SmoothMod with sigma_2d=[0 sigma] internally transposes the kernel,
+    so filtering along MATLAB's dimension 2 corresponds to numpy's axis 0 (rows).
 
     :param data: Input 2D data array (may contain NaN values).
     :param sigma: Standard deviation of Gaussian kernel (in pixels).
@@ -27,10 +32,11 @@ def _apply_nan_weighted_gaussian_1d(
     :returns: Filtered data array. NaN positions will have interpolated values
         based on neighboring valid data.
     """
-
+    # sigma=(sigma, 0) filters along axis 0 (rows/y-direction)
+    # This matches MATLAB's SmoothMod behavior where sigma_2d=[0 sigma] with kernel transpose
     gaussian_filter = partial(
         ndimage.gaussian_filter,
-        sigma=(sigma, 0),  # Filter only along first axis (rows)
+        sigma=(sigma, 0),  # Filter only along first axis (rows/y-direction)
         mode="reflect",  # Match MATLAB's symmetric boundary conditions
         truncate=truncate,
     )
@@ -89,19 +95,6 @@ def _remove_zero_border(
     return cropped_data, cropped_mask, range_indices
 
 
-def cheby_cutoff_to_gauss_sigma(cutoff: float, pixel_size: float) -> float:
-    """
-    Convert cutoff wavelength to Gaussian sigma using ISO 16610 standard.
-
-    :param cutoff: Cutoff wavelength in physical units (e.g., meters).
-    :param pixel_size: Pixel spacing in the same units as cutoff.
-    :return: Gaussian sigma in pixel units.
-    """
-    alpha_gaussian = np.sqrt(2 * np.log(2)) / (2 * np.pi)
-    cutoff_pixels = cutoff / pixel_size
-    return float(cutoff_pixels * alpha_gaussian)
-
-
 def apply_gaussian_filter_1d(
     scan_image: ScanImage,
     cutoff: float,
@@ -110,11 +103,10 @@ def apply_gaussian_filter_1d(
     mask: MaskArray | None = None,
 ) -> tuple[NDArray[np.floating], NDArray[np.intp], MaskArray]:
     """
-    Apply 1D Gaussian filter along rows for striation-preserving surface processing.
+    Apply 1D Gaussian filter along rows (y-direction) for striation-preserving surface processing.
 
-    This function applies a 1D Gaussian filter only along the first dimension (rows),
-    which corresponds to the direction perpendicular to striation marks. This preserves
-    striation features while removing either noise (lowpass) or shape (highpass).
+    This function applies a 1D Gaussian filter only along axis 0 (rows/y-direction),
+    which smooths vertically while preserving horizontal striation features.
 
     Use Cases:
         - **Lowpass (is_high_pass=False)**: Remove high-frequency noise while preserving
@@ -126,7 +118,7 @@ def apply_gaussian_filter_1d(
         1. Convert cutoff wavelength to Gaussian sigma using ISO standard
         2. Apply 1D Gaussian filter along rows (NaN-aware weighted filtering)
         3. Return smoothed data (lowpass) or residuals (highpass)
-        4. Optionally crop border artifacts (sigma pixels from each edge)
+        4. Optionally crop border artifacts (sigma pixels from top and bottom edges)
 
     :param scan_image: ScanImage containing depth data and pixel spacing.
     :param cutoff: Cutoff wavelength in meters (m).
@@ -143,7 +135,9 @@ def apply_gaussian_filter_1d(
         mask = np.ones(scan_image.data.shape, dtype=bool)
 
     # Calculate Gaussian sigma from cutoff
-    sigma = cheby_cutoff_to_gauss_sigma(cutoff, scan_image.scale_x)
+    # Note: Uses scale_x to match MATLAB's xdim parameter, even though filtering is along rows.
+    # This works because striation data typically has equal x/y pixel spacing.
+    sigma = cutoff_to_gaussian_sigma(cutoff, scan_image.scale_x)
 
     # Apply Gaussian lowpass filter, Use weighted filtering for masked data
     depth_with_nan = scan_image.data.copy()
