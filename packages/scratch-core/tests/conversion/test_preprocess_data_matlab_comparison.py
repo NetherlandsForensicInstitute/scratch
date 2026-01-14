@@ -131,7 +131,7 @@ def test_case(
 
 def run_python_preprocessing(
     test_case: MatlabTestCase,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, float | None]:
+) -> tuple[np.ndarray, np.ndarray | None, np.ndarray, float]:
     """Run Python preprocess_data and return the results."""
     scan_image = ScanImage(
         data=test_case.input_data,
@@ -191,9 +191,7 @@ class TestPreprocessDataMatlabComparison:
             )
 
         # Crop to common shape for value comparisons
-        python_depth, matlab_depth = _crop_to_common_shape(
-            python_depth, matlab_depth, center_crop=test_case.has_mask
-        )
+        python_depth, matlab_depth = _crop_to_common_shape(python_depth, matlab_depth)
         corr_threshold, std_threshold = self._get_thresholds(test_case)
 
         # Correlation check
@@ -267,9 +265,10 @@ class TestPreprocessDataMatlabComparison:
             pytest.skip("Test case has no mask")
 
         _, python_mask, _, _ = run_python_preprocessing(test_case)
+        assert python_mask is not None
 
         python_mask, matlab_mask = _crop_to_common_shape(
-            python_mask, test_case.output_mask, center_crop=True
+            python_mask, test_case.output_mask
         )
 
         python_binary = (python_mask > 0.5).astype(float)
