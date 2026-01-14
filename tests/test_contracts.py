@@ -1,5 +1,5 @@
 import shutil
-from enum import StrEnum
+from http import HTTPStatus
 from pathlib import Path
 
 import pytest
@@ -7,19 +7,10 @@ import requests
 from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
-from constants import PROJECT_ROOT
+from constants import RoutePrefix
 from models import DirectoryAccess
 from preprocessors.schemas import EditImage, EditImageParameters, ProcessDataUrls, ProcessScanOutput, UploadScan
 from settings import get_settings
-
-SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
-
-
-class RoutePrefix(StrEnum):
-    COMPARATOR = "comparator"
-    EXTRACTOR = "extractor"
-    PREPROCESSOR = "preprocessor"
-    PROCESSOR = "processor"
 
 
 class TemplateResponse(BaseModel):
@@ -62,16 +53,19 @@ class TestContracts:
         return data, expected_response
 
     @pytest.mark.parametrize(
-        ("route", "expected_response"),
-        (pytest.param(f"/{route}", TemplateResponse, id=route) for route in RoutePrefix),
+        "route",
+        (pytest.param(f"/{route}", id=route) for route in RoutePrefix),
     )
-    def test_root(self, route: str, expected_response: BaseModel) -> None:
-        """Check if the root is still returning the hello world response."""
+    def test_root(self, route: str) -> None:
+        """Check if the root redirects to the documentation section."""
         # Act
-        response = requests.get(f"{get_settings().base_url}{route}", timeout=5)
+        response = requests.get(f"{get_settings().base_url}{route}", timeout=5, allow_redirects=False)
         # Assert
-        assert response.status_code == HTTP_200_OK
-        expected_response.model_validate(response.json())
+        assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, (
+            "endpoint should redirect with temporary redirect status"
+        )
+        expected_location = f"/docs#operations-tag-{route.lstrip('/')}"
+        assert response.headers["location"] == expected_location, f"should redirect to {expected_location}"
 
     @pytest.mark.parametrize(
         ("fixture_name", "sub_route"),

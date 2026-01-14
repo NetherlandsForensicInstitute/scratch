@@ -1,10 +1,11 @@
 from http import HTTPStatus
 
 from fastapi import APIRouter
+from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import UUID4
 
-from constants import PREPROCESSOR_ROUTE
+from constants import RoutePrefix
 from extractors.schemas import RelativePath
 from file_services import create_vault, fetch_directory_access, fetch_resource_file, generate_files, generate_urls
 from settings import SettingsDep
@@ -12,24 +13,25 @@ from settings import SettingsDep
 from .pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
 from .schemas import EditImage, EditImageParameters, ProcessDataUrls, ProcessScanOutput, UploadScan
 
-preprocessor_route = APIRouter(prefix=PREPROCESSOR_ROUTE, tags=[PREPROCESSOR_ROUTE])
+preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[RoutePrefix.PREPROCESSOR])
 
 
 @preprocessor_route.get(
-    path="/",
-    summary="check status of comparison proces",
-    description="""Some description of pre-processors endpoint, you can use basic **markup**""",
+    path="",
+    summary="Redirect to preprocessor documentation",
+    description="""Redirects to the preprocessor section in the API documentation.""",
+    include_in_schema=False,
 )
-async def preprocessor_root() -> dict[str, str]:
+async def preprocessor_root() -> RedirectResponse:
     """
-    Fetch a simple message from the REST API.
+    Redirect to the preprocessor section in Swagger docs.
 
-    Here is some more information about the function some notes what is expected.
-    Special remarks what the function is doing.
+    This endpoint redirects users to the preprocessor tag section in the
+    interactive API documentation at /docs.
 
-    :return: Use as much as possible Pydantic for return types.
+    :return: RedirectResponse to the preprocessor documentation section.
     """
-    return {"message": "Hello from the pre-processors"}
+    return RedirectResponse(url=f"/docs#operations-tag-{RoutePrefix.PREPROCESSOR}")
 
 
 @preprocessor_route.post(
@@ -64,7 +66,7 @@ async def process_scan(upload_scan: UploadScan, settings: SettingsDep) -> Proces
 
     logger.info(f"Generated files saved to {vault}")
     return ProcessScanOutput.model_validate({
-        "edit_scan": f"{settings.base_url}{PREPROCESSOR_ROUTE}/edit-scans/{vault.token}/scan.x3p",
+        "edit_scan": f"{settings.base_url}/{RoutePrefix.PREPROCESSOR}/edit-scans/{vault.token}/scan.x3p",
         "downloads": generate_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}),
     })
 
