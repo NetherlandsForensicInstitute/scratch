@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from pydantic import HttpUrl
 
-from constants import EXTRACTOR_ROUTE
+from constants import RoutePrefix
 from file_services import create_vault, fetch_resource_path, get_files, get_urls
 from models import DirectoryAccess
 from settings import get_settings
@@ -46,7 +46,7 @@ class TestFileServices:
     def test_get_output_urls(self, directory_access: DirectoryAccess) -> None:
         """Test that get_output_urls returns correct URL mapping."""
         # Arrange
-        base_url = f"{get_settings().base_url}{EXTRACTOR_ROUTE}/files/{directory_access.token}"
+        base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
         expected_urls = dict(
             scan=HttpUrl(f"{base_url}/scan.x3p"),
             preview=HttpUrl(f"{base_url}/preview.png"),

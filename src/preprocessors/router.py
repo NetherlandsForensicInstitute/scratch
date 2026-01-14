@@ -2,9 +2,10 @@ from functools import partial
 from http import HTTPStatus
 
 from fastapi import APIRouter
+from fastapi.responses import RedirectResponse
 from loguru import logger
 
-from constants import PREPROCESSOR_ROUTE
+from constants import RoutePrefix
 from extractors import ProcessedDataAccess
 from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault, get_files, get_urls
@@ -20,24 +21,25 @@ from .pipelines import (
 )
 from .schemas import EditImage, PrepareMarkImpression, PrepareMarkStriation, UploadScan
 
-preprocessor_route = APIRouter(prefix=PREPROCESSOR_ROUTE, tags=[PREPROCESSOR_ROUTE])
+preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[RoutePrefix.PREPROCESSOR])
 
 
 @preprocessor_route.get(
-    path="/",
-    summary="check status of comparison proces",
-    description="""Some description of pre-processors endpoint, you can use basic **markup**""",
+    path="",
+    summary="Redirect to preprocessor documentation",
+    description="""Redirects to the preprocessor section in the API documentation.""",
+    include_in_schema=False,
 )
-async def preprocessor_root() -> dict[str, str]:
+async def preprocessor_root() -> RedirectResponse:
     """
-    Fetch a simple message from the REST API.
+    Redirect to the preprocessor section in Swagger docs.
 
-    Here is some more information about the function some notes what is expected.
-    Special remarks what the function is doing.
+    This endpoint redirects users to the preprocessor tag section in the
+    interactive API documentation at /docs.
 
-    :return: Use as much as possible Pydantic for return types.
+    :return: RedirectResponse to the preprocessor documentation section.
     """
-    return {"message": "Hello from the pre-processors"}
+    return RedirectResponse(url=f"/docs#operations-tag-{RoutePrefix.PREPROCESSOR}")
 
 
 @preprocessor_route.post(

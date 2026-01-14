@@ -18,13 +18,13 @@ from preprocessors.schemas import (
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
-    """Test that the preprocessor root endpoint returns a placeholder message."""
+    """Test that the preprocessor root endpoint redirects to documentation."""
     # Act
-    response = client.get("/preprocessor")
+    response = client.get("/preprocessor", follow_redirects=False)
 
     # Assert
-    assert response.status_code == HTTPStatus.OK, "endpoint is alive"
-    assert response.json() == {"message": "Hello from the pre-processors"}, "A placeholder response should be returned"
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, "endpoint should redirect"
+    assert response.headers["location"] == "/docs#operations-tag-preprocessor", "should redirect to preprocessor docs"
 
 
 @pytest.mark.parametrize(
