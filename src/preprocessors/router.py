@@ -1,14 +1,16 @@
 from http import HTTPStatus
 
 from fastapi import APIRouter
+from loguru import logger
+
+from constants import PREPROCESSOR_ROUTE
+from extractors import ProcessedDataAccess
+from file_services import create_vault, get_files, get_urls
 
 from .pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
-from .schemas import ProcessedDataLocation, UploadScan
+from .schemas import UploadScan
 
-preprocessor_route = APIRouter(
-    prefix="/preprocessor",
-    tags=["preprocessor"],
-)
+preprocessor_route = APIRouter(prefix=PREPROCESSOR_ROUTE, tags=[PREPROCESSOR_ROUTE])
 
 
 @preprocessor_route.get(
@@ -16,13 +18,14 @@ preprocessor_route = APIRouter(
     summary="check status of comparison proces",
     description="""Some description of pre-processors endpoint, you can use basic **markup**""",
 )
-async def comparison_root() -> dict[str, str]:
-    """Fetch a simple message from the REST API.
+async def preprocessor_root() -> dict[str, str]:
+    """
+    Fetch a simple message from the REST API.
 
     Here is some more information about the function some notes what is expected.
     Special remarks what the function is doing.
 
-    return: dict[str,str] but, use as much as possible Pydantic for return types
+    :return: Use as much as possible Pydantic for return types.
     """
     return {"message": "Hello from the pre-processors"}
 
@@ -39,17 +42,23 @@ async def comparison_root() -> dict[str, str]:
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
-async def process_scan(upload_scan: UploadScan) -> ProcessedDataLocation:
+async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     """
     Process an uploaded scan file and generate derived output files.
 
     This endpoint parses and validates the incoming scan file, performs the
     necessary processing steps, and produces several outputs such as an X3P
-    file, a preview image, and a surface map saved to the output directory.
+    file, a preview image, and a surface map saved to a temp directory and returns urls to retrieve them.
+
+    :param upload_scan: The uploaded scan data and parameters.
+    :return: Access URLs for the generated files.
     """
+    vault = create_vault(upload_scan.tag)
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.parameters)
-    return ProcessedDataLocation(
-        x3p_image=x3p_pipeline(parsed_scan, upload_scan.x3p_path),
-        surfacemap_image=surface_map_pipeline(parsed_scan, upload_scan.surfacemap_path, upload_scan.parameters),
-        preview_image=preview_pipeline(parsed_scan, upload_scan.preview_path),
-    )
+    files = get_files(vault.resource_path, scan="scan.x3p", preview="preview.png", surface_map="surface_map.png")
+    x3p_pipeline(parsed_scan, files["scan"])
+    surface_map_pipeline(parsed_scan, files["surface_map"], upload_scan.parameters)
+    preview_pipeline(parsed_scan, files["preview"])
+
+    logger.info(f"Generated files saved to {vault}")
+    return ProcessedDataAccess(**get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}))

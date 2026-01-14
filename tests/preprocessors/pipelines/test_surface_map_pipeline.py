@@ -57,7 +57,7 @@ class TestSurfaceMapPipeline:
         # Arrange
 
         # Act
-        surface_map = surface_map_pipeline(parsed_al3d_file, tmp_path / "surfacemap.png", default_parameters)
+        surface_map = surface_map_pipeline(parsed_al3d_file, tmp_path / "surface_map.png", default_parameters)
 
         # Assert - verify we can open the PNG file
         with Image.open(surface_map) as img:
@@ -78,7 +78,7 @@ class TestSurfaceMapPipeline:
         )
 
         # Act
-        surface_map = surface_map_pipeline(parsed_al3d_file, tmp_path / "multi_light_surfacemap.png", parameters)
+        surface_map = surface_map_pipeline(parsed_al3d_file, tmp_path / "multi_light_surface_map.png", parameters)
 
         # Assert
         with Image.open(surface_map) as img:
