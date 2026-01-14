@@ -1,5 +1,6 @@
 from functools import partial
 from pathlib import Path
+from typing import Protocol
 
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, parse_to_x3p, save_x3p, subsample_scan_image
@@ -16,7 +17,12 @@ from pipelines import run_pipeline
 from preprocessors.schemas import UploadScanParameters
 
 
-def parse_scan_pipeline(scan_file: Path, parameters: UploadScanParameters) -> ScanImage:
+class ParseParameters(Protocol):
+    step_size_x: int
+    step_size_y: int
+
+
+def parse_scan_pipeline(scan_file: Path, parameters: ParseParameters) -> ScanImage:
     """
     Parse a scan file and load it as a ScanImage.
 

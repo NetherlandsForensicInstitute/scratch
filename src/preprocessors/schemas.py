@@ -4,7 +4,17 @@ from enum import StrEnum, auto
 from typing import Any
 
 from container_models.light_source import LightSource
-from pydantic import ConfigDict, Field, FilePath, HttpUrl, PositiveFloat, RootModel, field_validator, model_validator
+from pydantic import (
+    UUID4,
+    ConfigDict,
+    Field,
+    FilePath,
+    HttpUrl,
+    PositiveFloat,
+    RootModel,
+    field_validator,
+    model_validator,
+)
 
 from models import BaseModelConfig, ProjectTag, ScanFile, SupportedScanExtension
 
@@ -175,7 +185,8 @@ class EditImage(BaseModelConfig):
 
 
 class ProcessDataUrls(RootModel):
-    """Collection of HTTP URLs pointing to processed scan data files.
+    """
+    Collection of HTTP URLs pointing to processed scan data files.
 
     Provides immutable tuple of URLs for accessing generated outputs
     such as X3P files, surface maps, and preview images.
@@ -196,20 +207,13 @@ class ProcessDataUrls(RootModel):
 
 
 class ProcessScanOutput(BaseModelConfig):
-    """Response model for scan upload and processing operations.
+    """
+    Response model for scan upload and processing operations.
 
     Contains URLs for accessing processed scan outputs and links to
     subsequent editing operations.
     """
 
-    edit_scan: HttpUrl = Field(
-        ...,
-        description=(
-            "HTTP URL endpoint for editing the processed scan image. "
-            "Used to perform transformations like leveling, masking, and cropping."
-        ),
-        examples=["http://localhost:8000/preprocessor/edit/a1b2c3d4-e5f6-7890-abcd-ef1234567890"],
-    )
     downloads: ProcessDataUrls = Field(
         ...,
         description=(
@@ -217,3 +221,4 @@ class ProcessScanOutput(BaseModelConfig):
             "including X3P format, surface map visualization, and preview image."
         ),
     )
+    token: UUID4

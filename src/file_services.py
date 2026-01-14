@@ -56,7 +56,7 @@ def fetch_directory_access(token: UUID) -> DirectoryAccess:
     raise HTTPException(HTTPStatus.UNPROCESSABLE_ENTITY, f"Unable to fetch resources of token '{token}'")
 
 
-def fetch_resource_file(resource_path: Path, filename: Path) -> Path:
+def fetch_resource_file(resource_path: Path, filename: Path | str) -> Path:
     """
     Fetch a resource file from a given resource path with security validation.
 

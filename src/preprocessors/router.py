@@ -5,7 +5,6 @@ from loguru import logger
 from pydantic import UUID4
 
 from constants import PREPROCESSOR_ROUTE
-from extractors.schemas import RelativePath
 from file_services import create_vault, fetch_directory_access, fetch_resource_file, generate_files, generate_urls
 from settings import SettingsDep
 
@@ -64,8 +63,8 @@ async def process_scan(upload_scan: UploadScan, settings: SettingsDep) -> Proces
 
     logger.info(f"Generated files saved to {vault}")
     return ProcessScanOutput.model_validate({
-        "edit_scan": f"{settings.base_url}{PREPROCESSOR_ROUTE}/edit-scans/{vault.token}/scan.x3p",
         "downloads": generate_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}),
+        "token": vault.token,
     })
 
 
@@ -107,7 +106,7 @@ async def edit_scan(edit_image: EditImage) -> ProcessDataUrls:
 
 
 @preprocessor_route.post(
-    path="/edit-scans/{token}/{filename}",
+    path="/edit-scans/{token}",
     summary="Re-process an existing scan file with new edit parameters.",
     description="""
     Retrieve a previously uploaded scan file using its token, tag, and filename,
@@ -125,7 +124,7 @@ async def edit_scan(edit_image: EditImage) -> ProcessDataUrls:
         },
     },
 )
-async def edit_existing_scan(token: UUID4, filename: RelativePath, parameters: EditImageParameters) -> ProcessDataUrls:
+async def edit_existing_scan(token: UUID4, parameters: EditImageParameters) -> ProcessDataUrls:
     """
     Re-process an existing scan file with new edit parameters.
 
@@ -134,7 +133,7 @@ async def edit_existing_scan(token: UUID4, filename: RelativePath, parameters: E
     vault directory (unless overwrite=True). Returns access URLs for the vault.
     """
     vault = fetch_directory_access(token)
-    _ = parse_scan_pipeline(fetch_resource_file(vault.resource_path, filename), parameters)
+    _ = parse_scan_pipeline(fetch_resource_file(vault.resource_path, "scan.x3p"), parameters)
     if not parameters.overwrite:
         vault = create_vault(vault.tag)
 

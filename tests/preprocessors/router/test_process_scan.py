@@ -127,9 +127,7 @@ class TestProcessScan:
     ) -> None:
         """Test that process-scan creates expected output files with correct URLs and file structure."""
         # Arrange
-        base_url = f"{get_settings().base_url}{{route}}/{directory_access.token}"
-        get_file = base_url.format(route=f"{EXTRACTOR_ROUTE}/files")
-        edit_scan = base_url.format(route=f"{PREPROCESSOR_ROUTE}/edit-scans")
+        get_file_url = f"{get_settings().base_url}{EXTRACTOR_ROUTE}/files/{directory_access.token}"
         directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
         # Act
@@ -140,11 +138,11 @@ class TestProcessScan:
         # Assert
         expected_response = ProcessScanOutput(
             downloads=(  # type: ignore
-                HttpUrl(f"{get_file}/scan.x3p"),
-                HttpUrl(f"{get_file}/preview.png"),
-                HttpUrl(f"{get_file}/surface_map.png"),
+                HttpUrl(f"{get_file_url}/scan.x3p"),
+                HttpUrl(f"{get_file_url}/preview.png"),
+                HttpUrl(f"{get_file_url}/surface_map.png"),
             ),
-            edit_scan=HttpUrl(f"{edit_scan}/scan.x3p"),
+            token=directory_access.token,
         )
 
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"
