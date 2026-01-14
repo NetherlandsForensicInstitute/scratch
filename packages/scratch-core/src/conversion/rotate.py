@@ -86,54 +86,60 @@ def rotate_and_crop_scan_image(
     scan_image: ScanImage, mask: MaskArray, rotation_angle: float
 ) -> tuple[ScanImage, MaskArray]:
     """
-    Rotate and crop scan image data and mask.
+    Rotate and crop scan image data and mask if the rotation angle is not 0.
+    # TODO: if rotation angle is multiple of 90, then no dilation
 
     :param scan_image: Image to rotate and crop
     :param mask: Binary mask indicating the crop region
     :param rotation_angle: Rotation angle in degrees
-    :return: Tuple of (rotated_cropped_depth, cropped_mask)
+    :return: Tuple of (rotated_cropped_depth, cropped_mask) if rotation angle is not 0, else return scan_image
+        and mask as is.
     """
-    dilate_steps = 3
-    # Rotate mask (nearest-neighbor to keep binary values)
-    mask_rotated = rotate(
-        mask.astype(float),
-        -rotation_angle,
-        reshape=True,
-        order=0,
-        mode="constant",
-        cval=0,
-    )
+    if rotation_angle != 0:
+        dilate_steps = 3
+        # Rotate mask (nearest-neighbor to keep binary values)
+        mask_rotated = rotate(
+            mask.astype(float),
+            -rotation_angle,
+            reshape=True,
+            order=0,
+            mode="constant",
+            cval=0,
+        )
 
-    # Rotate depth data (linear interpolation, preserving NaNs)
-    scan_image_rotated = rotate(
-        scan_image.data,
-        -rotation_angle,
-        reshape=True,
-        order=1,
-        mode="constant",
-        cval=np.nan,
-    )
+        # Rotate depth data (linear interpolation, preserving NaNs)
+        scan_image_rotated = rotate(
+            scan_image.data,
+            -rotation_angle,
+            reshape=True,
+            order=1,
+            mode="constant",
+            cval=np.nan,
+        )
 
-    # Find bounding box of rotated mask
-    rows, cols = np.where(mask_rotated > 0.5)
+        # Find bounding box of rotated mask
+        rows, cols = np.where(mask_rotated > 0.5)
 
-    if len(rows) == 0:
-        raise ValueError("Rotated mask is empty")
+        if len(rows) == 0:
+            raise ValueError("Rotated mask is empty")
 
-    # Apply margin
-    margin = dilate_steps + 2
-    x_min = max(0, rows.min() + margin)
-    x_max = min(mask_rotated.shape[0], rows.max() - margin + 1)
-    y_min = max(0, cols.min() + margin)
-    y_max = min(mask_rotated.shape[1], cols.max() - margin + 1)
+        # Apply margin
+        margin = dilate_steps + 2
+        x_min = max(0, rows.min() + margin)
+        x_max = min(mask_rotated.shape[0], rows.max() - margin + 1)
+        y_min = max(0, cols.min() + margin)
+        y_max = min(mask_rotated.shape[1], cols.max() - margin + 1)
 
-    # Crop to bounding box
-    scan_image_cropped = scan_image_rotated[x_min:x_max, y_min:y_max]
-    mask_cropped = mask_rotated[x_min:x_max, y_min:y_max]
+        # Crop to bounding box
+        scan_image_cropped = scan_image_rotated[x_min:x_max, y_min:y_max]
+        mask_cropped = mask_rotated[x_min:x_max, y_min:y_max]
 
-    return ScanImage(
-        data=scan_image_cropped, scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
-    ), mask_cropped
+        return ScanImage(
+            data=scan_image_cropped,
+            scale_x=scan_image.scale_x,
+            scale_y=scan_image.scale_y,
+        ), mask_cropped
+    return scan_image, mask
 
 
 def rotate_and_crop_scan_image_long_version(

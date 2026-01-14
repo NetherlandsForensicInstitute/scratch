@@ -34,7 +34,7 @@ def crop_to_mask(
     :param mask: Binary mask
     :return: Cropped image containing only the masked region
     """
-    y_slice, x_slice = _determine_bounding_box(mask)
+    x_slice, y_slice = _determine_bounding_box(mask)
     return image[y_slice, x_slice]
 
 
