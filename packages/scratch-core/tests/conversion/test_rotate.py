@@ -95,7 +95,7 @@ class TestGetRotationAngle:
         """Test that explicit rotation angle is returned when non-zero."""
         rotation_angle = 45.0
         result = get_rotation_angle(
-            crop_info=rectangle_crop_info_15deg, rotation_angle=rotation_angle
+            crop_infos=rectangle_crop_info_15deg, rotation_angle=rotation_angle
         )
         assert result == 45.0
 
@@ -103,7 +103,7 @@ class TestGetRotationAngle:
         self, circle_crop_info: list[CropInfo]
     ):
         """Test that zero is returned when no crop info is provided."""
-        result = get_rotation_angle(crop_info=circle_crop_info, rotation_angle=0.0)
+        result = get_rotation_angle(crop_infos=circle_crop_info, rotation_angle=0.0)
         assert result == 0.0
 
     def test_zero_rotation_angle_rectangle_not_first(
@@ -111,13 +111,13 @@ class TestGetRotationAngle:
     ):
         """Test that zero is returned when no crop info is provided."""
         result = get_rotation_angle(
-            crop_info=rectangle_not_first_crop_info, rotation_angle=0.0
+            crop_infos=rectangle_not_first_crop_info, rotation_angle=0.0
         )
         assert result == 0.0
 
     def test_zero_rotation_angle_empty_crop_info(self):
         """Test that zero is returned when crop info list is empty."""
-        result = get_rotation_angle(crop_info=[], rotation_angle=0.0)
+        result = get_rotation_angle(crop_infos=[], rotation_angle=0.0)
         assert result == 0.0
 
     def test_rotation_from_rectangle_crop_0_degrees(
@@ -125,14 +125,14 @@ class TestGetRotationAngle:
     ):
         """Test rotation calculation from horizontal rectangle."""
         result = get_rotation_angle(
-            crop_info=rectangle_crop_info_0deg, rotation_angle=0.0
+            crop_infos=rectangle_crop_info_0deg, rotation_angle=0.0
         )
         assert result == 0
 
     def test_rotation_from_rectangle_crop_15_degrees(self, rectangle_crop_info_15deg):
         """Test rotation calculation from 15-degree rotated rectangle."""
         result = get_rotation_angle(
-            crop_info=rectangle_crop_info_15deg, rotation_angle=0.0
+            crop_infos=rectangle_crop_info_15deg, rotation_angle=0.0
         )
         assert result == pytest.approx(15)
 
@@ -147,13 +147,13 @@ class TestGetRotationAngle:
                 is_foreground=True,
             )
         ]
-        result = get_rotation_angle(crop_info=crop_info, rotation_angle=0.0)
+        result = get_rotation_angle(crop_infos=crop_info, rotation_angle=0.0)
         assert -90 <= result <= 90
 
     def test_explicit_angle_normalized(self, rectangle_crop_info_15deg):
         """Test that angle of 120 degrees is normalized to -60."""
         result = get_rotation_angle(
-            crop_info=rectangle_crop_info_15deg, rotation_angle=120.0
+            crop_infos=rectangle_crop_info_15deg, rotation_angle=120.0
         )
         assert result == -60.0
 

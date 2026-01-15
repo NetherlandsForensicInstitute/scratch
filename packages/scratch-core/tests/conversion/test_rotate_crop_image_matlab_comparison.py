@@ -169,7 +169,7 @@ def run_python_preprocessing(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
         rotation_angle=test_case.rotation_angle,
-        crop_info=test_case.to_crop_info(),
+        crop_infos=test_case.to_crop_info(),
         times_median=test_case.times_median,
     )
     return data_out.data, mask_out
@@ -245,7 +245,7 @@ class TestRotateCropImageMatlabComparison:
             pytest.skip("No expected angle in test name")
 
         calculated_angle = get_rotation_angle(
-            crop_info=test_case.to_crop_info(), rotation_angle=0.0
+            crop_infos=test_case.to_crop_info(), rotation_angle=0.0
         )
 
         assert abs(calculated_angle - expected) < 1.0, (

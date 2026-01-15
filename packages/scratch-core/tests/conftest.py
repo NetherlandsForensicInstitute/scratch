@@ -102,7 +102,7 @@ def mark(scan_image: ScanImage) -> Mark:
     return Mark(
         scan_image=scan_image,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
-        crop_info=[
+        crop_infos=[
             CropInfo(
                 crop_type=CropType.RECTANGLE,
                 data={

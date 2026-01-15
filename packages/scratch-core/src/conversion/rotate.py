@@ -17,7 +17,7 @@ def rotate_crop_and_mask_image_by_crop(
     scan_image: ScanImage,
     mask: MaskArray,
     rotation_angle: float = 0.0,
-    crop_info: list[CropInfo] | None = None,
+    crop_infos: list[CropInfo] | None = None,
     times_median: float = 15,
 ) -> tuple[ScanImage, MaskArray]:
     """
@@ -40,11 +40,11 @@ def rotate_crop_and_mask_image_by_crop(
     :param scan_image: Scan image to rotate, mask and crop.
     :param mask: Binary mask array.
     :param rotation_angle: Angle with which to rotate the image.
-    :param crop_info: List of crop info objects that describe the crops the user has done and the order of the crops.
+    :param crop_infos: List of crop info objects that describe the crops the user has done and the order of the crops.
     :param times_median: Parameter used to determine what is considered an outlier when removing outliers/needles.
     :return: Tuple of the cropped, rotated and masked scan image, and the rotated and cropped mask.
     """
-    rotation_angle = get_rotation_angle(crop_info, rotation_angle)
+    rotation_angle = get_rotation_angle(crop_infos, rotation_angle)
 
     margin = None
     if rotation_angle != 0.0:
@@ -68,7 +68,9 @@ def rotate_crop_and_mask_image_by_crop(
     return crop_image_and_mask_to_mask(scan_image_rotated, mask_rotated, margin)
 
 
-def get_rotation_angle(crop_info: list[CropInfo], rotation_angle: float = 0.0) -> float:
+def get_rotation_angle(
+    crop_infos: list[CropInfo], rotation_angle: float = 0.0
+) -> float:
     """
     Calculate the rotation angle of a rectangular crop region.
 
@@ -80,17 +82,17 @@ def get_rotation_angle(crop_info: list[CropInfo], rotation_angle: float = 0.0) -
 
     :param rotation_angle: Explicit rotation angle in degrees. If non-zero, this value is returned directly without
                            computation.
-    :param crop_info: List of crop information objects. If provided and the first crop is of type RECTANGLE, the
+    :param crop_infos: List of crop information objects. If provided and the first crop is of type RECTANGLE, the
                       rotation angle is computed from the corner points in the crop data.
     :return: The rotation angle in degrees, ranging from -90 to 90 (inclusive). The angle is normalized to this range
              to represent the minimal rotation needed to align the rectangle.
     """
     if (
         rotation_angle == 0.0
-        and crop_info
-        and crop_info[0].crop_type == CropType.RECTANGLE
+        and crop_infos
+        and crop_infos[0].crop_type == CropType.RECTANGLE
     ):
-        corners = crop_info[0].data["corner"]
+        corners = crop_infos[0].data["corner"]
         angles = []
         for i in range(4):
             p1 = corners[i]
