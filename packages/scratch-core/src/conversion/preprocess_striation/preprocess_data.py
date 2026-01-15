@@ -272,12 +272,14 @@ def fine_align_bullet_marks(
     cut_y_after_shift: bool = True,
     max_iter: int = 25,
     extra_sub_samp: int = 1,
-) -> tuple[NDArray[np.floating], MaskArray | None, float]:
+) -> tuple[ScanImage, MaskArray | None, float]:
     """
     Fine alignment of striated marks by iteratively detecting striation direction.
 
     Iteratively determines the direction of striation marks and rotates the
-    depth data so that striations are horizontal.
+    depth data so that striations are horizontal. Scales are corrected for
+    the shear-based rotation: scale_x is compressed by cos(angle) and
+    scale_y is expanded by 1/cos(angle).
 
     :param scan_image: ScanImage containing depth data and pixel spacing.
     :param mark_type: Mark type enum value (optional, for resampling).
@@ -286,11 +288,12 @@ def fine_align_bullet_marks(
     :param cut_y_after_shift: If True, crop borders after shifting.
     :param max_iter: Maximum number of iterations.
     :param extra_sub_samp: Additional subsampling factor for gradient detection.
-    :returns: Tuple of (aligned_data, aligned_mask, total_angle).
+    :returns: Tuple of (aligned_scan_image, aligned_mask, total_angle_degrees).
     """
     # Extract data and pixel spacing from ScanImage
     depth_data = scan_image.data
     scale_x = scan_image.scale_x
+    scale_y = scan_image.scale_y
 
     # Initialize
     data_tmp = depth_data.copy()
@@ -342,12 +345,19 @@ def fine_align_bullet_marks(
         a_tot = 0.0
         result_data = depth_data.copy()
         result_mask = mask
+        result_scale_x = scale_x
+        result_scale_y = scale_y
     else:
         # Convert final angle from degrees to radians for rotation
         a_tot_rad = np.radians(a_tot)
         result_data = _rotate_data_by_shifting_profiles(
             depth_data, a_tot_rad, cut_y_after_shift
         )
+
+        # Correct scales for shear-based rotation (matching MATLAB)
+        cos_angle = np.cos(a_tot_rad)
+        result_scale_x = scale_x * cos_angle
+        result_scale_y = scale_y / cos_angle
 
         if mask is not None:
             mask_float = mask.astype(float)
@@ -358,26 +368,26 @@ def fine_align_bullet_marks(
             y_slice, x_slice = _determine_bounding_box(result_mask)
             result_data = result_data[y_slice, x_slice]
             result_mask = result_mask[y_slice, x_slice]
-
-            if mark_type is not None:
-                temp_scan = scan_image.model_copy(update={"data": result_data})
-                resampled_scan, result_mask = resample_scan_image_and_mask(
-                    temp_scan,
-                    result_mask,
-                    target_scale=mark_type.scale,
-                    only_downsample=True,
-                )
-                result_data = resampled_scan.data
         else:
             result_mask = None
-            if mark_type is not None:
-                temp_scan = scan_image.model_copy(update={"data": result_data})
-                resampled_scan, _ = resample_scan_image_and_mask(
-                    temp_scan, target_scale=mark_type.scale, only_downsample=True
-                )
-                result_data = resampled_scan.data
 
-    return result_data, result_mask, a_tot
+    # Create result ScanImage with corrected scales
+    result_scan = ScanImage(
+        data=np.asarray(result_data, dtype=np.float64),
+        scale_x=result_scale_x,
+        scale_y=result_scale_y,
+    )
+
+    # Resample to mark type target scale if specified
+    if mark_type is not None:
+        result_scan, result_mask = resample_scan_image_and_mask(
+            result_scan,
+            result_mask,
+            target_scale=mark_type.scale,
+            only_downsample=True,
+        )
+
+    return result_scan, result_mask, a_tot
 
 
 def extract_profile(
@@ -469,7 +479,7 @@ def preprocess_data(
     if data_filtered.shape[1] > 1:
         # Create new ScanImage with filtered data
         filtered_scan_image = scan_image.model_copy(update={"data": data_filtered})
-        data_aligned, mask_aligned, total_angle = fine_align_bullet_marks(
+        aligned_scan, mask_aligned, total_angle = fine_align_bullet_marks(
             scan_image=filtered_scan_image,
             mark_type=mark_type,
             mask=mask_filtered,
@@ -478,6 +488,7 @@ def preprocess_data(
             max_iter=max_iter,
             extra_sub_samp=extra_sub_samp,
         )
+        data_aligned = aligned_scan.data
     else:
         # Line profile - no alignment needed
         data_aligned = data_filtered
