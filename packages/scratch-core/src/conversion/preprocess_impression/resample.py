@@ -23,14 +23,7 @@ def resample(mark: Mark, target_scale: float) -> Mark:
     return update_mark_scan_image(mark, resampled)
 
 
-def resample_mark_if_needed(mark: Mark, target_scale: float) -> tuple[Mark, bool]:
-    """Resample mark to target scale if needed."""
-    if not _needs_resampling(mark, target_scale):
-        return mark, False
-    return resample(mark, target_scale), True
-
-
-def _needs_resampling(mark: Mark, target_scale: float) -> bool:
+def needs_resampling(mark: Mark, target_scale: float) -> bool:
     """
     Check if mark needs resampling to target scale.
 
