@@ -14,7 +14,7 @@ from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
 from conversion.filter import cutoff_to_gaussian_sigma
 from conversion.mask import _determine_bounding_box
-from conversion.resample import resample_scan_image_and_mask, _resample_image_array
+from conversion.resample import resample_scan_image_and_mask, resample_image_array
 from conversion.preprocess_striation.preprocess_data_filter import (
     apply_gaussian_filter_1d,
 )
@@ -217,9 +217,9 @@ def _rotate_image_grad_vector(
     mask_subsampled = mask
 
     if sub_samp > 1 and depth_data.shape[1] // sub_samp >= 2:
-        data_subsampled = _resample_image_array(depth_data, factors=(sub_samp, 1))
+        data_subsampled = resample_image_array(depth_data, factors=(sub_samp, 1))
         if mask is not None:
-            mask_subsampled = _resample_image_array(mask, factors=(sub_samp, 1)) > 0.5
+            mask_subsampled = resample_image_array(mask, factors=(sub_samp, 1)) > 0.5
 
     # Smooth data
     smoothed = _smooth_2d(data_subsampled, (sigma, sigma))
