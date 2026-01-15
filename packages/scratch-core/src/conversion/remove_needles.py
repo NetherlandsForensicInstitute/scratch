@@ -21,13 +21,13 @@ def remove_needles(
     4. Setting flagged outlier points to NaN
 
     The function adapts its filtering strategy based on data size:
-    - For large datasets (>20 columns): uses 2D median filtering with optional subsampling
-    - For small datasets (≤20 columns): uses 1D median filtering with reduced filter size
+    - For large datasets (>20 columns or rows): uses 2D median filtering with optional subsampling
+    - For small datasets (≤20 columns or rows): uses 1D median filtering with reduced filter size
 
     :param scan_image: Scan image to clean.
-    :param mask:
-    :param times_median:
-    :return:
+    :param mask: Binary mask array.
+    :param times_median: Parameter to help determine the outlier threshold.
+    :return: The cleaned scan image.
     """
     filter_size_moderated = 5
     times_median = times_median * 6
@@ -49,7 +49,6 @@ def remove_needles(
             scale_y=scan_image.scale_y,
         )
 
-        # Subsample if needed
         if subsample_factor > 1:
             scan_image_subsampled = unwrap_result(
                 subsample_scan_image(
@@ -74,7 +73,6 @@ def remove_needles(
                 scan_image_masked, filter_size_moderated
             )
 
-        # Compute residuals
         residual_image = (
             scan_image_masked.data
             - scan_image_filtered.data[
