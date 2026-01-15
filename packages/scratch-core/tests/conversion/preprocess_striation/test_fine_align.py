@@ -5,11 +5,11 @@ Tests for fine alignment functions in preprocess_data.py.
 import numpy as np
 import pytest
 
+from conversion.data_formats import MarkType
 from conversion.preprocess_striation.preprocess_data import (
     _smooth_2d,
     _rotate_data_by_shifting_profiles,
     _rotate_image_grad_vector,
-    _get_target_sampling_distance,
     _resample_mark_type_specific,
     fine_align_bullet_marks,
     extract_profile,
@@ -69,29 +69,26 @@ def test_rotate_image_grad_vector():
     assert abs(detected_angle) < 10
 
 
-def test_get_target_sampling_distance():
-    """Test mark type to sampling distance lookup."""
+def test_mark_type_scale():
+    """Test MarkType.scale property returns correct sampling distance."""
     assert np.isclose(
-        _get_target_sampling_distance("Bullet GEA striation"),
+        MarkType.BULLET_GEA_STRIATION.scale,
         1.5e-6,
         rtol=1e-09,
         atol=1e-09,
     )
     assert np.isclose(
-        _get_target_sampling_distance("Breech face impression"),
+        MarkType.BREECH_FACE_IMPRESSION.scale,
         3.5e-6,
         rtol=1e-09,
         atol=1e-09,
     )
     assert np.isclose(
-        _get_target_sampling_distance("Firing pin drag striation"),
+        MarkType.FIRING_PIN_DRAG_STRIATION.scale,
         1.5e-6,
         rtol=1e-09,
         atol=1e-09,
     )
-
-    with pytest.raises(ValueError, match="not recognized"):
-        _get_target_sampling_distance("Unknown mark type")
 
 
 def test_resample_mark_type_specific():
@@ -100,7 +97,7 @@ def test_resample_mark_type_specific():
     data = np.random.randn(100, 100)
     xdim = 1.0e-6
     ydim = 1.0e-6
-    mark_type = "Bullet GEA striation"
+    mark_type = MarkType.BULLET_GEA_STRIATION
 
     resampled, new_xdim, new_ydim, _ = _resample_mark_type_specific(
         data, xdim, ydim, mark_type

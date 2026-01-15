@@ -13,6 +13,7 @@ from scipy.ndimage import gaussian_filter, map_coordinates, zoom
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
+from conversion.data_formats import MarkType
 from conversion.filter import cutoff_to_gaussian_sigma
 from conversion.mask import _determine_bounding_box
 from conversion.preprocess_striation.preprocess_data_filter import (
@@ -281,43 +282,11 @@ def _rotate_image_grad_vector(
     return float(np.median(angles))
 
 
-# Mark type to target sampling distance mapping (in meters)
-MARK_TYPE_SAMPLING = {
-    "Breech face impression": 3.5e-6,
-    "Chamber impression": 1.5e-6,
-    "Ejector impression": 1.5e-6,
-    "Extractor impression": 1.5e-6,
-    "Firing pin impression": 1.5e-6,
-    "Aperture shear striation": 1.5e-6,
-    "Bullet GEA striation": 1.5e-6,
-    "Bullet LEA striation": 1.5e-6,
-    "Chamber striation": 1.5e-6,
-    "Ejector striation": 1.5e-6,
-    "Ejector port striation": 1.5e-6,
-    "Extractor striation": 1.5e-6,
-    "Firing pin drag": 1.5e-6,
-}
-
-
-def _get_target_sampling_distance(mark_type: str) -> float:
-    """
-    Get target sampling distance for a given mark type.
-
-    :param mark_type: Mark type string.
-    :returns: Target sampling distance in meters.
-    :raises ValueError: If mark type is not recognized.
-    """
-    for key, value in MARK_TYPE_SAMPLING.items():
-        if key in mark_type:
-            return value
-    raise ValueError(f"Mark type not recognized: {mark_type}")
-
-
 def _resample_mark_type_specific(
     depth_data: NDArray[np.floating],
     scale_x: float,
     scale_y: float,
-    mark_type: str,
+    mark_type: MarkType,
     mask: MaskArray | None = None,
 ) -> tuple[NDArray[np.floating], float, float, MaskArray | None]:
     """
@@ -326,11 +295,11 @@ def _resample_mark_type_specific(
     :param depth_data: 2D depth data array.
     :param scale_x: Current x-dimension pixel spacing in meters.
     :param scale_y: Current y-dimension pixel spacing in meters.
-    :param mark_type: Mark type string.
+    :param mark_type: Mark type enum value.
     :param mask: Optional boolean mask.
     :returns: Tuple of (resampled_data, new_scale_x, new_scale_y, resampled_mask).
     """
-    target_sampling = _get_target_sampling_distance(mark_type)
+    target_sampling = mark_type.scale
 
     # Check if data meets minimum requirements
     if scale_x > target_sampling and scale_y > target_sampling:
@@ -373,7 +342,7 @@ def _resample_mark_type_specific(
 
 def fine_align_bullet_marks(
     scan_image: ScanImage,
-    mark_type: str | None = None,
+    mark_type: MarkType | None = None,
     mask: MaskArray | None = None,
     angle_accuracy: float = 0.1,
     cut_y_after_shift: bool = True,
@@ -387,7 +356,7 @@ def fine_align_bullet_marks(
     depth data so that striations are horizontal.
 
     :param scan_image: ScanImage containing depth data and pixel spacing.
-    :param mark_type: Mark type string (optional, for resampling).
+    :param mark_type: Mark type enum value (optional, for resampling).
     :param mask: Optional boolean mask (True = valid).
     :param angle_accuracy: Target angle accuracy in degrees (default 0.1).
     :param cut_y_after_shift: If True, crop borders after shifting.
@@ -516,7 +485,7 @@ def extract_profile(
 
 def preprocess_data(
     scan_image: ScanImage,
-    mark_type: str | None = None,
+    mark_type: MarkType | None = None,
     mask: MaskArray | None = None,
     cutoff_hi: float = 2000e-6,
     cutoff_lo: float = 250e-6,
@@ -547,7 +516,7 @@ def preprocess_data(
         - Extract mean or median profile
 
     :param scan_image: ScanImage containing depth data and pixel spacing.
-    :param mark_type: Mark type string (optional, for resampling).
+    :param mark_type: Mark type enum value (optional, for resampling).
     :param mask: Boolean mask array (True = valid data).
     :param cutoff_hi: Cutoff wavelength for shape removal (default 2000e-6 m).
     :param cutoff_lo: Cutoff wavelength for noise removal (default 250e-6 m).

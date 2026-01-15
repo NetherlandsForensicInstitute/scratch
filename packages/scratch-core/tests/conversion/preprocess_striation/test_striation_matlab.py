@@ -20,7 +20,34 @@ from ..helper_function import (
 
 
 from container_models.scan_image import ScanImage
+from conversion.data_formats import MarkType
 from conversion.preprocess_striation.preprocess_data import preprocess_data
+
+
+def _string_to_mark_type(mark_type_str: str) -> MarkType:
+    """Convert MATLAB mark type string to MarkType enum."""
+    # Map common MATLAB strings to MarkType enum values
+    mapping = {
+        "bullet lea striation": MarkType.BULLET_LEA_STRIATION,
+        "bullet gea striation": MarkType.BULLET_GEA_STRIATION,
+        "breech face impression": MarkType.BREECH_FACE_IMPRESSION,
+        "firing pin impression": MarkType.FIRING_PIN_IMPRESSION,
+        "firing pin drag": MarkType.FIRING_PIN_DRAG_STRIATION,
+        "chamber impression": MarkType.CHAMBER_IMPRESSION,
+        "ejector impression": MarkType.EJECTOR_IMPRESSION,
+        "extractor impression": MarkType.EXTRACTOR_IMPRESSION,
+        "aperture shear striation": MarkType.APERTURE_SHEAR_STRIATION,
+        "chamber striation": MarkType.CHAMBER_STRIATION,
+        "ejector striation": MarkType.EJECTOR_STRIATION,
+        "ejector port striation": MarkType.EJECTOR_PORT_STRIATION,
+        "extractor striation": MarkType.EXTRACTOR_STRIATION,
+    }
+    # Normalize the input string and find a match
+    normalized = mark_type_str.lower().replace("_", " ").replace("mark", "").strip()
+    for key, value in mapping.items():
+        if key in normalized:
+            return value
+    raise ValueError(f"Unknown mark type: {mark_type_str}")
 
 
 @dataclass
@@ -192,10 +219,13 @@ def run_python_preprocessing(
     # Convert mask to boolean
     mask = test_case.input_mask.astype(bool) if test_case.has_mask else None
 
+    # Convert string mark type to MarkType enum
+    mark_type = _string_to_mark_type(test_case.input_mark_type)
+
     # Call Python implementation
     aligned_data, profile, mask_out, total_angle = preprocess_data(
         scan_image=scan_image,
-        mark_type=test_case.input_mark_type,
+        mark_type=mark_type,
         mask=mask,
         cutoff_hi=cutoff_hi,
         cutoff_lo=cutoff_lo,
