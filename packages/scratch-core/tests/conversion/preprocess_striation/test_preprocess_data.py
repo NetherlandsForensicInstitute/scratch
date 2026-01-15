@@ -78,7 +78,7 @@ def test_apply_gaussian_filter_1d_lowpass():
     surface = np.tile((low_freq + high_freq).reshape(-1, 1), (1, 20))
 
     scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
-    smoothed, indices, mask = apply_gaussian_filter_1d(
+    smoothed, mask = apply_gaussian_filter_1d(
         scan_image=scan_image,
         cutoff=250e-6,
         is_high_pass=False,
@@ -100,7 +100,7 @@ def test_apply_gaussian_filter_1d_highpass():
 
     # Use pixel size that makes cutoff effective for shape removal
     scan_image = ScanImage(data=surface, scale_x=1e-3, scale_y=1e-3)
-    residuals, indices, mask = apply_gaussian_filter_1d(
+    residuals, mask = apply_gaussian_filter_1d(
         scan_image=scan_image,
         cutoff=50e-3,
         is_high_pass=True,

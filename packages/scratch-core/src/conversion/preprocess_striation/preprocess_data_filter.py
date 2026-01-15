@@ -101,7 +101,7 @@ def apply_gaussian_filter_1d(
     is_high_pass: bool = False,
     cut_borders_after_smoothing: bool = True,
     mask: MaskArray | None = None,
-) -> tuple[NDArray[np.floating], NDArray[np.intp], MaskArray]:
+) -> tuple[NDArray[np.floating], MaskArray]:
     """
     Apply 1D Gaussian filter along rows (y-direction) for striation-preserving surface processing.
 
@@ -127,7 +127,6 @@ def apply_gaussian_filter_1d(
     :param mask: Boolean mask array (True = valid data). Must match depth_data shape.
 
     :returns filtered_data: Filtered data.
-    :returns range_indices: Array of row indices that are valid after cropping.
     :returns mask: Boolean mask indicating valid data points in the output.
     """
     # Initialize mask if not provided
@@ -162,19 +161,15 @@ def apply_gaussian_filter_1d(
         output_with_nan = output.copy()
         output_with_nan[~mask] = np.nan
         # Remove zero/NaN borders
-        cropped_data, cropped_mask, range_indices = _remove_zero_border(
-            output_with_nan, mask
-        )
+        cropped_data, cropped_mask, _ = _remove_zero_border(output_with_nan, mask)
     elif cut_borders_after_smoothing and (
         sigma_int > 0 and scan_image.data.shape[0] > 2 * sigma_int
     ):
         cropped_data = output[sigma_int:-sigma_int, :]
         cropped_mask = mask[sigma_int:-sigma_int, :]
-        range_indices = np.arange(sigma_int, scan_image.data.shape[0] - sigma_int)
     else:
         # Data too small to crop so no cropping
         cropped_data = output
         cropped_mask = mask
-        range_indices = np.arange(scan_image.data.shape[0])
 
-    return cropped_data, range_indices, cropped_mask
+    return cropped_data, cropped_mask

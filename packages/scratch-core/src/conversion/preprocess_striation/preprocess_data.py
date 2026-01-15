@@ -68,11 +68,10 @@ def apply_shape_noise_removal(
 
     # Only crop borders if total removed (2*sigma for top+bottom) is ≤20% of height.
     # This preserves at least 80% of the data while removing edge artifacts.
-    data_height = scan_image.data.shape[0]
-    cut_borders = (2 * sigma) <= (data_height * 0.2)
+    cut_borders = (2 * sigma) <= (scan_image.data.shape[0] * 0.2)
 
     # Shape removal (highpass filter)
-    data_high_pass, _, mask_high_pass = apply_gaussian_filter_1d(
+    data_high_pass, mask_high_pass = apply_gaussian_filter_1d(
         scan_image=scan_image,
         cutoff=highpass_cutoff,
         is_high_pass=True,
@@ -88,7 +87,7 @@ def apply_shape_noise_removal(
     )
 
     # Noise removal (lowpass filter)
-    data_no_noise, _, mask_no_noise = apply_gaussian_filter_1d(
+    data_no_noise, mask_no_noise = apply_gaussian_filter_1d(
         scan_image=intermediate_scan_image,
         cutoff=lowpass_cutoff,
         is_high_pass=False,
