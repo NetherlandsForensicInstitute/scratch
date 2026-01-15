@@ -4,6 +4,7 @@ from typing import Annotated
 from container_models.light_source import LightSource
 from pydantic import AfterValidator, Field, FilePath, field_validator
 
+from constants import ImpressionMarks, MaskTypes, StriationMarks
 from models import BaseModelConfig, ProjectTag, validate_file_extension, validate_not_executable
 
 
@@ -38,7 +39,10 @@ class UploadScanParameters(BaseModelConfig):
         return {field: getattr(self, field) for field in self.model_dump(exclude=exclude, include=include)}
 
 
-class UploadScan(BaseModelConfig):
+class BaseParameters(BaseModelConfig):
+    """Base parameters for preprocessor operations including scan file."""
+
+    project_name: ProjectTag | None = Field(None, description="", examples=[])
     scan_file: Annotated[
         FilePath,
         AfterValidator(lambda filepath: validate_file_extension(filepath, SupportedExtension)),
@@ -47,13 +51,15 @@ class UploadScan(BaseModelConfig):
         ...,
         description=f"Path to the input scan file. Supported formats: {', '.join(SupportedExtension)}",
     )
-    project_name: ProjectTag | None = Field(None, description="", examples=[])
-    parameters: UploadScanParameters = Field(default_factory=UploadScanParameters.model_construct)
 
     @property
     def tag(self) -> str:
         """Get the tag to use for directory naming."""
         return self.project_name or self.scan_file.stem
+
+
+class UploadScan(BaseParameters):
+    parameters: UploadScanParameters = Field(default_factory=UploadScanParameters.model_construct)
 
     @field_validator("scan_file", mode="after")
     @classmethod
@@ -63,3 +69,24 @@ class UploadScan(BaseModelConfig):
             raise ValueError(f"file is empty: {scan_file.name}")
 
         return scan_file
+
+
+type MarkType = ImpressionMarks | StriationMarks
+
+
+class CropInfo(BaseModelConfig):
+    type: MaskTypes
+    data: dict
+    is_foreground: bool
+
+
+class PrepareMark(BaseParameters):
+    mark_type: MarkType = Field(..., description="Type of mark to prepare.")
+    mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
+    rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
+    crop_info: CropInfo | None = Field(
+        None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
+    )
+    preprocessor_param: object = Field(
+        ..., description="Preprocessor parameters."
+    )  # TODO: define proper type when available
