@@ -5,8 +5,6 @@ This module implements the PreprocessData pipeline with the following steps:
 - Fine rotation to align striations horizontally + profile extraction
 """
 
-from math import ceil
-
 import numpy as np
 from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter, map_coordinates
@@ -16,7 +14,7 @@ from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
 from conversion.filter import cutoff_to_gaussian_sigma
 from conversion.mask import _determine_bounding_box
-from conversion.resample import resample_scan_image_and_mask
+from conversion.resample import resample_scan_image_and_mask, _resample_image_array
 from conversion.preprocess_striation.preprocess_data_filter import (
     apply_gaussian_filter_1d,
 )
@@ -208,18 +206,18 @@ def _rotate_image_grad_vector(
     """
     # Determine subsampling factor
     if scale_x < 1e-6:
-        sub_samp = ceil(1e-6 / scale_x) * extra_sub_samp
+        sub_samp = round(1e-6 / scale_x) * extra_sub_samp
     else:
         sub_samp = 1 * extra_sub_samp
 
     # Determine sigma for smoothing (minimum of 3)
     sigma = max(3, round(1.75e-5 / scale_x / sub_samp))
 
-    # Subsample data
+    # Resample data (only columns, matching MATLAB's resample function)
     if sub_samp > 1 and depth_data.shape[1] // sub_samp >= 2:
-        data_subsampled = depth_data[:, ::sub_samp]
+        data_subsampled = _resample_image_array(depth_data, factors=(sub_samp, 1))
         if mask is not None:
-            mask_subsampled = mask[:, ::sub_samp]
+            mask_subsampled = _resample_image_array(mask, factors=(sub_samp, 1)) > 0.5
         else:
             mask_subsampled = None
     else:
