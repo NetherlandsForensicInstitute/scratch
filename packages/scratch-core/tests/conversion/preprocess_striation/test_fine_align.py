@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from conversion.data_formats import MarkType
+from conversion.preprocess_striation.parameters import PreprocessingStriationParams
 from conversion.preprocess_striation.preprocess_data import (
     _smooth_2d,
     _rotate_data_by_shifting_profiles,
@@ -176,13 +177,15 @@ def test_preprocess_data():
     depth_data = form + striations + noise
 
     scan_image = ScanImage(data=depth_data, scale_x=1e-6, scale_y=1e-6)
-    aligned, profile, mask, angle = preprocess_data(
-        scan_image=scan_image,
+    params = PreprocessingStriationParams(
         cutoff_hi=2000e-6,
         cutoff_lo=250e-6,
         cut_borders_after_smoothing=False,
         angle_accuracy=0.5,
         max_iter=10,
+    )
+    aligned, profile, mask, angle = preprocess_data(
+        scan_image=scan_image, params=params
     )
 
     assert aligned.shape[0] > 0

@@ -15,6 +15,7 @@ from conversion.data_formats import MarkType
 from conversion.filter import cutoff_to_gaussian_sigma
 from conversion.mask import _determine_bounding_box
 from conversion.resample import resample_scan_image_and_mask, resample_image_array
+from conversion.preprocess_striation.parameters import PreprocessingStriationParams
 from conversion.preprocess_striation.preprocess_data_filter import (
     apply_gaussian_filter_1d,
 )
@@ -28,6 +29,7 @@ def apply_shape_noise_removal(
 ) -> tuple[NDArray[np.floating], MaskArray]:
     """
     Apply large-scale shape and noise removal to isolate striation features.
+    This is basically a band-pass filter.
 
     The function has the following steps:
 
@@ -201,7 +203,8 @@ def _rotate_image_grad_vector(
     :param depth_data: 2D depth data array.
     :param scale_x: Pixel spacing in meters.
     :param mask: Optional boolean mask (True = valid).
-    :param extra_sub_samp: Additional subsampling factor.
+    :param extra_sub_samp: Additional subsampling factor on top of the automatic subsampling for faster calculation,
+    but lower precision.
     :returns: Detected rotation angle in degrees.
     """
     # Determine subsampling factor
@@ -227,7 +230,7 @@ def _rotate_image_grad_vector(
     # Calculate gradient
     fy, fx = np.gradient(smoothed)
 
-    # Calculate total gradient magnitude
+    # Calculate total gradient (L1 norm)
     grad_tmp = np.abs(fx) + np.abs(fy)
 
     # Create gradient threshold mask
@@ -450,14 +453,7 @@ def preprocess_data(
     scan_image: ScanImage,
     mark_type: MarkType | None = None,
     mask: MaskArray | None = None,
-    cutoff_hi: float = 2000e-6,
-    cutoff_lo: float = 250e-6,
-    cut_borders_after_smoothing: bool = True,
-    use_mean: bool = True,
-    angle_accuracy: float = 0.1,
-    max_iter: int = 25,
-    extra_sub_samp: int = 1,
-    shape_noise_removal: bool = True,
+    params: PreprocessingStriationParams | None = None,
 ) -> tuple[
     NDArray[np.floating],
     NDArray[np.floating],
@@ -468,7 +464,7 @@ def preprocess_data(
     Complete preprocess_striations pipeline for striated marks, it performs two
     preprocessing steps:
 
-    **Form and noise removal** (optional, controlled by shape_noise_removal)
+    **Form and noise removal** (optional, controlled by params.shape_noise_removal)
         - Highpass filter to remove large-scale shape (curvature, tilt)
         - Lowpass filter to remove high-frequency noise
 
@@ -480,26 +476,22 @@ def preprocess_data(
     :param scan_image: ScanImage containing depth data and pixel spacing.
     :param mark_type: Mark type enum value (optional, for resampling).
     :param mask: Boolean mask array (True = valid data).
-    :param cutoff_hi: Cutoff wavelength for shape removal (default 2000e-6 m).
-    :param cutoff_lo: Cutoff wavelength for noise removal (default 250e-6 m).
-    :param cut_borders_after_smoothing: If True, crop filter edge artifacts.
-    :param use_mean: If True, use mean for profile; if False, use median.
-    :param angle_accuracy: Target angle accuracy in degrees (default 0.1).
-    :param max_iter: Maximum iterations for fine alignment.
-    :param extra_sub_samp: Additional subsampling factor for gradient detection.
-    :param shape_noise_removal: If True, apply shape and noise removal filters.
+    :param params: Preprocessing parameters. If None, uses default values.
 
     :returns: Tuple of (aligned_data, profile, mask, total_angle).
     """
+    if params is None:
+        params = PreprocessingStriationParams()
+
     data_filtered = scan_image.data.copy()
     mask_filtered = mask
 
-    if shape_noise_removal:
+    if params.shape_noise_removal:
         data_filtered, mask_filtered = apply_shape_noise_removal(
             scan_image=scan_image,
-            highpass_cutoff=cutoff_hi,
+            highpass_cutoff=params.cutoff_hi,
             mask=mask,
-            lowpass_cutoff=cutoff_lo,
+            lowpass_cutoff=params.cutoff_lo,
         )
 
     # Set defaults for line profile case (no alignment needed)
@@ -513,14 +505,14 @@ def preprocess_data(
             scan_image=filtered_scan_image,
             mark_type=mark_type,
             mask=mask_filtered,
-            angle_accuracy=angle_accuracy,
-            cut_y_after_shift=cut_borders_after_smoothing,
-            max_iter=max_iter,
-            extra_sub_samp=extra_sub_samp,
+            angle_accuracy=params.angle_accuracy,
+            cut_y_after_shift=params.cut_borders_after_smoothing,
+            max_iter=params.max_iter,
+            extra_sub_samp=params.extra_sub_samp,
         )
         data_aligned = aligned_scan.data
 
     # Extract profile
-    profile = extract_profile(data_aligned, mask=mask_aligned, use_mean=use_mean)
+    profile = extract_profile(data_aligned, mask=mask_aligned, use_mean=params.use_mean)
 
     return data_aligned, profile, mask_aligned, total_angle

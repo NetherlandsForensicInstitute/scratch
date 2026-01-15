@@ -21,6 +21,7 @@ from ..helper_function import (
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
+from conversion.preprocess_striation.parameters import PreprocessingStriationParams
 from conversion.preprocess_striation.preprocess_data import preprocess_data
 
 
@@ -210,11 +211,13 @@ def run_python_preprocessing(
 
     # Convert MATLAB parameters to Python parameters
     # MATLAB stores cutoffs in microns, Python expects meters
-    cutoff_hi = float(test_case.params.get("cutoff_hi", 250.0)) * 1e-6
-    cutoff_lo = float(test_case.params.get("cutoff_lo", 5.0)) * 1e-6
-    use_mean = bool(test_case.params.get("use_mean", 1))
-    angle_accuracy = float(test_case.params.get("angle_accuracy", 90.0))
-    shape_noise_removal = bool(test_case.params.get("shape_noise_removal", 1))
+    params = PreprocessingStriationParams(
+        cutoff_hi=float(test_case.params.get("cutoff_hi", 250.0)) * 1e-6,
+        cutoff_lo=float(test_case.params.get("cutoff_lo", 5.0)) * 1e-6,
+        use_mean=bool(test_case.params.get("use_mean", 1)),
+        angle_accuracy=float(test_case.params.get("angle_accuracy", 90.0)),
+        shape_noise_removal=bool(test_case.params.get("shape_noise_removal", 1)),
+    )
 
     # Convert mask to boolean
     mask = test_case.input_mask.astype(bool) if test_case.has_mask else None
@@ -227,11 +230,7 @@ def run_python_preprocessing(
         scan_image=scan_image,
         mark_type=mark_type,
         mask=mask,
-        cutoff_hi=cutoff_hi,
-        cutoff_lo=cutoff_lo,
-        use_mean=use_mean,
-        angle_accuracy=angle_accuracy,
-        shape_noise_removal=shape_noise_removal,
+        params=params,
     )
 
     return (

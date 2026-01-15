@@ -12,6 +12,7 @@ import pytest
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
+from conversion.preprocess_striation.parameters import PreprocessingStriationParams
 from conversion.preprocess_striation.preprocess_data import preprocess_data
 from .helper_functions import (
     _compute_correlation,
@@ -167,15 +168,18 @@ def run_python_preprocessing(
     mask = test_case.input_mask.astype(bool) if test_case.has_mask else None
     mark_type = _string_to_mark_type(test_case.mark_type)
 
-    aligned_data, profile, mask_out, total_angle = preprocess_data(
-        scan_image=scan_image,
-        mark_type=mark_type,
-        mask=mask,
+    params = PreprocessingStriationParams(
         cutoff_hi=test_case.cutoff_hi * 1e-6,
         cutoff_lo=test_case.cutoff_lo * 1e-6,
         use_mean=test_case.use_mean,
         angle_accuracy=test_case.angle_accuracy,
         shape_noise_removal=test_case.shape_noise_removal,
+    )
+    aligned_data, profile, mask_out, total_angle = preprocess_data(
+        scan_image=scan_image,
+        mark_type=mark_type,
+        mask=mask,
+        params=params,
     )
 
     return aligned_data, mask_out, profile, total_angle
