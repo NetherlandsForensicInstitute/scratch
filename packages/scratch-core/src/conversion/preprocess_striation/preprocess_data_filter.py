@@ -23,9 +23,6 @@ def _apply_nan_weighted_gaussian_1d(
     NaN values are excluded from the convolution by setting their weight to 0.
     The result is normalized by the sum of weights to compensate for missing data.
 
-    Note: MATLAB's SmoothMod with sigma_2d=[0 sigma] internally transposes the kernel,
-    so filtering along MATLAB's dimension 2 corresponds to numpy's axis 0 (rows).
-
     :param data: Input 2D data array (may contain NaN values).
     :param sigma: Standard deviation of Gaussian kernel (in pixels).
     :param truncate: Truncate filter at this many standard deviations (default 4.0).
@@ -33,11 +30,10 @@ def _apply_nan_weighted_gaussian_1d(
         based on neighboring valid data.
     """
     # sigma=(sigma, 0) filters along axis 0 (rows/y-direction)
-    # This matches MATLAB's SmoothMod behavior where sigma_2d=[0 sigma] with kernel transpose
     gaussian_filter = partial(
         ndimage.gaussian_filter,
         sigma=(sigma, 0),  # Filter only along first axis (rows/y-direction)
-        mode="reflect",  # Match MATLAB's symmetric boundary conditions
+        mode="reflect",
         truncate=truncate,
     )
 
@@ -134,7 +130,6 @@ def apply_gaussian_filter_1d(
         mask = np.ones(scan_image.data.shape, dtype=bool)
 
     # Calculate Gaussian sigma from cutoff
-    # Note: Uses scale_x to match MATLAB's xdim parameter, even though filtering is along rows.
     # This works because striation data typically has equal x/y pixel spacing.
     sigma = cutoff_to_gaussian_sigma(cutoff, scan_image.scale_x)
 

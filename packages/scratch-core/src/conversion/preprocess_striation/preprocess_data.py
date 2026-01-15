@@ -1,8 +1,8 @@
 """Preprocessing pipeline for striated tool and bullet marks.
 
-This module implements the PreprocessData pipeline from MATLAB:
-- Step 2: Form and noise removal (shape removal via highpass, noise removal via lowpass)
-- Step 3: Fine rotation to align striations horizontally + profile extraction
+This module implements the PreprocessData pipeline with the following steps:
+- Form and noise removal (shape removal via highpass, noise removal via lowpass)
+- Fine rotation to align striations horizontally + profile extraction
 """
 
 from math import ceil
@@ -22,11 +22,6 @@ from conversion.preprocess_striation.preprocess_data_filter import (
 )
 
 
-# =============================================================================
-# Step 2: Form and Noise Removal
-# =============================================================================
-
-
 def apply_shape_noise_removal(
     scan_image: ScanImage,
     mask: MaskArray | None = None,
@@ -38,16 +33,16 @@ def apply_shape_noise_removal(
 
     The function has the following steps:
 
-    **Step 1: Calculate sigma and check data size**
+    **Calculate sigma and check data size**
         Convert the cutoff wavelength to Gaussian sigma. If the data is
         too short (2*sigma > 20% of height), disable border cutting to
         preserve data.
 
-    **Step 2: Shape removal**
+    **Shape removal**
         Use apply_gaussian_filter_1d with is_high_pass=True to remove
         large-scale shape (curvature, tilt, waviness).
 
-    **Step 3: Noise removal**
+    **Noise removal**
         Apply apply_gaussian_filter_1d wit  h is_high_pass=False (lowpass)
         to remove high-frequency noise while preserving striation features.
 
@@ -98,11 +93,6 @@ def apply_shape_noise_removal(
     return data_no_noise, mask_no_noise
 
 
-# =============================================================================
-# Step 3: Fine Alignment Helper Functions
-# =============================================================================
-
-
 def _smooth_2d(
     data: NDArray[np.floating],
     sigma: float | tuple[float, float],
@@ -150,8 +140,6 @@ def _rotate_data_by_shifting_profiles(
         - Left edge (col 0): shifts up by ~4.4 pixels
         - Center (col 50): no shift
         - Right edge (col 99): shifts down by ~4.4 pixels
-
-    This is equivalent to the MATLAB RotateDataByShiftingProfiles function.
 
     :param depth_data: 2D depth data array (rows x cols).
     :param angle_rad: Rotation angle in radians (positive = clockwise).
@@ -280,11 +268,6 @@ def _rotate_image_grad_vector(
         return np.nan
 
     return float(np.median(angles))
-
-
-# =============================================================================
-# Step 3: Fine Alignment
-# =============================================================================
 
 
 def fine_align_bullet_marks(
@@ -434,11 +417,6 @@ def extract_profile(
     return profile
 
 
-# =============================================================================
-# Main Preprocessing Pipeline (Steps 2 + 3)
-# =============================================================================
-
-
 def preprocess_data(
     scan_image: ScanImage,
     mark_type: MarkType | None = None,
@@ -458,15 +436,14 @@ def preprocess_data(
     float,
 ]:
     """
-    Complete preprocess_striations pipeline for striated marks.
+    Complete preprocess_striations pipeline for striated marks, it performs two
+    preprocessing steps:
 
-    Implements Steps 2 and 3 of PreprocessData.m:
-
-    **Step 2: Form and noise removal** (optional, controlled by shape_noise_removal)
+    **Form and noise removal** (optional, controlled by shape_noise_removal)
         - Highpass filter to remove large-scale shape (curvature, tilt)
         - Lowpass filter to remove high-frequency noise
 
-    **Step 3: Fine rotation and profile extraction**
+    **Fine rotation and profile extraction**
         - Iteratively detect striation direction via gradient analysis
         - Rotate data to align striations horizontally
         - Extract mean or median profile
@@ -485,9 +462,6 @@ def preprocess_data(
 
     :returns: Tuple of (aligned_data, profile, mask, total_angle).
     """
-    # -------------------------------------------------------------------------
-    # Step 2: Form and noise removal (optional)
-    # -------------------------------------------------------------------------
     if shape_noise_removal:
         data_filtered, mask_filtered = apply_shape_noise_removal(
             scan_image=scan_image,
@@ -500,9 +474,6 @@ def preprocess_data(
         data_filtered = scan_image.data.copy()
         mask_filtered = mask
 
-    # -------------------------------------------------------------------------
-    # Step 3: Fine rotation and profile extraction
-    # -------------------------------------------------------------------------
     # Only perform fine alignment if data has more than 1 column
     if data_filtered.shape[1] > 1:
         # Create new ScanImage with filtered data
