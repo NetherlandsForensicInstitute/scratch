@@ -233,3 +233,19 @@ api.pid
 # generated images of matplotlib
 **/result_images/
 .vscode/
+
+# AI Assistant Files
+# Claude Code, Cursor, ChatGPT, Google AI Studio, and other AI coding assistants
+.aider*
+.continue/
+.ai/
+.claude/
+.chatgpt/
+.openai/
+.google-ai/
+.gemini/
+ai-*.log
+*-ai-session.json
+chatgpt-*.json
+gemini-*.json
+CLAUDE.md
