@@ -10,11 +10,11 @@ from conversion.preprocess_striation.preprocess_data import (
     _smooth_2d,
     _rotate_data_by_shifting_profiles,
     _rotate_image_grad_vector,
-    _resample_mark_type_specific,
     fine_align_bullet_marks,
     extract_profile,
     preprocess_data,
 )
+from conversion.resample import resample_scan_image_and_mask
 from container_models.scan_image import ScanImage
 
 
@@ -92,21 +92,24 @@ def test_mark_type_scale():
 
 
 def test_resample_mark_type_specific():
-    """Test resampling to target sampling distance."""
+    """Test resampling to target sampling distance using resample_scan_image_and_mask."""
     np.random.seed(42)
     data = np.random.randn(100, 100)
-    xdim = 1.0e-6
-    ydim = 1.0e-6
+    scale_x = 1.0e-6
+    scale_y = 1.0e-6
     mark_type = MarkType.BULLET_GEA_STRIATION
 
-    resampled, new_xdim, new_ydim, _ = _resample_mark_type_specific(
-        data, xdim, ydim, mark_type
+    scan_image = ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
+    resampled_scan, _ = resample_scan_image_and_mask(
+        scan_image, mask=None, target_scale=mark_type.scale, only_downsample=True
     )
 
-    assert resampled.shape[0] < data.shape[0]
-    assert resampled.shape[1] < data.shape[1]
-    assert np.isclose(new_xdim, 1.5e-6, rtol=1e-09, atol=1e-09)
-    assert np.isclose(new_ydim, 1.5e-6, rtol=1e-09, atol=1e-09)
+    # With only_downsample=True, data with scale smaller than target (1.0e-6 < 1.5e-6)
+    # should be downsampled
+    assert resampled_scan.data.shape[0] < data.shape[0]
+    assert resampled_scan.data.shape[1] < data.shape[1]
+    assert np.isclose(resampled_scan.scale_x, 1.5e-6, rtol=1e-09, atol=1e-09)
+    assert np.isclose(resampled_scan.scale_y, 1.5e-6, rtol=1e-09, atol=1e-09)
 
 
 def test_fine_align_bullet_marks():

@@ -9,13 +9,14 @@ from math import ceil
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.ndimage import gaussian_filter, map_coordinates, zoom
+from scipy.ndimage import gaussian_filter, map_coordinates
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
 from conversion.filter import cutoff_to_gaussian_sigma
 from conversion.mask import _determine_bounding_box
+from conversion.resample import resample_scan_image_and_mask
 from conversion.preprocess_striation.preprocess_data_filter import (
     apply_gaussian_filter_1d,
 )
@@ -47,7 +48,7 @@ def apply_shape_noise_removal(
         large-scale shape (curvature, tilt, waviness).
 
     **Step 3: Noise removal**
-        Apply apply_gaussian_filter_1d with is_high_pass=False (lowpass)
+        Apply apply_gaussian_filter_1d wit  h is_high_pass=False (lowpass)
         to remove high-frequency noise while preserving striation features.
 
 
@@ -282,59 +283,6 @@ def _rotate_image_grad_vector(
     return float(np.median(angles))
 
 
-def _resample_mark_type_specific(
-    depth_data: NDArray[np.floating],
-    scale_x: float,
-    scale_y: float,
-    mark_type: MarkType,
-    mask: MaskArray | None = None,
-) -> tuple[NDArray[np.floating], float, float, MaskArray | None]:
-    """
-    Resample depth data to target sampling distance based on mark type.
-
-    :param depth_data: 2D depth data array.
-    :param scale_x: Current x-dimension pixel spacing in meters.
-    :param scale_y: Current y-dimension pixel spacing in meters.
-    :param mark_type: Mark type enum value.
-    :param mask: Optional boolean mask.
-    :returns: Tuple of (resampled_data, new_scale_x, new_scale_y, resampled_mask).
-    """
-    target_sampling = mark_type.scale
-
-    # Check if data meets minimum requirements
-    if scale_x > target_sampling and scale_y > target_sampling:
-        return depth_data, scale_x, scale_y, mask
-
-    # Calculate resample factors
-    resample_factor_x = scale_x / target_sampling
-    resample_factor_y = scale_y / target_sampling
-
-    # Resample depth data using bilinear interpolation
-    depth_data_resampled: NDArray[np.floating] = np.asarray(
-        zoom(
-            depth_data,
-            (resample_factor_x, resample_factor_y),
-            order=1,
-            mode="nearest",
-        )
-    )
-
-    # Resample mask if provided (nearest neighbor)
-    mask_resampled: MaskArray | None = None
-    if mask is not None:
-        mask_resampled = np.asarray(
-            zoom(
-                mask.astype(float),
-                (resample_factor_x, resample_factor_y),
-                order=0,
-                mode="nearest",
-            )
-            > 0.5
-        )
-
-    return depth_data_resampled, target_sampling, target_sampling, mask_resampled
-
-
 # =============================================================================
 # Step 3: Fine Alignment
 # =============================================================================
@@ -436,16 +384,25 @@ def fine_align_bullet_marks(
             result_data = result_data[y_slice, x_slice]
             result_mask = result_mask[y_slice, x_slice]
 
-            if mark_type is not None and scale_y is not None:
-                result_data, _, _, result_mask = _resample_mark_type_specific(
-                    result_data, scale_x, scale_y, mark_type, result_mask
+            if mark_type is not None:
+                data_f64 = np.asarray(result_data, dtype=np.float64)
+                temp_scan = ScanImage(data=data_f64, scale_x=scale_x, scale_y=scale_y)
+                resampled_scan, result_mask = resample_scan_image_and_mask(
+                    temp_scan,
+                    result_mask,
+                    target_scale=mark_type.scale,
+                    only_downsample=True,
                 )
+                result_data = resampled_scan.data
         else:
             result_mask = None
-            if mark_type is not None and scale_y is not None:
-                result_data, _, _, _ = _resample_mark_type_specific(
-                    result_data, scale_x, scale_y, mark_type
+            if mark_type is not None:
+                data_f64 = np.asarray(result_data, dtype=np.float64)
+                temp_scan = ScanImage(data=data_f64, scale_x=scale_x, scale_y=scale_y)
+                resampled_scan, _ = resample_scan_image_and_mask(
+                    temp_scan, target_scale=mark_type.scale, only_downsample=True
                 )
+                result_data = resampled_scan.data
 
     return result_data, result_mask, a_tot
 
