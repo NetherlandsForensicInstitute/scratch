@@ -7,9 +7,9 @@ from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
-from extractors.schemas import ProcessedDataAccess
+from extractors.schemas import PrepareMarkResponse, ProcessedDataAccess
 from models import DirectoryAccess
-from preprocessors.schemas import UploadScan
+from preprocessors.schemas import PrepareMark, UploadScan
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
@@ -47,6 +47,21 @@ class TestContracts:
         """
         return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
 
+    @pytest.fixture(scope="class")
+    def prepare_mark(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
+        """Create dummy files for the expected response.
+
+        Returns the post request data, sub_route & expected response.
+        """
+        return PrepareMark(
+            scan_file=scan_directory / "circle.x3p",
+            mark_type="aperture shear striation mark",
+            mask_array=[[0, 1], [1, 0]],
+            rotation_angle=15,
+            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            preprocessor_param=1,
+        ), PrepareMarkResponse  # type: ignore
+
     @pytest.mark.parametrize(
         ("route", "expected_response"),
         (pytest.param(f"/{route}", TemplateResponse, id=route) for route in RoutePrefix),
@@ -60,7 +75,11 @@ class TestContracts:
         expected_response.model_validate(response.json())
 
     @pytest.mark.parametrize(
-        ("fixture_name", "sub_route"), [pytest.param("process_scan", "process-scan", id="process_scan")]
+        ("fixture_name", "sub_route"),
+        [
+            pytest.param("process_scan", "process-scan", id="process_scan"),
+            pytest.param("prepare_mark", "prepare-mark", id="prepare_mark"),
+        ],
     )
     def test_pre_processor_post_requests(
         self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest
