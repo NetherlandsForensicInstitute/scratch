@@ -8,8 +8,8 @@ from loguru import logger
 
 from container_models.base import ScanMap2DArray, MaskArray
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType, CropType, Mark
-from parsers import load_scan_image
+from conversion.data_formats import MarkType, CropType, Mark, CropInfo
+from parsers.loaders import load_scan_image
 from .helper_function import unwrap_result
 
 TEST_ROOT = Path(__file__).parent
@@ -102,5 +102,20 @@ def mark(scan_image: ScanImage) -> Mark:
     return Mark(
         scan_image=scan_image,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
-        crop_type=CropType.RECTANGLE,
+        crop_infos=[
+            CropInfo(
+                crop_type=CropType.RECTANGLE,
+                data={
+                    "corner": np.array(
+                        [
+                            [np.int64(278), np.int64(1987)],
+                            [np.int64(1426), np.int64(207)],
+                            [np.int64(1789), np.int64(442)],
+                            [np.int64(641), np.int64(2222)],
+                        ]
+                    )
+                },
+                is_foreground=True,
+            )
+        ],
     )

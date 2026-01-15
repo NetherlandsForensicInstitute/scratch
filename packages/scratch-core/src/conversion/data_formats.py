@@ -1,8 +1,9 @@
 from enum import Enum, auto
+from typing import Any
 
 from pydantic import Field, computed_field
 
-from container_models.base import ConfigBaseModel
+from container_models.base import ConfigBaseModel, BaseModel
 from container_models.scan_image import ScanImage
 
 
@@ -44,6 +45,23 @@ class CropType(Enum):
     POLYGON = auto()
 
 
+class CropInfo(BaseModel):
+    """
+    Representation of the cropped area. Parameter `is_foreground` is used to indicate whether keep or delete the
+    selected area.
+
+    The points dict differs per CropType:
+    CIRCLE: {'center': array [x, y], 'radius': float}
+    RECTANGLE: {'corner': ScanMap2DArray}
+    POLYGON: {'point': ScanMap2DArray}
+    ELLIPSE: {'center': array [x, y], 'majoraxis': float, 'minoraxis': float, angle_majoraxis: float}
+    """
+
+    data: dict[str, Any]
+    crop_type: CropType
+    is_foreground: bool
+
+
 class Mark(ConfigBaseModel):
     """
     Representation of a mark (impression or striation)
@@ -51,6 +69,7 @@ class Mark(ConfigBaseModel):
 
     scan_image: ScanImage
     mark_type: MarkType
+    crop_infos: list[CropInfo]
     crop_type: CropType
     meta_data: dict = Field(default_factory=dict)
     _center: tuple[float, float] | None = None
