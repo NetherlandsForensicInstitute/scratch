@@ -3,10 +3,12 @@ from typing import Final
 
 import pytest
 from pydantic import ValidationError
+from scipy.constants import micro
 
 from preprocessors.schemas import EditImage, EditImageParameters, Mask
 
 MASK: Final[Mask] = ((True, False), (False, True))
+CUTOFF_LENGTH: Final[float] = 250 * micro
 
 
 class TestEditImage:
@@ -15,7 +17,7 @@ class TestEditImage:
     @pytest.fixture(scope="class")
     def edit_image_parameters(self) -> EditImageParameters:
         """Provide a default EditImageParameters instance for test cases."""
-        return EditImageParameters.model_construct(mask=MASK)
+        return EditImageParameters.model_construct(mask=MASK, cutoff_length=CUTOFF_LENGTH)
 
     def test_should_create_with_valid_x3p_file(
         self, scan_directory: Path, edit_image_parameters: EditImageParameters

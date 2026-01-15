@@ -14,6 +14,7 @@ from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
 MASK = ((1, 0), (0, 1))
+CUTOFF_LENGTH = 250e-6  # 250 micrometers in meters
 
 
 class RoutePrefix(StrEnum):
@@ -56,7 +57,7 @@ class TestContracts:
         """
         data = EditImage(
             scan_file=scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p",
-            parameters=EditImageParameters(mask=MASK),  # type: ignore
+            parameters=EditImageParameters(mask=MASK, cutoff_length=CUTOFF_LENGTH),  # type: ignore
         )
         return data, ProcessDataUrls
 
@@ -106,7 +107,7 @@ class TestContracts:
         shutil.copyfile(
             scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p", directory_access.resource_path / "scan.x3p"
         )
-        edit_params = EditImageParameters(mask=MASK)  # type: ignore
+        edit_params = EditImageParameters(mask=MASK, cutoff_length=CUTOFF_LENGTH)  # type: ignore
 
         # Act
         edit_response = requests.post(

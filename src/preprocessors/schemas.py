@@ -12,6 +12,7 @@ from pydantic import (
     FilePath,
     HttpUrl,
     PositiveFloat,
+    PositiveInt,
     RootModel,
     field_validator,
     model_validator,
@@ -108,7 +109,22 @@ type Mask = tuple[tuple[bool, ...], tuple[bool, ...]]
 class EditImageParameters(BaseModelConfig):
     """Configuration parameters for scan image editing and transformation operations."""
 
-    resampling_factor: PositiveFloat = Field(
+    mask: Mask = Field(
+        description=(
+            "Binary mask array for selective processing or cropping. "
+            "Must be a 2D boolean array with shape matching the scan image dimensions. "
+            "Regions marked true (1) are processed, false (0) regions are excluded. "
+        ),
+        examples=[
+            [[True, True, False], [False, True, True]],
+            [[1, 1, 0], [0, 1, 1]],
+        ],
+    )
+    cutoff_length: PositiveFloat = Field(
+        description="Cutoff wavelength in meters (m) for Gaussian regression filtering. "
+        "Defines the spatial frequency threshold for surface texture analysis."
+    )
+    resampling_factor: PositiveInt = Field(
         default=4,
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
     )
@@ -121,17 +137,6 @@ class EditImageParameters(BaseModelConfig):
     regression_order: RegressionOrder = Field(
         default=RegressionOrder.RO,
         description="Polynomial regression order for surface fitting. R0 (constant), R1 (linear), or R2 (quadratic).",
-    )
-    mask: Mask = Field(
-        description=(
-            "Binary mask array for selective processing or cropping. "
-            "Must be a 2D boolean array with shape matching the scan image dimensions. "
-            "Regions marked true (1) are processed, false (0) regions are excluded. "
-        ),
-        examples=[
-            [[True, True, False], [False, True, True]],
-            [[1, 1, 0], [0, 1, 1]],
-        ],
     )
     crop: bool = Field(
         default=False,
