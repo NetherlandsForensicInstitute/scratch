@@ -205,24 +205,21 @@ def _rotate_image_grad_vector(
     :returns: Detected rotation angle in degrees.
     """
     # Determine subsampling factor
+    sub_samp = extra_sub_samp
     if scale_x < 1e-6:
         sub_samp = round(1e-6 / scale_x) * extra_sub_samp
-    else:
-        sub_samp = 1 * extra_sub_samp
 
     # Determine sigma for smoothing (minimum of 3)
     sigma = max(3, round(1.75e-5 / scale_x / sub_samp))
 
     # Resample data (only columns, matching MATLAB's resample function)
+    data_subsampled = depth_data
+    mask_subsampled = mask
+
     if sub_samp > 1 and depth_data.shape[1] // sub_samp >= 2:
         data_subsampled = _resample_image_array(depth_data, factors=(sub_samp, 1))
         if mask is not None:
             mask_subsampled = _resample_image_array(mask, factors=(sub_samp, 1)) > 0.5
-        else:
-            mask_subsampled = None
-    else:
-        data_subsampled = depth_data
-        mask_subsampled = mask
 
     # Smooth data
     smoothed = _smooth_2d(data_subsampled, (sigma, sigma))
@@ -264,6 +261,92 @@ def _rotate_image_grad_vector(
     return float(np.median(angles))
 
 
+def _rotate_data_and_mask(
+    depth_data: NDArray[np.floating],
+    mask: MaskArray | None,
+    angle_rad: float,
+    cut_y_after_shift: bool,
+) -> tuple[NDArray[np.floating], MaskArray | None]:
+    """
+    Rotate data and optionally mask, cropping to bounding box if mask provided.
+
+    :param depth_data: 2D depth data array.
+    :param mask: Optional boolean mask array.
+    :param angle_rad: Rotation angle in radians.
+    :param cut_y_after_shift: If True, crop NaN borders after shifting.
+    :returns: Tuple of (rotated_data, rotated_mask).
+    """
+    if mask is not None:
+        data_rotated = _rotate_data_by_shifting_profiles(
+            depth_data, angle_rad, cut_y_after_shift
+        )
+        mask_rotated = _rotate_data_by_shifting_profiles(
+            mask.astype(float), angle_rad, cut_y_after_shift
+        )
+        mask_binary = mask_rotated == 1
+        y_slice, x_slice = _determine_bounding_box(mask_binary)
+        return data_rotated[y_slice, x_slice], mask_binary[y_slice, x_slice]
+
+    return _rotate_data_by_shifting_profiles(
+        depth_data, angle_rad, cut_y_after_shift
+    ), None
+
+
+def _find_alignment_angle(
+    depth_data: NDArray[np.floating],
+    mask: MaskArray | None,
+    scale_x: float,
+    angle_accuracy: float,
+    cut_y_after_shift: bool,
+    max_iter: int,
+    extra_sub_samp: int,
+) -> float:
+    """
+    Iteratively find the alignment angle for striation marks.
+
+    :param depth_data: 2D depth data array.
+    :param mask: Optional boolean mask.
+    :param scale_x: Pixel spacing in meters.
+    :param angle_accuracy: Target angle accuracy in degrees.
+    :param cut_y_after_shift: If True, crop borders after shifting.
+    :param max_iter: Maximum number of iterations.
+    :param extra_sub_samp: Additional subsampling factor.
+    :returns: Total alignment angle in degrees (0.0 if max_iter reached).
+    """
+    data_tmp = depth_data.copy()
+    mask_tmp = mask.copy() if mask is not None else None
+
+    a_tot = 0.0
+    a = -45.0
+    a_last = 0.0
+    iteration = 1
+
+    while abs(a) > angle_accuracy and iteration < max_iter:
+        a = _rotate_image_grad_vector(
+            data_tmp, scale_x, mask=mask_tmp, extra_sub_samp=extra_sub_samp
+        )
+
+        if np.isnan(a):
+            a = 0.05
+        else:
+            a_tot = a_tot + a
+            a_tot_rad = np.radians(a_tot)
+            data_tmp, mask_tmp = _rotate_data_and_mask(
+                depth_data, mask, a_tot_rad, cut_y_after_shift
+            )
+
+            if a == a_last:
+                iteration = max_iter - 1
+            else:
+                a_last = a
+
+        iteration += 1
+
+    if iteration >= max_iter:
+        return 0.0
+    return a_tot
+
+
 def fine_align_bullet_marks(
     scan_image: ScanImage,
     mark_type: MarkType | None = None,
@@ -290,86 +373,35 @@ def fine_align_bullet_marks(
     :param extra_sub_samp: Additional subsampling factor for gradient detection.
     :returns: Tuple of (aligned_scan_image, aligned_mask, total_angle_degrees).
     """
-    # Extract data and pixel spacing from ScanImage
     depth_data = scan_image.data
     scale_x = scan_image.scale_x
     scale_y = scan_image.scale_y
 
-    # Initialize
-    data_tmp = depth_data.copy()
-    mask_tmp = mask.copy() if mask is not None else None
+    # Find alignment angle iteratively
+    a_tot = _find_alignment_angle(
+        depth_data,
+        mask,
+        scale_x,
+        angle_accuracy,
+        cut_y_after_shift,
+        max_iter,
+        extra_sub_samp,
+    )
 
-    a_tot = 0.0
-    a = -45.0
-    a_last = 0.0
-    iteration = 1
+    # Apply rotation and compute corrected scales
+    result_data = depth_data.copy()
+    result_mask = mask
+    result_scale_x = scale_x
+    result_scale_y = scale_y
 
-    # Iterative alignment
-    while abs(a) > angle_accuracy and iteration < max_iter:
-        a = _rotate_image_grad_vector(
-            data_tmp,
-            scale_x,
-            mask=mask_tmp,
-            extra_sub_samp=extra_sub_samp,
-        )
-
-        if not np.isnan(a):
-            a_tot = a_tot + a
-            # Convert accumulated angle from degrees to radians for rotation
-            a_tot_rad = np.radians(a_tot)
-            data_tmp = _rotate_data_by_shifting_profiles(
-                depth_data, a_tot_rad, cut_y_after_shift
-            )
-
-            if mask is not None:
-                mask_float = mask.astype(float)
-                mask_rotated = _rotate_data_by_shifting_profiles(
-                    mask_float, a_tot_rad, cut_y_after_shift
-                )
-                mask_tmp = mask_rotated == 1
-                y_slice, x_slice = _determine_bounding_box(mask_tmp)
-                data_tmp = data_tmp[y_slice, x_slice]
-                mask_tmp = mask_tmp[y_slice, x_slice]
-
-            if a == a_last:
-                iteration = max_iter - 1
-            else:
-                a_last = a
-        else:
-            a = 0.05
-
-        iteration += 1
-
-    # Process result
-    if iteration >= max_iter:
-        a_tot = 0.0
-        result_data = depth_data.copy()
-        result_mask = mask
-        result_scale_x = scale_x
-        result_scale_y = scale_y
-    else:
-        # Convert final angle from degrees to radians for rotation
+    if not np.isclose(a_tot, 0.0, rtol=1e-09, atol=1e-09):
         a_tot_rad = np.radians(a_tot)
-        result_data = _rotate_data_by_shifting_profiles(
-            depth_data, a_tot_rad, cut_y_after_shift
-        )
-
-        # Correct scales for shear-based rotation (matching MATLAB)
         cos_angle = np.cos(a_tot_rad)
         result_scale_x = scale_x * cos_angle
         result_scale_y = scale_y / cos_angle
-
-        if mask is not None:
-            mask_float = mask.astype(float)
-            mask_rotated = _rotate_data_by_shifting_profiles(
-                mask_float, a_tot_rad, cut_y_after_shift
-            )
-            result_mask = mask_rotated == 1
-            y_slice, x_slice = _determine_bounding_box(result_mask)
-            result_data = result_data[y_slice, x_slice]
-            result_mask = result_mask[y_slice, x_slice]
-        else:
-            result_mask = None
+        result_data, result_mask = _rotate_data_and_mask(
+            depth_data, mask, a_tot_rad, cut_y_after_shift
+        )
 
     # Create result ScanImage with corrected scales
     result_scan = ScanImage(
@@ -405,17 +437,13 @@ def extract_profile(
     :param use_mean: If True, use mean; if False, use median.
     :returns: 1D profile array.
     """
+    masked_data = depth_data
     if mask is not None:
         masked_data = np.where(mask, depth_data, np.nan)
-    else:
-        masked_data = depth_data
 
     if use_mean:
-        profile = np.nanmean(masked_data, axis=1)
-    else:
-        profile = np.nanmedian(masked_data, axis=1)
-
-    return profile
+        return np.nanmean(masked_data, axis=1)
+    return np.nanmedian(masked_data, axis=1)
 
 
 def preprocess_data(
@@ -463,6 +491,9 @@ def preprocess_data(
 
     :returns: Tuple of (aligned_data, profile, mask, total_angle).
     """
+    data_filtered = scan_image.data.copy()
+    mask_filtered = mask
+
     if shape_noise_removal:
         data_filtered, mask_filtered = apply_shape_noise_removal(
             scan_image=scan_image,
@@ -470,14 +501,13 @@ def preprocess_data(
             mask=mask,
             lowpass_cutoff=cutoff_lo,
         )
-    else:
-        # Skip filtering - use original data
-        data_filtered = scan_image.data.copy()
-        mask_filtered = mask
 
-    # Only perform fine alignment if data has more than 1 column
+    # Set defaults for line profile case (no alignment needed)
+    data_aligned = data_filtered
+    mask_aligned = mask_filtered
+    total_angle = 0.0
+
     if data_filtered.shape[1] > 1:
-        # Create new ScanImage with filtered data
         filtered_scan_image = scan_image.model_copy(update={"data": data_filtered})
         aligned_scan, mask_aligned, total_angle = fine_align_bullet_marks(
             scan_image=filtered_scan_image,
@@ -489,11 +519,6 @@ def preprocess_data(
             extra_sub_samp=extra_sub_samp,
         )
         data_aligned = aligned_scan.data
-    else:
-        # Line profile - no alignment needed
-        data_aligned = data_filtered
-        mask_aligned = mask_filtered
-        total_angle = 0.0
 
     # Extract profile
     profile = extract_profile(data_aligned, mask=mask_aligned, use_mean=use_mean)
