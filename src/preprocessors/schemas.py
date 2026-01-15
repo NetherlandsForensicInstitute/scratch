@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from enum import StrEnum, auto
+from functools import cached_property
+from typing import Annotated, Self, override
 
 import numpy as np
 from container_models.light_source import LightSource
@@ -8,11 +10,12 @@ from numpy.typing import NDArray
 from pydantic import (
     UUID4,
     ConfigDict,
+    EncodedBytes,
+    EncoderProtocol,
     Field,
     FilePath,
     HttpUrl,
     PositiveFloat,
-    PositiveInt,
     RootModel,
     field_validator,
     model_validator,
@@ -103,7 +106,48 @@ class RegressionOrder(StrEnum):
     R2 = auto()
 
 
-type Mask = tuple[tuple[bool, ...], tuple[bool, ...]]
+class MaskEncoder(EncoderProtocol):
+    @override
+    @classmethod
+    def decode(cls, data: bytes) -> bytes:
+        if not data:
+            raise ValueError("Cannot decode empty bytes to mask array")
+        # Strict bool evaluation
+        if any(byte_ not in (1, 0) for byte_ in data):
+            raise ValueError("Corrupted encoding")
+        return data
+
+    @override
+    @classmethod
+    def encode(cls, value: bytes) -> bytes:
+        # Ensure output is strict bool bytes
+        return np.frombuffer(value, dtype=np.int8).astype(np.bool_).tobytes()
+
+    @classmethod
+    @override
+    def get_json_format(cls) -> str:
+        return "mask-bytes"
+
+
+class Mask(BaseModelConfig):
+    data: Annotated[bytes, EncodedBytes(MaskEncoder)]
+    shape: tuple[int, int]
+
+    @cached_property
+    def mask_array(self) -> NDArray:
+        """TODO: Add docstring."""
+        return np.frombuffer(self.data, dtype=np.uint8).reshape(*self.shape).astype(np.bool_)
+
+    @model_validator(mode="after")
+    def validate_mask_model(self) -> Self:
+        """TODO: Add docstring."""
+        try:
+            self.mask_array
+        except Exception as e:
+            raise ValueError("Fail to decode mask data") from e
+        if self.mask_array.ndim != 2:  # noqa
+            raise ValueError(f"Mask must be a 2D array: {self.mask_array.ndim} dimensions found")
+        return self
 
 
 class EditImageParameters(BaseModelConfig):
@@ -124,7 +168,7 @@ class EditImageParameters(BaseModelConfig):
         description="Cutoff wavelength in meters (m) for Gaussian regression filtering. "
         "Defines the spatial frequency threshold for surface texture analysis."
     )
-    resampling_factor: PositiveInt = Field(
+    resampling_factor: PositiveFloat = Field(
         default=4,
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
     )
@@ -156,25 +200,6 @@ class EditImageParameters(BaseModelConfig):
         False,
         description="Whether to overwrite the original scan file with edited results.",
     )
-
-    @field_validator("mask", mode="after")
-    @classmethod
-    def validate_mask_is_2d(cls, mask: Mask) -> Mask:
-        """Validate that mask is a 2D array if provided."""
-        # Validate all rows have the same length
-        row_lengths = {len(row) for row in mask}
-        if len(row_lengths) > 1:
-            raise ValueError(f"All mask rows must have equal length, got varying lengths: {row_lengths}")
-
-        # Validate at least one value in row
-        if not row_lengths.pop():
-            raise ValueError("Mask rows cannot be empty")
-
-        return mask
-
-    @property
-    def mask_array(self) -> NDArray:
-        return np.array(self.mask, np.bool_)
 
 
 class EditImage(BaseModelConfig):
