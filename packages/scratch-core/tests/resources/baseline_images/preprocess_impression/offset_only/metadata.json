@@ -1,0 +1,15 @@
+{
+  "pixel_spacing": [
+    1.0,
+    1.0
+  ],
+  "target_pixel_spacing": null,
+  "use_circle_center": false,
+  "adjust_pixel_spacing": false,
+  "level_params": [
+    1
+  ],
+  "filters": [],
+  "b_interpol": false,
+  "has_leveled_output": true
+}

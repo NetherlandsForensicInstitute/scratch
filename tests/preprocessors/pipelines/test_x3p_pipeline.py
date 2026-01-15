@@ -7,6 +7,8 @@ from container_models.scan_image import ScanImage
 from preprocessors.pipelines import parse_scan_pipeline, x3p_pipeline
 from preprocessors.schemas import UploadScanParameters
 
+TOLERANCE = 1e-16
+
 
 @pytest.mark.integration
 class TestX3pPipeline:
@@ -40,5 +42,6 @@ class TestX3pPipeline:
         reparsed_scan = parse_scan_pipeline(output_path, default_parameters)
         assert isinstance(reparsed_scan, ScanImage)
         assert reparsed_scan.data.shape == parsed_al3d_file.data.shape
-        assert np.allclose(reparsed_scan.scale_x, parsed_al3d_file.scale_x)
-        assert np.allclose(reparsed_scan.scale_y, parsed_al3d_file.scale_y)
+        assert np.isclose(reparsed_scan.scale_x, parsed_al3d_file.scale_x, atol=TOLERANCE)
+        assert np.isclose(reparsed_scan.scale_y, parsed_al3d_file.scale_y, atol=TOLERANCE)
+        assert np.allclose(reparsed_scan.data, parsed_al3d_file.data, atol=TOLERANCE, equal_nan=True)

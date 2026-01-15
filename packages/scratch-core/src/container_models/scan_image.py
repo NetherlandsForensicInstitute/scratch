@@ -1,5 +1,9 @@
+from functools import cached_property
+
+import numpy as np
+from numpy.typing import NDArray
 from pydantic import Field
-from .base import ScanMap2DArray, ConfigBaseModel
+from .base import ScanMap2DArray, ConfigBaseModel, MaskArray
 
 
 class ScanImage(ConfigBaseModel):
@@ -24,3 +28,28 @@ class ScanImage(ConfigBaseModel):
     def height(self) -> int:
         """The image height in pixels."""
         return self.data.shape[0]
+
+    @cached_property
+    def valid_mask(self) -> MaskArray:
+        """Mask of the valid pixels in the data."""
+        valid_mask = ~np.isnan(self.data)
+        valid_mask.setflags(write=False)
+        return valid_mask
+
+    @cached_property
+    def valid_data(self) -> NDArray[np.floating]:
+        """Valid pixels in the data."""
+        valid_data = self.data[self.valid_mask]
+        valid_data.setflags(write=False)
+        return valid_data
+
+    def model_copy(self, *, update=None, deep=False):
+        copy = super().model_copy(update=update, deep=deep)
+        # Invalidate cached properties when any field changes
+        if update:
+            # Dynamically find and clear all cached_property attributes
+            for name in dir(type(copy)):
+                attr = getattr(type(copy), name, None)
+                if isinstance(attr, cached_property):
+                    copy.__dict__.pop(name, None)
+        return copy

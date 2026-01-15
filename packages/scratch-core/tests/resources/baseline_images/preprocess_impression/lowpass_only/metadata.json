@@ -1,0 +1,30 @@
+{
+  "pixel_spacing": [
+    1.0,
+    1.0
+  ],
+  "target_pixel_spacing": null,
+  "use_circle_center": false,
+  "adjust_pixel_spacing": false,
+  "level_params": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "filters": [
+    {
+      "type": "Gaussian",
+      "n_order": 0,
+      "cutoff_length": [
+        5,
+        5
+      ],
+      "is_highpass": false
+    }
+  ],
+  "b_interpol": false,
+  "has_leveled_output": true
+}

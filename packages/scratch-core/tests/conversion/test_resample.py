@@ -6,22 +6,22 @@ from conversion.data_formats import Mark
 from conversion.resample import (
     resample_scan_image_and_mask,
     _resample_scan_image,
-    _get_scaling_factors,
+    get_scaling_factors,
     _clip_factors,
-    _resample_image_array,
+    resample_image_array,
     resample_mark,
 )
 
 
 class TestGetScalingFactors:
     def test_basic_calculation(self):
-        assert _get_scaling_factors((2e-6, 2e-6), 4e-6) == (2.0, 2.0)
+        assert get_scaling_factors((2e-6, 2e-6), 4e-6) == (2.0, 2.0)
 
     def test_different_axes(self):
-        assert _get_scaling_factors((1e-6, 2e-6), 4e-6) == (4.0, 2.0)
+        assert get_scaling_factors((1e-6, 2e-6), 4e-6) == (4.0, 2.0)
 
     def test_upsampling(self):
-        assert _get_scaling_factors((8e-6, 8e-6), 4e-6) == (0.5, 0.5)
+        assert get_scaling_factors((8e-6, 8e-6), 4e-6) == (0.5, 0.5)
 
 
 class TestClipFactors:
@@ -44,7 +44,7 @@ class TestResampleArray:
         array = np.zeros((100, 200))
         mock_resize.return_value = np.zeros((50, 100))
 
-        _resample_image_array(array, factors=(2.0, 2.0))
+        resample_image_array(array, factors=(2.0, 2.0))
 
         call_args = mock_resize.call_args[1]
         assert call_args["output_shape"] == (50.0, 100.0)
@@ -54,7 +54,7 @@ class TestResampleArray:
         array = np.zeros((100, 100))
         mock_resize.return_value = np.zeros((200, 200))
 
-        _resample_image_array(array, factors=(0.5, 0.5))
+        resample_image_array(array, factors=(0.5, 0.5))
 
         assert mock_resize.call_args[1]["anti_aliasing"] is False
 
@@ -63,14 +63,14 @@ class TestResampleArray:
         array = np.zeros((100, 100))
         mock_resize.return_value = np.zeros((50, 50))
 
-        _resample_image_array(array, factors=(2.0, 2.0))
+        resample_image_array(array, factors=(2.0, 2.0))
 
         assert mock_resize.call_args[1]["anti_aliasing"] is True
 
 
 class TestResampleScanImage:
     def test_updates_scales(self, scan_image_rectangular_with_nans: ScanImage):
-        with patch("conversion.resample._resample_image_array") as mock:
+        with patch("conversion.resample.resample_image_array") as mock:
             mock.return_value = np.zeros((50, 50))
 
             result = _resample_scan_image(scan_image_rectangular_with_nans, (2.0, 2.0))
@@ -93,7 +93,7 @@ class TestResampleImageAndMask:
         assert result_mask is mask
 
     def test_uses_explicit_factors(self, scan_image_rectangular_with_nans: ScanImage):
-        with patch("conversion.resample._get_scaling_factors") as mock:
+        with patch("conversion.resample.get_scaling_factors") as mock:
             resample_scan_image_and_mask(
                 scan_image_rectangular_with_nans, factors=(2.0, 2.0)
             )
@@ -102,7 +102,7 @@ class TestResampleImageAndMask:
     def test_calculates_factors_when_not_provided(
         self, scan_image_rectangular_with_nans: ScanImage
     ):
-        with patch("conversion.resample._get_scaling_factors") as mock:
+        with patch("conversion.resample.get_scaling_factors") as mock:
             mock.return_value = (2.0, 2.0)
             resample_scan_image_and_mask(
                 scan_image_rectangular_with_nans, target_scale=4e-6
@@ -138,7 +138,7 @@ class TestResampleImageAndMask:
     ):
         mask = np.ones((100, 100), dtype=np.bool_)
 
-        with patch("conversion.resample._resample_image_array") as mock:
+        with patch("conversion.resample.resample_image_array") as mock:
             mock.return_value = np.zeros((50, 50))
 
             _, result_mask = resample_scan_image_and_mask(

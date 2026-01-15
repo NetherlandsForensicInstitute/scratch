@@ -32,7 +32,7 @@ def resample_scan_image_and_mask(
     :returns: Resampled ScanImage and MaskArray
     """
     if not factors:
-        factors = _get_scaling_factors(
+        factors = get_scaling_factors(
             scales=(scan_image.scale_x, scan_image.scale_y), target_scale=target_scale
         )
     if only_downsample:
@@ -41,7 +41,7 @@ def resample_scan_image_and_mask(
         return scan_image, mask
     image = _resample_scan_image(scan_image, factors=factors)
     if mask is not None:
-        mask = _resample_image_array(mask, factors=factors)
+        mask = resample_image_array(mask, factors=factors)
     return image, mask
 
 
@@ -63,7 +63,7 @@ def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> Scan
     :param factors: The multipliers for the scale of the X- and Y-axis.
     :returns: The resampled ScanImage.
     """
-    image_array_resampled = _resample_image_array(image.data, factors=factors)
+    image_array_resampled = resample_image_array(image.data, factors=factors)
     return ScanImage(
         data=image_array_resampled,
         scale_x=image.scale_x * factors[0],
@@ -71,7 +71,7 @@ def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> Scan
     )
 
 
-def _resample_image_array(
+def resample_image_array(
     array: NDArray,
     factors: tuple[float, float],
 ) -> NDArray:
@@ -94,7 +94,7 @@ def _resample_image_array(
     return np.asarray(resampled, dtype=array.dtype)
 
 
-def _get_scaling_factors(
+def get_scaling_factors(
     scales: tuple[float, float],
     target_scale: float,
 ) -> tuple[float, float]:
