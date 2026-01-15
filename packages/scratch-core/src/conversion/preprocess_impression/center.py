@@ -33,9 +33,8 @@ def _points_are_collinear(points: NDArray[np.floating], tol: float = 1e-9) -> bo
     if len(points) < 3:
         return True
     centered = points - points.mean(axis=0)
-    cov = centered.T @ centered
-    eigenvalues = np.linalg.eigvalsh(cov)
-    return eigenvalues[0] < tol * eigenvalues[-1]
+    _, singular_values, _ = np.linalg.svd(centered, full_matrices=False)
+    return singular_values[-1] < tol * singular_values[0]
 
 
 def _fit_circle_ransac(
