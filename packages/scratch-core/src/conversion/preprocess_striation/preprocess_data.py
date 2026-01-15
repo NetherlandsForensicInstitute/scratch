@@ -75,11 +75,7 @@ def apply_shape_noise_removal(
     )
 
     # Create intermediate ScanImage for noise removal
-    intermediate_scan_image = ScanImage(
-        data=data_high_pass.astype(np.float64),
-        scale_x=scan_image.scale_x,
-        scale_y=scan_image.scale_y,
-    )
+    intermediate_scan_image = scan_image.model_copy(update={"data": data_high_pass})
 
     # Noise removal (lowpass filter)
     data_no_noise, mask_no_noise = apply_gaussian_filter_1d(
@@ -297,7 +293,6 @@ def fine_align_bullet_marks(
     # Extract data and pixel spacing from ScanImage
     depth_data = scan_image.data
     scale_x = scan_image.scale_x
-    scale_y = scan_image.scale_y
 
     # Initialize
     data_tmp = depth_data.copy()
@@ -367,8 +362,7 @@ def fine_align_bullet_marks(
             result_mask = result_mask[y_slice, x_slice]
 
             if mark_type is not None:
-                data_f64 = np.asarray(result_data, dtype=np.float64)
-                temp_scan = ScanImage(data=data_f64, scale_x=scale_x, scale_y=scale_y)
+                temp_scan = scan_image.model_copy(update={"data": result_data})
                 resampled_scan, result_mask = resample_scan_image_and_mask(
                     temp_scan,
                     result_mask,
@@ -379,8 +373,7 @@ def fine_align_bullet_marks(
         else:
             result_mask = None
             if mark_type is not None:
-                data_f64 = np.asarray(result_data, dtype=np.float64)
-                temp_scan = ScanImage(data=data_f64, scale_x=scale_x, scale_y=scale_y)
+                temp_scan = scan_image.model_copy(update={"data": result_data})
                 resampled_scan, _ = resample_scan_image_and_mask(
                     temp_scan, target_scale=mark_type.scale, only_downsample=True
                 )
@@ -477,11 +470,7 @@ def preprocess_data(
     # Only perform fine alignment if data has more than 1 column
     if data_filtered.shape[1] > 1:
         # Create new ScanImage with filtered data
-        filtered_scan_image = ScanImage(
-            data=data_filtered.astype(np.float64),
-            scale_x=scan_image.scale_x,
-            scale_y=scan_image.scale_y,
-        )
+        filtered_scan_image = scan_image.model_copy(update={"data": data_filtered})
         data_aligned, mask_aligned, total_angle = fine_align_bullet_marks(
             scan_image=filtered_scan_image,
             mark_type=mark_type,
