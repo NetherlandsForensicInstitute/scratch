@@ -1,7 +1,8 @@
 from enum import Enum, auto
 
-from pydantic import BaseModel
+from pydantic import Field, computed_field
 
+from container_models.base import ConfigBaseModel
 from container_models.scan_image import ScanImage
 
 
@@ -43,7 +44,7 @@ class CropType(Enum):
     POLYGON = auto()
 
 
-class Mark(BaseModel):
+class Mark(ConfigBaseModel):
     """
     Representation of a mark (impression or striation)
     """
@@ -51,3 +52,23 @@ class Mark(BaseModel):
     scan_image: ScanImage
     mark_type: MarkType
     crop_type: CropType
+    meta_data: dict = Field(default_factory=dict)
+    _center: tuple[float, float] | None = None
+
+    @computed_field
+    @property
+    def center(self) -> tuple[float, float]:
+        """
+        Center point of the mark in image coordinates.
+
+        Returns the center as (x, y) where x is the horizontal position
+        (column) and y is the vertical position (row). If no explicit
+        center has been set, computes it as the geometric center of the
+        scan image.
+
+        :returns: Center coordinates as (x, y),
+        """
+        if self._center is not None:
+            return self._center
+        data = self.scan_image.data
+        return data.shape[1] / 2, data.shape[0] / 2
