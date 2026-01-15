@@ -1,4 +1,3 @@
-
 from container_models.scan_image import ScanImage
 from .data_formats import Mark, MarkType, CropType
 from pathlib import Path

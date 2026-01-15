@@ -8,23 +8,26 @@ from conversion.resample import get_scaling_factors
 
 def apply_filtering_pipeline(
     mark: Mark,
-    pixel_size: float | None,
+    target_scale: float | None,
     lowpass_cutoff: float | None,
     lowpass_regression_order: int,
 ) -> tuple[Mark, Mark, float | None]:
     """
-    Apply the filtering pipeline: anti-aliasing and low-pass (as
-    additional filter when the lowpass cutoff is larger than the anti-aliasing cutoff). Anti-aliasing is implemented using a zero-order Gaussian regression filter, which effectively acts as a low-pass filter to suppress frequencies above the Nyquist limit.
+    Apply the filtering pipeline to a leveled mark: anti-aliasing and low-pass (as additional filter when the lowpass
+    cutoff is larger than the anti-aliasing cutoff). Anti-aliasing is implemented using a zero-order Gaussian
+    regression filter, which effectively acts as a low-pass filter to suppress frequencies above the Nyquist limit.
 
     :param mark: Leveled mark.
-    :param pixel_size: Target pixel spacing in meters for resampling
+    :param target_scale: Target pixel scale in meters for resampling
     :param lowpass_cutoff: Low-pass filter cutoff length in meters (None to disable)
     :param lowpass_regression_order: Order of the local polynomial fit (0, 1, or 2) in low pass filters.
     :return: Tuple of (filtered mark, anti-aliased-only mark, anti-alias cutoffs).
     """
-    mark_anti_aliased, anti_alias_cutoff = _apply_anti_aliasing(mark, pixel_size)
+    mark_anti_aliased, anti_alias_cutoff = _apply_anti_aliasing(mark, target_scale)
 
     mark_filtered = mark_anti_aliased
+
+    # only apply an additional low-pass filter if `lowpass_cutoff` is defined and is bigger than the `anti_alias_cutoff`
     if lowpass_cutoff is not None and (
         anti_alias_cutoff is None or lowpass_cutoff < anti_alias_cutoff
     ):

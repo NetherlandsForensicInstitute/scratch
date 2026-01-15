@@ -16,7 +16,7 @@ def update_mark_data(
     :return: New Mark instance with updated data.
     """
     scan_image = mark.scan_image.model_copy(update={"data": data})
-    return mark.model_copy(update={"scan_image": scan_image, "_center": center})
+    return update_mark_scan_image(mark=mark, scan_image=scan_image, center=center)
 
 
 def update_mark_scan_image(

@@ -10,8 +10,8 @@ from container_models.base import ScanMap2DArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.leveling import SurfaceTerms, level_map
+from conversion.mask import crop_to_mask
 from conversion.preprocess_impression.center import compute_center_local
-from conversion.preprocess_impression.crop import crop_nan_borders
 from conversion.preprocess_impression.filter import (
     apply_gaussian_filter_to_mark,
     apply_filtering_pipeline,
@@ -61,22 +61,22 @@ def preprocess_impression_mark(
     # Stage 4-5: Filtering (antialiasing + low-pass)
     mark_filtered, mark_anti_aliased, anti_alias_cutoff = apply_filtering_pipeline(
         mark_leveled,
-        pixel_size=params.pixel_size,
+        target_scale=params.pixel_size,
         lowpass_cutoff=params.lowpass_cutoff,
         lowpass_regression_order=params.lowpass_regression_order,
     )
 
     # Stage 6: Resampling
-    interpolated = False
+    is_resampled = False
     if params.pixel_size is not None:
         original_scales = (
             mark_filtered.scan_image.scale_x,
             mark_filtered.scan_image.scale_y,
         )
-        mark_filtered, interpolated = resample_mark_if_needed(
+        mark_filtered, is_resampled = resample_mark_if_needed(
             mark_filtered, params.pixel_size
         )
-        if interpolated:
+        if is_resampled:
             mark_anti_aliased, _ = resample_mark_if_needed(
                 mark_anti_aliased, params.pixel_size
             )
@@ -108,7 +108,7 @@ def preprocess_impression_mark(
 
     # Build output metadata
     mark.meta_data.update(
-        _build_preprocessing_metadata(params, mark.center, interpolated)
+        _build_preprocessing_metadata(params, mark.center, is_resampled)
     )
 
     output_pixel_size = (
@@ -139,22 +139,21 @@ def _level_mark(
 
 def _build_output_mark(
     mark: Mark,
-    output_scale: tuple[float, float],
-    *,
+    output_scales: tuple[float, float],
     is_filtered: bool,
 ) -> Mark:
     """
     Construct output Mark with proper scale and metadata.
 
     :param mark: Source mark.
-    :param output_scale: Output scale(x, y).
+    :param output_scales: Output scales (x, y).
     :param is_filtered: Whether filtering was applied.
     :return: New Mark with updated scale and metadata.
     """
     scan_image = ScanImage(
         data=mark.scan_image.data,
-        scale_x=output_scale[0],
-        scale_y=output_scale[1],
+        scale_x=output_scales[0],
+        scale_y=output_scales[1],
     )
     return Mark(
         scan_image=scan_image,
@@ -167,14 +166,14 @@ def _build_output_mark(
 def _build_preprocessing_metadata(
     params: PreprocessingImpressionParams,
     center_local: Point2D,
-    interpolated: bool,
+    is_resampled: bool,
 ) -> dict:
     """
     Build metadata dictionary for preprocessed mark.
 
     :param params: Preprocessing parameters.
     :param center_local: Local center coordinates.
-    :param interpolated: Whether interpolation was performed.
+    :param is_resampled: Whether resampling was performed.
     :return: Metadata dictionary.
     """
     return {
@@ -185,7 +184,7 @@ def _build_preprocessing_metadata(
         "center_l_y": center_local[1],
         "is_crop": True,
         "is_prep": True,
-        "is_interpolated": interpolated,
+        "is_resampled": is_resampled,
     }
 
 
@@ -197,7 +196,7 @@ def _prepare_mark(mark: Mark) -> Mark:
     :return: Cropped mark
     """
     center_local = compute_center_local(mark)
-    cropped_data = crop_nan_borders(mark.scan_image.data, mark.scan_image.valid_mask)
+    cropped_data = crop_to_mask(mark.scan_image.data, mark.scan_image.valid_mask)
     return update_mark_data(mark, data=cropped_data, center=center_local)
 
 

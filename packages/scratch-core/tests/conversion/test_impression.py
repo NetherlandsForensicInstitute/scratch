@@ -592,11 +592,11 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, _ = preprocess_impression_mark(mark, params)
 
-        assert filtered.meta_data.get("is_interpolated") is False
+        assert filtered.meta_data.get("is_resampled") is False
 
     @pytest.mark.integration
-    def test_interpolated_flag_set_on_resampling(self):
-        """Interpolated flag should be True after resampling."""
+    def test_is_resampled_flag_set_on_resampling(self):
+        """is_resampled flag should be True after resampling."""
         data = make_rectangular_data((100, 100), scale=1e-6)
         mark = make_mark(
             data=data,
@@ -611,7 +611,7 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, _ = preprocess_impression_mark(mark, params)
 
-        assert filtered.meta_data.get("is_interpolated") is True
+        assert filtered.meta_data.get("is_resampled") is True
 
     @pytest.mark.integration
     def test_without_lowpass_filter(self):
@@ -903,7 +903,7 @@ class TestBuildPreprocessingMetadata:
         )
         center_local = (5e-6, 10e-6)
 
-        result = _build_preprocessing_metadata(params, center_local, interpolated=True)
+        result = _build_preprocessing_metadata(params, center_local, is_resampled=True)
 
         assert result["pixel_size"] == 1e-6
         assert result["adjust_pixel_spacing"] is True
@@ -915,7 +915,7 @@ class TestBuildPreprocessingMetadata:
         params = PreprocessingImpressionParams(pixel_size=1e-6)
         center_local = (5e-6, 10e-6)
 
-        result = _build_preprocessing_metadata(params, center_local, interpolated=False)
+        result = _build_preprocessing_metadata(params, center_local, is_resampled=False)
 
         assert result["center_l_x"] == 5e-6
         assert result["center_l_y"] == 10e-6
@@ -924,7 +924,7 @@ class TestBuildPreprocessingMetadata:
         """Should include global center as zero."""
         params = PreprocessingImpressionParams(pixel_size=1e-6)
 
-        result = _build_preprocessing_metadata(params, (0, 0), interpolated=False)
+        result = _build_preprocessing_metadata(params, (0, 0), is_resampled=False)
 
         assert result["center_g_x"] == 0
         assert result["center_g_y"] == 0
@@ -933,16 +933,68 @@ class TestBuildPreprocessingMetadata:
         """Should include processing flags."""
         params = PreprocessingImpressionParams(pixel_size=1e-6)
 
-        result = _build_preprocessing_metadata(params, (0, 0), interpolated=True)
+        result = _build_preprocessing_metadata(params, (0, 0), is_resampled=True)
 
         assert result["is_crop"] is True
         assert result["is_prep"] is True
-        assert result["is_interpolated"] is True
+        assert result["is_resampled"] is True
 
-    def test_interpolated_flag_false(self):
-        """Should set interpolated flag to False when specified."""
+    def test_is_resampled_flag_false(self):
+        """Should set is_resampled flag to False when specified."""
         params = PreprocessingImpressionParams(pixel_size=1e-6)
 
-        result = _build_preprocessing_metadata(params, (0, 0), interpolated=False)
+        result = _build_preprocessing_metadata(params, (0, 0), is_resampled=False)
 
-        assert result["is_interpolated"] is False
+        assert result["is_resampled"] is False
+
+
+class TestMarkCenter:
+    """Tests for Mark.center property to ensure correct (x, y) coordinate order."""
+
+    def test_center_returns_xy_not_yx(self):
+        """
+        Verify center returns (x, y) order by using a non-square image.
+        """
+        height, width = 100, 200
+        data = np.zeros((height, width))
+        scan_image = ScanImage(data=data, scale_x=4e-6, scale_y=4e-6)
+
+        mark = Mark(
+            scan_image=scan_image,
+            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            crop_type=CropType.RECTANGLE,
+        )
+
+        center_x, center_y = mark.center
+
+        assert center_x == width / 2
+        assert center_y == height / 2
+        assert mark.center == (100.0, 50.0)
+
+    def test_center_with_explicit_override(self):
+        """Verify that _center override takes precedence."""
+        data = np.zeros((100, 200))
+        scan_image = ScanImage(data=data, scale_x=4e-6, scale_y=4e-6)
+
+        mark = Mark(
+            scan_image=scan_image,
+            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            crop_type=CropType.RECTANGLE,
+        )
+        mark._center = (42.0, 17.0)
+
+        assert mark.center == (42.0, 17.0)
+
+    def test_center_with_odd_dimensions(self):
+        """Verify center calculation with odd dimensions."""
+        height, width = 101, 203
+        data = np.zeros((height, width))
+        scan_image = ScanImage(data=data, scale_x=4e-6, scale_y=4e-6)
+
+        mark = Mark(
+            scan_image=scan_image,
+            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            crop_type=CropType.RECTANGLE,
+        )
+
+        assert mark.center == (101.5, 50.5)

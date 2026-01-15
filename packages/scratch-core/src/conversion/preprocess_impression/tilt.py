@@ -44,7 +44,7 @@ def _estimate_plane_tilt(
     :param x: X coordinates.
     :param y: Y coordinates.
     :param z: Z values at each (x, y).
-    :return: TiltEstimate with tilt angles in degrees and residuals.
+    :return: TiltEstimate with tilt angles in radians and residuals.
     """
     design_matrix = np.column_stack([x, y, np.ones_like(x)])
     (a, b, c), *_ = np.linalg.lstsq(design_matrix, z, rcond=None)
@@ -96,7 +96,7 @@ def _adjust_for_plane_tilt(
     tilt = _estimate_plane_tilt(xs, ys, zs)
 
     # Update data with residuals
-    data = scan_image.data.copy()
+    data = np.full_like(scan_image.data, np.nan)
     data[scan_image.valid_mask] = tilt.residuals
 
     # Adjust scales for tilt
@@ -107,8 +107,8 @@ def _adjust_for_plane_tilt(
 
     # Adjust center for new scales
     center_new = (
-        center[0] * scale_x_new / scan_image.scale_x,
-        center[1] * scale_y_new / scan_image.scale_y,
+        center[0] / cos_x,
+        center[1] / cos_y,
     )
 
     return ScanImage(data=data, scale_x=scale_x_new, scale_y=scale_y_new), center_new
