@@ -163,7 +163,7 @@ def apply_gaussian_filter_1d(
         # Remove zero/NaN borders
         cropped_data, cropped_mask, _ = _remove_zero_border(output_with_nan, mask)
     elif cut_borders_after_smoothing and (
-        sigma_int > 0 and scan_image.data.shape[0] > 2 * sigma_int
+        sigma_int > 0 and scan_image.height > 2 * sigma_int
     ):
         cropped_data = output[sigma_int:-sigma_int, :]
         cropped_mask = mask[sigma_int:-sigma_int, :]
