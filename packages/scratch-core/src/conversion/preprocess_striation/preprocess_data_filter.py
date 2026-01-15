@@ -152,19 +152,16 @@ def apply_gaussian_filter_1d(
     # Check if there are any masked (invalid) regions
     has_masked_regions = np.any(~mask)
 
-    if cut_borders_after_smoothing and has_masked_regions:
-        output_with_nan = output.copy()
-        output_with_nan[~mask] = np.nan
-        # Remove zero/NaN borders
-        cropped_data, cropped_mask, _ = _remove_zero_border(output_with_nan, mask)
-    elif cut_borders_after_smoothing and (
-        sigma_int > 0 and scan_image.height > 2 * sigma_int
-    ):
-        cropped_data = output[sigma_int:-sigma_int, :]
-        cropped_mask = mask[sigma_int:-sigma_int, :]
-    else:
-        # Data too small to crop so no cropping
-        cropped_data = output
-        cropped_mask = mask
+    cropped_data = output
+    cropped_mask = mask
+
+    if cut_borders_after_smoothing:
+        if has_masked_regions:
+            output_with_nan = output.copy()
+            output_with_nan[~mask] = np.nan
+            cropped_data, cropped_mask, _ = _remove_zero_border(output_with_nan, mask)
+        elif sigma_int > 0 and scan_image.height > 2 * sigma_int:
+            cropped_data = output[sigma_int:-sigma_int, :]
+            cropped_mask = mask[sigma_int:-sigma_int, :]
 
     return cropped_data, cropped_mask

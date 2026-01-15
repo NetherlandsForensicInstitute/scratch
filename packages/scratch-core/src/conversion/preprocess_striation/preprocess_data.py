@@ -325,7 +325,7 @@ def fine_align_bullet_marks(
                 mask_rotated = _rotate_data_by_shifting_profiles(
                     mask_float, a_tot_rad, cut_y_after_shift
                 )
-                mask_tmp = mask_rotated > 0.5
+                mask_tmp = mask_rotated == 1
                 y_slice, x_slice = _determine_bounding_box(mask_tmp)
                 data_tmp = data_tmp[y_slice, x_slice]
                 mask_tmp = mask_tmp[y_slice, x_slice]
@@ -356,7 +356,7 @@ def fine_align_bullet_marks(
             mask_rotated = _rotate_data_by_shifting_profiles(
                 mask_float, a_tot_rad, cut_y_after_shift
             )
-            result_mask = mask_rotated > 0.5
+            result_mask = mask_rotated == 1
             y_slice, x_slice = _determine_bounding_box(result_mask)
             result_data = result_data[y_slice, x_slice]
             result_mask = result_mask[y_slice, x_slice]
