@@ -49,3 +49,28 @@ class ProcessedDataAccess(BaseModelConfig):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/surface_map.png"],
         alias="surface_map",
     )
+
+
+class PrepareMarkResponse(ProcessedDataAccess):
+    """Response model for prepared mark data access."""
+
+    mark_file: HttpUrl = Field(
+        ...,
+        description="Data for the prepared mark.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark.mat"],
+    )
+    processed_file: HttpUrl = Field(
+        ...,
+        description="Data for the processed mark.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/processed.mat"],
+    )
+    profile_file: HttpUrl = Field(
+        ...,
+        description="Data for the profile of the prepared mark.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.mat"],
+    )
+    leveled_file: HttpUrl = Field(
+        ...,
+        description="Data for the levelled mark.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/levelled.mat"],
+    )
