@@ -24,7 +24,7 @@ def remove_needles(
     - For large datasets (>20 columns): uses 2D median filtering with optional subsampling
     - For small datasets (≤20 columns): uses 1D median filtering with reduced filter size
 
-    :param scan_image:
+    :param scan_image: Scan image to clean.
     :param mask:
     :param times_median:
     :return:
@@ -126,20 +126,20 @@ def apply_median_filter(scan_image: ScanImage, filter_size: int) -> ScanImage:
     :param filter_size: Size of the median filter kernel (will be made odd if even)
     :return: Median-filtered scan image with the same shape as input_image
     """
-    # Make sure the filtersize is odd
+    # Make sure the filter size is odd
     if filter_size % 2 == 0:
         filter_size = filter_size + 1
-
-    half_filt_size = (filter_size - 1) // 2
 
     # Pad the matrix with border_mult on all sides
     pad_shape = (
         scan_image.data.shape[0] + filter_size - 1,
         scan_image.data.shape[1] + filter_size - 1,
     )
+
     input_image_border = np.ones(pad_shape) * np.nan
+    half_filter_size = (filter_size - 1) // 2
     input_image_border[
-        half_filt_size:-half_filt_size, half_filt_size:-half_filt_size
+        half_filter_size:-half_filter_size, half_filter_size:-half_filter_size
     ] = scan_image.data
 
     # Create 3D array to hold all shifted versions
@@ -147,8 +147,8 @@ def apply_median_filter(scan_image: ScanImage, filter_size: int) -> ScanImage:
 
     # Fill the array with circularly shifted versions
     image_count = 0
-    for kernel_rows in range(-half_filt_size, half_filt_size + 1):
-        for kernel_columns in range(-half_filt_size, half_filt_size + 1):
+    for kernel_rows in range(-half_filter_size, half_filter_size + 1):
+        for kernel_columns in range(-half_filter_size, half_filter_size + 1):
             input_image_array[:, :, image_count] = np.roll(
                 input_image_border, shift=(kernel_rows, kernel_columns), axis=(0, 1)
             )
@@ -156,7 +156,7 @@ def apply_median_filter(scan_image: ScanImage, filter_size: int) -> ScanImage:
 
     # Remove borders and compute median
     output_image_no_border = input_image_array[
-        half_filt_size:-half_filt_size, half_filt_size:-half_filt_size, :
+        half_filter_size:-half_filter_size, half_filter_size:-half_filter_size, :
     ]
     output_image = np.nanmedian(output_image_no_border, axis=2)
 

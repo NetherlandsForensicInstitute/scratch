@@ -46,7 +46,7 @@ def _determine_bounding_box(
 ) -> tuple[slice, slice]:
     """
     Determines the bounding box of non-zero values in a mask. If a margin is given, the bounding box will be expanded
-    (in case of a negative margin) or cropped (in case of a positive margin) by that amount.
+    (in case of a negative margin) or cropped (in case of a positive margin) by with 2 * margin pixels.
 
     :param mask: Binary mask array
     :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box
@@ -67,6 +67,11 @@ def _determine_bounding_box(
     else:
         x_max += 1
         y_max += 1
+
+    if x_min >= x_max:
+        raise ValueError("Slice results in x_min >= x_max. Margin may be too large.")
+    if y_min >= y_max:
+        raise ValueError("Slice results in y_min >= y_max. Margin may be too large.")
 
     return slice(x_min, x_max), slice(y_min, y_max)
 
