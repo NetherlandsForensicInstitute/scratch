@@ -7,9 +7,8 @@ import numpy as np
 import pytest
 from math import ceil
 
-from conversion.filter import cutoff_to_gaussian_sigma
+from conversion.filter import apply_nan_weighted_gaussian_1d, cutoff_to_gaussian_sigma
 from conversion.preprocess_striation.preprocess_data_filter import (
-    _apply_nan_weighted_gaussian_1d,
     _remove_zero_border,
     apply_gaussian_filter_1d,
 )
@@ -42,7 +41,9 @@ def test_apply_nan_weighted_gaussian_1d():
     data = np.ones((20, 10), dtype=float)
     data[10, 5] = np.nan  # Single NaN value
 
-    result = _apply_nan_weighted_gaussian_1d(data, sigma=2.0, truncate=4.0)
+    result = apply_nan_weighted_gaussian_1d(
+        data, cutoff_length=10.0, pixel_size=1.0, axis=0
+    )
 
     # Result should not have NaN propagation (NaN is interpolated)
     assert not np.isnan(result[10, 5])

@@ -1,3 +1,5 @@
+from logging import raiseExceptions
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.signal import fftconvolve
@@ -141,18 +143,44 @@ def _convolve_2d_separable(
     data: NDArray[np.floating],
     kernel_x: NDArray[np.floating],
     kernel_y: NDArray[np.floating],
+    mode: str = "constant",
 ) -> NDArray[np.floating]:
-    """Perform fast 2D convolution using separable 1D kernels via FFT."""
-    # Convolve columns (Y-direction)
-    temp = fftconvolve(data, kernel_y[:, np.newaxis], mode="same")
-    # Convolve rows (X-direction)
-    return fftconvolve(temp, kernel_x[np.newaxis, :], mode="same")
+    """
+    Perform fast 2D convolution using separable 1D kernels via FFT.
+
+    :param data: 2D input array.
+    :param kernel_x: 1D horizontal kernel.
+    :param kernel_y: 1D vertical kernel.
+    :param mode: Padding mode - "constant" (zero), "reflect", or "symmetric".
+    :returns: Convolved array of same shape as input.
+    """
+    if mode == "constant":
+        # Original behavior - zero padding (implicit in fftconvolve)
+        temp = fftconvolve(data, kernel_y[:, np.newaxis], mode="same")
+        return fftconvolve(temp, kernel_x[np.newaxis, :], mode="same")
+    elif mode == "symmetric":
+        # For symmetric modes, pad data explicitly
+        pad_y = len(kernel_y) // 2
+        pad_x = len(kernel_x) // 2
+
+        padded = np.pad(data, ((pad_y, pad_y), (pad_x, pad_x)), mode=mode)
+
+        # Convolve columns (Y-direction)
+        temp = fftconvolve(padded, kernel_y[:, np.newaxis], mode="same")
+        # Convolve rows (X-direction)
+        result = fftconvolve(temp, kernel_x[np.newaxis, :], mode="same")
+
+        # Crop back to original size
+        return result[pad_y:-pad_y if pad_y else None, pad_x:-pad_x if pad_x else None]
+    else:
+        raise ValueError("This padding mode is not implemented")
 
 
 def _apply_order0_filter(
     data: NDArray[np.floating],
     kernel_x: NDArray[np.floating],
     kernel_y: NDArray[np.floating],
+    mode: str = "constant",
 ) -> NDArray[np.floating]:
     """
     Perform a 2D weighted moving average (Order-0 Regression) using separable kernels.
@@ -164,14 +192,15 @@ def _apply_order0_filter(
     :param data: The 2D input array to be smoothed, potentially containing NaNs.
     :param kernel_x: The 1D horizontal component of the separable smoothing kernel.
     :param kernel_y: The 1D vertical component of the separable smoothing kernel.
+    :param mode: Padding mode - "constant" (zero), "reflect", or "symmetric".
     :returns: A 2D array of the same shape as `data` containing the smoothed values.
     """
     nan_mask = np.isnan(data)
     data_filled = np.where(nan_mask, 0.0, data)
     weights = np.where(nan_mask, 0.0, 1.0)
 
-    numerator = _convolve_2d_separable(data_filled, kernel_x, kernel_y)
-    denominator = _convolve_2d_separable(weights, kernel_x, kernel_y)
+    numerator = _convolve_2d_separable(data_filled, kernel_x, kernel_y, mode=mode)
+    denominator = _convolve_2d_separable(weights, kernel_x, kernel_y, mode=mode)
 
     with np.errstate(invalid="ignore", divide="ignore"):
         return numerator / denominator
@@ -347,3 +376,75 @@ def _solve_fallback_lstsq(
         # lstsq returns (solution, residuals, rank, singular_values)
         sol = np.linalg.lstsq(lhs[y, x], rhs[y, x], rcond=None)[0]
         result_array[y, x] = sol[0, 0]
+
+
+def apply_nan_weighted_gaussian_1d(
+    data: NDArray[np.floating],
+    cutoff_length: float,
+    pixel_size: float,
+    axis: int = 0,
+    is_high_pass: bool = False,
+) -> NDArray[np.floating]:
+    """
+    Apply 1D NaN-aware Gaussian filter using FFT convolution.
+
+    This function applies Gaussian filtering along a single axis with NaN handling
+    via normalized convolution. Uses the same FFT-based approach as
+    apply_gaussian_regression_filter with regression_order=0.
+
+    Matches MATLAB SmoothMod.m behavior:
+      - Data with NaNs: Uses zero padding + normalized convolution (like NanConv with 'edge')
+      - Data without NaNs: Uses symmetric padding (like DIPimage smooth())
+
+    :param data: 2D input array containing float data. May contain NaNs.
+    :param cutoff_length: The filter cutoff wavelength in physical units.
+    :param pixel_size: Pixel spacing in the same units as cutoff_length.
+    :param axis: Axis to filter along (0=rows/y-direction, 1=columns/x-direction).
+    :param is_high_pass: If True, returns (input - smoothed). If False, returns smoothed.
+    :returns: The filtered 2D array of the same shape as input.
+    """
+    cutoff_pixels = cutoff_length / pixel_size
+
+    # Create 1D kernel for the specified axis
+    kernel_1d = _create_normalized_1d_kernel(ALPHA_GAUSSIAN, cutoff_pixels)
+
+    # Set up separable kernels based on axis
+    if axis == 0:
+        kernel_y = kernel_1d
+        kernel_x = np.array([1.0])
+    else:
+        kernel_y = np.array([1.0])
+        kernel_x = kernel_1d
+
+    # Match MATLAB SmoothMod.m: different boundary modes based on NaN presence
+    # - NaNs present: zero padding + edge correction via normalization (NanConv path)
+    # - No NaNs: symmetric padding (DIPimage smooth() path)
+    has_nans = np.any(np.isnan(data))
+    mode = "constant" if has_nans else "symmetric"
+
+    smoothed = _apply_order0_filter(data, kernel_x, kernel_y, mode=mode)
+    return data - smoothed if is_high_pass else smoothed
+
+
+def _create_normalized_1d_kernel(
+    alpha: float, cutoff_pixel: float
+) -> NDArray[np.floating]:
+    """
+    Create a normalized 1D Gaussian kernel matching scipy.ndimage behavior.
+
+    :param alpha: The Gaussian constant (ISO 16610).
+    :param cutoff_pixel: Cutoff wavelength in pixel units.
+    :returns: Normalized 1D Gaussian kernel that sums to 1.
+    """
+    # Convert cutoff to sigma (same formula as cutoff_to_gaussian_sigma)
+    sigma = alpha * cutoff_pixel / np.sqrt(2 * np.pi)
+
+    # Match scipy.ndimage truncation: kernel covers 4 standard deviations
+    truncate = 4.0
+    radius = int(truncate * sigma + 0.5)
+
+    # Create scipy-style Gaussian: exp(-x²/(2σ²))
+    x = np.arange(-radius, radius + 1)
+    kernel = np.exp(-0.5 * (x / sigma) ** 2)
+
+    return kernel / np.sum(kernel)  # Normalize to sum to 1

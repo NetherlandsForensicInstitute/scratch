@@ -1,57 +1,12 @@
 from math import ceil
-from scipy import ndimage
-from functools import partial
 
 import numpy as np
 from numpy.typing import NDArray
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
-from conversion.filter import cutoff_to_gaussian_sigma
+from conversion.filter import apply_nan_weighted_gaussian_1d, cutoff_to_gaussian_sigma
 from conversion.mask import _determine_bounding_box
-
-
-def _apply_nan_weighted_gaussian_1d(
-    data: NDArray[np.floating],
-    sigma: float,
-    truncate: float = 4.0,
-) -> NDArray[np.floating]:
-    """
-    Apply 1D Gaussian filter along rows (y-direction) with NaN-aware weighting.
-
-    This filters vertically along each column, preserving horizontal striation features.
-    NaN values are excluded from the convolution by setting their weight to 0.
-    The result is normalized by the sum of weights to compensate for missing data.
-
-    :param data: Input 2D data array (may contain NaN values).
-    :param sigma: Standard deviation of Gaussian kernel (in pixels).
-    :param truncate: Truncate filter at this many standard deviations (default 4.0).
-    :returns: Filtered data array. NaN positions will have interpolated values
-        based on neighboring valid data.
-    """
-    # sigma=(sigma, 0) filters along axis 0 (rows/y-direction)
-    gaussian_filter = partial(
-        ndimage.gaussian_filter,
-        sigma=(sigma, 0),  # Filter only along first axis (rows/y-direction)
-        mode="reflect",
-        truncate=truncate,
-    )
-
-    nan_mask = np.isnan(data)
-    data_zero_nan = np.where(nan_mask, 0, data)
-
-    # Filter the data
-    filtered = gaussian_filter(data_zero_nan)
-
-    # Filter a weight array (1 for valid, 0 for NaN)
-    weights = (~nan_mask).astype(float)
-    weight_sum = gaussian_filter(weights)
-
-    # Normalize by weights to correct for NaN contributions
-    with np.errstate(invalid="ignore", divide="ignore"):
-        result = filtered / weight_sum
-
-    return result
 
 
 def _remove_zero_border(
@@ -129,24 +84,19 @@ def apply_gaussian_filter_1d(
     if mask is None:
         mask = np.ones(scan_image.data.shape, dtype=bool)
 
-    # Calculate Gaussian sigma from cutoff
-    # This works because striation data typically has equal x/y pixel spacing.
-    sigma = cutoff_to_gaussian_sigma(cutoff, scan_image.scale_x)
-
-    # Apply Gaussian lowpass filter, Use weighted filtering for masked data
+    # Apply 1D Gaussian filter along y-direction using shared implementation
     depth_with_nan = scan_image.data.copy()
     depth_with_nan[~mask] = np.nan
-    filtered = _apply_nan_weighted_gaussian_1d(depth_with_nan, sigma)
+    output = apply_nan_weighted_gaussian_1d(
+        data=depth_with_nan,
+        cutoff_length=cutoff,
+        pixel_size=scan_image.scale_x,
+        axis=0,  # Filter along y-direction only
+        is_high_pass=is_high_pass,
+    )
 
-    # Compute output based on filter type
-    if is_high_pass:
-        # Highpass: return residuals (original - smoothed)
-        output = scan_image.data - filtered
-    else:
-        # Lowpass: return smoothed data directly
-        output = filtered
-
-    # Crop borders if requested
+    # Calculate sigma for border cropping
+    sigma = cutoff_to_gaussian_sigma(cutoff, scan_image.scale_x)
     sigma_int = int(ceil(sigma))
 
     # Check if there are any masked (invalid) regions
