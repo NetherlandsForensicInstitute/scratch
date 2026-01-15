@@ -50,15 +50,15 @@ class CropInfo(BaseModel):
     selected area.
 
     The points dict differs per CropType:
-    CIRCLE: {'center': ScanMap2DArray, 'radius': float}
+    CIRCLE: {'center': array [x, y], 'radius': float}
     RECTANGLE: {'corner': ScanMap2DArray}
     POLYGON: {'point': ScanMap2DArray}
-    ELLIPSE: {'center': ScanMap2DArray, 'majoraxis': float, 'minoraxis': float, angle_majoraxis: float}
+    ELLIPSE: {'center': array [x, y], 'majoraxis': float, 'minoraxis': float, angle_majoraxis: float}
     """
 
     data: dict[str, Any]
     crop_type: CropType
-    is_foreground: bool  # save crop or delete crop
+    is_foreground: bool
 
 
 class Mark(BaseModel):

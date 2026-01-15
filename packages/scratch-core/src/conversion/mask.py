@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 
 from container_models.base import ScanMap2DArray, MaskArray
@@ -26,6 +28,7 @@ def mask_2d_array(
 def crop_to_mask(
     image: ScanMap2DArray,
     mask: MaskArray,
+    margin: Optional[int] = None,
 ) -> ScanMap2DArray:
     """
     Crops an image to the bounding box of a mask.
@@ -34,15 +37,19 @@ def crop_to_mask(
     :param mask: Binary mask
     :return: Cropped image containing only the masked region
     """
-    x_slice, y_slice = _determine_bounding_box(mask)
+    x_slice, y_slice = _determine_bounding_box(mask, margin)
     return image[y_slice, x_slice]
 
 
-def _determine_bounding_box(mask: MaskArray) -> tuple[slice, slice]:
+def _determine_bounding_box(
+    mask: MaskArray, margin: Optional[int] = None
+) -> tuple[slice, slice]:
     """
-    Determines the bounding box of non-zero values in a mask.
+    Determines the bounding box of non-zero values in a mask. If a margin is given, the bounding box will be expanded
+    (in case of a negative margin) or cropped (in case of a positive margin) by that amount.
 
     :param mask: Binary mask array
+    :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box
     :return: Tuple of (y_slice, x_slice) for the bounding box
     """
     non_zero_coords = np.nonzero(mask)
@@ -51,7 +58,17 @@ def _determine_bounding_box(mask: MaskArray) -> tuple[slice, slice]:
 
     y_min, x_min = np.min(non_zero_coords, axis=1)
     y_max, x_max = np.max(non_zero_coords, axis=1)
-    return slice(x_min, x_max + 1), slice(y_min, y_max + 1)
+
+    if margin:
+        x_min = max(0, x_min + margin)
+        x_max = min(mask.shape[1], x_max - margin + 1)
+        y_min = max(0, y_min + margin)
+        y_max = min(mask.shape[0], y_max - margin + 1)
+    else:
+        x_max += 1
+        y_max += 1
+
+    return slice(x_min, x_max), slice(y_min, y_max)
 
 
 def mask_and_crop_2d_array(

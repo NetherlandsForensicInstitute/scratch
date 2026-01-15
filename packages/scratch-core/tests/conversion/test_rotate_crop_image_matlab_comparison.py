@@ -13,8 +13,8 @@ import pytest
 from container_models.base import ScanMap2DArray, MaskArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import CropType, CropInfo
-from conversion.rotate import get_rotation_angle, rotate_crop_image_full_flow
-from tests.conversion.helper_function import (
+from conversion.rotate import get_rotation_angle, rotate_crop_and_mask_image_by_crop
+from helper_function import (
     _compute_correlation,
     _crop_to_common_shape,
     _compute_difference_stats,
@@ -165,7 +165,7 @@ def run_python_preprocessing(
         scale_y=test_case.input_ydim,
     )
 
-    data_out, mask_out = rotate_crop_image_full_flow(
+    data_out, mask_out = rotate_crop_and_mask_image_by_crop(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
         rotation_angle=test_case.rotation_angle,
@@ -245,8 +245,7 @@ class TestRotateCropImageMatlabComparison:
             pytest.skip("No expected angle in test name")
 
         calculated_angle = get_rotation_angle(
-            rotation_angle=0.0,
-            crop_info=test_case.to_crop_info(),
+            crop_info=test_case.to_crop_info(), rotation_angle=0.0
         )
 
         assert abs(calculated_angle - expected) < 1.0, (
