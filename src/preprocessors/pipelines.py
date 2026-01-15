@@ -12,11 +12,11 @@ from renders import (
 )
 from renders.normalizations import normalize_2d_array
 
+from models import Parameters
 from pipelines import run_pipeline
-from preprocessors.schemas import UploadScanParameters
 
 
-def parse_scan_pipeline(scan_file: Path, parameters: UploadScanParameters) -> ScanImage:
+def parse_scan_pipeline(scan_file: Path, parameters: Parameters) -> ScanImage:
     """
     Parse a scan file and load it as a ScanImage.
 
@@ -50,7 +50,7 @@ def x3p_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     )
 
 
-def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: UploadScanParameters) -> Path:
+def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: Parameters) -> Path:
     """
     Generate a 3D surface map image from scan data and save it to the specified path.
 
@@ -72,6 +72,24 @@ def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: 
 
 
 def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
+    """
+    Generate a preview image from scan data and save it to the specified path.
+
+    :param parsed_scan: The scan image data to generate a preview from.
+    :param output_path: The file path where the preview image will be saved.
+    :return: The path to the saved preview image file.
+    :raises HTTPException: If image generation or saving fails.
+    """
+    return run_pipeline(
+        parsed_scan,
+        get_scan_image_for_display,
+        scan_to_image,
+        partial(save_image, output_path=output_path),
+        error_message=f"Failed to create the surface map: {output_path}",
+    )
+
+
+def edit_image_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     """
     Generate a preview image from scan data and save it to the specified path.
 

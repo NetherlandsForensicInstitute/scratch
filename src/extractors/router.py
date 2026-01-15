@@ -1,32 +1,33 @@
 from http import HTTPStatus
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import UUID4
 
-from constants import EXTRACTOR_ROUTE
-from file_services import fetch_resource_path
-from settings import SettingsDep
+from constants import RoutePrefix
+from file_services import fetch_directory_access, fetch_resource_file
 
 from .schemas import RelativePath
 
-extractor_route = APIRouter(prefix=EXTRACTOR_ROUTE, tags=[EXTRACTOR_ROUTE])
+extractor_route = APIRouter(prefix=f"/{RoutePrefix.EXTRACTOR}", tags=[RoutePrefix.EXTRACTOR])
 
 
 @extractor_route.get(
-    path="/",
-    summary="Health check for extractor service",
-    description="""Returns a simple status message to verify the extractor service is running.""",
+    path="",
+    summary="Redirect to extractor documentation",
+    description="""Redirects to the extractor section in the API documentation.""",
+    include_in_schema=False,
 )
-async def extractor_root() -> dict[str, str]:
+async def extractor_root() -> RedirectResponse:
     """
-    Health check endpoint for the extractor service.
+    Redirect to the extractor section in Swagger docs.
 
-    Returns a simple greeting message to confirm the extractor API is accessible.
+    This endpoint redirects users to the extractor tag section in the
+    interactive API documentation at /docs.
 
-    :return: Dictionary containing a status message.
+    :return: RedirectResponse to the extractor documentation section.
     """
-    return {"message": "Hello from the extractors"}
+    return RedirectResponse(url=f"/docs#operations-tag-{RoutePrefix.EXTRACTOR}")
 
 
 @extractor_route.get(
@@ -43,7 +44,7 @@ async def extractor_root() -> dict[str, str]:
         HTTPStatus.NOT_FOUND: {"description": "File not found"},
     },
 )
-async def get_file(token: UUID4, filename: RelativePath, settings: SettingsDep) -> FileResponse:
+async def get_file(token: UUID4, filename: RelativePath) -> FileResponse:
     """
     Retrieve a processed file from vault storage.
 
@@ -58,14 +59,7 @@ async def get_file(token: UUID4, filename: RelativePath, settings: SettingsDep) 
     :return: FileResponse with appropriate media type (image/png or application/octet-stream).
     :raises HTTPException: 403 if path traversal detected, 404 if file not found.
     """
-    filepath = fetch_resource_path(token) / filename
-    if not filepath.resolve().is_relative_to(settings.storage.resolve()):
-        raise HTTPException(HTTPStatus.FORBIDDEN, "Access denied")
-
-    if not filepath.exists():
-        raise HTTPException(HTTPStatus.NOT_FOUND, f"File {filename} not found.")
-
     return FileResponse(
-        path=filepath,
+        path=fetch_resource_file(fetch_directory_access(token).resource_path, filename),
         media_type="image/png" if filename.suffix == ".png" else "application/octet-stream",
     )

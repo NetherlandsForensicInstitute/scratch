@@ -1,4 +1,5 @@
-from enum import StrEnum
+import shutil
+from http import HTTPStatus
 from pathlib import Path
 
 import pytest
@@ -6,20 +7,10 @@ import requests
 from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
-from constants import PROJECT_ROOT
-from extractors.schemas import ProcessedDataAccess
+from constants import RoutePrefix
 from models import DirectoryAccess
-from preprocessors.schemas import UploadScan
+from preprocessors.schemas import EditImage, EditImageParameters, ProcessDataUrls, ProcessScanOutput, UploadScan
 from settings import get_settings
-
-SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
-
-
-class RoutePrefix(StrEnum):
-    COMPARATOR = "comparator"
-    EXTRACTOR = "extractor"
-    PREPROCESSOR = "preprocessor"
-    PROCESSOR = "processor"
 
 
 class TemplateResponse(BaseModel):
@@ -45,27 +36,48 @@ class TestContracts:
 
         Returns the post request data, sub_route & expected response.
         """
-        return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
+        return UploadScan(scan_file=scan_directory / "Klein_non_replica_mode.al3d"), ProcessScanOutput  # type: ignore
+
+    @pytest.fixture
+    def edit_scan_data(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
+        """Create test data for edit-scan endpoint.
+
+        Returns the post request data and expected response type.
+        """
+        data = EditImage(
+            scan_file=scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p",
+            project_name="test_edit",
+            parameters=EditImageParameters(zoom=True, step_size_x=2, step_size_y=2),  # type: ignore
+        )
+        expected_response = ProcessDataUrls
+        return data, expected_response
 
     @pytest.mark.parametrize(
-        ("route", "expected_response"),
-        (pytest.param(f"/{route}", TemplateResponse, id=route) for route in RoutePrefix),
+        "route",
+        (pytest.param(f"/{route}", id=route) for route in RoutePrefix),
     )
-    def test_root(self, route: str, expected_response: BaseModel) -> None:
-        """Check if the root is still returning the hello world response."""
+    def test_root(self, route: str) -> None:
+        """Check if the root redirects to the documentation section."""
         # Act
-        response = requests.get(f"{get_settings().base_url}{route}", timeout=5)
+        response = requests.get(f"{get_settings().base_url}{route}", timeout=5, allow_redirects=False)
         # Assert
-        assert response.status_code == HTTP_200_OK
-        expected_response.model_validate(response.json())
+        assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, (
+            "endpoint should redirect with temporary redirect status"
+        )
+        expected_location = f"/docs#operations-tag-{route.lstrip('/')}"
+        assert response.headers["location"] == expected_location, f"should redirect to {expected_location}"
 
     @pytest.mark.parametrize(
-        ("fixture_name", "sub_route"), [pytest.param("process_scan", "process-scan", id="process_scan")]
+        ("fixture_name", "sub_route"),
+        [
+            pytest.param("process_scan", "process-scan", id="process_scan"),
+            pytest.param("edit_scan_data", "edit-scan", id="edit_scan"),
+        ],
     )
     def test_pre_processor_post_requests(
         self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest
     ) -> None:
-        """Test if the process scan endpoint returns an expected model."""
+        """Test if preprocessor POST endpoints return expected models."""
         data, expected_response = request.getfixturevalue(fixture_name)
         # Act
         response = requests.post(
@@ -74,8 +86,32 @@ class TestContracts:
             timeout=5,
         )
         # Assert
+        print(response.content)
         assert response.status_code == HTTP_200_OK
-        expected_response.model_validate(response.json())
+        assert expected_response.model_validate(response.json())
+
+    def test_edit_existing_scan_endpoint(self, directory_access: DirectoryAccess, scan_directory: Path) -> None:
+        """Test if edit-scans/{token}/{tag}/{filename} endpoint works with existing scan.
+
+        Uses a directory_access fixture to create a vault with a scan file,
+        then calls the edit endpoint to re-process the scan with new parameters.
+        """
+        # Arrange
+        shutil.copyfile(
+            scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p", directory_access.resource_path / "scan.x3p"
+        )
+        edit_params = EditImageParameters(zoom=True, step_size_x=2, step_size_y=2, overwrite=False)  # type: ignore
+
+        # Act
+        edit_response = requests.post(
+            f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scans/{directory_access.token}/scan.x3p",
+            json=edit_params.model_dump(mode="json"),
+            timeout=5,
+        )
+
+        # Assert
+        assert edit_response.status_code == HTTP_200_OK
+        ProcessDataUrls.model_validate(edit_response.json())
 
     def test_extractor_get_file_endpoint(self, directory_access: DirectoryAccess) -> None:
         """Test if extractor /files/{token}/{filename} endpoint retrieves processed files.

@@ -1,10 +1,12 @@
+from http import HTTPStatus
+
 from fastapi.testclient import TestClient
-from starlette.status import HTTP_200_OK
 
 
 def test_processors_placeholder(client: TestClient) -> None:
+    """Test that the processor root endpoint redirects to documentation."""
     # Act
-    response = client.get("/processor")
+    response = client.get("/processor", follow_redirects=False)
     # Assert
-    assert response.status_code == HTTP_200_OK, "endpoint is alive"
-    assert response.json() == {"message": "Hello from the processors"}, "A placeholder response should be returned"
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, "endpoint should redirect"
+    assert response.headers["location"] == "/docs#operations-tag-processor", "should redirect to processor docs"
