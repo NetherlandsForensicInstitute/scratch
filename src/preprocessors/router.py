@@ -67,11 +67,14 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 
 @preprocessor_route.post(
     path="/prepare-mark",
-    summary="does somthing with stration and impression and save files.",
+    summary="Preprocess a scan into analysis-ready mark files.",
     description="""
-    Endpoint for saving the input data to files ready to be calculated later for score calculations.
-    All files are saved and prepared after this endpoint.
-    @Simone / Thomas do you have more info of what should happen here?
+    Applies user-defined masking and cropping to a scan, then performs
+    mark-type-specific preprocessing (rotation, cropping, filtering) for
+    striation or impression marks.
+
+    Outputs two processed mark representations (.npy data and .json
+    metadata) saved to the vault, returning URLs for file access.
     """,
     responses={
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
