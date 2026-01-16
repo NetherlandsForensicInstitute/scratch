@@ -14,7 +14,7 @@ from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
 MASK = ((1, 0), (0, 1))
-CUTOFF_LENGTH = 250e-6  # 250 micrometers in meters
+CUTOFF_LENGTH = 250  # 250 micrometers in meters
 
 
 class RoutePrefix(StrEnum):

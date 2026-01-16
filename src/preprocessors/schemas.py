@@ -9,6 +9,7 @@ from container_models.light_source import LightSource
 from numpy.typing import NDArray
 from pydantic import (
     UUID4,
+    AfterValidator,
     ConfigDict,
     EncodedBytes,
     EncoderProtocol,
@@ -20,6 +21,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from scipy.constants import micro
 
 from models import BaseModelConfig, ProjectTag, ScanFile, SupportedScanExtension
 
@@ -130,8 +132,11 @@ class MaskEncoder(EncoderProtocol):
 
 
 class Mask(BaseModelConfig):
-    data: Annotated[bytes, EncodedBytes(MaskEncoder)]
-    shape: tuple[int, int]
+    data: Annotated[bytes, EncodedBytes(MaskEncoder)] = Field(
+        description=("Binary mask for selective processing or cropping. "),
+        examples=[b"\x00\x01\x00\x01\x00\x01"],
+    )
+    shape: tuple[int, int] = Field(description="shape of the encoded byte")
 
     @cached_property
     def mask_array(self) -> NDArray:
@@ -153,19 +158,9 @@ class Mask(BaseModelConfig):
 class EditImageParameters(BaseModelConfig):
     """Configuration parameters for scan image editing and transformation operations."""
 
-    mask: Mask = Field(
-        description=(
-            "Binary mask array for selective processing or cropping. "
-            "Must be a 2D boolean array with shape matching the scan image dimensions. "
-            "Regions marked true (1) are processed, false (0) regions are excluded. "
-        ),
-        examples=[
-            [[True, True, False], [False, True, True]],
-            [[1, 1, 0], [0, 1, 1]],
-        ],
-    )
-    cutoff_length: PositiveFloat = Field(
-        description="Cutoff wavelength in meters (m) for Gaussian regression filtering. "
+    mask: Mask = Field(description="TODO")
+    cutoff_length: Annotated[PositiveFloat, AfterValidator(lambda x: x * micro)] = Field(
+        description="Cutoff wavelength in micrometers (m) for Gaussian regression filtering. "
         "Defines the spatial frequency threshold for surface texture analysis."
     )
     resampling_factor: PositiveFloat = Field(

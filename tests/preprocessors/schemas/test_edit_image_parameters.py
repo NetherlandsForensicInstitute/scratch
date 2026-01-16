@@ -13,7 +13,7 @@ from preprocessors.schemas import EditImageParameters, Mask, RegressionOrder, Te
 
 DEFAULT_RESAMPLING_FACTOR: Final[int] = 4
 DEFAULT_STEP_SIZE: Final[int] = 1
-CUTOFF_LENGTH: Final[float] = 250 * micro
+CUTOFF_LENGTH: Final[float] = 250
 
 
 @pytest.fixture(scope="module")
@@ -39,7 +39,7 @@ class TestEditImageParameters:
         assert params.terms == Terms.PLANE
         assert params.regression_order == RegressionOrder.RO
         np.testing.assert_array_equal(params.mask.mask_array, mask.mask_array)
-        assert params.cutoff_length == CUTOFF_LENGTH
+        assert params.cutoff_length == CUTOFF_LENGTH * micro
         assert params.step_size_x == DEFAULT_STEP_SIZE
         assert params.step_size_y == DEFAULT_STEP_SIZE
         assert params.overwrite is False
@@ -116,14 +116,14 @@ class TestEditImageParameters:
             chain.from_iterable(error["loc"] for error in exc_info.value.errors() if error["type"] == "missing")
         ) == ("mask", "cutoff_length")
 
-    @given(cutoff=st.floats(min_value=1e-9, max_value=1.0, allow_nan=False, allow_infinity=False))
-    def test_should_accept_positive_cutoff_length(self, cutoff: float, mask: Mask) -> None:
+    @given(cutoff=st.floats(min_value=1, max_value=250, allow_nan=False, allow_infinity=False))
+    def test_should_adjust_cutoff_length_to_mircometers(self, cutoff: float, mask: Mask) -> None:
         """Test that positive cutoff_length values are accepted."""
         # Act
         params = EditImageParameters(mask=mask, cutoff_length=cutoff)  # type: ignore
 
         # Assert
-        assert params.cutoff_length == cutoff
+        assert params.cutoff_length == cutoff * micro
 
     @given(invalid_cutoff=st.floats(max_value=0.0, allow_nan=False, allow_infinity=False) | st.integers(max_value=0))
     def test_should_reject_non_positive_cutoff_length(self, invalid_cutoff: float, mask: Mask) -> None:

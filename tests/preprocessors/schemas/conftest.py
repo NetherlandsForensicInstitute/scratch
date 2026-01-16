@@ -1,5 +1,4 @@
 import pytest
-from scipy.constants import micro
 
 from preprocessors.schemas import EditImageParameters, Mask
 
@@ -11,4 +10,4 @@ def mask() -> Mask:
 
 @pytest.fixture(scope="module")
 def edit_image_parameters(mask: Mask) -> EditImageParameters:
-    return EditImageParameters(mask=mask, cutoff_length=250 * micro)  # type: ignore
+    return EditImageParameters(mask=mask, cutoff_length=250)  # type: ignore
