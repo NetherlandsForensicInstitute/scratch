@@ -203,34 +203,34 @@ class TestGetBoundingBoxCenter:
     def test_returns_pixel_center_for_single_pixel(self):
         mask = np.zeros((10, 10), dtype=bool)
         mask[3, 7] = True  # row=3, col=7
-        assert _get_bounding_box_center(mask) == (7.5, 3.5)
+        assert _get_bounding_box_center(mask) == (3.5, 7.5)
 
     def test_returns_center_for_rectangle(self):
         mask = np.zeros((10, 10), dtype=bool)
         mask[2:6, 3:9] = True  # rows 2-5, cols 3-8
-        assert _get_bounding_box_center(mask) == (6, 4)
+        assert _get_bounding_box_center(mask) == (4, 6)
 
     def test_returns_center_for_scattered_pixels(self):
         mask = np.zeros((10, 10), dtype=bool)
         mask[1, 2] = True
         mask[7, 8] = True
-        assert _get_bounding_box_center(mask) == (5.5, 4.5)
+        assert _get_bounding_box_center(mask) == (4.5, 5.5)
 
     def test_returns_center_for_filled_mask(self):
         mask = np.ones((6, 10), dtype=bool)
-        assert _get_bounding_box_center(mask) == (5, 3)
+        assert _get_bounding_box_center(mask) == (3, 5)
 
 
 class TestComputeMapCenter:
     def test_uses_bounding_box_when_circle_disabled(self):
         mask = np.zeros((10, 10), dtype=bool)
         mask[2:6, 3:9] = 1.0
-        assert _compute_map_center(mask, use_circle_fit=False) == (6, 4)
+        assert _compute_map_center(mask, use_circle_fit=False) == (4, 6)
 
     def test_falls_back_to_bounding_box_for_collinear_edge(self):
         mask = np.zeros((10, 10), dtype=bool)
         mask[5, :] = 1.0
-        assert _compute_map_center(mask, use_circle_fit=True) == (5, 5.5)
+        assert _compute_map_center(mask, use_circle_fit=True) == (5.5, 5)
 
 
 class TestEstimatePlaneTilt:
