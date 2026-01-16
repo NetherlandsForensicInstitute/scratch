@@ -2,6 +2,7 @@ from enum import StrEnum, auto
 from typing import Annotated
 
 from container_models.light_source import LightSource
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from pydantic import AfterValidator, Field, FilePath, field_validator
 
 from constants import ImpressionMarks, MaskTypes, StriationMarks
@@ -71,22 +72,35 @@ class UploadScan(BaseParameters):
         return scan_file
 
 
-type MarkType = ImpressionMarks | StriationMarks
-
-
 class CropInfo(BaseModelConfig):
     type: MaskTypes
     data: dict
     is_foreground: bool
 
 
-class PrepareMark(BaseParameters):
-    mark_type: MarkType = Field(..., description="Type of mark to prepare.")
+class PreprocessingStriationParams(BaseModelConfig):
+    """dummy till #84 is merged."""
+
+    pass  # TODO: not yet merged dataclass from PR #84
+
+
+class PrepareMarkStriation(BaseParameters):
+    mark_type: StriationMarks = Field(..., description="Type of mark to prepare.")
     mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
     rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
     crop_info: CropInfo | None = Field(
         None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
     )
-    preprocessor_param: object = Field(
+    mark_parameters: PreprocessingStriationParams = Field(
         ..., description="Preprocessor parameters."
-    )  # TODO: define proper type when available
+    )  # TODO: not yet merged dataclass from PR #84
+
+
+class PrepareMarkImpression(BaseParameters):
+    mark_type: ImpressionMarks = Field(..., description="Type of mark to prepare.")
+    mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
+    rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
+    crop_info: CropInfo | None = Field(
+        None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
+    )
+    mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")

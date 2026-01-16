@@ -2,6 +2,7 @@ from functools import partial
 from pathlib import Path
 
 from container_models.scan_image import ScanImage
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from parsers import load_scan_image, parse_to_x3p, save_x3p, subsample_scan_image
 from renders import (
     apply_multiple_lights,
@@ -13,7 +14,7 @@ from renders import (
 from renders.normalizations import normalize_2d_array
 
 from pipelines import run_pipeline
-from preprocessors.schemas import UploadScanParameters
+from preprocessors.schemas import PreprocessingStriationParams, UploadScanParameters
 
 
 def parse_scan_pipeline(scan_file: Path, parameters: UploadScanParameters) -> ScanImage:
@@ -87,3 +88,13 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
         partial(save_image, output_path=output_path),
         error_message=f"Failed to create the surface map: {output_path}",
     )
+
+
+def impression_mark_pipeline(params: PreprocessingImpressionParams) -> Path:
+    """PLACEHOLDER."""  # noqa: D401
+    return Path()  # TODO: fill in when implementing impression mark.
+
+
+def striation_mark_pipeline(params: PreprocessingStriationParams) -> Path:
+    """PLACEHOLDER."""  # noqa: D401
+    return Path()  # TODO: fill in when implementing striation mark.
