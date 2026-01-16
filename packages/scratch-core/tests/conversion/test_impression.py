@@ -4,12 +4,12 @@ from numpy.testing import assert_array_equal
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import CropType, Mark, MarkType
-from conversion.preprocess_impression.impression import (
+from conversion.preprocess_impression.preprocess_impression import (
     _build_preprocessing_metadata,
     preprocess_impression_mark,
 )
 from conversion.preprocess_impression.resample import _needs_resampling
-from conversion.preprocess_impression.filter import _apply_anti_aliasing
+from conversion.filter import _apply_anti_aliasing
 from conversion.preprocess_impression.utils import update_mark_data
 from conversion.preprocess_impression.tilt import (
     _estimate_plane_tilt,

@@ -7,11 +7,13 @@ import numpy as np
 import pytest
 from math import ceil
 
-from conversion.filter import apply_nan_weighted_gaussian_1d, cutoff_to_gaussian_sigma
-from conversion.preprocess_striation.preprocess_data_filter import (
+from conversion.filter import (
+    _apply_nan_weighted_gaussian_1d,
+    cutoff_to_gaussian_sigma,
+    apply_gaussian_filter_1d_to_scan_image,
     _remove_zero_border,
-    apply_gaussian_filter_1d,
 )
+
 from conversion.preprocess_striation.preprocess_data import (
     apply_shape_noise_removal,
 )
@@ -41,7 +43,7 @@ def test_apply_nan_weighted_gaussian_1d():
     data = np.ones((20, 10), dtype=float)
     data[10, 5] = np.nan  # Single NaN value
 
-    result = apply_nan_weighted_gaussian_1d(
+    result = _apply_nan_weighted_gaussian_1d(
         data, cutoff_length=10.0, pixel_size=1.0, axis=0
     )
 
@@ -79,7 +81,7 @@ def test_apply_gaussian_filter_1d_lowpass():
     surface = np.tile((low_freq + high_freq).reshape(-1, 1), (1, 20))
 
     scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
-    smoothed, mask = apply_gaussian_filter_1d(
+    smoothed, mask = apply_gaussian_filter_1d_to_scan_image(
         scan_image=scan_image,
         cutoff=250e-6,
         is_high_pass=False,
@@ -101,7 +103,7 @@ def test_apply_gaussian_filter_1d_highpass():
 
     # Use pixel size that makes cutoff effective for shape removal
     scan_image = ScanImage(data=surface, scale_x=1e-3, scale_y=1e-3)
-    residuals, mask = apply_gaussian_filter_1d(
+    residuals, mask = apply_gaussian_filter_1d_to_scan_image(
         scan_image=scan_image,
         cutoff=50e-3,
         is_high_pass=True,

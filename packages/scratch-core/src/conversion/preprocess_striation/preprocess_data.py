@@ -12,13 +12,13 @@ from scipy.ndimage import gaussian_filter, map_coordinates
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
-from conversion.filter import cutoff_to_gaussian_sigma
+from conversion.filter import (
+    cutoff_to_gaussian_sigma,
+    apply_gaussian_filter_1d_to_scan_image,
+)
 from conversion.mask import _determine_bounding_box
 from conversion.resample import resample_scan_image_and_mask, resample_image_array
 from conversion.preprocess_striation.parameters import PreprocessingStriationParams
-from conversion.preprocess_striation.preprocess_data_filter import (
-    apply_gaussian_filter_1d,
-)
 
 
 def apply_shape_noise_removal(
@@ -66,7 +66,7 @@ def apply_shape_noise_removal(
     cut_borders = (2 * sigma) <= (scan_image.height * 0.2)
 
     # Shape removal (highpass filter)
-    data_high_pass, mask_high_pass = apply_gaussian_filter_1d(
+    data_high_pass, mask_high_pass = apply_gaussian_filter_1d_to_scan_image(
         scan_image=scan_image,
         cutoff=highpass_cutoff,
         is_high_pass=True,
@@ -78,7 +78,7 @@ def apply_shape_noise_removal(
     intermediate_scan_image = scan_image.model_copy(update={"data": data_high_pass})
 
     # Noise removal (lowpass filter)
-    data_no_noise, mask_no_noise = apply_gaussian_filter_1d(
+    data_no_noise, mask_no_noise = apply_gaussian_filter_1d_to_scan_image(
         scan_image=intermediate_scan_image,
         cutoff=lowpass_cutoff,
         is_high_pass=False,
