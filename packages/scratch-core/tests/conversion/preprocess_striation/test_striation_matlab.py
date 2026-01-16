@@ -161,8 +161,10 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
     output_depth_data = output_data_mat["depth_data"]
     output_mask = output_mask_mat["mask_out"]
 
+    # extract last two dirs for 'naming'.
+    last_two_dirs = "/".join(case_dir.parts[-2:])
     return MatlabTestCase(
-        name=case_dir.name,
+        name=last_two_dirs,
         input_depth_data=depth_data,
         input_xdim=float(xdim),
         input_ydim=float(ydim),
@@ -177,18 +179,20 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
     )
 
 
-def discover_test_cases(case_dir: Path) -> list[MatlabTestCase]:
+def discover_test_cases(striation_case_root: Path) -> list[MatlabTestCase]:
     """Discover all test cases in the test cases directory."""
-    if not case_dir.exists():
+    if not striation_case_root.exists():
         return []
 
     cases = []
-    for case_dir in sorted(case_dir.iterdir()):
-        if case_dir.is_dir() and (case_dir / "input_data.mat").exists():
-            try:
-                cases.append(load_test_case(case_dir))
-            except Exception as e:
-                print(f"Warning: Failed to load test case {case_dir.name}: {e}")
+    for folder in ["files_with_nans", "files_without_nans"]:
+        case_dir = striation_case_root / folder
+        for case_dir in sorted(case_dir.iterdir()):
+            if case_dir.is_dir() and (case_dir / "input_data.mat").exists():
+                try:
+                    cases.append(load_test_case(case_dir))
+                except Exception as e:
+                    print(f"Warning: Failed to load test case {case_dir.name}: {e}")
 
     return cases
 
