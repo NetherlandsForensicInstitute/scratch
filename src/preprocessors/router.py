@@ -1,3 +1,4 @@
+from functools import partial
 from http import HTTPStatus
 
 from fastapi import APIRouter
@@ -5,10 +6,19 @@ from loguru import logger
 
 from constants import PREPROCESSOR_ROUTE
 from extractors import ProcessedDataAccess
+from extractors.schemas import PrepareMarkResponse
 from file_services import create_vault, get_files, get_urls
+from preprocessors.controller import process_prepare_mark
 
-from .pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
-from .schemas import UploadScan
+from .pipelines import (
+    impression_mark_pipeline,
+    parse_scan_pipeline,
+    preview_pipeline,
+    striation_mark_pipeline,
+    surface_map_pipeline,
+    x3p_pipeline,
+)
+from .schemas import PrepareMarkImpression, PrepareMarkStriation, UploadScan
 
 preprocessor_route = APIRouter(prefix=PREPROCESSOR_ROUTE, tags=[PREPROCESSOR_ROUTE])
 
@@ -62,3 +72,55 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 
     logger.info(f"Generated files saved to {vault}")
     return ProcessedDataAccess(**get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}))
+
+
+@preprocessor_route.post(
+    path="/prepare-mark-impression",
+    summary="Preprocess a scan into analysis-ready mark files.",
+    description="""
+    Applies user-defined masking and cropping to a scan, then performs
+    mark-type-specific preprocessing (rotation, cropping, filtering) for impression marks.
+
+    Outputs two processed mark representations (.npy data and .json
+    metadata) saved to the vault, returning URLs for file access.
+    """,
+    responses={
+        HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
+    },
+)
+async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression) -> PrepareMarkResponse:
+    """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
+    vault = create_vault(prepare_mark_parameters.tag)
+    files = process_prepare_mark(
+        vault_path=vault.resource_path,
+        scan_file=prepare_mark_parameters.scan_file,
+        marking_method=partial(impression_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+    )
+    logger.info(f"Generated files saved to {vault}")
+    return PrepareMarkResponse(**get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}))
+
+
+@preprocessor_route.post(
+    path="/prepare-mark-striation",
+    summary="Preprocess a scan into analysis-ready mark files.",
+    description="""
+    Applies user-defined masking and cropping to a scan, then performs
+    mark-type-specific preprocessing (rotation, cropping, filtering) for striation marks.
+
+    Outputs two processed mark representations (.npy data and .json
+    metadata) saved to the vault, returning URLs for file access.
+    """,
+    responses={
+        HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
+    },
+)
+async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) -> PrepareMarkResponse:
+    """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
+    vault = create_vault(prepare_mark_parameters.tag)
+    files = process_prepare_mark(
+        vault_path=vault.resource_path,
+        scan_file=prepare_mark_parameters.scan_file,
+        marking_method=partial(striation_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+    )
+    logger.info(f"Generated files saved to {vault}")
+    return PrepareMarkResponse(**get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}))
