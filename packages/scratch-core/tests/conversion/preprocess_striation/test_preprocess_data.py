@@ -1,5 +1,5 @@
 """
-Tests for preprocess_data.py and preprocess_data_filter.py.
+Tests for preprocess_striation.py and preprocess_data_filter.py.
 One test per function.
 """
 
@@ -14,7 +14,7 @@ from conversion.filter import (
     _remove_zero_border,
 )
 
-from conversion.preprocess_striation.preprocess_data import (
+from conversion.preprocess_striation.preprocess_striation import (
     apply_shape_noise_removal,
 )
 from container_models.scan_image import ScanImage
@@ -115,7 +115,7 @@ def test_apply_gaussian_filter_1d_highpass():
 
 
 # =============================================================================
-# Tests for preprocess_data.py
+# Tests for preprocess_striation.py
 # =============================================================================
 
 

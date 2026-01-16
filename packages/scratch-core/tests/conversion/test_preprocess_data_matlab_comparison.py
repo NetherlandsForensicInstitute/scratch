@@ -13,7 +13,7 @@ import pytest
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
 from conversion.preprocess_striation.parameters import PreprocessingStriationParams
-from conversion.preprocess_striation.preprocess_data import preprocess_data
+from conversion.preprocess_striation.preprocess_striation import preprocess_data
 from .helper_functions import (
     _compute_correlation,
     _crop_to_common_shape,

@@ -1,5 +1,5 @@
 """
-Tests for fine alignment functions in preprocess_data.py.
+Tests for fine alignment functions in preprocess_striation.py.
 """
 
 import numpy as np
@@ -7,7 +7,7 @@ import pytest
 
 from conversion.data_formats import MarkType
 from conversion.preprocess_striation.parameters import PreprocessingStriationParams
-from conversion.preprocess_striation.preprocess_data import (
+from conversion.preprocess_striation.preprocess_striation import (
     _smooth_2d,
     _rotate_data_by_shifting_profiles,
     _rotate_image_grad_vector,

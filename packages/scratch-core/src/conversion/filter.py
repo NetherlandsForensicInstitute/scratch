@@ -347,55 +347,53 @@ def _create_normalized_separable_kernels(
     kernel_dims = 1 + np.ceil(len(cutoff_pixels) * cutoff_pixels).astype(int)
     kernel_dims += 1 - kernel_dims % 2
 
-    kernel_y = _gaussian_1d(kernel_dims[0], cutoff_pixels[0], alpha)
-    kernel_x = _gaussian_1d(kernel_dims[1], cutoff_pixels[1], alpha)
+    kernel_y = _create_normalized_1d_kernel(
+        alpha, cutoff_pixels[0], size=kernel_dims[0]
+    )
+    kernel_x = _create_normalized_1d_kernel(
+        alpha, cutoff_pixels[1], size=kernel_dims[1]
+    )
 
-    # Normalize so the 2D product sums to 1.0
-    total_weight = np.sum(kernel_y) * np.sum(kernel_x)
-    return kernel_x / np.sqrt(total_weight), kernel_y / np.sqrt(total_weight)
-
-
-def _gaussian_1d(size: int, cutoff_pixel: float, alpha: float) -> NDArray[np.floating]:
-    """
-    Generate a 1D Gaussian curve scaled by the cutoff wavelength.
-
-    :param size: The length of the kernel (must be odd).
-    :param cutoff_pixel: The cutoff wavelength in pixel units.
-    :param alpha: The Gaussian constant.
-    :returns: 1D array of Gaussian weights.
-    """
-    radius = (size - 1) // 2
-    # Coordinate vector centered at 0
-    coords = np.arange(-radius, radius + 1)
-
-    # Gaussian formula: e^(-pi * (x / (alpha * lambda_c))^2)
-    # Note: Division by (alpha * cutoff) scales the Gaussian width
-    scale_factor = alpha * cutoff_pixel
-    return np.exp(-np.pi * (coords / scale_factor) ** 2) / scale_factor
+    # These are already normalized to sum to 1 individually
+    # For 2D separable kernels, we want the product to sum to 1
+    # Since each sums to 1, their product already sums to 1
+    return kernel_x, kernel_y
 
 
 def _create_normalized_1d_kernel(
-    alpha: float, cutoff_pixel: float
+    alpha: float,
+    cutoff_pixel: float,
+    size: Optional[int] = None,
 ) -> NDArray[np.floating]:
     """
-    Create a normalized 1D Gaussian kernel matching scipy.ndimage behavior.
+    Create a normalized 1D Gaussian kernel using ISO 16610 formula.
+
+    Uses the ISO Gaussian formula: exp(-π(x/(α·λc))²), then normalizes to sum to 1.
 
     :param alpha: The Gaussian constant (ISO 16610).
     :param cutoff_pixel: Cutoff wavelength in pixel units.
+    :param size: Kernel size (must be odd). If None, auto-calculate from cutoff.
     :returns: Normalized 1D Gaussian kernel that sums to 1.
     """
-    # Convert cutoff to sigma (same formula as cutoff_to_gaussian_sigma)
-    sigma = alpha * cutoff_pixel / np.sqrt(2 * np.pi)
+    if size is None:
+        # Auto-calculate size to match scipy.ndimage truncation (4 standard deviations)
+        # Convert ISO parameterization to sigma for size calculation
+        sigma = alpha * cutoff_pixel / np.sqrt(2 * np.pi)
+        truncate = 4.0
+        radius = int(truncate * sigma + 0.5)
+    else:
+        # Use provided size
+        radius = (size - 1) // 2
 
-    # Match scipy.ndimage truncation: kernel covers 4 standard deviations
-    truncate = 4.0
-    radius = int(truncate * sigma + 0.5)
+    # Create coordinate vector centered at 0
+    coords = np.arange(-radius, radius + 1)
 
-    # Create scipy-style Gaussian: exp(-x²/(2σ²))
-    x = np.arange(-radius, radius + 1)
-    kernel = np.exp(-0.5 * (x / sigma) ** 2)
+    # ISO formula: exp(-π(x/(α·λc))²)
+    scale_factor = alpha * cutoff_pixel
+    kernel = np.exp(-np.pi * (coords / scale_factor) ** 2)
 
-    return kernel / np.sum(kernel)  # Normalize to sum to 1
+    # Normalize to sum to 1
+    return kernel / np.sum(kernel)
 
 
 def _convolve_2d_separable(

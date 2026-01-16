@@ -43,8 +43,20 @@ def apply_shape_noise_removal(
         large-scale shape (curvature, tilt, waviness).
 
     **Noise removal**
-        Apply apply_gaussian_filter_1d wit  h is_high_pass=False (lowpass)
+        Apply apply_gaussian_filter_1d with is_high_pass=False (lowpass)
         to remove high-frequency noise while preserving striation features.
+
+    Note: we remove shape then noise by subsequently applying two Gaussian high_pass filters (first σ_low, then σ_high):
+        gaussian(image - gaussian(image, σ_low), σ_high).
+        Since noise removal is additive, this is the same as:
+       = gaussian(image, σ_high) - gaussian(gaussian(image, σ_low), σ_high),
+       which is the same as subtracting two Gaussian high_pass filters with different sigma:
+       = gaussian(image, σ_high) - gaussian(image, √(σ_low² + σ_high²))
+
+       Normally, such 'intermediate band' selection is performed by defining σ_high and σ_low, and then using:
+       gaussian(image, σ_high) - gaussian(image, σ_low), which is called the Difference of Gaussians (DOG) procedure.
+       So in our case, we could substitute in DOG: var_lowest_sigma = σ_low² + σ_high² and then apply DOG.
+       So our procedure is identical to DOG but using different definition of σ_low.
 
 
     :param scan_image: ScanImage containing depth data and pixel spacing.
