@@ -51,7 +51,7 @@ def _determine_bounding_box(mask: MaskArray) -> tuple[slice, slice]:
 
     y_min, x_min = np.min(non_zero_coords, axis=1)
     y_max, x_max = np.max(non_zero_coords, axis=1)
-    return slice(x_min, x_max + 1), slice(y_min, y_max + 1)
+    return slice(y_min, y_max + 1), slice(x_min, x_max + 1)
 
 
 def mask_and_crop_2d_array(
