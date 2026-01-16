@@ -1,11 +1,21 @@
 import os
 from http import HTTPStatus
+from pathlib import Path
 
 import pytest
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from fastapi.testclient import TestClient
 from loguru import logger
 
+from constants import ImpressionMarks, MaskTypes, StriationMarks
 from models import DirectoryAccess
+from preprocessors.schemas import (
+    BaseParameters,
+    CropInfo,
+    PrepareMarkImpression,
+    PrepareMarkStriation,
+    PreprocessingStriationParams,
+)
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
@@ -18,6 +28,25 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
     assert response.json() == {"message": "Hello from the pre-processors"}, "A placeholder response should be returned"
 
 
+@pytest.mark.parametrize(
+    ("subroute", "schema", "mark_parameters", "mark_type"),
+    [
+        pytest.param(
+            "/prepare-mark-striation",
+            PrepareMarkStriation,
+            PreprocessingStriationParams,
+            StriationMarks.APERTURE_SHEAR,
+            id="striation mark",
+        ),
+        pytest.param(
+            "/prepare-mark-impression",
+            PrepareMarkImpression,
+            PreprocessingImpressionParams,
+            ImpressionMarks.CHAMBER,
+            id="impression mark",
+        ),
+    ],
+)
 @pytest.mark.usefixtures("tmp_dir_api")
 class TestPrepareMarkEndpoint:
     @pytest.fixture(autouse=True)
@@ -26,20 +55,41 @@ class TestPrepareMarkEndpoint:
         directory_access.resource_path.mkdir(exist_ok=True)
         monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
 
-    def test_prepare_mark_endpoint_returns_urls(self, client: TestClient) -> None:
+    def get_schema_for_endpoint(
+        self,
+        schema: type[PrepareMarkImpression | PrepareMarkStriation],
+        mark_type: str,
+        mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+    ):
+        """Generate the schema payload for the prepare-mark endpoint."""
+        return schema(
+            project_name="test_project",
+            mark_type=mark_type,  # type: ignore
+            scan_file=Path("packages/scratch-core/tests/resources/scans/circle.x3p"),
+            mask_array=[[0, 1], [1, 0]],
+            crop_info=CropInfo(type=MaskTypes.CIRCLE, data={}, is_foreground=False),
+            rotation_angle=15,
+            mark_parameters=mark_parameters(),  # type: ignore
+        ).model_dump(mode="json")
+
+    def test_prepare_mark_endpoint_returns_urls(
+        self,
+        client: TestClient,
+        subroute: str,
+        schema: type[PrepareMarkImpression | PrepareMarkStriation],
+        mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+        mark_type: str,
+    ) -> None:
         """Test that the prepare-mark endpoint processes the request and returns file URLs."""
         # Arrange
-        payload = {
-            "project_name": "test_project",
-            "scan_file": "packages/scratch-core/tests/resources/scans/circle.x3p",
-            "mark_typ": "ejector_striation_mark",
-            "mask_array": [[0, 1], [1, 0]],
-            "rotation_angle": 15,
-            "preprocessor_param": 1,
-        }
+        payload = self.get_schema_for_endpoint(
+            schema=schema,
+            mark_type=mark_type,
+            mark_parameters=mark_parameters,
+        )
 
         # Act
-        response = client.post("/preprocessor/prepare-mark", json=payload)
+        response = client.post(f"/preprocessor{subroute}", json=payload)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
@@ -48,29 +98,32 @@ class TestPrepareMarkEndpoint:
             "scan",
             "preview",
             "surface_map",
-            "mark_mat",
-            "processed_mat",
-            "profile_mat",
-            "leveled_mat",
+            "mark_file",
+            "processed_file",
+            "profile_file",
+            "leveled_file",
         ]
         for key in expected_keys:
             assert key in json_response, f"Response should contain URL for {key}"
 
-    def test_prepare_mark_endpoint_has_made_files_in_vault(
-        self, client: TestClient, directory_access: DirectoryAccess
+    def test_prepare_mark_endpoint_has_made_files_in_vault(  # noqa: PLR0913
+        self,
+        client: TestClient,
+        directory_access: DirectoryAccess,
+        schema: type[BaseParameters],
+        subroute: str,
+        mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
+        mark_type: str,
     ) -> None:
         """Test that the prepare-mark endpoint creates files in the vault."""
         # Arrange
-        payload = {
-            "project_name": "test_project",
-            "scan_file": "packages/scratch-core/tests/resources/scans/circle.x3p",
-            "mark_typ": "ejector_striation_mark",
-            "mask_array": [[0, 1], [1, 0]],
-            "rotation_angle": 15,
-            "preprocessor_param": 1,
-        }
+        payload = self.get_schema_for_endpoint(
+            schema=schema,  # type: ignore
+            mark_type=mark_type,
+            mark_parameters=mark_parameters,  # type: ignore
+        )
         # Act
-        response = client.post("/preprocessor/prepare-mark", json=payload)
+        response = client.post(f"/preprocessor{subroute}", json=payload)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
@@ -79,10 +132,10 @@ class TestPrepareMarkEndpoint:
             "scan.x3p",
             "preview.png",
             "surface_map.png",
-            "mark.mat",
-            "processed.mat",
-            "profile.mat",
-            "leveled.mat",
+            "mark.file",
+            "processed.file",
+            "profile.file",
+            "leveled.file",
         ]
         pytest.xfail("Endpoint not implemented yet")  # TODO: Remove when endpoint is implemented
         for filename in expected_files:
@@ -90,22 +143,25 @@ class TestPrepareMarkEndpoint:
             logger.info(f"Checking for file: {file_path}")
             assert os.path.exists(file_path), f"Expected file {filename} to be created in the vault"
 
-    def test_prepare_mark_endpoint_response_url_matches_folder_location(
-        self, client: TestClient, directory_access: DirectoryAccess
+    def test_prepare_mark_endpoint_response_url_matches_folder_location(  # noqa: PLR0913
+        self,
+        client: TestClient,
+        directory_access: DirectoryAccess,
+        schema: type[BaseParameters],
+        subroute: str,
+        mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
+        mark_type: str,
     ) -> None:
         """Test that the URLs in the prepare-mark endpoint response match the vault folder location."""
         # Arrange
-        payload = {
-            "project_name": "test_project",
-            "scan_file": "packages/scratch-core/tests/resources/scans/circle.x3p",
-            "mark_typ": "ejector_striation_mark",
-            "mask_array": [[0, 1], [1, 0]],
-            "rotation_angle": 15,
-            "preprocessor_param": 1,
-        }
+        payload = self.get_schema_for_endpoint(
+            schema=schema,  # type: ignore
+            mark_type=mark_type,
+            mark_parameters=mark_parameters,  # type: ignore
+        )
 
         # Act
-        response = client.post("/preprocessor/prepare-mark", json=payload)
+        response = client.post(f"/preprocessor{subroute}", json=payload)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
