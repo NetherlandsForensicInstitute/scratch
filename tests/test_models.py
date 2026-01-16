@@ -5,7 +5,6 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from extractors.schemas import ProcessedDataAccess
 from models import (
     BaseModelConfig,
     DirectoryAccess,
@@ -13,7 +12,7 @@ from models import (
     validate_not_executable,
     validate_relative_path,
 )
-from preprocessors.schemas import UploadScan, UploadScanParameters
+from preprocessors.schemas import EditImage, EditImageParameters, UploadScan, UploadScanParameters
 from settings import get_settings
 
 
@@ -300,9 +299,10 @@ class TestDirectoryAccess:
     "schema",
     [
         DirectoryAccess,
-        ProcessedDataAccess,
         UploadScan,
         UploadScanParameters,
+        EditImage,
+        EditImageParameters,
     ],
 )
 def test_schema_is_base_model_config(schema: type[BaseModelConfig]):
