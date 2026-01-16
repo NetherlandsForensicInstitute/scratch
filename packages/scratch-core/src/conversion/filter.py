@@ -1,5 +1,3 @@
-from logging import raiseExceptions
-
 import numpy as np
 from numpy.typing import NDArray
 from scipy.signal import fftconvolve
@@ -171,7 +169,9 @@ def _convolve_2d_separable(
         result = fftconvolve(temp, kernel_x[np.newaxis, :], mode="same")
 
         # Crop back to original size
-        return result[pad_y:-pad_y if pad_y else None, pad_x:-pad_x if pad_x else None]
+        return result[
+            pad_y : -pad_y if pad_y else None, pad_x : -pad_x if pad_x else None
+        ]
     else:
         raise ValueError("This padding mode is not implemented")
 
