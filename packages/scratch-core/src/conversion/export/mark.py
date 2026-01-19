@@ -1,4 +1,5 @@
-"""Module for serializing and deserializing Mark objects to/from disk.
+"""
+Module for serializing and deserializing Mark objects to/from disk.
 
 This module provides functionality to save Mark objects as JSON metadata
 with NPZ binary data, and load them back into memory.
@@ -67,7 +68,8 @@ class ExportedMarkData(BaseModel):
 
 
 def save(mark: Mark, path: Path, name: str) -> None:
-    """Save a Mark object to JSON and NPZ files.
+    """
+    Save a Mark object to JSON and NPZ files.
 
     :param mark: Mark object to save
     :param path: Directory path where files will be saved
