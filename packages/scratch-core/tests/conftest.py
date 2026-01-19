@@ -16,7 +16,7 @@ TEST_ROOT = Path(__file__).parent
 
 
 @pytest.fixture
-def striation_case_root() -> Path:
+def case_dir() -> Path:
     return TEST_ROOT / "resources" / "preprocess_striation"
 
 
