@@ -1,27 +1,33 @@
 """
-Tests for preprocess_striation.py and preprocess_data_filter.py.
-One test per function.
+Tests for preprocess_striation.py and related filter functions.
 """
 
 import numpy as np
 import pytest
 from math import ceil
 
+from container_models.scan_image import ScanImage
+from conversion.data_formats import MarkType
 from conversion.filter import (
     _apply_nan_weighted_gaussian_1d,
-    cutoff_to_gaussian_sigma,
-    apply_gaussian_filter_1d_to_scan_image,
     _remove_zero_border,
+    apply_gaussian_filter_1d,
+    cutoff_to_gaussian_sigma,
 )
-
+from conversion.preprocess_striation.parameters import PreprocessingStriationParams
 from conversion.preprocess_striation.preprocess_striation import (
+    _rotate_data_by_shifting_profiles,
+    _rotate_image_grad_vector,
     apply_shape_noise_removal,
+    extract_profile,
+    fine_align_bullet_marks,
+    preprocess_data,
 )
-from container_models.scan_image import ScanImage
+from conversion.resample import resample_scan_image_and_mask
 
 
 # =============================================================================
-# Tests for preprocess_data_filter.py
+# Tests for filter.py utility functions
 # =============================================================================
 
 
@@ -81,7 +87,7 @@ def test_apply_gaussian_filter_1d_lowpass():
     surface = np.tile((low_freq + high_freq).reshape(-1, 1), (1, 20))
 
     scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
-    smoothed, mask = apply_gaussian_filter_1d_to_scan_image(
+    smoothed, mask = apply_gaussian_filter_1d(
         scan_image=scan_image,
         cutoff=250e-6,
         is_high_pass=False,
@@ -103,7 +109,7 @@ def test_apply_gaussian_filter_1d_highpass():
 
     # Use pixel size that makes cutoff effective for shape removal
     scan_image = ScanImage(data=surface, scale_x=1e-3, scale_y=1e-3)
-    residuals, mask = apply_gaussian_filter_1d_to_scan_image(
+    residuals, mask = apply_gaussian_filter_1d(
         scan_image=scan_image,
         cutoff=50e-3,
         is_high_pass=True,
@@ -115,7 +121,7 @@ def test_apply_gaussian_filter_1d_highpass():
 
 
 # =============================================================================
-# Tests for preprocess_striation.py
+# Tests for shape and noise removal
 # =============================================================================
 
 
@@ -144,19 +150,10 @@ def test_apply_shape_noise_removal():
     assert mask.all()
 
 
-def test_form_noise_removal_pipeline():
-    """
-    Comprehensive test of the form and noise removal pipeline.
-
-    Tests:
-    1. Verifies correct filter sequence (highpass -> lowpass)
-    2. Checks border cropping logic
-    3. Validates short data handling
-    4. Tests mask propagation
-    """
+def test_shape_noise_removal_filter_sequence():
+    """Test filter sequence, border cropping, and mask propagation."""
     np.random.seed(42)
 
-    # Test 1: Verify filter sequence and output
     height, width = 200, 150
     scale = 1e-6
 
@@ -186,7 +183,7 @@ def test_form_noise_removal_pipeline():
     # Verify noise reduced
     assert np.std(result) < np.std(depth_data), "Noise not reduced"
 
-    # Test 2: Border cropping behavior
+    # Test border cropping behavior
     sigma = cutoff_to_gaussian_sigma(2000e-6, scale)
     data_too_short = (2 * sigma) > (height * 0.2)
 
@@ -201,8 +198,16 @@ def test_form_noise_removal_pipeline():
     )
     assert result.shape[1] == width, "Width should not change"
 
-    # Test 3: Short data handling (no border cropping due to data size)
+
+def test_shape_noise_removal_short_data():
+    """Test that short data is handled without border cropping."""
+    np.random.seed(42)
+
+    scale = 1e-6
+    sigma = cutoff_to_gaussian_sigma(2000e-6, scale)
     short_height = int(2 * sigma / 0.2) - 5
+    width = 150
+
     short_data = np.random.randn(short_height, width) * 1e-6
 
     short_scan_image = ScanImage(data=short_data, scale_x=scale, scale_y=scale)
@@ -216,7 +221,22 @@ def test_form_noise_removal_pipeline():
         f"Short data borders were cut (got {result_short.shape[0]}, expected {short_height})"
     )
 
-    # Test 4: Mask propagation
+
+def test_shape_noise_removal_mask_propagation():
+    """Test that masks are properly propagated through filtering."""
+    np.random.seed(42)
+
+    height, width = 200, 150
+    scale = 1e-6
+
+    x = np.arange(height) * scale
+    X, _ = np.meshgrid(x, np.arange(width), indexing="ij")
+
+    form = 5e-6 * (X / x.max()) ** 2
+    striations = 0.5e-6 * np.sin(2 * np.pi * X / 500e-6)
+    noise = 0.1e-6 * np.random.randn(height, width)
+    depth_data = form + striations + noise
+
     mask_input = np.ones(depth_data.shape, dtype=bool)
     mask_input[:, 0:20] = False
 
@@ -232,15 +252,8 @@ def test_form_noise_removal_pipeline():
     assert np.any(~mask_output), "Mask should have invalid regions"
 
 
-def test_synthetic_form_noise_removal():
-    """
-    Test on synthetic data where we know the ground truth.
-
-    Verifies that:
-    - Large-scale form is removed
-    - Striations are preserved
-    - High-frequency noise is removed
-    """
+def test_shape_noise_removal_synthetic():
+    """Test on synthetic data with known ground truth."""
     np.random.seed(42)
 
     height, width = 200, 150
@@ -273,3 +286,204 @@ def test_synthetic_form_noise_removal():
     # Verify noise reduced (result std should be less than original)
     std_original = np.std(depth_data)
     assert std_result < std_original, "Noise not reduced"
+
+
+# =============================================================================
+# Tests for rotation and alignment
+# =============================================================================
+
+
+def test_rotate_data_by_shifting_profiles():
+    """Test rotation by profile shifting."""
+    data = np.zeros((50, 50), dtype=float)
+    data[25, :] = 1.0
+
+    # 5 degrees = 0.087 radians
+    angle_rad = np.radians(5.0)
+    rotated = _rotate_data_by_shifting_profiles(
+        data, angle_rad=angle_rad, cut_y_after_shift=True
+    )
+
+    assert rotated.shape[0] < data.shape[0]
+    max_positions = np.argmax(rotated, axis=0)
+    assert np.std(max_positions) > 0
+
+
+def test_rotate_image_grad_vector():
+    """Test gradient-based striation angle detection."""
+    np.random.seed(42)
+
+    height, width = 100, 100
+    x = np.arange(width)
+    y = np.arange(height)
+    X, Y = np.meshgrid(x, y)
+
+    angle_rad = np.radians(5.0)
+    striations = np.sin(
+        2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 10
+    )
+
+    detected_angle = _rotate_image_grad_vector(
+        striations,
+        scale_x=1e-6,
+        extra_sub_samp=1,
+    )
+
+    assert abs(detected_angle) < 10
+
+
+def test_fine_align_bullet_marks():
+    """Test iterative fine alignment of striated marks."""
+    np.random.seed(42)
+
+    height, width = 80, 80
+    x = np.arange(width)
+    y = np.arange(height)
+    X, Y = np.meshgrid(x, y)
+
+    angle_input = 2.0
+    angle_rad = np.radians(angle_input)
+    striations = np.sin(2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 8)
+
+    scan_image = ScanImage(data=striations, scale_x=1e-6, scale_y=1e-6)
+    aligned_scan, _, detected_angle = fine_align_bullet_marks(
+        scan_image=scan_image,
+        angle_accuracy=0.5,
+        cut_y_after_shift=False,
+        max_iter=10,
+    )
+
+    assert aligned_scan.data.shape[0] > 0
+    assert aligned_scan.data.shape[1] > 0
+    assert abs(detected_angle) < 45
+
+
+# =============================================================================
+# Tests for profile extraction
+# =============================================================================
+
+
+def test_extract_profile_mean():
+    """Test mean profile extraction from 2D data."""
+    data = np.zeros((10, 20), dtype=float)
+    for i in range(10):
+        data[i, :] = i * 2.0
+
+    profile = extract_profile(data, use_mean=True)
+
+    assert profile.shape == (10,)
+    assert profile[0] == pytest.approx(0.0)
+    assert profile[5] == pytest.approx(10.0)
+
+
+def test_extract_profile_median():
+    """Test median profile extraction from 2D data."""
+    data = np.zeros((10, 20), dtype=float)
+    for i in range(10):
+        data[i, :] = i * 2.0
+
+    profile = extract_profile(data, use_mean=False)
+
+    assert profile.shape == (10,)
+    assert profile[5] == pytest.approx(10.0)
+
+
+def test_extract_profile_with_mask():
+    """Test profile extraction with mask."""
+    data = np.zeros((10, 20), dtype=float)
+    for i in range(10):
+        data[i, :] = i * 2.0
+
+    mask = np.ones_like(data, dtype=bool)
+    mask[:, 10:] = False
+
+    profile = extract_profile(data, mask=mask, use_mean=True)
+
+    assert profile.shape == (10,)
+    assert profile[5] == pytest.approx(10.0)
+
+
+# =============================================================================
+# Tests for full preprocessing pipeline
+# =============================================================================
+
+
+def test_preprocess_data():
+    """Test complete preprocess_striations pipeline."""
+    np.random.seed(42)
+
+    height, width = 80, 80
+    x = np.arange(width)
+    y = np.arange(height)
+    X, Y = np.meshgrid(x, y)
+
+    # Create synthetic data with form + striations + noise
+    form = 0.001 * (Y - height / 2) ** 2
+    striations = np.sin(2 * np.pi * X / 10) * 0.01
+    noise = np.random.randn(height, width) * 0.001
+    depth_data = form + striations + noise
+
+    scan_image = ScanImage(data=depth_data, scale_x=1e-6, scale_y=1e-6)
+    params = PreprocessingStriationParams(
+        cutoff_hi=2000e-6,
+        cutoff_lo=250e-6,
+        cut_borders_after_smoothing=False,
+        angle_accuracy=0.5,
+        max_iter=10,
+    )
+    aligned, profile, mask, angle = preprocess_data(
+        scan_image=scan_image, params=params
+    )
+
+    assert aligned.shape[0] > 0
+    assert aligned.shape[1] > 0
+    assert profile.shape[0] == aligned.shape[0]
+    assert abs(angle) < 45
+
+
+# =============================================================================
+# Tests for MarkType and resampling utilities
+# =============================================================================
+
+
+def test_mark_type_scale():
+    """Test MarkType.scale property returns correct sampling distance."""
+    assert np.isclose(
+        MarkType.BULLET_GEA_STRIATION.scale,
+        1.5e-6,
+        rtol=1e-09,
+        atol=1e-09,
+    )
+    assert np.isclose(
+        MarkType.BREECH_FACE_IMPRESSION.scale,
+        3.5e-6,
+        rtol=1e-09,
+        atol=1e-09,
+    )
+    assert np.isclose(
+        MarkType.FIRING_PIN_DRAG_STRIATION.scale,
+        1.5e-6,
+        rtol=1e-09,
+        atol=1e-09,
+    )
+
+
+def test_resample_to_mark_type_scale():
+    """Test resampling to target sampling distance."""
+    np.random.seed(42)
+    data = np.random.randn(100, 100)
+    scale_x = 1.0e-6
+    scale_y = 1.0e-6
+    mark_type = MarkType.BULLET_GEA_STRIATION
+
+    scan_image = ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
+    resampled_scan, _ = resample_scan_image_and_mask(
+        scan_image, mask=None, target_scale=mark_type.scale, only_downsample=True
+    )
+
+    # With only_downsample=True, data with scale smaller than target (1.0e-6 < 1.5e-6)
+    # should be downsampled
+    assert resampled_scan.data.shape[0] < data.shape[0]
+    assert resampled_scan.data.shape[1] < data.shape[1]
+    assert np.isclose(resampled_scan.scale_x, 1.5e-6, rtol=1e-09, atol=1e-09)
+    assert np.isclose(resampled_scan.scale_y, 1.5e-6, rtol=1e-09, atol=1e-09)

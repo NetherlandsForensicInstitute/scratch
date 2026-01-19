@@ -29,7 +29,7 @@ ALPHA_REGRESSION = np.sqrt(
 
 def cutoff_to_gaussian_sigma(cutoff: float, pixel_size: float) -> float:
     """
-    Convert cutoff wavelength to Gaussian sigma for use with scipy's gaussian_filter.
+    Convert cutoff wavelength to Gaussian sigma.
 
     This function converts the ISO 16610 cutoff wavelength to a standard deviation (sigma)
     compatible with scipy.ndimage.gaussian_filter, which uses exp(-x²/(2σ²)).
@@ -44,6 +44,25 @@ def cutoff_to_gaussian_sigma(cutoff: float, pixel_size: float) -> float:
     cutoff_pixels = cutoff / pixel_size
     # σ = α·λc/√(2π) where α = √(ln(2)/π) is the ISO 16610 Gaussian constant
     return float(ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi))
+
+
+def gaussian_sigma_to_cutoff(sigma: float, pixel_size: float) -> float:
+    """
+    Convert Gaussian sigma to cutoff wavelength.
+
+    This is the inverse of cutoff_to_gaussian_sigma. It converts a standard deviation (sigma)
+    to the ISO 16610 cutoff wavelength.
+
+    The conversion derives from matching scipy's Gaussian exp(-x²/(2σ²))
+    to the ISO Gaussian G(x) = exp(-π(x/(α·λc))²), yielding λc = σ·√(2π)/α.
+
+    :param sigma: Gaussian sigma in pixel units.
+    :param pixel_size: Pixel spacing in physical units (e.g., meters).
+    :return: Cutoff wavelength in the same units as pixel_size.
+    """
+    # λc = σ·√(2π)/α where α = √(ln(2)/π) is the ISO 16610 Gaussian constant
+    cutoff_pixels = sigma * np.sqrt(2 * np.pi) / ALPHA_GAUSSIAN
+    return float(cutoff_pixels * pixel_size)
 
 
 def apply_gaussian_regression_filter(
@@ -108,7 +127,7 @@ def apply_gaussian_regression_filter(
     return data - smoothed if is_high_pass else smoothed
 
 
-def apply_gaussian_filter_1d_to_scan_image(
+def apply_gaussian_filter_1d(
     scan_image: ScanImage,
     cutoff: float,
     is_high_pass: bool = False,
@@ -179,7 +198,7 @@ def apply_gaussian_filter_1d_to_scan_image(
     return cropped_data, cropped_mask
 
 
-def apply_gaussian_filter_to_mark(
+def apply_gaussian_filter_mark(
     mark: Mark,
     cutoff: float,
     regression_order: int,
@@ -206,7 +225,7 @@ def apply_gaussian_filter_to_mark(
     return update_mark_data(mark, filtered_data)
 
 
-def apply_filtering_pipeline(
+def apply_filter_pipeline(
     mark: Mark,
     target_scale: Optional[float],
     lowpass_cutoff: Optional[float],
@@ -232,7 +251,7 @@ def apply_filtering_pipeline(
     if lowpass_cutoff is not None and (
         anti_alias_cutoff is None or lowpass_cutoff < anti_alias_cutoff
     ):
-        mark_filtered = apply_gaussian_filter_to_mark(
+        mark_filtered = apply_gaussian_filter_mark(
             mark,
             lowpass_cutoff,
             lowpass_regression_order,

@@ -15,8 +15,8 @@ class PreprocessingStriationParams:
     :param shape_noise_removal: If True, apply shape and noise removal filters.
     """
 
-    cutoff_hi: float = 2000e-6
-    cutoff_lo: float = 250e-6
+    cutoff_hi: float = 2e-3
+    cutoff_lo: float = 2.5e-4
     cut_borders_after_smoothing: bool = True
     use_mean: bool = True
     angle_accuracy: float = 0.1

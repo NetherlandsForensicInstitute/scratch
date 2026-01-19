@@ -10,8 +10,8 @@ from container_models.base import ScanMap2DArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
-    apply_gaussian_filter_to_mark,
-    apply_filtering_pipeline,
+    apply_gaussian_filter_mark,
+    apply_filter_pipeline,
 )
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import crop_to_mask
@@ -59,7 +59,7 @@ def preprocess_impression_mark(
     mark_leveled, fitted_surface = _level_mark(mark, params.surface_terms)
 
     # Stage 4-5: Filtering (antialiasing + low-pass)
-    mark_filtered, mark_anti_aliased, anti_alias_cutoff = apply_filtering_pipeline(
+    mark_filtered, mark_anti_aliased, anti_alias_cutoff = apply_filter_pipeline(
         mark_leveled,
         target_scale=params.pixel_size,
         lowpass_cutoff=params.lowpass_cutoff,
@@ -87,7 +87,7 @@ def preprocess_impression_mark(
 
     # Stage 7: High-pass filter
     if params.highpass_cutoff is not None:
-        mark_filtered = apply_gaussian_filter_to_mark(
+        mark_filtered = apply_gaussian_filter_mark(
             mark_filtered,
             params.highpass_cutoff,
             params.highpass_regression_order,

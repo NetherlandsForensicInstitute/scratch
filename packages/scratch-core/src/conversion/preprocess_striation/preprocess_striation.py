@@ -7,15 +7,18 @@ This module implements the PreprocessData pipeline with the following steps:
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.ndimage import gaussian_filter, map_coordinates
+from scipy.ndimage import map_coordinates
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
 from conversion.filter import (
     cutoff_to_gaussian_sigma,
-    apply_gaussian_filter_1d_to_scan_image,
+    gaussian_sigma_to_cutoff,
+    apply_gaussian_filter_1d,
+    apply_gaussian_regression_filter,
 )
+
 from conversion.mask import _determine_bounding_box
 from conversion.resample import resample_scan_image_and_mask, resample_image_array
 from conversion.preprocess_striation.parameters import PreprocessingStriationParams
@@ -78,7 +81,7 @@ def apply_shape_noise_removal(
     cut_borders = (2 * sigma) <= (scan_image.height * 0.2)
 
     # Shape removal (highpass filter)
-    data_high_pass, mask_high_pass = apply_gaussian_filter_1d_to_scan_image(
+    data_high_pass, mask_high_pass = apply_gaussian_filter_1d(
         scan_image=scan_image,
         cutoff=highpass_cutoff,
         is_high_pass=True,
@@ -90,7 +93,7 @@ def apply_shape_noise_removal(
     intermediate_scan_image = scan_image.model_copy(update={"data": data_high_pass})
 
     # Noise removal (lowpass filter)
-    data_no_noise, mask_no_noise = apply_gaussian_filter_1d_to_scan_image(
+    data_no_noise, mask_no_noise = apply_gaussian_filter_1d(
         scan_image=intermediate_scan_image,
         cutoff=lowpass_cutoff,
         is_high_pass=False,
@@ -99,35 +102,6 @@ def apply_shape_noise_removal(
     )
 
     return data_no_noise, mask_no_noise
-
-
-def _smooth_2d(
-    data: NDArray[np.floating],
-    sigma: float | tuple[float, float],
-) -> NDArray[np.floating]:
-    """
-    Apply 2D Gaussian smoothing to data with NaN handling.
-
-    :param data: 2D array to smooth.
-    :param sigma: Gaussian sigma (scalar or (sigma_row, sigma_col)).
-    :returns: Smoothed data array.
-    """
-    if np.any(np.isnan(data)):
-        # NaN-aware smoothing: replace NaN with 0, track weights
-        mask = ~np.isnan(data)
-        data_filled = np.where(mask, data, 0.0)
-        weights = mask.astype(float)
-
-        smoothed_data = gaussian_filter(data_filled, sigma, mode="nearest")
-        smoothed_weights = gaussian_filter(weights, sigma, mode="nearest")
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            result = smoothed_data / smoothed_weights
-            result[smoothed_weights == 0] = np.nan
-
-        return result
-    else:
-        return gaussian_filter(data, sigma, mode="nearest")
 
 
 def _rotate_data_by_shifting_profiles(
@@ -224,9 +198,6 @@ def _rotate_image_grad_vector(
     if scale_x < 1e-6:
         sub_samp = round(1e-6 / scale_x) * extra_sub_samp
 
-    # Determine sigma for smoothing (minimum of 3)
-    sigma = max(3, round(1.75e-5 / scale_x / sub_samp))
-
     # Resample data (only columns, matching MATLAB's resample function)
     data_subsampled = depth_data
     mask_subsampled = mask
@@ -236,8 +207,19 @@ def _rotate_image_grad_vector(
         if mask is not None:
             mask_subsampled = resample_image_array(mask, factors=(sub_samp, 1)) > 0.5
 
-    # Smooth data
-    smoothed = _smooth_2d(data_subsampled, (sigma, sigma))
+    # Smooth data using Gaussian filter (MATLAB-equivalent)
+    # Original: sigma = max(3, round(1.75e-5 / effective_pixel_size)) in pixels
+    effective_pixel_size = scale_x * sub_samp
+    sigma_pixels = max(3, round(1.75e-5 / effective_pixel_size))
+    smoothing_cutoff = gaussian_sigma_to_cutoff(sigma_pixels, effective_pixel_size)
+
+    smoothed = apply_gaussian_regression_filter(
+        data_subsampled,
+        cutoff_length=smoothing_cutoff,
+        pixel_size=(effective_pixel_size, effective_pixel_size),
+        regression_order=0,
+        nan_out=True,
+    )
 
     # Calculate gradient
     fy, fx = np.gradient(smoothed)
