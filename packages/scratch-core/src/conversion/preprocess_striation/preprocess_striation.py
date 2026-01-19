@@ -437,6 +437,38 @@ def fine_align_bullet_marks(
     return result_scan, result_mask, a_tot
 
 
+def _propagate_nan(data: NDArray[np.floating]) -> NDArray[np.floating]:
+    """
+    Propagate NaN values to adjacent pixels in the down and right directions.
+
+    This matches MATLAB's asymmetric NaN propagation behavior where pixels
+    immediately above or to the left of NaN regions are also set to NaN.
+    The asymmetry comes from MATLAB's filtering direction (y-axis first,
+    then x-axis) using causal boundary handling.
+
+    :param data: 2D array with potential NaN values.
+    :returns: Array with NaN propagated to up/left neighbors of NaN regions.
+    """
+    if not np.any(np.isnan(data)):
+        return data
+
+    result = data.copy()
+    nan_mask = np.isnan(data)
+
+    # Dilate NaN mask: if position (r+1, c) is NaN, then (r, c) becomes NaN
+    # This means NaN propagates upward from NaN regions
+    dilated = nan_mask.copy()
+
+    # Down: if NaN at (r+1, c), set NaN at (r, c)
+    dilated[:-1, :] |= nan_mask[1:, :]
+    # Right: if NaN at (r, c+1), set NaN at (r, c)
+    dilated[:, :-1] |= nan_mask[:, 1:]
+
+    # Apply dilated mask
+    result[dilated] = np.nan
+    return result
+
+
 def extract_profile(
     depth_data: NDArray[np.floating],
     mask: MaskArray | None = None,
@@ -523,6 +555,9 @@ def preprocess_data(
             extra_sub_samp=params.extra_sub_samp,
         )
         data_aligned = aligned_scan.data
+
+    # Propagate NaN to adjacent pixels to match MATLAB's asymmetric NaN handling
+    data_aligned = _propagate_nan(data_aligned)
 
     # Extract profile
     profile = extract_profile(data_aligned, mask=mask_aligned, use_mean=params.use_mean)

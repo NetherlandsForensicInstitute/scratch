@@ -256,10 +256,6 @@ def _apply_nan_weighted_gaussian_1d(
     via normalized convolution. Uses the same FFT-based approach as
     apply_gaussian_regression_filter with regression_order=0.
 
-    Matches MATLAB SmoothMod.m behavior:
-      - Data with NaNs: Uses zero padding + normalized convolution (like NanConv with 'edge')
-      - Data without NaNs: Uses symmetric padding (like DIPimage smooth())
-
     :param data: 2D input array containing float data. May contain NaNs.
     :param cutoff_length: The filter cutoff wavelength in physical units.
     :param pixel_size: Pixel spacing in the same units as cutoff_length.
@@ -269,8 +265,26 @@ def _apply_nan_weighted_gaussian_1d(
     """
     cutoff_pixels = cutoff_length / pixel_size
 
-    # Create 1D kernel for the specified axis
-    kernel_1d = _create_normalized_1d_kernel(ALPHA_GAUSSIAN, cutoff_pixels)
+    # TODO: Determining the kernel_size is different for whether the data contains nans or not. This is legacy from
+    # MATLAB code. Preference would be to use 1 determination of the kernel_size and then preferably the scipy default.
+    nan_mask = np.isnan(data)
+    has_nans = np.any(nan_mask)
+
+    mode = "constant" if has_nans else "symmetric"
+
+    # Calculate kernel size based on NaN presence
+    sigma = ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi)
+    if has_nans:
+        kernel_size = int(np.ceil(4 * sigma))
+        if kernel_size % 2 == 0:
+            kernel_size += 1
+    else:
+        radius = int(np.ceil(3 * sigma))
+        kernel_size = 2 * radius + 1
+
+    kernel_1d = _create_normalized_1d_kernel(
+        ALPHA_GAUSSIAN, cutoff_pixels, size=kernel_size
+    )
 
     # Set up separable kernels based on axis
     if axis == 0:
@@ -280,13 +294,12 @@ def _apply_nan_weighted_gaussian_1d(
         kernel_y = np.array([1.0])
         kernel_x = kernel_1d
 
-    # Match MATLAB SmoothMod.m: different boundary modes based on NaN presence
-    # - NaNs present: zero padding + edge correction via normalization (NanConv path)
-    # - No NaNs: symmetric padding (DIPimage smooth() path)
-    has_nans = np.any(np.isnan(data))
-    mode = "constant" if has_nans else "symmetric"
-
     smoothed = _apply_order0_filter(data, kernel_x, kernel_y, mode=mode)
+
+    # Preserve input NaN positions
+    if has_nans:
+        smoothed[nan_mask] = np.nan
+
     return data - smoothed if is_high_pass else smoothed
 
 
@@ -363,7 +376,7 @@ def _create_normalized_separable_kernels(
 def _create_normalized_1d_kernel(
     alpha: float,
     cutoff_pixel: float,
-    size: Optional[int] = None,
+    size: int,
 ) -> NDArray[np.floating]:
     """
     Create a normalized 1D Gaussian kernel using ISO 16610 formula.
@@ -372,18 +385,10 @@ def _create_normalized_1d_kernel(
 
     :param alpha: The Gaussian constant (ISO 16610).
     :param cutoff_pixel: Cutoff wavelength in pixel units.
-    :param size: Kernel size (must be odd). If None, auto-calculate from cutoff.
+    :param size: Kernel size (must be odd).
     :returns: Normalized 1D Gaussian kernel that sums to 1.
     """
-    if size is None:
-        # Auto-calculate size to match scipy.ndimage truncation (4 standard deviations)
-        # Convert ISO parameterization to sigma for size calculation
-        sigma = alpha * cutoff_pixel / np.sqrt(2 * np.pi)
-        truncate = 4.0
-        radius = int(truncate * sigma + 0.5)
-    else:
-        # Use provided size
-        radius = (size - 1) // 2
+    radius = (size - 1) // 2
 
     # Create coordinate vector centered at 0
     coords = np.arange(-radius, radius + 1)
@@ -408,15 +413,15 @@ def _convolve_2d_separable(
     :param data: 2D input array.
     :param kernel_x: 1D horizontal kernel.
     :param kernel_y: 1D vertical kernel.
-    :param mode: Padding mode - "constant" (zero), "reflect", or "symmetric".
+    :param mode: Padding mode - "constant" (zero), "edge" (replicate), or "symmetric".
     :returns: Convolved array of same shape as input.
     """
     if mode == "constant":
         # Original behavior - zero padding (implicit in fftconvolve)
         temp = fftconvolve(data, kernel_y[:, np.newaxis], mode="same")
         return fftconvolve(temp, kernel_x[np.newaxis, :], mode="same")
-    elif mode == "symmetric":
-        # For symmetric modes, pad data explicitly
+    elif mode in ("symmetric", "edge"):
+        # For non-zero padding modes, pad data explicitly
         pad_y = len(kernel_y) // 2
         pad_x = len(kernel_x) // 2
 

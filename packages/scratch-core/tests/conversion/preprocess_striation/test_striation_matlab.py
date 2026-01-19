@@ -291,21 +291,8 @@ class TestPreprocessDataMatlabComparison:
     """Test Python PreprocessData against MATLAB reference outputs."""
 
     # Thresholds for comparison
-    CORRELATION_THRESHOLD = 0.999
-    RELATIVE_STD_THRESHOLD = 0.01
-
-    # Looser thresholds for cases with masks (edge effects)
-    CORRELATION_THRESHOLD_MASKED = 0.99
-    RELATIVE_STD_THRESHOLD_MASKED = 0.05
-
-    def _get_thresholds(self, test_case: MatlabTestCase) -> tuple[float, float]:
-        """Get correlation and relative std thresholds based on test case."""
-        if test_case.has_mask:
-            return (
-                self.CORRELATION_THRESHOLD_MASKED,
-                self.RELATIVE_STD_THRESHOLD_MASKED,
-            )
-        return self.CORRELATION_THRESHOLD, self.RELATIVE_STD_THRESHOLD
+    CORRELATION_THRESHOLD = 0.9999
+    RELATIVE_STD_THRESHOLD = 0.003
 
     def test_processed_output_correlation(self, test_case: MatlabTestCase):
         """Test that processed output has high correlation with MATLAB."""
@@ -316,12 +303,10 @@ class TestPreprocessDataMatlabComparison:
             python_depth, test_case.output_depth_data, center_crop=test_case.has_mask
         )
         correlation = _compute_correlation(python_depth, matlab_depth)
-        corr_threshold, _ = self._get_thresholds(test_case)
 
-        assert correlation > corr_threshold, (
+        assert correlation > self.CORRELATION_THRESHOLD, (
             f"Test case {test_case.name}: "
-            f"Processed correlation {correlation:.6f} below threshold {corr_threshold}"
-            f"{' (masked)' if test_case.has_mask else ''}"
+            f"Processed correlation {correlation:.6f} below threshold {self.CORRELATION_THRESHOLD}"
         )
 
     def test_processed_output_difference(self, test_case: MatlabTestCase):
@@ -337,12 +322,9 @@ class TestPreprocessDataMatlabComparison:
         signal_std = np.nanstd(test_case.output_depth_data)
         relative_std = stats["std"] / signal_std if signal_std > 0 else np.inf
 
-        _, std_threshold = self._get_thresholds(test_case)
-
-        assert relative_std < std_threshold, (
+        assert relative_std < self.RELATIVE_STD_THRESHOLD, (
             f"Test case {test_case.name}: "
-            f"Relative std {relative_std:.6f} above threshold {std_threshold}"
-            f"{' (masked)' if test_case.has_mask else ''}"
+            f"Relative std {relative_std:.6f} above threshold {self.RELATIVE_STD_THRESHOLD}"
         )
 
     def test_output_shape(self, test_case: MatlabTestCase):
@@ -376,6 +358,9 @@ class TestPreprocessDataMatlabComparison:
             f"(MATLAB: {matlab_shape[1]}, Python: {python_shape[1]})"
         )
 
+    # Profile correlation threshold (mean/median of columns can amplify differences)
+    PROFILE_CORRELATION_THRESHOLD = 0.997
+
     def test_profile_correlation(self, test_case: MatlabTestCase):
         """Test that mean/median profile has high correlation with MATLAB."""
         if test_case.output_profile is None:
@@ -389,6 +374,10 @@ class TestPreprocessDataMatlabComparison:
         # Ensure 1D arrays
         python_profile = np.asarray(python_profile).flatten()
         matlab_profile = np.asarray(test_case.output_profile).flatten()
+
+        # Skip if MATLAB profile is all-NaN (edge case)
+        if np.all(np.isnan(matlab_profile)):
+            pytest.skip("MATLAB profile is all-NaN (edge case)")
 
         # Use center cropping for mask cases (MATLAB extracts central region)
         min_len = min(len(python_profile), len(matlab_profile))
@@ -406,10 +395,9 @@ class TestPreprocessDataMatlabComparison:
             python_profile.reshape(-1, 1), matlab_profile.reshape(-1, 1)
         )
 
-        corr_threshold, _ = self._get_thresholds(test_case)
-        assert correlation > corr_threshold, (
+        assert correlation > self.PROFILE_CORRELATION_THRESHOLD, (
             f"Test case {test_case.name}: "
-            f"Profile correlation {correlation:.6f} below threshold {corr_threshold}"
+            f"Profile correlation {correlation:.6f} below threshold {self.PROFILE_CORRELATION_THRESHOLD}"
         )
 
     def test_rotation_angle(self, test_case: MatlabTestCase):

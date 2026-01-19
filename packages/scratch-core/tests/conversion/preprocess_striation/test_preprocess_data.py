@@ -47,8 +47,8 @@ def test_apply_nan_weighted_gaussian_1d():
         data, cutoff_length=10.0, pixel_size=1.0, axis=0
     )
 
-    # Result should not have NaN propagation (NaN is interpolated)
-    assert not np.isnan(result[10, 5])
+    # NaN positions should be preserved
+    assert np.isnan(result[10, 5])
     # Non-NaN regions should remain close to 1.0
     assert result[0, 0] == pytest.approx(1.0, rel=0.1)
 
