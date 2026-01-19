@@ -10,7 +10,6 @@ from conversion.export.mark import (
     ExportedMarkData,
     ScanImageMetaData,
     _check_file_exists,
-    _load_binary,
     _to_json,
     from_path,
     save,
@@ -22,26 +21,15 @@ import pytest
 
 
 @pytest.fixture
-def sample_scan_image() -> ScanImage:
-    """
-    Create a sample ScanImage for testing.
-
-    :returns: ScanImage instance with test data
-    """
-    data = np.array([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]])
-    return ScanImage(data=data, scale_x=1.5, scale_y=2.0)
-
-
-@pytest.fixture
-def sample_mark_with_center(sample_scan_image: ScanImage) -> Mark:
+def sample_mark_with_center(scan_image_rectangular_with_nans: ScanImage) -> Mark:
     """
     Create a sample Mark with explicit center for testing.
 
-    :param sample_scan_image: ScanImage fixture
+    :param scan_image_rectangular_with_nans: ScanImage fixture
     :returns: Mark instance with test data and explicit center
     """
     mark = Mark(
-        scan_image=sample_scan_image,
+        scan_image=scan_image_rectangular_with_nans,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
         crop_type=CropType.RECTANGLE,
         meta_data={"key": "value", "source": "test"},
@@ -51,15 +39,15 @@ def sample_mark_with_center(sample_scan_image: ScanImage) -> Mark:
 
 
 @pytest.fixture
-def sample_mark_without_center(sample_scan_image: ScanImage) -> Mark:
+def sample_mark_without_center(scan_image_rectangular_with_nans: ScanImage) -> Mark:
     """
     Create a sample Mark without explicit center for testing.
 
-    :param sample_scan_image: ScanImage fixture
+    :param scan_image_rectangular_with_nans: ScanImage fixture
     :returns: Mark instance with computed center
     """
     return Mark(
-        scan_image=sample_scan_image,
+        scan_image=scan_image_rectangular_with_nans,
         mark_type=MarkType.FIRING_PIN_IMPRESSION,
         crop_type=CropType.CIRCLE,
         meta_data={},
@@ -303,14 +291,16 @@ class TestHelperFunctions:
         )
         assert data["meta_data"] == sample_mark_with_center.meta_data
 
-    def test_to_json_format_striation_mark(self, sample_scan_image: ScanImage) -> None:
+    def test_to_json_format_striation_mark(
+        self, scan_image_rectangular_with_nans: ScanImage
+    ) -> None:
         """
         Test JSON serialization format for striation mark.
 
-        :param sample_scan_image: ScanImage fixture
+        :param scan_image_rectangular_with_nans: ScanImage fixture
         """
         striation_mark = Mark(
-            scan_image=sample_scan_image,
+            scan_image=scan_image_rectangular_with_nans,
             mark_type=MarkType.EJECTOR_STRIATION,
             crop_type=CropType.POLYGON,
         )
@@ -324,7 +314,7 @@ class TestHelperFunctions:
         assert data["center"] == [5.0, 10.0]
 
     def test_load_binary_correct_data(
-        self, sample_mark_with_center: Mark, temp_dir: Path
+        self, sample_mark_with_center: Mark, temp_dir: Path, filename: str = "test_mark"
     ) -> None:
         """
         Test binary loading returns correct array.
@@ -332,12 +322,10 @@ class TestHelperFunctions:
         :param sample_mark_with_center: Mark fixture
         :param temp_dir: Temporary directory fixture
         """
-        npz_file = temp_dir / "test.npz"
-        np.savez_compressed(npz_file, data=sample_mark_with_center.scan_image.data)
-
-        loaded_data = _load_binary(npz_file)
+        save(sample_mark_with_center, temp_dir, filename)
+        loaded_mark = from_path(temp_dir, filename)
         np.testing.assert_array_equal(
-            loaded_data, sample_mark_with_center.scan_image.data
+            sample_mark_with_center.scan_image.data, loaded_mark.scan_image.data
         )
 
     def test_check_file_exists_valid(self, temp_dir: Path) -> None:
@@ -362,17 +350,17 @@ class TestHelperFunctions:
             _check_file_exists(temp_dir / "nonexistent.txt")
 
     def test_save_and_load_all_mark_types(
-        self, sample_scan_image: ScanImage, temp_dir: Path
+        self, scan_image_rectangular_with_nans: ScanImage, temp_dir: Path
     ) -> None:
         """
         Test save and load works for all MarkType enum values.
 
-        :param sample_scan_image: ScanImage fixture
+        :param scan_image_rectangular_with_nans: ScanImage fixture
         :param temp_dir: Temporary directory fixture
         """
         for mark_type in MarkType:
             mark = Mark(
-                scan_image=sample_scan_image,
+                scan_image=scan_image_rectangular_with_nans,
                 mark_type=mark_type,
                 crop_type=CropType.RECTANGLE,
             )
@@ -385,17 +373,17 @@ class TestHelperFunctions:
             assert loaded_mark.mark_type == mark_type
 
     def test_save_and_load_all_crop_types(
-        self, sample_scan_image: ScanImage, temp_dir: Path
+        self, scan_image_rectangular_with_nans: ScanImage, temp_dir: Path
     ) -> None:
         """
         Test save and load works for all CropType enum values.
 
-        :param sample_scan_image: ScanImage fixture
+        :param scan_image_rectangular_with_nans: ScanImage fixture
         :param temp_dir: Temporary directory fixture
         """
         for crop_type in CropType:
             mark = Mark(
-                scan_image=sample_scan_image,
+                scan_image=scan_image_rectangular_with_nans,
                 mark_type=MarkType.FIRING_PIN_IMPRESSION,
                 crop_type=crop_type,
             )
