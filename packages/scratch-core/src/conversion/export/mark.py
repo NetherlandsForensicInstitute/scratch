@@ -10,22 +10,22 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
-from container_models.base import ScanMap2DArray
+from container_models.base import ScanMap2DArray, ConfigBaseModel
 from container_models.scan_image import ScanImage
 
 from conversion.data_formats import CropType, Mark, MarkType
 
 
-class ScanImageMetaData(BaseModel):
+class ScanImageMetaData(ConfigBaseModel):
     """Metadata for scan image scaling information."""
 
     scale_x: float
     scale_y: float
 
 
-class ExportedMarkData(BaseModel):
+class ExportedMarkData(ConfigBaseModel):
     """Validated data structure for exported Mark metadata."""
 
     mark_type: MarkType
