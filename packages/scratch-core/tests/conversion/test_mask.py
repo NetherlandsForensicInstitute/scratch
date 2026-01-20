@@ -130,11 +130,11 @@ class TestDetermineBoundingBox:
     @pytest.mark.parametrize(
         "margin, output_slice",
         [
-            pytest.param(None, slice(6, 6), id="Normal bounding box, no margin"),
-            pytest.param(0, slice(6, 6), id="Normal bounding box, no marginx"),
-            pytest.param(1, slice(4, 4), id="Decrease bounding box"),
-            pytest.param(-1, slice(8, 8), id="Increase bounding box"),
-            pytest.param(-5, slice(10, 10), id="Margin bounding box out of bounds"),
+            pytest.param(None, slice(2, 8), id="Normal bounding box, no margin"),
+            pytest.param(0, slice(2, 8), id="Normal bounding box, no marginx"),
+            pytest.param(1, slice(3, 7), id="Decrease bounding box"),
+            pytest.param(-1, slice(1, 9), id="Increase bounding box"),
+            pytest.param(-5, slice(0, 10), id="Margin bounding box out of bounds"),
         ],
     )
     def test_bounding_box_slices_with_margin(

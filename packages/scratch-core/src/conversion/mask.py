@@ -50,7 +50,7 @@ def _determine_bounding_box(
 
     :param mask: Binary mask array
     :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box
-    :return: Tuple of (y_slice, x_slice) for the bounding box
+    :return: Tuple of (x_slice, y_slice) for the bounding box
     """
     non_zero_coords = np.nonzero(mask)
     if not non_zero_coords[0].size:
