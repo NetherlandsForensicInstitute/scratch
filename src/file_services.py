@@ -1,5 +1,6 @@
 """File service utilities for directory and resource management."""
 
+from collections.abc import Iterator
 from http import HTTPStatus
 from pathlib import Path
 from uuid import UUID
@@ -32,7 +33,7 @@ def create_vault(tag: str) -> DirectoryAccess:
     return vault
 
 
-def fetch_resource_path(token: UUID) -> Path:
+def fetch_directory_access(token: UUID) -> DirectoryAccess:
     """
     Fetch the resource directory path by verifying filesystem existence.
 
@@ -49,12 +50,34 @@ def fetch_resource_path(token: UUID) -> Path:
        The path is constructed using the pattern: {storage}/{tag}-{token.hex}
     """
     if resource := next(get_settings().storage.glob(f"*-{token.hex}", case_sensitive=True), None):
-        return resource
+        tag, _ = resource.name.rsplit("-", maxsplit=1)
+        return DirectoryAccess.model_construct(token=token, tag=tag)
     logger.error(f"Directory not found for token '{token}'")
     raise HTTPException(HTTPStatus.UNPROCESSABLE_ENTITY, f"Unable to fetch resources of token '{token}'")
 
 
-def get_files(resource_directory: Path, **filenames: str) -> dict[str, Path]:
+def fetch_resource_file(resource_path: Path, filename: Path | str) -> Path:
+    """
+    Fetch a resource file from a given resource path with security validation.
+
+    Validates that the requested file exists and is within the allowed storage directory
+    to prevent path traversal attacks.
+
+    :param resource_path: The base resource directory path.
+    :param filename: The filename to retrieve.
+    :return: The validated absolute path to the file.
+    :raises HTTPException: 403 if path traversal detected, 404 if file not found.
+    """
+    filepath = resource_path / filename
+    if not filepath.resolve().is_relative_to(get_settings().storage.resolve()):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Access denied")
+
+    if not filepath.exists():
+        raise HTTPException(HTTPStatus.NOT_FOUND, f"File {filename} not found.")
+    return filepath
+
+
+def generate_files(resource_directory: Path, **filenames: str) -> dict[str, Path]:
     """
     Generate file paths within this directory's resource path.
 
@@ -69,13 +92,13 @@ def get_files(resource_directory: Path, **filenames: str) -> dict[str, Path]:
     .. rubric:: Examples
 
     >>> vault = DirectoryAccess(tag="my-project")
-    >>> paths = get_files(vault.resource_path, scan="scan.x3p", preview="preview.png")
+    >>> paths = generate_files(vault.resource_path, scan="scan.x3p", preview="preview.png")
     >>> paths["scan"]  # Returns Path like: /tmp/scratch_api/my-project-abc123/scan.x3p
     """
     return {field: resource_directory / file for field, file in filenames.items()}
 
 
-def get_urls(access_url: str, **filenames: str) -> dict[str, HttpUrl]:
+def generate_urls(access_url: str, *files: Path) -> Iterator[HttpUrl]:
     """
     Generate access URLs for files within this directory.
 
@@ -90,10 +113,10 @@ def get_urls(access_url: str, **filenames: str) -> dict[str, HttpUrl]:
     .. rubric:: Examples
 
     >>> vault = DirectoryAccess(tag="my-project")
-    >>> urls = get_urls(vault.access_url, scan="scan.x3p", preview="preview.png")
+    >>> urls = generate_urls(vault.access_url, scan="scan.x3p", preview="preview.png")
     >>> str(urls["scan"])  # Returns: http://localhost:8000/files/{token}/my-project/scan.x3p
 
     .. note::
        URLs are validated as proper HTTP URLs via Pydantic's HttpUrl type.
     """
-    return {field: HttpUrl(url=f"{access_url}/{file}") for field, file in filenames.items()}
+    return (HttpUrl(url=f"{access_url}/{file.name}") for file in files)

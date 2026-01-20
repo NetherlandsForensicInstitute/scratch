@@ -5,7 +5,7 @@ from loguru import logger
 
 from constants import PREPROCESSOR_ROUTE
 from extractors.schemas import ProcessDataUrls
-from file_services import create_vault, get_files, get_urls
+from file_services import create_vault, generate_files, generate_urls
 
 from .pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
 from .schemas import EditImage, UploadScan
@@ -53,17 +53,15 @@ async def process_scan(upload_scan: UploadScan) -> ProcessDataUrls:
     :param upload_scan: The uploaded scan data and parameters.
     :return: Access URLs for the generated files.
     """
-    vault = create_vault(upload_scan.tag)
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.parameters)
-    files = get_files(vault.resource_path, scan="scan.x3p", preview="preview.png", surface_map="surface_map.png")
-    x3p_pipeline(parsed_scan, files["scan"])
-    surface_map_pipeline(parsed_scan, files["surface_map"], upload_scan.parameters)
-    preview_pipeline(parsed_scan, files["preview"])
+    vault = create_vault(upload_scan.tag)
+    files = generate_files(vault.resource_path, scan="scan.x3p", preview="preview.png", surface_map="surface_map.png")
+    scan = x3p_pipeline(parsed_scan, files["scan"])
+    surface_map = surface_map_pipeline(parsed_scan, files["surface_map"], upload_scan.parameters)
+    preview = preview_pipeline(parsed_scan, files["preview"])
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessDataUrls.model_validate(
-        get_urls(vault.access_url, scan="scan.x3p", preview="preview.png", surface_map="surface_map.png").values()
-    )
+    return ProcessDataUrls.model_validate(generate_urls(vault.access_url, scan, preview, surface_map))
 
 
 @preprocessor_route.post(
@@ -94,4 +92,4 @@ async def edit_scan(edit_image: EditImage) -> ProcessDataUrls:
     vault = create_vault(edit_image.tag)
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessDataUrls.model_validate(get_urls(vault.access_url, **{}).values())
+    return ProcessDataUrls(root=tuple(generate_urls(vault.access_url, **{})))
