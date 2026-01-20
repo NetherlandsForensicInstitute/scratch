@@ -7,9 +7,9 @@ with NPZ binary data, and load them back into memory.
 
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, TypeVar
 
-from pydantic import Field, field_validator
+from pydantic import BeforeValidator, Field
 
 from container_models.base import ConfigBaseModel
 from container_models.scan_image import ScanImage
@@ -23,42 +23,41 @@ from .utils import (
 )
 
 
-class ExportedMarkData(ConfigBaseModel):
-    """Validated data structure for exported Mark metadata."""
+E = TypeVar("E", bound=Enum)
 
-    mark_type: MarkType
-    crop_type: CropType
-    center: tuple[float, float]
-    scale_x: float = Field(..., gt=0)
-    scale_y: float = Field(..., gt=0)
-    meta_data: dict[str, Any] = Field(default_factory=dict)
 
-    @staticmethod
-    def _validate_enum_value(value: str, enum_class: type[Enum]) -> None:
-        """Validate that a string value exists in an enum."""
-        if value.upper() not in enum_class.__members__:
+def validate_enum_string(enum_class: type[E]) -> Any:
+    """
+    Create a BeforeValidator for enum validation.
+
+    :param enum_class: The enum class to validate against
+    :returns: BeforeValidator function
+    """
+
+    def validator(value: str | E) -> E:
+        if isinstance(value, enum_class):
+            return value
+
+        value_str = str(value).upper()
+        if value_str not in enum_class.__members__:
             raise ValueError(
                 f"Invalid {enum_class.__name__}: '{value}'. "
                 f"Must be one of {list(enum_class.__members__.keys())}"
             )
+        return enum_class[value_str]
 
-    @field_validator("mark_type", mode="before")
-    @classmethod
-    def validate_mark_type(cls, value: str | MarkType) -> MarkType:
-        """Validate and convert a value to MarkType enum."""
-        if isinstance(value, MarkType):
-            return value
-        cls._validate_enum_value(value, MarkType)
-        return MarkType[value.upper()]
+    return BeforeValidator(validator)
 
-    @field_validator("crop_type", mode="before")
-    @classmethod
-    def validate_crop_type(cls, value: str | CropType) -> CropType:
-        """Validate and convert a value to CropType enum."""
-        if isinstance(value, CropType):
-            return value
-        cls._validate_enum_value(value, CropType)
-        return CropType[value.upper()]
+
+class ExportedMarkData(ConfigBaseModel):
+    """Validated data structure for exported Mark metadata."""
+
+    mark_type: Annotated[MarkType, validate_enum_string(MarkType)]
+    crop_type: Annotated[CropType, validate_enum_string(CropType)]
+    center: tuple[float, float]
+    scale_x: float = Field(..., gt=0)
+    scale_y: float = Field(..., gt=0)
+    meta_data: dict[str, Any] = Field(default_factory=dict)
 
 
 def save_mark(mark: Mark, path: Path, stem: str) -> None:
