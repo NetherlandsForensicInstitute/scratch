@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+from enum import StrEnum, auto
+from functools import cached_property
+from typing import Annotated, Self
+
+import numpy as np
 from container_models.light_source import LightSource
+from numpy.typing import NDArray
 from pydantic import (
+    AfterValidator,
     Field,
     PositiveFloat,
     PositiveInt,
+    model_validator,
 )
+from scipy.constants import micro
 
 from constants import ImpressionMarks, MaskTypes, StriationMarks
 from models import (
@@ -94,3 +103,98 @@ class PrepareMarkImpression(BaseParameters):
         None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
     )
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
+
+
+class Terms(StrEnum):
+    """Surface fitting terms for leveling operations."""
+
+    PLANE = auto()
+    SPHERE = auto()
+
+
+class RegressionOrder(StrEnum):
+    """Polynomial regression order for surface leveling."""
+
+    RO = auto()
+    R1 = auto()
+    R2 = auto()
+
+
+type Mask = tuple[tuple[bool, ...], ...]
+
+
+class EditImage(BaseParameters):
+    """Request model for editing and transforming processed scan images."""
+
+    mask: Mask = Field(
+        description=(
+            "Binary mask defining regions to include (True/1) or exclude (False/0) during processing. "
+            "Accepts both boolean (True/False) and integer (1/0) representations. "
+            "Must be a 2D tuple structure matching the scan dimensions."
+        ),
+        examples=[
+            ((1, 0), (0, 1)),  # Integer format
+            ((True, False), (False, True)),  # Boolean format
+        ],
+    )
+    cutoff_length: Annotated[PositiveFloat, AfterValidator(lambda x: x * micro)] = Field(
+        description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "
+        "Defines the spatial frequency threshold for surface texture analysis.",
+        examples=[250, 500, 1000],
+    )
+    resampling_factor: PositiveFloat = Field(
+        default=4,
+        description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
+        examples=[2, 4, 8],
+    )
+    terms: Terms = Field(
+        default=Terms.PLANE,
+        description=(
+            "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
+        ),
+    )
+    regression_order: RegressionOrder = Field(
+        default=RegressionOrder.RO,
+        description="Polynomial regression order for surface fitting. R0 (constant), R1 (linear), or R2 (quadratic).",
+    )
+    crop: bool = Field(
+        default=False,
+        description="Whether to crop the image to the non-masked region.",
+    )
+    step_size_x: PositiveInt = Field(
+        1,
+        description="Subsampling step size in x-direction. Values > 1 reduce resolution by skipping pixels.",
+        examples=[1, 2, 4],
+    )
+    step_size_y: PositiveInt = Field(
+        1,
+        description="Subsampling step size in y-direction. Values > 1 reduce resolution by skipping pixels.",
+        examples=[1, 2, 4],
+    )
+
+    @model_validator(mode="after")
+    def validate_mask_is_2d(self) -> Self:
+        """
+        Validate that the mask is a valid 2D array structure.
+
+        Ensures the mask can be converted to a numpy array and has exactly
+        2 dimensions, as required for image masking operations.
+        """
+        try:
+            self.mask_array
+        except (ValueError, TypeError) as e:
+            raise ValueError("Bad mask value: unable to capture mask") from e
+        if not self.mask_array.ndim == 2:  # noqa: PLR2004
+            raise ValueError(f"Mask is not a 2D image: D{self.mask_array.ndim}")
+        if self.scan_file.suffix != ".x3p":
+            raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
+        return self
+
+    @cached_property
+    def mask_array(self) -> NDArray:
+        """
+        Convert the mask tuple to a numpy boolean array.
+
+        :return: 2D numpy array of boolean values representing the mask
+        """
+        return np.array(self.mask, np.bool_)

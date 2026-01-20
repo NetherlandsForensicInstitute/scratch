@@ -13,7 +13,7 @@ from models import (
     validate_not_executable,
     validate_relative_path,
 )
-from preprocessors.schemas import UploadScan
+from preprocessors.schemas import EditImage, UploadScan
 from settings import get_settings
 
 
@@ -302,6 +302,7 @@ class TestDirectoryAccess:
         DirectoryAccess,
         ProcessedDataAccess,
         UploadScan,
+        EditImage,
     ],
 )
 def test_schema_is_base_model_config(schema: type[BaseModelConfig]):
