@@ -9,10 +9,12 @@ from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 from constants import PROJECT_ROOT
 from extractors.schemas import ProcessedDataAccess
 from models import DirectoryAccess
-from preprocessors.schemas import UploadScan
+from preprocessors.schemas import EditImage, EditImageParameters, ProcessDataUrls, UploadScan
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
+MASK = ((1, 0), (0, 1))
+CUTOFF_LENGTH = 250  # 250 micrometers in meters
 
 
 class RoutePrefix(StrEnum):
@@ -47,6 +49,18 @@ class TestContracts:
         """
         return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
 
+    @pytest.fixture(scope="class")
+    def edit_scan(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
+        """Create test data for edit-scan endpoint.
+
+        Returns the post request data and expected response type.
+        """
+        data = EditImage(
+            scan_file=scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p",
+            parameters=EditImageParameters(mask=MASK, cutoff_length=CUTOFF_LENGTH),  # type: ignore
+        )
+        return data, ProcessDataUrls
+
     @pytest.mark.parametrize(
         ("route", "expected_response"),
         (pytest.param(f"/{route}", TemplateResponse, id=route) for route in RoutePrefix),
@@ -60,12 +74,16 @@ class TestContracts:
         expected_response.model_validate(response.json())
 
     @pytest.mark.parametrize(
-        ("fixture_name", "sub_route"), [pytest.param("process_scan", "process-scan", id="process_scan")]
+        ("fixture_name", "sub_route"),
+        [
+            pytest.param("process_scan", "process-scan", id="process_scan"),
+            pytest.param("edit_scan", "edit-scan", marks=pytest.mark.xfail, id="edit_scan"),
+        ],
     )
     def test_pre_processor_post_requests(
         self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest
     ) -> None:
-        """Test if the process scan endpoint returns an expected model."""
+        """Test if preprocessor POST endpoints return expected models."""
         data, expected_response = request.getfixturevalue(fixture_name)
         # Act
         response = requests.post(

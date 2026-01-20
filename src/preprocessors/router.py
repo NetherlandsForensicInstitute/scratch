@@ -8,7 +8,7 @@ from extractors import ProcessedDataAccess
 from file_services import create_vault, get_files, get_urls
 
 from .pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
-from .schemas import UploadScan
+from .schemas import EditImage, ProcessDataUrls, UploadScan
 
 preprocessor_route = APIRouter(prefix=PREPROCESSOR_ROUTE, tags=[PREPROCESSOR_ROUTE])
 
@@ -62,3 +62,34 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 
     logger.info(f"Generated files saved to {vault}")
     return ProcessedDataAccess(**get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}))
+
+
+@preprocessor_route.post(
+    path="/edit-scan",
+    summary="Validate and parse a scan file with edit parameters.",
+    description="""
+    Parse and validate a scan file (X3P format only) with the provided edit parameters
+    (mask, crop, subsampling). Creates a new vault for storing future outputs.
+
+    Note: Image generation is currently not implemented.
+""",
+    responses={
+        HTTPStatus.BAD_REQUEST: {"description": "parse error"},
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "description": "processing error",
+        },
+    },
+)
+async def edit_scan(edit_image: EditImage) -> ProcessDataUrls:
+    """
+    Validate and parse a scan file with edit parameters.
+
+    Accepts an X3P scan file and edit parameters (mask, zoom, step sizes),
+    validates the file format, parses it according to the parameters, and
+    creates a vault directory for future outputs. Returns access URLs for the vault.
+    """
+    _ = parse_scan_pipeline(edit_image.scan_file, edit_image.parameters)
+    vault = create_vault(edit_image.tag)
+
+    logger.info(f"Generated files saved to {vault}")
+    return ProcessDataUrls(root=tuple(get_urls(vault.access_url, **{})))
