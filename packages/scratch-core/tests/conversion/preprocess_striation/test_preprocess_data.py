@@ -16,7 +16,7 @@ from conversion.filter import (
 )
 from conversion.preprocess_striation.parameters import PreprocessingStriationParams
 from conversion.preprocess_striation.preprocess_striation import (
-    _rotate_data_by_shifting_profiles,
+    _shear_data_by_shifting_profiles,
     _rotate_image_grad_vector,
     apply_shape_noise_removal,
     extract_profile,
@@ -300,7 +300,7 @@ def test_rotate_data_by_shifting_profiles():
 
     # 5 degrees = 0.087 radians
     angle_rad = np.radians(5.0)
-    rotated = _rotate_data_by_shifting_profiles(
+    rotated = _shear_data_by_shifting_profiles(
         data, angle_rad=angle_rad, cut_y_after_shift=True
     )
 

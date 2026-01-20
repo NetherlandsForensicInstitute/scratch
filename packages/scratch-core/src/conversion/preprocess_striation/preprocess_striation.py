@@ -104,13 +104,13 @@ def apply_shape_noise_removal(
     return data_no_noise, mask_no_noise
 
 
-def _rotate_data_by_shifting_profiles(
+def _shear_data_by_shifting_profiles(
     depth_data: NDArray[np.floating],
     angle_rad: float,
     cut_y_after_shift: bool = True,
 ) -> NDArray[np.floating]:
     """
-    Rotate depth data by shifting each column (profile) vertically.
+    Shear depth data by shifting each column (profile) vertically.
 
     This implements a shear-based rotation that preserves striation features.
     Instead of true 2D rotation (which would require interpolation in both
@@ -258,37 +258,6 @@ def _rotate_image_grad_vector(
     return float(np.median(angles))
 
 
-def _rotate_data_and_mask(
-    depth_data: NDArray[np.floating],
-    mask: MaskArray | None,
-    angle_rad: float,
-    cut_y_after_shift: bool,
-) -> tuple[NDArray[np.floating], MaskArray | None]:
-    """
-    Rotate data and optionally mask, cropping to bounding box if mask provided.
-
-    :param depth_data: 2D depth data array.
-    :param mask: Optional boolean mask array.
-    :param angle_rad: Rotation angle in radians.
-    :param cut_y_after_shift: If True, crop NaN borders after shifting.
-    :returns: Tuple of (rotated_data, rotated_mask).
-    """
-    if mask is not None:
-        data_rotated = _rotate_data_by_shifting_profiles(
-            depth_data, angle_rad, cut_y_after_shift
-        )
-        mask_rotated = _rotate_data_by_shifting_profiles(
-            mask.astype(float), angle_rad, cut_y_after_shift
-        )
-        mask_binary = mask_rotated == 1
-        y_slice, x_slice = _determine_bounding_box(mask_binary)
-        return data_rotated[y_slice, x_slice], mask_binary[y_slice, x_slice]
-
-    return _rotate_data_by_shifting_profiles(
-        depth_data, angle_rad, cut_y_after_shift
-    ), None
-
-
 def _find_alignment_angle(
     depth_data: NDArray[np.floating],
     mask: MaskArray | None,
@@ -342,6 +311,37 @@ def _find_alignment_angle(
     if iteration >= max_iter:
         return 0.0
     return a_tot
+
+
+def _rotate_data_and_mask(
+    depth_data: NDArray[np.floating],
+    mask: MaskArray | None,
+    angle_rad: float,
+    cut_y_after_shift: bool,
+) -> tuple[NDArray[np.floating], MaskArray | None]:
+    """
+    Rotate data and optionally mask, cropping to bounding box if mask provided.
+
+    :param depth_data: 2D depth data array.
+    :param mask: Optional boolean mask array.
+    :param angle_rad: Rotation angle in radians.
+    :param cut_y_after_shift: If True, crop NaN borders after shifting.
+    :returns: Tuple of (rotated_data, rotated_mask).
+    """
+    if mask is not None:
+        data_rotated = _shear_data_by_shifting_profiles(
+            depth_data, angle_rad, cut_y_after_shift
+        )
+        mask_rotated = _shear_data_by_shifting_profiles(
+            mask.astype(float), angle_rad, cut_y_after_shift
+        )
+        mask_binary = mask_rotated == 1
+        y_slice, x_slice = _determine_bounding_box(mask_binary)
+        return data_rotated[y_slice, x_slice], mask_binary[y_slice, x_slice]
+
+    return _shear_data_by_shifting_profiles(
+        depth_data, angle_rad, cut_y_after_shift
+    ), None
 
 
 def fine_align_bullet_marks(
