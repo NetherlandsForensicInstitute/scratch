@@ -29,13 +29,14 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize(
-    ("subroute", "schema", "mark_parameters", "mark_type"),
+    ("subroute", "schema", "mark_parameters", "mark_type", "expected_files"),
     [
         pytest.param(
             "/prepare-mark-striation",
             PrepareMarkStriation,
             PreprocessingStriationParams,
             StriationMarks.APERTURE_SHEAR,
+            ["scan", "preview", "surface_map", "mark_file", "processed_file", "profile_file"],
             id="striation mark",
         ),
         pytest.param(
@@ -43,6 +44,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkImpression,
             PreprocessingImpressionParams,
             ImpressionMarks.CHAMBER,
+            ["scan", "preview", "surface_map", "mark_file", "processed_file", "leveled_file"],
             id="impression mark",
         ),
     ],
@@ -72,13 +74,14 @@ class TestPrepareMarkEndpoint:
             mark_parameters=mark_parameters(),  # type: ignore
         ).model_dump(mode="json")
 
-    def test_prepare_mark_endpoint_returns_urls(
+    def test_prepare_mark_endpoint_returns_urls(  # noqa: PLR0913
         self,
         client: TestClient,
         subroute: str,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
         mark_type: str,
+        expected_files: list[str],
     ) -> None:
         """Test that the prepare-mark endpoint processes the request and returns file URLs."""
         # Arrange
@@ -94,16 +97,8 @@ class TestPrepareMarkEndpoint:
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
         json_response = response.json()
-        expected_keys = [
-            "scan",
-            "preview",
-            "surface_map",
-            "mark_file",
-            "processed_file",
-            "profile_file",
-            "leveled_file",
-        ]
-        for key in expected_keys:
+
+        for key in expected_files:
             assert key in json_response, f"Response should contain URL for {key}"
 
     def test_prepare_mark_endpoint_has_made_files_in_vault(  # noqa: PLR0913
@@ -114,6 +109,7 @@ class TestPrepareMarkEndpoint:
         subroute: str,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
+        expected_files: list[str],
     ) -> None:
         """Test that the prepare-mark endpoint creates files in the vault."""
         # Arrange
@@ -128,15 +124,6 @@ class TestPrepareMarkEndpoint:
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
         vault_path = directory_access.resource_path
-        expected_files = [
-            "scan.x3p",
-            "preview.png",
-            "surface_map.png",
-            "mark.file",
-            "processed.file",
-            "profile.file",
-            "leveled.file",
-        ]
         pytest.xfail("Endpoint not implemented yet")  # TODO: Remove when endpoint is implemented
         for filename in expected_files:
             file_path = os.path.join(vault_path, filename)
@@ -151,6 +138,7 @@ class TestPrepareMarkEndpoint:
         subroute: str,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
+        expected_files: list[str],
     ) -> None:
         """Test that the URLs in the prepare-mark endpoint response match the vault folder location."""
         # Arrange

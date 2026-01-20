@@ -6,7 +6,7 @@ from loguru import logger
 
 from constants import PREPROCESSOR_ROUTE
 from extractors import ProcessedDataAccess
-from extractors.schemas import PrepareMarkResponse
+from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault, get_files, get_urls
 from preprocessors.controller import process_prepare_mark
 
@@ -88,16 +88,27 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
-async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression) -> PrepareMarkResponse:
+async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression) -> PrepareMarkResponseImpression:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
+    files = get_files(
+        vault.resource_path,
+        scan="scan.x3p",
+        preview="preview.png",
+        surface_map="surface_map.png",
+        mark_file="mark.mat",
+        processed_file="processed.mat",
+        leveled_file="levelled.mat",
+    )
     files = process_prepare_mark(
-        vault_path=vault.resource_path,
+        files=files,
         scan_file=prepare_mark_parameters.scan_file,
         marking_method=partial(impression_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
     )
     logger.info(f"Generated files saved to {vault}")
-    return PrepareMarkResponse(**get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}))
+    return PrepareMarkResponseImpression(
+        **get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()})
+    )
 
 
 @preprocessor_route.post(
@@ -114,13 +125,24 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
-async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) -> PrepareMarkResponse:
+async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) -> PrepareMarkResponseStriation:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
-    files = process_prepare_mark(
-        vault_path=vault.resource_path,
+    files = get_files(
+        vault.resource_path,
+        scan="scan.x3p",
+        preview="preview.png",
+        surface_map="surface_map.png",
+        mark_file="mark.mat",
+        processed_file="processed.mat",
+        profile_file="profile.mat",
+    )
+    process_prepare_mark(
+        files=files,
         scan_file=prepare_mark_parameters.scan_file,
         marking_method=partial(striation_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
     )
     logger.info(f"Generated files saved to {vault}")
-    return PrepareMarkResponse(**get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}))
+    return PrepareMarkResponseStriation(
+        **get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()})
+    )
