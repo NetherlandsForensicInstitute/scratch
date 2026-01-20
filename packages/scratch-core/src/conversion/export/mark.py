@@ -92,13 +92,11 @@ def load_mark_from_path(path: Path, stem: str) -> Mark:
     file_path = path / stem
 
     # Load and validate JSON metadata
-    json_file = file_path.with_suffix(".json")
-    check_if_file_exists(json_file)
+    check_if_file_exists(json_file := file_path.with_suffix(".json"))
     meta = ExportedMarkData(**load_json(json_file))
 
     # Load binary image data
-    npz_file = file_path.with_suffix(".npz")
-    check_if_file_exists(npz_file)
+    check_if_file_exists(npz_file := file_path.with_suffix(".npz"))
     data = load_compressed_binary(npz_file)
 
     # Reconstruct Mark object
