@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from enum import StrEnum
+from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import UUID4, AfterValidator, BaseModel, ConfigDict, Field, FilePath, StringConstraints
 
 from constants import EXTRACTOR_ROUTE
 from settings import get_settings
@@ -21,7 +21,11 @@ class BaseModelConfig(BaseModel):
     )
 
 
-type ProjectTag = Annotated[str, StringConstraints(pattern=r"")]
+class SupportedScanExtension(StrEnum):
+    AL3D = auto()
+    X3P = auto()
+    SUR = auto()
+    PLU = auto()
 
 
 def validate_file_extension(filename: Path, extensions: type[StrEnum]) -> Path:
@@ -77,7 +81,16 @@ def validate_relative_path(filepath: Path) -> Path:
     return filepath
 
 
-class DirectoryAccessError(Exception): ...
+type ProjectTag = Annotated[str, StringConstraints(pattern=r"")]
+type ScanFile = Annotated[
+    FilePath,
+    AfterValidator(lambda filepath: validate_file_extension(filepath, SupportedScanExtension)),
+    AfterValidator(validate_not_executable),
+    Field(
+        ...,
+        description=f"Path to the input scan file. Supported formats: {', '.join(SupportedScanExtension)}",
+    ),
+]
 
 
 def _generate_unique_token() -> UUID4:
