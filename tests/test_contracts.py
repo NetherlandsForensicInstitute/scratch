@@ -8,7 +8,11 @@ from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
-from extractors.schemas import PrepareMarkResponse, ProcessedDataAccess
+from extractors.schemas import (
+    PrepareMarkResponseImpression,
+    PrepareMarkResponseStriation,
+    ProcessedDataAccess,
+)
 from models import DirectoryAccess
 from preprocessors.schemas import PrepareMarkImpression, PrepareMarkStriation, PreprocessingStriationParams, UploadScan
 from settings import get_settings
@@ -61,7 +65,7 @@ class TestContracts:
             rotation_angle=15,
             crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
             mark_parameters=PreprocessingImpressionParams(),
-        ), PrepareMarkResponse  # type: ignore
+        ), PrepareMarkResponseImpression  # type: ignore
 
     @pytest.fixture(scope="class")
     def prepare_mark_striation(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
@@ -76,7 +80,7 @@ class TestContracts:
             rotation_angle=15,
             crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
             mark_parameters=PreprocessingStriationParams(),
-        ), PrepareMarkResponse  # type: ignore
+        ), PrepareMarkResponseStriation  # type: ignore
 
     @pytest.mark.parametrize(
         ("route", "expected_response"),

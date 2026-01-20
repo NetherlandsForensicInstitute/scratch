@@ -64,11 +64,21 @@ class PrepareMarkResponse(ProcessedDataAccess):
         description="Data for the processed mark.",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/processed.mat"],
     )
+
+
+class PrepareMarkResponseStriation(PrepareMarkResponse):
+    """Response model for prepared striation mark data access."""
+
     profile_file: HttpUrl = Field(
         ...,
         description="Data for the profile of the prepared mark.",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.mat"],
     )
+
+
+class PrepareMarkResponseImpression(PrepareMarkResponse):
+    """Response model for prepared impression mark data access."""
+
     leveled_file: HttpUrl = Field(
         ...,
         description="Data for the levelled mark.",
