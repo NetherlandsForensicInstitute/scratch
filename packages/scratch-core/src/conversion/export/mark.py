@@ -44,15 +44,19 @@ class ExportedMarkData(ConfigBaseModel):
 
     @field_validator("mark_type", mode="before")
     @classmethod
-    def validate_mark_type(cls, value: str) -> MarkType:
+    def validate_mark_type(cls, value: str | MarkType) -> MarkType:
         """Validate and convert mark_type to MarkType enum."""
+        if isinstance(value, MarkType):
+            return value
         cls._validate_enum_value(value, MarkType)
         return MarkType[value.upper()]
 
     @field_validator("crop_type", mode="before")
     @classmethod
-    def validate_crop_type(cls, value: str) -> CropType:
+    def validate_crop_type(cls, value: str | CropType) -> CropType:
         """Validate and convert crop_type to CropType enum."""
+        if isinstance(value, CropType):
+            return value
         cls._validate_enum_value(value, CropType)
         return CropType[value.upper()]
 
