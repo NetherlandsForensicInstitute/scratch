@@ -56,12 +56,12 @@ class PrepareMarkResponse(ProcessedDataAccess):
 
     mark_file: HttpUrl = Field(
         ...,
-        description="Data for the prepared mark.",
+        description="Mark without preprocessing, only cropped, rotated and resampled.",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark.mat"],
     )
     processed_file: HttpUrl = Field(
         ...,
-        description="Data for the processed mark.",
+        description="Preprocessed mark (impression or striation) after filtering and processing.",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/processed.mat"],
     )
 
@@ -71,7 +71,7 @@ class PrepareMarkResponseStriation(PrepareMarkResponse):
 
     profile_file: HttpUrl = Field(
         ...,
-        description="Data for the profile of the prepared mark.",
+        description="Mean or median profile of a striation mark.",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.mat"],
     )
 
@@ -81,6 +81,6 @@ class PrepareMarkResponseImpression(PrepareMarkResponse):
 
     leveled_file: HttpUrl = Field(
         ...,
-        description="Data for the levelled mark.",
+        description="Leveled impression mark (same as processed but without filtering).",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/levelled.mat"],
     )
