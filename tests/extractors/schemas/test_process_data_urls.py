@@ -1,7 +1,7 @@
 import pytest
 from pydantic import HttpUrl, ValidationError
 
-from preprocessors.schemas import ProcessDataUrls
+from extractors.schemas import ProcessDataUrls
 
 
 class TestProcessDataUrls:

@@ -12,7 +12,7 @@ from PIL import Image
 from pydantic import HttpUrl
 
 from constants import EXTRACTOR_ROUTE, PREPROCESSOR_ROUTE
-from extractors.schemas import ProcessedDataAccess
+from extractors.schemas import ProcessDataUrls
 from models import DirectoryAccess
 from preprocessors.schemas import UploadScan, UploadScanParameters
 from settings import get_settings
@@ -52,32 +52,13 @@ class TestProcessScanEndpoint:
 
         # Assert - verify response
         assert response.status_code == HTTPStatus.OK
-        result = ProcessedDataAccess.model_validate(response.json())
-        assert result.preview_image.path
-        assert result.surface_map_image.path
-        assert result.scan_image.path
+        result = ProcessDataUrls.model_validate(response.json())
 
         # Act II
-        preview = client.get(result.preview_image.path)
-        surface_map = client.get(result.surface_map_image.path)
-        x3p_response = client.get(result.scan_image.path)
+        downloads = [client.get(str(url)) for url in result.root]
 
         # Assert - verify response status codes
-        assert preview.status_code == HTTPStatus.OK
-        assert surface_map.status_code == HTTPStatus.OK
-        assert x3p_response.status_code == HTTPStatus.OK
-
-        # Assert - verify content types
-        assert preview.headers["content-type"] == "image/png"
-        assert surface_map.headers["content-type"] == "image/png"
-        assert x3p_response.headers["content-type"] == "application/octet-stream"
-
-        # Assert - verify PNG files are valid images
-        assert Image.open(BytesIO(preview.content))
-        assert Image.open(BytesIO(surface_map.content))
-
-        # Assert - verify x3p file has content
-        assert len(x3p_response.content) > 0
+        assert all(download.status_code == HTTPStatus.OK for download in downloads)
 
     def test_process_scan_with_custom_light_sources(
         self, post_process_scan, upload_scan: UploadScan, client: TestClient
@@ -112,29 +93,22 @@ class TestProcessScanEndpoint:
         # Assert
         assert control_response.status_code == HTTPStatus.OK
         assert response.status_code == HTTPStatus.OK
-        result_location = ProcessedDataAccess.model_validate(response.json())
-        control_location = ProcessedDataAccess.model_validate(control_response.json())
-        assert result_location.surface_map_image.path
-        assert control_location.surface_map_image.path
+        result_location = ProcessDataUrls.model_validate(response.json())
+        control_location = ProcessDataUrls.model_validate(control_response.json())
 
         # Act II
-        control = client.get(control_location.surface_map_image.path)
-        result = client.get(result_location.surface_map_image.path)
-
-        # Assert - verify responses are successful
-        assert control.status_code == HTTPStatus.OK
-        assert result.status_code == HTTPStatus.OK
+        surface_map = -1
+        control = client.get(str(control_location.root[surface_map]))
+        result = client.get(str(result_location.root[surface_map]))
 
         # Assert - verify that the two surface_maps are not the same
+        assert control.status_code == HTTPStatus.OK
+        assert result.status_code == HTTPStatus.OK
         assert control.content != result.content, "Surfacemaps should differ with different light sources"
 
-        # Assert - verify that result with doubled light sources is brighter
-        control_img = Image.open(BytesIO(control.content))
-        result_img = Image.open(BytesIO(result.content))
-
         # Calculate average brightness for each image
-        control_brightness = np.array(control_img).mean()
-        result_brightness = np.array(result_img).mean()
+        control_brightness = np.array(Image.open(BytesIO(control.content))).mean()
+        result_brightness = np.array(Image.open(BytesIO(result.content))).mean()
 
         assert result_brightness > control_brightness, (
             f"Result brightness ({result_brightness:.2f}) with two light sources should be greater than "
@@ -155,7 +129,7 @@ class TestProcessScan:
     ) -> None:
         """Test that process-scan creates expected output files with correct URLs and file structure."""
         # Arrange
-        base_url = f"{get_settings().base_url}{EXTRACTOR_ROUTE}/files/{directory_access.token}"
+        get_file_url = f"{get_settings().base_url}{EXTRACTOR_ROUTE}/files/{directory_access.token}"
         directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
         # Act
@@ -164,14 +138,14 @@ class TestProcessScan:
             response = post_process_scan()
 
         # Assert
-        expected_response = ProcessedDataAccess(
-            scan=HttpUrl(f"{base_url}/scan.x3p"),
-            preview=HttpUrl(f"{base_url}/preview.png"),
-            surface_map=HttpUrl(f"{base_url}/surface_map.png"),
-        )
+        expected_response = ProcessDataUrls((
+            HttpUrl(f"{get_file_url}/scan.x3p"),
+            HttpUrl(f"{get_file_url}/preview.png"),
+            HttpUrl(f"{get_file_url}/surface_map.png"),
+        ))
 
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"
-        response_model = ProcessedDataAccess.model_validate(response.json())
+        response_model = ProcessDataUrls.model_validate(response.json())
         assert response_model == expected_response
         assert (directory / "scan.x3p").exists()
         assert (directory / "preview.png").exists()

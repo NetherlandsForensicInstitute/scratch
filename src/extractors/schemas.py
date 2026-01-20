@@ -4,13 +4,9 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import AfterValidator, Field, HttpUrl
+from pydantic import AfterValidator, ConfigDict, Field, HttpUrl, RootModel
 
-from models import (
-    BaseModelConfig,
-    validate_file_extension,
-    validate_relative_path,
-)
+from models import validate_file_extension, validate_relative_path
 
 
 class SupportedExtension(StrEnum):
@@ -30,22 +26,24 @@ type RelativePath = Annotated[
 ]
 
 
-class ProcessedDataAccess(BaseModelConfig):
-    scan_image: HttpUrl = Field(
+class ProcessDataUrls(RootModel):
+    """
+    Collection of HTTP URLs pointing to processed scan data files.
+
+    Provides immutable tuple of URLs for accessing generated outputs
+    such as X3P files, surface maps, and preview images.
+    """
+
+    root: tuple[HttpUrl, ...] = Field(
         ...,
-        description="converted subsampled X3P image.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/scan.x3p"],
-        alias="scan",
+        description="Tuple of HTTP URLs for accessing processed scan files (X3P, surface maps, preview images).",
+        examples=[
+            (
+                "http://localhost:8000/extractor/files/a1b2c3d4/project/scan.x3p",
+                "http://localhost:8000/extractor/files/a1b2c3d4/project/surface_map.png",
+                "http://localhost:8000/extractor/files/a1b2c3d4/project/preview.png",
+            ),
+        ],
+        min_length=1,
     )
-    preview_image: HttpUrl = Field(
-        ...,
-        description="rgba image render from the parsed scan data.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/preview.png"],
-        alias="preview",
-    )
-    surface_map_image: HttpUrl = Field(
-        ...,
-        description="surface image render from the scan data.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/surface_map.png"],
-        alias="surface_map",
-    )
+    model_config = ConfigDict(frozen=True, regex_engine="rust-regex")

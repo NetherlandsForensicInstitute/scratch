@@ -5,7 +5,6 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from extractors.schemas import ProcessedDataAccess
 from models import (
     BaseModelConfig,
     DirectoryAccess,
@@ -300,7 +299,6 @@ class TestDirectoryAccess:
     "schema",
     [
         DirectoryAccess,
-        ProcessedDataAccess,
         UploadScan,
         UploadScanParameters,
         EditImage,

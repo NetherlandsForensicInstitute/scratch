@@ -7,9 +7,9 @@ from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
-from extractors.schemas import ProcessedDataAccess
+from extractors.schemas import ProcessDataUrls
 from models import DirectoryAccess
-from preprocessors.schemas import EditImage, EditImageParameters, ProcessDataUrls, UploadScan
+from preprocessors.schemas import EditImage, EditImageParameters, UploadScan
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
@@ -45,9 +45,9 @@ class TestContracts:
     def process_scan(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
         """Create dummy files for the expected response.
 
-        Returns the post request data, sub_route & expected response.
+        Returns the post request data and expected response type.
         """
-        return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
+        return UploadScan(scan_file=scan_directory / "Klein_non_replica_mode.al3d"), ProcessDataUrls  # type: ignore
 
     @pytest.fixture(scope="class")
     def edit_scan(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:

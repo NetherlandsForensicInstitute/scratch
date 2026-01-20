@@ -4,11 +4,11 @@ from fastapi import APIRouter
 from loguru import logger
 
 from constants import PREPROCESSOR_ROUTE
-from extractors import ProcessedDataAccess
+from extractors.schemas import ProcessDataUrls
 from file_services import create_vault, get_files, get_urls
 
 from .pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
-from .schemas import EditImage, ProcessDataUrls, UploadScan
+from .schemas import EditImage, UploadScan
 
 preprocessor_route = APIRouter(prefix=PREPROCESSOR_ROUTE, tags=[PREPROCESSOR_ROUTE])
 
@@ -42,7 +42,7 @@ async def preprocessor_root() -> dict[str, str]:
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
-async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
+async def process_scan(upload_scan: UploadScan) -> ProcessDataUrls:
     """
     Process an uploaded scan file and generate derived output files.
 
@@ -61,7 +61,9 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     preview_pipeline(parsed_scan, files["preview"])
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess(**get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}))
+    return ProcessDataUrls.model_validate(
+        get_urls(vault.access_url, scan="scan.x3p", preview="preview.png", surface_map="surface_map.png").values()
+    )
 
 
 @preprocessor_route.post(
@@ -92,4 +94,4 @@ async def edit_scan(edit_image: EditImage) -> ProcessDataUrls:
     vault = create_vault(edit_image.tag)
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessDataUrls(root=tuple(get_urls(vault.access_url, **{})))
+    return ProcessDataUrls.model_validate(get_urls(vault.access_url, **{}).values())
