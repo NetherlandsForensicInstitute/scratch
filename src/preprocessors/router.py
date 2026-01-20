@@ -18,7 +18,7 @@ from .pipelines import (
     surface_map_pipeline,
     x3p_pipeline,
 )
-from .schemas import PrepareMarkImpression, PrepareMarkStriation, UploadScan
+from .schemas import EditImage, PrepareMarkImpression, PrepareMarkStriation, UploadScan
 
 preprocessor_route = APIRouter(prefix=PREPROCESSOR_ROUTE, tags=[PREPROCESSOR_ROUTE])
 
@@ -66,8 +66,8 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     vault = create_vault(upload_scan.tag)
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size_x, upload_scan.step_size_y)
     files = get_files(vault.resource_path, scan="scan.x3p", preview="preview.png", surface_map="surface_map.png")
-    x3p_pipeline(parsed_scan, files["scan"])
-    surface_map_pipeline(
+    scan = x3p_pipeline(parsed_scan, files["scan"])
+    surface_map = surface_map_pipeline(
         parsed_scan,
         files["surface_map"],
         upload_scan.light_sources,
@@ -75,10 +75,12 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
         upload_scan.scale_x,
         upload_scan.scale_y,
     )
-    preview_pipeline(parsed_scan, files["preview"])
+    preview = preview_pipeline(parsed_scan, files["preview"])
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess(**get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}))
+    return ProcessedDataAccess.model_validate(
+        get_urls(vault.access_url, scan=scan.name, preview=preview.name, surface_map=surface_map.name)
+    )
 
 
 @preprocessor_route.post(
@@ -159,3 +161,34 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     return PrepareMarkResponseStriation(
         **get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()})
     )
+
+
+@preprocessor_route.post(
+    path="/edit-scan",
+    summary="Validate and parse a scan file with edit parameters.",
+    description="""
+    Parse and validate a scan file (X3P format only) with the provided edit parameters
+    (mask, crop, subsampling). Creates a new vault for storing future outputs.
+
+    Note: Image generation is currently not implemented.
+""",
+    responses={
+        HTTPStatus.BAD_REQUEST: {"description": "parse error"},
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "description": "processing error",
+        },
+    },
+)
+async def edit_scan(edit_image: EditImage) -> ProcessedDataAccess:
+    """
+    Validate and parse a scan file with edit parameters.
+
+    Accepts an X3P scan file and edit parameters (mask, zoom, step sizes),
+    validates the file format, parses it according to the parameters, and
+    creates a vault directory for future outputs. Returns access URLs for the vault.
+    """
+    _ = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
+    vault = create_vault(edit_image.tag)
+
+    logger.info(f"Generated files saved to {vault}")
+    return ProcessedDataAccess.model_validate(get_urls(vault.access_url, **{}))
