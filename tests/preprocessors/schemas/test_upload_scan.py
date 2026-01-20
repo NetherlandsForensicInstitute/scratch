@@ -5,7 +5,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from preprocessors.schemas import SupportedExtension, UploadScan
+from models import SupportedScanExtension
+from preprocessors.schemas import UploadScan
 
 
 @pytest.fixture
@@ -21,7 +22,7 @@ def valid_scan_file(scan_directory: Path) -> Path:
 
 @pytest.mark.parametrize(
     "extension",
-    [ext.value for ext in SupportedExtension],
+    [ext.value for ext in SupportedScanExtension],
 )
 def test_all_supported_extensions(tmp_path: Path, extension: str) -> None:
     """Test that all supported extensions are accepted."""
@@ -41,7 +42,7 @@ def test_all_supported_extensions(tmp_path: Path, extension: str) -> None:
         alphabet=st.characters(whitelist_categories=("Ll", "Lu", "Nd")),
         min_size=1,
         max_size=10,
-    ).filter(lambda ext: ext not in [e.value for e in SupportedExtension])
+    ).filter(lambda ext: ext not in [e.value for e in SupportedScanExtension])
 )
 def test_unsupported_extension_raises_error(extension: str, tmp_path_factory: pytest.TempPathFactory) -> None:
     """Test that unsupported file extensions raise ValueError using property-based testing."""

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
-from extractors.schemas import ProcessedDataAccess
+from extractors import ProcessedDataAccess
 from models import DirectoryAccess
 from preprocessors.schemas import UploadScan
 from settings import get_settings
