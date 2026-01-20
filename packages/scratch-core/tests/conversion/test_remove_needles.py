@@ -38,10 +38,10 @@ class TestRemoveNeedles:
         result = remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Result should have same shape
-        assert result.shape == simple_scan_image.data.shape
+        assert result.data.shape == simple_scan_image.data.shape
 
         # Most values should be close to original (no outliers to remove)
-        assert np.nanmean(np.abs(result - simple_scan_image.data)) < 5.0
+        assert np.nanmean(np.abs(result.data - simple_scan_image.data)) < 5.0
 
     def test_removes_spike_outliers(self, simple_scan_image, full_mask):
         """Test that obvious spike outliers are detected and set to NaN."""
@@ -53,16 +53,16 @@ class TestRemoveNeedles:
         result = remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Spikes should be set to NaN
-        assert np.isnan(result[10, 10])
-        assert np.isnan(result[20, 20])
-        assert np.isnan(result[30, 30])
+        assert np.isnan(result.data[10, 10])
+        assert np.isnan(result.data[20, 20])
+        assert np.isnan(result.data[30, 30])
 
         # Most other values should remain
-        non_spike_mask = np.ones_like(result, dtype=bool)
+        non_spike_mask = np.ones_like(result.data, dtype=bool)
         non_spike_mask[10, 10] = False
         non_spike_mask[20, 20] = False
         non_spike_mask[30, 30] = False
-        assert np.nanmean(result[non_spike_mask]) > 90.0
+        assert np.nanmean(result.data[non_spike_mask]) > 90.0
 
     def test_small_strip_behavior(self, small_scan_image, partial_mask):
         """Test that small strips trigger different filtering logic."""
@@ -74,7 +74,7 @@ class TestRemoveNeedles:
         )
 
         # Should complete without error and return correct shape
-        assert result.shape == small_scan_image.data.shape
+        assert result.data.shape == small_scan_image.data.shape
 
     def test_single_row_data(self):
         """Test handling of single-row data (1D case)."""
@@ -85,9 +85,9 @@ class TestRemoveNeedles:
 
         result = remove_needles(scan_image, mask, times_median=15)
 
-        assert result.shape == (1, 50)
+        assert result.data.shape == (1, 50)
         # Spike should be detected
-        assert np.isnan(result[0, 25])
+        assert np.isnan(result.data[0, 25])
 
     def test_times_median_parameter(self, simple_scan_image, full_mask):
         """Test that times_median parameter affects outlier detection."""
@@ -101,14 +101,16 @@ class TestRemoveNeedles:
         result_lenient = remove_needles(simple_scan_image, full_mask, times_median=50)
 
         # Strict should flag more points as NaN
-        assert np.sum(np.isnan(result_strict)) >= np.sum(np.isnan(result_lenient))
+        assert np.sum(np.isnan(result_strict.data)) >= np.sum(
+            np.isnan(result_lenient.data)
+        )
 
     def test_subsampling_triggered(self, simple_scan_image, full_mask):
         """Test that subsampling is triggered for large images with fine resolution."""
         result = remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Should complete without error
-        assert result.shape == simple_scan_image.data.shape
+        assert result.data.shape == simple_scan_image.data.shape
 
     def test_all_nan_input(self):
         """Test handling of input data that is all NaN."""
@@ -119,7 +121,7 @@ class TestRemoveNeedles:
         result = remove_needles(scan_image, mask, times_median=15)
 
         # Should return all NaN
-        assert np.all(np.isnan(result))
+        assert np.all(np.isnan(result.data))
 
     def test_partial_nan_input(self, simple_scan_image, full_mask):
         """Test handling of input with some NaN values."""
@@ -129,10 +131,10 @@ class TestRemoveNeedles:
         result = remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Original NaN should remain
-        assert np.all(np.isnan(result[5:10, 5:10]))
+        assert np.all(np.isnan(result.data[5:10, 5:10]))
 
         # Spike should be detected
-        assert np.isnan(result[30, 30])
+        assert np.isnan(result.data[30, 30])
 
     def test_mask_application(self, simple_scan_image):
         """Test that mask is properly applied."""
@@ -145,7 +147,7 @@ class TestRemoveNeedles:
         result = remove_needles(simple_scan_image, mask, times_median=15)
 
         # Result should have correct shape
-        assert result.shape == simple_scan_image.data.shape
+        assert result.data.shape == simple_scan_image.data.shape
 
     def test_preserves_non_outlier_data(self, simple_scan_image, full_mask):
         """Test that non-outlier data is preserved with minimal change."""
@@ -163,18 +165,11 @@ class TestRemoveNeedles:
         result = remove_needles(scan_image, full_mask, times_median=15)
 
         # Count NaN values (should be minimal, just the outliers)
-        nan_count = np.sum(np.isnan(result))
-        total_count = result.size
+        nan_count = np.sum(np.isnan(result.data))
+        total_count = result.data.size
 
         # Less than 5% should be NaN
         assert (nan_count / total_count) < 0.05
-
-    def test_return_type(self, simple_scan_image, full_mask):
-        """Test that function returns correct type."""
-        result = remove_needles(simple_scan_image, full_mask, times_median=15)
-
-        assert isinstance(result, np.ndarray)
-        assert result.dtype == np.float64 or result.dtype == np.float32
 
     def test_edge_case_width_exactly_20(self):
         """Test edge case where width is exactly 20."""
@@ -185,7 +180,7 @@ class TestRemoveNeedles:
         result = remove_needles(scan_image, mask, times_median=15)
 
         # Should use large strip logic (not small strip)
-        assert result.shape == (30, 20)
+        assert result.data.shape == (30, 20)
 
     def test_edge_case_width_21(self):
         """Test edge case where width is 21 (just above threshold)."""
@@ -196,7 +191,7 @@ class TestRemoveNeedles:
         result = remove_needles(scan_image, mask, times_median=15)
 
         # Should use large strip logic
-        assert result.shape == (30, 21)
+        assert result.data.shape == (30, 21)
 
     def test_negative_outliers(self, simple_scan_image, full_mask):
         """Test detection of negative outliers (valleys)."""
@@ -206,8 +201,8 @@ class TestRemoveNeedles:
         result = remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Negative outliers should also be detected
-        assert np.isnan(result[15, 15])
-        assert np.isnan(result[35, 35])
+        assert np.isnan(result.data[15, 15])
+        assert np.isnan(result.data[35, 35])
 
     def test_no_modification_of_input(self, simple_scan_image, full_mask):
         """Test that input scan_image is not modified."""
@@ -218,4 +213,4 @@ class TestRemoveNeedles:
         # Original should be unchanged
         assert_array_equal(simple_scan_image.data, original_data)
         # Result should be different object
-        assert result is not simple_scan_image.data
+        assert result.data is not simple_scan_image.data
