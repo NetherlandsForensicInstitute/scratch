@@ -48,7 +48,7 @@ def rotate_crop_and_mask_image_by_crop(
 
     margin = None
     if rotation_angle != 0.0:
-        mask = binary_dilation(mask, iterations=DILATE_STEPS)
+        mask = binary_dilation(mask, iterations=DILATE_STEPS).astype(bool)
         # Define a margin to reverse dilation later on
         margin = DILATE_STEPS + 2
 
