@@ -50,7 +50,7 @@ class MatlabTestCase:
         crop_corners = None
         crop_corners_path = case_dir / "crop_corners.npy"
         if crop_corners_path.exists():
-            crop_corners = np.load(crop_corners_path, allow_pickle=True)
+            crop_corners = np.load(crop_corners_path)
 
         return cls(
             name=case_dir.name,
