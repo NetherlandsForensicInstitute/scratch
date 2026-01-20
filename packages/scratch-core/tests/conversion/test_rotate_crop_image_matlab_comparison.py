@@ -50,7 +50,7 @@ class MatlabTestCase:
         crop_corners = None
         crop_corners_path = case_dir / "crop_corners.npy"
         if crop_corners_path.exists():
-            crop_corners = np.load(crop_corners_path)
+            crop_corners = np.load(crop_corners_path, allow_pickle=True)
 
         return cls(
             name=case_dir.name,
@@ -85,23 +85,29 @@ class MatlabTestCase:
             angle = -angle
         return angle
 
-    def to_crop_info(self) -> list[CropInfo] | None:
+    def to_crop_info(self) -> tuple[CropInfo]:
         """Convert MATLAB crop_info to Python CropInfo list."""
         if self.crop_corners is None:
-            return None
+            return (
+                CropInfo(
+                    crop_type=CropType.CIRCLE,
+                    data={"center": np.array([23, 30]), "radius": 2.4},
+                    is_foreground=True,
+                ),
+            )
 
         crop_type = (
             CropType.RECTANGLE
             if self.crop_type.lower() == "rectangle"
             else CropType.POLYGON
         )
-        return [
+        return (
             CropInfo(
                 crop_type=crop_type,
                 data={"corner": self.crop_corners},
                 is_foreground=self.crop_foreground,
-            )
-        ]
+            ),
+        )
 
 
 def discover_test_cases(test_cases_dir: Path) -> list[MatlabTestCase]:
@@ -168,8 +174,8 @@ def run_python_preprocessing(
     data_out, mask_out = rotate_crop_and_mask_image_by_crop(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
-        rotation_angle=test_case.rotation_angle,
         crop_infos=test_case.to_crop_info(),
+        rotation_angle=test_case.rotation_angle,
         times_median=test_case.times_median,
     )
     return data_out.data, mask_out

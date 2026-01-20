@@ -69,7 +69,6 @@ class Mark(ConfigBaseModel):
 
     scan_image: ScanImage
     mark_type: MarkType
-    crop_infos: list[CropInfo]
     crop_type: CropType
     meta_data: dict = Field(default_factory=dict)
     _center: tuple[float, float] | None = None

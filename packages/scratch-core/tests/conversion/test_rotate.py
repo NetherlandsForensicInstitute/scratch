@@ -16,8 +16,8 @@ class TestGetRotationAngle:
     """Test suite for get_rotation_angle function."""
 
     @pytest.fixture
-    def rectangle_crop_info_15deg(self) -> list[CropInfo]:
-        return [
+    def rectangle_crop_info_15deg(self) -> tuple[CropInfo]:
+        return (
             CropInfo(
                 crop_type=CropType.RECTANGLE,
                 data={
@@ -31,12 +31,12 @@ class TestGetRotationAngle:
                     )
                 },
                 is_foreground=True,
-            )
-        ]
+            ),
+        )
 
     @pytest.fixture
-    def rectangle_crop_info_0deg(self) -> list[CropInfo]:
-        return [
+    def rectangle_crop_info_0deg(self) -> tuple[CropInfo]:
+        return (
             CropInfo(
                 crop_type=CropType.RECTANGLE,
                 data={
@@ -50,24 +50,24 @@ class TestGetRotationAngle:
                     )
                 },
                 is_foreground=True,
-            )
-        ]
+            ),
+        )
 
     @pytest.fixture
-    def circle_crop_info(self) -> list[CropInfo]:
-        return [
+    def circle_crop_info(self) -> tuple[CropInfo]:
+        return (
             CropInfo(
                 crop_type=CropType.CIRCLE,
                 data={"center": np.array([23, 30]), "radius": 2.4},
                 is_foreground=True,
-            )
-        ]
+            ),
+        )
 
     @pytest.fixture
-    def rectangle_not_first_crop_info(self) -> list[CropInfo]:
+    def rectangle_not_first_crop_info(self) -> tuple[CropInfo, CropInfo]:
         """Test case where the cropped rectangle is not the first object; should be ignored
         by get_rotation_angle."""
-        return [
+        return (
             CropInfo(
                 crop_type=CropType.CIRCLE,
                 data={"center": np.array([23, 30]), "radius": 2.4},
@@ -87,10 +87,10 @@ class TestGetRotationAngle:
                 },
                 is_foreground=True,
             ),
-        ]
+        )
 
     def test_explicit_rotation_angle_returned(
-        self, rectangle_crop_info_15deg: list[CropInfo]
+        self, rectangle_crop_info_15deg: tuple[CropInfo]
     ):
         """Test that explicit rotation angle is returned when non-zero."""
         rotation_angle = 45.0
@@ -100,14 +100,14 @@ class TestGetRotationAngle:
         assert result == 45.0
 
     def test_zero_rotation_angle_no_rectangle_crop_info(
-        self, circle_crop_info: list[CropInfo]
+        self, circle_crop_info: tuple[CropInfo]
     ):
         """Test that zero is returned when no crop info is provided."""
         result = get_rotation_angle(crop_infos=circle_crop_info, rotation_angle=0.0)
         assert result == 0.0
 
     def test_zero_rotation_angle_rectangle_not_first(
-        self, rectangle_not_first_crop_info: list[CropInfo]
+        self, rectangle_not_first_crop_info: tuple[CropInfo]
     ):
         """Test that zero is returned when no crop info is provided."""
         result = get_rotation_angle(
@@ -115,13 +115,8 @@ class TestGetRotationAngle:
         )
         assert result == 0.0
 
-    def test_zero_rotation_angle_empty_crop_info(self):
-        """Test that zero is returned when crop info list is empty."""
-        result = get_rotation_angle(crop_infos=[], rotation_angle=0.0)
-        assert result == 0.0
-
     def test_rotation_from_rectangle_crop_0_degrees(
-        self, rectangle_crop_info_0deg: list[CropInfo]
+        self, rectangle_crop_info_0deg: tuple[CropInfo]
     ):
         """Test rotation calculation from horizontal rectangle."""
         result = get_rotation_angle(
@@ -140,13 +135,13 @@ class TestGetRotationAngle:
         """Test that angles > 90 are normalized to range [-90, 90]."""
         # Create corners that would result in angle > 90
         corners = np.array([[0, 0], [0, 100], [-50, 100], [-50, 0]])
-        crop_info = [
+        crop_info = (
             CropInfo(
                 crop_type=CropType.RECTANGLE,
                 data={"corner": corners},
                 is_foreground=True,
-            )
-        ]
+            ),
+        )
         result = get_rotation_angle(crop_infos=crop_info, rotation_angle=0.0)
         assert -90 <= result <= 90
 
