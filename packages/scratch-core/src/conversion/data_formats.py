@@ -1,9 +1,9 @@
 from enum import StrEnum, auto
 
 from pydantic import Field, computed_field
-
 from container_models.base import ConfigBaseModel
 from container_models.scan_image import ScanImage
+import json
 
 
 class MarkType(StrEnum):
@@ -72,3 +72,15 @@ class Mark(ConfigBaseModel):
             return self._center
         data = self.scan_image.data
         return data.shape[1] / 2, data.shape[0] / 2
+
+    def export(self) -> str:
+        """Export the `Mark` meta-data fields as a JSON string."""
+        data = {
+            "mark_type": self.mark_type.name,
+            "crop_type": self.crop_type.name,
+            "center": self.center,
+            "scale_x": self.scan_image.scale_x,
+            "scale_y": self.scan_image.scale_y,
+            "meta_data": self.meta_data,
+        }
+        return json.dumps(data, indent=4)
