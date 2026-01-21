@@ -3,38 +3,46 @@ import pytest
 from numpy.testing import assert_array_equal
 import unittest
 
+from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
-from conversion.remove_needles import mask_and_remove_needles, apply_median_filter
+from conversion.remove_needles import (
+    mask_and_remove_needles,
+    apply_median_filter,
+    determine_and_remove_needles,
+    get_residual_image,
+)
 
 
-class TestRemoveNeedles:
+class TestMaskAndRemoveNeedles:
     """Unit tests for the remove_needles function."""
 
     @pytest.fixture
-    def simple_scan_image(self):
+    def simple_scan_image(self) -> ScanImage:
         """Create a simple 50x50 scan image for testing."""
         data = np.ones((50, 50)) * 100.0
         return ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
     @pytest.fixture
-    def small_scan_image(self):
+    def small_scan_image(self) -> ScanImage:
         """Create a small scan image (<=20 columns) for testing."""
         data = np.ones((30, 15)) * 100.0
         return ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
     @pytest.fixture
-    def full_mask(self):
+    def full_mask(self) -> MaskArray:
         """Create a full mask (all True)."""
         return np.ones((50, 50), dtype=bool)
 
     @pytest.fixture
-    def partial_mask(self):
+    def partial_mask(self) -> MaskArray:
         """Create a partial mask."""
         mask = np.ones((50, 50), dtype=bool)
         mask[10:20, 10:20] = False
         return mask
 
-    def test_basic_functionality_no_needles(self, simple_scan_image, full_mask):
+    def test_basic_functionality_no_needles(
+        self, simple_scan_image: ScanImage, full_mask: MaskArray
+    ):
         """Test that data without needles remains mostly unchanged."""
         result = mask_and_remove_needles(simple_scan_image, full_mask, times_median=15)
 
@@ -44,7 +52,7 @@ class TestRemoveNeedles:
         # Most values should be close to original (no outliers to remove)
         assert np.nanmean(np.abs(result.data - simple_scan_image.data)) < 5.0
 
-    def test_removes_spike_outliers(self, simple_scan_image, full_mask):
+    def test_removes_needles(self, simple_scan_image: ScanImage, full_mask: MaskArray):
         """Test that obvious spike outliers are detected and set to NaN."""
         # Add some obvious spikes
         simple_scan_image.data[10, 10] = 1000.0  # Huge spike
@@ -58,36 +66,24 @@ class TestRemoveNeedles:
         assert np.isnan(result.data[20, 20])
         assert np.isnan(result.data[30, 30])
 
-        # Most other values should remain
+        # Most other values should remain the same
         non_spike_mask = np.ones_like(result.data, dtype=bool)
         non_spike_mask[10, 10] = False
         non_spike_mask[20, 20] = False
         non_spike_mask[30, 30] = False
         assert np.nanmean(result.data[non_spike_mask]) > 90.0
 
-    def test_small_strip_behavior(self, small_scan_image, partial_mask):
-        """Test that small strips trigger different filtering logic."""
-        # Verify width <= 20
-        assert small_scan_image.width <= 20
-
-        result = mask_and_remove_needles(
-            small_scan_image, partial_mask[:30, :15], times_median=15
-        )
-
-        # Should complete without error and return correct shape
-        assert result.data.shape == small_scan_image.data.shape
-
     def test_single_row_data(self):
         """Test handling of single-row data (1D case)."""
         data = np.ones((1, 50)) * 100.0
-        data[0, 25] = 500.0  # Add a spike
+        data[0, 25] = 500.0  # Add a needle
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
         mask = np.ones((1, 50), dtype=bool)
 
         result = mask_and_remove_needles(scan_image, mask, times_median=15)
 
         assert result.data.shape == (1, 50)
-        # Spike should be detected
+        # Needle should be detected
         assert np.isnan(result.data[0, 25])
 
     def test_times_median_parameter(self, simple_scan_image, full_mask):
@@ -102,20 +98,13 @@ class TestRemoveNeedles:
 
         # Lenient threshold (higher times_median)
         result_lenient = mask_and_remove_needles(
-            simple_scan_image, full_mask, times_median=50
+            simple_scan_image, full_mask, times_median=100
         )
 
         # Strict should flag more points as NaN
-        assert np.sum(np.isnan(result_strict.data)) >= np.sum(
+        assert np.sum(np.isnan(result_strict.data)) > np.sum(
             np.isnan(result_lenient.data)
         )
-
-    def test_subsampling_triggered(self, simple_scan_image, full_mask):
-        """Test that subsampling is triggered for large images with fine resolution."""
-        result = mask_and_remove_needles(simple_scan_image, full_mask, times_median=15)
-
-        # Should complete without error
-        assert result.data.shape == simple_scan_image.data.shape
 
     def test_all_nan_input(self):
         """Test handling of input data that is all NaN."""
@@ -131,14 +120,14 @@ class TestRemoveNeedles:
     def test_partial_nan_input(self, simple_scan_image, full_mask):
         """Test handling of input with some NaN values."""
         simple_scan_image.data[5:10, 5:10] = np.nan
-        simple_scan_image.data[30, 30] = 500.0  # Add spike
+        simple_scan_image.data[30, 30] = 500.0  # Add needle
 
         result = mask_and_remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Original NaN should remain
         assert np.all(np.isnan(result.data[5:10, 5:10]))
 
-        # Spike should be detected
+        # Needle should be detected
         assert np.isnan(result.data[30, 30])
 
     def test_mask_application(self, simple_scan_image):
@@ -153,6 +142,7 @@ class TestRemoveNeedles:
 
         # Result should have correct shape
         assert result.data.shape == simple_scan_image.data.shape
+        assert np.isnan(result.data[20:30, 20:30])
 
     def test_preserves_non_outlier_data(self, simple_scan_image, full_mask):
         """Test that non-outlier data is preserved with minimal change."""
@@ -176,28 +166,6 @@ class TestRemoveNeedles:
         # Less than 5% should be NaN
         assert (nan_count / total_count) < 0.05
 
-    def test_edge_case_width_exactly_20(self):
-        """Test edge case where width is exactly 20."""
-        data = np.ones((30, 20)) * 100.0
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
-        mask = np.ones((30, 20), dtype=bool)
-
-        result = mask_and_remove_needles(scan_image, mask, times_median=15)
-
-        # Should use large strip logic (not small strip)
-        assert result.data.shape == (30, 20)
-
-    def test_edge_case_width_21(self):
-        """Test edge case where width is 21 (just above threshold)."""
-        data = np.ones((30, 21)) * 100.0
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
-        mask = np.ones((30, 21), dtype=bool)
-
-        result = mask_and_remove_needles(scan_image, mask, times_median=15)
-
-        # Should use large strip logic
-        assert result.data.shape == (30, 21)
-
     def test_negative_outliers(self, simple_scan_image, full_mask):
         """Test detection of negative outliers (valleys)."""
         simple_scan_image.data[15, 15] = -500.0  # Deep valley
@@ -219,6 +187,136 @@ class TestRemoveNeedles:
         assert_array_equal(simple_scan_image.data, original_data)
         # Result should be different object
         assert result.data is not simple_scan_image.data
+
+
+class TestGetResidualImage(unittest.TestCase):
+    """Tests for get_residual_image function."""
+
+    def test_large_image_with_subsampling(self, large_scan_image: ScanImage):
+        """Test large image that requires subsampling will return same shape as input."""
+        residual = get_residual_image(large_scan_image)
+
+        self.assertEqual(residual.shape, large_scan_image.data.shape)
+
+    def test_residual_detects_spikes(self):
+        """Test that residuals are large for spike outliers."""
+        data = np.ones((20, 20)) * 10.0
+        data[10, 10] = 1000.0  # Add spike
+        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+
+        residual = get_residual_image(scan_image)
+
+        # Spike location should have large residual
+        self.assertGreater(np.abs(residual[10, 10]), np.abs(residual[5, 5]))
+
+    def test_with_nan_values(self):
+        """Test handling of NaN values in input."""
+        data = np.ones((20, 20))
+        data[5, 5] = np.nan
+        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+
+        residual = get_residual_image(scan_image)
+
+        self.assertEqual(residual.shape, data.shape)
+        # NaN should propagate through
+        self.assertTrue(np.isnan(residual[5, 5]))
+
+
+class TestDetermineAndRemoveNeedles(unittest.TestCase):
+    """Tests for determine_and_remove_needles function."""
+
+    def test_no_needles_detected(self):
+        """Test case where no needles should be detected."""
+        data = np.ones((10, 10)) * 5.0
+        residuals = np.ones((10, 10)) * 0.1  # Small residuals
+        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+
+        result = determine_and_remove_needles(scan_image, residuals, times_median=15.0)
+
+        # No needles should be removed
+        np.testing.assert_array_equal(result.data, data)
+
+    def test_needle_removed(self):
+        """Test that outlier needle is removed."""
+        data = np.ones((10, 10)) * 5.0
+        residuals = np.zeros((10, 10))
+        residuals[5, 5] = 100.0  # Large residual = needle
+        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+
+        result = determine_and_remove_needles(scan_image, residuals, times_median=1.0)
+
+        # Needle should be set to NaN
+        self.assertTrue(np.isnan(result.data[5, 5]))
+        # Other values should remain
+        self.assertEqual(result.data[0, 0], 5.0)
+
+    def test_multiple_needles_removed(self):
+        """Test removal of multiple needles."""
+        data = np.ones((10, 10)) * 5.0
+        residuals = np.zeros((10, 10))
+        residuals[2, 2] = 100.0
+        residuals[7, 7] = 100.0
+        residuals[5, 5] = 100.0
+        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+
+        result = determine_and_remove_needles(scan_image, residuals, times_median=1.0)
+
+        # All needles should be removed
+        self.assertTrue(np.isnan(result.data[2, 2]))
+        self.assertTrue(np.isnan(result.data[7, 7]))
+        self.assertTrue(np.isnan(result.data[5, 5]))
+        # Count total NaNs
+        self.assertEqual(np.sum(np.isnan(result.data)), 3)
+
+    def test_times_median_parameter(self):
+        """Test that times_median affects threshold."""
+        data = np.ones((10, 10)) * 5.0
+        residuals = np.ones((10, 10))
+        residuals[5, 5] = 10.0  # Moderate residual
+        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+
+        # Low threshold - should detect needle
+        result_low = determine_and_remove_needles(
+            scan_image, residuals, times_median=1.0
+        )
+
+        # High threshold - should not detect needle
+        result_high = determine_and_remove_needles(
+            scan_image, residuals, times_median=100.0
+        )
+
+        # With low threshold, needle detected
+        self.assertTrue(np.isnan(result_low.data[5, 5]))
+        # With high threshold, needle not detected
+        self.assertFalse(np.isnan(result_high.data[5, 5]))
+
+    def test_nan_residuals_handled(self):
+        """Test handling of NaN values in residuals."""
+        data = np.ones((10, 10)) * 5.0
+        residuals = np.ones((10, 10))
+        residuals[3, 3] = np.nan
+        residuals[7, 7] = 100.0  # This should still be detected
+        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+
+        result = determine_and_remove_needles(scan_image, residuals, times_median=1.0)
+
+        self.assertTrue(np.isnan(result.data[7, 7]))
+        self.assertTrue(np.isnan(result.data[3, 3]))
+
+    def test_original_data_not_modified(self):
+        """Test that original scan_image.data is not modified."""
+        data = np.ones((10, 10)) * 5.0
+        data_copy = data.copy()
+        residuals = np.zeros((10, 10))
+        residuals[5, 5] = 100.0
+        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+
+        result = determine_and_remove_needles(scan_image, residuals, times_median=1.0)
+
+        # Original data should be unchanged
+        np.testing.assert_array_equal(scan_image.data, data_copy)
+        # Result should be different
+        self.assertFalse(np.array_equal(result.data, data_copy))
 
 
 class TestApplyMedianFilter(unittest.TestCase):
