@@ -127,7 +127,8 @@ def determine_and_remove_needles(
     times_median = times_median * TIMES_MEDIAN_CORRECTION_FACTOR
 
     # Find needles: points where |residual| > threshold
-    threshold = times_median * np.nanmedian(np.abs(residual_image))
+    median_residual = np.nanmedian(np.abs(residual_image))
+    threshold = times_median * (1 if median_residual == 0 else median_residual)
     needles_indices = np.abs(residual_image) > threshold
 
     # Remove needles from the image by setting them to NaN
