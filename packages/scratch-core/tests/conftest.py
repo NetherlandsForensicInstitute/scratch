@@ -8,7 +8,7 @@ from loguru import logger
 
 from container_models.base import ScanMap2DArray, MaskArray
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType, CropType, Mark
+from conversion.data_formats import MarkType, Mark
 from parsers.loaders import load_scan_image
 from .helper_function import unwrap_result
 
@@ -102,5 +102,4 @@ def mark(scan_image: ScanImage) -> Mark:
     return Mark(
         scan_image=scan_image,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
-        crop_type=CropType.RECTANGLE,
     )

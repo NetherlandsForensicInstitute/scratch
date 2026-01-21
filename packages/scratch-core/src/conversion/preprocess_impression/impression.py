@@ -158,7 +158,6 @@ def _build_output_mark(
     return Mark(
         scan_image=scan_image,
         mark_type=mark.mark_type,
-        crop_type=mark.crop_type,
         meta_data=mark.meta_data | {"is_filtered": is_filtered, "is_leveled": True},
     )
 
