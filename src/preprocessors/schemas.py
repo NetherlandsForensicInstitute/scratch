@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from enum import StrEnum, auto
 from functools import cached_property
-from typing import Annotated, Self
+from typing import Annotated, Self, override
 
 import numpy as np
 from container_models.light_source import LightSource
 from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
+    EncodedBytes,
+    EncoderProtocol,
     Field,
     FilePath,
     PositiveFloat,
@@ -121,7 +123,57 @@ class RegressionOrder(StrEnum):
     R2 = auto()
 
 
-type Mask = tuple[tuple[bool, ...], ...]
+class MaskEncoder(EncoderProtocol):
+    @override
+    @classmethod
+    def decode(cls, data: bytes) -> bytes:
+        if not data:
+            raise ValueError("Cannot decode empty bytes to mask array")
+        # Strict bool evaluation
+        if any(byte_ not in (1, 0) for byte_ in data):
+            raise ValueError("Corrupted encoding")
+        return data
+
+    @override
+    @classmethod
+    def encode(cls, value: bytes) -> bytes:
+        # Ensure output is strict bool bytes
+        return np.frombuffer(value, dtype=np.int8).astype(np.bool_).tobytes()
+
+    @classmethod
+    @override
+    def get_json_format(cls) -> str:
+        return "mask-bytes"
+
+
+class Mask(BaseModelConfig):
+    data: Annotated[bytes, EncodedBytes(MaskEncoder)]
+    shape: tuple[int, int]
+
+    @model_validator(mode="after")
+    def validate_mask_is_2d(self) -> Self:
+        """
+        Validate that the mask is a valid 2D array structure.
+
+        Ensures the mask can be converted to a numpy array and has exactly
+        2 dimensions, as required for image masking operations.
+        """
+        try:
+            self.mask_array
+        except (ValueError, TypeError) as e:
+            raise ValueError("Failed to decode mask data") from e
+        if not self.mask_array.ndim == 2:  # noqa: PLR2004
+            raise ValueError(f"Mask is not a 2D image: D{self.mask_array.ndim}")
+        return self
+
+    @cached_property
+    def mask_array(self) -> NDArray:
+        """
+        Convert the mask tuple to a numpy boolean array.
+
+        :return: 2D numpy array of boolean values representing the mask
+        """
+        return np.frombuffer(self.data, dtype=np.uint8).reshape(*self.shape).astype(np.bool_)
 
 
 class EditImageParameters(BaseModelConfig):
@@ -172,31 +224,6 @@ class EditImageParameters(BaseModelConfig):
         description="Subsampling step size in y-direction. Values > 1 reduce resolution by skipping pixels.",
         examples=[1, 2, 4],
     )
-
-    @model_validator(mode="after")
-    def validate_mask_is_2d(self) -> Self:
-        """
-        Validate that the mask is a valid 2D array structure.
-
-        Ensures the mask can be converted to a numpy array and has exactly
-        2 dimensions, as required for image masking operations.
-        """
-        try:
-            self.mask_array
-        except (ValueError, TypeError) as e:
-            raise ValueError("Bad mask value: unable to capture mask") from e
-        if not self.mask_array.ndim == 2:  # noqa: PLR2004
-            raise ValueError(f"Mask is not a 2D image: D{self.mask_array.ndim}")
-        return self
-
-    @cached_property
-    def mask_array(self) -> NDArray:
-        """
-        Convert the mask tuple to a numpy boolean array.
-
-        :return: 2D numpy array of boolean values representing the mask
-        """
-        return np.array(self.mask, np.bool_)
 
 
 class EditImage(BaseModelConfig):
