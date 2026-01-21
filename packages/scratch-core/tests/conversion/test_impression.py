@@ -540,7 +540,6 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, _ = preprocess_impression_mark(mark, params)
 
-        # Center should be close to (50, 50) pixels = (50e-6, 50e-6) meters
         center_x, center_y = filtered.center
         assert center_x == pytest.approx(40.5)
         assert center_y == pytest.approx(40.5)
