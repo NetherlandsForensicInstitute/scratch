@@ -17,7 +17,7 @@ def rotate_crop_and_mask_image_by_crop(
     scan_image: ScanImage,
     mask: MaskArray,
     crop_infos: tuple[CropInfo],
-    rotation_angle: float = 0.0,
+    rotation_angle: float,
     times_median: float = 15,
 ) -> ScanImage:
     """
@@ -69,9 +69,7 @@ def rotate_crop_and_mask_image_by_crop(
     return scan_image_cropped
 
 
-def get_rotation_angle(
-    crop_infos: tuple[CropInfo], rotation_angle: float = 0.0
-) -> float:
+def get_rotation_angle(crop_infos: tuple[CropInfo], rotation_angle: float) -> float:
     """
     Calculate the rotation angle of a rectangular crop region.
 
