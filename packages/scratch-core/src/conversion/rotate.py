@@ -31,9 +31,8 @@ def rotate_crop_and_mask_image_by_crop(
     - If the rotation angle is not 0, the mask is binary dilated using DILATE_STEPS iterations to correct for
     imperfections when rotating. A margin is determined to reduce the final image to compensate for the dilation.
     - The mask and image are cropped to the bounds of the mask.
-    - The scan image is cleaned of needles. The parameter `times_median` is used to determine the threshold to find
-    outliers.
-    - The cleaned image is masked using the cropped mask.
+    - The scan image is masked using the cropped mask and cleaned of needles (i.e. steep slopes). The parameter
+        `times_median` is used to determine the threshold to find outliers.
     - The image and mask are rotated by rotation_angle.
     - The rotated image is cropped to the bounds of the rotated mask, using margin to compensate for dilation.
 
