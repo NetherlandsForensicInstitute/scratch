@@ -171,14 +171,14 @@ def run_python_preprocessing(
         scale_y=test_case.input_ydim,
     )
 
-    data_out, mask_out = rotate_crop_and_mask_image_by_crop(
+    data_out = rotate_crop_and_mask_image_by_crop(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
         crop_infos=test_case.to_crop_info(),
         rotation_angle=test_case.rotation_angle,
         times_median=test_case.times_median,
     )
-    return data_out.data, mask_out
+    return data_out.data
 
 
 class TestRotateCropImageMatlabComparison:
@@ -203,7 +203,7 @@ class TestRotateCropImageMatlabComparison:
 
     def test_matlab_comparison(self, test_case: MatlabTestCase):
         """Test that Python output matches MATLAB reference."""
-        python_data, python_mask = run_python_preprocessing(test_case)
+        python_data = run_python_preprocessing(test_case)
         matlab_data = test_case.output_data
 
         # Shape check

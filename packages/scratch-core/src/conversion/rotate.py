@@ -19,9 +19,9 @@ def rotate_crop_and_mask_image_by_crop(
     crop_infos: tuple[CropInfo],
     rotation_angle: float = 0.0,
     times_median: float = 15,
-) -> tuple[ScanImage, MaskArray]:
+) -> ScanImage:
     """
-    Rotates, crops and masks a scan image and rotates and crops the mask based on the given mask and crop info.
+    Rotates, crops and masks a scan image based on the given mask and crop info.
 
     Implements the following flow:
     - Determine the rotation angle for the image and mask
@@ -35,14 +35,14 @@ def rotate_crop_and_mask_image_by_crop(
     outliers.
     - The cleaned image is masked using the cropped mask.
     - The image and mask are rotated by rotation_angle.
-    - The rotated image and rotated mask are cropped to the bounds of the mask, using margin to compensate for dilation.
+    - The rotated image is cropped to the bounds of the rotated mask, using margin to compensate for dilation.
 
     :param scan_image: Scan image to rotate, mask and crop.
     :param mask: Binary mask array.
     :param rotation_angle: Angle with which to rotate the image.
     :param crop_infos: List of crop info objects that describe the crops the user has done and the order of the crops.
     :param times_median: Parameter used to determine what is considered an outlier when removing outliers/needles.
-    :return: Tuple of the cropped, rotated and masked scan image, and the rotated and cropped mask.
+    :return: The cropped, rotated and masked scan image.
     """
     rotation_angle = get_rotation_angle(crop_infos, rotation_angle)
 
@@ -64,8 +64,12 @@ def rotate_crop_and_mask_image_by_crop(
     scan_image_rotated, mask_rotated = rotate_mask_and_scan_image(
         scan_image_masked, mask_cropped, rotation_angle
     )
-
-    return crop_image_and_mask_to_mask(scan_image_rotated, mask_rotated, margin)
+    scan_image_cropped = ScanImage(
+        data=crop_to_mask(scan_image_rotated.data, mask_rotated, margin),
+        scale_x=scan_image.scale_x,
+        scale_y=scan_image.scale_y,
+    )
+    return scan_image_cropped
 
 
 def get_rotation_angle(
