@@ -9,6 +9,7 @@ from surfalize import Surface
 
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, subsample_scan_image
+from parsers.loaders import make_isotropic
 
 from ..helper_function import unwrap_result
 
@@ -110,3 +111,53 @@ class TestSubSampleScanImage:
 
         # Assert
         assert not is_successful(result)
+
+    def test_make_isotropic_no_op(self):
+        """Ensure no resampling occurs if pixels are already square."""
+        # Force scales to be identical
+        scan_image = ScanImage(scale_x=0.5, scale_y=0.5, data=np.zeros((100, 100)))
+
+        result = unwrap_result(make_isotropic(scan_image))
+
+        assert result.scale_x == 0.5
+        assert result.scale_y == 0.5
+        assert result.data.shape == (100, 100)
+        # Check if it returns the same instance or a perfect data match
+        np.testing.assert_array_equal(result.data, scan_image.data)
+
+    def test_make_isotropic_upsampling_logic(self):
+        """Verify upsampling to the smallest scale and correct shape calculation."""
+        # Setup: 100x100 image with 2.0m/px width and 1.0m/px height
+        scan_image = ScanImage(
+            data=np.zeros((100, 100)),
+            scale_x=2.0,  # Coarse
+            scale_y=1.0,  # Fine (target)
+        )
+
+        result = unwrap_result(make_isotropic(scan_image))
+
+        # Scale should now be the minimum of the two (1.0)
+        assert result.scale_x == 1.0
+        assert result.scale_y == 1.0
+
+        # New width should be (original_width * (original_scale_x / target_scale))
+        assert result.data.shape == (100, 200)  # (height, width)
+
+    def test_make_isotropic_preserves_metadata_and_range(self):
+        """Ensure metadata is passed through and pixel intensities remain consistent."""
+        scan_image = ScanImage(
+            meta_data={"sensor_id": "XY-Z", "timestamp": "2026-01-21"},
+            scale_x=1.0,
+            scale_y=0.5,
+            # Use specific values to check for interpolation range issues
+            data=np.array([[0, 1000], [2000, 3000]], dtype=np.float64),
+        )
+
+        result = unwrap_result(make_isotropic(scan_image))
+
+        # Metadata check
+        assert result.meta_data == scan_image.meta_data
+        # Intensity check
+        assert np.min(result.data) == 0
+        assert np.max(result.data) == 3000
+        assert result.data.dtype == scan_image.data.dtype

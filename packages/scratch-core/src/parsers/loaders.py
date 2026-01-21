@@ -12,7 +12,9 @@ from utils.logger import log_railway_function
 
 from .patches.al3d import read_al3d
 from scipy.constants import micro
+from skimage.transform import resize
 
+TOLERANCE = 1e-16
 
 # register the patched method as a parser
 FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
@@ -43,6 +45,41 @@ def load_scan_image(scan_file: Path) -> ScanImage:
 
 
 @log_railway_function(
+    "Failed to make image resolution isotropic",
+    "Successfully upsampled image file to isotropic resolution",
+)
+@safe
+def make_isotropic(scan_image: ScanImage) -> ScanImage:
+    # Check if already isotropic within tolerance
+    if np.isclose(scan_image.scale_x, scan_image.scale_y, atol=TOLERANCE):
+        return scan_image
+
+    # Upsample to the smallest pixel scale (highest resolution)
+    target_scale = min(scan_image.scale_x, scan_image.scale_y)
+    target_shape = (
+        int(round(scan_image.height * scan_image.scale_y / target_scale)),
+        int(round(scan_image.width * scan_image.scale_x / target_scale)),
+    )
+
+    # Perform the resize
+    resampled_data = resize(
+        image=scan_image.data,
+        output_shape=target_shape,
+        mode="edge",
+        anti_aliasing=False,  # Disabled for pure upsampling
+        preserve_range=True,  # Keep original data intensity levels
+        order=1,  # Bilinear interpolation
+    )
+
+    return ScanImage(
+        data=np.asarray(resampled_data, dtype=np.float64),
+        scale_x=target_scale,
+        scale_y=target_scale,
+        meta_data=scan_image.meta_data,
+    )
+
+
+@log_railway_function(
     "Failed to subsample image file",
     "Successfully subsampled scan file",
 )
@@ -55,9 +92,9 @@ def subsample_scan_image(
     :param scan_image: The instance of `ScanImage` containing the 2D image data to subsample.
     :param step_size_x: The number of steps to skip in the X-direction.
     :param step_size_y: The number of steps to skip in the Y-direction.
-    :returns: An subsampled `ScanImage` with updated scales.
+    :returns: A subsampled `ScanImage` with updated scales.
     """
-    width, height = scan_image.data.shape
+    width, height = scan_image.width, scan_image.height
     if not (0 < step_size_x < width and 0 < step_size_y < height):
         raise ValueError(
             f"Step size should be positive and smaller than the image size: {(height, width)}"

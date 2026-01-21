@@ -4,6 +4,7 @@ from typing import Protocol
 
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, parse_to_x3p, save_x3p, subsample_scan_image
+from parsers.loaders import make_isotropic
 from renders import (
     apply_multiple_lights,
     compute_surface_normals,
@@ -39,6 +40,7 @@ def parse_scan_pipeline(scan_file: Path, parameters: ParseParameters) -> ScanIma
             step_size_x=parameters.step_size_x,
             step_size_y=parameters.step_size_y,
         ),
+        make_isotropic,
         error_message=f"Failed to parsed given scan file: {scan_file}",
     )
 
