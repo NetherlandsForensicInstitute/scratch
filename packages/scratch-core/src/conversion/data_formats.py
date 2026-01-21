@@ -1,5 +1,6 @@
-from enum import Enum, auto
 from typing import Any
+from enum import StrEnum, auto
+import json
 
 from pydantic import Field, computed_field
 
@@ -7,7 +8,7 @@ from container_models.base import ConfigBaseModel, BaseModel
 from container_models.scan_image import ScanImage
 
 
-class MarkType(Enum):
+class MarkType(StrEnum):
     # Impression marks
     BREECH_FACE_IMPRESSION = auto()
     CHAMBER_IMPRESSION = auto()
@@ -38,7 +39,7 @@ class MarkType(Enum):
         return 1.5e-6
 
 
-class CropType(Enum):
+class CropType(StrEnum):
     RECTANGLE = auto()
     CIRCLE = auto()
     ELLIPSE = auto()
@@ -89,3 +90,14 @@ class Mark(ConfigBaseModel):
             return self._center
         data = self.scan_image.data
         return data.shape[1] / 2, data.shape[0] / 2
+
+    def export(self) -> str:
+        """Export the `Mark` meta-data fields as a JSON string."""
+        data = {
+            "mark_type": self.mark_type.name,
+            "center": self.center,
+            "scale_x": self.scan_image.scale_x,
+            "scale_y": self.scan_image.scale_y,
+            "meta_data": self.meta_data,
+        }
+        return json.dumps(data, indent=4)

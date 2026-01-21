@@ -5,10 +5,9 @@ from numpy.testing import assert_array_equal
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_impression.impression import (
-    _build_preprocessing_metadata,
     preprocess_impression_mark,
 )
-from conversion.preprocess_impression.resample import _needs_resampling
+from conversion.preprocess_impression.resample import needs_resampling
 from conversion.preprocess_impression.filter import _apply_anti_aliasing
 from conversion.preprocess_impression.utils import update_mark_data
 from conversion.preprocess_impression.tilt import (
@@ -499,34 +498,6 @@ class TestPreprocessImpressionMarkIntegration:
         assert leveled.scan_image.data.shape[1] < mark.scan_image.data.shape[1]
 
     @pytest.mark.integration
-    def test_metadata_is_populated(self):
-        """Output metadata should contain processing info."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
-            data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
-        )
-        params = PreprocessingImpressionParams(
-            pixel_size=2e-6,
-            adjust_pixel_spacing=False,
-        )
-
-        filtered, leveled = preprocess_impression_mark(mark, params)
-
-        # Check filtered metadata
-        assert filtered.meta_data.get("is_filtered") is True
-        assert filtered.meta_data.get("is_leveled") is True
-        assert filtered.meta_data.get("is_prep") is True
-        assert "center_l_x" in filtered.meta_data
-        assert "center_l_y" in filtered.meta_data
-
-        # Check leveled metadata
-        assert leveled.meta_data.get("is_filtered") is False
-        assert leveled.meta_data.get("is_leveled") is True
-
-    @pytest.mark.integration
     def test_filtered_and_leveled_differ(self):
         """Filtered and leveled outputs should be different."""
         data = make_rectangular_data((100, 100), scale=1e-6)
@@ -566,11 +537,9 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, _ = preprocess_impression_mark(mark, params)
 
-        # Center should be close to (50, 50) pixels = (50e-6, 50e-6) meters
-        center_x = filtered.meta_data.get("center_l_x")
-        center_y = filtered.meta_data.get("center_l_y")
-        assert center_x == pytest.approx(50e-6)
-        assert center_y == pytest.approx(50e-6)
+        center_x, center_y = filtered.center
+        assert center_x == pytest.approx(40.5)
+        assert center_y == pytest.approx(40.5)
 
     @pytest.mark.integration
     def test_no_resampling_when_pixel_size_matches(self):
@@ -589,7 +558,8 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, _ = preprocess_impression_mark(mark, params)
 
-        assert filtered.meta_data.get("is_resampled") is False
+        assert filtered.scan_image.scale_x == mark.scan_image.scale_x
+        assert filtered.scan_image.scale_y == mark.scan_image.scale_y
 
     @pytest.mark.integration
     def test_is_resampled_flag_set_on_resampling(self):
@@ -608,7 +578,8 @@ class TestPreprocessImpressionMarkIntegration:
 
         filtered, _ = preprocess_impression_mark(mark, params)
 
-        assert filtered.meta_data.get("is_resampled") is True
+        assert filtered.scan_image.scale_x != mark.scan_image.scale_x
+        assert filtered.scan_image.scale_y != mark.scan_image.scale_y
 
     @pytest.mark.integration
     def test_without_lowpass_filter(self):
@@ -845,96 +816,38 @@ class TestNeedsResampling:
         """Should return False when scales match exactly."""
         mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.0)
 
-        assert _needs_resampling(mark, target_scale=1.0) is False
+        assert needs_resampling(mark, target_scale=1.0) is False
 
     def test_returns_false_when_scales_match_within_tolerance(self):
         """Should return False when scales match within relative tolerance."""
         mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.0 + 1e-9)
 
-        assert _needs_resampling(mark, target_scale=1.0) is False
+        assert needs_resampling(mark, target_scale=1.0) is False
 
     def test_returns_true_when_scales_differ(self):
         """Should return True when scales differ significantly."""
         mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.0)
 
-        assert _needs_resampling(mark, target_scale=2.0) is True
+        assert needs_resampling(mark, target_scale=2.0) is True
 
     def test_returns_true_when_only_x_differs(self):
         """Should return True when only x scale differs."""
         mark = make_mark(np.zeros((10, 10)), scale_x=1.5, scale_y=1.0)
 
-        assert _needs_resampling(mark, target_scale=1.0) is True
+        assert needs_resampling(mark, target_scale=1.0) is True
 
     def test_returns_true_when_only_y_differs(self):
         """Should return True when only y scale differs."""
         mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.5)
 
-        assert _needs_resampling(mark, target_scale=1.0) is True
+        assert needs_resampling(mark, target_scale=1.0) is True
 
     def test_handles_small_scale_values(self):
         """Should handle small scale values correctly."""
         mark = make_mark(np.zeros((10, 10)), scale_x=1e-6, scale_y=1e-6)
 
-        assert _needs_resampling(mark, target_scale=1e-6) is False
-        assert _needs_resampling(mark, target_scale=2e-6) is True
-
-
-class TestBuildPreprocessingMetadata:
-    """Tests for _build_preprocessing_metadata."""
-
-    def test_includes_params_fields(self):
-        """Should include all preprocessing params fields."""
-        params = PreprocessingImpressionParams(
-            pixel_size=1e-6,
-            adjust_pixel_spacing=True,
-            lowpass_cutoff=10e-6,
-            highpass_cutoff=50e-6,
-        )
-        center_local = (5e-6, 10e-6)
-
-        result = _build_preprocessing_metadata(params, center_local, is_resampled=True)
-
-        assert result["pixel_size"] == 1e-6
-        assert result["adjust_pixel_spacing"] is True
-        assert result["lowpass_cutoff"] == 10e-6
-        assert result["highpass_cutoff"] == 50e-6
-
-    def test_includes_center_coordinates(self):
-        """Should include local center coordinates."""
-        params = PreprocessingImpressionParams(pixel_size=1e-6)
-        center_local = (5e-6, 10e-6)
-
-        result = _build_preprocessing_metadata(params, center_local, is_resampled=False)
-
-        assert result["center_l_x"] == 5e-6
-        assert result["center_l_y"] == 10e-6
-
-    def test_includes_global_center_as_zero(self):
-        """Should include global center as zero."""
-        params = PreprocessingImpressionParams(pixel_size=1e-6)
-
-        result = _build_preprocessing_metadata(params, (0, 0), is_resampled=False)
-
-        assert result["center_g_x"] == 0
-        assert result["center_g_y"] == 0
-
-    def test_includes_processing_flags(self):
-        """Should include processing flags."""
-        params = PreprocessingImpressionParams(pixel_size=1e-6)
-
-        result = _build_preprocessing_metadata(params, (0, 0), is_resampled=True)
-
-        assert result["is_crop"] is True
-        assert result["is_prep"] is True
-        assert result["is_resampled"] is True
-
-    def test_is_resampled_flag_false(self):
-        """Should set is_resampled flag to False when specified."""
-        params = PreprocessingImpressionParams(pixel_size=1e-6)
-
-        result = _build_preprocessing_metadata(params, (0, 0), is_resampled=False)
-
-        assert result["is_resampled"] is False
+        assert needs_resampling(mark, target_scale=1e-6) is False
+        assert needs_resampling(mark, target_scale=2e-6) is True
 
 
 class TestMarkCenter:

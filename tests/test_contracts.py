@@ -3,13 +3,18 @@ from pathlib import Path
 
 import pytest
 import requests
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
-from extractors.schemas import ProcessedDataAccess
+from extractors.schemas import (
+    PrepareMarkResponseImpression,
+    PrepareMarkResponseStriation,
+    ProcessedDataAccess,
+)
 from models import DirectoryAccess
-from preprocessors.schemas import UploadScan
+from preprocessors.schemas import PrepareMarkImpression, PrepareMarkStriation, PreprocessingStriationParams, UploadScan
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
@@ -47,6 +52,36 @@ class TestContracts:
         """
         return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
 
+    @pytest.fixture(scope="class")
+    def prepare_mark_impression(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
+        """Create dummy files for the expected response.
+
+        Returns the post request data, sub_route & expected response.
+        """
+        return PrepareMarkImpression(
+            scan_file=scan_directory / "circle.x3p",
+            mark_type="breach face impression mark",
+            mask_array=[[0, 1], [1, 0]],
+            rotation_angle=15,
+            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            mark_parameters=PreprocessingImpressionParams(),
+        ), PrepareMarkResponseImpression  # type: ignore
+
+    @pytest.fixture(scope="class")
+    def prepare_mark_striation(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
+        """Create dummy files for the expected response.
+
+        Returns the post request data, sub_route & expected response.
+        """
+        return PrepareMarkStriation(
+            scan_file=scan_directory / "circle.x3p",
+            mark_type="aperture shear striation mark",
+            mask_array=[[0, 1], [1, 0]],
+            rotation_angle=15,
+            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            mark_parameters=PreprocessingStriationParams(),
+        ), PrepareMarkResponseStriation  # type: ignore
+
     @pytest.mark.parametrize(
         ("route", "expected_response"),
         (pytest.param(f"/{route}", TemplateResponse, id=route) for route in RoutePrefix),
@@ -60,7 +95,12 @@ class TestContracts:
         expected_response.model_validate(response.json())
 
     @pytest.mark.parametrize(
-        ("fixture_name", "sub_route"), [pytest.param("process_scan", "process-scan", id="process_scan")]
+        ("fixture_name", "sub_route"),
+        [
+            pytest.param("process_scan", "process-scan", id="process_scan"),
+            pytest.param("prepare_mark_impression", "prepare-mark-impression", id="prepare_mark_impression"),
+            pytest.param("prepare_mark_striation", "prepare-mark-striation", id="prepare_mark_striation"),
+        ],
     )
     def test_pre_processor_post_requests(
         self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest
