@@ -7,7 +7,17 @@ from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
 
-from pydantic import UUID4, AfterValidator, BaseModel, ConfigDict, Field, FilePath, StringConstraints
+from pydantic import (
+    UUID4,
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    FilePath,
+    HttpUrl,
+    RootModel,
+    StringConstraints,
+)
 
 from constants import EXTRACTOR_ROUTE
 from settings import get_settings
@@ -142,3 +152,26 @@ class DirectoryAccess(BaseModelConfig):
     def __str__(self) -> str:
         """Return string representation of the resource path."""
         return str(self.resource_path)
+
+
+class ProcessDataUrls(RootModel):
+    """
+    Collection of HTTP URLs pointing to processed scan data files.
+
+    Provides immutable tuple of URLs for accessing generated outputs
+    such as X3P files, surface maps, and preview images.
+    """
+
+    root: tuple[HttpUrl, ...] = Field(
+        ...,
+        description="Tuple of HTTP URLs for accessing processed scan files (X3P, surface maps, preview images).",
+        examples=[
+            (
+                "http://localhost:8000/extractor/files/a1b2c3d4/project/scan.x3p",
+                "http://localhost:8000/extractor/files/a1b2c3d4/project/surface_map.png",
+                "http://localhost:8000/extractor/files/a1b2c3d4/project/preview.png",
+            ),
+        ],
+        min_length=1,
+    )
+    model_config = ConfigDict(frozen=True, regex_engine="rust-regex")

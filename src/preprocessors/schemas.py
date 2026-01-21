@@ -8,9 +8,11 @@ import numpy as np
 from container_models.light_source import LightSource
 from numpy.typing import NDArray
 from pydantic import (
+    UUID4,
     AfterValidator,
     Field,
     FilePath,
+    HttpUrl,
     PositiveFloat,
     PositiveInt,
     field_validator,
@@ -172,6 +174,10 @@ class EditImageParameters(BaseModelConfig):
         description="Subsampling step size in y-direction. Values > 1 reduce resolution by skipping pixels.",
         examples=[1, 2, 4],
     )
+    overwrite: bool = Field(
+        False,
+        description="Whether to overwrite the original scan file with edited results.",
+    )
 
     @model_validator(mode="after")
     def validate_mask_is_2d(self) -> Self:
@@ -231,3 +237,19 @@ class EditImage(BaseModelConfig):
         if scan_file.suffix[1:] != SupportedScanExtension.X3P:
             raise ValueError(f"unsupported extension: {scan_file.name}")
         return scan_file
+
+
+class ProcessScanOutput(BaseModelConfig):
+    """
+    Response model for scan upload and processing operations.
+
+    Contains URLs for accessing processed scan outputs and links to
+    subsequent editing operations.
+    """
+
+    downloads: tuple[HttpUrl, ...] = Field(
+        ...,
+        description=("Collection of HTTP URLs for downloading processed scan files "),
+        min_length=1,
+    )
+    token: UUID4

@@ -2,13 +2,14 @@ from http import HTTPStatus
 
 from fastapi import APIRouter
 from loguru import logger
+from pydantic import UUID4
 
 from constants import PREPROCESSOR_ROUTE
-from extractors.schemas import ProcessDataUrls
-from file_services import create_vault, generate_files, generate_urls
+from file_services import create_vault, fetch_directory_access, fetch_resource_file, generate_files, generate_urls
+from models import ProcessDataUrls
 
 from .pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
-from .schemas import EditImage, UploadScan
+from .schemas import EditImage, EditImageParameters, ProcessScanOutput, UploadScan
 
 preprocessor_route = APIRouter(prefix=PREPROCESSOR_ROUTE, tags=[PREPROCESSOR_ROUTE])
 
@@ -42,7 +43,7 @@ async def preprocessor_root() -> dict[str, str]:
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
-async def process_scan(upload_scan: UploadScan) -> ProcessDataUrls:
+async def process_scan(upload_scan: UploadScan) -> ProcessScanOutput:
     """
     Process an uploaded scan file and generate derived output files.
 
@@ -61,7 +62,10 @@ async def process_scan(upload_scan: UploadScan) -> ProcessDataUrls:
     preview = preview_pipeline(parsed_scan, files["preview"])
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessDataUrls.model_validate(generate_urls(vault.access_url, scan, preview, surface_map))
+    return ProcessScanOutput(
+        downloads=generate_urls(vault.access_url, scan, preview, surface_map),  # type: ignore
+        token=vault.token,
+    )
 
 
 @preprocessor_route.post(
@@ -80,7 +84,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessDataUrls:
         },
     },
 )
-async def edit_scan(edit_image: EditImage) -> ProcessDataUrls:
+async def edit_scan(edit_image: EditImage) -> ProcessScanOutput:
     """
     Validate and parse a scan file with edit parameters.
 
@@ -92,4 +96,43 @@ async def edit_scan(edit_image: EditImage) -> ProcessDataUrls:
     vault = create_vault(edit_image.tag)
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessDataUrls(root=tuple(generate_urls(vault.access_url, **{})))
+    return ProcessScanOutput(
+        downloads=generate_urls(vault.access_url),  # type: ignore
+        token=vault.token,
+    )
+
+
+@preprocessor_route.post(
+    path="/edit-scans/{token}",
+    summary="Re-process an existing scan file with new edit parameters.",
+    description="""
+    Retrieve a previously uploaded scan file using its token, tag, and filename,
+    then parse it with new edit parameters (mask, zoom, subsampling).
+
+    If overwrite=False, creates a new vault for storing outputs. If overwrite=True,
+    reuses the existing vault directory.
+
+    Note: Image generation is currently not implemented.
+""",
+    responses={
+        HTTPStatus.BAD_REQUEST: {"description": "parse error"},
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "description": "processing error",
+        },
+    },
+)
+async def edit_existing_scan(token: UUID4, parameters: EditImageParameters) -> ProcessDataUrls:
+    """
+    Re-process an existing scan file with new edit parameters.
+
+    Fetches a previously uploaded scan file from the vault identified by token/tag/filename,
+    parses it with the new edit parameters (mask, zoom, step sizes), and creates a new
+    vault directory (unless overwrite=True). Returns access URLs for the vault.
+    """
+    vault = fetch_directory_access(token)
+    _ = parse_scan_pipeline(fetch_resource_file(vault.resource_path, "scan.x3p"), parameters)
+    if not parameters.overwrite:
+        vault = create_vault(vault.tag)
+
+    logger.info(f"Generated files saved to {vault}")
+    return ProcessDataUrls.model_validate(generate_urls(vault.access_url))

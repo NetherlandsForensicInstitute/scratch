@@ -1,3 +1,4 @@
+import shutil
 from enum import StrEnum
 from pathlib import Path
 
@@ -7,9 +8,8 @@ from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
-from extractors.schemas import ProcessDataUrls
-from models import DirectoryAccess
-from preprocessors.schemas import EditImage, EditImageParameters, UploadScan
+from models import DirectoryAccess, ProcessDataUrls
+from preprocessors.schemas import EditImage, EditImageParameters, ProcessScanOutput, UploadScan
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
@@ -47,7 +47,7 @@ class TestContracts:
 
         Returns the post request data and expected response type.
         """
-        return UploadScan(scan_file=scan_directory / "Klein_non_replica_mode.al3d"), ProcessDataUrls  # type: ignore
+        return UploadScan(scan_file=scan_directory / "Klein_non_replica_mode.al3d"), ProcessScanOutput  # type: ignore
 
     @pytest.fixture(scope="class")
     def edit_scan(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
@@ -59,7 +59,7 @@ class TestContracts:
             scan_file=scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p",
             parameters=EditImageParameters(mask=MASK, cutoff_length=CUTOFF_LENGTH),  # type: ignore
         )
-        return data, ProcessDataUrls
+        return data, ProcessScanOutput
 
     @pytest.mark.parametrize(
         ("route", "expected_response"),
@@ -92,8 +92,33 @@ class TestContracts:
             timeout=5,
         )
         # Assert
+        print(response.content)
         assert response.status_code == HTTP_200_OK
-        expected_response.model_validate(response.json())
+        assert expected_response.model_validate(response.json())
+
+    @pytest.mark.xfail
+    def test_edit_existing_scan_endpoint(self, directory_access: DirectoryAccess, scan_directory: Path) -> None:
+        """Test if edit-scans/{token}/{tag}/{filename} endpoint works with existing scan.
+
+        Uses a directory_access fixture to create a vault with a scan file,
+        then calls the edit endpoint to re-process the scan with new parameters.
+        """
+        # Arrange
+        shutil.copyfile(
+            scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p", directory_access.resource_path / "scan.x3p"
+        )
+        edit_params = EditImageParameters(mask=MASK, cutoff_length=CUTOFF_LENGTH)  # type: ignore
+
+        # Act
+        edit_response = requests.post(
+            f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scans/{directory_access.token}",
+            json=edit_params.model_dump(mode="json"),
+            timeout=5,
+        )
+
+        # Assert
+        assert edit_response.status_code == HTTP_200_OK
+        ProcessDataUrls.model_validate(edit_response.json())
 
     def test_extractor_get_file_endpoint(self, directory_access: DirectoryAccess) -> None:
         """Test if extractor /files/{token}/{filename} endpoint retrieves processed files.

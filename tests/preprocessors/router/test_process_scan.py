@@ -12,9 +12,8 @@ from PIL import Image
 from pydantic import HttpUrl
 
 from constants import EXTRACTOR_ROUTE, PREPROCESSOR_ROUTE
-from extractors.schemas import ProcessDataUrls
 from models import DirectoryAccess
-from preprocessors.schemas import UploadScan, UploadScanParameters
+from preprocessors.schemas import ProcessScanOutput, UploadScan, UploadScanParameters
 from settings import get_settings
 
 
@@ -52,10 +51,10 @@ class TestProcessScanEndpoint:
 
         # Assert - verify response
         assert response.status_code == HTTPStatus.OK
-        result = ProcessDataUrls.model_validate(response.json())
+        result = ProcessScanOutput.model_validate(response.json())
 
         # Act II
-        downloads = [client.get(str(url)) for url in result.root]
+        downloads = [client.get(str(url)) for url in result.downloads]
 
         # Assert - verify response status codes
         assert all(download.status_code == HTTPStatus.OK for download in downloads)
@@ -93,13 +92,13 @@ class TestProcessScanEndpoint:
         # Assert
         assert control_response.status_code == HTTPStatus.OK
         assert response.status_code == HTTPStatus.OK
-        result_location = ProcessDataUrls.model_validate(response.json())
-        control_location = ProcessDataUrls.model_validate(control_response.json())
+        result_location = ProcessScanOutput.model_validate(response.json())
+        control_location = ProcessScanOutput.model_validate(control_response.json())
 
         # Act II
         surface_map = -1
-        control = client.get(str(control_location.root[surface_map]))
-        result = client.get(str(result_location.root[surface_map]))
+        control = client.get(str(control_location.downloads[surface_map]))
+        result = client.get(str(result_location.downloads[surface_map]))
 
         # Assert - verify that the two surface_maps are not the same
         assert control.status_code == HTTPStatus.OK
@@ -138,14 +137,17 @@ class TestProcessScan:
             response = post_process_scan()
 
         # Assert
-        expected_response = ProcessDataUrls((
-            HttpUrl(f"{get_file_url}/scan.x3p"),
-            HttpUrl(f"{get_file_url}/preview.png"),
-            HttpUrl(f"{get_file_url}/surface_map.png"),
-        ))
+        expected_response = ProcessScanOutput(
+            downloads=(  # type: ignore
+                HttpUrl(f"{get_file_url}/scan.x3p"),
+                HttpUrl(f"{get_file_url}/preview.png"),
+                HttpUrl(f"{get_file_url}/surface_map.png"),
+            ),
+            token=directory_access.token,
+        )
 
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"
-        response_model = ProcessDataUrls.model_validate(response.json())
+        response_model = ProcessScanOutput.model_validate(response.json())
         assert response_model == expected_response
         assert (directory / "scan.x3p").exists()
         assert (directory / "preview.png").exists()
