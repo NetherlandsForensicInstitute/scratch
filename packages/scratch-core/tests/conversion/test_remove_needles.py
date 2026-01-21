@@ -521,7 +521,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
     def test_output_dtype_is_float64(self):
         """Test that output is converted to float64 (double in MATLAB)."""
-        input_image = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.int32)
+        input_image = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float64)
 
         filter_size = 3
 

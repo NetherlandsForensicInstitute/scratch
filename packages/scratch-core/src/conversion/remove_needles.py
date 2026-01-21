@@ -5,7 +5,7 @@ from container_models.base import MaskArray, ScanMap2DArray
 from container_models.scan_image import ScanImage
 from conversion.mask import mask_2d_array
 from conversion.resample import resample_scan_image_and_mask
-from conversion.utils import unwrap_result
+from conversion.utils import unwrap_result, update_scan_image_data
 from parsers import subsample_scan_image
 
 # Downsample goal in micrometers to make filter computations faster
@@ -36,10 +36,8 @@ def mask_and_remove_needles(
     :param times_median: Parameter to help determine the needle threshold.
     :return: The masked and cleaned scan image.
     """
-    scan_image_masked = ScanImage(
-        data=mask_2d_array(scan_image.data, mask),
-        scale_x=scan_image.scale_x,
-        scale_y=scan_image.scale_y,
+    scan_image_masked = update_scan_image_data(
+        scan_image, mask_2d_array(scan_image.data, mask)
     )
 
     residual_image = get_residual_image(scan_image_masked)
@@ -135,14 +133,10 @@ def determine_and_remove_needles(
     data_without_needles = scan_image.data.copy()
     data_without_needles[needles_indices] = np.nan
 
-    return ScanImage(
-        data=data_without_needles,
-        scale_x=scan_image.scale_x,
-        scale_y=scan_image.scale_y,
-    )
+    return update_scan_image_data(scan_image, data_without_needles)
 
 
-def apply_median_filter(scan_image: ScanImage, filter_size: int):
+def apply_median_filter(scan_image: ScanImage, filter_size: int) -> ScanImage:
     """
     Apply a median filter with NaN handling to scan_image.data.
 
@@ -169,6 +163,4 @@ def apply_median_filter(scan_image: ScanImage, filter_size: int):
         scan_image.data, np.nanmedian, size=filter_size, mode="constant", cval=np.nan
     ).astype(np.float64)
 
-    return ScanImage(
-        data=filtered_image, scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
-    )
+    return update_scan_image_data(scan_image, filtered_image)

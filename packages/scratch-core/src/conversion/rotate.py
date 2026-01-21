@@ -3,6 +3,7 @@ from typing import Optional
 import numpy as np
 from scipy.ndimage import binary_dilation, rotate
 
+from conversion.utils import update_scan_image_data
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.remove_needles import mask_and_remove_needles
@@ -61,10 +62,8 @@ def rotate_crop_and_mask_image_by_crop(
         scan_image_cleaned_and_masked, mask_cropped, rotation_angle
     )
 
-    scan_image_cropped = ScanImage(
-        data=crop_to_mask(scan_image_rotated.data, mask_rotated, margin),
-        scale_x=scan_image.scale_x,
-        scale_y=scan_image.scale_y,
+    scan_image_cropped = update_scan_image_data(
+        scan_image, crop_to_mask(scan_image_rotated.data, mask_rotated, margin)
     )
     return scan_image_cropped
 
@@ -123,10 +122,8 @@ def crop_image_and_mask_to_mask(
     :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box.
     :return: Tuple of the cropped scan_image and mask.
     """
-    scan_image_cropped = ScanImage(
-        data=crop_to_mask(scan_image.data, mask, margin),
-        scale_x=scan_image.scale_x,
-        scale_y=scan_image.scale_y,
+    scan_image_cropped = update_scan_image_data(
+        scan_image, crop_to_mask(scan_image.data, mask, margin)
     )
     mask_cropped = crop_to_mask(mask.astype(float), mask, margin).astype(bool)
 
@@ -154,8 +151,9 @@ def rotate_mask_and_scan_image(
             cval=0,
         ).astype(bool)
 
-        scan_image = ScanImage(
-            data=rotate(
+        scan_image = update_scan_image_data(
+            scan_image,
+            rotate(
                 scan_image.data,
                 -rotation_angle,
                 reshape=True,
@@ -163,7 +161,5 @@ def rotate_mask_and_scan_image(
                 mode="constant",
                 cval=np.nan,
             ),
-            scale_x=scan_image.scale_x,
-            scale_y=scan_image.scale_y,
         )
     return scan_image, mask
