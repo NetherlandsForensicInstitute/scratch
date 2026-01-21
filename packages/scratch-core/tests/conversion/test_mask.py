@@ -6,7 +6,7 @@ from numpy.testing import assert_array_almost_equal
 from conversion.mask import (
     mask_2d_array,
     crop_to_mask,
-    _determine_bounding_box,
+    determine_bounding_box,
     mask_and_crop_2d_array,
     mask_and_crop_scan_image,
 )
@@ -141,7 +141,7 @@ class TestDetermineBoundingBox:
         self, mask: MaskArray, margin: int, output_slice: slice
     ):
         """Test bounding boxes with different margins."""
-        x_slice, y_slice = _determine_bounding_box(mask, margin)
+        x_slice, y_slice = determine_bounding_box(mask, margin)
 
         assert y_slice == output_slice
         assert x_slice == output_slice
@@ -170,7 +170,7 @@ class TestDetermineBoundingBox:
         output_slice_x: slice,
     ):
         """Test bounding boxes with different margins."""
-        x_slice, y_slice = _determine_bounding_box(asymmetric_mask, margin)
+        x_slice, y_slice = determine_bounding_box(asymmetric_mask, margin)
 
         assert y_slice == output_slice_y
         assert x_slice == output_slice_x
@@ -186,13 +186,13 @@ class TestDetermineBoundingBox:
             dtype=bool,
         )
 
-        x_slice, y_slice = _determine_bounding_box(mask)
+        x_slice, y_slice = determine_bounding_box(mask)
 
         assert y_slice == slice(1, 3)
         assert x_slice == slice(1, 3)
 
     def test_asymmetric_mask_slices_only_foreground(self, asymmetric_mask: MaskArray):
-        x_slice, y_slice = _determine_bounding_box(asymmetric_mask)
+        x_slice, y_slice = determine_bounding_box(asymmetric_mask)
 
         assert y_slice == slice(2, 8)
         assert x_slice == slice(3, 15)
@@ -201,7 +201,7 @@ class TestDetermineBoundingBox:
         mask = np.zeros((3, 3), dtype=bool)
 
         with pytest.raises(ValueError, match="Mask is empty"):
-            _determine_bounding_box(mask)
+            determine_bounding_box(mask)
 
 
 class TestCropScanImage:

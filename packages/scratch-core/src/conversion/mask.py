@@ -35,13 +35,14 @@ def crop_to_mask(
 
     :param image: The image to crop
     :param mask: Binary mask
+    :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box
     :return: Cropped image containing only the masked region
     """
-    x_slice, y_slice = _determine_bounding_box(mask, margin)
+    x_slice, y_slice = determine_bounding_box(mask, margin)
     return image[y_slice, x_slice]
 
 
-def _determine_bounding_box(
+def determine_bounding_box(
     mask: MaskArray, margin: Optional[int] = None
 ) -> tuple[slice, slice]:
     """
