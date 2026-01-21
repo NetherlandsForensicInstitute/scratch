@@ -55,7 +55,8 @@ def make_isotropic(scan_image: ScanImage) -> ScanImage:
 
     If the scan image is already isotropic, the original instance is returned.
     Otherwise, the image data is upsampled to the highest available resolution
-    (the smaller of the two scale factors) using bilinear interpolation.
+    (the smaller of the two scale factors) using nearest-neighbor interpolation.
+    Note: NaN values are preserved and interpolated.
 
     :param scan_image: The ScanImage instance to be resampled.
     :returns: A new ScanImage instance with isotropic scaling.
