@@ -167,9 +167,10 @@ class TestSubSampleScanImage:
         self, scan_image_rectangular_with_nans: ScanImage, scaling_factor: float
     ):
         """Ensure the resampling deals with NaN values correctly."""
-        original_scan_image = scan_image_rectangular_with_nans
         scan_image = ScanImage(
-            data=original_scan_image.data, scale_x=1.5, scale_y=1.5 * scaling_factor
+            data=scan_image_rectangular_with_nans.data,
+            scale_x=1.5,
+            scale_y=1.5 * scaling_factor,
         )
 
         result = unwrap_result(make_isotropic(scan_image))
@@ -177,11 +178,10 @@ class TestSubSampleScanImage:
         assert result.scale_x == 1.5
         assert result.scale_y == 1.5
         assert result.data.shape == (
-            int(round(original_scan_image.height * scaling_factor)),
-            int(round(original_scan_image.width)),
+            int(round(scan_image.height * scaling_factor)),
+            int(round(scan_image.width)),
         )
         # assert the number of valid pixels / NaNs have scaled correctly
-        assert (
-            result.valid_mask.sum() / original_scan_image.valid_mask.sum()
-            == pytest.approx(scaling_factor, abs=1e-3)
+        assert result.valid_mask.sum() / scan_image.valid_mask.sum() == pytest.approx(
+            scaling_factor, abs=1e-3
         )
