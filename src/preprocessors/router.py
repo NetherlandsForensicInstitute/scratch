@@ -81,7 +81,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     Applies user-defined masking and cropping to a scan, then performs
     mark-type-specific preprocessing (rotation, cropping, filtering) for impression marks.
 
-    Outputs two processed mark representations (.npy data and .json
+    Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
     """,
     responses={
@@ -96,9 +96,12 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
         scan="scan.x3p",
         preview="preview.png",
         surface_map="surface_map.png",
-        mark_file="mark.mat",
-        processed_file="processed.mat",
-        leveled_file="levelled.mat",
+        mark_data="mark.npz",
+        mark_meta="mark.json",
+        processed_data="processed.npz",
+        processed_meta="processed.json",
+        leveled_data="leveled.npz",
+        leveled_meta="leveled.json",
     )
     files = process_prepare_mark(
         files=files,
@@ -118,7 +121,7 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
     Applies user-defined masking and cropping to a scan, then performs
     mark-type-specific preprocessing (rotation, cropping, filtering) for striation marks.
 
-    Outputs two processed mark representations (.npy data and .json
+    Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
     """,
     responses={
@@ -133,9 +136,12 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
         scan="scan.x3p",
         preview="preview.png",
         surface_map="surface_map.png",
-        mark_file="mark.mat",
-        processed_file="processed.mat",
-        profile_file="profile.mat",
+        mark_data="mark.npz",
+        mark_meta="mark.json",
+        processed_data="processed.npz",
+        processed_meta="processed.json",
+        profile_data="profile.npz",
+        profile_meta="profile.json",
     )
     process_prepare_mark(
         files=files,
