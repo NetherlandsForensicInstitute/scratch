@@ -27,12 +27,19 @@ def level_map(scan_image: ScanImage, terms: SurfaceTerms) -> LevelingResult:
         step_x=scan_image.scale_x,
         step_y=scan_image.scale_y,
     )
-    if terms.name == "SPHERE":
-        degree = 2
-    elif terms.name == "PLANE":
-        degree = 1
-    else:
-        degree = 0
+    match terms:
+        case (
+            SurfaceTerms.TILT_X
+            | SurfaceTerms.TILT_Y
+            | SurfaceTerms.ASTIG_45
+            | SurfaceTerms.PLANE
+        ):
+            degree = 1
+        case SurfaceTerms.DEFOCUS | SurfaceTerms.ASTIG_0 | SurfaceTerms.SPHERE:
+            degree = 2
+        case _:
+            degree = 0
+
     leveled, trend = surface.detrend_polynomial(
         degree=degree, inplace=False, return_trend=True
     )
