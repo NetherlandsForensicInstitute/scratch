@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.ndimage import generic_filter
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
@@ -6,6 +7,8 @@ from conversion.mask import mask_2d_array
 from conversion.resample import resample_scan_image_and_mask
 from conversion.utils import unwrap_result
 from parsers import subsample_scan_image
+
+FILTER_SIZE_MODERATED = 5
 
 
 def remove_needles(
@@ -29,7 +32,6 @@ def remove_needles(
     :param times_median: Parameter to help determine the outlier threshold.
     :return: The cleaned scan image.
     """
-    filter_size_moderated = 5
     times_median = times_median * 6
 
     # Check if this is a small strip of data
@@ -39,7 +41,7 @@ def remove_needles(
         # Calculate subsampling factor for computational efficiency
         # Goal: 7 μm sampling with 70 μm filter diameter
         subsample_factor = int(
-            np.ceil(70e-6 / filter_size_moderated / scan_image.scale_x)
+            np.ceil(70e-6 / FILTER_SIZE_MODERATED / scan_image.scale_x)
         )
 
         # Apply mask and prepare data
@@ -57,7 +59,7 @@ def remove_needles(
             )
             # Apply median filter (using nanmedian equivalent)
             scan_image_subsampled_filtered = apply_median_filter(
-                scan_image_subsampled, filter_size_moderated
+                scan_image_subsampled, FILTER_SIZE_MODERATED
             )
             # Upsample back to original resolution
             upsample_factors = (1 / subsample_factor, 1 / subsample_factor)
@@ -70,7 +72,7 @@ def remove_needles(
         else:
             # Apply median filter (using nanmedian equivalent)
             scan_image_filtered = apply_median_filter(
-                scan_image_masked, filter_size_moderated
+                scan_image_masked, FILTER_SIZE_MODERATED
             )
 
         residual_image = (
@@ -82,7 +84,7 @@ def remove_needles(
     else:
         # For small strips: use 1D filtering with adjusted kernel size
         # Convert 2D filter size to 1D equivalent: sqrt(10) ≈ 3
-        filter_size_adjusted = int(np.round(np.sqrt(filter_size_moderated)))
+        filter_size_adjusted = int(np.round(np.sqrt(FILTER_SIZE_MODERATED)))
 
         scan_image_filtered = apply_median_filter(scan_image, filter_size_adjusted)
 
@@ -107,57 +109,33 @@ def remove_needles(
     )
 
 
-def apply_median_filter(scan_image: ScanImage, filter_size: int) -> ScanImage:
+def apply_median_filter(scan_image: ScanImage, filter_size: int):
     """
-    Apply a fast median filter that handles NaN values.
+    Apply a median filter with NaN handling to scan_image.data.
 
-    This function computes a median filter by creating shifted versions of the input
-    image and taking the median across all shifts. NaN values are ignored during
-    the median calculation.
+    This function computes the median value within a sliding window for each pixel, ignoring NaN values in the
+    computation. Pixels near image boundaries are handled by padding with NaN values, which are also ignored during
+    median calculation.
 
-    Notes
-    -----
-    This implementation uses circular shifts to create a 3D array of all
-    neighborhood pixels, then computes the median along the third dimension.
+    Median filters conventionally use odd-sized windows, thus the filter_size is corrected to be an odd number
+    for the following reasons:
+    - Odd dimensions ensure a clear center pixel with equal numbers of neighbors on all sides.
+    - Even filter sizes would produce asymmetric filtering with bias toward upper-left pixels, leading to unexpected and
+    inconsistent results.
 
-    :param scan_image: Scan image to filter
-    :param filter_size: Size of the median filter kernel (will be made odd if even)
-    :return: Median-filtered scan image with the same shape as input_image
+    :param scan_image: The scan image to filter.
+    :param filter_size: Size of the square median filter window. Will be adjusted to the next odd
+        integer if an even value is provided (e.g., 4 becomes 5, 6 becomes 7).
+        Must be positive.
+    :return: Scan image with filtered data, with same shape and scales as input data
     """
-    # Make sure the filter size is odd
     if filter_size % 2 == 0:
-        filter_size = filter_size + 1
+        filter_size += 1
 
-    # Pad the matrix with border_mult on all sides
-    pad_shape = (
-        scan_image.data.shape[0] + filter_size - 1,
-        scan_image.data.shape[1] + filter_size - 1,
-    )
-
-    input_image_border = np.ones(pad_shape) * np.nan
-    half_filter_size = (filter_size - 1) // 2
-    input_image_border[
-        half_filter_size:-half_filter_size, half_filter_size:-half_filter_size
-    ] = scan_image.data
-
-    # Create 3D array to hold all shifted versions
-    input_image_array = np.ones((*pad_shape, filter_size**2), dtype=np.float32)
-
-    # Fill the array with circularly shifted versions
-    image_count = 0
-    for kernel_rows in range(-half_filter_size, half_filter_size + 1):
-        for kernel_columns in range(-half_filter_size, half_filter_size + 1):
-            input_image_array[:, :, image_count] = np.roll(
-                input_image_border, shift=(kernel_rows, kernel_columns), axis=(0, 1)
-            )
-            image_count += 1
-
-    # Remove borders and compute median
-    output_image_no_border = input_image_array[
-        half_filter_size:-half_filter_size, half_filter_size:-half_filter_size, :
-    ]
-    output_image = np.nanmedian(output_image_no_border, axis=2)
+    filtered_image = generic_filter(
+        scan_image.data, np.nanmedian, size=filter_size, mode="constant", cval=np.nan
+    ).astype(np.float64)
 
     return ScanImage(
-        data=output_image, scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
+        data=filtered_image, scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
     )

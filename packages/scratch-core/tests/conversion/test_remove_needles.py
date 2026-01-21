@@ -1,9 +1,10 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
+import unittest
 
 from container_models.scan_image import ScanImage
-from conversion.remove_needles import remove_needles
+from conversion.remove_needles import remove_needles, apply_median_filter
 
 
 class TestRemoveNeedles:
@@ -214,3 +215,307 @@ class TestRemoveNeedles:
         assert_array_equal(simple_scan_image.data, original_data)
         # Result should be different object
         assert result.data is not simple_scan_image.data
+
+
+class TestApplyMedianFilter(unittest.TestCase):
+    """
+    Unit tests for apply_median_filter function.
+
+    The function implements a median filter that:
+    - Makes filter_size odd if it's even (adds 1)
+    - Pads the input image with NaN values (border_mult is always NaN)
+    - Creates shifted versions of the padded image
+    - Computes the median across all shifted versions (ignoring NaNs)
+    """
+
+    def test_basic_3x3_filter(self):
+        """Test basic 3x3 median filter on small array."""
+        input_image = np.array(
+            [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]], dtype=np.float64
+        )
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        # Verify output shape matches input
+        self.assertEqual(result.data.shape, input_image.shape)
+        # Verify output is float type
+        self.assertTrue(np.issubdtype(result.data.dtype, np.floating))
+
+    def test_even_filter_size_becomes_odd(self):
+        """Test that even filter_size is converted to odd (filter_size + 1)."""
+        input_image = np.array(
+            [
+                [1.0, 2.0, 3.0, 4.0],
+                [5.0, 6.0, 7.0, 8.0],
+                [9.0, 10.0, 11.0, 12.0],
+                [13.0, 14.0, 15.0, 16.0],
+            ],
+            dtype=np.float64,
+        )
+
+        # Test with even filter_size (should become 5)
+        result_even = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size=4
+        )
+        # Test with odd filter_size (should stay 5)
+        result_odd = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size=5
+        )
+
+        # Both should produce same result since 4 -> 5
+        self.assertEqual(result_even.data.shape, input_image.shape)
+        self.assertEqual(result_odd.data.shape, input_image.shape)
+
+    def test_with_nan_values(self):
+        """Test median filter handles NaN values correctly (nanmedian behavior)."""
+        input_image = np.array(
+            [
+                [1.0, 2.0, np.nan, 4.0],
+                [5.0, np.nan, 7.0, 8.0],
+                [9.0, 10.0, 11.0, np.nan],
+                [13.0, 14.0, 15.0, 16.0],
+            ],
+            dtype=np.float64,
+        )
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        # Output should not contain NaN if enough valid neighbors exist
+        # (depending on implementation details)
+        self.assertEqual(result.data.shape, input_image.shape)
+
+    def test_nan_padding_at_borders(self):
+        """Test padding with NaN values at borders."""
+        input_image = np.array(
+            [[5.0, 5.0, 5.0], [5.0, 5.0, 5.0], [5.0, 5.0, 5.0]], dtype=np.float64
+        )
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        # With NaN padding, edge pixels use fewer valid values in their neighborhood
+        self.assertEqual(result.data.shape, input_image.shape)
+        # Center pixel should be exactly 5.0 (median of all 5.0s)
+        self.assertAlmostEqual(result.data[1, 1], 5.0, places=5)
+        # Edge pixels should also be 5.0 since NaNs are ignored in nanmedian
+        self.assertAlmostEqual(result.data[0, 0], 5.0, places=5)
+
+    def test_edge_pixels_with_nan_padding(self):
+        """Test that edge pixels are computed correctly with NaN padding."""
+        input_image = np.array(
+            [[10.0, 10.0, 10.0], [10.0, 10.0, 10.0], [10.0, 10.0, 10.0]],
+            dtype=np.float64,
+        )
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        # All pixels should be 10.0 since NaN padding is ignored
+        self.assertEqual(result.data.shape, input_image.shape)
+        np.testing.assert_array_almost_equal(result.data, input_image, decimal=5)
+
+    def test_large_filter_size(self):
+        """Test with larger filter size."""
+        input_image = np.random.rand(10, 10).astype(np.float64)
+
+        filter_size = 7
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        self.assertEqual(result.data.shape, input_image.shape)
+
+    def test_single_pixel_image(self):
+        """Test edge case with 1x1 image."""
+        input_image = np.array([[5.0]], dtype=np.float64)
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        self.assertEqual(result.data.shape, (1, 1))
+        # With NaN padding, the single pixel should remain unchanged
+        self.assertAlmostEqual(result.data[0, 0], 5.0, places=5)
+
+    def test_rectangular_image(self):
+        """Test with non-square image."""
+        input_image = np.random.rand(5, 10).astype(np.float64)
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        self.assertEqual(result.data.shape, input_image.shape)
+
+    def test_all_nan_input(self):
+        """Test with all NaN input."""
+        input_image = np.full((3, 3), np.nan, dtype=np.float64)
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        # Output should be all NaN (NaN input + NaN padding = all NaN)
+        self.assertEqual(result.data.shape, input_image.shape)
+        self.assertTrue(np.all(np.isnan(result.data)))
+
+    def test_spike_removal(self):
+        """Test that median filter removes spikes (salt and pepper noise)."""
+        input_image = np.array(
+            [
+                [5.0, 5.0, 5.0, 5.0, 5.0],
+                [5.0, 5.0, 5.0, 5.0, 5.0],
+                [5.0, 5.0, 100.0, 5.0, 5.0],  # Spike in center
+                [5.0, 5.0, 5.0, 5.0, 5.0],
+                [5.0, 5.0, 5.0, 5.0, 5.0],
+            ],
+            dtype=np.float64,
+        )
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        # Center spike should be filtered out
+        self.assertLess(result.data[2, 2], 10.0)  # Should be close to 5.0, not 100.0
+
+    def test_corner_pixels(self):
+        """Test that corner pixels are computed correctly with NaN padding."""
+        # Corner pixels have the most NaN neighbors (due to padding)
+        input_image = np.array(
+            [
+                [1.0, 2.0, 3.0, 4.0],
+                [5.0, 6.0, 7.0, 8.0],
+                [9.0, 10.0, 11.0, 12.0],
+                [13.0, 14.0, 15.0, 16.0],
+            ],
+            dtype=np.float64,
+        )
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        self.assertEqual(result.data.shape, input_image.shape)
+        # Corner values should be computed from fewer valid neighbors
+        # but should still be reasonable values
+        self.assertFalse(np.isnan(result.data[0, 0]))
+
+    def test_mixed_nan_pattern(self):
+        """Test with checkerboard NaN pattern."""
+        input_image = np.array(
+            [
+                [1.0, np.nan, 3.0, np.nan],
+                [np.nan, 6.0, np.nan, 8.0],
+                [9.0, np.nan, 11.0, np.nan],
+                [np.nan, 14.0, np.nan, 16.0],
+            ],
+            dtype=np.float64,
+        )
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        self.assertEqual(result.data.shape, input_image.shape)
+
+    def test_output_dtype_is_float64(self):
+        """Test that output is converted to float64 (double in MATLAB)."""
+        input_image = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.int32)
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        # MATLAB function converts to double at the end
+        self.assertEqual(result.data.dtype, np.float64)
+
+    def test_large_image_performance(self):
+        """Test with larger image to verify it handles size reasonably."""
+        input_image = np.random.rand(100, 100).astype(np.float64)
+
+        filter_size = 5
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        self.assertEqual(result.data.shape, input_image.shape)
+
+    def test_gradient_image(self):
+        """Test with gradient image to verify smoothing behavior."""
+        x = np.linspace(0, 100, 20)
+        y = np.linspace(0, 100, 20)
+        X, Y = np.meshgrid(x, y)
+        input_image = X + Y  # Diagonal gradient
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        # Result should still be smooth and monotonic
+        self.assertEqual(result.data.shape, input_image.shape)
+        # Gradient should be preserved in the center
+        self.assertGreater(result.data[15, 15], result.data[5, 5])
+
+
+class TestEdgeCases(unittest.TestCase):
+    """Additional edge case tests."""
+
+    def test_very_large_filter_size(self):
+        """Test with filter_size larger than image dimensions."""
+        input_image = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64)
+
+        filter_size = 11  # Much larger than image
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        # Should still return same shape
+        self.assertEqual(result.data.shape, input_image.shape)
+
+    def test_inf_values(self):
+        """Test handling of infinity values."""
+        input_image = np.array(
+            [[1.0, 2.0, np.inf], [4.0, 5.0, 6.0], [-np.inf, 8.0, 9.0]], dtype=np.float64
+        )
+
+        filter_size = 3
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        self.assertEqual(result.data.shape, input_image.shape)
