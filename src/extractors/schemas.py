@@ -54,33 +54,53 @@ class ProcessedDataAccess(BaseModelConfig):
 class PrepareMarkResponse(ProcessedDataAccess):
     """Response model for prepared mark data access."""
 
-    mark_file: HttpUrl = Field(
+    mark_data: HttpUrl = Field(
         ...,
         description="Mark without preprocessing, only cropped, rotated and resampled.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark.mat"],
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark.npz"],
     )
-    processed_file: HttpUrl = Field(
+    mark_meta: HttpUrl = Field(
+        ...,
+        description="meta data from the mark data.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark.json"],
+    )
+    processed_data: HttpUrl = Field(
         ...,
         description="Preprocessed mark (impression or striation) after filtering and processing.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/processed.mat"],
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/processed.npz"],
+    )
+    processed_meta: HttpUrl = Field(
+        ...,
+        description="meta data from the processed mark data.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/processed.json"],
     )
 
 
 class PrepareMarkResponseStriation(PrepareMarkResponse):
     """Response model for prepared striation mark data access."""
 
-    profile_file: HttpUrl = Field(
+    profile_data: HttpUrl = Field(
         ...,
         description="Mean or median profile of a striation mark.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.mat"],
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.npz"],
+    )
+    profile_meta: HttpUrl = Field(
+        ...,
+        description="meta data from the profile data.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
     )
 
 
 class PrepareMarkResponseImpression(PrepareMarkResponse):
     """Response model for prepared impression mark data access."""
 
-    leveled_file: HttpUrl = Field(
+    leveled_data: HttpUrl = Field(
         ...,
         description="Leveled impression mark (same as processed but without filtering).",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/levelled.mat"],
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/leveled.npz"],
+    )
+    leveled_meta: HttpUrl = Field(
+        ...,
+        description="meta data from the leveled impression mark data.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/leveled.json"],
     )

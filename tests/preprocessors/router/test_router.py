@@ -3,17 +3,16 @@ from http import HTTPStatus
 from pathlib import Path
 
 import pytest
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from fastapi.testclient import TestClient
 from loguru import logger
 
 from constants import ImpressionMarks, MaskTypes, StriationMarks
 from models import DirectoryAccess
 from preprocessors.schemas import (
-    BaseParameters,
     CropInfo,
     PrepareMarkImpression,
     PrepareMarkStriation,
+    PreprocessingImpressionParams,
     PreprocessingStriationParams,
 )
 
@@ -36,7 +35,17 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkStriation,
             PreprocessingStriationParams,
             StriationMarks.APERTURE_SHEAR,
-            ["scan", "preview", "surface_map", "mark_file", "processed_file", "profile_file"],
+            [
+                "scan",
+                "preview",
+                "surface_map",
+                "mark_data",
+                "mark_meta",
+                "processed_data",
+                "processed_meta",
+                "profile_data",
+                "profile_meta",
+            ],
             id="striation mark",
         ),
         pytest.param(
@@ -44,7 +53,17 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkImpression,
             PreprocessingImpressionParams,
             ImpressionMarks.CHAMBER,
-            ["scan", "preview", "surface_map", "mark_file", "processed_file", "leveled_file"],
+            [
+                "scan",
+                "preview",
+                "surface_map",
+                "mark_data",
+                "mark_meta",
+                "processed_data",
+                "processed_meta",
+                "leveled_data",
+                "leveled_meta",
+            ],
             id="impression mark",
         ),
     ],
@@ -105,7 +124,7 @@ class TestPrepareMarkEndpoint:
         self,
         client: TestClient,
         directory_access: DirectoryAccess,
-        schema: type[BaseParameters],
+        schema: type[PrepareMarkImpression | PrepareMarkStriation],
         subroute: str,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
@@ -134,7 +153,7 @@ class TestPrepareMarkEndpoint:
         self,
         client: TestClient,
         directory_access: DirectoryAccess,
-        schema: type[BaseParameters],
+        schema: type[PrepareMarkImpression | PrepareMarkStriation],
         subroute: str,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
