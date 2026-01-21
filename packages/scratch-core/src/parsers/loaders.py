@@ -50,6 +50,16 @@ def load_scan_image(scan_file: Path) -> ScanImage:
 )
 @safe
 def make_isotropic(scan_image: ScanImage) -> ScanImage:
+    """
+    Resample an image to isotropic resolution (i.e. equal pixel spacing in X and Y).
+
+    If the image is already isotropic, the original instance is returned. Otherwise,
+    the image is upsampled to the highest available resolution (the smaller of the
+    two scale factors) using bilinear interpolation.
+
+    :param scan_image: The ScanImage instance to be resampled.
+    :returns: A new ScanImage instance with isotropic scaling.
+    """
     # Check if already isotropic within tolerance
     if np.isclose(scan_image.scale_x, scan_image.scale_y, atol=TOLERANCE):
         return scan_image
