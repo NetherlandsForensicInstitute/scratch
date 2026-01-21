@@ -8,60 +8,67 @@ from conversion.resample import resample_scan_image_and_mask
 from conversion.utils import unwrap_result
 from parsers import subsample_scan_image
 
-FILTER_SIZE_MODERATED = 5
+# Downsample goal in micrometers to make filter computations faster
+DOWNSAMPLE_GOAL = 70e-6
+MEDIAN_FILTER_SIZE = 5
+SMALL_STRIP_THRESHOLD = 20
+TIMES_MEDIAN_CORRECTION_FACTOR = 6
 
 
-def remove_needles(
+def mask_and_remove_needles(
     scan_image: ScanImage, mask: MaskArray, times_median: float = 15.0
 ) -> ScanImage:
     """
-    Remove needle artifacts (outliers) from depth measurement data using median filtering.
+    Mask the scan image and remove needle artifacts (i.e. steep slopes) using median filtering.
 
-    This function identifies and removes spike-like outliers in depth data by:
-    1. Applying median filtering to smooth the data
-    2. Computing residuals (difference between original and smoothed data)
-    3. Flagging points where residuals exceed a threshold based on median absolute deviation
-    4. Setting flagged outlier points to NaN
+    1. Apply the mask to the scan image to exclude any outliers/needles that are irrelevant.
+    2. Apply median filtering to smooth the data. If the image is large, it is downsampled before filtering and
+        upsampled afterward. If the image is a small strip of data (width or height <= SMALL_STRIP_THRESHOLD), the
+        filter size is reduced.
+    2. Compute residuals as the difference between the masked original and median filtered data.
+    3. Mark points as needles where residuals exceed a threshold (absolute data median * times_median *
+        TIMES_MEDIAN_CORRECTION_FACTOR)
+    4. Set marked needle points to NaN in the masked original scan image
 
-    The function adapts its filtering strategy based on data size:
-    - For large datasets (>20 columns or rows): uses 2D median filtering with optional subsampling
-    - For small datasets (≤20 columns or rows): uses 1D median filtering with reduced filter size
-
-    :param scan_image: Scan image to clean.
+    :param scan_image: Scan image to mask and clean.
     :param mask: Binary mask array.
-    :param times_median: Parameter to help determine the outlier threshold.
-    :return: The cleaned scan image.
+    :param times_median: Parameter to help determine the needle threshold.
+    :return: The masked and cleaned scan image.
     """
-    times_median = times_median * 6
+    times_median = times_median * TIMES_MEDIAN_CORRECTION_FACTOR
 
-    # Check if this is a small strip of data
-    is_small_strip = scan_image.width <= 20 or scan_image.height <= 20
+    scan_image_masked = ScanImage(
+        data=mask_2d_array(scan_image.data, mask),
+        scale_x=scan_image.scale_x,
+        scale_y=scan_image.scale_y,
+    )
+
+    # Check if the image is a small strip of data
+    is_small_strip = (
+        scan_image_masked.width <= SMALL_STRIP_THRESHOLD
+        or scan_image_masked.height <= SMALL_STRIP_THRESHOLD
+    )
 
     if not is_small_strip:
-        # Calculate subsampling factor for computational efficiency
-        # Goal: 7 μm sampling with 70 μm filter diameter
+        # Calculate subsampling factor for computational efficiency using the given DOWNSAMPLE_GOAL and the desired
+        # MEDIAN_FILTER_SIZE
         subsample_factor = int(
-            np.ceil(70e-6 / FILTER_SIZE_MODERATED / scan_image.scale_x)
+            np.ceil(DOWNSAMPLE_GOAL / MEDIAN_FILTER_SIZE / scan_image.scale_x)
         )
 
-        # Apply mask and prepare data
-        scan_image_masked = ScanImage(
-            data=mask_2d_array(scan_image.data, mask),
-            scale_x=scan_image.scale_x,
-            scale_y=scan_image.scale_y,
-        )
-
+        # If a subsample_factor is defined, downsample the data before filtering and upsample back after filtering.
+        # Otherwise, just apply the filter directly.
         if subsample_factor > 1:
             scan_image_subsampled = unwrap_result(
                 subsample_scan_image(
                     scan_image_masked, subsample_factor, subsample_factor
                 )
             )
-            # Apply median filter (using nanmedian equivalent)
+
             scan_image_subsampled_filtered = apply_median_filter(
-                scan_image_subsampled, FILTER_SIZE_MODERATED
+                scan_image_subsampled, MEDIAN_FILTER_SIZE
             )
-            # Upsample back to original resolution
+
             upsample_factors = (1 / subsample_factor, 1 / subsample_factor)
             scan_image_filtered, _ = resample_scan_image_and_mask(
                 scan_image_subsampled_filtered,
@@ -70,40 +77,40 @@ def remove_needles(
             )
 
         else:
-            # Apply median filter (using nanmedian equivalent)
             scan_image_filtered = apply_median_filter(
-                scan_image_masked, FILTER_SIZE_MODERATED
+                scan_image_masked, MEDIAN_FILTER_SIZE
             )
 
+        # Use slicing since the shape may deviate slightly after down- and upsampling
         residual_image = (
             scan_image_masked.data
             - scan_image_filtered.data[
-                : scan_image.data.shape[0], : scan_image.data.shape[1]
+                : scan_image_masked.data.shape[0], : scan_image_masked.data.shape[1]
             ]
         )
     else:
-        # For small strips: use 1D filtering with adjusted kernel size
-        # Convert 2D filter size to 1D equivalent: sqrt(10) ≈ 3
-        filter_size_adjusted = int(np.round(np.sqrt(FILTER_SIZE_MODERATED)))
-
-        scan_image_filtered = apply_median_filter(scan_image, filter_size_adjusted)
+        # For small strips adjust the filter size to avoid too extensive smoothing
+        filter_size_adjusted = int(np.round(np.sqrt(MEDIAN_FILTER_SIZE)))
+        scan_image_filtered = apply_median_filter(
+            scan_image_masked, filter_size_adjusted
+        )
 
         # Handle transposition for single-row data
         if scan_image_filtered.width == 1:
-            residual_image = scan_image.data - scan_image_filtered.data.T
+            residual_image = scan_image_masked.data - scan_image_filtered.data.T
         else:
-            residual_image = scan_image.data - scan_image_filtered.data
+            residual_image = scan_image_masked.data - scan_image_filtered.data
 
-    # Find outliers: points where |residual| > threshold
+    # Find needles: points where |residual| > threshold
     threshold = times_median * np.nanmedian(np.abs(residual_image))
-    indices_invalid = np.abs(residual_image) > threshold
+    needles_indices = np.abs(residual_image) > threshold
 
-    # Remove outliers by setting them to NaN
-    scan_image_without_outliers = scan_image.data.copy()
-    scan_image_without_outliers[indices_invalid] = np.nan
+    # Remove needles from the masked image by setting them to NaN
+    data_without_needles = scan_image_masked.data.copy()
+    data_without_needles[needles_indices] = np.nan
 
     return ScanImage(
-        data=scan_image_without_outliers,
+        data=data_without_needles,
         scale_x=scan_image.scale_x,
         scale_y=scan_image.scale_y,
     )

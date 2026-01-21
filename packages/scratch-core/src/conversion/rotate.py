@@ -5,9 +5,9 @@ from scipy.ndimage import binary_dilation, rotate
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
-from conversion.remove_needles import remove_needles
+from conversion.remove_needles import mask_and_remove_needles
 from conversion.data_formats import CropType, CropInfo
-from conversion.mask import crop_to_mask, mask_2d_array
+from conversion.mask import crop_to_mask
 
 # Number of iterations to dilate a mask before it is rotated
 DILATE_STEPS = 3
@@ -54,16 +54,14 @@ def rotate_crop_and_mask_image_by_crop(
 
     scan_image_cropped, mask_cropped = crop_image_and_mask_to_mask(scan_image, mask)
 
-    scan_image_cleaned = remove_needles(scan_image_cropped, mask_cropped, times_median)
+    scan_image_cleaned_and_masked = mask_and_remove_needles(
+        scan_image_cropped, mask_cropped, times_median
+    )
 
-    scan_image_masked = ScanImage(
-        data=mask_2d_array(scan_image_cleaned.data, mask_cropped),
-        scale_x=scan_image_cleaned.scale_x,
-        scale_y=scan_image_cleaned.scale_y,
-    )
     scan_image_rotated, mask_rotated = rotate_mask_and_scan_image(
-        scan_image_masked, mask_cropped, rotation_angle
+        scan_image_cleaned_and_masked, mask_cropped, rotation_angle
     )
+
     scan_image_cropped = ScanImage(
         data=crop_to_mask(scan_image_rotated.data, mask_rotated, margin),
         scale_x=scan_image.scale_x,

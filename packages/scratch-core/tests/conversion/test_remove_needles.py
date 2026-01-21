@@ -4,7 +4,7 @@ from numpy.testing import assert_array_equal
 import unittest
 
 from container_models.scan_image import ScanImage
-from conversion.remove_needles import remove_needles, apply_median_filter
+from conversion.remove_needles import mask_and_remove_needles, apply_median_filter
 
 
 class TestRemoveNeedles:
@@ -36,7 +36,7 @@ class TestRemoveNeedles:
 
     def test_basic_functionality_no_needles(self, simple_scan_image, full_mask):
         """Test that data without needles remains mostly unchanged."""
-        result = remove_needles(simple_scan_image, full_mask, times_median=15)
+        result = mask_and_remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Result should have same shape
         assert result.data.shape == simple_scan_image.data.shape
@@ -51,7 +51,7 @@ class TestRemoveNeedles:
         simple_scan_image.data[20, 20] = 1000.0
         simple_scan_image.data[30, 30] = 1000.0
 
-        result = remove_needles(simple_scan_image, full_mask, times_median=15)
+        result = mask_and_remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Spikes should be set to NaN
         assert np.isnan(result.data[10, 10])
@@ -70,7 +70,7 @@ class TestRemoveNeedles:
         # Verify width <= 20
         assert small_scan_image.width <= 20
 
-        result = remove_needles(
+        result = mask_and_remove_needles(
             small_scan_image, partial_mask[:30, :15], times_median=15
         )
 
@@ -84,7 +84,7 @@ class TestRemoveNeedles:
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
         mask = np.ones((1, 50), dtype=bool)
 
-        result = remove_needles(scan_image, mask, times_median=15)
+        result = mask_and_remove_needles(scan_image, mask, times_median=15)
 
         assert result.data.shape == (1, 50)
         # Spike should be detected
@@ -96,10 +96,14 @@ class TestRemoveNeedles:
         simple_scan_image.data[25, 25] = 150.0
 
         # Strict threshold (lower times_median)
-        result_strict = remove_needles(simple_scan_image, full_mask, times_median=5)
+        result_strict = mask_and_remove_needles(
+            simple_scan_image, full_mask, times_median=5
+        )
 
         # Lenient threshold (higher times_median)
-        result_lenient = remove_needles(simple_scan_image, full_mask, times_median=50)
+        result_lenient = mask_and_remove_needles(
+            simple_scan_image, full_mask, times_median=50
+        )
 
         # Strict should flag more points as NaN
         assert np.sum(np.isnan(result_strict.data)) >= np.sum(
@@ -108,7 +112,7 @@ class TestRemoveNeedles:
 
     def test_subsampling_triggered(self, simple_scan_image, full_mask):
         """Test that subsampling is triggered for large images with fine resolution."""
-        result = remove_needles(simple_scan_image, full_mask, times_median=15)
+        result = mask_and_remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Should complete without error
         assert result.data.shape == simple_scan_image.data.shape
@@ -119,7 +123,7 @@ class TestRemoveNeedles:
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
         mask = np.ones((50, 50), dtype=bool)
 
-        result = remove_needles(scan_image, mask, times_median=15)
+        result = mask_and_remove_needles(scan_image, mask, times_median=15)
 
         # Should return all NaN
         assert np.all(np.isnan(result.data))
@@ -129,7 +133,7 @@ class TestRemoveNeedles:
         simple_scan_image.data[5:10, 5:10] = np.nan
         simple_scan_image.data[30, 30] = 500.0  # Add spike
 
-        result = remove_needles(simple_scan_image, full_mask, times_median=15)
+        result = mask_and_remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Original NaN should remain
         assert np.all(np.isnan(result.data[5:10, 5:10]))
@@ -145,7 +149,7 @@ class TestRemoveNeedles:
         # Add spike in masked region
         simple_scan_image.data[25, 25] = 1000.0
 
-        result = remove_needles(simple_scan_image, mask, times_median=15)
+        result = mask_and_remove_needles(simple_scan_image, mask, times_median=15)
 
         # Result should have correct shape
         assert result.data.shape == simple_scan_image.data.shape
@@ -163,7 +167,7 @@ class TestRemoveNeedles:
         scan_image.data[10, 10] = 1000.0
         scan_image.data[40, 40] = -500.0
 
-        result = remove_needles(scan_image, full_mask, times_median=15)
+        result = mask_and_remove_needles(scan_image, full_mask, times_median=15)
 
         # Count NaN values (should be minimal, just the outliers)
         nan_count = np.sum(np.isnan(result.data))
@@ -178,7 +182,7 @@ class TestRemoveNeedles:
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
         mask = np.ones((30, 20), dtype=bool)
 
-        result = remove_needles(scan_image, mask, times_median=15)
+        result = mask_and_remove_needles(scan_image, mask, times_median=15)
 
         # Should use large strip logic (not small strip)
         assert result.data.shape == (30, 20)
@@ -189,7 +193,7 @@ class TestRemoveNeedles:
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
         mask = np.ones((30, 21), dtype=bool)
 
-        result = remove_needles(scan_image, mask, times_median=15)
+        result = mask_and_remove_needles(scan_image, mask, times_median=15)
 
         # Should use large strip logic
         assert result.data.shape == (30, 21)
@@ -199,7 +203,7 @@ class TestRemoveNeedles:
         simple_scan_image.data[15, 15] = -500.0  # Deep valley
         simple_scan_image.data[35, 35] = -500.0
 
-        result = remove_needles(simple_scan_image, full_mask, times_median=15)
+        result = mask_and_remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Negative outliers should also be detected
         assert np.isnan(result.data[15, 15])
@@ -209,7 +213,7 @@ class TestRemoveNeedles:
         """Test that input scan_image is not modified."""
         original_data = simple_scan_image.data.copy()
 
-        result = remove_needles(simple_scan_image, full_mask, times_median=15)
+        result = mask_and_remove_needles(simple_scan_image, full_mask, times_median=15)
 
         # Original should be unchanged
         assert_array_equal(simple_scan_image.data, original_data)
