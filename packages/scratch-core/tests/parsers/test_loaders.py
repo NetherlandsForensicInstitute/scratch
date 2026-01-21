@@ -161,3 +161,27 @@ class TestSubSampleScanImage:
         assert np.min(result.data) == 0
         assert np.max(result.data) == 3000
         assert result.data.dtype == scan_image.data.dtype
+
+    @pytest.mark.parametrize("scaling_factor", [4, 7.6, 8.1, 10.11])
+    def test_make_isotropic_handles_nans(
+        self, scan_image_rectangular_with_nans: ScanImage, scaling_factor: float
+    ):
+        """Ensure the resampling deals with NaN values correctly."""
+        original_scan_image = scan_image_rectangular_with_nans
+        scan_image = ScanImage(
+            data=original_scan_image.data, scale_x=1.5, scale_y=1.5 * scaling_factor
+        )
+
+        result = unwrap_result(make_isotropic(scan_image))
+
+        assert result.scale_x == 1.5
+        assert result.scale_y == 1.5
+        assert result.data.shape == (
+            int(round(original_scan_image.height * scaling_factor)),
+            int(round(original_scan_image.width)),
+        )
+        # assert the number of valid pixels / NaNs have scaled correctly
+        assert (
+            result.valid_mask.sum() / original_scan_image.valid_mask.sum()
+            == pytest.approx(scaling_factor, abs=1e-3)
+        )

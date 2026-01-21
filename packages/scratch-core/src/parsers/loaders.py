@@ -78,7 +78,7 @@ def make_isotropic(scan_image: ScanImage) -> ScanImage:
         mode="edge",
         anti_aliasing=False,  # Disabled for pure upsampling
         preserve_range=True,  # Keep original data intensity levels
-        order=1,  # Bilinear interpolation
+        order=0,  # Nearest Neighbor so that NaNs appear at corresponding coordinates
     )
 
     return ScanImage(
