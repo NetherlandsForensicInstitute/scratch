@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 
 from container_models.base import ScanMap2DArray, MaskArray
@@ -28,7 +26,7 @@ def mask_2d_array(
 def crop_to_mask(
     image: ScanMap2DArray,
     mask: MaskArray,
-    margin: Optional[int] = None,
+    margin: int = 0,
 ) -> ScanMap2DArray:
     """
     Crops an image to the bounding box of a mask.
@@ -42,9 +40,7 @@ def crop_to_mask(
     return image[y_slice, x_slice]
 
 
-def determine_bounding_box(
-    mask: MaskArray, margin: Optional[int] = None
-) -> tuple[slice, slice]:
+def determine_bounding_box(mask: MaskArray, margin: int = 0) -> tuple[slice, slice]:
     """
     Determines the bounding box of non-zero values in a mask. If a margin is given, the bounding box will be expanded
     (in case of a negative margin) or cropped (in case of a positive margin) by with 2 * margin pixels.
@@ -57,17 +53,11 @@ def determine_bounding_box(
     if not non_zero_coords[0].size:
         raise ValueError("Mask is empty")
 
-    y_min, x_min = np.min(non_zero_coords, axis=1)
-    y_max, x_max = np.max(non_zero_coords, axis=1)
-
-    if margin:
-        x_min = max(0, x_min + margin)
-        x_max = min(mask.shape[1], x_max - margin + 1)
-        y_min = max(0, y_min + margin)
-        y_max = min(mask.shape[0], y_max - margin + 1)
-    else:
-        x_max += 1
-        y_max += 1
+    y_coords, x_coords = np.nonzero(mask)
+    y_min = max(0, y_coords.min() + margin)
+    y_max = min(mask.shape[0], y_coords.max() - margin + 1)
+    x_min = max(0, x_coords.min() + margin)
+    x_max = min(mask.shape[1], x_coords.max() - margin + 1)
 
     if x_min >= x_max:
         raise ValueError("Slice results in x_min >= x_max. Margin may be too large.")

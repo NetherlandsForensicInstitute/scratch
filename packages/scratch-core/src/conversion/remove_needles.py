@@ -73,22 +73,28 @@ def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
         # Otherwise, just apply the filter directly.
         if subsample_factor > 1:
             scan_image_subsampled = unwrap_result(
-                subsample_scan_image(scan_image, subsample_factor, subsample_factor)
+                subsample_scan_image(
+                    scan_image=scan_image,
+                    step_size_x=subsample_factor,
+                    step_size_y=subsample_factor,
+                )
             )
 
             scan_image_subsampled_filtered = apply_median_filter(
-                scan_image_subsampled, MEDIAN_FILTER_SIZE
+                scan_image=scan_image_subsampled, filter_size=MEDIAN_FILTER_SIZE
             )
 
             upsample_factors = (1 / subsample_factor, 1 / subsample_factor)
             scan_image_filtered, _ = resample_scan_image_and_mask(
-                scan_image_subsampled_filtered,
+                scan_image=scan_image_subsampled_filtered,
                 factors=upsample_factors,
                 only_downsample=False,
             )
 
         else:
-            scan_image_filtered = apply_median_filter(scan_image, MEDIAN_FILTER_SIZE)
+            scan_image_filtered = apply_median_filter(
+                scan_image=scan_image, filter_size=MEDIAN_FILTER_SIZE
+            )
 
         # Use slicing since the shape may deviate slightly after down- and upsampling
         residual_image = (
@@ -99,7 +105,9 @@ def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
         )
     else:
         filter_size_adjusted = int(np.round(np.sqrt(MEDIAN_FILTER_SIZE)))
-        scan_image_filtered = apply_median_filter(scan_image, filter_size_adjusted)
+        scan_image_filtered = apply_median_filter(
+            scan_image=scan_image, filter_size=filter_size_adjusted
+        )
 
         # Handle transposition for single-row data
         if scan_image_filtered.width == 1:

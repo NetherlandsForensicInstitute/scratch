@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 from scipy.ndimage import binary_dilation, rotate
 
@@ -46,13 +44,15 @@ def rotate_crop_and_mask_image_by_crop(
     """
     rotation_angle = get_rotation_angle(crop_infos, rotation_angle)
 
-    margin = None
+    margin = 0
     if rotation_angle != 0.0:
         mask = binary_dilation(mask, iterations=DILATE_STEPS).astype(bool)
         # Define a margin to reverse dilation later on
         margin = DILATE_STEPS + 2
 
-    scan_image_cropped, mask_cropped = crop_image_and_mask_to_mask(scan_image, mask)
+    scan_image_cropped, mask_cropped = crop_image_and_mask_to_mask(
+        scan_image, mask, margin
+    )
 
     scan_image_cleaned_and_masked = mask_and_remove_needles(
         scan_image_cropped, mask_cropped, times_median
@@ -111,7 +111,7 @@ def get_rotation_angle(crop_infos: tuple[CropInfo], rotation_angle: float) -> fl
 
 
 def crop_image_and_mask_to_mask(
-    scan_image: ScanImage, mask: MaskArray, margin: Optional[int] = None
+    scan_image: ScanImage, mask: MaskArray, margin: int
 ) -> tuple[ScanImage, MaskArray]:
     """
     Crop scan_image.data and the mask itself to the bounding box of the mask. If a margin is given, the bounding box
