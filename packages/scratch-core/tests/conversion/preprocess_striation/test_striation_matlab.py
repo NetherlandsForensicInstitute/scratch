@@ -148,9 +148,6 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
         "slope_correction": load_matlab_scalar(input_param_mat, "slope_correction", 0),
         "times_median": load_matlab_scalar(input_param_mat, "times_median", 15.0),
         "use_mean": load_matlab_scalar(input_param_mat, "use_mean", 1),
-        "shape_noise_removal": load_matlab_scalar(
-            input_param_mat, "shape_noise_removal", 1
-        ),
         "show_info": load_matlab_scalar(input_param_mat, "show_info", 1),
     }
 
@@ -220,7 +217,6 @@ def run_python_preprocessing(
         cutoff_lo=float(test_case.params.get("cutoff_lo", 5.0)) * 1e-6,
         use_mean=bool(test_case.params.get("use_mean", 1)),
         angle_accuracy=float(test_case.params.get("angle_accuracy", 90.0)),
-        shape_noise_removal=bool(test_case.params.get("shape_noise_removal", 1)),
     )
 
     # Convert mask to boolean
@@ -476,7 +472,6 @@ class TestMatlabTestCaseLoading:
             assert "cutoff_hi" in case.params
             assert "cutoff_lo" in case.params
             assert "use_mean" in case.params
-            assert "shape_noise_removal" in case.params
 
     def test_print_test_case_summary(self, test_cases: list[MatlabTestCase]):
         """Print summary of all test cases for debugging."""
@@ -488,6 +483,5 @@ class TestMatlabTestCaseLoading:
             print(f"  Pixel size: ({case.input_xdim}, {case.input_ydim})")
             print(f"  Has mask: {case.has_mask}")
             print(f"  Use mean: {case.params.get('use_mean')}")
-            print(f"  Shape/noise removal: {case.params.get('shape_noise_removal')}")
             if case.output_rotation_angle is not None:
                 print(f"  Rotation angle: {case.output_rotation_angle}")

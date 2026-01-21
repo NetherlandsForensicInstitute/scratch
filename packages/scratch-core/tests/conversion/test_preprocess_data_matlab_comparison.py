@@ -64,7 +64,6 @@ class MatlabTestCase:
     slope_correction: int = 0
     times_median: float = 15.0
     use_mean: bool = True
-    shape_noise_removal: bool = True
     show_info: bool = True
     has_mask: bool = False
     output_profile: np.ndarray | None = None
@@ -97,7 +96,6 @@ class MatlabTestCase:
     def _parse_metadata(meta: dict, valid_keys: set) -> dict:
         """Parse metadata JSON into dataclass field values."""
         meta["use_mean"] = bool(meta.get("use_mean", 1))
-        meta["shape_noise_removal"] = bool(meta.get("shape_noise_removal", 1))
         meta["show_info"] = bool(meta.get("show_info", 1))
         meta["has_mask"] = bool(meta.get("has_mask", 0))
         return {k: v for k, v in meta.items() if k in valid_keys}
@@ -173,7 +171,6 @@ def run_python_preprocessing(
         cutoff_lo=test_case.cutoff_lo * 1e-6,
         use_mean=test_case.use_mean,
         angle_accuracy=test_case.angle_accuracy,
-        shape_noise_removal=test_case.shape_noise_removal,
     )
     aligned_data, profile, mask_out, total_angle = preprocess_data(
         scan_image=scan_image,

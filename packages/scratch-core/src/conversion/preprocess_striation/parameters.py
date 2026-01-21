@@ -12,7 +12,6 @@ class PreprocessingStriationParams:
     :param angle_accuracy: Target angle accuracy in degrees for fine alignment.
     :param max_iter: Maximum iterations for fine alignment.
     :param extra_sub_samp: Additional subsampling factor for gradient detection.
-    :param shape_noise_removal: If True, apply shape and noise removal filters.
     """
 
     cutoff_hi: float = 2e-3
@@ -22,4 +21,3 @@ class PreprocessingStriationParams:
     angle_accuracy: float = 0.1
     max_iter: int = 25
     extra_sub_samp: int = 1
-    shape_noise_removal: bool = True

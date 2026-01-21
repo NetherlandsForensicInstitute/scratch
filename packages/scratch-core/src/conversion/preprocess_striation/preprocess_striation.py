@@ -490,7 +490,7 @@ def preprocess_data(
     Complete preprocess_striations pipeline for striated marks, it performs two
     preprocessing steps:
 
-    **Form and noise removal** (optional, controlled by params.shape_noise_removal)
+    **Form and noise removal**
         - Highpass filter to remove large-scale shape (curvature, tilt)
         - Lowpass filter to remove high-frequency noise
 
@@ -509,16 +509,12 @@ def preprocess_data(
     if params is None:
         params = PreprocessingStriationParams()
 
-    data_filtered = scan_image.data.copy()
-    mask_filtered = mask
-
-    if params.shape_noise_removal:
-        data_filtered, mask_filtered = apply_shape_noise_removal(
-            scan_image=scan_image,
-            highpass_cutoff=params.cutoff_hi,
-            mask=mask,
-            lowpass_cutoff=params.cutoff_lo,
-        )
+    data_filtered, mask_filtered = apply_shape_noise_removal(
+        scan_image=scan_image,
+        highpass_cutoff=params.cutoff_hi,
+        mask=mask,
+        lowpass_cutoff=params.cutoff_lo,
+    )
 
     # Set defaults for line profile case (no alignment needed)
     data_aligned = data_filtered
