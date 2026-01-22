@@ -2,7 +2,6 @@ from enum import StrEnum, auto
 from typing import Annotated
 
 from container_models.light_source import LightSource
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from pydantic import AfterValidator, Field, FilePath, field_validator
 
 from constants import ImpressionMarks, MaskTypes, StriationMarks
@@ -76,6 +75,12 @@ class CropInfo(BaseModelConfig):
     type: MaskTypes
     data: dict
     is_foreground: bool
+
+
+class PreprocessingImpressionParams(BaseModelConfig):
+    """dummy till #84 is merged."""
+
+    pass  # TODO: not yet merged dataclass from PR #84
 
 
 class PreprocessingStriationParams(BaseModelConfig):

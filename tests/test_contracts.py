@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 import requests
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
@@ -14,7 +13,13 @@ from extractors.schemas import (
     ProcessedDataAccess,
 )
 from models import DirectoryAccess
-from preprocessors.schemas import PrepareMarkImpression, PrepareMarkStriation, PreprocessingStriationParams, UploadScan
+from preprocessors.schemas import (
+    PrepareMarkImpression,
+    PrepareMarkStriation,
+    PreprocessingImpressionParams,
+    PreprocessingStriationParams,
+    UploadScan,
+)
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
