@@ -11,11 +11,13 @@ from httpx import Response
 from PIL import Image
 from pydantic import HttpUrl
 
-from constants import RoutePrefix
+from constants import PreprocessorEndpoint, RoutePrefix
 from extractors.schemas import ProcessedDataAccess
 from models import DirectoryAccess
 from preprocessors.schemas import UploadScan
 from settings import get_settings
+
+PROCESS_SCAN_ROUTE = f"/{RoutePrefix.PREPROCESSOR}/{PreprocessorEndpoint.PROCESS_SCAN}"
 
 
 @pytest.fixture(scope="module")
@@ -32,10 +34,7 @@ def post_process_scan(client: TestClient, upload_scan: UploadScan) -> Callable[[
     """
 
     def _post(input_model: UploadScan | None = None) -> Response:
-        return client.post(
-            f"/{RoutePrefix.PREPROCESSOR}/process-scan",
-            json=(input_model or upload_scan).model_dump(mode="json"),
-        )
+        return client.post(PROCESS_SCAN_ROUTE, json=(input_model or upload_scan).model_dump(mode="json"))
 
     return _post
 
@@ -48,7 +47,7 @@ class TestProcessScanEndpoint:
     def test_process_scan_success_with_al3d_file(self, upload_scan: UploadScan, client: TestClient) -> None:
         """Test successful scan processing with AL3D input file."""
         # Act I
-        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/process-scan", json=upload_scan.model_dump(mode="json"))
+        response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
 
         # Assert - verify response
         assert response.status_code == HTTPStatus.OK
@@ -191,7 +190,7 @@ class TestProcessScan:
 
         # Act - send raw JSON to bypass Pydantic model construction
         response = client.post(
-            f"{RoutePrefix.PREPROCESSOR}/process-scan",
+            PROCESS_SCAN_ROUTE,
             json={"scan_file": str(path)},
         )
 
