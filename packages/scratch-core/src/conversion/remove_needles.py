@@ -27,8 +27,7 @@ def mask_and_remove_needles(
         upsampled afterward. If the image is a small strip of data (width or height <= SMALL_STRIP_THRESHOLD), the
         filter size is reduced.
     - Compute residuals as the difference between the masked original and median filtered data.
-    - Mark points as needles where residuals exceed a threshold (absolute data median * times_median *
-        TIMES_MEDIAN_CORRECTION_FACTOR)
+    - Mark points as needles where residuals exceed a computed threshold
     - Set marked needle points to NaN in the masked original scan image
 
     :param scan_image: Scan image to mask and clean.
