@@ -167,7 +167,6 @@ class TestSubSampleScanImage:
 
     def test_make_isotropic_no_op(self):
         """Ensure no resampling occurs if pixels are already square."""
-        # Force scales to be identical
         scan_image = ScanImage(scale_x=0.5, scale_y=0.5, data=np.zeros((100, 100)))
 
         result = unwrap_result(make_isotropic(scan_image))
