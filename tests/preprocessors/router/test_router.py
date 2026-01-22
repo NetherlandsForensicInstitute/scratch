@@ -78,6 +78,7 @@ class TestPrepareMarkEndpoint:
 
     def get_schema_for_endpoint(
         self,
+        scan_file_path: Path,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         mark_type: str,
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
@@ -86,7 +87,7 @@ class TestPrepareMarkEndpoint:
         return schema(
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
-            scan_file=Path("packages/scratch-core/tests/resources/scans/circle.x3p"),
+            scan_file=scan_file_path,
             mask_array=[[0, 1], [1, 0]],
             crop_info=CropInfo(type=MaskTypes.CIRCLE, data={}, is_foreground=False),
             rotation_angle=15,
@@ -95,6 +96,7 @@ class TestPrepareMarkEndpoint:
 
     def test_prepare_mark_endpoint_returns_urls(  # noqa: PLR0913
         self,
+        scan_directory: Path,
         client: TestClient,
         subroute: str,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
@@ -105,6 +107,7 @@ class TestPrepareMarkEndpoint:
         """Test that the prepare-mark endpoint processes the request and returns file URLs."""
         # Arrange
         payload = self.get_schema_for_endpoint(
+            scan_file_path=scan_directory / "circle.x3p",
             schema=schema,
             mark_type=mark_type,
             mark_parameters=mark_parameters,
@@ -122,6 +125,7 @@ class TestPrepareMarkEndpoint:
 
     def test_prepare_mark_endpoint_has_made_files_in_vault(  # noqa: PLR0913
         self,
+        scan_directory: Path,
         client: TestClient,
         directory_access: DirectoryAccess,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
@@ -133,6 +137,7 @@ class TestPrepareMarkEndpoint:
         """Test that the prepare-mark endpoint creates files in the vault."""
         # Arrange
         payload = self.get_schema_for_endpoint(
+            scan_file_path=scan_directory / "circle.x3p",
             schema=schema,  # type: ignore
             mark_type=mark_type,
             mark_parameters=mark_parameters,  # type: ignore
@@ -151,6 +156,7 @@ class TestPrepareMarkEndpoint:
 
     def test_prepare_mark_endpoint_response_url_matches_folder_location(  # noqa: PLR0913
         self,
+        scan_directory: Path,
         client: TestClient,
         directory_access: DirectoryAccess,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
@@ -162,6 +168,7 @@ class TestPrepareMarkEndpoint:
         """Test that the URLs in the prepare-mark endpoint response match the vault folder location."""
         # Arrange
         payload = self.get_schema_for_endpoint(
+            scan_file_path=scan_directory / "circle.x3p",
             schema=schema,  # type: ignore
             mark_type=mark_type,
             mark_parameters=mark_parameters,  # type: ignore
