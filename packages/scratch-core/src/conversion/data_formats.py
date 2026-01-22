@@ -56,6 +56,7 @@ class Mark(ConfigBaseModel):
     center_: tuple[float, float] | None = Field(default=None, alias="center")
 
     @computed_field
+    @property
     def center(self) -> tuple[float, float]:
         """
         Center point of the mark in image coordinates.
