@@ -396,47 +396,40 @@ def _draw_metadata_box(ax: plt.Axes, title: str, metadata: dict) -> None:
     # Title above box
     ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
 
-    # Format as two columns: keys (right-aligned) and values (left-aligned)
-    # Wrap long values
-    wrapped_values = []
-    for v in metadata.values():
-        wrapped = textwrap.fill(str(v), width=20)
-        wrapped_values.append(wrapped)
+    # Create table data with text wrapping
+    table_data = []
+    wrap_width = 22  # characters before wrapping
 
-    # Count total lines needed (including wrapped lines)
-    keys_lines = []
-    values_lines = []
-    for k, wrapped_v in zip(metadata.keys(), wrapped_values):
-        v_lines = wrapped_v.split("\n")
-        keys_lines.append(f"{k}:")
-        values_lines.append(v_lines[0])
-        # Add empty key lines for wrapped continuation
-        for extra_line in v_lines[1:]:
-            keys_lines.append("")
-            values_lines.append(extra_line)
+    for k, v in metadata.items():
+        wrapped_lines = textwrap.wrap(str(v), width=wrap_width)
+        if not wrapped_lines:
+            wrapped_lines = [""]
 
-    keys_text = "\n".join(keys_lines)
-    values_text = "\n".join(values_lines)
+        # First line has the key
+        table_data.append([f"{k}:", wrapped_lines[0]])
 
-    ax.text(
-        0.40,
-        0.5,
-        keys_text,
-        fontsize=10,
-        va="center",
-        ha="right",
-        transform=ax.transAxes,
-        fontweight="bold",
+        # Continuation lines have empty key
+        for line in wrapped_lines[1:]:
+            table_data.append(["", line])
+
+    table = ax.table(
+        cellText=table_data,
+        cellLoc="left",
+        colWidths=[0.35, 0.55],
+        loc="center left",
+        edges="open",
+        bbox=[0.07, 0.1, 0.9, 0.8],  # [left, bottom, width, height]
     )
-    ax.text(
-        0.45,
-        0.5,
-        values_text,
-        fontsize=10,
-        va="center",
-        ha="left",
-        transform=ax.transAxes,
-    )
+
+    # Style the table
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1.0, 1.5)  # Scale row height
+
+    # Make keys bold
+    for i in range(len(table_data)):
+        table[i, 0].set_text_props(fontweight="bold", ha="right")
+        table[i, 1].set_text_props(ha="left")
 
 
 def _draw_results_box(ax: plt.Axes, metrics: CorrelationMetrics) -> None:
@@ -449,56 +442,67 @@ def _draw_results_box(ax: plt.Axes, metrics: CorrelationMetrics) -> None:
 
     # Build metrics as key-value pairs
     items = []
+    wrap_width = 25  # characters before wrapping
+
+    def add_item(key: str, value: str) -> None:
+        """Add an item with text wrapping for long values."""
+        wrapped_lines = textwrap.wrap(str(value), width=wrap_width)
+        if not wrapped_lines:
+            wrapped_lines = [""]
+        items.append((key, wrapped_lines[0]))
+        for line in wrapped_lines[1:]:
+            items.append(("", line))
 
     if metrics.date_report:
-        items.append(("Date report:", metrics.date_report))
+        add_item("Date report:", metrics.date_report)
     if metrics.mark_type:
-        items.append(("Mark type:", metrics.mark_type))
+        add_item("Mark type:", metrics.mark_type)
 
-    items.append(("Correlation Coefficient:", f"{metrics.score:.4f}"))
+    add_item("Correlation Coefficient:", f"{metrics.score:.4f}")
 
     if metrics.sq_a is not None:
-        items.append(("Sq(A):", f"{metrics.sq_a:.4f} µm"))
+        add_item("Sq(A):", f"{metrics.sq_a:.4f} µm")
     if metrics.sq_b is not None:
-        items.append(("Sq(B):", f"{metrics.sq_b:.4f} µm"))
+        add_item("Sq(B):", f"{metrics.sq_b:.4f} µm")
     if metrics.sq_b_minus_a is not None:
-        items.append(("Sq(B-A):", f"{metrics.sq_b_minus_a:.4f} µm"))
+        add_item("Sq(B-A):", f"{metrics.sq_b_minus_a:.4f} µm")
     if metrics.sq_ratio is not None:
-        items.append(("Sq(B) / Sq(A):", f"{metrics.sq_ratio:.4f} %"))
+        add_item("Sq(B) / Sq(A):", f"{metrics.sq_ratio:.4f} %")
     if metrics.sign_diff_dsab is not None:
-        items.append(("Sign. Diff. DsAB:", f"{metrics.sign_diff_dsab:.2f} %"))
+        add_item("Sign. Diff. DsAB:", f"{metrics.sign_diff_dsab:.2f} %")
 
-    items.append(("Overlap:", f"{metrics.overlap:.2f} %"))
+    add_item("Overlap:", f"{metrics.overlap:.2f} %")
 
     if metrics.data_spacing is not None:
         items.append(("", ""))  # blank line
-        items.append(("Data spacing:", f"{metrics.data_spacing:.4f} µm"))
+        add_item("Data spacing:", f"{metrics.data_spacing:.4f} µm")
     if metrics.cutoff_low_pass is not None:
-        items.append(
-            ("Cutoff length low-pass filter:", f"{metrics.cutoff_low_pass:.0f} µm")
-        )
+        add_item("Cutoff length low-pass filter:", f"{metrics.cutoff_low_pass:.0f} µm")
     if metrics.cutoff_high_pass is not None:
-        items.append(
-            ("Cutoff length high-pass filter:", f"{metrics.cutoff_high_pass:.0f} µm")
+        add_item(
+            "Cutoff length high-pass filter:", f"{metrics.cutoff_high_pass:.0f} µm"
         )
 
-    # Two columns: keys (right-aligned) and values (left-aligned)
-    keys_text = "\n".join([k for k, v in items])
-    values_text = "\n".join([v for k, v in items])
+    # Create table data
+    table_data = [[k, v] for k, v in items]
 
-    ax.text(
-        0.58,
-        1.0,
-        keys_text,
-        fontsize=10,
-        va="top",
-        ha="right",
-        transform=ax.transAxes,
-        fontweight="bold",
+    table = ax.table(
+        cellText=table_data,
+        cellLoc="left",
+        colWidths=[0.55, 0.45],
+        loc="upper center",
+        edges="open",
     )
-    ax.text(
-        0.62, 1.0, values_text, fontsize=10, va="top", ha="left", transform=ax.transAxes
-    )
+
+    # Style the table
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1.0, 1.4)  # Scale row height
+
+    # Make keys bold and right-aligned
+    for i in range(len(table_data)):
+        table[i, 0].set_text_props(fontweight="bold", ha="right")
+        table[i, 1].set_text_props(ha="left")
 
 
 def plot_comparison_overview(
@@ -591,7 +595,7 @@ def plot_comparison_overview(
     )
 
     # === Row 3: Profile plot ===
-    ax_profile = fig.add_subplot(gs[3, :2])
+    ax_profile = fig.add_subplot(gs[3, :])
     _plot_profiles_on_axes(
         ax_profile,
         profile_ref.scan_image.data,

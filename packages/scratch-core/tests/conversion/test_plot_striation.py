@@ -255,3 +255,107 @@ def test_plot_comparison_overview():
     assert result.shape[2] == 3, f"Expected RGB, got {result.shape[2]} channels"
 
     Image.fromarray(result).save(OUTPUT_DIR / "comparison_overview.png")
+
+
+def test_plot_comparison_overview_long_metadata():
+    """Test the comparison overview with longer keys and values."""
+    mark_ref = create_mock_mark(height=256, width=200, seed=42)
+    mark_comp = create_mock_mark(height=256, width=220, seed=43)
+    mark_ref_aligned = create_mock_mark(height=200, width=200, seed=44)
+    mark_comp_aligned = create_mock_mark(height=200, width=200, seed=45)
+    profile_ref = create_mock_profile_mark(length=200, seed=46)
+    profile_comp = create_mock_profile_mark(length=200, seed=47)
+
+    metrics = CorrelationMetrics(
+        score=0.85,
+        shift=12.5,
+        overlap=80.4,
+        sq_a=0.2395,
+        sq_b=0.7121,
+        sq_b_minus_a=0.6138,
+        sq_ratio=297.3765,
+        sign_diff_dsab=220.94,
+        data_spacing=1.5625,
+        cutoff_low_pass=5,
+        cutoff_high_pass=250,
+        date_report="2025-12-02",
+        mark_type="Aperture shear striation with extended description",
+    )
+
+    # Test with longer keys and values
+    metadata_ref = {
+        "Collection": "firearms_extended_collection_name",
+        "Firearm ID": "firearm_1_-_known_match_with_very_long_identifier",
+        "Specimen ID": "bullet_specimen_001_reference",
+        "Measurement ID": "striated_mark_measurement_extended",
+        "Additional Info": "Some extra metadata field",
+    }
+
+    metadata_comp = {
+        "Collection": "firearms_extended_collection_name",
+        "Firearm ID": "firearm_1_-_known_match_with_very_long_identifier",
+        "Specimen ID": "bullet_specimen_002_comparison",
+        "Measurement ID": "striated_mark_measurement_extended",
+        "Additional Info": "Another extra field value",
+    }
+
+    result = plot_comparison_overview(
+        mark_ref=mark_ref,
+        mark_comp=mark_comp,
+        mark_ref_aligned=mark_ref_aligned,
+        mark_comp_aligned=mark_comp_aligned,
+        profile_ref=profile_ref,
+        profile_comp=profile_comp,
+        metrics=metrics,
+        metadata_ref=metadata_ref,
+        metadata_comp=metadata_comp,
+    )
+
+    assert result.ndim == 3, f"Expected 3D array, got {result.ndim}D"
+    assert result.shape[2] == 3, f"Expected RGB, got {result.shape[2]} channels"
+
+    Image.fromarray(result).save(OUTPUT_DIR / "comparison_overview_long_metadata.png")
+
+
+def test_plot_comparison_overview_short_metadata():
+    """Test the comparison overview with short keys and values."""
+    mark_ref = create_mock_mark(height=256, width=200, seed=42)
+    mark_comp = create_mock_mark(height=256, width=220, seed=43)
+    mark_ref_aligned = create_mock_mark(height=200, width=200, seed=44)
+    mark_comp_aligned = create_mock_mark(height=200, width=200, seed=45)
+    profile_ref = create_mock_profile_mark(length=200, seed=46)
+    profile_comp = create_mock_profile_mark(length=200, seed=47)
+
+    metrics = CorrelationMetrics(
+        score=0.85,
+        shift=12.5,
+        overlap=80.4,
+    )
+
+    # Test with short keys and values
+    metadata_ref = {
+        "ID": "A1",
+        "Type": "ref",
+    }
+
+    metadata_comp = {
+        "ID": "B2",
+        "Type": "comp",
+    }
+
+    result = plot_comparison_overview(
+        mark_ref=mark_ref,
+        mark_comp=mark_comp,
+        mark_ref_aligned=mark_ref_aligned,
+        mark_comp_aligned=mark_comp_aligned,
+        profile_ref=profile_ref,
+        profile_comp=profile_comp,
+        metrics=metrics,
+        metadata_ref=metadata_ref,
+        metadata_comp=metadata_comp,
+    )
+
+    assert result.ndim == 3, f"Expected 3D array, got {result.ndim}D"
+    assert result.shape[2] == 3, f"Expected RGB, got {result.shape[2]} channels"
+
+    Image.fromarray(result).save(OUTPUT_DIR / "comparison_overview_short_metadata.png")
