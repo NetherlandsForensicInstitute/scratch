@@ -35,3 +35,24 @@ class RoutePrefix(StrEnum):
     EXTRACTOR = "extractor"
     PREPROCESSOR = "preprocessor"
     PROCESSOR = "processor"
+
+
+class PreprocessorEndpoint(StrEnum):
+    ROOT = ""
+    PROCESS_SCAN = "process-scan"
+    PREPARE_MARK_IMPRESSION = "prepare-mark-impression"
+    PREPARE_MARK_STRIATION = "prepare-mark-striation"
+    EDIT_SCAN = "edit-scan"
+
+
+class ExtractorEndpoint(StrEnum):
+    ROOT = ""
+    FILES = "files/{token}/{filename}"
+
+
+class ProcessorEndpoint(StrEnum):
+    ROOT = ""
+
+
+class ComparatorEndpoint(StrEnum):
+    ROOT = ""

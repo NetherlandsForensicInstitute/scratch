@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from loguru import logger
 
-from constants import ImpressionMarks, MaskTypes, StriationMarks
+from constants import ImpressionMarks, MaskTypes, PreprocessorEndpoint, RoutePrefix, StriationMarks
 from models import DirectoryAccess
 from preprocessors.schemas import (
     CropInfo,
@@ -20,18 +20,20 @@ from preprocessors.schemas import (
 def test_pre_processors_placeholder(client: TestClient) -> None:
     """Test that the preprocessor root endpoint redirects to documentation."""
     # Act
-    response = client.get("/preprocessor", follow_redirects=False)
+    response = client.get(f"/{RoutePrefix.PREPROCESSOR}", follow_redirects=False)
 
     # Assert
     assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, "endpoint should redirect"
-    assert response.headers["location"] == "/docs#operations-tag-preprocessor", "should redirect to preprocessor docs"
+    assert response.headers["location"] == f"/docs#operations-tag-{RoutePrefix.PREPROCESSOR}", (
+        "should redirect to preprocessor docs"
+    )
 
 
 @pytest.mark.parametrize(
-    ("subroute", "schema", "mark_parameters", "mark_type", "expected_files"),
+    ("endpoint", "schema", "mark_parameters", "mark_type", "expected_files"),
     [
         pytest.param(
-            "/prepare-mark-striation",
+            PreprocessorEndpoint.PREPARE_MARK_STRIATION,
             PrepareMarkStriation,
             PreprocessingStriationParams,
             StriationMarks.APERTURE_SHEAR,
@@ -49,7 +51,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             id="striation mark",
         ),
         pytest.param(
-            "/prepare-mark-impression",
+            PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
             PrepareMarkImpression,
             PreprocessingImpressionParams,
             ImpressionMarks.CHAMBER,
@@ -101,7 +103,7 @@ class TestPrepareMarkEndpoint:
     def test_prepare_mark_endpoint_returns_urls(  # noqa: PLR0913
         self,
         client: TestClient,
-        subroute: str,
+        endpoint: PreprocessorEndpoint,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
         mark_type: str,
@@ -116,7 +118,7 @@ class TestPrepareMarkEndpoint:
         )
 
         # Act
-        response = client.post(f"/preprocessor{subroute}", json=payload)
+        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
@@ -130,7 +132,7 @@ class TestPrepareMarkEndpoint:
         client: TestClient,
         directory_access: DirectoryAccess,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
-        subroute: str,
+        endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
         expected_files: list[str],
@@ -143,7 +145,7 @@ class TestPrepareMarkEndpoint:
             mark_parameters=mark_parameters,  # type: ignore
         )
         # Act
-        response = client.post(f"/preprocessor{subroute}", json=payload)
+        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
@@ -159,7 +161,7 @@ class TestPrepareMarkEndpoint:
         client: TestClient,
         directory_access: DirectoryAccess,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
-        subroute: str,
+        endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
         expected_files: list[str],
@@ -173,7 +175,7 @@ class TestPrepareMarkEndpoint:
         )
 
         # Act
-        response = client.post(f"/preprocessor{subroute}", json=payload)
+        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"

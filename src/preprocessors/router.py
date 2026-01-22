@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from loguru import logger
 
-from constants import RoutePrefix
+from constants import PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
 from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault, get_files, get_urls
@@ -25,7 +25,7 @@ preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[Rout
 
 
 @preprocessor_route.get(
-    path="",
+    path=PreprocessorEndpoint.ROOT,
     summary="Redirect to preprocessor documentation",
     description="""Redirects to the preprocessor section in the API documentation.""",
     include_in_schema=False,
@@ -43,7 +43,7 @@ async def preprocessor_root() -> RedirectResponse:
 
 
 @preprocessor_route.post(
-    path="/process-scan",
+    path=f"/{PreprocessorEndpoint.PROCESS_SCAN}",
     summary="Create surface_map and preview image from the scan file.",
     description="""
     Processes the scan file from the given filepath and generates several derived outputs, including
@@ -86,7 +86,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 
 
 @preprocessor_route.post(
-    path="/prepare-mark-impression",
+    path=f"/{PreprocessorEndpoint.PREPARE_MARK_IMPRESSION}",
     summary="Preprocess a scan into analysis-ready mark files.",
     description="""
     Applies user-defined masking and cropping to a scan, then performs
@@ -126,7 +126,7 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
 
 
 @preprocessor_route.post(
-    path="/prepare-mark-striation",
+    path=f"/{PreprocessorEndpoint.PREPARE_MARK_STRIATION}",
     summary="Preprocess a scan into analysis-ready mark files.",
     description="""
     Applies user-defined masking and cropping to a scan, then performs
@@ -166,7 +166,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
 
 
 @preprocessor_route.post(
-    path="/edit-scan",
+    path=f"/{PreprocessorEndpoint.EDIT_SCAN}",
     summary="Validate and parse a scan file with edit parameters.",
     description="""
     Parse and validate a scan file (X3P format only) with the provided edit parameters
