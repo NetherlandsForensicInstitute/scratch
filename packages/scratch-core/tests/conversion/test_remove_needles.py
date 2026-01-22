@@ -8,7 +8,7 @@ from container_models.scan_image import ScanImage
 from conversion.remove_needles import (
     mask_and_remove_needles,
     apply_median_filter,
-    determine_and_remove_needles,
+    get_and_remove_needles,
     get_residual_image,
 )
 
@@ -233,7 +233,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         residuals = np.ones((10, 10)) * 0.1  # Small residuals
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
-        result = determine_and_remove_needles(scan_image, residuals, times_median=15.0)
+        result = get_and_remove_needles(scan_image, residuals, times_median=15.0)
 
         # No needles should be removed
         assert np.array_equal(result.data, data)
@@ -245,7 +245,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         residuals[5, 5] = 100.0  # Large residual = needle
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
-        result = determine_and_remove_needles(scan_image, residuals, times_median=1.0)
+        result = get_and_remove_needles(scan_image, residuals, times_median=1.0)
 
         # Needle should be set to NaN
         assert np.isnan(result.data[5, 5])
@@ -261,7 +261,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         residuals[5, 5] = 100.0
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
-        result = determine_and_remove_needles(scan_image, residuals, times_median=1.0)
+        result = get_and_remove_needles(scan_image, residuals, times_median=1.0)
 
         # All needles should be removed
         assert np.isnan(result.data[2, 2])
@@ -278,14 +278,10 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
         # Low threshold - should detect needle
-        result_low = determine_and_remove_needles(
-            scan_image, residuals, times_median=1.0
-        )
+        result_low = get_and_remove_needles(scan_image, residuals, times_median=1.0)
 
         # High threshold - should not detect needle
-        result_high = determine_and_remove_needles(
-            scan_image, residuals, times_median=100.0
-        )
+        result_high = get_and_remove_needles(scan_image, residuals, times_median=100.0)
 
         # With low threshold, needle detected
         assert np.isnan(result_low.data[5, 5])
@@ -300,7 +296,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         residuals[7, 7] = 100.0  # This should still be detected
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
-        result = determine_and_remove_needles(scan_image, residuals, times_median=1.0)
+        result = get_and_remove_needles(scan_image, residuals, times_median=1.0)
 
         assert np.isnan(result.data[7, 7])
 
@@ -312,7 +308,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         residuals[5, 5] = 100.0
         scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
-        result = determine_and_remove_needles(scan_image, residuals, times_median=1.0)
+        result = get_and_remove_needles(scan_image, residuals, times_median=1.0)
 
         # Original data should be unchanged
         np.testing.assert_array_equal(scan_image.data, data_copy)

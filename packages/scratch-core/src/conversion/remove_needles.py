@@ -41,7 +41,7 @@ def mask_and_remove_needles(
 
     residual_image = get_residual_image(scan_image_masked)
 
-    return determine_and_remove_needles(scan_image_masked, residual_image, times_median)
+    return get_and_remove_needles(scan_image_masked, residual_image, times_median)
 
 
 def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
@@ -117,7 +117,7 @@ def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
     return residual_image
 
 
-def determine_and_remove_needles(
+def get_and_remove_needles(
     scan_image: ScanImage, residual_image: ScanMap2DArray, times_median: float
 ) -> ScanImage:
     """
