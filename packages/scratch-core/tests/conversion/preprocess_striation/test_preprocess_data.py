@@ -19,16 +19,10 @@ from conversion.preprocess_striation.preprocess_striation import (
     _shear_data_by_shifting_profiles,
     _rotate_image_grad_vector,
     apply_shape_noise_removal,
-    extract_profile,
     fine_align_bullet_marks,
     preprocess_data,
 )
 from conversion.resample import resample_scan_image_and_mask
-
-
-# =============================================================================
-# Tests for filter.py utility functions
-# =============================================================================
 
 
 def test_cutoff_to_gaussian_sigma():
@@ -89,7 +83,7 @@ def test_apply_striation_preserving_filter_1d_lowpass():
     scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
     smoothed, mask = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
-        cutoff=250e-6,
+        cutoff=2.5e-4,
         is_high_pass=False,
         cut_borders_after_smoothing=False,
     )
@@ -111,18 +105,13 @@ def test_apply_striation_preserving_filter_1d_highpass():
     scan_image = ScanImage(data=surface, scale_x=1e-3, scale_y=1e-3)
     residuals, mask = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
-        cutoff=50e-3,
+        cutoff=5e-2,
         is_high_pass=True,
         cut_borders_after_smoothing=False,
     )
 
     # Residuals should have much smaller range than input (shape removed)
     assert np.ptp(residuals) < np.ptp(surface) * 0.25
-
-
-# =============================================================================
-# Tests for shape and noise removal
-# =============================================================================
 
 
 def test_apply_shape_noise_removal():
@@ -140,8 +129,8 @@ def test_apply_shape_noise_removal():
     scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
     result, mask = apply_shape_noise_removal(
         scan_image=scan_image,
-        highpass_cutoff=2000e-6,
-        lowpass_cutoff=250e-6,
+        highpass_cutoff=2e-3,
+        lowpass_cutoff=2.5e-4,
     )
 
     # Result should have form removed (smaller range than input)
@@ -170,8 +159,8 @@ def test_shape_noise_removal_filter_sequence():
     scan_image = ScanImage(data=depth_data, scale_x=scale, scale_y=scale)
     result, _ = apply_shape_noise_removal(
         scan_image=scan_image,
-        highpass_cutoff=2000e-6,
-        lowpass_cutoff=250e-6,
+        highpass_cutoff=2e-3,
+        lowpass_cutoff=2.5e-4,
     )
 
     # Verify form removed (mean near zero)
@@ -288,11 +277,6 @@ def test_shape_noise_removal_synthetic():
     assert std_result < std_original, "Noise not reduced"
 
 
-# =============================================================================
-# Tests for rotation and alignment
-# =============================================================================
-
-
 def test_rotate_data_by_shifting_profiles():
     """Test rotation by profile shifting."""
     data = np.zeros((50, 50), dtype=float)
@@ -359,51 +343,6 @@ def test_fine_align_bullet_marks():
 
 
 # =============================================================================
-# Tests for profile extraction
-# =============================================================================
-
-
-def test_extract_profile_mean():
-    """Test mean profile extraction from 2D data."""
-    data = np.zeros((10, 20), dtype=float)
-    for i in range(10):
-        data[i, :] = i * 2.0
-
-    profile = extract_profile(data, use_mean=True)
-
-    assert profile.shape == (10,)
-    assert profile[0] == pytest.approx(0.0)
-    assert profile[5] == pytest.approx(10.0)
-
-
-def test_extract_profile_median():
-    """Test median profile extraction from 2D data."""
-    data = np.zeros((10, 20), dtype=float)
-    for i in range(10):
-        data[i, :] = i * 2.0
-
-    profile = extract_profile(data, use_mean=False)
-
-    assert profile.shape == (10,)
-    assert profile[5] == pytest.approx(10.0)
-
-
-def test_extract_profile_with_mask():
-    """Test profile extraction with mask."""
-    data = np.zeros((10, 20), dtype=float)
-    for i in range(10):
-        data[i, :] = i * 2.0
-
-    mask = np.ones_like(data, dtype=bool)
-    mask[:, 10:] = False
-
-    profile = extract_profile(data, mask=mask, use_mean=True)
-
-    assert profile.shape == (10,)
-    assert profile[5] == pytest.approx(10.0)
-
-
-# =============================================================================
 # Tests for full preprocessing pipeline
 # =============================================================================
 
@@ -425,8 +364,8 @@ def test_preprocess_data():
 
     scan_image = ScanImage(data=depth_data, scale_x=1e-6, scale_y=1e-6)
     params = PreprocessingStriationParams(
-        cutoff_hi=2000e-6,
-        cutoff_lo=250e-6,
+        cutoff_hi=2e-3,
+        cutoff_lo=2.5e-4,
         cut_borders_after_smoothing=False,
         angle_accuracy=0.5,
         max_iter=10,

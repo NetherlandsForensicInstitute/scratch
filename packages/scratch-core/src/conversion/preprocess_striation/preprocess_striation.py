@@ -346,6 +346,35 @@ def _rotate_data_and_mask(
     ), None
 
 
+def _create_shear_corrected_scan_image(
+    data: NDArray[np.floating],
+    scale_x: float,
+    scale_y: float,
+    angle_degrees: float,
+) -> ScanImage:
+    """
+    Create a ScanImage with scales corrected for shear-based rotation.
+
+    Shearing compresses the x-axis by cos(angle) and expands the y-axis by 1/cos(angle).
+
+    :param data: 2D depth data array.
+    :param scale_x: Original x pixel spacing in meters.
+    :param scale_y: Original y pixel spacing in meters.
+    :param angle_degrees: Applied rotation angle in degrees.
+    :returns: ScanImage with corrected scales.
+    """
+    if not np.isclose(angle_degrees, 0.0, rtol=1e-09, atol=1e-09):
+        cos_angle = np.cos(np.radians(angle_degrees))
+        scale_x = scale_x * cos_angle
+        scale_y = scale_y / cos_angle
+
+    return ScanImage(
+        data=np.asarray(data, dtype=np.float64),
+        scale_x=scale_x,
+        scale_y=scale_y,
+    )
+
+
 def fine_align_bullet_marks(
     scan_image: ScanImage,
     mark_type: MarkType | None = None,
@@ -383,31 +412,23 @@ def fine_align_bullet_marks(
         subsampling_factor,
     )
 
-    # Apply rotation and compute corrected scales
-    result_data = scan_image.data.copy()
-    result_mask = mask
-    result_scale_x = scan_image.scale_x
-    result_scale_y = scan_image.scale_y
-
+    # Apply rotation and crop to mask bounding box
     if not np.isclose(total_angle, 0.0, rtol=1e-09, atol=1e-09):
         total_angle_rad = np.radians(total_angle)
-        cos_angle = np.cos(total_angle_rad)
-        result_scale_x = scan_image.scale_x * cos_angle
-        result_scale_y = scan_image.scale_y / cos_angle
         result_data, result_mask = _rotate_data_and_mask(
             scan_image.data, mask, total_angle_rad, cut_y_after_shift
         )
     elif mask is not None:
         # No rotation needed, but still crop to mask bounding box
         y_slice, x_slice = _determine_bounding_box(mask)
-        result_data = result_data[y_slice, x_slice]
+        result_data = scan_image.data[y_slice, x_slice]
         result_mask = mask[y_slice, x_slice]
+    else:
+        result_data = scan_image.data
+        result_mask = mask
 
-    # Create result ScanImage with corrected scales
-    result_scan = ScanImage(
-        data=np.asarray(result_data, dtype=np.float64),
-        scale_x=result_scale_x,
-        scale_y=result_scale_y,
+    result_scan = _create_shear_corrected_scan_image(
+        result_data, scan_image.scale_x, scan_image.scale_y, total_angle
     )
 
     # Resample to mark type target scale if specified
@@ -454,29 +475,6 @@ def _propagate_nan(data: NDArray[np.floating]) -> NDArray[np.floating]:
     return result
 
 
-def extract_profile(
-    depth_data: NDArray[np.floating],
-    mask: MaskArray | None = None,
-    use_mean: bool = True,
-) -> NDArray[np.floating]:
-    """
-    Extract a 1D profile from 2D depth data.
-
-    Computes the mean or median profile along rows (axis 1).
-
-    :param depth_data: 2D depth data array.
-    :param mask: Optional boolean mask (True = valid).
-    :param use_mean: If True, use mean; if False, use median.
-    :returns: 1D profile array.
-    """
-    if mask is not None:
-        depth_data = np.where(mask, depth_data, np.nan)
-
-    if use_mean:
-        return np.nanmean(depth_data, axis=1)
-    return np.nanmedian(depth_data, axis=1)
-
-
 def preprocess_data(
     scan_image: ScanImage,
     mark_type: MarkType | None = None,
@@ -518,11 +516,6 @@ def preprocess_data(
         lowpass_cutoff=params.cutoff_lo,
     )
 
-    # Set defaults for line profile case (no alignment needed)
-    data_aligned = data_filtered
-    mask_aligned = mask_filtered
-    total_angle = 0.0
-
     if data_filtered.shape[1] > 1:
         filtered_scan_image = scan_image.model_copy(update={"data": data_filtered})
         aligned_scan, mask_aligned, total_angle = fine_align_bullet_marks(
@@ -535,11 +528,22 @@ def preprocess_data(
             subsampling_factor=params.subsampling_factor,
         )
         data_aligned = aligned_scan.data
+    else:
+        # Line profile case (no alignment needed)
+        data_aligned = data_filtered
+        mask_aligned = mask_filtered
+        total_angle = 0.0
 
     # Propagate NaN to adjacent pixels to match MATLAB's asymmetric NaN handling
     data_aligned = _propagate_nan(data_aligned)
 
-    # Extract profile
-    profile = extract_profile(data_aligned, mask=mask_aligned, use_mean=params.use_mean)
+    # Extract profile: apply mask and compute mean/median along rows
+    if mask_aligned is not None:
+        data_aligned = np.where(mask_aligned, data_aligned, np.nan)
+    profile = (
+        np.nanmean(data_aligned, axis=1)
+        if params.use_mean
+        else np.nanmedian(data_aligned, axis=1)
+    )
 
     return data_aligned, profile, mask_aligned, total_angle
