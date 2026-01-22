@@ -16,7 +16,6 @@ def rotate_crop_and_mask_image_by_crop(
     scan_image: ScanImage,
     mask: MaskArray,
     crop_infos: tuple[CropInfo],
-    rotation_angle: float,
     times_median: float = 15,
 ) -> ScanImage:
     """
@@ -24,9 +23,8 @@ def rotate_crop_and_mask_image_by_crop(
 
     Implements the following flow:
     - Determine the rotation angle for the image and mask
-    By using the given rotation_angle if rotation_angle != 0. Otherwise, if the first object of crop_info is a
-    rectangle, then the rotation_angle of that rectangle is determined. Any other case will lead to a rotation angle
-    of 0.
+    If the first object of crop_info is a rectangle, then the rotation_angle of that rectangle is determined. Any other
+    case will lead to a rotation angle of 0.
     - If the rotation angle is not 0, the mask is binary dilated using DILATE_STEPS iterations to correct for
     imperfections when rotating. A margin is determined to reduce the final image to compensate for the dilation.
     - The mask and image are cropped to the bounds of the mask.
@@ -37,12 +35,11 @@ def rotate_crop_and_mask_image_by_crop(
 
     :param scan_image: Scan image to rotate, mask and crop.
     :param mask: Binary mask array.
-    :param rotation_angle: Angle with which to rotate the image.
     :param crop_infos: List of crop info objects that describe the crops the user has done and the order of the crops.
     :param times_median: Parameter used to determine what is considered an outlier when removing outliers/needles.
     :return: The cropped, rotated and masked scan image.
     """
-    rotation_angle = get_rotation_angle(crop_infos, rotation_angle)
+    rotation_angle = get_rotation_angle(crop_infos)
 
     margin = 0
     if rotation_angle != 0.0:
@@ -68,28 +65,23 @@ def rotate_crop_and_mask_image_by_crop(
     return scan_image_cropped
 
 
-def get_rotation_angle(crop_infos: tuple[CropInfo], rotation_angle: float) -> float:
+def get_rotation_angle(crop_infos: tuple[CropInfo]) -> float:
     """
     Calculate the rotation angle of a rectangular crop region.
 
-    Determines the rotation angle either from an explicitly provided angle or by computing it from the corner points
+    Determines the rotation angle by computing it from the corner points
     of a rectangular crop if the first object in crop_info is of type RECTANGLE. When computing from corners, the
     function calculates the angle of each edge of the rectangle relative to the horizontal axis, then selects the edge
     that is closest to horizontal (smallest absolute angle). This angle is then normalized to the range [-90, 90]
     degrees.
 
-    :param rotation_angle: Explicit rotation angle in degrees. If non-zero, this value is returned directly without
-                           computation.
     :param crop_infos: Tuple of crop information objects. If provided and the first crop is of type RECTANGLE, the
                       rotation angle is computed from the corner points in the crop data.
     :return: The rotation angle in degrees, ranging from -90 to 90 (inclusive). The angle is normalized to this range
-             to represent the minimal rotation needed to align the rectangle.
+             to represent the minimal rotation needed to align the rectangle. If the first crop is not a rectangle, an
+             angle of 0.0 is returned.
     """
-    if (
-        rotation_angle == 0.0
-        and crop_infos
-        and crop_infos[0].crop_type == CropType.RECTANGLE
-    ):
+    if crop_infos and crop_infos[0].crop_type == CropType.RECTANGLE:
         corners = crop_infos[0].data["corner"]
         angles = []
         for i in range(4):
@@ -101,13 +93,15 @@ def get_rotation_angle(crop_infos: tuple[CropInfo], rotation_angle: float) -> fl
         # find smallest absolute angle
         rotation_angle = min(angles, key=lambda x: abs(x[0]))[1]
 
-    # Normalize to [-90, 90] range
-    if rotation_angle > 90:
-        rotation_angle -= 180
-    elif rotation_angle < -90:
-        rotation_angle += 180
+        # Normalize to [-90, 90] range
+        if rotation_angle > 90:
+            rotation_angle -= 180
+        elif rotation_angle < -90:
+            rotation_angle += 180
 
-    return rotation_angle
+        return rotation_angle
+
+    return 0.0
 
 
 def crop_image_and_mask_to_mask(

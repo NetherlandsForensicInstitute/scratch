@@ -33,7 +33,6 @@ class MatlabTestCase:
 
     input_xdim: float = 3.5e-6
     input_ydim: float = 3.5e-6
-    rotation_angle: float = 0.0
     crop_type: str = "rectangle"
     crop_corners: np.ndarray | None = None
     crop_foreground: bool = True
@@ -70,8 +69,6 @@ class MatlabTestCase:
     @property
     def involves_rotation(self) -> bool:
         """Check if test case involves rotation."""
-        if self.rotation_angle != 0:
-            return True
         return "rotation" in self.name.lower()
 
     @property
@@ -175,7 +172,6 @@ def run_python_preprocessing(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
         crop_infos=test_case.to_crop_info(),
-        rotation_angle=test_case.rotation_angle,
         times_median=test_case.times_median,
     )
     return data_out.data
@@ -243,16 +239,11 @@ class TestRotateCropImageMatlabComparison:
 
     def test_rotation_angle_calculation(self, test_case: MatlabTestCase):
         """Test that rotation angle is calculated correctly from corners."""
-        if test_case.rotation_angle != 0:
-            pytest.skip("Rotation angle was pre-specified")
-
         expected = test_case.expected_rotation_angle
         if expected is None:
             pytest.skip("No expected angle in test name")
 
-        calculated_angle = get_rotation_angle(
-            crop_infos=test_case.to_crop_info(), rotation_angle=0.0
-        )
+        calculated_angle = get_rotation_angle(crop_infos=test_case.to_crop_info())
 
         assert abs(calculated_angle - expected) < 1.0, (
             f"{test_case.name}: calculated angle {calculated_angle:.2f} != {expected}"
@@ -287,6 +278,5 @@ class TestMatlabTestCaseLoading:
             print(f"\n{case.name}:")
             print(f"  Input shape: {case.input_data.shape}")
             print(f"  Output shape: {case.output_data.shape}")
-            print(f"  Rotation angle: {case.rotation_angle}")
             print(f"  Crop type: {case.crop_type}")
             print(f"  Has holes: {case.has_holes}")
