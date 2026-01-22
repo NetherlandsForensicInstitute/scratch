@@ -1,4 +1,5 @@
-"""Unified filtering module for impression and striation preprocessing.
+"""
+Unified filtering module for impression and striation preprocessing.
 
 This module provides Gaussian regression filtering and related operations for
 surface texture analysis, following ISO 16610 standards.
@@ -16,15 +17,15 @@ from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.mask import _determine_bounding_box
+from conversion.preprocess_impression.utils import update_mark_data
 from conversion.resample import get_scaling_factors
 
 # Constants based on ISO 16610 surface texture standards
 # Standard Gaussian alpha for 50% transmission
 ALPHA_GAUSSIAN = np.sqrt(np.log(2) / np.pi)
 # Adjusted alpha often used for higher-order regression filters to maintain properties
-ALPHA_REGRESSION = np.sqrt(
-    (-1 - lambertw(-1 / (2 * np.exp(1)), -1)) / np.pi
-).real  # 0.7309...
+# Approximate value: 0.7309....
+ALPHA_REGRESSION = np.sqrt((-1 - lambertw(-1 / (2 * np.exp(1)), -1)) / np.pi).real
 
 
 def cutoff_to_gaussian_sigma(cutoff: float, pixel_size: float) -> float:
@@ -127,7 +128,7 @@ def apply_gaussian_regression_filter(
     return data - smoothed if is_high_pass else smoothed
 
 
-def apply_gaussian_filter_1d(
+def apply_striation_preserving_filter_1d(
     scan_image: ScanImage,
     cutoff: float,
     is_high_pass: bool = False,
@@ -139,6 +140,11 @@ def apply_gaussian_filter_1d(
 
     This function applies a 1D Gaussian filter only along axis 0 (rows/y-direction),
     which smooths vertically while preserving horizontal striation features.
+
+    Assumptions:
+        - Striations are approximately horizontal (fine alignment corrects small deviations)
+        - Striations are elongated horizontal features spanning the image width
+        - Striation spatial frequencies fall between the lowpass and highpass cutoffs
 
     Use Cases:
         - **Lowpass (is_high_pass=False)**: Remove high-frequency noise while preserving
@@ -213,7 +219,6 @@ def apply_gaussian_filter_mark(
     :param is_high_pass: If True, apply high-pass filter; otherwise low-pass.
     :return: Filtered mark.
     """
-    from conversion.preprocess_impression.utils import update_mark_data
 
     filtered_data = apply_gaussian_regression_filter(
         mark.scan_image.data,

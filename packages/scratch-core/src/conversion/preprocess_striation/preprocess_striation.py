@@ -1,4 +1,5 @@
-"""Preprocessing pipeline for striated tool and bullet marks.
+"""
+Preprocessing pipeline for striated tool and bullet marks.
 
 This module implements the PreprocessData pipeline with the following steps:
 - Form and noise removal (shape removal via highpass, noise removal via lowpass)
@@ -15,7 +16,7 @@ from conversion.data_formats import MarkType
 from conversion.filter import (
     cutoff_to_gaussian_sigma,
     gaussian_sigma_to_cutoff,
-    apply_gaussian_filter_1d,
+    apply_striation_preserving_filter_1d,
     apply_gaussian_regression_filter,
 )
 
@@ -31,23 +32,13 @@ def apply_shape_noise_removal(
     highpass_cutoff: float = 2.5e-4,
 ) -> tuple[NDArray[np.floating], MaskArray]:
     """
-    Apply large-scale shape and noise removal to isolate striation features.
-    This is basically a band-pass filter.
+    Apply a band-pass filter to isolate striation features by filtering out large-scale shapes and small-scale noise.
 
     The function has the following steps:
 
-    **Calculate sigma and check data size**
-        Convert the cutoff wavelength to Gaussian sigma. If the data is
-        too short (2*sigma > 20% of height), disable border cutting to
-        preserve data.
-
-    **Shape removal**
-        Use apply_gaussian_filter_1d with is_high_pass=True to remove
-        large-scale shape (curvature, tilt, waviness).
-
-    **Noise removal**
-        Apply apply_gaussian_filter_1d with is_high_pass=False (lowpass)
-        to remove high-frequency noise while preserving striation features.
+    - Calculate sigma and check data size
+    - Shape removal (curvature, tilt, waviness)
+    - Noise removal
 
     Note: we remove shape then noise by subsequently applying two Gaussian high_pass filters (first σ_low, then σ_high):
         gaussian(image - gaussian(image, σ_low), σ_high).
@@ -81,7 +72,7 @@ def apply_shape_noise_removal(
     cut_borders = (2 * sigma) <= (scan_image.height * 0.2)
 
     # Shape removal (highpass filter)
-    data_high_pass, mask_high_pass = apply_gaussian_filter_1d(
+    data_high_pass, mask_high_pass = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
         cutoff=highpass_cutoff,
         is_high_pass=True,
@@ -93,7 +84,7 @@ def apply_shape_noise_removal(
     intermediate_scan_image = scan_image.model_copy(update={"data": data_high_pass})
 
     # Noise removal (lowpass filter)
-    data_no_noise, mask_no_noise = apply_gaussian_filter_1d(
+    data_no_noise, mask_no_noise = apply_striation_preserving_filter_1d(
         scan_image=intermediate_scan_image,
         cutoff=lowpass_cutoff,
         is_high_pass=False,
@@ -105,7 +96,7 @@ def apply_shape_noise_removal(
 
 
 def _shear_data_by_shifting_profiles(
-    depth_data: NDArray[np.floating],
+    depth_data: NDArray[np.floating] | MaskArray,
     angle_rad: float,
     cut_y_after_shift: bool = True,
 ) -> NDArray[np.floating]:
@@ -181,22 +172,26 @@ def _rotate_image_grad_vector(
     depth_data: NDArray[np.floating],
     scale_x: float,
     mask: MaskArray | None = None,
-    extra_sub_samp: int = 1,
+    subsampling_factor: int = 1,
 ) -> float:
     """
     Determine striation direction using gradient analysis.
 
+    For horizontal striations, gradients point vertically (fx=0, fy≠0).
+    Tilted striations produce a horizontal gradient component, from which
+    the tilt angle is computed as: θ = arcsin(fx / |gradient|).
+
     :param depth_data: 2D depth data array.
     :param scale_x: Pixel spacing in meters.
     :param mask: Optional boolean mask (True = valid).
-    :param extra_sub_samp: Additional subsampling factor on top of the automatic subsampling for faster calculation,
+    :param subsampling_factor: Additional subsampling factor on top of the automatic subsampling for faster calculation,
     but lower precision.
-    :returns: Detected rotation angle in degrees.
+    :returns: Detected rotation angle in degrees (positive = clockwise).
     """
     # Determine subsampling factor
-    sub_samp = extra_sub_samp
+    sub_samp = subsampling_factor
     if scale_x < 1e-6:
-        sub_samp = round(1e-6 / scale_x) * extra_sub_samp
+        sub_samp = round(1e-6 / scale_x) * subsampling_factor
 
     # Resample data (only columns, matching MATLAB's resample function)
     data_subsampled = depth_data
@@ -265,10 +260,13 @@ def _find_alignment_angle(
     angle_accuracy: float,
     cut_y_after_shift: bool,
     max_iter: int,
-    extra_sub_samp: int,
+    subsampling_factor: int,
 ) -> float:
     """
     Iteratively find the alignment angle for striation marks.
+
+    The alignment angle is the rotation needed to make striations horizontal.
+    Positive angle means clockwise rotation.
 
     :param depth_data: 2D depth data array.
     :param mask: Optional boolean mask.
@@ -276,48 +274,53 @@ def _find_alignment_angle(
     :param angle_accuracy: Target angle accuracy in degrees.
     :param cut_y_after_shift: If True, crop borders after shifting.
     :param max_iter: Maximum number of iterations.
-    :param extra_sub_samp: Additional subsampling factor.
+    :param subsampling_factor: Additional subsampling factor.
     :returns: Total alignment angle in degrees (0.0 if max_iter reached).
     """
-    data_tmp = depth_data.copy()
-    mask_tmp = mask.copy() if mask is not None else None
+    data_tmp = depth_data
+    mask_tmp = mask
 
-    a_tot = 0.0
-    a = -45.0
-    a_last = 0.0
+    total_angle = 0.0
+    current_angle = -45.0
+    previous_angle = 0.0
     iteration = 1
 
-    while abs(a) > angle_accuracy and iteration < max_iter:
-        a = _rotate_image_grad_vector(
-            data_tmp, scale_x, mask=mask_tmp, extra_sub_samp=extra_sub_samp
+    # Iteratively refine the alignment angle until striations are horizontal enough.
+    # Each iteration detects the remaining misalignment, accumulates it into total_angle,
+    # then re-rotates the original data by total_angle and re-measures.
+    # Stopping criteria:
+    #   - Converged: abs(current_angle) <= angle_accuracy
+    #   - Max iterations reached (returns 0.0)
+    #   - Stuck: current_angle == previous_angle (forces early exit)
+    while abs(current_angle) > angle_accuracy and iteration < max_iter:
+        current_angle = _rotate_image_grad_vector(
+            data_tmp, scale_x, mask=mask_tmp, subsampling_factor=subsampling_factor
         )
 
-        if np.isnan(a):
-            a = 0.05
+        if np.isnan(current_angle):
+            current_angle = 0.05
         else:
-            a_tot = a_tot + a
-            a_tot_rad = np.radians(a_tot)
+            total_angle += current_angle
+            total_angle_rad = np.radians(total_angle)
             data_tmp, mask_tmp = _rotate_data_and_mask(
-                depth_data, mask, a_tot_rad, cut_y_after_shift
+                depth_data, mask, total_angle_rad, cut_y_after_shift
             )
 
-            if a == a_last:
+            if current_angle == previous_angle:
                 iteration = max_iter - 1
             else:
-                a_last = a
+                previous_angle = current_angle
 
         iteration += 1
 
-    if iteration >= max_iter:
-        return 0.0
-    return a_tot
+    return total_angle if iteration < max_iter else 0.0
 
 
 def _rotate_data_and_mask(
     depth_data: NDArray[np.floating],
     mask: MaskArray | None,
     angle_rad: float,
-    cut_y_after_shift: bool,
+    crop_nan_borders: bool,
 ) -> tuple[NDArray[np.floating], MaskArray | None]:
     """
     Rotate data and optionally mask, cropping to bounding box if mask provided.
@@ -325,22 +328,21 @@ def _rotate_data_and_mask(
     :param depth_data: 2D depth data array.
     :param mask: Optional boolean mask array.
     :param angle_rad: Rotation angle in radians.
-    :param cut_y_after_shift: If True, crop NaN borders after shifting.
+    :param crop_nan_borders: If True, crop NaN borders after shifting.
     :returns: Tuple of (rotated_data, rotated_mask).
     """
     if mask is not None:
         data_rotated = _shear_data_by_shifting_profiles(
-            depth_data, angle_rad, cut_y_after_shift
+            depth_data, angle_rad, crop_nan_borders
         )
-        mask_rotated = _shear_data_by_shifting_profiles(
-            mask.astype(float), angle_rad, cut_y_after_shift
+        mask_rotated = (
+            _shear_data_by_shifting_profiles(mask, angle_rad, crop_nan_borders) > 0.5
         )
-        mask_binary = mask_rotated == 1
-        y_slice, x_slice = _determine_bounding_box(mask_binary)
-        return data_rotated[y_slice, x_slice], mask_binary[y_slice, x_slice]
+        y_slice, x_slice = _determine_bounding_box(mask_rotated)
+        return data_rotated[y_slice, x_slice], mask_rotated[y_slice, x_slice]
 
     return _shear_data_by_shifting_profiles(
-        depth_data, angle_rad, cut_y_after_shift
+        depth_data, angle_rad, crop_nan_borders
     ), None
 
 
@@ -351,7 +353,7 @@ def fine_align_bullet_marks(
     angle_accuracy: float = 0.1,
     cut_y_after_shift: bool = True,
     max_iter: int = 25,
-    extra_sub_samp: int = 1,
+    subsampling_factor: int = 1,
 ) -> tuple[ScanImage, MaskArray | None, float]:
     """
     Fine alignment of striated marks by iteratively detecting striation direction.
@@ -367,37 +369,33 @@ def fine_align_bullet_marks(
     :param angle_accuracy: Target angle accuracy in degrees (default 0.1).
     :param cut_y_after_shift: If True, crop borders after shifting.
     :param max_iter: Maximum number of iterations.
-    :param extra_sub_samp: Additional subsampling factor for gradient detection.
+    :param subsampling_factor: Additional subsampling factor for gradient detection.
     :returns: Tuple of (aligned_scan_image, aligned_mask, total_angle_degrees).
     """
-    depth_data = scan_image.data
-    scale_x = scan_image.scale_x
-    scale_y = scan_image.scale_y
-
     # Find alignment angle iteratively
-    a_tot = _find_alignment_angle(
-        depth_data,
+    total_angle = _find_alignment_angle(
+        scan_image.data,
         mask,
-        scale_x,
+        scan_image.scale_x,
         angle_accuracy,
         cut_y_after_shift,
         max_iter,
-        extra_sub_samp,
+        subsampling_factor,
     )
 
     # Apply rotation and compute corrected scales
-    result_data = depth_data.copy()
+    result_data = scan_image.data.copy()
     result_mask = mask
-    result_scale_x = scale_x
-    result_scale_y = scale_y
+    result_scale_x = scan_image.scale_x
+    result_scale_y = scan_image.scale_y
 
-    if not np.isclose(a_tot, 0.0, rtol=1e-09, atol=1e-09):
-        a_tot_rad = np.radians(a_tot)
-        cos_angle = np.cos(a_tot_rad)
-        result_scale_x = scale_x * cos_angle
-        result_scale_y = scale_y / cos_angle
+    if not np.isclose(total_angle, 0.0, rtol=1e-09, atol=1e-09):
+        total_angle_rad = np.radians(total_angle)
+        cos_angle = np.cos(total_angle_rad)
+        result_scale_x = scan_image.scale_x * cos_angle
+        result_scale_y = scan_image.scale_y / cos_angle
         result_data, result_mask = _rotate_data_and_mask(
-            depth_data, mask, a_tot_rad, cut_y_after_shift
+            scan_image.data, mask, total_angle_rad, cut_y_after_shift
         )
 
     # Create result ScanImage with corrected scales
@@ -416,7 +414,7 @@ def fine_align_bullet_marks(
             only_downsample=True,
         )
 
-    return result_scan, result_mask, a_tot
+    return result_scan, result_mask, total_angle
 
 
 def _propagate_nan(data: NDArray[np.floating]) -> NDArray[np.floating]:
@@ -466,13 +464,12 @@ def extract_profile(
     :param use_mean: If True, use mean; if False, use median.
     :returns: 1D profile array.
     """
-    masked_data = depth_data
     if mask is not None:
-        masked_data = np.where(mask, depth_data, np.nan)
+        depth_data = np.where(mask, depth_data, np.nan)
 
     if use_mean:
-        return np.nanmean(masked_data, axis=1)
-    return np.nanmedian(masked_data, axis=1)
+        return np.nanmean(depth_data, axis=1)
+    return np.nanmedian(depth_data, axis=1)
 
 
 def preprocess_data(
@@ -530,7 +527,7 @@ def preprocess_data(
             angle_accuracy=params.angle_accuracy,
             cut_y_after_shift=params.cut_borders_after_smoothing,
             max_iter=params.max_iter,
-            extra_sub_samp=params.extra_sub_samp,
+            subsampling_factor=params.subsampling_factor,
         )
         data_aligned = aligned_scan.data
 

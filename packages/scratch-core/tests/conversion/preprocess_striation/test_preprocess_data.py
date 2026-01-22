@@ -11,7 +11,7 @@ from conversion.data_formats import MarkType
 from conversion.filter import (
     _apply_nan_weighted_gaussian_1d,
     _remove_zero_border,
-    apply_gaussian_filter_1d,
+    apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
 )
 from conversion.preprocess_striation.parameters import PreprocessingStriationParams
@@ -75,7 +75,7 @@ def test_remove_zero_border():
     assert np.array_equal(range_indices, np.arange(3, 7))
 
 
-def test_apply_gaussian_filter_1d_lowpass():
+def test_apply_striation_preserving_filter_1d_lowpass():
     """Test lowpass filtering removes high-frequency noise."""
     np.random.seed(42)
 
@@ -87,7 +87,7 @@ def test_apply_gaussian_filter_1d_lowpass():
     surface = np.tile((low_freq + high_freq).reshape(-1, 1), (1, 20))
 
     scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
-    smoothed, mask = apply_gaussian_filter_1d(
+    smoothed, mask = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
         cutoff=250e-6,
         is_high_pass=False,
@@ -98,7 +98,7 @@ def test_apply_gaussian_filter_1d_lowpass():
     assert np.std(smoothed) < np.std(surface)
 
 
-def test_apply_gaussian_filter_1d_highpass():
+def test_apply_striation_preserving_filter_1d_highpass():
     """Test highpass filtering removes low-frequency shape."""
     # Create surface with parabolic shape + fine detail
     rows = np.linspace(0, 100, 200)
@@ -109,7 +109,7 @@ def test_apply_gaussian_filter_1d_highpass():
 
     # Use pixel size that makes cutoff effective for shape removal
     scan_image = ScanImage(data=surface, scale_x=1e-3, scale_y=1e-3)
-    residuals, mask = apply_gaussian_filter_1d(
+    residuals, mask = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
         cutoff=50e-3,
         is_high_pass=True,
@@ -326,7 +326,7 @@ def test_rotate_image_grad_vector():
     detected_angle = _rotate_image_grad_vector(
         striations,
         scale_x=1e-6,
-        extra_sub_samp=1,
+        subsampling_factor=1,
     )
 
     assert abs(detected_angle) < 10

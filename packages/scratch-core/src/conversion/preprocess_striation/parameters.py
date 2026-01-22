@@ -11,7 +11,7 @@ class PreprocessingStriationParams:
     :param use_mean: If True, use mean for profile extraction; if False, use median.
     :param angle_accuracy: Target angle accuracy in degrees for fine alignment.
     :param max_iter: Maximum iterations for fine alignment.
-    :param extra_sub_samp: Additional subsampling factor for gradient detection.
+    :param subsampling_factor: Subsampling factor for gradient detection (higher = faster but less precise).
     """
 
     cutoff_hi: float = 2e-3
@@ -20,4 +20,4 @@ class PreprocessingStriationParams:
     use_mean: bool = True
     angle_accuracy: float = 0.1
     max_iter: int = 25
-    extra_sub_samp: int = 1
+    subsampling_factor: int = 1
