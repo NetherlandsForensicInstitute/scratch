@@ -9,11 +9,11 @@ from math import ceil
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
 from conversion.filter import (
-    _apply_nan_weighted_gaussian_1d,
-    _remove_zero_border,
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
 )
+from conversion.filter.gaussian import _apply_nan_weighted_gaussian_1d
+from conversion.filter.utils import remove_zero_border
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     apply_shape_noise_removal,
@@ -52,7 +52,7 @@ def test_apply_nan_weighted_gaussian_1d():
     assert result[0, 0] == pytest.approx(1.0, rel=0.1)
 
 
-def test_remove_zero_border():
+def testremove_zero_border():
     """Test that zero borders are correctly removed."""
     data = np.zeros((10, 10), dtype=float)
     mask = np.zeros((10, 10), dtype=bool)
@@ -61,7 +61,7 @@ def test_remove_zero_border():
     data[3:7, 2:8] = 1.0
     mask[3:7, 2:8] = True
 
-    cropped_data, cropped_mask = _remove_zero_border(data, mask)
+    cropped_data, cropped_mask = remove_zero_border(data, mask)
 
     assert cropped_data.shape == (4, 6)
     assert cropped_mask.shape == (4, 6)
