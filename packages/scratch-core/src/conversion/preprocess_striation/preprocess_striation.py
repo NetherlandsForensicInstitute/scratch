@@ -397,6 +397,11 @@ def fine_align_bullet_marks(
         result_data, result_mask = _rotate_data_and_mask(
             scan_image.data, mask, total_angle_rad, cut_y_after_shift
         )
+    elif mask is not None:
+        # No rotation needed, but still crop to mask bounding box
+        y_slice, x_slice = _determine_bounding_box(mask)
+        result_data = result_data[y_slice, x_slice]
+        result_mask = mask[y_slice, x_slice]
 
     # Create result ScanImage with corrected scales
     result_scan = ScanImage(

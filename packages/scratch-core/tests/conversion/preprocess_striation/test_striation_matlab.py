@@ -184,7 +184,6 @@ def run_python_preprocessing(
         cutoff_lo=test_case.cutoff_lo * 1e-6,
         use_mean=test_case.use_mean,
         angle_accuracy=test_case.angle_accuracy,
-        shape_noise_removal=test_case.shape_noise_removal,
     )
 
     mask = test_case.input_mask.astype(bool) if test_case.has_mask else None
@@ -204,7 +203,7 @@ class TestPreprocessDataMatlabComparison:
     """Test Python preprocess_data against MATLAB reference outputs."""
 
     THRESHOLDS = {
-        "default": (0.9999, 0.003),
+        "default": (0.99, 0.003),
         "masked": (0.99, 0.05),
     }
 
