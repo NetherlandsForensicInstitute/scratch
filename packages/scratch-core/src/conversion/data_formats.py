@@ -1,10 +1,22 @@
-from typing import Any
+from typing import Annotated
 from enum import StrEnum, auto
 import json
 
-from pydantic import Field, computed_field
-
-from container_models.base import ConfigBaseModel, BaseModel
+from functools import partial
+from pydantic import (
+    Field,
+    computed_field,
+    AfterValidator,
+    PlainSerializer,
+    BeforeValidator,
+)
+from numpy import float64
+from numpy.typing import NDArray
+from container_models.base import (
+    ConfigBaseModel,
+    coerce_to_array,
+    serialize_ndarray,
+)
 from container_models.scan_image import ScanImage
 
 
@@ -39,28 +51,19 @@ class MarkType(StrEnum):
         return 1.5e-6
 
 
-class CropType(StrEnum):
-    RECTANGLE = auto()
-    CIRCLE = auto()
-    ELLIPSE = auto()
-    POLYGON = auto()
+def validate_rectangle_shape(arr: NDArray[float64]) -> NDArray[float64]:
+    """Validate that array has shape (4, 2)"""
+    if arr.shape != (4, 2):
+        raise ValueError(f"Rectangle must have shape (4, 2), got {arr.shape}")
+    return arr
 
 
-class CropInfo(BaseModel):
-    """
-    Representation of the cropped area. Parameter `is_foreground` is used to indicate whether keep or delete the
-    selected area.
-
-    The points dict differs per CropType:
-    CIRCLE: {'center': array [x, y], 'radius': float}
-    RECTANGLE: {'corner': ScanMap2DArray}
-    POLYGON: {'point': ScanMap2DArray}
-    ELLIPSE: {'center': array [x, y], 'majoraxis': float, 'minoraxis': float, angle_majoraxis: float}
-    """
-
-    data: dict[str, Any]
-    crop_type: CropType
-    is_foreground: bool
+RectangularCrop = Annotated[
+    NDArray[float64],
+    BeforeValidator(partial(coerce_to_array, float64)),
+    AfterValidator(partial(validate_rectangle_shape)),
+    PlainSerializer(serialize_ndarray),
+]
 
 
 class Mark(ConfigBaseModel):

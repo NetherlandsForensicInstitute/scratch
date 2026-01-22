@@ -5,7 +5,7 @@ from conversion.utils import update_scan_image_data
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.remove_needles import mask_and_remove_needles
-from conversion.data_formats import CropType, CropInfo
+from conversion.data_formats import RectangularCrop
 from conversion.mask import crop_to_mask
 
 # Number of iterations to dilate a mask before it is rotated
@@ -15,16 +15,15 @@ DILATE_STEPS = 3
 def rotate_crop_and_mask_image_by_crop(
     scan_image: ScanImage,
     mask: MaskArray,
-    crop_infos: tuple[CropInfo],
+    rectangle: RectangularCrop | None,
     times_median: float = 15,
 ) -> ScanImage:
     """
-    Rotates, crops and masks a scan image based on the given mask and crop info.
+    Rotates, crops and masks a scan image based on the given mask and rectangle.
 
     Implements the following flow:
-    - Determine the rotation angle for the image and mask
-    If the first object of crop_info is a rectangle, then the rotation_angle of that rectangle is determined. Any other
-    case will lead to a rotation angle of 0.
+    - Determine the rotation angle for the image and mask by the bounding box of rectangle, if a rectangle is given.
+        Otherwise, the rotation angle is 0.
     - If the rotation angle is not 0, the mask is binary dilated using DILATE_STEPS iterations to correct for
     imperfections when rotating. A margin is determined to reduce the final image to compensate for the dilation.
     - The mask and image are cropped to the bounds of the mask.
@@ -35,11 +34,11 @@ def rotate_crop_and_mask_image_by_crop(
 
     :param scan_image: Scan image to rotate, mask and crop.
     :param mask: Binary mask array.
-    :param crop_infos: List of crop info objects that describe the crops the user has done and the order of the crops.
+    :param rectangle: Bounding box of a rectangular crop region used to determine the rotation of an image, or None.
     :param times_median: Parameter used to determine what is considered an outlier when removing outliers/needles.
     :return: The cropped, rotated and masked scan image.
     """
-    rotation_angle = get_rotation_angle(crop_infos)
+    rotation_angle = get_rotation_angle(rectangle) if rectangle is not None else 0.0
 
     margin = 0
     if rotation_angle != 0.0:
@@ -65,43 +64,37 @@ def rotate_crop_and_mask_image_by_crop(
     return scan_image_cropped
 
 
-def get_rotation_angle(crop_infos: tuple[CropInfo]) -> float:
+def get_rotation_angle(rectangle: RectangularCrop) -> float:
     """
     Calculate the rotation angle of a rectangular crop region.
 
-    Determines the rotation angle by computing it from the corner points
-    of a rectangular crop if the first object in crop_info is of type RECTANGLE. When computing from corners, the
-    function calculates the angle of each edge of the rectangle relative to the horizontal axis, then selects the edge
-    that is closest to horizontal (smallest absolute angle). This angle is then normalized to the range [-90, 90]
-    degrees.
+    Determines the rotation angle by computing it from the corner points of a rectangular crop. When computing from
+    corners, the function calculates the angle of each edge of the rectangle relative to the horizontal axis, then
+    selects the edge that is closest to horizontal (smallest absolute angle). This angle is then normalized to the
+    range [-90, 90] degrees.
 
-    :param crop_infos: Tuple of crop information objects. If provided and the first crop is of type RECTANGLE, the
-                      rotation angle is computed from the corner points in the crop data.
+    :param rectangle: Bounding box of a rectangular crop region.
     :return: The rotation angle in degrees, ranging from -90 to 90 (inclusive). The angle is normalized to this range
              to represent the minimal rotation needed to align the rectangle. If the first crop is not a rectangle, an
              angle of 0.0 is returned.
     """
-    if crop_infos and crop_infos[0].crop_type == CropType.RECTANGLE:
-        corners = crop_infos[0].data["corner"]
-        angles = []
-        for i in range(4):
-            p1 = corners[i]
-            p2 = corners[(i + 1) % 4]
-            angle = np.degrees(np.arctan2(p2[1] - p1[1], p2[0] - p1[0]))
-            angles.append((abs(angle), angle))
+    angles = []
+    for i in range(4):
+        p1 = rectangle[i]
+        p2 = rectangle[(i + 1) % 4]
+        angle = np.degrees(np.arctan2(p2[1] - p1[1], p2[0] - p1[0]))
+        angles.append((abs(angle), angle))
 
-        # find smallest absolute angle
-        rotation_angle = min(angles, key=lambda x: abs(x[0]))[1]
+    # find smallest absolute angle
+    rotation_angle = min(angles, key=lambda x: abs(x[0]))[1]
 
-        # Normalize to [-90, 90] range
-        if rotation_angle > 90:
-            rotation_angle -= 180
-        elif rotation_angle < -90:
-            rotation_angle += 180
+    # Normalize to [-90, 90] range
+    if rotation_angle > 90:
+        rotation_angle -= 180
+    elif rotation_angle < -90:
+        rotation_angle += 180
 
-        return rotation_angle
-
-    return 0.0
+    return rotation_angle
 
 
 def crop_image_and_mask_to_mask(

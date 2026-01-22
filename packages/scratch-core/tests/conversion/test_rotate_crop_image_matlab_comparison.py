@@ -12,7 +12,7 @@ import pytest
 
 from container_models.base import ScanMap2DArray, MaskArray
 from container_models.scan_image import ScanImage
-from conversion.data_formats import CropType, CropInfo
+from conversion.data_formats import RectangularCrop
 from conversion.rotate import get_rotation_angle, rotate_crop_and_mask_image_by_crop
 from .helper_functions import (
     _compute_correlation,
@@ -34,7 +34,7 @@ class MatlabTestCase:
     input_xdim: float = 3.5e-6
     input_ydim: float = 3.5e-6
     crop_type: str = "rectangle"
-    crop_corners: np.ndarray | None = None
+    rectangle: RectangularCrop | None = None
     crop_foreground: bool = True
     times_median: float = 15.0
     has_holes: bool = False
@@ -57,7 +57,7 @@ class MatlabTestCase:
             input_mask=np.load(case_dir / "input_mask.npy"),
             output_data=np.load(case_dir / "output_data.npy"),
             output_mask=np.load(case_dir / "output_mask.npy"),
-            crop_corners=crop_corners,
+            rectangle=crop_corners,
             **cls._parse_metadata(meta, {f.name for f in fields(cls) if f.init}),
         )
 
@@ -81,30 +81,6 @@ class MatlabTestCase:
         if match[0][0]:  # neg prefix
             angle = -angle
         return angle
-
-    def to_crop_info(self) -> tuple[CropInfo]:
-        """Convert MATLAB crop_info to Python CropInfo list."""
-        if self.crop_corners is None:
-            return (
-                CropInfo(
-                    crop_type=CropType.CIRCLE,
-                    data={"center": np.array([23, 30]), "radius": 2.4},
-                    is_foreground=True,
-                ),
-            )
-
-        crop_type = (
-            CropType.RECTANGLE
-            if self.crop_type.lower() == "rectangle"
-            else CropType.POLYGON
-        )
-        return (
-            CropInfo(
-                crop_type=crop_type,
-                data={"corner": self.crop_corners},
-                is_foreground=self.crop_foreground,
-            ),
-        )
 
 
 def discover_test_cases(test_cases_dir: Path) -> list[MatlabTestCase]:
@@ -171,7 +147,7 @@ def run_python_preprocessing(
     data_out = rotate_crop_and_mask_image_by_crop(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
-        crop_infos=test_case.to_crop_info(),
+        rectangle=test_case.rectangle,
         times_median=test_case.times_median,
     )
     return data_out.data
@@ -240,10 +216,10 @@ class TestRotateCropImageMatlabComparison:
     def test_rotation_angle_calculation(self, test_case: MatlabTestCase):
         """Test that rotation angle is calculated correctly from corners."""
         expected = test_case.expected_rotation_angle
-        if expected is None:
-            pytest.skip("No expected angle in test name")
+        if expected is None or test_case.rectangle is None:
+            pytest.skip("No expected angle in test name or rectangle given.")
 
-        calculated_angle = get_rotation_angle(crop_infos=test_case.to_crop_info())
+        calculated_angle = get_rotation_angle(rectangle=test_case.rectangle)
 
         assert abs(calculated_angle - expected) < 1.0, (
             f"{test_case.name}: calculated angle {calculated_angle:.2f} != {expected}"
@@ -269,7 +245,6 @@ class TestMatlabTestCaseLoading:
             assert case.input_mask.shape == case.input_data.shape
             assert case.output_data is not None
             assert case.output_data.ndim == 2
-            assert case.crop_type.lower() in ("rectangle", "polygon", "circle")
 
     def test_print_test_case_summary(self, all_test_cases: list[MatlabTestCase]):
         """Print summary of all test cases for debugging."""
@@ -278,5 +253,5 @@ class TestMatlabTestCaseLoading:
             print(f"\n{case.name}:")
             print(f"  Input shape: {case.input_data.shape}")
             print(f"  Output shape: {case.output_data.shape}")
-            print(f"  Crop type: {case.crop_type}")
+            print(f"  Rectangular crop: {case.rectangle}")
             print(f"  Has holes: {case.has_holes}")

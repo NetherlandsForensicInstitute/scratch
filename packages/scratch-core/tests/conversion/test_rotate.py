@@ -4,7 +4,7 @@ import pytest
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
-from conversion.data_formats import CropType, CropInfo
+from conversion.data_formats import RectangularCrop
 from conversion.rotate import (
     get_rotation_angle,
     crop_image_and_mask_to_mask,
@@ -16,117 +16,42 @@ class TestGetRotationAngle:
     """Test suite for get_rotation_angle function."""
 
     @pytest.fixture
-    def rectangle_crop_info_15deg(self) -> tuple[CropInfo]:
-        return (
-            CropInfo(
-                crop_type=CropType.RECTANGLE,
-                data={
-                    "corner": np.array(
-                        [
-                            [53.69130745, 16.00419511],
-                            [169.60240661, 47.06248052],
-                            [146.30869255, 133.99580489],
-                            [30.39759339, 102.93751948],
-                        ]
-                    )
-                },
-                is_foreground=True,
-            ),
+    def rectangle_15deg(self) -> RectangularCrop:
+        return np.array(
+            [
+                [53.69130745, 16.00419511],
+                [169.60240661, 47.06248052],
+                [146.30869255, 133.99580489],
+                [30.39759339, 102.93751948],
+            ]
         )
 
     @pytest.fixture
-    def rectangle_crop_info_0deg(self) -> tuple[CropInfo]:
-        return (
-            CropInfo(
-                crop_type=CropType.RECTANGLE,
-                data={
-                    "corner": np.array(
-                        [
-                            [30.0, 23.0],
-                            [169.0, 23.0],
-                            [169.0, 126.0],
-                            [30.0, 126.0],
-                        ]
-                    )
-                },
-                is_foreground=True,
-            ),
+    def rectangle_0deg(self) -> RectangularCrop:
+        return np.array(
+            [
+                [30.0, 23.0],
+                [169.0, 23.0],
+                [169.0, 126.0],
+                [30.0, 126.0],
+            ]
         )
 
-    @pytest.fixture
-    def circle_crop_info(self) -> tuple[CropInfo]:
-        return (
-            CropInfo(
-                crop_type=CropType.CIRCLE,
-                data={"center": np.array([23, 30]), "radius": 2.4},
-                is_foreground=True,
-            ),
-        )
-
-    @pytest.fixture
-    def rectangle_not_first_crop_info(self) -> tuple[CropInfo, CropInfo]:
-        """Test case where the cropped rectangle is not the first object; should be ignored
-        by get_rotation_angle."""
-        return (
-            CropInfo(
-                crop_type=CropType.CIRCLE,
-                data={"center": np.array([23, 30]), "radius": 2.4},
-                is_foreground=True,
-            ),
-            CropInfo(
-                crop_type=CropType.RECTANGLE,
-                data={
-                    "corner": np.array(
-                        [
-                            [30.0, 23.0],
-                            [169.0, 23.0],
-                            [169.0, 126.0],
-                            [30.0, 126.0],
-                        ]
-                    )
-                },
-                is_foreground=True,
-            ),
-        )
-
-    def test_zero_rotation_angle_no_rectangle_crop_info(
-        self, circle_crop_info: tuple[CropInfo]
-    ):
-        """Test that zero is returned when no crop info is provided."""
-        result = get_rotation_angle(crop_infos=circle_crop_info)
-        assert result == 0.0
-
-    def test_zero_rotation_angle_rectangle_not_first(
-        self, rectangle_not_first_crop_info: tuple[CropInfo]
-    ):
-        """Test that zero is returned when no crop info is provided."""
-        result = get_rotation_angle(crop_infos=rectangle_not_first_crop_info)
-        assert result == 0.0
-
-    def test_rotation_from_rectangle_crop_0_degrees(
-        self, rectangle_crop_info_0deg: tuple[CropInfo]
-    ):
+    def test_rotation_from_rectangle_crop_0_degrees(self, rectangle_0deg):
         """Test rotation calculation from horizontal rectangle."""
-        result = get_rotation_angle(crop_infos=rectangle_crop_info_0deg)
+        result = get_rotation_angle(rectangle=rectangle_0deg)
         assert result == 0
 
-    def test_rotation_from_rectangle_crop_15_degrees(self, rectangle_crop_info_15deg):
+    def test_rotation_from_rectangle_crop_15_degrees(self, rectangle_15deg):
         """Test rotation calculation from 15-degree rotated rectangle."""
-        result = get_rotation_angle(crop_infos=rectangle_crop_info_15deg)
+        result = get_rotation_angle(rectangle=rectangle_15deg)
         assert result == pytest.approx(15)
 
     def test_rotation_normalization(self):
         """Test that angles > 90 are normalized to range [-90, 90]."""
         # Create corners that would result in angle > 90
-        corners = np.array([[0, 0], [0, 100], [-50, 100], [-50, 0]])
-        crop_info = (
-            CropInfo(
-                crop_type=CropType.RECTANGLE,
-                data={"corner": corners},
-                is_foreground=True,
-            ),
-        )
-        result = get_rotation_angle(crop_infos=crop_info)
+        rectangle = np.array([[0, 0], [0, 100], [-50, 100], [-50, 0]])
+        result = get_rotation_angle(rectangle=rectangle)
         assert -90 <= result <= 90
 
 
