@@ -9,7 +9,7 @@ from conversion.utils import unwrap_result, update_scan_image_data
 from parsers import subsample_scan_image
 
 # Downsample goal in micrometers to make filter computations faster
-DOWNSAMPLE_GOAL = 70e-6
+TARGET_SCALE = 7e-5
 MEDIAN_FILTER_SIZE = 5
 SMALL_STRIP_THRESHOLD = 20
 TIMES_MEDIAN_CORRECTION_FACTOR = 6
@@ -66,7 +66,7 @@ def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
         # Calculate subsampling factor for computational efficiency using the given DOWNSAMPLE_GOAL and the desired
         # MEDIAN_FILTER_SIZE
         subsample_factor = int(
-            np.ceil(DOWNSAMPLE_GOAL / MEDIAN_FILTER_SIZE / scan_image.scale_x)
+            np.ceil(TARGET_SCALE / MEDIAN_FILTER_SIZE / scan_image.scale_x)
         )
 
         # If a subsample_factor is defined, downsample the data before filtering and upsample back after filtering.
