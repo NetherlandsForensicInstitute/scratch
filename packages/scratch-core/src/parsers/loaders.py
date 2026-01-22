@@ -1,5 +1,6 @@
 from pathlib import Path
 from functools import lru_cache
+from loguru import logger
 
 import numpy as np
 from returns.io import impure_safe
@@ -57,8 +58,13 @@ def subsample_scan_image(
     :param scan_image: The instance of `ScanImage` containing the 2D image data to subsample.
     :param step_size_x: The number of steps to skip in the X-direction.
     :param step_size_y: The number of steps to skip in the Y-direction.
-    :returns: An subsampled `ScanImage` with updated scales.
+    :returns:
+        An subsampled `ScanImage` with updated scales. If both step sizes are 1, the original
+        `ScanImage` instance is returned.
     """
+    if step_size_x == 1 and step_size_y == 1:
+        logger.info("No subsampling needed, returning original scan image")
+        return scan_image
     width, height = scan_image.data.shape
     if not (0 < step_size_x < width and 0 < step_size_y < height):
         raise ValueError(
