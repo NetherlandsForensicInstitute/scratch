@@ -38,7 +38,6 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PreprocessingStriationParams,
             StriationMarks.APERTURE_SHEAR,
             [
-                "scan",
                 "preview",
                 "surface_map",
                 "mark_data",
@@ -56,7 +55,6 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PreprocessingImpressionParams,
             ImpressionMarks.CHAMBER,
             [
-                "scan",
                 "preview",
                 "surface_map",
                 "mark_data",

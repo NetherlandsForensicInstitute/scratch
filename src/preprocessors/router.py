@@ -104,7 +104,6 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
     vault = create_vault(prepare_mark_parameters.tag)
     files = get_files(
         vault.resource_path,
-        scan="scan.x3p",
         preview="preview.png",
         surface_map="surface_map.png",
         mark_data="mark.npz",
@@ -144,7 +143,6 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     vault = create_vault(prepare_mark_parameters.tag)
     files = get_files(
         vault.resource_path,
-        scan="scan.x3p",
         preview="preview.png",
         surface_map="surface_map.png",
         mark_data="mark.npz",
