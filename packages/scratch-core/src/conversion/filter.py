@@ -171,21 +171,14 @@ def apply_striation_preserving_filter_1d(
     if mask is None:
         mask = np.ones(scan_image.data.shape, dtype=bool)
 
-    # Apply 1D Gaussian filter along y-direction using shared implementation
-    depth_with_nan = scan_image.data.copy()
-    depth_with_nan[~mask] = np.nan
-    output = _apply_nan_weighted_gaussian_1d(
-        data=depth_with_nan,
+    # Apply 1D Gaussian filter along y-direction
+    cropped_data = _apply_nan_weighted_gaussian_1d(
+        scan_image,
         cutoff_length=cutoff,
-        pixel_size=scan_image.scale_x,
+        mask=mask,
         axis=0,  # Filter along y-direction only
         is_high_pass=is_high_pass,
     )
-
-    # Check if there are any masked (invalid) regions
-    has_masked_regions = np.any(~mask)
-
-    cropped_data = output
     cropped_mask = mask
 
     if cut_borders_after_smoothing:
@@ -193,12 +186,13 @@ def apply_striation_preserving_filter_1d(
         sigma = cutoff_to_gaussian_sigma(cutoff, scan_image.scale_x)
         sigma_int = int(ceil(sigma))
 
+        # Check if there are any masked (invalid) regions
+        has_masked_regions = np.any(~mask)
+
         if has_masked_regions:
-            output_with_nan = output.copy()
-            output_with_nan[~mask] = np.nan
-            cropped_data, cropped_mask, _ = _remove_zero_border(output_with_nan, mask)
+            cropped_data, cropped_mask = _remove_zero_border(cropped_data, mask)
         elif sigma_int > 0 and scan_image.height > 2 * sigma_int:
-            cropped_data = output[sigma_int:-sigma_int, :]
+            cropped_data = cropped_data[sigma_int:-sigma_int, :]
             cropped_mask = mask[sigma_int:-sigma_int, :]
 
     return cropped_data, cropped_mask
@@ -243,14 +237,15 @@ def apply_filter_pipeline(
     acts as a low-pass filter to suppress frequencies above the Nyquist limit when resampling.
 
     :param mark: Leveled mark.
-    :param target_scale: Target pixel scale in meters for resampling
+    :param target_scale: Target pixel scale in meters for resampling (None to skip anti-aliasing)
     :param lowpass_cutoff: Low-pass filter cutoff length in meters (None to disable)
     :param lowpass_regression_order: Order of the local polynomial fit (0, 1, or 2) in low pass filters.
     :return: Tuple of (filtered mark, anti-aliased-only mark, anti-alias cutoff).
     """
-    mark_anti_aliased, anti_alias_cutoff = _apply_anti_aliasing(mark, target_scale)
-
-    mark_filtered = mark_anti_aliased
+    if target_scale is None:
+        mark_anti_aliased, anti_alias_cutoff = mark, None
+    else:
+        mark_anti_aliased, anti_alias_cutoff = _apply_anti_aliasing(mark, target_scale)
 
     # Only apply an additional low-pass filter if `lowpass_cutoff` is defined and is bigger than the `anti_alias_cutoff`
     if lowpass_cutoff is not None and (
@@ -262,14 +257,16 @@ def apply_filter_pipeline(
             lowpass_regression_order,
             is_high_pass=False,
         )
+    else:
+        mark_filtered = mark_anti_aliased
 
     return mark_filtered, mark_anti_aliased, anti_alias_cutoff
 
 
 def _apply_nan_weighted_gaussian_1d(
-    data: NDArray[np.floating],
+    scan_image: ScanImage,
     cutoff_length: float,
-    pixel_size: float,
+    mask: MaskArray | None = None,
     axis: int = 0,
     is_high_pass: bool = False,
 ) -> NDArray[np.floating]:
@@ -280,56 +277,47 @@ def _apply_nan_weighted_gaussian_1d(
     via normalized convolution. Uses the same FFT-based approach as
     apply_gaussian_regression_filter with regression_order=0.
 
-    :param data: 2D input array containing float data. May contain NaNs.
+    :param scan_image: ScanImage containing depth data and pixel spacing.
     :param cutoff_length: The filter cutoff wavelength in physical units.
-    :param pixel_size: Pixel spacing in the same units as cutoff_length.
+    :param mask: Optional boolean mask (True = valid). Combined with scan_image.valid_mask.
     :param axis: Axis to filter along (0=rows/y-direction, 1=columns/x-direction).
     :param is_high_pass: If True, returns (input - smoothed). If False, returns smoothed.
     :returns: The filtered 2D array of the same shape as input.
     """
+    pixel_size = scan_image.scale_x if axis == 0 else scan_image.scale_y
     cutoff_pixels = cutoff_length / pixel_size
 
-    # TODO: Determining the kernel_size is different for whether the data contains nans or not. This is legacy from
-    # MATLAB code. Preference would be to use 1 determination of the kernel_size and then preferably the scipy default.
-    nan_mask = np.isnan(data)
-    has_nans = np.any(nan_mask)
+    # Combine scan_image's valid_mask with external mask
+    invalid_mask = ~scan_image.valid_mask
+    if mask is not None:
+        invalid_mask = invalid_mask | ~mask
+    has_nans = np.any(invalid_mask)
 
-    mode = "constant" if has_nans else "symmetric"
+    # Prepare data with NaN in invalid positions
+    data = scan_image.data.copy()
+    if mask is not None:
+        data[~mask] = np.nan
 
-    # Calculate kernel size based on NaN presence
-    sigma = ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi)
-    if has_nans:
-        kernel_size = int(np.ceil(4 * sigma))
-        if kernel_size % 2 == 0:
-            kernel_size += 1
-    else:
-        radius = int(np.ceil(3 * sigma))
-        kernel_size = 2 * radius + 1
-
-    kernel_1d = _create_normalized_1d_kernel(
-        ALPHA_GAUSSIAN, cutoff_pixels, size=kernel_size
+    kernel_1d = _create_gaussian_kernel_1d(cutoff_pixels, bool(has_nans))
+    kernel_identity = np.array([1.0])
+    kernel_x, kernel_y = (
+        (kernel_identity, kernel_1d) if axis == 0 else (kernel_1d, kernel_identity)
     )
 
-    # Set up separable kernels based on axis
-    if axis == 0:
-        kernel_y = kernel_1d
-        kernel_x = np.array([1.0])
-    else:
-        kernel_y = np.array([1.0])
-        kernel_x = kernel_1d
+    smoothed = _apply_order0_filter(
+        data, kernel_x, kernel_y, mode="constant" if has_nans else "symmetric"
+    )
 
-    smoothed = _apply_order0_filter(data, kernel_x, kernel_y, mode=mode)
-
-    # Preserve input NaN positions
+    # Preserve invalid positions as NaN
     if has_nans:
-        smoothed[nan_mask] = np.nan
+        smoothed[invalid_mask] = np.nan
 
     return data - smoothed if is_high_pass else smoothed
 
 
 def _apply_anti_aliasing(
     mark: Mark,
-    target_scale: Optional[float],
+    target_scale: float,
 ) -> tuple[Mark, Optional[float]]:
     """
     Apply anti-aliasing filter before downsampling.
@@ -341,11 +329,6 @@ def _apply_anti_aliasing(
     :param target_scale: Target scale in meters.
     :return: Tuple of (filtered mark, cutoff wavelength applied).
     """
-    from conversion.preprocess_impression.utils import update_mark_data
-
-    if target_scale is None:
-        return mark, None
-
     factors = get_scaling_factors(
         scales=(mark.scan_image.scale_x, mark.scan_image.scale_y),
         target_scale=target_scale,
@@ -355,16 +338,14 @@ def _apply_anti_aliasing(
     if all(r <= 1.5 for r in factors):
         return mark, None
 
-    cutoff = target_scale
-
     filtered_data = apply_gaussian_regression_filter(
         mark.scan_image.data,
         is_high_pass=False,
         regression_order=0,
         pixel_size=(mark.scan_image.scale_x, mark.scan_image.scale_y),
-        cutoff_length=cutoff,
+        cutoff_length=target_scale,
     )
-    return update_mark_data(mark, filtered_data), cutoff
+    return update_mark_data(mark, filtered_data), target_scale
 
 
 def _create_normalized_separable_kernels(
@@ -372,8 +353,8 @@ def _create_normalized_separable_kernels(
 ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
     """
     Create normalized 1D Gaussian kernels for the X and Y axes, where:
-      - `kernel_x` is the 1D horizontal kernel (row vector).
-      - `kernel_y` is the 1D vertical kernel (column vector).
+      - `kernel_x` is the 1D kernel for the X-axis (row vector).
+      - `kernel_y` is the 1D kernel for the Y-axis (column vector).
       - The outer product of these kernels sums to approx 1.0.
 
     :param alpha: The Gaussian constant (ISO 16610).
@@ -391,10 +372,39 @@ def _create_normalized_separable_kernels(
         alpha, cutoff_pixels[1], size=kernel_dims[1]
     )
 
-    # These are already normalized to sum to 1 individually
-    # For 2D separable kernels, we want the product to sum to 1
-    # Since each sums to 1, their product already sums to 1
+    # Each 1D kernel is normalized to sum to 1. Separable convolution uses the outer product
+    # of the two kernels (https://en.wikipedia.org/wiki/Outer_product), so the equivalent 2D
+    # kernel automatically sums to 1 as well.
     return kernel_x, kernel_y
+
+
+def _create_gaussian_kernel_1d(
+    cutoff_pixels: float,
+    has_nans: bool,
+) -> NDArray[np.floating]:
+    """
+    Create a 1D Gaussian kernel with size determined by NaN presence.
+
+    The kernel size calculation differs based on whether the data contains NaNs.
+    This is legacy behavior from MATLAB code.
+
+    :param cutoff_pixels: Cutoff wavelength in pixel units.
+    :param has_nans: Whether the data contains NaN values.
+    :returns: Normalized 1D Gaussian kernel.
+    """
+    # TODO: Kernel size determination differs for NaN vs non-NaN data (MATLAB legacy).
+    # Preference would be to use a single determination, preferably the scipy default.
+    sigma = ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi)
+
+    if has_nans:
+        kernel_size = int(np.ceil(4 * sigma))
+        if kernel_size % 2 == 0:
+            kernel_size += 1
+    else:
+        radius = int(np.ceil(3 * sigma))
+        kernel_size = 2 * radius + 1
+
+    return _create_normalized_1d_kernel(ALPHA_GAUSSIAN, cutoff_pixels, size=kernel_size)
 
 
 def _create_normalized_1d_kernel(
@@ -435,33 +445,35 @@ def _convolve_2d_separable(
     Perform fast 2D convolution using separable 1D kernels via FFT.
 
     :param data: 2D input array.
-    :param kernel_x: 1D horizontal kernel.
-    :param kernel_y: 1D vertical kernel.
-    :param mode: Padding mode - "constant" (zero), "edge" (replicate), or "symmetric".
+    :param kernel_x: 1D kernel for the X-axis.
+    :param kernel_y: 1D kernel for the Y-axis.
+    :param mode: Padding mode - "constant" (zero) or "symmetric" (mirror).
     :returns: Convolved array of same shape as input.
     """
+    # Prepare: apply explicit padding for symmetric mode
     if mode == "constant":
-        # Original behavior - zero padding (implicit in fftconvolve)
-        temp = fftconvolve(data, kernel_y[:, np.newaxis], mode="same")
-        return fftconvolve(temp, kernel_x[np.newaxis, :], mode="same")
-    elif mode in ("symmetric", "edge"):
-        # For non-zero padding modes, pad data explicitly
+        pad_y, pad_x = 0, 0
+        padded = data
+    elif mode == "symmetric":
         pad_y = len(kernel_y) // 2
         pad_x = len(kernel_x) // 2
+        padded = np.pad(data, ((pad_y, pad_y), (pad_x, pad_x)), mode="symmetric")
+    else:
+        raise ValueError(
+            f"Padding mode '{mode}' is not supported. Use 'constant' or 'symmetric'."
+        )
 
-        padded = np.pad(data, ((pad_y, pad_y), (pad_x, pad_x)), mode=mode)
+    # Convolve: Y-direction then X-direction
+    temp = fftconvolve(padded, kernel_y[:, np.newaxis], mode="same")
+    result = fftconvolve(temp, kernel_x[np.newaxis, :], mode="same")
 
-        # Convolve columns (Y-direction)
-        temp = fftconvolve(padded, kernel_y[:, np.newaxis], mode="same")
-        # Convolve rows (X-direction)
-        result = fftconvolve(temp, kernel_x[np.newaxis, :], mode="same")
-
-        # Crop back to original size
-        return result[
+    # Crop back to original size if padded
+    if pad_y or pad_x:
+        result = result[
             pad_y : -pad_y if pad_y else None, pad_x : -pad_x if pad_x else None
         ]
-    else:
-        raise ValueError("This padding mode is not implemented")
+
+    return result
 
 
 def _apply_order0_filter(
@@ -478,14 +490,15 @@ def _apply_order0_filter(
     smoothing where each pixel is the weighted mean of its neighbors.
 
     :param data: The 2D input array to be smoothed, potentially containing NaNs.
-    :param kernel_x: The 1D horizontal component of the separable smoothing kernel.
-    :param kernel_y: The 1D vertical component of the separable smoothing kernel.
+    :param kernel_x: The 1D X-axis component of the separable smoothing kernel.
+    :param kernel_y: The 1D Y-axis component of the separable smoothing kernel.
     :param mode: Padding mode - "constant" (zero), "reflect", or "symmetric".
     :returns: A 2D array of the same shape as `data` containing the smoothed values.
     """
     # Assign zero weight to NaNs
-    weights = np.where(np.isnan(data), 0, 1)
-    data_masked = np.where(np.isnan(data), 0, data)
+    nan_mask = np.isnan(data)
+    weights = np.where(nan_mask, 0, 1)
+    data_masked = np.where(nan_mask, 0, data)
 
     # Convolve data and weights
     numerator = _convolve_2d_separable(data_masked, kernel_x, kernel_y, mode=mode)
@@ -504,18 +517,23 @@ def _apply_polynomial_filter(
     """
     Apply local polynomial regression filter (orders 1 or 2).
 
-    This function solves the weighted least squares problem for each pixel:
-        min_c Σ w(x-x', y-y') · (f(x', y') - Σ c_k · basis_k(x'-x, y'-y))²
+    For each pixel, this fits a polynomial surface to the neighboring pixels using
+    weighted least squares, where the kernel determines the weights. The smoothed
+    value is the fitted polynomial evaluated at the center pixel.
+
+    Order 1 fits a plane (linear): f(x,y) = c0 + c1*x + c2*y
+    Order 2 fits a quadratic surface: f(x,y) = c0 + c1*x + c2*y + c3*x² + c4*xy + c5*y²
 
     :param data: Input 2D array with potential NaNs.
-    :param kernel_x: 1D horizontal kernel.
-    :param kernel_y: 1D vertical kernel.
+    :param kernel_x: 1D kernel for the X-axis.
+    :param kernel_y: 1D kernel for the Y-axis.
     :param order: Polynomial order (1 or 2).
     :returns: Smoothed data array.
     """
     # 1. Prepare Data
-    weights = np.where(np.isnan(data), 0, 1)
-    weighted_data = np.where(np.isnan(data), 0, data) * weights
+    nan_mask = np.isnan(data)
+    weights = np.where(nan_mask, 0, 1)
+    weighted_data = np.where(nan_mask, 0, data) * weights
 
     # 2. Generate Coordinate Grids
     # These represent (x - x') and (y - y') for all kernel positions
@@ -658,7 +676,7 @@ def _solve_fallback_lstsq(
 
 def _remove_zero_border(
     data: NDArray[np.floating], mask: NDArray[np.bool_]
-) -> tuple[NDArray[np.floating], NDArray[np.bool_], NDArray[np.intp]]:
+) -> tuple[NDArray[np.floating], NDArray[np.bool_]]:
     """
     Remove zero/invalid borders from masked data.
 
@@ -666,28 +684,18 @@ def _remove_zero_border(
 
     :param data: 2D data array (may contain NaN).
     :param mask: Boolean mask (True = valid data).
-    :returns: Tuple of (cropped_data, cropped_mask, row_indices of the bounding box).
+    :returns: Tuple of (cropped_data, cropped_mask).
     """
     # Consider both mask and NaN values when finding valid region
     valid_data = mask & ~np.isnan(data)
 
-    # Find rows and columns with any valid data
-    valid_rows = np.any(valid_data, axis=1)
-    valid_cols = np.any(valid_data, axis=0)
-
-    if not np.any(valid_rows) or not np.any(valid_cols):
+    if not np.any(valid_data):
         # No valid data at all - return empty arrays
         return (
             np.array([]).reshape(0, data.shape[1]),
             np.array([], dtype=bool).reshape(0, data.shape[1]),
-            np.array([], dtype=np.intp),
         )
 
-    # Find bounding box and crop
-    # _determine_bounding_box returns (y_slice, x_slice) i.e. (row_slice, col_slice)
     y_slice, x_slice = _determine_bounding_box(valid_data)
-    cropped_data = data[y_slice, x_slice]
-    cropped_mask = mask[y_slice, x_slice]
-    range_indices = np.arange(y_slice.start, y_slice.stop)
 
-    return cropped_data, cropped_mask, range_indices
+    return data[y_slice, x_slice], mask[y_slice, x_slice]
