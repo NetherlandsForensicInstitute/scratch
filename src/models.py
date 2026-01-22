@@ -24,8 +24,14 @@ class BaseModelConfig(BaseModel):
 class SupportedScanExtension(StrEnum):
     AL3D = auto()
     X3P = auto()
-    SUR = auto()
-    PLU = auto()
+
+
+def validate_scan_file_not_empty(scan_file: Path) -> FilePath:
+    """Validate given file is not empty."""
+    if scan_file.stat().st_size == 0:
+        raise ValueError(f"file is empty: {scan_file.name}")
+
+    return scan_file
 
 
 def validate_file_extension(filename: Path, extensions: type[StrEnum]) -> Path:
@@ -85,6 +91,7 @@ type ProjectTag = Annotated[str, StringConstraints(pattern=r"")]
 type ScanFile = Annotated[
     FilePath,
     AfterValidator(lambda filepath: validate_file_extension(filepath, SupportedScanExtension)),
+    AfterValidator(validate_scan_file_not_empty),
     AfterValidator(validate_not_executable),
     Field(
         ...,

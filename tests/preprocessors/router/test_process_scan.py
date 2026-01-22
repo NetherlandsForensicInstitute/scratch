@@ -14,7 +14,7 @@ from pydantic import HttpUrl
 from constants import EXTRACTOR_ROUTE, PREPROCESSOR_ROUTE
 from extractors import ProcessedDataAccess
 from models import DirectoryAccess
-from preprocessors.schemas import UploadScan, UploadScanParameters
+from preprocessors.schemas import UploadScan
 from settings import get_settings
 
 
@@ -69,21 +69,17 @@ class TestProcessScanEndpoint:
         observer = LightSource(azimuth=0, elevation=90)
 
         # Control: one light source
-        control_data = UploadScan(
+        control_data = UploadScan(  # type:ignore
             scan_file=upload_scan.scan_file,
-            parameters=UploadScanParameters(  # type: ignore
-                light_sources=(single_light,),
-                observer=observer,
-            ),
+            light_sources=(single_light,),
+            observer=observer,
         )
 
         # Result: same light source doubled
-        request_data = UploadScan(
+        request_data = UploadScan(  # type: ignore
             scan_file=upload_scan.scan_file,
-            parameters=UploadScanParameters(  # type: ignore
-                light_sources=(single_light, LightSource(azimuth=180, elevation=45)),
-                observer=observer,
-            ),
+            light_sources=(single_light, LightSource(azimuth=180, elevation=45)),
+            observer=observer,
         )
 
         # Act I

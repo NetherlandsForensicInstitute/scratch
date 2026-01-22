@@ -10,20 +10,44 @@ from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
     Field,
-    FilePath,
     PositiveFloat,
     PositiveInt,
-    field_validator,
     model_validator,
 )
 from scipy.constants import micro
 
-from models import BaseModelConfig, ProjectTag, ScanFile, SupportedScanExtension
+from constants import ImpressionMarks, MaskTypes, StriationMarks
+from models import (
+    BaseModelConfig,
+    ProjectTag,
+    ScanFile,
+    SupportedScanExtension,
+)
 
 
-class UploadScanParameters(BaseModelConfig):
-    """Configuration parameters for upload scan's surface rendering process."""
+class BaseParameters(BaseModelConfig):
+    """Base parameters for preprocessor operations including scan file."""
 
+    project_name: ProjectTag | None = Field(
+        None,
+        description=(
+            "Optional project identifier for organizing edited scans. "
+            "Used as directory tag if provided, otherwise defaults to scan filename."
+        ),
+        examples=["forensic_analysis_2026", "case_12345"],
+    )
+    scan_file: ScanFile = Field(
+        ...,
+        description=f"Path to the input scan file. Supported formats: {', '.join(SupportedScanExtension)}",
+    )
+
+    @property
+    def tag(self) -> str:
+        """Get the tag to use for directory naming."""
+        return self.project_name or self.scan_file.stem
+
+
+class UploadScan(BaseParameters):
     light_sources: tuple[LightSource, ...] = Field(
         (
             LightSource(azimuth=90, elevation=45),
@@ -42,68 +66,67 @@ class UploadScanParameters(BaseModelConfig):
         description="Observer viewpoint vector for surface rendering.",
         examples=[LightSource(azimuth=90, elevation=45)],
     )
-    scale_x: float = Field(
+    scale_x: PositiveFloat = Field(
         1.0,
         gt=0.0,
         description="Horizontal pixel size in meters (m). Defines physical spacing between pixels in x-direction.",
         examples=[1.0, 0.5, 2.0],
     )
-    scale_y: float = Field(
+    scale_y: PositiveFloat = Field(
         1.0,
-        gt=0.0,
         description="Vertical pixel size in meters (m). Defines physical spacing between pixels in y-direction.",
         examples=[1.0, 0.5, 2.0],
     )
-    step_size_x: int = Field(
+    step_size_x: PositiveInt = Field(
         1,
-        gt=0,
         description="Subsampling step in x-direction. Values > 1 reduce resolution by skipping pixels.",
         examples=[1, 2, 4],
     )
-    step_size_y: int = Field(
+    step_size_y: PositiveInt = Field(
         1,
-        gt=0,
         description="Subsampling step in y-direction. Values > 1 reduce resolution by skipping pixels.",
         examples=[1, 2, 4],
     )
 
 
-class UploadScan(BaseModelConfig):
-    """Request model for uploading and processing scan files."""
+class CropInfo(BaseModelConfig):
+    type: MaskTypes
+    data: dict
+    is_foreground: bool
 
-    scan_file: ScanFile = Field(
-        ...,
-        description=f"Path to the input scan file. Supported formats: {', '.join(SupportedScanExtension)}",
+
+class PreprocessingImpressionParams(BaseModelConfig):
+    """dummy till #84 is merged."""
+
+    pass  # TODO: not yet merged dataclass from PR #84
+
+
+class PreprocessingStriationParams(BaseModelConfig):
+    """dummy till #84 is merged."""
+
+    pass  # TODO: not yet merged dataclass from PR #84
+
+
+class PrepareMarkStriation(BaseParameters):
+    mark_type: StriationMarks = Field(..., description="Type of mark to prepare.")
+    mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
+    rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
+    crop_info: CropInfo | None = Field(
+        None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
     )
-    project_name: ProjectTag | None = Field(
-        None,
-        description=(
-            "Optional project identifier for organizing uploaded scans. "
-            "Used as directory tag if provided, otherwise defaults to scan filename."
-        ),
-        examples=["forensic_analysis_2026", "case_12345"],
+    mark_parameters: PreprocessingStriationParams = Field(
+        ..., description="Preprocessor parameters."
+    )  # TODO: not yet merged dataclass from PR #84
+
+
+class PrepareMarkImpression(BaseParameters):
+    mark_type: ImpressionMarks = Field(..., description="Type of mark to prepare.")
+    mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
+    rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
+    crop_info: CropInfo | None = Field(
+        None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
     )
-    parameters: UploadScanParameters = Field(
-        default_factory=UploadScanParameters.model_construct,
-        description=(
-            "Configuration parameters controlling scan processing, "
-            "including lighting, scaling, and subsampling settings."
-        ),
-    )
-
-    @property
-    def tag(self) -> str:
-        """Get the tag to use for directory naming."""
-        return self.project_name or self.scan_file.stem
-
-    @field_validator("scan_file", mode="after")
-    @classmethod
-    def _validate_scan_file(cls, scan_file: FilePath) -> FilePath:
-        """Validate given file is not empty."""
-        if scan_file.stat().st_size == 0:
-            raise ValueError(f"file is empty: {scan_file.name}")
-
-        return scan_file
+    mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
 
 
 class Terms(StrEnum):
@@ -124,14 +147,14 @@ class RegressionOrder(StrEnum):
 type Mask = tuple[tuple[bool, ...], ...]
 
 
-class EditImageParameters(BaseModelConfig):
-    """Configuration parameters for scan image editing and transformation operations."""
+class EditImage(BaseParameters):
+    """Request model for editing and transforming processed scan images."""
 
     mask: Mask = Field(
         description=(
             "Binary mask defining regions to include (True/1) or exclude (False/0) during processing. "
             "Accepts both boolean (True/False) and integer (1/0) representations. "
-            "Must be a 2D tuple structure matching or smaller than the scan dimensions."
+            "Must be a 2D tuple structure matching the scan dimensions."
         ),
         examples=[
             ((1, 0), (0, 1)),  # Integer format
@@ -187,6 +210,8 @@ class EditImageParameters(BaseModelConfig):
             raise ValueError("Bad mask value: unable to capture mask") from e
         if not self.mask_array.ndim == 2:  # noqa: PLR2004
             raise ValueError(f"Mask is not a 2D image: D{self.mask_array.ndim}")
+        if self.scan_file.suffix != ".x3p":
+            raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
         return self
 
     @cached_property
@@ -197,37 +222,3 @@ class EditImageParameters(BaseModelConfig):
         :return: 2D numpy array of boolean values representing the mask
         """
         return np.array(self.mask, np.bool_)
-
-
-class EditImage(BaseModelConfig):
-    """Request model for editing and transforming processed scan images."""
-
-    scan_file: ScanFile
-    project_name: ProjectTag | None = Field(
-        None,
-        description=(
-            "Optional project identifier for organizing edited scans. "
-            "Used as directory tag if provided, otherwise defaults to scan filename."
-        ),
-        examples=["forensic_analysis_2026", "case_12345"],
-    )
-    parameters: EditImageParameters = Field(
-        default_factory=EditImageParameters.model_construct,
-        description=(
-            "Configuration parameters controlling image editing operations "
-            "including resampling, leveling, masking, and cropping."
-        ),
-    )
-
-    @property
-    def tag(self) -> str:
-        """Get the tag to use for directory naming."""
-        return self.project_name or self.scan_file.stem
-
-    @field_validator("scan_file", mode="after")
-    @classmethod
-    def validate_file_extension(cls, scan_file: FilePath) -> FilePath:
-        """Validate that the given file is of a supported type (X3P format only)."""
-        if scan_file.suffix[1:] != SupportedScanExtension.X3P:
-            raise ValueError(f"unsupported extension: {scan_file.name}")
-        return scan_file

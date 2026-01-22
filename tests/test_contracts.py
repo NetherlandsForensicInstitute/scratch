@@ -7,9 +7,20 @@ from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
-from extractors import ProcessedDataAccess
+from extractors.schemas import (
+    PrepareMarkResponseImpression,
+    PrepareMarkResponseStriation,
+    ProcessedDataAccess,
+)
 from models import DirectoryAccess
-from preprocessors.schemas import EditImage, EditImageParameters, UploadScan
+from preprocessors.schemas import (
+    EditImage,
+    PrepareMarkImpression,
+    PrepareMarkStriation,
+    PreprocessingImpressionParams,
+    PreprocessingStriationParams,
+    UploadScan,
+)
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
@@ -30,6 +41,9 @@ class TemplateResponse(BaseModel):
     message: str
 
 
+type Interface = tuple[BaseModel, type[BaseModel]]
+
+
 @pytest.mark.contract_testing
 class TestContracts:
     """
@@ -42,7 +56,7 @@ class TestContracts:
     """
 
     @pytest.fixture(scope="class")
-    def process_scan(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
+    def process_scan(self, scan_directory: Path) -> Interface:
         """Create dummy files for the expected response.
 
         Returns the post request data, sub_route & expected response.
@@ -50,14 +64,45 @@ class TestContracts:
         return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
 
     @pytest.fixture(scope="class")
-    def edit_scan(self, scan_directory: Path) -> tuple[BaseModel, type[BaseModel]]:
+    def prepare_mark_impression(self, scan_directory: Path) -> Interface:
+        """Create dummy files for the expected response.
+
+        Returns the post request data, sub_route & expected response.
+        """
+        return PrepareMarkImpression(
+            scan_file=scan_directory / "circle.x3p",
+            mark_type="breach face impression mark",
+            mask_array=[[0, 1], [1, 0]],
+            rotation_angle=15,
+            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            mark_parameters=PreprocessingImpressionParams(),
+        ), PrepareMarkResponseImpression  # type: ignore
+
+    @pytest.fixture(scope="class")
+    def prepare_mark_striation(self, scan_directory: Path) -> Interface:
+        """Create dummy files for the expected response.
+
+        Returns the post request data, sub_route & expected response.
+        """
+        return PrepareMarkStriation(
+            scan_file=scan_directory / "circle.x3p",
+            mark_type="aperture shear striation mark",
+            mask_array=[[0, 1], [1, 0]],
+            rotation_angle=15,
+            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            mark_parameters=PreprocessingStriationParams(),
+        ), PrepareMarkResponseStriation  # type: ignore
+
+    @pytest.fixture(scope="class")
+    def edit_scan(self, scan_directory: Path) -> Interface:
         """Create test data for edit-scan endpoint.
 
         Returns the post request data and expected response type.
         """
-        data = EditImage(
+        data = EditImage(  # type: ignore
             scan_file=scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p",
-            parameters=EditImageParameters(mask=MASK, cutoff_length=CUTOFF_LENGTH),  # type: ignore
+            mask=MASK,
+            cutoff_length=CUTOFF_LENGTH,
         )
         return data, ProcessedDataAccess
 
@@ -77,6 +122,8 @@ class TestContracts:
         ("fixture_name", "sub_route"),
         [
             pytest.param("process_scan", "process-scan", id="process_scan"),
+            pytest.param("prepare_mark_impression", "prepare-mark-impression", id="prepare_mark_impression"),
+            pytest.param("prepare_mark_striation", "prepare-mark-striation", id="prepare_mark_striation"),
             pytest.param("edit_scan", "edit-scan", marks=pytest.mark.xfail, id="edit_scan"),
         ],
     )

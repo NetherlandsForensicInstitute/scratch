@@ -1,6 +1,8 @@
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from container_models.light_source import LightSource
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
@@ -58,7 +60,7 @@ def test_unsupported_extension_raises_error(extension: str, tmp_path_factory: py
         UploadScan(scan_file=scan_file)  # type: ignore
     error_message = str(exc_info.value)
     assert "unsupported file type" in error_message
-    assert "try: al3d, x3p, sur, plu" in error_message
+    assert "try: al3d, x3p" in error_message
 
 
 def test_nonexistent_scan_file_raises_error() -> None:
@@ -104,27 +106,94 @@ def test_executable_files_rejected(tmp_path: Path, content: bytes) -> None:
     assert "executable files are not allowed" in str(exc_info.value)
 
 
-def test_tag_defaults_to_stem_when_project_name_not_provided(tmp_path: Path) -> None:
+def test_tag_defaults_to_stem_when_project_name_not_provided(upload_scan_parameter: Callable[..., UploadScan]) -> None:
     """Test that tag property defaults to scan file stem when project_name is not provided."""
-    # Arrange
-    scan_file = tmp_path / "my_scan_file.x3p"
-    scan_file.write_text("content")
-
     # Act
-    upload_scan = UploadScan(scan_file=scan_file)  # type: ignore
+    upload_scan = upload_scan_parameter()
 
     # Assert
-    assert upload_scan.tag == "my_scan_file"
+    assert upload_scan.tag == upload_scan.scan_file.stem
 
 
-def test_tag_uses_project_name_when_provided(tmp_path: Path) -> None:
+def test_tag_uses_project_name_when_provided(upload_scan_parameter: Callable[..., UploadScan]) -> None:
     """Test that tag property uses project_name when it is provided."""
     # Arrange
-    scan_file = tmp_path / "scan_file.x3p"
-    scan_file.write_text("content")
-
+    project_name = "custom-project"
     # Act
-    upload_scan = UploadScan(scan_file=scan_file, project_name="custom-project")  # type: ignore
+    upload_scan = upload_scan_parameter(project_name=project_name)
 
     # Assert
-    assert upload_scan.tag == "custom-project"
+    assert upload_scan.tag == project_name
+
+
+def test_default_values(upload_scan: UploadScan) -> None:
+    """Test that default parameters are set correctly."""
+    # Assert
+    assert upload_scan.light_sources == (
+        LightSource(azimuth=90, elevation=45),
+        LightSource(azimuth=180, elevation=45),
+    )
+    assert upload_scan.observer == LightSource(azimuth=90, elevation=45)
+    assert upload_scan.scale_x == 1.0
+    assert upload_scan.scale_y == 1.0
+    assert upload_scan.step_size_x == 1
+    assert upload_scan.step_size_y == 1
+
+
+def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> None:
+    """Test that custom parameters can be set."""
+    # Arrange
+    custom_light = LightSource(azimuth=45, elevation=30)
+    custom_observer = LightSource(azimuth=0, elevation=90)
+
+    # Act
+    params = upload_scan_parameter(  # type: ignore
+        light_sources=(custom_light,),
+        observer=custom_observer,
+        scale_x=2.5,
+        scale_y=3.0,
+        step_size_x=2,
+        step_size_y=3,
+    )
+
+    # Assert
+    assert params.light_sources == (custom_light,)
+    assert params.observer == custom_observer
+    assert params.scale_x == 2.5  # noqa: PLR2004
+    assert params.scale_y == 3.0  # noqa: PLR2004
+    assert params.step_size_x == 2  # noqa: PLR2004
+    assert params.step_size_y == 3  # noqa: PLR2004
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("scale_x", 0.0),
+        ("scale_x", -1.0),
+        ("scale_y", 0.0),
+        ("scale_y", -1.5),
+        ("step_size_x", 0),
+        ("step_size_x", -1),
+        ("step_size_y", 0),
+        ("step_size_y", -2),
+    ],
+)
+def test_invalid_scale_and_step_values(
+    field_name: str, invalid_value: float | int, upload_scan_parameter: Callable[..., UploadScan]
+) -> None:
+    """Test that scale and step size values must be positive."""
+    # Arrange
+    valid_params = {
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "step_size_x": 1,
+        "step_size_y": 1,
+    }
+    valid_params[field_name] = invalid_value
+
+    # Act & Assert
+    with pytest.raises(ValidationError) as exc_info:  # Pydantic raises ValidationError
+        upload_scan_parameter(**valid_params)  # type: ignore
+
+    # Verify the error is related to the constraint
+    assert "greater than" in str(exc_info.value).lower()
