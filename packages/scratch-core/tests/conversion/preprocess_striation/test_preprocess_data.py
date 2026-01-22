@@ -14,14 +14,14 @@ from conversion.filter import (
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
 )
-from conversion.preprocess_striation.parameters import PreprocessingStriationParams
-from conversion.preprocess_striation.preprocess_striation import (
-    _shear_data_by_shifting_profiles,
-    _rotate_image_grad_vector,
+from conversion.preprocess_striation import (
+    PreprocessingStriationParams,
     apply_shape_noise_removal,
     fine_align_bullet_marks,
     preprocess_data,
 )
+from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
+from conversion.preprocess_striation.alignment import _detect_striation_angle
 from conversion.resample import resample_scan_image_and_mask
 
 
@@ -43,9 +43,8 @@ def test_apply_nan_weighted_gaussian_1d():
     data = np.ones((20, 10), dtype=float)
     data[10, 5] = np.nan  # Single NaN value
 
-    result = _apply_nan_weighted_gaussian_1d(
-        data, cutoff_length=10.0, pixel_size=1.0, axis=0
-    )
+    scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
+    result = _apply_nan_weighted_gaussian_1d(scan_image, cutoff_length=10.0, axis=0)
 
     # NaN positions should be preserved
     assert np.isnan(result[10, 5])
@@ -62,11 +61,10 @@ def test_remove_zero_border():
     data[3:7, 2:8] = 1.0
     mask[3:7, 2:8] = True
 
-    cropped_data, cropped_mask, range_indices = _remove_zero_border(data, mask)
+    cropped_data, cropped_mask = _remove_zero_border(data, mask)
 
     assert cropped_data.shape == (4, 6)
     assert cropped_mask.shape == (4, 6)
-    assert np.array_equal(range_indices, np.arange(3, 7))
 
 
 def test_apply_striation_preserving_filter_1d_lowpass():
@@ -284,7 +282,7 @@ def test_rotate_data_by_shifting_profiles():
 
     # 5 degrees = 0.087 radians
     angle_rad = np.radians(5.0)
-    rotated = _shear_data_by_shifting_profiles(
+    rotated = shear_data_by_shifting_profiles(
         data, angle_rad=angle_rad, cut_y_after_shift=True
     )
 
@@ -293,7 +291,7 @@ def test_rotate_data_by_shifting_profiles():
     assert np.std(max_positions) > 0
 
 
-def test_rotate_image_grad_vector():
+def test_detect_striation_angle():
     """Test gradient-based striation angle detection."""
     np.random.seed(42)
 
@@ -307,9 +305,9 @@ def test_rotate_image_grad_vector():
         2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 10
     )
 
-    detected_angle = _rotate_image_grad_vector(
-        striations,
-        scale_x=1e-6,
+    scan_image = ScanImage(data=striations, scale_x=1e-6, scale_y=1e-6)
+    detected_angle = _detect_striation_angle(
+        scan_image,
         subsampling_factor=1,
     )
 
