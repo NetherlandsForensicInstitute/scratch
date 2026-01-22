@@ -148,7 +148,7 @@ def run_python_preprocessing(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
         rectangle=test_case.rectangle,
-        times_median=test_case.times_median,
+        median_factor=test_case.times_median,
     )
     return data_out.data
 

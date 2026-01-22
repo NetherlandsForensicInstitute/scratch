@@ -16,7 +16,7 @@ def rotate_crop_and_mask_image_by_crop(
     scan_image: ScanImage,
     mask: MaskArray,
     rectangle: RectangularCrop | None,
-    times_median: float = 15,
+    median_factor: float = 15,
 ) -> ScanImage:
     """
     Rotates, crops and masks a scan image based on the given mask and rectangle.
@@ -35,7 +35,7 @@ def rotate_crop_and_mask_image_by_crop(
     :param scan_image: Scan image to rotate, mask and crop.
     :param mask: Binary mask array.
     :param rectangle: Bounding box of a rectangular crop region used to determine the rotation of an image, or None.
-    :param times_median: Parameter used to determine what is considered an outlier when removing outliers/needles.
+    :param median_factor: Parameter used to determine what is considered an outlier when removing outliers/needles.
     :return: The cropped, rotated and masked scan image.
     """
     rotation_angle = get_rotation_angle(rectangle) if rectangle is not None else 0.0
@@ -51,7 +51,7 @@ def rotate_crop_and_mask_image_by_crop(
     )
 
     scan_image_cleaned_and_masked = mask_and_remove_needles(
-        scan_image_cropped, mask_cropped, times_median
+        scan_image_cropped, mask_cropped, median_factor
     )
 
     scan_image_rotated, mask_rotated = rotate_mask_and_scan_image(

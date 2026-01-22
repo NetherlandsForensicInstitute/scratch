@@ -12,11 +12,11 @@ from parsers import subsample_scan_image
 TARGET_SCALE = 7e-5
 MEDIAN_FILTER_SIZE = 5
 SMALL_STRIP_THRESHOLD = 20
-TIMES_MEDIAN_CORRECTION_FACTOR = 6
+MEDIAN_FACTOR_CORRECTION_FACTOR = 6
 
 
 def mask_and_remove_needles(
-    scan_image: ScanImage, mask: MaskArray, times_median: float = 15.0
+    scan_image: ScanImage, mask: MaskArray, median_factor: float = 15.0
 ) -> ScanImage:
     """
     Mask the scan image and remove needle artifacts (i.e. steep slopes) using median filtering.
@@ -32,7 +32,7 @@ def mask_and_remove_needles(
 
     :param scan_image: Scan image to mask and clean.
     :param mask: Binary mask array.
-    :param times_median: Parameter to help determine the needle threshold.
+    :param median_factor: Parameter to help determine the needle threshold.
     :return: The masked and cleaned scan image.
     """
     scan_image_masked = update_scan_image_data(
@@ -41,7 +41,7 @@ def mask_and_remove_needles(
 
     residual_image = get_residual_image(scan_image_masked)
 
-    return get_and_remove_needles(scan_image_masked, residual_image, times_median)
+    return get_and_remove_needles(scan_image_masked, residual_image, median_factor)
 
 
 def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
@@ -118,7 +118,7 @@ def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
 
 
 def get_and_remove_needles(
-    scan_image: ScanImage, residual_image: ScanMap2DArray, times_median: float
+    scan_image: ScanImage, residual_image: ScanMap2DArray, median_factor: float
 ) -> ScanImage:
     """
     Mark points as needles where residuals exceed a threshold (determined as the absolute median of the residuals *
@@ -126,14 +126,14 @@ def get_and_remove_needles(
 
     :param scan_image: ScanImage to remove needles from. Assumes any masks are already applied.
     :param residual_image: Array of differences between a (masked) image and median filter smoothed image.
-    :param times_median: Parameter to help determine the needle threshold.
+    :param median_factor: Parameter to help determine the needle threshold.
     :return: ScanImage where any needles are removed.
     """
-    times_median = times_median * TIMES_MEDIAN_CORRECTION_FACTOR
+    median_factor = median_factor * MEDIAN_FACTOR_CORRECTION_FACTOR
 
     # Find needles: points where |residual| > threshold
     median_residual = np.nanmedian(np.abs(residual_image))
-    threshold = times_median * (1 if median_residual == 0 else median_residual)
+    threshold = median_factor * (1 if median_residual == 0 else median_residual)
     needles_indices = np.abs(residual_image) > threshold
 
     # Remove needles from the image by setting them to NaN
