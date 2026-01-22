@@ -36,11 +36,11 @@ def crop_to_mask(
     :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box
     :return: Cropped image containing only the masked region
     """
-    x_slice, y_slice = determine_bounding_box(mask, margin)
+    x_slice, y_slice = get_bounding_box(mask, margin)
     return image[y_slice, x_slice]
 
 
-def determine_bounding_box(mask: MaskArray, margin: int = 0) -> tuple[slice, slice]:
+def get_bounding_box(mask: MaskArray, margin: int = 0) -> tuple[slice, slice]:
     """
     Determines the bounding box of non-zero values in a mask. If a margin is given, the bounding box will be expanded
     (in case of a negative margin) or cropped (in case of a positive margin) by 2 * margin pixels.
