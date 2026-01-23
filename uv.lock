@@ -2008,9 +2008,11 @@ source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "loguru" },
+    { name = "numpy" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "returns" },
+    { name = "scipy" },
     { name = "scratch-core" },
     { name = "uvicorn" },
 ]
@@ -2037,9 +2039,11 @@ dev = [
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.119.0" },
     { name = "loguru", specifier = ">=0.7.3" },
+    { name = "numpy", specifier = ">=2.3.5" },
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "returns", specifier = ">=0.26.0" },
+    { name = "scipy", specifier = ">=1.16.3" },
     { name = "scratch-core", editable = "packages/scratch-core" },
     { name = "uvicorn", specifier = ">=0.38.0" },
 ]

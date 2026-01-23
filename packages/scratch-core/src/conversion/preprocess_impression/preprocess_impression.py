@@ -7,7 +7,6 @@ This module provides functions to preprocess 2D scan images of impression marks
 from dataclasses import asdict
 
 from container_models.base import ScanMap2DArray
-from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
     apply_gaussian_filter_mark,
@@ -19,7 +18,7 @@ from conversion.preprocess_impression.center import compute_center_local
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.resample import (
     resample,
-    resample_mark_if_needed,
+    needs_resampling,
 )
 from conversion.preprocess_impression.tilt import apply_tilt_correction
 from conversion.preprocess_impression.utils import update_mark_data, Point2D
@@ -67,19 +66,14 @@ def preprocess_impression_mark(
     )
 
     # Stage 6: Resampling
-    is_resampled = False
     if params.pixel_size is not None:
         original_scales = (
             mark_filtered.scan_image.scale_x,
             mark_filtered.scan_image.scale_y,
         )
-        mark_filtered, is_resampled = resample_mark_if_needed(
-            mark_filtered, params.pixel_size
-        )
-        if is_resampled:
-            mark_anti_aliased, _ = resample_mark_if_needed(
-                mark_anti_aliased, params.pixel_size
-            )
+        if needs_resampling(mark_filtered, params.pixel_size):
+            mark_filtered = resample(mark_filtered, params.pixel_size)
+            mark_anti_aliased = resample(mark_anti_aliased, params.pixel_size)
             factors = get_scaling_factors(
                 scales=original_scales, target_scale=params.pixel_size
             )
@@ -107,22 +101,9 @@ def preprocess_impression_mark(
     )
 
     # Build output metadata
-    mark.meta_data.update(
-        _build_preprocessing_metadata(params, mark.center, is_resampled)
-    )
+    mark.meta_data.update(**asdict(params))
 
-    output_pixel_size = (
-        (params.pixel_size, params.pixel_size)
-        if params.pixel_size
-        else (
-            mark.scan_image.scale_x,
-            mark.scan_image.scale_y,
-        )
-    )
-    return (
-        _build_output_mark(mark_filtered, output_pixel_size, is_filtered=True),
-        _build_output_mark(mark_leveled_final, output_pixel_size, is_filtered=False),
-    )
+    return mark_filtered, mark_leveled_final
 
 
 def _level_mark(
@@ -135,57 +116,6 @@ def _level_mark(
     )
     leveled_mark = update_mark_data(mark, result.leveled_map)
     return leveled_mark, result.fitted_surface
-
-
-def _build_output_mark(
-    mark: Mark,
-    output_scales: tuple[float, float],
-    is_filtered: bool,
-) -> Mark:
-    """
-    Construct output Mark with proper scale and metadata.
-
-    :param mark: Source mark.
-    :param output_scales: Output scales (x, y).
-    :param is_filtered: Whether filtering was applied.
-    :return: New Mark with updated scale and metadata.
-    """
-    scan_image = ScanImage(
-        data=mark.scan_image.data,
-        scale_x=output_scales[0],
-        scale_y=output_scales[1],
-    )
-    return Mark(
-        scan_image=scan_image,
-        mark_type=mark.mark_type,
-        crop_type=mark.crop_type,
-        meta_data=mark.meta_data | {"is_filtered": is_filtered, "is_leveled": True},
-    )
-
-
-def _build_preprocessing_metadata(
-    params: PreprocessingImpressionParams,
-    center_local: Point2D,
-    is_resampled: bool,
-) -> dict:
-    """
-    Build metadata dictionary for preprocessed mark.
-
-    :param params: Preprocessing parameters.
-    :param center_local: Local center coordinates.
-    :param is_resampled: Whether resampling was performed.
-    :return: Metadata dictionary.
-    """
-    return {
-        **asdict(params),
-        "center_g_x": 0,
-        "center_g_y": 0,
-        "center_l_x": center_local[0],
-        "center_l_y": center_local[1],
-        "is_crop": True,
-        "is_prep": True,
-        "is_resampled": is_resampled,
-    }
 
 
 def _prepare_mark(mark: Mark) -> Mark:
