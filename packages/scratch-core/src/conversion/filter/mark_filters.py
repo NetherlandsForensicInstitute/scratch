@@ -5,8 +5,6 @@ This module provides filtering operations for Mark objects, including
 anti-aliasing and filter pipelines for preprocessing.
 """
 
-from typing import Optional
-
 from conversion.data_formats import Mark
 from conversion.filter.gaussian import apply_gaussian_regression_filter
 from conversion.preprocess_impression.utils import update_mark_data
@@ -41,10 +39,10 @@ def apply_gaussian_filter_mark(
 
 def apply_filter_pipeline(
     mark: Mark,
-    target_scale: Optional[float],
-    lowpass_cutoff: Optional[float],
+    target_scale: float | None,
+    lowpass_cutoff: float | None,
     lowpass_regression_order: int,
-) -> tuple[Mark, Mark, Optional[float]]:
+) -> tuple[Mark, Mark, float | None]:
     """
     Apply the filtering pipeline to a leveled mark: anti-aliasing and low-pass filtering.
 
@@ -81,7 +79,7 @@ def apply_filter_pipeline(
 def _apply_anti_aliasing(
     mark: Mark,
     target_scale: float,
-) -> tuple[Mark, Optional[float]]:
+) -> tuple[Mark, float | None]:
     """
     Apply anti-aliasing filter before downsampling.
 

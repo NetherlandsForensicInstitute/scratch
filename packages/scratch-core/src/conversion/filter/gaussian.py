@@ -6,7 +6,6 @@ including NaN-aware filtering and striation-preserving 1D filters.
 """
 
 from math import ceil
-from typing import Optional
 from scipy.special import lambertw
 
 import numpy as np
@@ -136,7 +135,7 @@ def apply_striation_preserving_filter_1d(
     cutoff: float,
     is_high_pass: bool = False,
     cut_borders_after_smoothing: bool = True,
-    mask: Optional[MaskArray] = None,
+    mask: MaskArray | None = None,
 ) -> tuple[NDArray[np.floating], MaskArray]:
     """
     Apply 1D Gaussian filter along rows (y-direction) for striation-preserving surface processing.
@@ -223,7 +222,7 @@ def _apply_nan_weighted_gaussian_1d(
     :returns: The filtered 2D array of the same shape as input.
     """
     pixel_size = scan_image.scale_x if axis == 0 else scan_image.scale_y
-    cutoff_pixels = cutoff_length / pixel_size
+    cutoff_pixel = cutoff_length / pixel_size
 
     # Combine scan_image's valid_mask with external mask
     invalid_mask = ~scan_image.valid_mask
@@ -236,7 +235,7 @@ def _apply_nan_weighted_gaussian_1d(
     if mask is not None:
         data[~mask] = np.nan
 
-    kernel_1d = create_gaussian_kernel_1d(cutoff_pixels, bool(has_nans), ALPHA_GAUSSIAN)
+    kernel_1d = create_gaussian_kernel_1d(cutoff_pixel, bool(has_nans), ALPHA_GAUSSIAN)
     kernel_identity = np.array([1.0])
     kernel_x, kernel_y = (
         (kernel_identity, kernel_1d) if axis == 0 else (kernel_1d, kernel_identity)
