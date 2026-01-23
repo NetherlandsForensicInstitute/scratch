@@ -1,0 +1,56 @@
+{
+  "ref_xdim": 3.5e-06,
+  "ref_ydim": 3.5e-06,
+  "comp_xdim": 5e-06,
+  "comp_ydim": 5e-06,
+  "ref_length": 500,
+  "comp_length": 500,
+  "ref_has_nans": false,
+  "comp_has_nans": false,
+  "ref_nan_count": 0,
+  "comp_nan_count": 0,
+  "length_diff_percentage": 0,
+  "is_partial_expected": false,
+  "params": {
+    "part_mark_perc": 8,
+    "pass": [
+      1000,
+      500,
+      250,
+      100,
+      50,
+      25,
+      10,
+      5
+    ],
+    "filtertype": "lowpass",
+    "remove_zeros": 1,
+    "show_info": 0,
+    "plot_figures": 0,
+    "x0": [
+      0,
+      0
+    ],
+    "use_mean": 1,
+    "cutoff_hi": 1000,
+    "cutoff_lo": 5,
+    "max_translation": 10000000,
+    "max_scaling": 0.05,
+    "inclusion_threshold": 0.5
+  },
+  "iVerbose": 0,
+  "input_results_table": {
+    "is_empty": true
+  },
+  "output_results_table": {
+    "is_empty": false,
+    "bProfile": 1,
+    "bSegments": 0,
+    "bPartialProfile": 1,
+    "vPixSep1": 5,
+    "vPixSep2": 5,
+    "pOverlap": 0.9685714285714285,
+    "lOverlap": 1695
+  },
+  "output_results_arrays": []
+}
