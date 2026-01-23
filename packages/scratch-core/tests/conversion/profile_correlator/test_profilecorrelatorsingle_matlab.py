@@ -9,14 +9,17 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-# TODO: Update these imports to match your actual module structure
-# from your_module.profile_correlator import profile_correlator_single
-# from your_module.profile import Profile
+from conversion.profile_correlator import (
+    AlignmentParameters,
+    ComparisonResults,
+    Profile,
+    correlate_profiles,
+)
 
 
 @dataclass
 class ProfileCorrelatorParams:
-    """Parameters for ProfileCorrelatorSingle."""
+    """Parameters for ProfileCorrelatorSingle (test helper)."""
 
     part_mark_perc: float = 8.0
     pass_freqs: list[float] = field(
@@ -64,10 +67,24 @@ class ProfileCorrelatorParams:
             inclusion_threshold=d.get("inclusion_threshold", 0.5),
         )
 
+    def to_alignment_params(self) -> AlignmentParameters:
+        """Convert to AlignmentParameters for the Python implementation."""
+        return AlignmentParameters(
+            scale_passes=tuple(self.pass_freqs),
+            max_translation=self.max_translation,
+            max_scaling=self.max_scaling,
+            cutoff_hi=self.cutoff_hi,
+            cutoff_lo=self.cutoff_lo,
+            partial_mark_threshold=self.part_mark_perc,
+            inclusion_threshold=self.inclusion_threshold,
+            use_mean=self.use_mean,
+            remove_boundary_zeros=self.remove_zeros,
+        )
+
 
 @dataclass
 class ResultsTable:
-    """Results table from ProfileCorrelatorSingle."""
+    """Results table from ProfileCorrelatorSingle (test helper)."""
 
     bProfile: int = 0
     bSegments: int = 0
@@ -101,18 +118,22 @@ class ResultsTable:
             trans_scale=d.get("trans_scale"),
         )
 
-
-@dataclass
-class Profile:
-    """Profile data structure."""
-
-    depth_data: np.ndarray
-    xdim: float
-    ydim: float
-
-    @property
-    def length(self) -> int:
-        return len(self.depth_data)
+    @classmethod
+    def from_comparison_results(cls, results: ComparisonResults) -> "ResultsTable":
+        """Convert ComparisonResults to ResultsTable for comparison."""
+        return cls(
+            bProfile=1 if results.is_profile_comparison else 0,
+            bSegments=0,  # Not used in Python implementation
+            bPartialProfile=1 if results.is_partial_profile else 0,
+            vPixSep1=results.pixel_size_ref,
+            vPixSep2=results.pixel_size_comp,
+            pOverlap=results.overlap_ratio,
+            lOverlap=results.overlap_length,
+            xcorr=results.correlation_coefficient,
+            xcorr_max=results.correlation_coefficient,  # Same in current implementation
+            trans_shift=results.position_shift,
+            trans_scale=results.scale_factor,
+        )
 
 
 @dataclass
@@ -121,8 +142,10 @@ class MatlabTestCase:
 
     name: str
     # Input profiles
-    profile_ref: Profile
-    profile_comp: Profile
+    profile_ref_data: np.ndarray
+    profile_comp_data: np.ndarray
+    ref_pixel_size: float  # In meters
+    comp_pixel_size: float  # In meters
     # Parameters
     params: ProfileCorrelatorParams
     iVerbose: int
@@ -152,18 +175,6 @@ class MatlabTestCase:
             case_dir / "input_profile_comp.npy", allow_pickle=True
         )
 
-        # Create Profile objects
-        profile_ref = Profile(
-            depth_data=profile_ref_data,
-            xdim=meta["ref_xdim"],
-            ydim=meta["ref_ydim"],
-        )
-        profile_comp = Profile(
-            depth_data=profile_comp_data,
-            xdim=meta["comp_xdim"],
-            ydim=meta["comp_ydim"],
-        )
-
         # Parse parameters
         params = ProfileCorrelatorParams.from_dict(meta.get("params", {}))
 
@@ -185,8 +196,10 @@ class MatlabTestCase:
 
         return cls(
             name=case_dir.name,
-            profile_ref=profile_ref,
-            profile_comp=profile_comp,
+            profile_ref_data=profile_ref_data,
+            profile_comp_data=profile_comp_data,
+            ref_pixel_size=meta["ref_xdim"],  # xdim is pixel size in meters
+            comp_pixel_size=meta["comp_xdim"],
             params=params,
             iVerbose=meta.get("iVerbose", 0),
             input_results_table=input_results_table,
@@ -208,6 +221,24 @@ class MatlabTestCase:
         """Check if this is a partial profile comparison."""
         return self.is_partial_expected
 
+    def get_profile_ref(self) -> Profile:
+        """Create Profile object for reference."""
+        return Profile(
+            depth_data=self.profile_ref_data.astype(np.float64),
+            pixel_size=self.ref_pixel_size,
+            cutoff_hi=self.params.cutoff_hi,
+            cutoff_lo=self.params.cutoff_lo,
+        )
+
+    def get_profile_comp(self) -> Profile:
+        """Create Profile object for comparison."""
+        return Profile(
+            depth_data=self.profile_comp_data.astype(np.float64),
+            pixel_size=self.comp_pixel_size,
+            cutoff_hi=self.params.cutoff_hi,
+            cutoff_lo=self.params.cutoff_lo,
+        )
+
 
 def discover_test_cases(test_cases_dir: Path) -> list[MatlabTestCase]:
     """Discover all test cases in a directory."""
@@ -220,38 +251,22 @@ def discover_test_cases(test_cases_dir: Path) -> list[MatlabTestCase]:
     ]
 
 
-def run_python_profile_correlator(
-    test_case: MatlabTestCase,
-) -> ResultsTable:
+def run_python_profile_correlator(test_case: MatlabTestCase) -> ResultsTable:
     """
     Run Python ProfileCorrelatorSingle and return results.
-
-    TODO: Implement this function to call your Python implementation.
     """
-    # Example implementation structure:
-    #
-    # from your_module import profile_correlator_single, ProfileCorrelatorResInit
-    #
-    # # Initialize results table if needed
-    # if test_case.input_results_table is None:
-    #     results_table = ProfileCorrelatorResInit()
-    # else:
-    #     results_table = convert_to_your_format(test_case.input_results_table)
-    #
-    # # Run the correlator
-    # results = profile_correlator_single(
-    #     profile_ref=test_case.profile_ref,
-    #     profile_comp=test_case.profile_comp,
-    #     results_table=results_table,
-    #     param=test_case.params,
-    #     iVerbose=test_case.iVerbose,
-    # )
-    #
-    # return convert_results_to_dataclass(results)
+    # Create Profile objects
+    profile_ref = test_case.get_profile_ref()
+    profile_comp = test_case.get_profile_comp()
 
-    raise NotImplementedError(
-        "Implement run_python_profile_correlator to call your Python implementation"
-    )
+    # Convert test params to AlignmentParameters
+    params = test_case.params.to_alignment_params()
+
+    # Run the correlator
+    results = correlate_profiles(profile_ref, profile_comp, params)
+
+    # Convert to ResultsTable for comparison
+    return ResultsTable.from_comparison_results(results)
 
 
 # ============================================================================
@@ -262,8 +277,7 @@ def run_python_profile_correlator(
 @pytest.fixture(scope="module")
 def test_cases_dir() -> Path:
     """Path to test cases directory."""
-    # TODO: Update this path to match your project structure
-    return Path(__file__).parent.parent / "resources" / "profile_correlator_single"
+    return Path(__file__).parent.parent / "resources" / "profile_correlator"
 
 
 @pytest.fixture(scope="module")
@@ -280,10 +294,7 @@ def pytest_generate_tests(metafunc):
     if "test_case_name" not in metafunc.fixturenames:
         return
 
-    # TODO: Update this path to match your project structure
-    test_cases_dir = (
-        Path(__file__).parent.parent / "resources" / "profile_correlator_single"
-    )
+    test_cases_dir = Path(__file__).parent.parent / "resources" / "profile_correlator"
     cases = discover_test_cases(test_cases_dir)
     metafunc.parametrize("test_case_name", [c.name for c in cases])
 
@@ -360,6 +371,7 @@ def assert_arrays_close(
 # ============================================================================
 
 
+@pytest.mark.matlab
 class TestProfileCorrelatorSingleMatlabComparison:
     """Test Python ProfileCorrelatorSingle against MATLAB reference outputs."""
 
@@ -448,6 +460,7 @@ class TestProfileCorrelatorSingleMatlabComparison:
         )
 
 
+@pytest.mark.matlab
 class TestProfileCorrelatorSingleEdgeCases:
     """Test edge cases for ProfileCorrelatorSingle."""
 
@@ -484,16 +497,7 @@ class TestProfileCorrelatorSingleEdgeCases:
         if not test_case.output_arrays:
             pytest.skip("Test case has no output arrays")
 
-        # TODO: Implement this when your Python function returns arrays
-        # python_results, python_arrays = run_python_profile_correlator_with_arrays(test_case)
-        #
-        # for array_name, expected_array in test_case.output_arrays.items():
-        #     if array_name in python_arrays:
-        #         assert_arrays_close(
-        #             python_arrays[array_name],
-        #             expected_array,
-        #             f"{test_case.name}: {array_name}",
-        #         )
+        # TODO: Implement when Python function returns arrays
         pytest.skip("Output array comparison not yet implemented")
 
 
@@ -559,6 +563,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         test_dir = Path(sys.argv[1])
     else:
-        test_dir = Path("test_cases_ProfileCorrelatorSingle")
+        test_dir = Path(__file__).parent.parent / "resources" / "profile_correlator"
 
     run_all_tests_standalone(test_dir)
