@@ -78,7 +78,9 @@ def fine_align_bullet_marks(
 
     # Crop to mask bounding box
     if result_mask is not None:
-        result_data = crop_to_mask(result_data, result_mask)
+        result_data = crop_to_mask(
+            np.asarray(result_data, dtype=np.float64), result_mask
+        )
         y_slice, x_slice = _determine_bounding_box(result_mask)
         result_mask = result_mask[y_slice, x_slice]
 
