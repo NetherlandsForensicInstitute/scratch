@@ -9,7 +9,7 @@ from conversion.profile_correlator import (
     ComparisonResults,
     correlate_profiles,
 )
-from tests.conversion.profile_correlator.conftest import (
+from .conftest import (
     make_synthetic_striation_profile,
     make_shifted_profile,
 )
