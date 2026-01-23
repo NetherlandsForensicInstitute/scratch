@@ -55,9 +55,9 @@ def preprocess_data(
 
     data_filtered, mask_filtered = apply_shape_noise_removal(
         scan_image=scan_image,
-        highpass_cutoff=params.cutoff_hi,
+        highpass_cutoff=params.highpass_cutoff,
         mask=mask,
-        lowpass_cutoff=params.cutoff_lo,
+        lowpass_cutoff=params.lowpass_cutoff,
     )
 
     if data_filtered.shape[1] > 1:

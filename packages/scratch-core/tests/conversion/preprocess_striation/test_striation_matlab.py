@@ -182,8 +182,8 @@ def run_python_preprocessing(
     )
 
     params = PreprocessingStriationParams(
-        cutoff_hi=test_case.cutoff_hi * 1e-6,
-        cutoff_lo=test_case.cutoff_lo * 1e-6,
+        highpass_cutoff=test_case.cutoff_hi * 1e-6,
+        lowpass_cutoff=test_case.cutoff_lo * 1e-6,
         use_mean=test_case.use_mean,
         angle_accuracy=test_case.angle_accuracy,
     )

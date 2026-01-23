@@ -362,8 +362,8 @@ def test_preprocess_data():
 
     scan_image = ScanImage(data=depth_data, scale_x=1e-6, scale_y=1e-6)
     params = PreprocessingStriationParams(
-        cutoff_hi=2e-3,
-        cutoff_lo=2.5e-4,
+        highpass_cutoff=2e-3,
+        lowpass_cutoff=2.5e-4,
         cut_borders_after_smoothing=False,
         angle_accuracy=0.5,
         max_iter=10,
