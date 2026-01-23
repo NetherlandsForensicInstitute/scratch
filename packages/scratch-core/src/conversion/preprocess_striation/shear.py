@@ -10,40 +10,6 @@ from numpy.typing import NDArray
 from skimage.transform import AffineTransform, warp
 
 from container_models.base import MaskArray
-from conversion.mask import _determine_bounding_box
-
-
-def shear_data_and_mask(
-    depth_data: NDArray[np.floating],
-    mask: MaskArray | None,
-    angle_rad: float,
-    crop_nan_borders: bool,
-) -> tuple[NDArray[np.floating], MaskArray | None]:
-    """
-    Shear data and optionally mask, cropping to bounding box if mask provided.
-
-    :param depth_data: 2D depth data array.
-    :param mask: Optional boolean mask array.
-    :param angle_rad: Shear angle in radians.
-    :param crop_nan_borders: If True, crop NaN borders after shifting.
-    :returns: Tuple of (sheared_data, sheared_mask).
-    """
-    # Shear data (always required)
-    data_sheared = shear_data_by_shifting_profiles(
-        depth_data, angle_rad, crop_nan_borders
-    )
-
-    # Guard clause: no mask means no cropping
-    if mask is None:
-        return data_sheared, None
-
-    # Shear mask and crop both to bounding box
-    mask_sheared = (
-        shear_data_by_shifting_profiles(mask, angle_rad, crop_nan_borders) > 0.5
-    )
-    y_slice, x_slice = _determine_bounding_box(mask_sheared)
-
-    return data_sheared[y_slice, x_slice], mask_sheared[y_slice, x_slice]
 
 
 def shear_data_by_shifting_profiles(

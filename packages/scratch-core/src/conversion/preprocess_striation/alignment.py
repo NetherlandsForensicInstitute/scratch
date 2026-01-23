@@ -15,9 +15,9 @@ from conversion.filter import (
     gaussian_sigma_to_cutoff,
     apply_gaussian_regression_filter,
 )
-from conversion.mask import _determine_bounding_box
+from conversion.mask import crop_to_mask, _determine_bounding_box
 from conversion.resample import resample_scan_image_and_mask
-from conversion.preprocess_striation.shear import shear_data_and_mask
+from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
 
 # Maximum expected striation angle for outlier filtering in gradient detection (degrees)
 _MAX_GRADIENT_ANGLE_DEG = 10.0
@@ -57,20 +57,30 @@ def fine_align_bullet_marks(
         subsampling_factor,
     )
 
-    # Apply rotation and crop to mask bounding box
-    if not np.isclose(total_angle, 0.0, rtol=1e-09, atol=1e-09):
+    # Apply shear transformation if angle is non-zero
+    if not np.isclose(total_angle, 0.0, atol=1e-09):
         total_angle_rad = np.radians(total_angle)
-        result_data, result_mask = shear_data_and_mask(
-            scan_image.data, mask, total_angle_rad, cut_y_after_shift
+        result_data = shear_data_by_shifting_profiles(
+            scan_image.data, total_angle_rad, cut_y_after_shift
         )
-    elif mask is not None:
-        # No rotation needed, but still crop to mask bounding box
-        y_slice, x_slice = _determine_bounding_box(mask)
-        result_data = scan_image.data[y_slice, x_slice]
-        result_mask = mask[y_slice, x_slice]
+        if mask is not None:
+            result_mask = (
+                shear_data_by_shifting_profiles(
+                    mask, total_angle_rad, cut_y_after_shift
+                )
+                > 0.5
+            )
+        else:
+            result_mask = None
     else:
         result_data = scan_image.data
         result_mask = mask
+
+    # Crop to mask bounding box
+    if result_mask is not None:
+        result_data = crop_to_mask(result_data, result_mask)
+        y_slice, x_slice = _determine_bounding_box(result_mask)
+        result_mask = result_mask[y_slice, x_slice]
 
     result_scan = ScanImage(
         data=np.asarray(result_data, dtype=np.float64),
@@ -137,9 +147,18 @@ def _find_alignment_angle(
         else:
             total_angle += current_angle
             total_angle_rad = np.radians(total_angle)
-            data_tmp, mask_tmp = shear_data_and_mask(
-                scan_image.data, mask, total_angle_rad, cut_y_after_shift
+            data_tmp = shear_data_by_shifting_profiles(
+                scan_image.data, total_angle_rad, cut_y_after_shift
             )
+            if mask is not None:
+                mask_tmp = (
+                    shear_data_by_shifting_profiles(
+                        mask, total_angle_rad, cut_y_after_shift
+                    )
+                    > 0.5
+                )
+            else:
+                mask_tmp = None
 
             # Check if stuck (same angle as previous iteration)
             if current_angle == previous_angle:
@@ -164,7 +183,8 @@ def _detect_striation_angle(
     :param mask: Optional boolean mask (True = valid).
     :param subsampling_factor: Additional subsampling factor on top of the automatic
         subsampling for faster calculation, but lower precision.
-    :returns: Detected striation angle in degrees (positive = clockwise).
+    :returns: Detected striation angle in degrees (positive = clockwise),
+        in the range (-10, 10), or NaN if no valid gradients are found.
     """
     # Determine subsampling factor
     sub_samp = subsampling_factor

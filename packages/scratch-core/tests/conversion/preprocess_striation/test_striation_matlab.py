@@ -15,7 +15,7 @@ from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_data,
 )
-from ..helper_function import (
+from ..helper_functions import (
     _compute_correlation,
     _crop_to_common_shape,
     _compute_difference_stats,
