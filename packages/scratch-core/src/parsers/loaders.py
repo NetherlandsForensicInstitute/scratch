@@ -1,4 +1,5 @@
 from pathlib import Path
+from functools import lru_cache
 
 import numpy as np
 from returns.io import impure_safe
@@ -18,6 +19,7 @@ from scipy.constants import micro
 FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
 
 
+@lru_cache(maxsize=1)
 @log_railway_function(
     "Failed to load image file",
     "Successfully loaded scan file",
