@@ -15,12 +15,104 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage, signal
 
+from conversion.filter.gaussian import ALPHA_GAUSSIAN
+from conversion.filter.regression import apply_order0_filter, create_gaussian_kernel_1d
 from conversion.profile_correlator.data_types import AlignmentParameters, Profile
-from conversion.profile_correlator.filtering import (
-    apply_highpass_filter_1d,
-    apply_lowpass_filter_1d,
-)
 from conversion.profile_correlator.similarity import compute_cross_correlation
+
+
+def _apply_lowpass_filter_1d(
+    profile: NDArray[np.floating],
+    cutoff_wavelength: float,
+    pixel_size: float,
+    cut_borders: bool = False,
+) -> NDArray[np.floating]:
+    """
+    Apply Gaussian low-pass filter to a 1D profile with NaN handling.
+
+    Uses the 2D filtering infrastructure from conversion/filter by reshaping
+    the 1D profile to 2D, applying the filter, and reshaping back.
+
+    :param profile: 1D array of heights. May contain NaN values.
+    :param cutoff_wavelength: Filter cutoff wavelength in meters.
+    :param pixel_size: Sample spacing in meters.
+    :param cut_borders: If True, trim filter-affected borders.
+    :returns: Low-pass filtered profile.
+    """
+    profile = np.asarray(profile).ravel()
+
+    # Convert cutoff to pixels
+    cutoff_pixels = cutoff_wavelength / pixel_size
+
+    # Check for NaN values
+    has_nans = np.any(np.isnan(profile))
+
+    # Create 1D Gaussian kernel
+    kernel_1d = create_gaussian_kernel_1d(cutoff_pixels, has_nans, ALPHA_GAUSSIAN)
+
+    # Identity kernel for the other axis
+    kernel_identity = np.array([1.0])
+
+    # Reshape 1D to 2D (N, 1)
+    data_2d = profile[:, np.newaxis]
+
+    # Apply 2D filter with identity kernel for x-axis (filter along y-axis only)
+    mode = "constant" if has_nans else "symmetric"
+    filtered_2d = apply_order0_filter(data_2d, kernel_identity, kernel_1d, mode=mode)
+
+    # Preserve NaN positions
+    if has_nans:
+        filtered_2d[np.isnan(data_2d)] = np.nan
+
+    # Reshape back to 1D
+    filtered = filtered_2d.ravel()
+
+    # Optionally cut borders
+    if cut_borders:
+        sigma = ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi)
+        border = int(round(sigma))
+        if border > 0 and len(filtered) > 2 * border:
+            filtered = filtered[border:-border]
+
+    return filtered
+
+
+def _apply_highpass_filter_1d(
+    profile: NDArray[np.floating],
+    cutoff_wavelength: float,
+    pixel_size: float,
+    cut_borders: bool = False,
+) -> NDArray[np.floating]:
+    """
+    Apply Gaussian high-pass filter to a 1D profile.
+
+    High-pass = original - low-pass.
+
+    :param profile: 1D array of heights. May contain NaN values.
+    :param cutoff_wavelength: Filter cutoff wavelength in meters.
+    :param pixel_size: Sample spacing in meters.
+    :param cut_borders: If True, trim filter-affected borders.
+    :returns: High-pass filtered profile.
+    """
+    profile = np.asarray(profile).ravel()
+
+    # Compute low-pass filtered version
+    lowpass = _apply_lowpass_filter_1d(
+        profile, cutoff_wavelength, pixel_size, cut_borders=False
+    )
+
+    # High-pass = original - low-pass
+    highpass = profile - lowpass
+
+    # Optionally cut borders
+    if cut_borders:
+        cutoff_pixels = cutoff_wavelength / pixel_size
+        sigma = ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi)
+        border = int(round(sigma))
+        if border > 0 and len(highpass) > 2 * border:
+            highpass = highpass[border:-border]
+
+    return highpass
 
 
 def _label_connected_regions(binary_array: NDArray[np.bool_]) -> NDArray[np.intp]:
@@ -157,10 +249,10 @@ def find_match_candidates(
 
         for scale in shape_scales:
             # Low-pass filter both profiles (all in meters)
-            ref_filtered = apply_lowpass_filter_1d(
+            ref_filtered = _apply_lowpass_filter_1d(
                 ref_data, scale, pixel_size, cut_borders=False
             )
-            partial_filtered = apply_lowpass_filter_1d(
+            partial_filtered = _apply_lowpass_filter_1d(
                 partial_data, scale, pixel_size, cut_borders=False
             )
 
@@ -223,10 +315,10 @@ def find_match_candidates(
         candidates_labeled = np.ones(n_positions, dtype=np.intp)
 
     # Refine candidates at comparison scale using high-pass filtered profiles
-    ref_filtered_comp = apply_highpass_filter_1d(
+    ref_filtered_comp = _apply_highpass_filter_1d(
         ref_data, comp_scale, pixel_size, cut_borders=False
     )
-    partial_filtered_comp = apply_highpass_filter_1d(
+    partial_filtered_comp = _apply_highpass_filter_1d(
         partial_data, comp_scale, pixel_size, cut_borders=False
     )
 

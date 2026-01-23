@@ -23,8 +23,9 @@ Submodules
 - alignment: Multi-scale alignment algorithms
 - transforms: Translation, scaling, and resampling operations
 - similarity: Cross-correlation and comparison metrics
-- filtering: 1D Gaussian filtering with NaN handling
 - candidate_search: Partial profile brute-force candidate detection
+
+Note: 1D filtering uses the infrastructure from conversion.filter internally.
 """
 
 # Core data types
@@ -51,7 +52,6 @@ from conversion.profile_correlator.transforms import (
     compute_cumulative_transform,
     equalize_pixel_scale,
     make_profiles_equal_length,
-    remove_boundary_zeros,
 )
 
 # Similarity functions
@@ -60,13 +60,8 @@ from conversion.profile_correlator.similarity import (
     compute_cross_correlation,
 )
 
-# Filtering functions
+# Re-export cutoff_to_gaussian_sigma from conversion.filter for convenience
 from conversion.filter.gaussian import cutoff_to_gaussian_sigma
-from conversion.profile_correlator.filtering import (
-    apply_highpass_filter_1d,
-    apply_lowpass_filter_1d,
-    convolve_with_nan_handling,
-)
 
 # Candidate search
 from conversion.profile_correlator.candidate_search import find_match_candidates
@@ -87,16 +82,12 @@ __all__ = [
     "equalize_pixel_scale",
     "make_profiles_equal_length",
     "apply_transform",
-    "remove_boundary_zeros",
     "compute_cumulative_transform",
     # Similarity
     "compute_cross_correlation",
     "compute_comparison_metrics",
-    # Filtering
+    # Filtering (re-exported from conversion.filter)
     "cutoff_to_gaussian_sigma",
-    "apply_lowpass_filter_1d",
-    "apply_highpass_filter_1d",
-    "convolve_with_nan_handling",
     # Candidate search
     "find_match_candidates",
 ]

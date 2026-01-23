@@ -19,19 +19,114 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.optimize import minimize
 
+from conversion.filter.gaussian import ALPHA_GAUSSIAN
+from conversion.filter.regression import apply_order0_filter, create_gaussian_kernel_1d
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
     AlignmentResult,
     Profile,
     TransformParameters,
 )
-from conversion.profile_correlator.filtering import apply_lowpass_filter_1d
 from conversion.profile_correlator.similarity import compute_cross_correlation
 from conversion.profile_correlator.transforms import (
     apply_transform,
     compute_cumulative_transform,
-    remove_boundary_zeros,
 )
+
+
+def _apply_lowpass_filter_1d(
+    profile: NDArray[np.floating],
+    cutoff_wavelength: float,
+    pixel_size: float,
+    cut_borders: bool = False,
+) -> NDArray[np.floating]:
+    """
+    Apply Gaussian low-pass filter to a 1D profile with NaN handling.
+
+    Uses the 2D filtering infrastructure from conversion/filter by reshaping
+    the 1D profile to 2D, applying the filter, and reshaping back.
+
+    :param profile: 1D array of heights. May contain NaN values.
+    :param cutoff_wavelength: Filter cutoff wavelength in meters.
+    :param pixel_size: Sample spacing in meters.
+    :param cut_borders: If True, trim filter-affected borders.
+    :returns: Low-pass filtered profile.
+    """
+    profile = np.asarray(profile).ravel()
+
+    # Convert cutoff to pixels
+    cutoff_pixels = cutoff_wavelength / pixel_size
+
+    # Check for NaN values
+    has_nans = np.any(np.isnan(profile))
+
+    # Create 1D Gaussian kernel
+    kernel_1d = create_gaussian_kernel_1d(cutoff_pixels, has_nans, ALPHA_GAUSSIAN)
+
+    # Identity kernel for the other axis
+    kernel_identity = np.array([1.0])
+
+    # Reshape 1D to 2D (N, 1)
+    data_2d = profile[:, np.newaxis]
+
+    # Apply 2D filter with identity kernel for x-axis (filter along y-axis only)
+    mode = "constant" if has_nans else "symmetric"
+    filtered_2d = apply_order0_filter(data_2d, kernel_identity, kernel_1d, mode=mode)
+
+    # Preserve NaN positions
+    if has_nans:
+        filtered_2d[np.isnan(data_2d)] = np.nan
+
+    # Reshape back to 1D
+    filtered = filtered_2d.ravel()
+
+    # Optionally cut borders
+    if cut_borders:
+        sigma = ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi)
+        border = int(round(sigma))
+        if border > 0 and len(filtered) > 2 * border:
+            filtered = filtered[border:-border]
+
+    return filtered
+
+
+def _remove_boundary_zeros(
+    data_1: NDArray[np.floating],
+    data_2: NDArray[np.floating],
+) -> tuple[NDArray[np.floating], NDArray[np.floating], int]:
+    """
+    Remove zero-padded boundaries from two 1D profiles.
+
+    Finds the common non-zero region in both profiles and crops them.
+
+    :param data_1: First profile data.
+    :param data_2: Second profile data.
+    :returns: Tuple of (cropped_1, cropped_2, start_position).
+    """
+    # Create zero masks
+    zero_mask_1 = data_1 == 0
+    zero_mask_2 = data_2 == 0
+
+    # Find non-zero indices for each profile
+    nonzero_1 = np.where(~zero_mask_1)[0]
+    nonzero_2 = np.where(~zero_mask_2)[0]
+
+    # Handle empty cases
+    if len(nonzero_1) == 0 or len(nonzero_2) == 0:
+        return data_1[0:0], data_2[0:0], 0
+
+    # Find bounds for each profile
+    start_1, end_1 = nonzero_1[0], nonzero_1[-1] + 1
+    start_2, end_2 = nonzero_2[0], nonzero_2[-1] + 1
+
+    # Find common region
+    start = max(start_1, start_2)
+    end = min(end_1, end_2)
+
+    if end <= start:
+        return data_1[0:0], data_2[0:0], start
+
+    return data_1[start:end], data_2[start:end], start
 
 
 def _alignment_objective(
@@ -173,14 +268,14 @@ def align_profiles_multiscale(
             continue
 
         # Apply low-pass filter to both profiles at current scale
-        profile_1_filtered = apply_lowpass_filter_1d(
+        profile_1_filtered = _apply_lowpass_filter_1d(
             profile_1,
             cutoff_wavelength=cutoff,
             pixel_size=pixel_size,
             cut_borders=params.cut_borders_after_smoothing,
         )
 
-        profile_2_filtered = apply_lowpass_filter_1d(
+        profile_2_filtered = _apply_lowpass_filter_1d(
             profile_2_mod,
             cutoff_wavelength=cutoff,
             pixel_size=pixel_size,
@@ -264,12 +359,8 @@ def align_profiles_multiscale(
         )
 
         # Compute correlation on original (unfiltered) profiles after removing zeros
-        profile_1_profile = Profile(depth_data=profile_1, pixel_size=pixel_size)
-        profile_2_transformed_profile = Profile(
-            depth_data=profile_2_transformed, pixel_size=pixel_size
-        )
-        profile_1_no_zeros, profile_2_no_zeros, _ = remove_boundary_zeros(
-            profile_1_profile, profile_2_transformed_profile
+        profile_1_no_zeros, profile_2_no_zeros, _ = _remove_boundary_zeros(
+            profile_1, profile_2_transformed
         )
         correlation_original = compute_cross_correlation(
             profile_1_no_zeros, profile_2_no_zeros
@@ -291,12 +382,8 @@ def align_profiles_multiscale(
 
     # Optionally remove boundary zeros
     if params.remove_boundary_zeros:
-        profile_1_profile_final = Profile(depth_data=profile_1, pixel_size=pixel_size)
-        profile_2_aligned_profile = Profile(
-            depth_data=profile_2_aligned, pixel_size=pixel_size
-        )
-        profile_1_aligned, profile_2_aligned, _ = remove_boundary_zeros(
-            profile_1_profile_final, profile_2_aligned_profile
+        profile_1_aligned, profile_2_aligned, _ = _remove_boundary_zeros(
+            profile_1, profile_2_aligned
         )
     else:
         profile_1_aligned = profile_1

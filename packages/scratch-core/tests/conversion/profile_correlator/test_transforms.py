@@ -10,7 +10,6 @@ from conversion.profile_correlator import (
     equalize_pixel_scale,
     make_profiles_equal_length,
     apply_transform,
-    remove_boundary_zeros,
     compute_cumulative_transform,
 )
 
@@ -198,55 +197,6 @@ class TestApplyTransform:
 
         # First 10 positions should be filled with 0
         assert_allclose(result[:10], 0.0, atol=1e-10)
-
-
-class TestRemoveBoundaryZeros:
-    """Tests for remove_boundary_zeros function."""
-
-    def test_no_zeros_unchanged(self):
-        """Profiles without boundary zeros should be returned unchanged."""
-        p1 = Profile(np.ones(100), pixel_size=0.5e-6)
-        p2 = Profile(np.ones(100), pixel_size=0.5e-6)
-
-        out1, out2, start = remove_boundary_zeros(p1, p2)
-
-        assert len(out1) == 100
-        assert len(out2) == 100
-        assert start == 0
-
-    def test_removes_leading_zeros(self):
-        """Leading zeros should be removed from both profiles."""
-        p1 = Profile(np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0]), pixel_size=0.5e-6)
-        p2 = Profile(np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0]), pixel_size=0.5e-6)
-
-        out1, out2, start = remove_boundary_zeros(p1, p2)
-
-        # Common non-zero region starts at index 3
-        assert start == 3
-        assert out1[0] == 1.0
-        assert out2[0] == 3.0
-
-    def test_removes_trailing_zeros(self):
-        """Trailing zeros should be removed from both profiles."""
-        p1 = Profile(np.array([1.0, 2.0, 3.0, 0.0, 0.0]), pixel_size=0.5e-6)
-        p2 = Profile(np.array([1.0, 2.0, 3.0, 4.0, 0.0]), pixel_size=0.5e-6)
-
-        out1, out2, start = remove_boundary_zeros(p1, p2)
-
-        # Common non-zero region ends at index 3
-        assert len(out1) == 3
-        assert len(out2) == 3
-
-    def test_handles_both_leading_and_trailing(self):
-        """Should handle both leading and trailing zeros."""
-        p1 = Profile(np.array([0.0, 0.0, 1.0, 2.0, 3.0, 0.0]), pixel_size=0.5e-6)
-        p2 = Profile(np.array([0.0, 1.5, 2.5, 3.5, 0.0, 0.0]), pixel_size=0.5e-6)
-
-        out1, out2, start = remove_boundary_zeros(p1, p2)
-
-        # Common non-zero region is indices 2-4
-        assert start == 2
-        assert len(out1) == 2  # indices 2, 3
 
 
 class TestComputeCumulativeTransform:
