@@ -18,21 +18,21 @@ class TestCutoffToGaussianSigma:
 
     def test_known_conversion(self):
         """Test conversion with known values."""
-        # 100 um cutoff with 0.5 um pixel size
-        # sigma = 100 / 0.5 * 0.187390625 = 200 * 0.187390625 = 37.478125
-        result = cutoff_to_gaussian_sigma(100.0, 0.5e-6)
+        # 100 um cutoff with 0.5 um pixel size (all in meters)
+        # sigma = 100e-6 / 0.5e-6 * 0.187390625 = 200 * 0.187390625 = 37.478125
+        result = cutoff_to_gaussian_sigma(100e-6, 0.5e-6)
         assert_allclose(result, 37.478125, atol=1e-6)
 
     def test_proportional_to_cutoff(self):
         """Sigma should be proportional to cutoff wavelength."""
-        sigma_50 = cutoff_to_gaussian_sigma(50.0, 0.5e-6)
-        sigma_100 = cutoff_to_gaussian_sigma(100.0, 0.5e-6)
+        sigma_50 = cutoff_to_gaussian_sigma(50e-6, 0.5e-6)
+        sigma_100 = cutoff_to_gaussian_sigma(100e-6, 0.5e-6)
         assert_allclose(sigma_100 / sigma_50, 2.0, atol=1e-10)
 
     def test_inversely_proportional_to_pixel_size(self):
         """Sigma should be inversely proportional to pixel size."""
-        sigma_05 = cutoff_to_gaussian_sigma(100.0, 0.5e-6)
-        sigma_1 = cutoff_to_gaussian_sigma(100.0, 1.0e-6)
+        sigma_05 = cutoff_to_gaussian_sigma(100e-6, 0.5e-6)
+        sigma_1 = cutoff_to_gaussian_sigma(100e-6, 1.0e-6)
         assert_allclose(sigma_05 / sigma_1, 2.0, atol=1e-10)
 
     def test_constant_matches_matlab(self):
@@ -120,7 +120,7 @@ class TestApplyLowpassFilter1d:
         signal = low_freq + high_freq
 
         # Filter with 20 um cutoff (should remove 5 um component)
-        filtered = apply_lowpass_filter_1d(signal, 20.0, pixel_size)
+        filtered = apply_lowpass_filter_1d(signal, 20e-6, pixel_size)
 
         # High frequency amplitude should be reduced
         # Compare variance of difference from low_freq
@@ -131,7 +131,7 @@ class TestApplyLowpassFilter1d:
     def test_preserves_nan_values(self):
         """NaN values should be preserved in the output."""
         data = np.array([1.0, 2.0, np.nan, 4.0, 5.0] * 20, dtype=float)
-        result = apply_lowpass_filter_1d(data, 50.0, 0.5e-6)
+        result = apply_lowpass_filter_1d(data, 50e-6, 0.5e-6)
 
         # Check NaN positions are preserved
         nan_positions = np.isnan(data)
@@ -141,13 +141,13 @@ class TestApplyLowpassFilter1d:
     def test_output_length_matches_input(self):
         """Output should have same length as input."""
         data = np.random.randn(500)
-        result = apply_lowpass_filter_1d(data, 50.0, 0.5e-6)
+        result = apply_lowpass_filter_1d(data, 50e-6, 0.5e-6)
         assert len(result) == len(data)
 
     def test_cut_borders_option(self):
         """cut_borders=True should trim the output."""
         data = np.random.randn(500)
-        result = apply_lowpass_filter_1d(data, 50.0, 0.5e-6, cut_borders=True)
+        result = apply_lowpass_filter_1d(data, 50e-6, 0.5e-6, cut_borders=True)
         assert len(result) < len(data)
 
 
@@ -166,7 +166,7 @@ class TestApplyHighpassFilter1d:
         signal = low_freq + high_freq
 
         # Filter with 100 um cutoff (should remove 500 um component)
-        filtered = apply_highpass_filter_1d(signal, 100.0, pixel_size)
+        filtered = apply_highpass_filter_1d(signal, 100e-6, pixel_size)
 
         # Low frequency amplitude should be reduced
         # The filtered signal should have similar variance to high_freq alone
@@ -176,7 +176,7 @@ class TestApplyHighpassFilter1d:
         """High-pass should equal original minus low-pass filtered."""
         np.random.seed(42)
         data = np.random.randn(200)
-        cutoff = 50.0
+        cutoff = 50e-6
         pixel_size = 0.5e-6
 
         lowpass = apply_lowpass_filter_1d(data, cutoff, pixel_size)
@@ -188,7 +188,7 @@ class TestApplyHighpassFilter1d:
     def test_preserves_nan_values(self):
         """NaN values should be preserved in the output."""
         data = np.array([1.0, 2.0, np.nan, 4.0, 5.0] * 20, dtype=float)
-        result = apply_highpass_filter_1d(data, 50.0, 0.5e-6)
+        result = apply_highpass_filter_1d(data, 50e-6, 0.5e-6)
 
         nan_positions = np.isnan(data)
         result_nan_positions = np.isnan(result)

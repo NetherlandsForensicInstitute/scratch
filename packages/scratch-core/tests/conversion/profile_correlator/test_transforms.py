@@ -7,7 +7,7 @@ from numpy.testing import assert_allclose, assert_array_equal
 from conversion.profile_correlator import (
     Profile,
     TransformParameters,
-    equalize_sampling_distance,
+    equalize_pixel_scale,
     make_profiles_equal_length,
     apply_transform,
     remove_boundary_zeros,
@@ -24,7 +24,7 @@ class TestEqualizeSamplingDistance:
         p1 = Profile(np.random.randn(100), pixel_size=pixel_size)
         p2 = Profile(np.random.randn(100), pixel_size=pixel_size)
 
-        p1_out, p2_out = equalize_sampling_distance(p1, p2)
+        p1_out, p2_out = equalize_pixel_scale(p1, p2)
 
         assert_array_equal(p1_out.depth_data, p1.depth_data)
         assert_array_equal(p2_out.depth_data, p2.depth_data)
@@ -34,7 +34,7 @@ class TestEqualizeSamplingDistance:
         p1 = Profile(np.random.randn(100), pixel_size=1.0e-6)  # Lower resolution
         p2 = Profile(np.random.randn(200), pixel_size=0.5e-6)  # Higher resolution
 
-        p1_out, p2_out = equalize_sampling_distance(p1, p2)
+        p1_out, p2_out = equalize_pixel_scale(p1, p2)
 
         # p1 should be unchanged (lower resolution)
         assert_array_equal(p1_out.depth_data, p1.depth_data)
@@ -50,7 +50,7 @@ class TestEqualizeSamplingDistance:
         p1 = Profile(np.random.randn(100), pixel_size=1.0e-6, resolution_limit=5e-6)
         p2 = Profile(np.random.randn(200), pixel_size=0.5e-6, resolution_limit=3e-6)
 
-        p1_out, p2_out = equalize_sampling_distance(p1, p2)
+        p1_out, p2_out = equalize_pixel_scale(p1, p2)
 
         # The resampled profile should have resolution_limit cleared
         assert p2_out.resolution_limit is None
@@ -63,37 +63,37 @@ class TestMakeProfilesEqualLength:
 
     def test_same_length_unchanged(self):
         """Profiles with same length should be returned unchanged."""
-        p1 = np.random.randn(100)
-        p2 = np.random.randn(100)
+        p1 = Profile(np.random.randn(100), pixel_size=0.5e-6)
+        p2 = Profile(np.random.randn(100), pixel_size=0.5e-6)
 
         p1_out, p2_out = make_profiles_equal_length(p1, p2)
 
-        assert_array_equal(p1_out, p1)
-        assert_array_equal(p2_out, p2)
+        assert_array_equal(p1_out.depth_data, p1.depth_data)
+        assert_array_equal(p2_out.depth_data, p2.depth_data)
 
     def test_longer_profile_cropped(self):
         """Longer profile should be cropped to match shorter one."""
-        p1 = np.arange(100, dtype=float)
-        p2 = np.arange(120, dtype=float)
+        p1 = Profile(np.arange(100, dtype=float), pixel_size=0.5e-6)
+        p2 = Profile(np.arange(120, dtype=float), pixel_size=0.5e-6)
 
         p1_out, p2_out = make_profiles_equal_length(p1, p2)
 
-        assert isinstance(p1_out, np.ndarray)
-        assert isinstance(p2_out, np.ndarray)
-        assert len(p1_out) == 100
-        assert len(p2_out) == 100
+        assert isinstance(p1_out, Profile)
+        assert isinstance(p2_out, Profile)
+        assert p1_out.length == 100
+        assert p2_out.length == 100
 
     def test_symmetric_cropping(self):
         """Cropping should be symmetric (equal from both ends)."""
-        p1 = np.arange(100, dtype=float)
-        p2 = np.arange(120, dtype=float)
+        p1 = Profile(np.arange(100, dtype=float), pixel_size=0.5e-6)
+        p2 = Profile(np.arange(120, dtype=float), pixel_size=0.5e-6)
 
         p1_out, p2_out = make_profiles_equal_length(p1, p2)
 
-        assert isinstance(p2_out, np.ndarray)
+        assert isinstance(p2_out, Profile)
         # p2 should be cropped by 10 from each end (diff=20, split equally)
-        assert p2_out[0] == 10  # Start at index 10
-        assert p2_out[-1] == 109  # End at index 109
+        assert p2_out.depth_data[0] == 10  # Start at index 10
+        assert p2_out.depth_data[-1] == 109  # End at index 109
 
     def test_works_with_profile_objects(self):
         """Should work with Profile objects."""
@@ -114,9 +114,10 @@ class TestApplyTransform:
     def test_zero_translation_no_change(self):
         """Zero translation and unit scaling should not change profile."""
         data = np.random.randn(100)
+        profile = Profile(data, pixel_size=0.5e-6)
         transform = TransformParameters(translation=0.0, scaling=1.0)
 
-        result = apply_transform(data, transform)
+        result = apply_transform(profile, transform)
 
         assert_allclose(result, data, atol=1e-10)
 
@@ -129,9 +130,10 @@ class TestApplyTransform:
         """
         data = np.zeros(20)
         data[10] = 1.0  # Spike at position 10
+        profile = Profile(data, pixel_size=0.5e-6)
         transform = TransformParameters(translation=5.0, scaling=1.0)
 
-        result = apply_transform(data, transform)
+        result = apply_transform(profile, transform)
 
         # The spike should move to around position 15 (10 + 5)
         peak_pos = np.argmax(result)
@@ -141,9 +143,10 @@ class TestApplyTransform:
         """Negative translation should shift the profile left (data appears earlier)."""
         data = np.zeros(20)
         data[10] = 1.0  # Spike at position 10
+        profile = Profile(data, pixel_size=0.5e-6)
         transform = TransformParameters(translation=-3.0, scaling=1.0)
 
-        result = apply_transform(data, transform)
+        result = apply_transform(profile, transform)
 
         # The spike should move to around position 7 (10 - 3)
         peak_pos = np.argmax(result)
@@ -157,9 +160,10 @@ class TestApplyTransform:
         """
         # Create a simple triangle peak
         data = np.concatenate([np.linspace(0, 1, 10), np.linspace(1, 0, 10)])
+        profile = Profile(data, pixel_size=0.5e-6)
         transform = TransformParameters(translation=0.0, scaling=1.1)
 
-        result = apply_transform(data, transform)
+        result = apply_transform(profile, transform)
 
         # After stretching, the peak should be wider in sample coordinates
         # because the data is spread out over more positions
@@ -171,13 +175,14 @@ class TestApplyTransform:
         """Multiple transforms should be composed correctly."""
         data = np.zeros(100)
         data[50] = 1.0
+        profile = Profile(data, pixel_size=0.5e-6)
 
         transforms = [
             TransformParameters(translation=10.0, scaling=1.0),  # Move by 10
             TransformParameters(translation=5.0, scaling=1.0),  # Move by 5 more
         ]
 
-        result = apply_transform(data, transforms)
+        result = apply_transform(profile, transforms)
 
         # Total translation should be 15, so spike moves from 50 to 65
         peak_pos = np.argmax(result)
@@ -186,9 +191,10 @@ class TestApplyTransform:
     def test_fill_value_for_extrapolation(self):
         """Positions outside bounds should be filled with fill_value."""
         data = np.ones(20)
+        profile = Profile(data, pixel_size=0.5e-6)
         transform = TransformParameters(translation=10.0, scaling=1.0)
 
-        result = apply_transform(data, transform, fill_value=0.0)
+        result = apply_transform(profile, transform, fill_value=0.0)
 
         # First 10 positions should be filled with 0
         assert_allclose(result[:10], 0.0, atol=1e-10)
@@ -199,8 +205,8 @@ class TestRemoveBoundaryZeros:
 
     def test_no_zeros_unchanged(self):
         """Profiles without boundary zeros should be returned unchanged."""
-        p1 = np.ones(100)
-        p2 = np.ones(100)
+        p1 = Profile(np.ones(100), pixel_size=0.5e-6)
+        p2 = Profile(np.ones(100), pixel_size=0.5e-6)
 
         out1, out2, start = remove_boundary_zeros(p1, p2)
 
@@ -210,8 +216,8 @@ class TestRemoveBoundaryZeros:
 
     def test_removes_leading_zeros(self):
         """Leading zeros should be removed from both profiles."""
-        p1 = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0])
-        p2 = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+        p1 = Profile(np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0]), pixel_size=0.5e-6)
+        p2 = Profile(np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0]), pixel_size=0.5e-6)
 
         out1, out2, start = remove_boundary_zeros(p1, p2)
 
@@ -222,8 +228,8 @@ class TestRemoveBoundaryZeros:
 
     def test_removes_trailing_zeros(self):
         """Trailing zeros should be removed from both profiles."""
-        p1 = np.array([1.0, 2.0, 3.0, 0.0, 0.0])
-        p2 = np.array([1.0, 2.0, 3.0, 4.0, 0.0])
+        p1 = Profile(np.array([1.0, 2.0, 3.0, 0.0, 0.0]), pixel_size=0.5e-6)
+        p2 = Profile(np.array([1.0, 2.0, 3.0, 4.0, 0.0]), pixel_size=0.5e-6)
 
         out1, out2, start = remove_boundary_zeros(p1, p2)
 
@@ -233,8 +239,8 @@ class TestRemoveBoundaryZeros:
 
     def test_handles_both_leading_and_trailing(self):
         """Should handle both leading and trailing zeros."""
-        p1 = np.array([0.0, 0.0, 1.0, 2.0, 3.0, 0.0])
-        p2 = np.array([0.0, 1.5, 2.5, 3.5, 0.0, 0.0])
+        p1 = Profile(np.array([0.0, 0.0, 1.0, 2.0, 3.0, 0.0]), pixel_size=0.5e-6)
+        p2 = Profile(np.array([0.0, 1.5, 2.5, 3.5, 0.0, 0.0]), pixel_size=0.5e-6)
 
         out1, out2, start = remove_boundary_zeros(p1, p2)
 

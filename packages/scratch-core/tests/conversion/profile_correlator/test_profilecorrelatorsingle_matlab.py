@@ -153,8 +153,6 @@ class MatlabTestCase:
     input_results_table: ResultsTable | None
     # Expected output
     expected_results: ResultsTable
-    # Output arrays (e.g., xcorr array at different scales)
-    output_arrays: dict[str, np.ndarray]
     # Metadata
     length_diff_percentage: float
     is_partial_expected: bool
@@ -187,13 +185,6 @@ class MatlabTestCase:
         # Parse expected output results table
         expected_results = ResultsTable.from_dict(meta["output_results_table"])
 
-        # Load output arrays
-        output_arrays = {}
-        for array_name in meta.get("output_results_arrays", []):
-            array_path = case_dir / f"output_results_{array_name}.npy"
-            if array_path.exists():
-                output_arrays[array_name] = np.load(array_path, allow_pickle=True)
-
         return cls(
             name=case_dir.name,
             profile_ref_data=profile_ref_data,
@@ -204,7 +195,6 @@ class MatlabTestCase:
             iVerbose=meta.get("iVerbose", 0),
             input_results_table=input_results_table,
             expected_results=expected_results,
-            output_arrays=output_arrays,
             length_diff_percentage=meta.get("length_diff_percentage", 0.0),
             is_partial_expected=meta.get("is_partial_expected", False),
             ref_has_nans=meta.get("ref_has_nans", False),
@@ -491,14 +481,6 @@ class TestProfileCorrelatorSingleEdgeCases:
             f"{test_case.name}: pOverlap (partial)",
             rtol=1e-3,
         )
-
-    def test_output_arrays(self, test_case: MatlabTestCase):
-        """Test that output arrays match MATLAB reference."""
-        if not test_case.output_arrays:
-            pytest.skip("Test case has no output arrays")
-
-        # TODO: Implement when Python function returns arrays
-        pytest.skip("Output array comparison not yet implemented")
 
 
 # ============================================================================

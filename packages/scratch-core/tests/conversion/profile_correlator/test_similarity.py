@@ -82,7 +82,7 @@ class TestComputeComparisonMetrics:
         transforms = [TransformParameters(translation=0.0, scaling=1.0)]
         p1 = np.array([1.0, 2.0, 3.0, 4.0, 5.0]) * 1e-6  # Heights in meters
         p2 = np.array([1.1, 2.1, 2.9, 4.0, 5.1]) * 1e-6
-        result = compute_comparison_metrics(transforms, p1, p2, pixel_size_um=0.5)
+        result = compute_comparison_metrics(transforms, p1, p2, pixel_size=0.5e-6)
 
         assert result.is_profile_comparison is True
         assert not np.isnan(result.correlation_coefficient)
@@ -106,7 +106,7 @@ class TestComputeComparisonMetrics:
         ]
         p1 = np.zeros(100)
         p2 = np.zeros(100)
-        result = compute_comparison_metrics(transforms, p1, p2, pixel_size_um=0.5)
+        result = compute_comparison_metrics(transforms, p1, p2, pixel_size=0.5e-6)
 
         # Total scaling = 1.01 * 1.02 = 1.0302
         assert_allclose(result.scale_factor, 1.0302, atol=1e-10)
@@ -116,7 +116,7 @@ class TestComputeComparisonMetrics:
         transforms = [TransformParameters(translation=0.0, scaling=1.0)]
         p1 = np.array([1.0, -1.0, 1.0, -1.0, 1.0]) * 1e-6
         p2 = np.array([1.5, -1.5, 1.5, -1.5, 1.5]) * 1e-6
-        result = compute_comparison_metrics(transforms, p1, p2, pixel_size_um=0.5)
+        result = compute_comparison_metrics(transforms, p1, p2, pixel_size=0.5e-6)
 
         # Sa = mean(|profile|), converted to um
         assert result.sa_ref > 0

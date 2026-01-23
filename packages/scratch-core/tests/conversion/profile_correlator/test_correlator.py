@@ -148,19 +148,19 @@ class TestCorrelateProfiles:
         profile_ref = Profile(np.random.randn(500), pixel_size=pixel_size)
         profile_comp = Profile(np.random.randn(500), pixel_size=pixel_size)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters(scale_passes=(100e-6, 50e-6, 25e-6, 10e-6))
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
-        assert_allclose(result.pixel_size_ref, 0.5, atol=1e-10)
-        assert_allclose(result.pixel_size_comp, 0.5, atol=1e-10)
+        assert_allclose(result.pixel_size_ref, 0.5e-6, atol=1e-16)
+        assert_allclose(result.pixel_size_comp, 0.5e-6, atol=1e-16)
 
     def test_equalizes_different_pixel_sizes(self):
         """Profiles with different pixel sizes should be equalized."""
         profile_ref = Profile(np.random.randn(500), pixel_size=1.0e-6)
         profile_comp = Profile(np.random.randn(1000), pixel_size=0.5e-6)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters(scale_passes=(100e-6, 50e-6, 25e-6, 10e-6))
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
