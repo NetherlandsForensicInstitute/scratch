@@ -9,6 +9,8 @@ The main types are:
 - TransformParameters: Single translation + scaling transform
 - AlignmentResult: Complete result from multi-scale alignment
 - ComparisonResults: Full comparison metrics for striated mark analysis
+
+All length and height measurements are in meters (SI units).
 """
 
 from dataclasses import dataclass, field
@@ -17,7 +19,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 
-@dataclass
+@dataclass(frozen=True)
 class Profile:
     """
     Container for a 1D or multi-column profile with metadata.
@@ -26,22 +28,16 @@ class Profile:
     Multi-column profiles contain multiple parallel scans that can be averaged
     using mean or median to reduce noise.
 
-    The MATLAB equivalent is a struct with fields:
-    - depth_data: Height values (N,) or (N, M) array
-    - xdim: Physical distance between samples in meters (pixel_size)
-    - cutoff_hi, cutoff_lo: Filter cutoff wavelengths in micrometers
-    - LR: Minimum resolvable wavelength (resolution_limit)
+    All measurements are in meters (SI units).
 
     :param depth_data: Height values as (N,) for single profile or (N, M)
         for M parallel profiles where N is the number of samples.
     :param pixel_size: Physical distance between samples in meters.
-        This corresponds to 'xdim' in the MATLAB code.
-    :param cutoff_hi: High-frequency cutoff wavelength in micrometers.
+    :param cutoff_hi: High-frequency cutoff wavelength in meters.
         Wavelengths shorter than this are filtered out (optional).
-    :param cutoff_lo: Low-frequency cutoff wavelength in micrometers.
+    :param cutoff_lo: Low-frequency cutoff wavelength in meters.
         Wavelengths longer than this are filtered out (optional).
-    :param resolution_limit: Minimum resolvable wavelength in meters.
-        This corresponds to 'LR' in the MATLAB code (optional).
+    :param resolution_limit: Minimum resolvable wavelength in meters (optional).
     """
 
     depth_data: NDArray[np.floating]
@@ -68,15 +64,6 @@ class Profile:
         """
         return 1 if self.depth_data.ndim == 1 else self.depth_data.shape[1]
 
-    @property
-    def pixel_size_um(self) -> float:
-        """
-        Get the pixel size in micrometers.
-
-        :returns: Pixel size converted from meters to micrometers.
-        """
-        return self.pixel_size * 1e6
-
     def mean_profile(self, use_mean: bool = True) -> NDArray[np.floating]:
         """
         Compute mean or median across columns.
@@ -93,7 +80,7 @@ class Profile:
         return func(self.depth_data, axis=1)
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlignmentParameters:
     """
     Configuration parameters for profile alignment.
@@ -101,16 +88,18 @@ class AlignmentParameters:
     This dataclass contains all parameters needed for the multi-scale
     profile alignment algorithm. Default values match the MATLAB implementation.
 
-    :param scale_passes: Cutoff wavelengths (um) for multi-scale passes,
+    All length parameters are in meters (SI units).
+
+    :param scale_passes: Cutoff wavelengths (m) for multi-scale passes,
         ordered from coarse to fine. At each scale, profiles are low-pass
         filtered and aligned before proceeding to the next finer scale.
-    :param max_translation: Maximum allowed translation in micrometers.
+    :param max_translation: Maximum allowed translation in meters.
         The optimization will not exceed this shift distance.
     :param max_scaling: Maximum allowed scaling deviation as a fraction.
         E.g., 0.05 means scaling can vary from 0.95 to 1.05.
-    :param cutoff_hi: High-frequency cutoff for filtering in micrometers.
+    :param cutoff_hi: High-frequency cutoff for filtering in meters.
         Scales finer than this will not be used.
-    :param cutoff_lo: Low-frequency cutoff for filtering in micrometers.
+    :param cutoff_lo: Low-frequency cutoff for filtering in meters.
         Scales coarser than this will not be used.
     :param partial_mark_threshold: Length difference threshold (percent)
         to trigger partial profile matching. If profiles differ by more
@@ -125,11 +114,21 @@ class AlignmentParameters:
         borders after applying smoothing filters.
     """
 
-    scale_passes: tuple[float, ...] = (1000, 500, 250, 100, 50, 25, 10, 5)
-    max_translation: float = 1e7
+    # Scale passes in meters (equivalent to 1000, 500, 250, 100, 50, 25, 10, 5 μm)
+    scale_passes: tuple[float, ...] = (
+        1e-3,
+        5e-4,
+        2.5e-4,
+        1e-4,
+        5e-5,
+        2.5e-5,
+        1e-5,
+        5e-6,
+    )
+    max_translation: float = 10.0  # 10 meters (was 1e7 μm = 10 m)
     max_scaling: float = 0.05
-    cutoff_hi: float = 1000.0
-    cutoff_lo: float = 5.0
+    cutoff_hi: float = 1e-3  # 1 mm = 1000 μm
+    cutoff_lo: float = 5e-6  # 5 μm
     partial_mark_threshold: float = 8.0
     inclusion_threshold: float = 0.5
     use_mean: bool = True
@@ -203,35 +202,34 @@ class ComparisonResults:
     including registration parameters, roughness measurements, and
     signature differences.
 
-    All length measurements are in micrometers unless otherwise noted.
-    Height measurements (Sa, Sq) are also in micrometers.
+    All length and height measurements are in meters (SI units).
 
     :param is_profile_comparison: True for full profile comparison mode.
     :param is_partial_profile: True if partial profile matching was used
         (profiles had significantly different lengths).
-    :param pixel_size_ref: Pixel separation of reference profile (um).
-    :param pixel_size_comp: Pixel separation of compared profile (um).
+    :param pixel_size_ref: Pixel separation of reference profile (m).
+    :param pixel_size_comp: Pixel separation of compared profile (m).
     :param position_shift: Registration shift of compared profile
-        relative to reference (um).
+        relative to reference (m).
     :param scale_factor: Registration scale factor applied to compared
         profile (1.0 = no scaling).
     :param partial_start_position: For partial profile matching, the
         position in the reference where the partial profile best aligns
-        (um). NaN for full profile matching.
+        (m). NaN for full profile matching.
     :param similarity_value: Optimized value of the similarity metric
         used during registration.
     :param overlap_length: Length of the overlapping region after
-        registration (um).
+        registration (m).
     :param overlap_ratio: Ratio of overlap length to the length of the
         shorter profile.
     :param correlation_coefficient: Pearson cross-correlation coefficient
         between the aligned profiles.
-    :param sa_ref: Mean absolute height (Sa) of the reference profile (um).
-    :param sq_ref: RMS roughness (Sq) of the reference profile (um).
-    :param sa_comp: Mean absolute height (Sa) of the compared profile (um).
-    :param sq_comp: RMS roughness (Sq) of the compared profile (um).
-    :param sa_diff: Mean absolute height difference between profiles (um).
-    :param sq_diff: RMS height difference between profiles (um).
+    :param sa_ref: Mean absolute height (Sa) of the reference profile (m).
+    :param sq_ref: RMS roughness (Sq) of the reference profile (m).
+    :param sa_comp: Mean absolute height (Sa) of the compared profile (m).
+    :param sq_comp: RMS roughness (Sq) of the compared profile (m).
+    :param sa_diff: Mean absolute height difference between profiles (m).
+    :param sq_diff: RMS height difference between profiles (m).
     :param ds_ref_norm: Signature difference normalized by reference Sq.
         Computed as (sq_diff / sq_ref)^2.
     :param ds_comp_norm: Signature difference normalized by compared Sq.

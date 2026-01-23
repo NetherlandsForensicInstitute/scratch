@@ -1,4 +1,5 @@
-"""Multi-scale profile alignment algorithms.
+"""
+Multi-scale profile alignment algorithms.
 
 This module provides functions for aligning 1D profiles using multi-scale
 coarse-to-fine registration. The algorithm iteratively refines the alignment
@@ -9,10 +10,7 @@ The main functions are:
 - align_profiles_multiscale: Full profile multi-scale alignment
 - align_partial_profile_multiscale: Partial profile alignment with candidate search
 
-These correspond to the MATLAB functions:
-- AlignInterProfilesMultiScale.m
-- AlignInterProfilesPartialMultiScale.m
-- ErrorfuncForInterProfileAlignment.m
+All length parameters are in meters (SI units).
 """
 
 from typing import Sequence
@@ -53,8 +51,6 @@ def _alignment_objective(
     approximately 1 sample of translation has a similar effect on the correlation
     as 0.0001 in scaling.
 
-    This corresponds to MATLAB's ErrorfuncForInterProfileAlignment.m.
-
     :param x: Optimization variables [translation, encoded_scaling] where
         encoded_scaling = (scaling - 1) * 10000.
     :param profile_ref: Reference profile (1D array).
@@ -62,13 +58,14 @@ def _alignment_objective(
     :returns: Negative cross-correlation (minimized during optimization).
     """
     # Extract and decode parameters
-    # MATLAB: translation = x(1); scaling = x(2)/10000 + 1
     translation = x[0]
     scaling = x[1] / 10000.0 + 1.0
 
     # Create transform and apply to compared profile
+    # Wrap array in Profile for apply_transform (pixel_size=1.0 since we're in sample space)
     transform = TransformParameters(translation=translation, scaling=scaling)
-    profile_comp_transformed = apply_transform(profile_comp, transform)
+    profile_comp_profile = Profile(depth_data=profile_comp, pixel_size=1.0)
+    profile_comp_transformed = apply_transform(profile_comp_profile, transform)
 
     # Compute similarity (cross-correlation)
     correlation = compute_cross_correlation(profile_ref, profile_comp_transformed)
@@ -103,7 +100,7 @@ def align_profiles_multiscale(
     Scale levels that are below the resolution limit or outside the cutoff
     bounds are skipped.
 
-    This corresponds to MATLAB's AlignInterProfilesMultiScale.m.
+    All length parameters are in meters (SI units).
 
     :param profile_ref: Reference profile (kept fixed during alignment).
     :param profile_comp: Compared profile (transformed to align with reference).
@@ -112,18 +109,6 @@ def align_profiles_multiscale(
         history, final correlation, and the aligned profiles.
     :raises ValueError: If profiles have different lengths. Use
         make_profiles_equal_length() first if needed.
-
-    Example::
-
-        >>> import numpy as np
-        >>> from conversion.profile_correlator.data_types import Profile
-        >>> # Create two profiles with a known shift
-        >>> x = np.linspace(0, 10, 1000)
-        >>> ref = Profile(np.sin(x), pixel_size=0.5e-6)
-        >>> comp = Profile(np.sin(x - 0.1), pixel_size=0.5e-6)  # Shifted
-        >>> result = align_profiles_multiscale(ref, comp)
-        >>> result.final_correlation > 0.99
-        True
     """
     # Use default parameters if not provided
     if params is None:
@@ -141,18 +126,16 @@ def align_profiles_multiscale(
             "Use make_profiles_equal_length() first."
         )
 
-    # Get pixel size and determine resolution limit
-    # MATLAB: xdim = profiles1_in.xdim; LR = max(cutoff_lo * 1e-6, 2 * xdim)
-    pixel_size = profile_ref.pixel_size  # In meters
-    pixel_size_um = pixel_size * 1e6  # In micrometers
+    # Get pixel size in meters
+    pixel_size = profile_ref.pixel_size
 
+    # Determine resolution limit
     if profile_ref.resolution_limit is not None:
         resolution_limit = profile_ref.resolution_limit
     else:
-        resolution_limit = max(params.cutoff_lo * 1e-6, 2 * pixel_size)
+        resolution_limit = max(params.cutoff_lo, 2 * pixel_size)
 
-    # Determine effective cutoff bounds
-    # Use the more restrictive bounds from profiles and parameters
+    # Determine effective cutoff bounds (all in meters)
     cutoff_hi = params.cutoff_hi
     cutoff_lo = params.cutoff_lo
 
@@ -161,11 +144,8 @@ def align_profiles_multiscale(
     if profile_ref.cutoff_lo is not None and profile_comp.cutoff_lo is not None:
         cutoff_lo = max(cutoff_lo, profile_ref.cutoff_lo, profile_comp.cutoff_lo)
 
-    # Convert max_translation from micrometers to samples
-    # MATLAB: max_translation = max_translation/1000; then round(max_translation/xdim/1000)
-    # which is max_translation_um / 1000 / (xdim_m * 1000) = max_translation_um / (xdim_m * 1e6)
-    # = max_translation_um / pixel_size_um
-    max_translation_samples = params.max_translation / pixel_size_um
+    # Convert max_translation from meters to samples
+    max_translation_samples = params.max_translation / pixel_size
 
     # Initialize tracking variables
     transforms: list[TransformParameters] = []
@@ -179,65 +159,50 @@ def align_profiles_multiscale(
     # Working copy of compared profile
     profile_2_mod = profile_2.copy()
 
-    # Process each scale level from coarse to fine
-    for scale_idx, cutoff_um in enumerate(params.scale_passes):
+    # Process each scale level from coarse to fine (scale_passes are in meters)
+    for cutoff in params.scale_passes:
         # Check if this scale level should be processed
-        # MATLAB: pass(scale_level, 1) * 1e-6 >= resolution_threshold
-        #         && pass(scale_level, 1) <= cutoff_hi
-        #         && pass(scale_level, 1) >= cutoff_lo
-        cutoff_m = cutoff_um * 1e-6
-
-        if cutoff_m < resolution_limit:
+        if cutoff < resolution_limit:
             # Scale is finer than resolution limit, skip
             continue
-        if cutoff_um > cutoff_hi:
+        if cutoff > cutoff_hi:
             # Scale is coarser than high cutoff bound, skip
             continue
-        if cutoff_um < cutoff_lo:
+        if cutoff < cutoff_lo:
             # Scale is finer than low cutoff bound, skip
             continue
 
         # Apply low-pass filter to both profiles at current scale
-        # MATLAB: result1 = ApplyLowPassFilter(mean_1, param_tmp)
         profile_1_filtered = apply_lowpass_filter_1d(
             profile_1,
-            cutoff_wavelength_um=cutoff_um,
-            pixel_size_m=pixel_size,
+            cutoff_wavelength=cutoff,
+            pixel_size=pixel_size,
             cut_borders=params.cut_borders_after_smoothing,
         )
 
         profile_2_filtered = apply_lowpass_filter_1d(
             profile_2_mod,
-            cutoff_wavelength_um=cutoff_um,
-            pixel_size_m=pixel_size,
+            cutoff_wavelength=cutoff,
+            pixel_size=pixel_size,
             cut_borders=params.cut_borders_after_smoothing,
         )
 
         # Compute subsampling factor for efficiency
-        # MATLAB: subsample_factor = ceil(param_tmp.cutoff_lo / (xdim * 1e6) / 2 / 5)
-        # Note: cutoff_lo here is the current scale's cutoff
-        subsample_factor = max(1, int(np.ceil(cutoff_um / pixel_size_um / 2 / 5)))
+        # Factor is based on cutoff wavelength in samples
+        cutoff_samples = cutoff / pixel_size
+        subsample_factor = max(1, int(np.ceil(cutoff_samples / 2 / 5)))
 
         # Subsample for optimization (coarse scales)
         profile_1_subsampled = profile_1_filtered[::subsample_factor]
         profile_2_subsampled = profile_2_filtered[::subsample_factor]
 
         # Compute bounds for this scale level
-        # MATLAB bounds logic:
-        # max_translation_tmp = max_translation - translation_tot
-        # min_translation_tmp = max_translation + translation_tot
-        # max_scaling_tmp = max_scaling * (1 - (scaling_tot - 1))
-        # min_scaling_tmp = max_scaling * (1 + (scaling_tot - 1))
         max_trans_adj = max_translation_samples - translation_total
         min_trans_adj = max_translation_samples + translation_total
         max_scaling_adj = params.max_scaling * (1 - (scaling_total - 1))
         min_scaling_adj = params.max_scaling * (1 + (scaling_total - 1))
 
         # Bounds in subsampled coordinates
-        # MATLAB: lb = [-round(min_translation_tmp/subsample_factor)
-        #               ((1 - min_scaling_tmp)/current_scaling - 1) * 10000]
-        #         ub = [ round(max_translation_tmp/subsample_factor)
-        #               ((1 + max_scaling_tmp)/current_scaling - 1) * 10000]
         trans_lb = -int(round(min_trans_adj / subsample_factor))
         trans_ub = int(round(max_trans_adj / subsample_factor))
 
@@ -251,7 +216,6 @@ def align_profiles_multiscale(
         x0 = np.array([0.0, 0.0])
 
         # Run bounded optimization
-        # MATLAB uses fminsearchbnd; we use scipy.optimize.minimize with L-BFGS-B
         result = minimize(
             _alignment_objective,
             x0,
@@ -259,8 +223,8 @@ def align_profiles_multiscale(
             method="L-BFGS-B",
             bounds=bounds,
             options={
-                "ftol": 1e-6,  # MATLAB: TolFun = 0.000001
-                "gtol": 1e-6,  # MATLAB: TolX = 0.000001
+                "ftol": 1e-6,
+                "gtol": 1e-6,
                 "maxiter": 1000,
                 "disp": False,
             },
@@ -271,8 +235,6 @@ def align_profiles_multiscale(
         scaling_encoded = result.x[1]
 
         # Convert back to full resolution
-        # MATLAB: translation = x(1) * subsample_factor
-        #         scaling = x(2)/10000 + 1
         translation = translation_subsampled * subsample_factor
         scaling = scaling_encoded / 10000.0 + 1.0
 
@@ -286,17 +248,28 @@ def align_profiles_multiscale(
         scaling_total = scaling_total * scaling
 
         # Apply transform to get aligned compared profile for correlation computation
-        profile_2_transformed = apply_transform(profile_2_mod, transform)
+        # Wrap arrays in Profile objects for apply_transform
+        profile_2_mod_profile = Profile(depth_data=profile_2_mod, pixel_size=pixel_size)
+        profile_2_transformed = apply_transform(profile_2_mod_profile, transform)
 
         # Compute correlation at this scale level (on filtered profiles)
-        profile_2_filtered_transformed = apply_transform(profile_2_filtered, transform)
+        profile_2_filtered_profile = Profile(
+            depth_data=profile_2_filtered, pixel_size=pixel_size
+        )
+        profile_2_filtered_transformed = apply_transform(
+            profile_2_filtered_profile, transform
+        )
         correlation_filtered = compute_cross_correlation(
             profile_1_filtered, profile_2_filtered_transformed
         )
 
         # Compute correlation on original (unfiltered) profiles after removing zeros
+        profile_1_profile = Profile(depth_data=profile_1, pixel_size=pixel_size)
+        profile_2_transformed_profile = Profile(
+            depth_data=profile_2_transformed, pixel_size=pixel_size
+        )
         profile_1_no_zeros, profile_2_no_zeros, _ = remove_boundary_zeros(
-            profile_1, profile_2_transformed
+            profile_1_profile, profile_2_transformed_profile
         )
         correlation_original = compute_cross_correlation(
             profile_1_no_zeros, profile_2_no_zeros
@@ -313,12 +286,17 @@ def align_profiles_multiscale(
         correlation_history = [(np.nan, np.nan)]
 
     # Apply all transforms to get final aligned profile
-    profile_2_aligned = apply_transform(profile_2, transforms)
+    profile_2_profile = Profile(depth_data=profile_2, pixel_size=pixel_size)
+    profile_2_aligned = apply_transform(profile_2_profile, transforms)
 
     # Optionally remove boundary zeros
     if params.remove_boundary_zeros:
+        profile_1_profile_final = Profile(depth_data=profile_1, pixel_size=pixel_size)
+        profile_2_aligned_profile = Profile(
+            depth_data=profile_2_aligned, pixel_size=pixel_size
+        )
         profile_1_aligned, profile_2_aligned, _ = remove_boundary_zeros(
-            profile_1, profile_2_aligned
+            profile_1_profile_final, profile_2_aligned_profile
         )
     else:
         profile_1_aligned = profile_1
@@ -368,8 +346,6 @@ def align_partial_profile_multiscale(
     If candidate_positions is provided, it uses those directly instead of
     running the candidate search algorithm.
 
-    This corresponds to MATLAB's AlignInterProfilesPartialMultiScale.m.
-
     :param reference: Reference profile (longer one).
     :param partial: Partial profile (shorter one) to align to reference.
     :param params: Alignment parameters. If None, default parameters are used.
@@ -378,18 +354,6 @@ def align_partial_profile_multiscale(
     :returns: Tuple of (AlignmentResult, best_start_position) where
         best_start_position is the index in the reference where the partial
         profile best aligns.
-
-    Example::
-
-        >>> import numpy as np
-        >>> from conversion.profile_correlator.data_types import Profile
-        >>> # Create reference with partial segment
-        >>> x = np.linspace(0, 20, 2000)
-        >>> ref = Profile(np.sin(x), pixel_size=0.5e-6)
-        >>> partial = Profile(np.sin(x[500:1000]), pixel_size=0.5e-6)
-        >>> result, start = align_partial_profile_multiscale(ref, partial)
-        >>> 450 < start < 550  # Should find position near 500
-        True
     """
     # Use default parameters if not provided
     if params is None:
@@ -431,7 +395,6 @@ def align_partial_profile_multiscale(
         positions = list(candidate_positions)
 
     # Handle empty candidates by lowering threshold until we find some
-    # MATLAB: while label_opts_empty == 1: ... param.inclusion_threshold -= 0.05
     threshold = params.inclusion_threshold
     while len(positions) == 0 and threshold > 0:
         threshold -= 0.05

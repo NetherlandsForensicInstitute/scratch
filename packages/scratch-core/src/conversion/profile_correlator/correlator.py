@@ -4,11 +4,7 @@ This module provides the primary interface for comparing striated mark profiles.
 It handles the complete workflow including sampling equalization, length matching,
 and multi-scale alignment.
 
-The main function is:
-- correlate_profiles: Compare two profiles and compute similarity metrics
-
-This corresponds to the MATLAB function:
-- ProfileCorrelatorSingle.m
+All length and height measurements are in meters (SI units).
 """
 
 import numpy as np
@@ -24,7 +20,7 @@ from conversion.profile_correlator.data_types import (
 )
 from conversion.profile_correlator.similarity import compute_comparison_metrics
 from conversion.profile_correlator.transforms import (
-    equalize_sampling_distance,
+    equalize_pixel_scale,
     make_profiles_equal_length,
 )
 
@@ -32,13 +28,12 @@ from conversion.profile_correlator.transforms import (
 def correlate_profiles(
     profile_ref: Profile,
     profile_comp: Profile,
-    params: AlignmentParameters | None = None,
+    params: AlignmentParameters = AlignmentParameters(),
 ) -> ComparisonResults:
     """
     Compare two striated mark profiles and compute similarity metrics.
 
-    This function is the main entry point for profile correlation. It performs
-    the complete comparison workflow:
+    It performs the complete comparison workflow:
 
     1. **Equalize sampling distances**: If the two profiles have different pixel
        sizes, the higher-resolution one is resampled to match the lower resolution.
@@ -55,30 +50,18 @@ def correlate_profiles(
        are calculated including correlation coefficient, roughness parameters,
        and signature differences.
 
-    This corresponds to MATLAB's ProfileCorrelatorSingle.m.
+    All measurements are in meters (SI units).
 
     :param profile_ref: Reference profile to compare against.
     :param profile_comp: Compared profile to align to the reference.
     :param params: Alignment parameters. If None, default parameters are used.
     :returns: ComparisonResults containing all computed metrics including:
         - correlation_coefficient: Pearson correlation after alignment
-        - position_shift: Translation applied (in micrometers)
+        - position_shift: Translation applied (m)
         - scale_factor: Scaling factor applied
-        - sa_ref, sq_ref: Roughness metrics for reference
-        - sa_comp, sq_comp: Roughness metrics for compared profile
+        - sa_ref, sq_ref: Roughness metrics for reference (m)
+        - sa_comp, sq_comp: Roughness metrics for compared profile (m)
         - ds_combined: Combined signature difference
-
-    Example::
-
-        >>> import numpy as np
-        >>> from conversion.profile_correlator.data_types import Profile
-        >>> # Create two similar profiles
-        >>> x = np.linspace(0, 10, 1000)
-        >>> ref = Profile(np.sin(x) + 0.01 * np.random.randn(1000), pixel_size=0.5e-6)
-        >>> comp = Profile(np.sin(x - 0.05) + 0.01 * np.random.randn(1000), pixel_size=0.5e-6)
-        >>> results = correlate_profiles(ref, comp)
-        >>> results.correlation_coefficient > 0.9
-        True
 
     Notes
     -----
@@ -92,25 +75,19 @@ def correlate_profiles(
     For best results, ensure profiles are preprocessed with appropriate
     filtering before calling this function.
     """
-    # Use default parameters if not provided
-    if params is None:
-        params = AlignmentParameters()
-
-    # Step 1: Equalize sampling distances
-    # MATLAB: [profile_ref_equal, profile_comp_equal] = EqualizeSamplingDistance(...)
-    profile_ref_equal, profile_comp_equal = equalize_sampling_distance(
+    # Step 1: Equalize pixel scale
+    profile_ref_equal, profile_comp_equal = equalize_pixel_scale(
         profile_ref, profile_comp
     )
 
-    # Get pixel size in micrometers
-    pixel_size_um = profile_ref_equal.pixel_size * 1e6
+    # Get pixel size in meters
+    pixel_size = profile_ref_equal.pixel_size
 
     # Step 2: Determine profile lengths and length difference
     size_1 = profile_ref_equal.length
     size_2 = profile_comp_equal.length
 
     # Compute relative length difference percentage
-    # MATLAB: lengthDiffPercentage = abs(size_1 - size_2) / max(size_1, size_2) * 100
     length_diff_percent = abs(size_1 - size_2) / max(size_1, size_2) * 100
 
     # Step 3: Determine if full or partial matching is needed
@@ -119,14 +96,9 @@ def correlate_profiles(
     if not is_partial_profile:
         # Full profile comparison
         # Make profiles equal length by symmetric cropping
-        # MATLAB: [profile_ref_equal_mod, profile_comp_equal_mod] = MakeDatasetLengthEqual(...)
         profile_ref_mod, profile_comp_mod = make_profiles_equal_length(
             profile_ref_equal, profile_comp_equal
         )
-
-        # Since we passed Profile objects, we get Profile objects back
-        assert isinstance(profile_ref_mod, Profile)
-        assert isinstance(profile_comp_mod, Profile)
 
         # Run multi-scale alignment
         alignment_result = align_profiles_multiscale(
@@ -151,7 +123,7 @@ def correlate_profiles(
             profile_ref_aligned = alignment_result.reference_aligned
             profile_comp_aligned = alignment_result.compared_aligned
             transforms = alignment_result.transforms
-            partial_start_position = start_position * pixel_size_um
+            partial_start_position = start_position * pixel_size
         else:
             # Compared profile is longer - swap for alignment, then swap back
             alignment_result, start_position = align_partial_profile_multiscale(
@@ -161,37 +133,32 @@ def correlate_profiles(
             profile_ref_aligned = alignment_result.compared_aligned
             profile_comp_aligned = alignment_result.reference_aligned
             transforms = alignment_result.transforms
-            partial_start_position = start_position * pixel_size_um
+            partial_start_position = start_position * pixel_size
 
     # Step 4: Compute comparison metrics
-    # MATLAB: results_table = GetStriatedMarkComparisonResults(...)
     results = compute_comparison_metrics(
         transforms=transforms,
         profile_ref=profile_ref_aligned,
         profile_comp=profile_comp_aligned,
-        pixel_size_um=pixel_size_um,
+        pixel_size=pixel_size,
     )
 
     # Compute overlap ratio
-    # MATLAB: if size_1 >= size_2:
-    #             results_table.pOverlap = lOverlap/(size_2*vPixSep2)
-    #         else:
-    #             results_table.pOverlap = lOverlap/(size_1*vPixSep1)
     if size_1 >= size_2:
-        shorter_length_um = size_2 * pixel_size_um
+        shorter_length = size_2 * pixel_size
     else:
-        shorter_length_um = size_1 * pixel_size_um
+        shorter_length = size_1 * pixel_size
 
     overlap_ratio = (
-        results.overlap_length / shorter_length_um if shorter_length_um > 0 else np.nan
+        results.overlap_length / shorter_length if shorter_length > 0 else np.nan
     )
 
     # Create final results with additional fields
     return ComparisonResults(
         is_profile_comparison=True,
         is_partial_profile=is_partial_profile,
-        pixel_size_ref=pixel_size_um,
-        pixel_size_comp=pixel_size_um,  # Same after equalization
+        pixel_size_ref=pixel_size,
+        pixel_size_comp=pixel_size,  # Same after equalization
         position_shift=results.position_shift,
         scale_factor=results.scale_factor,
         partial_start_position=partial_start_position,

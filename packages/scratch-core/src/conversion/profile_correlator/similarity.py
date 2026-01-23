@@ -1,4 +1,5 @@
-"""Similarity metrics for profile comparison.
+"""
+Similarity metrics for profile comparison.
 
 This module provides functions for computing similarity metrics between
 1D profiles, including cross-correlation and comprehensive comparison
@@ -8,9 +9,7 @@ The main functions are:
 - compute_cross_correlation: NaN-aware normalized cross-correlation
 - compute_comparison_metrics: Full set of comparison metrics
 
-These correspond to the MATLAB functions:
-- GetSimilarityScore.m
-- GetStriatedMarkComparisonResults.m
+All length and height measurements are in meters (SI units).
 """
 
 from typing import Sequence
@@ -42,23 +41,12 @@ def compute_cross_correlation(
 
     where p1 and p2 are the mean-centered profiles with NaN values removed.
 
-    This corresponds to MATLAB's GetSimilarityScore.m with score_type='cross_correlation'.
-
     :param profile_1: First profile as a 1D array. May contain NaN values.
     :param profile_2: Second profile as a 1D array. Must have the same length
         as profile_1. May contain NaN values.
     :returns: Correlation coefficient in the range [-1, 1]. Returns NaN if
         there are no valid (non-NaN) overlapping samples.
     :raises ValueError: If profiles have different lengths.
-
-    Example::
-
-        >>> import numpy as np
-        >>> p1 = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        >>> p2 = np.array([1.1, 2.1, 2.9, 4.0, 5.1])
-        >>> r = compute_cross_correlation(p1, p2)
-        >>> r > 0.99
-        True
     """
     # Ensure 1D arrays
     profile_1 = np.asarray(profile_1).ravel()
@@ -72,7 +60,6 @@ def compute_cross_correlation(
         )
 
     # Find indices where both profiles have valid (non-NaN) values
-    # This corresponds to MATLAB: ind = isnan(profile_1)|isnan(profile_2)
     valid_mask = ~(np.isnan(profile_1) | np.isnan(profile_2))
 
     # Extract valid samples
@@ -85,18 +72,15 @@ def compute_cross_correlation(
         return np.nan
 
     # Mean-center the profiles
-    # MATLAB: profile_1 = profile_1 - sum(profile_1,1)/size(profile_1,1)
     p1_centered = p1_valid - np.mean(p1_valid)
     p2_centered = p2_valid - np.mean(p2_valid)
 
     # Compute correlation terms
-    # MATLAB: a12 = profile_1' * profile_2
     a12 = np.dot(p1_centered, p2_centered)
     a11 = np.dot(p1_centered, p1_centered)
     a22 = np.dot(p2_centered, p2_centered)
 
     # Compute correlation coefficient
-    # MATLAB: similarity_score = a12/sqrt(a11*a22)
     denominator = np.sqrt(a11 * a22)
     if denominator == 0:
         # Both profiles are constant (zero variance)
@@ -109,7 +93,7 @@ def compute_comparison_metrics(
     transforms: Sequence[TransformParameters],
     profile_ref: NDArray[np.floating],
     profile_comp: NDArray[np.floating],
-    pixel_size_um: float,
+    pixel_size: float,
 ) -> ComparisonResults:
     """
     Compute complete set of comparison metrics for striated marks.
@@ -121,25 +105,17 @@ def compute_comparison_metrics(
     The metrics computed are:
     - Registration: position shift, scale factor
     - Roughness: Sa (mean absolute height), Sq (RMS roughness) for each profile
-    - Difference: Sa12, Sq12 for the difference between profiles
-    - Signature differences: ds1, ds2, ds (various normalizations)
+    - Difference: Sa_diff, Sq_diff for the difference between profiles
+    - Signature differences: ds_ref_norm, ds_comp_norm, ds_combined
 
-    This corresponds to MATLAB's GetStriatedMarkComparisonResults.m.
+    All measurements are in meters (SI units).
 
     :param transforms: Sequence of TransformParameters from the alignment,
         one per scale level. Used to compute cumulative transformation.
     :param profile_ref: Reference profile (aligned) in meters.
     :param profile_comp: Compared profile (aligned) in meters.
-    :param pixel_size_um: Pixel separation in micrometers.
-    :returns: ComparisonResults with all metrics populated.
-
-    Example::
-
-        >>> transforms = [TransformParameters(translation=5.0, scaling=1.001)]
-        >>> ref = np.random.randn(100) * 1e-6  # Profile in meters
-        >>> comp = np.random.randn(100) * 1e-6
-        >>> results = compute_comparison_metrics(transforms, ref, comp, 0.5)
-        >>> results.correlation_coefficient  # Will be some value
+    :param pixel_size: Pixel separation in meters.
+    :returns: ComparisonResults with all metrics populated (in meters).
     """
     # Ensure 1D arrays
     profile_ref = np.asarray(profile_ref).ravel()
@@ -154,7 +130,6 @@ def compute_comparison_metrics(
     # [   0     1      0      ] * [ 0  1   0] = [s2*s1  0  s2*t1+t2]
     # [   0     0      1      ]   [ 0  0   1]   [  0    0     1    ]
     #
-    # MATLAB code builds transform_matrix by multiplying new * old
     total_translation = 0.0
     total_scaling = 1.0
 
@@ -168,45 +143,32 @@ def compute_comparison_metrics(
             total_translation = t.scaling * total_translation + t.translation
             total_scaling = t.scaling * total_scaling
 
-    # Compute position shift in micrometers
-    # MATLAB: results_table.dPos = transform_matrix(1,3)*results_table.vPixSep1
-    position_shift = total_translation * pixel_size_um
+    # Compute position shift in meters
+    position_shift = total_translation * pixel_size
 
     # Compute correlation coefficient
     correlation = compute_cross_correlation(profile_ref, profile_comp)
 
-    # Compute overlap length
-    # MATLAB: results_table.lOverlap = length(profiles1)*results_table.vPixSep1
+    # Compute overlap length in meters
     n_samples = len(profile_ref)
-    overlap_length = n_samples * pixel_size_um
+    overlap_length = n_samples * pixel_size
 
-    # Convert profiles to micrometers for roughness calculations
-    # MATLAB: profiles1 = profiles1.*1e6
-    p1_um = profile_ref * 1e6
-    p2_um = profile_comp * 1e6
-    p_diff_um = p2_um - p1_um
+    # Compute difference profile
+    p_diff = profile_comp - profile_ref
 
-    # Compute roughness parameters
-    # Sa = mean absolute height: sum(abs(profile))/N
-    # Sq = RMS roughness: sqrt((profile' * profile)/N)
-    #
-    # MATLAB:
-    # results_table.sa_1 = sum(abs(profiles1),1)/N;
-    # results_table.sq_1 = sqrt((profiles1'*profiles1)/N);
-    sa_ref = float(np.mean(np.abs(p1_um)))
-    sq_ref = float(np.sqrt(np.mean(p1_um**2)))
+    # Compute roughness parameters (all in meters)
+    # Sa = mean absolute height: mean(|profile|)
+    # Sq = RMS roughness: sqrt(mean(profile^2))
+    sa_ref = float(np.mean(np.abs(profile_ref)))
+    sq_ref = float(np.sqrt(np.mean(profile_ref**2)))
 
-    sa_comp = float(np.mean(np.abs(p2_um)))
-    sq_comp = float(np.sqrt(np.mean(p2_um**2)))
+    sa_comp = float(np.mean(np.abs(profile_comp)))
+    sq_comp = float(np.sqrt(np.mean(profile_comp**2)))
 
-    sa_diff = float(np.mean(np.abs(p_diff_um)))
-    sq_diff = float(np.sqrt(np.mean(p_diff_um**2)))
+    sa_diff = float(np.mean(np.abs(p_diff)))
+    sq_diff = float(np.sqrt(np.mean(p_diff**2)))
 
-    # Compute signature differences
-    # MATLAB:
-    # results_table.ds1 = (results_table.sq12/results_table.sq_1)^2;
-    # results_table.ds2 = (results_table.sq12/results_table.sq_2)^2;
-    # results_table.ds  = results_table.sq12^2/(results_table.sq_1*results_table.sq_2);
+    # Compute signature differences (dimensionless ratios)
     with np.errstate(divide="ignore", invalid="ignore"):
         ds_ref_norm = (sq_diff / sq_ref) ** 2 if sq_ref != 0 else np.nan
         ds_comp_norm = (sq_diff / sq_comp) ** 2 if sq_comp != 0 else np.nan
@@ -219,8 +181,8 @@ def compute_comparison_metrics(
     return ComparisonResults(
         is_profile_comparison=True,
         is_partial_profile=False,
-        pixel_size_ref=pixel_size_um,
-        pixel_size_comp=pixel_size_um,
+        pixel_size_ref=pixel_size,
+        pixel_size_comp=pixel_size,
         position_shift=position_shift,
         scale_factor=total_scaling,
         partial_start_position=np.nan,

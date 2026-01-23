@@ -8,8 +8,7 @@ the correlation exceeds a threshold.
 The main function is:
 - find_match_candidates: Brute-force search for partial profile match positions
 
-This corresponds to the MATLAB function:
-- DetermineMatchCandidatesMultiScale.m
+All length parameters are in meters (SI units).
 """
 
 import numpy as np
@@ -63,6 +62,8 @@ def find_match_candidates(
     4. At the comparison scale, use high-pass filtered profiles to refine positions
     5. Return the best position within each candidate region
 
+    All length parameters are in meters (SI units).
+
     This corresponds to MATLAB's DetermineMatchCandidatesMultiScale.m.
 
     :param reference: Reference profile (longer one).
@@ -70,8 +71,8 @@ def find_match_candidates(
     :param params: Alignment parameters. If None, default parameters are used.
     :returns: Tuple of (candidate_positions, shape_scales, comparison_scale) where:
         - candidate_positions: Array of starting indices in the reference
-        - shape_scales: Array of scale values used for shape filtering
-        - comparison_scale: Scale value used for final comparison
+        - shape_scales: Array of scale values used for shape filtering (in meters)
+        - comparison_scale: Scale value used for final comparison (in meters)
 
     Example::
 
@@ -93,11 +94,10 @@ def find_match_candidates(
     ref_data = reference.mean_profile(use_mean=params.use_mean)
     partial_data = partial.mean_profile(use_mean=params.use_mean)
 
-    # Get physical parameters
-    pixel_size = reference.pixel_size  # meters
-    pixel_size_um = pixel_size * 1e6
+    # Get physical parameters (in meters)
+    pixel_size = reference.pixel_size
 
-    # Determine effective cutoff bounds
+    # Determine effective cutoff bounds (all in meters)
     cutoff_hi = params.cutoff_hi
     cutoff_lo = params.cutoff_lo
 
@@ -106,25 +106,21 @@ def find_match_candidates(
     if reference.cutoff_lo is not None and partial.cutoff_lo is not None:
         cutoff_lo = max(cutoff_lo, reference.cutoff_lo, partial.cutoff_lo)
 
-    # Get resolution limit
+    # Get resolution limit (in meters)
     if reference.resolution_limit is not None:
-        resolution_limit = reference.resolution_limit * 1e6  # Convert to um
+        resolution_limit = reference.resolution_limit
     else:
-        resolution_limit = max(cutoff_lo, 2 * pixel_size_um)
+        resolution_limit = max(cutoff_lo, 2 * pixel_size)
 
-    # Define evaluation scales
-    # MATLAB: partial_profiles_eval_scales = [1000; 500; 250; 100; 50; 25; 10; 5]
+    # Define evaluation scales (all in meters from params.scale_passes)
     possible_scales = np.array(list(params.scale_passes), dtype=np.float64)
 
     # Filter scales by cutoff bounds
-    # MATLAB: possible_scales = possible_scales(possible_scales <= cutoff_hi)
     possible_scales = possible_scales[possible_scales <= cutoff_hi]
-    # MATLAB: possible_scales = possible_scales(possible_scales >= max(LR * 1e6, cutoff_lo))
     possible_scales = possible_scales[possible_scales >= resolution_limit]
 
-    # Maximum scale is based on partial profile length
-    # MATLAB: max_scale = xdim * length(partial_profile.depth_data) * 1e6 / 2
-    max_scale = pixel_size_um * len(partial_data) / 2
+    # Maximum scale is based on partial profile length (in meters)
+    max_scale = pixel_size * len(partial_data) / 2
 
     # Filter to scales <= 4 * max_scale
     possible_scales = possible_scales[possible_scales <= 4 * max_scale]
@@ -135,7 +131,6 @@ def find_match_candidates(
 
     # Determine shape scales vs comparison scale
     # Shape scales are >= max_scale, comparison scale is the first one < max_scale
-    # MATLAB: eval_scales = possible_scales < repmat(max_scale, ...)
     eval_scales = possible_scales < max_scale
 
     shape_scale_indices = np.where(~eval_scales)[0]
@@ -160,18 +155,18 @@ def find_match_candidates(
         xcorr_by_scale: list[NDArray[np.floating]] = []
         array_lengths: list[int] = []
 
-        for scale_um in shape_scales:
-            # Low-pass filter both profiles (RemoveNoiseGaussian)
+        for scale in shape_scales:
+            # Low-pass filter both profiles (all in meters)
             ref_filtered = apply_lowpass_filter_1d(
-                ref_data, scale_um, pixel_size, cut_borders=False
+                ref_data, scale, pixel_size, cut_borders=False
             )
             partial_filtered = apply_lowpass_filter_1d(
-                partial_data, scale_um, pixel_size, cut_borders=False
+                partial_data, scale, pixel_size, cut_borders=False
             )
 
-            # Compute subsampling factor
-            # MATLAB: subsampling = floor((cutoff / oversampling) / (xdim * 1e6))
-            subsampling = max(1, int(np.floor(scale_um / oversampling / pixel_size_um)))
+            # Compute subsampling factor based on scale in samples
+            scale_samples = scale / pixel_size
+            subsampling = max(1, int(np.floor(scale_samples / oversampling)))
 
             # Resample for efficiency
             ref_length_sub = max(1, int(round(len(ref_filtered) / subsampling)))
@@ -216,8 +211,6 @@ def find_match_candidates(
         xcorr_array = np.vstack([x[:min_length] for x in xcorr_by_scale])
 
         # Threshold and find candidates
-        # MATLAB: xcorr_array_thresh = xcorr_array >= inclusion_threshold
-        #         candidates = sum(xcorr_array_thresh, 1) == size(xcorr_array, 1)
         xcorr_thresh = xcorr_array >= params.inclusion_threshold
         candidates = np.sum(xcorr_thresh, axis=0) == len(shape_scales)
 
@@ -230,7 +223,6 @@ def find_match_candidates(
         candidates_labeled = np.ones(n_positions, dtype=np.intp)
 
     # Refine candidates at comparison scale using high-pass filtered profiles
-    # MATLAB: RemoveShapeGaussian
     ref_filtered_comp = apply_highpass_filter_1d(
         ref_data, comp_scale, pixel_size, cut_borders=False
     )

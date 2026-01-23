@@ -1,4 +1,5 @@
-"""Profile correlator module for striated mark comparison.
+"""
+Profile correlator module for striated mark comparison.
 
 This module provides functions for comparing 1D profiles of striated marks
 (scratch marks, toolmarks, etc.) using multi-scale registration and
@@ -11,21 +12,6 @@ comparison workflow including:
 - Length matching (full or partial profile comparison)
 - Multi-scale coarse-to-fine alignment
 - Computation of comparison metrics
-
-Example usage::
-
-    >>> import numpy as np
-    >>> from conversion.profile_correlator import correlate_profiles, Profile
-    >>>
-    >>> # Create two profiles to compare
-    >>> data_ref = np.sin(np.linspace(0, 10, 1000))
-    >>> data_comp = np.sin(np.linspace(0.1, 10.1, 1000))  # Shifted version
-    >>>
-    >>> profile_ref = Profile(data_ref, pixel_size=0.5e-6)
-    >>> profile_comp = Profile(data_comp, pixel_size=0.5e-6)
-    >>>
-    >>> results = correlate_profiles(profile_ref, profile_comp)
-    >>> print(f"Correlation: {results.correlation_coefficient:.3f}")
 
 The module structure follows the patterns established in the preprocess_impression
 module, using dataclasses for parameters and results.
@@ -63,7 +49,7 @@ from conversion.profile_correlator.alignment import (
 from conversion.profile_correlator.transforms import (
     apply_transform,
     compute_cumulative_transform,
-    equalize_sampling_distance,
+    equalize_pixel_scale,
     make_profiles_equal_length,
     remove_boundary_zeros,
 )
@@ -99,7 +85,7 @@ __all__ = [
     "align_profiles_multiscale",
     "align_partial_profile_multiscale",
     # Transforms
-    "equalize_sampling_distance",
+    "equalize_pixel_scale",
     "make_profiles_equal_length",
     "apply_transform",
     "remove_boundary_zeros",
