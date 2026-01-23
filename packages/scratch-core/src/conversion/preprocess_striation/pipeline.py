@@ -3,7 +3,7 @@ Main preprocessing pipeline for striated tool and bullet marks.
 
 This module provides the high-level entry points for striation preprocessing:
 - Form and noise removal (shape removal via highpass, noise removal via lowpass)
-- Fine rotation to align striations horizontally + profile extraction
+- Fine rotation to align striations horizontally and profile extraction
 """
 
 import numpy as np
@@ -11,7 +11,7 @@ from numpy.typing import NDArray
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType
+from conversion.data_formats import Mark
 from conversion.filter import (
     cutoff_to_gaussian_sigma,
     apply_striation_preserving_filter_1d,
@@ -21,43 +21,42 @@ from conversion.preprocess_striation.alignment import fine_align_bullet_marks
 from conversion.preprocess_striation.shear import propagate_nan
 
 
-def preprocess_data(
-    scan_image: ScanImage,
-    mark_type: MarkType | None = None,
-    mask: MaskArray | None = None,
+def preprocess_striation_mark(
+    mark: Mark,
     params: PreprocessingStriationParams = PreprocessingStriationParams(),
-) -> tuple[
-    NDArray[np.floating],
-    NDArray[np.floating],
-    MaskArray | None,
-    float,
-]:
+    mask: MaskArray | None = None,
+) -> tuple[Mark, Mark]:
     """
-    Complete preprocess_striations pipeline for striated marks, it performs two
-    preprocessing steps:
+    Complete the preprocessing pipeline for striated marks.
+
+    Performs two preprocessing steps:
 
     **Form and noise removal**
         - Highpass filter to remove large-scale shape (curvature, tilt)
         - Lowpass filter to remove high-frequency noise
 
     **Fine rotation and profile extraction**
-        - Iteratively detect striation direction via gradient analysis
+        - Iteratively detect the striation direction via gradient analysis
         - Rotate data to align striations horizontally
         - Extract mean or median profile
 
-    :param scan_image: ScanImage containing depth data and pixel spacing.
-    :param mark_type: Mark type enum value (optional, for resampling).
-    :param mask: Boolean mask array (True = valid data).
+    :param mark: Input Mark object containing scan_image and mark_type.
     :param params: Preprocessing parameters.
+    :param mask: Optional boolean mask array (True = valid data).
 
-    :returns: Tuple of (aligned_data, profile, mask, total_angle).
+    :returns: Tuple of (aligned_mark, profile_mark).
+        - aligned_mark: Mark with aligned striation data, mask and total_angle in meta_data.
+        - profile_mark: Mark with extracted 1D profile (as 2D array with shape (N, 1)),
+          mask and total_angle in meta_data.
     """
+    scan_image = mark.scan_image
+    mark_type = mark.mark_type
 
     data_filtered, mask_filtered = apply_shape_noise_removal(
         scan_image=scan_image,
-        highpass_cutoff=params.cutoff_hi,
+        highpass_cutoff=params.highpass_cutoff,
+        lowpass_cutoff=params.lowpass_cutoff,
         mask=mask,
-        lowpass_cutoff=params.cutoff_lo,
     )
 
     if data_filtered.shape[1] > 1:
@@ -72,25 +71,69 @@ def preprocess_data(
             subsampling_factor=params.subsampling_factor,
         )
         data_aligned = aligned_scan.data
+        scale_x = aligned_scan.scale_x
+        scale_y = aligned_scan.scale_y
     else:
         # Line profile case (no alignment needed)
         data_aligned = data_filtered
         mask_aligned = mask_filtered
         total_angle = 0.0
+        scale_x = scan_image.scale_x
+        scale_y = scan_image.scale_y
 
     # Propagate NaN to adjacent pixels to match MATLAB's asymmetric NaN handling
     data_aligned = propagate_nan(data_aligned)
 
     # Extract profile: apply mask and compute mean/median along rows
     if mask_aligned is not None:
-        data_aligned = np.where(mask_aligned, data_aligned, np.nan)
+        data_for_profile = np.where(mask_aligned, data_aligned, np.nan)
+    else:
+        data_for_profile = data_aligned
+
     profile = (
-        np.nanmean(data_aligned, axis=1)
+        np.nanmean(data_for_profile, axis=1)
         if params.use_mean
-        else np.nanmedian(data_aligned, axis=1)
+        else np.nanmedian(data_for_profile, axis=1)
     )
 
-    return data_aligned, profile, mask_aligned, total_angle
+    # Build meta_data with mask and total_angle
+    aligned_meta_data = {
+        **mark.meta_data,
+        "total_angle": total_angle,
+    }
+    if mask_aligned is not None:
+        aligned_meta_data["mask"] = mask_aligned.tolist()
+
+    profile_meta_data = {
+        **mark.meta_data,
+        "total_angle": total_angle,
+    }
+
+    # Create aligned mark
+    aligned_mark = Mark(
+        scan_image=ScanImage(
+            data=np.asarray(data_aligned, dtype=np.float64),
+            scale_x=scale_x,
+            scale_y=scale_y,
+        ),
+        mark_type=mark_type,
+        crop_type=mark.crop_type,
+        meta_data=aligned_meta_data,
+    )
+
+    # Create a profile mark (profile as 2D array with shape (N, 1))
+    profile_mark = Mark(
+        scan_image=ScanImage(
+            data=profile.reshape(-1, 1),
+            scale_x=scale_x,
+            scale_y=scale_y,
+        ),
+        mark_type=mark_type,
+        crop_type=mark.crop_type,
+        meta_data=profile_meta_data,
+    )
+
+    return aligned_mark, profile_mark
 
 
 def apply_shape_noise_removal(
@@ -140,7 +183,7 @@ def apply_shape_noise_removal(
         mask=mask,
     )
 
-    # Create intermediate ScanImage for noise removal
+    # Create an intermediate ScanImage for noise removal
     intermediate_scan_image = scan_image.model_copy(update={"data": data_high_pass})
 
     # Noise removal (lowpass filter)
