@@ -76,6 +76,11 @@ class TestPrepareMarkEndpoint:
         directory_access.resource_path.mkdir(exist_ok=True)
         monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
 
+    @pytest.fixture(autouse=True)
+    def set_scan_file_path(self, scan_directory: Path):
+        """Path to a dummy scan image file."""
+        self.scan_file_path = scan_directory / "circle.x3p"
+
     def get_schema_for_endpoint(
         self,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
@@ -86,7 +91,7 @@ class TestPrepareMarkEndpoint:
         return schema(
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
-            scan_file=Path("packages/scratch-core/tests/resources/scans/circle.x3p"),
+            scan_file=self.scan_file_path,
             mask_array=[[0, 1], [1, 0]],
             crop_info=CropInfo(type=MaskTypes.CIRCLE, data={}, is_foreground=False),
             rotation_angle=15,
