@@ -10,10 +10,10 @@ import numpy as np
 import pytest
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType
+from conversion.data_formats import CropType, Mark, MarkType
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
-    preprocess_data,
+    preprocess_striation_mark,
 )
 from ..helper_functions import (
     _compute_correlation,
@@ -174,7 +174,7 @@ def test_case(
 def run_python_preprocessing(
     test_case: MatlabTestCase,
 ) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None, float | None]:
-    """Run Python preprocess_data and return the results."""
+    """Run Python preprocess_striation_mark and return the results."""
     scan_image = ScanImage(
         data=test_case.input_data,
         scale_x=test_case.input_xdim,
@@ -191,12 +191,24 @@ def run_python_preprocessing(
     mask = test_case.input_mask.astype(bool) if test_case.has_mask else None
     mark_type = _string_to_mark_type(test_case.mark_type)
 
-    aligned_data, profile, mask_out, total_angle = preprocess_data(
+    input_mark = Mark(
         scan_image=scan_image,
         mark_type=mark_type,
-        mask=mask,
-        params=params,
+        crop_type=CropType.RECTANGLE,
     )
+
+    aligned_mark, profile_mark = preprocess_striation_mark(
+        mark=input_mark,
+        params=params,
+        mask=mask,
+    )
+
+    aligned_data = aligned_mark.scan_image.data
+    profile = profile_mark.scan_image.data.flatten()
+    mask_out = aligned_mark.meta_data.get("mask")
+    if mask_out is not None:
+        mask_out = np.array(mask_out, dtype=bool)
+    total_angle = aligned_mark.meta_data.get("total_angle")
 
     return aligned_data, mask_out, profile, total_angle
 

@@ -7,7 +7,7 @@ import pytest
 from math import ceil
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType
+from conversion.data_formats import CropType, Mark, MarkType
 from conversion.filter import (
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
@@ -18,7 +18,7 @@ from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     apply_shape_noise_removal,
     fine_align_bullet_marks,
-    preprocess_data,
+    preprocess_striation_mark,
 )
 from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
 from conversion.preprocess_striation.alignment import _detect_striation_angle
@@ -345,7 +345,7 @@ def test_fine_align_bullet_marks():
 # =============================================================================
 
 
-def test_preprocess_data():
+def test_preprocess_striation_mark():
     """Test complete preprocess_striations pipeline."""
     np.random.seed(42)
 
@@ -361,6 +361,11 @@ def test_preprocess_data():
     depth_data = form + striations + noise
 
     scan_image = ScanImage(data=depth_data, scale_x=1e-6, scale_y=1e-6)
+    input_mark = Mark(
+        scan_image=scan_image,
+        mark_type=MarkType.BULLET_LEA_STRIATION,
+        crop_type=CropType.RECTANGLE,
+    )
     params = PreprocessingStriationParams(
         highpass_cutoff=2e-3,
         lowpass_cutoff=2.5e-4,
@@ -368,9 +373,13 @@ def test_preprocess_data():
         angle_accuracy=0.5,
         max_iter=10,
     )
-    aligned, profile, mask, angle = preprocess_data(
-        scan_image=scan_image, params=params
+    aligned_mark, profile_mark = preprocess_striation_mark(
+        mark=input_mark, params=params
     )
+
+    aligned = aligned_mark.scan_image.data
+    profile = profile_mark.scan_image.data
+    angle = aligned_mark.meta_data.get("total_angle", 0.0)
 
     assert aligned.shape[0] > 0
     assert aligned.shape[1] > 0

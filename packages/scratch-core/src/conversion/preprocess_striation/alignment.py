@@ -90,6 +90,7 @@ def fine_align_bullet_marks(
 
     # Resample to mark type target scale if specified
     if mark_type is not None:
+        # TODO: possible the resampling is not needed as the images are already resamples before preprocessing_striation
         result_scan, result_mask = resample_scan_image_and_mask(
             result_scan,
             result_mask,
