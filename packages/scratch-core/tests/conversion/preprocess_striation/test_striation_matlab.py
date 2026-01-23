@@ -313,6 +313,9 @@ class TestPreprocessDataMatlabComparison:
             pytest.skip("Test case has no mask")
 
         _, python_mask, _, _ = run_python_preprocessing(test_case)
+        assert python_mask is not None, (
+            "Python mask should not be None when test case has mask"
+        )
 
         python_mask, matlab_mask = _crop_to_common_shape(
             python_mask, test_case.output_mask, center_crop=True
