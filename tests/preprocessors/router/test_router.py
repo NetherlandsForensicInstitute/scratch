@@ -77,7 +77,7 @@ class TestPrepareMarkEndpoint:
         monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
 
     @pytest.fixture(autouse=True)
-    def scan_file_path(self, scan_directory: Path):
+    def set_scan_file_path(self, scan_directory: Path):
         """Path to a dummy scan image file."""
         self.scan_file_path = scan_directory / "circle.x3p"
 
