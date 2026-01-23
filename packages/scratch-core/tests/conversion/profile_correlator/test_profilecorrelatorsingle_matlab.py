@@ -19,11 +19,14 @@ from conversion.profile_correlator import (
 
 @dataclass
 class ProfileCorrelatorParams:
-    """Parameters for ProfileCorrelatorSingle (test helper)."""
+    """Parameters for ProfileCorrelatorSingle (test helper).
+
+    All length values are stored in meters (SI units).
+    """
 
     part_mark_perc: float = 8.0
     pass_freqs: list[float] = field(
-        default_factory=lambda: [1000, 500, 250, 100, 50, 25, 10, 5]
+        default_factory=lambda: [1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6]
     )
     filtertype: str = "lowpass"
     remove_zeros: bool = True
@@ -31,25 +34,36 @@ class ProfileCorrelatorParams:
     plot_figures: bool = False
     x0: tuple[float, float] = (0.0, 0.0)
     use_mean: bool = True
-    cutoff_hi: float = 1000.0
-    cutoff_lo: float = 5.0
-    max_translation: float = 1e7
+    cutoff_hi: float = 1e-3  # 1000 μm = 1 mm
+    cutoff_lo: float = 5e-6  # 5 μm
+    max_translation: float = 10.0  # 10 m (was 1e7 μm)
     max_scaling: float = 0.05
     inclusion_threshold: float = 0.5
 
     @classmethod
     def from_dict(cls, d: dict) -> "ProfileCorrelatorParams":
-        """Create params from dictionary."""
+        """Create params from dictionary.
+
+        MATLAB metadata stores values in micrometers, so we convert to meters.
+        """
         # Handle 'pass' key which is a Python reserved word
-        pass_freqs = d.get("pass", [1000, 500, 250, 100, 50, 25, 10, 5])
-        if isinstance(pass_freqs, list) and len(pass_freqs) > 0:
+        # MATLAB stores in micrometers, convert to meters
+        pass_freqs_um = d.get("pass", [1000, 500, 250, 100, 50, 25, 10, 5])
+        if isinstance(pass_freqs_um, list) and len(pass_freqs_um) > 0:
             # Flatten if nested
-            if isinstance(pass_freqs[0], list):
-                pass_freqs = [p[0] for p in pass_freqs]
+            if isinstance(pass_freqs_um[0], list):
+                pass_freqs_um = [p[0] for p in pass_freqs_um]
+        # Convert micrometers to meters
+        pass_freqs = [p * 1e-6 for p in pass_freqs_um]
 
         x0 = d.get("x0", [0, 0])
         if isinstance(x0, list):
             x0 = tuple(x0)
+
+        # Convert micrometers to meters for length parameters
+        cutoff_hi_um = d.get("cutoff_hi", 1000.0)
+        cutoff_lo_um = d.get("cutoff_lo", 5.0)
+        max_translation_um = d.get("max_translation", 1e7)
 
         return cls(
             part_mark_perc=d.get("part_mark_perc", 8.0),
@@ -60,9 +74,9 @@ class ProfileCorrelatorParams:
             plot_figures=bool(d.get("plot_figures", 0)),
             x0=x0,
             use_mean=bool(d.get("use_mean", 1)),
-            cutoff_hi=d.get("cutoff_hi", 1000.0),
-            cutoff_lo=d.get("cutoff_lo", 5.0),
-            max_translation=d.get("max_translation", 1e7),
+            cutoff_hi=cutoff_hi_um * 1e-6,  # Convert μm to m
+            cutoff_lo=cutoff_lo_um * 1e-6,  # Convert μm to m
+            max_translation=max_translation_um * 1e-6,  # Convert μm to m
             max_scaling=d.get("max_scaling", 0.05),
             inclusion_threshold=d.get("inclusion_threshold", 0.5),
         )
@@ -100,22 +114,31 @@ class ResultsTable:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ResultsTable":
-        """Create results table from dictionary."""
+        """Create results table from dictionary.
+
+        MATLAB metadata stores length values in micrometers, so we convert to meters.
+        """
         if d.get("is_empty", False):
             return cls()
 
+        # Get length values in micrometers and convert to meters
+        vPixSep1_um = float(d.get("vPixSep1") or 0.0)
+        vPixSep2_um = float(d.get("vPixSep2") or 0.0)
+        lOverlap_um = float(d.get("lOverlap") or 0.0)
+        trans_shift_um = d.get("trans_shift")
+
         return cls(
-            bProfile=int(d.get("bProfile", 0)),
-            bSegments=int(d.get("bSegments", 0)),
-            bPartialProfile=int(d.get("bPartialProfile", 0)),
-            vPixSep1=float(d.get("vPixSep1", 0.0)),
-            vPixSep2=float(d.get("vPixSep2", 0.0)),
-            pOverlap=float(d.get("pOverlap", 0.0)),
-            lOverlap=float(d.get("lOverlap", 0.0)),
-            xcorr=d.get("xcorr"),
-            xcorr_max=d.get("xcorr_max"),
-            trans_shift=d.get("trans_shift"),
-            trans_scale=d.get("trans_scale"),
+            bProfile=int(d.get("bProfile") or 0),
+            bSegments=int(d.get("bSegments") or 0),
+            bPartialProfile=int(d.get("bPartialProfile") or 0),
+            vPixSep1=vPixSep1_um * 1e-6,  # Convert μm to m
+            vPixSep2=vPixSep2_um * 1e-6,  # Convert μm to m
+            pOverlap=float(d.get("pOverlap") or 0.0),  # Ratio, no conversion
+            lOverlap=lOverlap_um * 1e-6,  # Convert μm to m
+            xcorr=d.get("xcorr"),  # Dimensionless
+            xcorr_max=d.get("xcorr_max"),  # Dimensionless
+            trans_shift=trans_shift_um * 1e-6 if trans_shift_um is not None else None,
+            trans_scale=d.get("trans_scale"),  # Dimensionless
         )
 
     @classmethod
@@ -267,7 +290,8 @@ def run_python_profile_correlator(test_case: MatlabTestCase) -> ResultsTable:
 @pytest.fixture(scope="module")
 def test_cases_dir() -> Path:
     """Path to test cases directory."""
-    return Path(__file__).parent.parent / "resources" / "profile_correlator"
+    # Go up from tests/conversion/profile_correlator to tests/, then to resources/
+    return Path(__file__).parent.parent.parent / "resources" / "profile_correlator"
 
 
 @pytest.fixture(scope="module")
@@ -284,7 +308,10 @@ def pytest_generate_tests(metafunc):
     if "test_case_name" not in metafunc.fixturenames:
         return
 
-    test_cases_dir = Path(__file__).parent.parent / "resources" / "profile_correlator"
+    # Go up from tests/conversion/profile_correlator to tests/, then to resources/
+    test_cases_dir = (
+        Path(__file__).parent.parent.parent / "resources" / "profile_correlator"
+    )
     cases = discover_test_cases(test_cases_dir)
     metafunc.parametrize("test_case_name", [c.name for c in cases])
 

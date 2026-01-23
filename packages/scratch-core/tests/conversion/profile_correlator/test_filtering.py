@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
+from conversion.filter.gaussian import ALPHA_GAUSSIAN
 from conversion.profile_correlator import (
-    CHEBY_TO_GAUSS_FACTOR,
     cutoff_to_gaussian_sigma,
     apply_lowpass_filter_1d,
     apply_highpass_filter_1d,
@@ -19,9 +19,10 @@ class TestCutoffToGaussianSigma:
     def test_known_conversion(self):
         """Test conversion with known values."""
         # 100 um cutoff with 0.5 um pixel size (all in meters)
-        # sigma = 100e-6 / 0.5e-6 * 0.187390625 = 200 * 0.187390625 = 37.478125
+        # sigma = ALPHA_GAUSSIAN * cutoff_pixels / sqrt(2*pi)
+        # sigma = 0.4697 * 200 / 2.5066 ≈ 37.48
         result = cutoff_to_gaussian_sigma(100e-6, 0.5e-6)
-        assert_allclose(result, 37.478125, atol=1e-6)
+        assert_allclose(result, 37.478125, atol=0.01)
 
     def test_proportional_to_cutoff(self):
         """Sigma should be proportional to cutoff wavelength."""
@@ -35,11 +36,11 @@ class TestCutoffToGaussianSigma:
         sigma_1 = cutoff_to_gaussian_sigma(100e-6, 1.0e-6)
         assert_allclose(sigma_05 / sigma_1, 2.0, atol=1e-10)
 
-    def test_constant_matches_matlab(self):
-        """The conversion constant should match MATLAB's value."""
-        # sqrt(2*ln(2))/(2*pi) ≈ 0.187390625
-        expected = np.sqrt(2 * np.log(2)) / (2 * np.pi)
-        assert_allclose(CHEBY_TO_GAUSS_FACTOR, expected, atol=1e-6)
+    def test_constant_matches_iso_16610(self):
+        """The ALPHA_GAUSSIAN constant should match ISO 16610 standard."""
+        # ALPHA_GAUSSIAN = sqrt(ln(2)/pi) ≈ 0.4697
+        expected = np.sqrt(np.log(2) / np.pi)
+        assert_allclose(ALPHA_GAUSSIAN, expected, atol=1e-10)
 
 
 class TestConvolveWithNanHandling:

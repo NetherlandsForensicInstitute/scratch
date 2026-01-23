@@ -6,10 +6,11 @@ with proper handling of NaN values. The filtering uses normalized convolution
 to ensure NaN values do not corrupt the filtered result.
 
 The main functions are:
-- cutoff_to_gaussian_sigma: Convert cutoff wavelength to Gaussian sigma
 - apply_lowpass_filter_1d: Low-pass Gaussian filter
 - apply_highpass_filter_1d: High-pass filter (removes shape)
 - convolve_with_nan_handling: NaN-safe convolution
+
+For cutoff to sigma conversion, use conversion.filter.gaussian.cutoff_to_gaussian_sigma.
 
 All length parameters are in meters (SI units).
 """
@@ -18,45 +19,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.signal import convolve
 
-# Constant for converting Chebyshev cutoff to Gaussian sigma
-# This is sqrt(2*ln(2))/(2*pi) ≈ 0.187390625
-# Used in MATLAB's ChebyCutoffToGaussSigma.m
-#
-# Derivation: For a Gaussian filter to have 50% amplitude response at
-# the cutoff frequency f_c:
-#   H(f_c) = exp(-2 * (pi * sigma * f_c)^2) = 0.5
-#   sigma = sqrt(ln(2)) / (pi * f_c) = sqrt(ln(2)) / pi * lambda_c
-# where lambda_c = 1/f_c is the cutoff wavelength.
-#
-# In samples: sigma_samples = lambda_c_samples * sqrt(ln(2)) / pi
-# Which equals: cutoff / pixel_size * sqrt(2*ln(2))/(2*pi)
-CHEBY_TO_GAUSS_FACTOR: float = 0.187390625
-
-
-def cutoff_to_gaussian_sigma(
-    cutoff_wavelength: float,
-    pixel_size: float,
-) -> float:
-    """
-    Convert cutoff wavelength to Gaussian sigma in samples.
-
-    This function converts a cutoff wavelength to the equivalent Gaussian
-    filter sigma (in number of samples). The conversion is based on matching
-    the 50% amplitude response of a Chebyshev filter.
-
-    The formula used is::
-
-        sigma = cutoff / pixel_size * sqrt(2*ln(2))/(2*pi)
-              = cutoff / pixel_size * 0.187390625
-
-    :param cutoff_wavelength: Cutoff wavelength in meters.
-    :param pixel_size: Distance between samples in meters.
-    :returns: Gaussian sigma in number of samples.
-    """
-    # Apply the conversion factor (both in same units, so ratio is dimensionless)
-    sigma = cutoff_wavelength / pixel_size * CHEBY_TO_GAUSS_FACTOR
-
-    return sigma
+from conversion.filter.gaussian import cutoff_to_gaussian_sigma
 
 
 def _create_gaussian_kernel_1d(

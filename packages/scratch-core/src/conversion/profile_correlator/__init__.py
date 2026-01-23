@@ -61,12 +61,11 @@ from conversion.profile_correlator.similarity import (
 )
 
 # Filtering functions
+from conversion.filter.gaussian import cutoff_to_gaussian_sigma
 from conversion.profile_correlator.filtering import (
-    CHEBY_TO_GAUSS_FACTOR,
     apply_highpass_filter_1d,
     apply_lowpass_filter_1d,
     convolve_with_nan_handling,
-    cutoff_to_gaussian_sigma,
 )
 
 # Candidate search
@@ -94,7 +93,6 @@ __all__ = [
     "compute_cross_correlation",
     "compute_comparison_metrics",
     # Filtering
-    "CHEBY_TO_GAUSS_FACTOR",
     "cutoff_to_gaussian_sigma",
     "apply_lowpass_filter_1d",
     "apply_highpass_filter_1d",
