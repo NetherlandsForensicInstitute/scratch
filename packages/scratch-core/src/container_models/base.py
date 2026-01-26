@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from functools import partial
-from typing import Annotated, TypeAlias
+from typing import Annotated, NamedTuple, TypeAlias
 
 from numpy import array, bool_, floating, number, uint8
 from numpy.typing import DTypeLike, NDArray
@@ -99,3 +99,8 @@ class ConfigBaseModel(BaseModel):
         arbitrary_types_allowed=True,
         regex_engine="rust-regex",
     )
+
+
+class Point[T](NamedTuple):
+    x: T
+    y: T
