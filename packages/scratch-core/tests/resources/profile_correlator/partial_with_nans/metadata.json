@@ -40,17 +40,34 @@
   },
   "iVerbose": 0,
   "input_results_table": {
-    "is_empty": true
+    "is_empty": 1
   },
   "output_results_table": {
-    "is_empty": false,
     "bProfile": 1,
     "bSegments": 0,
-    "bPartialProfile": 1,
+    "pathReference": "",
+    "pathCompare": "",
+    "bKM": -1,
     "vPixSep1": 3.5,
     "vPixSep2": 3.5,
+    "bPartialProfile": 1,
+    "dPos": 420.1899352828741,
+    "dScale": 0.9988033612638378,
+    "startPartProfile": 3.5,
+    "simVal": 0.6631786603191333,
+    "lOverlap": 976.5,
     "pOverlap": 0.6975,
-    "lOverlap": 976.5
+    "ccf": 0.6631786603191333,
+    "metric": null,
+    "sa_1": null,
+    "sq_1": null,
+    "sa_2": null,
+    "sq_2": null,
+    "sa12": null,
+    "sq12": null,
+    "ds1": null,
+    "ds2": null,
+    "ds": null
   },
   "output_results_arrays": []
 }
