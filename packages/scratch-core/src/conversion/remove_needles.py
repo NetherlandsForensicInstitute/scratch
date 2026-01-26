@@ -53,14 +53,14 @@ def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
     )
 
     if not is_small_strip:
-        # Calculate subsampling factor for computational efficiency using the given DOWNSAMPLE_GOAL and the desired
+        # Calculate subsampling factor for computational efficiency using the given TARGET_SCALE and the desired
         # MEDIAN_FILTER_SIZE
         subsample_factor = int(
             np.ceil(TARGET_SCALE / MEDIAN_FILTER_SIZE / scan_image.scale_x)
         )
 
-        # If a subsample_factor is defined, downsample the data before filtering and upsample back after filtering.
-        # Otherwise, just apply the filter directly.
+        # If the subsample_factor is more than 1, downsample the data before filtering and upsample back after
+        # filtering. Otherwise, just apply the filter directly.
         if subsample_factor > 1:
             scan_image_subsampled = unwrap_result(
                 subsample_scan_image(
@@ -89,9 +89,7 @@ def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
         # Use slicing since the shape may deviate slightly after down- and upsampling
         residual_image = (
             scan_image.data
-            - scan_image_filtered.data[
-                : scan_image.data.shape[0], : scan_image.data.shape[1]
-            ]
+            - scan_image_filtered.data[: scan_image.height, : scan_image.width]
         )
     else:
         filter_size_adjusted = int(np.round(np.sqrt(MEDIAN_FILTER_SIZE)))
