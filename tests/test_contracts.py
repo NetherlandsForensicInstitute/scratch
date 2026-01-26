@@ -1,10 +1,10 @@
 from enum import StrEnum
+from http import HTTPStatus
 from pathlib import Path
 
 import pytest
 import requests
 from pydantic import BaseModel
-from starlette.status import HTTP_200_OK, HTTP_404_NOT_FOUND
 
 from constants import PROJECT_ROOT
 from extractors.schemas import (
@@ -107,16 +107,19 @@ class TestContracts:
         return data, ProcessedDataAccess
 
     @pytest.mark.parametrize(
-        ("route", "expected_response"),
-        (pytest.param(f"/{route}", TemplateResponse, id=route) for route in RoutePrefix),
+        "route",
+        (pytest.param(f"/{route}", id=route) for route in RoutePrefix),
     )
-    def test_root(self, route: str, expected_response: BaseModel) -> None:
-        """Check if the root is still returning the hello world response."""
+    def test_root(self, route: str) -> None:
+        """Check if the root redirects to the documentation section."""
         # Act
-        response = requests.get(f"{get_settings().base_url}{route}", timeout=5)
+        response = requests.get(f"{get_settings().base_url}{route}", timeout=5, allow_redirects=False)
         # Assert
-        assert response.status_code == HTTP_200_OK
-        expected_response.model_validate(response.json())
+        assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, (
+            "endpoint should redirect with temporary redirect status"
+        )
+        expected_location = f"/docs#operations-tag-{route.lstrip('/')}"
+        assert response.headers["location"] == expected_location, f"should redirect to {expected_location}"
 
     @pytest.mark.parametrize(
         ("fixture_name", "sub_route"),
@@ -139,7 +142,7 @@ class TestContracts:
             timeout=5,
         )
         # Assert
-        assert response.status_code == HTTP_200_OK
+        assert response.status_code == HTTPStatus.OK
         expected_response.model_validate(response.json())
 
     def test_extractor_get_file_endpoint(self, directory_access: DirectoryAccess) -> None:
@@ -151,7 +154,7 @@ class TestContracts:
         # Arrange: Create files via process-scan endpoint
         (directory_access.resource_path / "scan.x3p").write_bytes(b"x3p content")
         response = requests.get(f"{directory_access.access_url}/scan.x3p", timeout=5)
-        assert response.status_code == HTTP_200_OK, "Failed to retrieve x3p"
+        assert response.status_code == HTTPStatus.OK, "Failed to retrieve x3p"
         assert response.headers["content-type"] == "application/octet-stream", "Wrong content type for x3p"
 
     def test_non_existing_contract(self) -> None:
@@ -159,4 +162,4 @@ class TestContracts:
         # Act
         response = requests.get(f"{get_settings().base_url}/non-existing-path", timeout=5)
         # Assert
-        assert response.status_code == HTTP_404_NOT_FOUND
+        assert response.status_code == HTTPStatus.NOT_FOUND

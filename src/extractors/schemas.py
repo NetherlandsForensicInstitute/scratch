@@ -30,13 +30,7 @@ type RelativePath = Annotated[
 ]
 
 
-class ProcessedDataAccess(BaseModelConfig):
-    scan_image: HttpUrl = Field(
-        ...,
-        description="converted subsampled X3P image.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/scan.x3p"],
-        alias="scan",
-    )
+class GeneratedImages(BaseModelConfig):
     preview_image: HttpUrl = Field(
         ...,
         description="rgba image render from the parsed scan data.",
@@ -51,7 +45,16 @@ class ProcessedDataAccess(BaseModelConfig):
     )
 
 
-class PrepareMarkResponse(ProcessedDataAccess):
+class ProcessedDataAccess(GeneratedImages):
+    scan_image: HttpUrl = Field(
+        ...,
+        description="converted subsampled X3P image.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/scan.x3p"],
+        alias="scan",
+    )
+
+
+class PrepareMarkResponse(GeneratedImages):
     """Response model for prepared mark data access."""
 
     mark_data: HttpUrl = Field(

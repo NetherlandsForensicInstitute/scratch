@@ -2,9 +2,10 @@ from functools import partial
 from http import HTTPStatus
 
 from fastapi import APIRouter
+from fastapi.responses import RedirectResponse
 from loguru import logger
 
-from constants import PREPROCESSOR_ROUTE
+from constants import PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
 from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault, get_files, get_urls
@@ -20,28 +21,29 @@ from .pipelines import (
 )
 from .schemas import EditImage, PrepareMarkImpression, PrepareMarkStriation, UploadScan
 
-preprocessor_route = APIRouter(prefix=PREPROCESSOR_ROUTE, tags=[PREPROCESSOR_ROUTE])
+preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[RoutePrefix.PREPROCESSOR])
 
 
 @preprocessor_route.get(
-    path="/",
-    summary="check status of comparison proces",
-    description="""Some description of pre-processors endpoint, you can use basic **markup**""",
+    path=PreprocessorEndpoint.ROOT,
+    summary="Redirect to preprocessor documentation",
+    description="""Redirects to the preprocessor section in the API documentation.""",
+    include_in_schema=False,
 )
-async def preprocessor_root() -> dict[str, str]:
+async def preprocessor_root() -> RedirectResponse:
     """
-    Fetch a simple message from the REST API.
+    Redirect to the preprocessor section in Swagger docs.
 
-    Here is some more information about the function some notes what is expected.
-    Special remarks what the function is doing.
+    This endpoint redirects users to the preprocessor tag section in the
+    interactive API documentation at /docs.
 
-    :return: Use as much as possible Pydantic for return types.
+    :return: RedirectResponse to the preprocessor documentation section.
     """
-    return {"message": "Hello from the pre-processors"}
+    return RedirectResponse(url=f"/docs#operations-tag-{RoutePrefix.PREPROCESSOR}")
 
 
 @preprocessor_route.post(
-    path="/process-scan",
+    path=f"/{PreprocessorEndpoint.PROCESS_SCAN}",
     summary="Create surface_map and preview image from the scan file.",
     description="""
     Processes the scan file from the given filepath and generates several derived outputs, including
@@ -84,7 +86,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 
 
 @preprocessor_route.post(
-    path="/prepare-mark-impression",
+    path=f"/{PreprocessorEndpoint.PREPARE_MARK_IMPRESSION}",
     summary="Preprocess a scan into analysis-ready mark files.",
     description="""
     Applies user-defined masking and cropping to a scan, then performs
@@ -102,7 +104,6 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
     vault = create_vault(prepare_mark_parameters.tag)
     files = get_files(
         vault.resource_path,
-        scan="scan.x3p",
         preview="preview.png",
         surface_map="surface_map.png",
         mark_data="mark.npz",
@@ -124,7 +125,7 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
 
 
 @preprocessor_route.post(
-    path="/prepare-mark-striation",
+    path=f"/{PreprocessorEndpoint.PREPARE_MARK_STRIATION}",
     summary="Preprocess a scan into analysis-ready mark files.",
     description="""
     Applies user-defined masking and cropping to a scan, then performs
@@ -142,7 +143,6 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     vault = create_vault(prepare_mark_parameters.tag)
     files = get_files(
         vault.resource_path,
-        scan="scan.x3p",
         preview="preview.png",
         surface_map="surface_map.png",
         mark_data="mark.npz",
@@ -164,7 +164,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
 
 
 @preprocessor_route.post(
-    path="/edit-scan",
+    path=f"/{PreprocessorEndpoint.EDIT_SCAN}",
     summary="Validate and parse a scan file with edit parameters.",
     description="""
     Parse and validate a scan file (X3P format only) with the provided edit parameters
