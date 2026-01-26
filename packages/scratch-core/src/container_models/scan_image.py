@@ -1,7 +1,8 @@
 from functools import cached_property
+from typing import Self
 
 import numpy as np
-from pydantic import Field
+from pydantic import Field, PositiveFloat, model_validator
 from .base import ConfigBaseModel, BinaryMask, FloatArray, FloatArray1D
 
 
@@ -14,9 +15,19 @@ class ScanImage(ConfigBaseModel):
     """
 
     data: FloatArray  # TODO: Change typing to `DepthData` or `FloatArray2D`
-    scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
-    scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
+    mask: BinaryMask | None = None
+    scale_x: PositiveFloat = Field(description="pixel size in meters (m)")
+    scale_y: PositiveFloat = Field(description="pixel size in meters (m)")
     meta_data: dict = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _mask_and_data_shape_matches(self) -> Self:
+        if self.mask is not None and self.data.shape != self.mask.shape:
+            raise ValueError(
+                f"The shape of the data {self.data.shape}"
+                f" does not match the shape of the mask {self.mask.shape}."
+            )
+        return self
 
     @property
     def width(self) -> int:
@@ -52,3 +63,10 @@ class ScanImage(ConfigBaseModel):
                 if isinstance(attr, cached_property):
                     copy.__dict__.pop(name, None)
         return copy
+
+    def apply_mask_image(self) -> None:
+        """Apply the mask to the image data by setting masked-out pixels to NaN."""
+
+        if self.mask is None:
+            raise ValueError("Mask is required for cropping operation.")
+        self.data[~self.mask] = np.nan  # type: ignore
