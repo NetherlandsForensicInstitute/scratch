@@ -35,6 +35,7 @@ def rotate_crop_and_mask_image_by_crop(
     :param scan_image: Scan image to rotate, mask and crop.
     :param mask: Binary mask array.
     :param rectangle: Bounding box of a rectangular crop region used to determine the rotation of an image, or None.
+        Expects pixel coordinates, i.e. top-left origin.
     :param median_factor: Parameter used to determine what is considered an outlier when removing outliers/needles.
     :return: The cropped, rotated and masked scan image.
     """
@@ -73,7 +74,7 @@ def get_rotation_angle(rectangle: RectangularCrop) -> float:
     selects the edge that is closest to horizontal (smallest absolute angle). This angle is then normalized to the
     range [-90, 90] degrees.
 
-    :param rectangle: Bounding box of a rectangular crop region.
+    :param rectangle: Bounding box of a rectangular crop region. Expects pixel coordinates, i.e. top-left origin.
     :return: The rotation angle in degrees, ranging from -90 to 90 (inclusive). The angle is normalized to this range
              to represent the minimal rotation needed to align the rectangle. If the first crop is not a rectangle, an
              angle of 0.0 is returned.
