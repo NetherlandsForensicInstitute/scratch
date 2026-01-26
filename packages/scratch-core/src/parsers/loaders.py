@@ -45,10 +45,7 @@ def load_scan_image(scan_file: Path) -> ScanImage:
     )
 
 
-@log_railway_function(
-    "Failed to subsample image file",
-    "Successfully subsampled scan file",
-)
+@log_railway_function("Failed to subsample image file")
 @safe
 def subsample_scan_image(
     scan_image: ScanImage, step_size_x: int, step_size_y: int
@@ -70,6 +67,9 @@ def subsample_scan_image(
         raise ValueError(
             f"Step size should be positive and smaller than the image size: {(height, width)}"
         )
+    logger.info(
+        "Subsampling scan image with step sizes x: {step_size_x}, y: {step_size_y}"
+    )
     return ScanImage(
         data=scan_image.data[::step_size_y, ::step_size_x].copy(),
         scale_x=scan_image.scale_x * step_size_x,
