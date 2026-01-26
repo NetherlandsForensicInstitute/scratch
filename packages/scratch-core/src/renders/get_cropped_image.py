@@ -8,6 +8,14 @@ from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import mask_and_crop_scan_image
 from conversion.resample import resample_scan_image_and_mask
 
+# TODO: Based on what this code is doing. We can ignore this function completely
+# [] First breakdown the code smells below, make sure they give the same response
+# [] extract resample_scan_image, resample_array (mask_and_crop_scan_image)
+# [] extract mask_scan_image, crop_scan_image (mask_and_crop_scan_image)
+# [] extract level_map
+# [] extroct apply_gaussian_regression_filter
+# [] Remove get_cropped_image
+
 
 def get_cropped_image(
     scan_image: ScanImage,
@@ -31,15 +39,18 @@ def get_cropped_image(
     :returns: A numpy array with the cropped image data.
     """
     # Check whether the mask only consists of background
+    # Not needed should be done by endpoint
     if not np.any(mask):
         return np.full_like(scan_image.data, np.nan)
 
     # Resample image and mask to speed up the processing
+    # function is a code smell, call each task seprately
     resampled_scan_image, resampled_mask = resample_scan_image_and_mask(
         scan_image, mask, factors=resampling_factors
     )
 
     # Apply mask to the `ScanImage` instance
+    # Function is a code smell, call each task seprately
     if resampled_mask is not None:
         resampled_scan_image = mask_and_crop_scan_image(
             scan_image=resampled_scan_image, mask=resampled_mask, crop=crop
