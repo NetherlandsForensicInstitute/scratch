@@ -6,6 +6,8 @@ This module provides the high-level entry points for striation preprocessing:
 - Fine rotation to align striations horizontally and profile extraction
 """
 
+from dataclasses import asdict
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -94,6 +96,7 @@ def preprocess_striation_mark(
     # Build meta_data with mask and total_angle
     aligned_meta_data = {
         **mark.meta_data,
+        **asdict(params),
         "total_angle": total_angle,
     }
     if mask_aligned is not None:
@@ -101,6 +104,7 @@ def preprocess_striation_mark(
 
     profile_meta_data = {
         **mark.meta_data,
+        **asdict(params),
         "total_angle": total_angle,
     }
 

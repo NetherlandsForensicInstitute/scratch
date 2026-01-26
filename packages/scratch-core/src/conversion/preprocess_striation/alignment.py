@@ -15,7 +15,7 @@ from conversion.filter import (
     gaussian_sigma_to_cutoff,
     apply_gaussian_regression_filter,
 )
-from conversion.mask import crop_to_mask, _determine_bounding_box
+from conversion.mask import crop_to_mask
 from conversion.resample import resample_scan_image_and_mask
 from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
 
@@ -78,11 +78,8 @@ def fine_align_bullet_marks(
 
     # Crop to mask bounding box
     if result_mask is not None:
-        result_data = crop_to_mask(
-            np.asarray(result_data, dtype=np.float64), result_mask
-        )
-        y_slice, x_slice = _determine_bounding_box(result_mask)
-        result_mask = result_mask[y_slice, x_slice]
+        result_data = crop_to_mask(result_data, result_mask)
+        result_mask = crop_to_mask(result_mask, result_mask)
 
     result_scan = ScanImage(
         data=np.asarray(result_data, dtype=np.float64),
