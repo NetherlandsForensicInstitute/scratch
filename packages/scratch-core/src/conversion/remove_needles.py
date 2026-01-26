@@ -123,11 +123,11 @@ def get_and_remove_needles(
     # Find needles: points where |residual| > threshold
     median_residual = np.nanmedian(np.abs(residual_image))
     threshold = median_factor * (1 if median_residual == 0 else median_residual)
-    needles_indices = np.abs(residual_image) > threshold
+    needles_mask = np.abs(residual_image) > threshold
 
     # Remove needles from the image by setting them to NaN
     data_without_needles = scan_image.data.copy()
-    data_without_needles[needles_indices] = np.nan
+    data_without_needles[needles_mask] = np.nan
 
     return update_scan_image_data(scan_image, data_without_needles)
 
