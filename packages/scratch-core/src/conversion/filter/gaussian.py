@@ -11,7 +11,6 @@ from scipy.special import lambertw
 import numpy as np
 from numpy.typing import NDArray
 
-from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.filter.regression import (
     create_normalized_separable_kernels,
@@ -19,7 +18,6 @@ from conversion.filter.regression import (
     apply_order0_filter,
     apply_polynomial_filter,
 )
-from conversion.filter.utils import remove_zero_border
 
 # Constants based on ISO 16610 surface texture standards
 # Standard Gaussian alpha for 50% transmission
@@ -135,8 +133,7 @@ def apply_striation_preserving_filter_1d(
     cutoff: float,
     is_high_pass: bool = False,
     cut_borders_after_smoothing: bool = True,
-    mask: MaskArray | None = None,
-) -> tuple[NDArray[np.floating], MaskArray]:
+) -> NDArray[np.floating]:
     """
     Apply 1D Gaussian filter along rows (y-direction) for striation-preserving surface processing.
 
@@ -164,46 +161,33 @@ def apply_striation_preserving_filter_1d(
     :param cutoff: Cutoff wavelength in meters (m).
     :param is_high_pass: If False, returns smoothed data (lowpass). If True, returns residuals (highpass).
     :param cut_borders_after_smoothing: If True, crop ceil(sigma) pixels from top and bottom edges.
-    :param mask: Boolean mask array (True = valid data). Must match depth_data shape.
 
     :returns filtered_data: Filtered data.
     :returns mask: Boolean mask indicating valid data points in the output.
     """
-    # Initialize mask if not provided
-    if mask is None:
-        mask = np.ones(scan_image.data.shape, dtype=bool)
 
     # Apply 1D Gaussian filter along y-direction
     cropped_data = _apply_nan_weighted_gaussian_1d(
         scan_image,
         cutoff_length=cutoff,
-        mask=mask,
         axis=0,  # Filter along y-direction only
         is_high_pass=is_high_pass,
     )
-    cropped_mask = mask
 
     if cut_borders_after_smoothing:
         # Calculate sigma for border cropping
         sigma = cutoff_to_gaussian_sigma(cutoff, scan_image.scale_x)
         sigma_int = int(ceil(sigma))
 
-        # Check if there are any masked (invalid) regions
-        has_masked_regions = np.any(~mask)
-
-        if has_masked_regions:
-            cropped_data, cropped_mask = remove_zero_border(cropped_data, mask)
-        elif sigma_int > 0 and scan_image.height > 2 * sigma_int:
+        if sigma_int > 0 and scan_image.height > 2 * sigma_int:
             cropped_data = cropped_data[sigma_int:-sigma_int, :]
-            cropped_mask = mask[sigma_int:-sigma_int, :]
 
-    return cropped_data, cropped_mask
+    return cropped_data
 
 
 def _apply_nan_weighted_gaussian_1d(
     scan_image: ScanImage,
     cutoff_length: float,
-    mask: MaskArray | None = None,
     axis: int = 0,
     is_high_pass: bool = False,
 ) -> NDArray[np.floating]:
@@ -216,7 +200,6 @@ def _apply_nan_weighted_gaussian_1d(
 
     :param scan_image: ScanImage containing depth data and pixel spacing.
     :param cutoff_length: The filter cutoff wavelength in physical units.
-    :param mask: Optional boolean mask (True = valid). Combined with scan_image.valid_mask.
     :param axis: Axis to filter along (0=rows/y-direction, 1=columns/x-direction).
     :param is_high_pass: If True, returns (input - smoothed). If False, returns smoothed.
     :returns: The filtered 2D array of the same shape as input.
@@ -226,14 +209,10 @@ def _apply_nan_weighted_gaussian_1d(
 
     # Combine scan_image's valid_mask with external mask
     invalid_mask = ~scan_image.valid_mask
-    if mask is not None:
-        invalid_mask = invalid_mask | ~mask
     has_nans = np.any(invalid_mask)
 
     # Prepare data with NaN in invalid positions
     data = scan_image.data.copy()
-    if mask is not None:
-        data[~mask] = np.nan
 
     kernel_1d = create_gaussian_kernel_1d(cutoff_pixel, bool(has_nans), ALPHA_GAUSSIAN)
     kernel_identity = np.array([1.0])

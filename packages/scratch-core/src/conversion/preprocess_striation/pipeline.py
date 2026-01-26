@@ -9,7 +9,6 @@ This module provides the high-level entry points for striation preprocessing:
 import numpy as np
 from numpy.typing import NDArray
 
-from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
@@ -24,7 +23,6 @@ from conversion.preprocess_striation.shear import propagate_nan
 def preprocess_striation_mark(
     mark: Mark,
     params: PreprocessingStriationParams = PreprocessingStriationParams(),
-    mask: MaskArray | None = None,
 ) -> tuple[Mark, Mark]:
     """
     Complete the preprocessing pipeline for striated marks.
@@ -42,7 +40,6 @@ def preprocess_striation_mark(
 
     :param mark: Input Mark object containing scan_image and mark_type.
     :param params: Preprocessing parameters.
-    :param mask: Optional boolean mask array (True = valid data).
 
     :returns: Tuple of (aligned_mark, profile_mark).
         - aligned_mark: Mark with aligned striation data, mask and total_angle in meta_data.
@@ -52,11 +49,10 @@ def preprocess_striation_mark(
     scan_image = mark.scan_image
     mark_type = mark.mark_type
 
-    data_filtered, mask_filtered = apply_shape_noise_removal(
+    data_filtered = apply_shape_noise_removal(
         scan_image=scan_image,
         highpass_cutoff=params.highpass_cutoff,
         lowpass_cutoff=params.lowpass_cutoff,
-        mask=mask,
     )
 
     if data_filtered.shape[1] > 1:
@@ -64,7 +60,6 @@ def preprocess_striation_mark(
         aligned_scan, mask_aligned, total_angle = fine_align_bullet_marks(
             scan_image=filtered_scan_image,
             mark_type=mark_type,
-            mask=mask_filtered,
             angle_accuracy=params.angle_accuracy,
             cut_y_after_shift=params.cut_borders_after_smoothing,
             max_iter=params.max_iter,
@@ -76,7 +71,7 @@ def preprocess_striation_mark(
     else:
         # Line profile case (no alignment needed)
         data_aligned = data_filtered
-        mask_aligned = mask_filtered
+        mask_aligned = None
         total_angle = 0.0
         scale_x = scan_image.scale_x
         scale_y = scan_image.scale_y
@@ -138,10 +133,9 @@ def preprocess_striation_mark(
 
 def apply_shape_noise_removal(
     scan_image: ScanImage,
-    mask: MaskArray | None = None,
     lowpass_cutoff: float = 5e-6,
     highpass_cutoff: float = 2.5e-4,
-) -> tuple[NDArray[np.floating], MaskArray]:
+) -> NDArray[np.floating]:
     """
     Apply a band-pass filter to isolate striation features by filtering out large-scale shapes and small-scale noise.
 
@@ -157,15 +151,11 @@ def apply_shape_noise_removal(
 
 
     :param scan_image: ScanImage containing depth data and pixel spacing.
-    :param mask: Boolean mask array (True = valid data).
     :param lowpass_cutoff: Low-frequency cutoff wavelength in meters (m) for noise removal.
     :param highpass_cutoff: High-frequency cutoff wavelength in meters (m) for shape removal.
 
     :returns: Tuple of (processed_data, mask).
     """
-    # Initialize mask if not provided
-    if mask is None:
-        mask = np.ones(scan_image.data.shape, dtype=bool)
 
     # Calculate Gaussian sigma from cutoff wavelength
     sigma = cutoff_to_gaussian_sigma(highpass_cutoff, scan_image.scale_x)
@@ -175,24 +165,22 @@ def apply_shape_noise_removal(
     cut_borders = (2 * sigma) <= (scan_image.height * 0.2)
 
     # Shape removal (highpass filter)
-    data_high_pass, mask_high_pass = apply_striation_preserving_filter_1d(
+    data_high_pass = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
         cutoff=highpass_cutoff,
         is_high_pass=True,
         cut_borders_after_smoothing=cut_borders,
-        mask=mask,
     )
 
     # Create an intermediate ScanImage for noise removal
     intermediate_scan_image = scan_image.model_copy(update={"data": data_high_pass})
 
     # Noise removal (lowpass filter)
-    data_no_noise, mask_no_noise = apply_striation_preserving_filter_1d(
+    data_no_noise = apply_striation_preserving_filter_1d(
         scan_image=intermediate_scan_image,
         cutoff=lowpass_cutoff,
         is_high_pass=False,
         cut_borders_after_smoothing=cut_borders,
-        mask=mask_high_pass,
     )
 
-    return data_no_noise, mask_no_noise
+    return data_no_noise

@@ -79,7 +79,7 @@ def test_apply_striation_preserving_filter_1d_lowpass():
     surface = np.tile((low_freq + high_freq).reshape(-1, 1), (1, 20))
 
     scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
-    smoothed, mask = apply_striation_preserving_filter_1d(
+    smoothed = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
         cutoff=2.5e-4,
         is_high_pass=False,
@@ -101,7 +101,7 @@ def test_apply_striation_preserving_filter_1d_highpass():
 
     # Use pixel size that makes cutoff effective for shape removal
     scan_image = ScanImage(data=surface, scale_x=1e-3, scale_y=1e-3)
-    residuals, mask = apply_striation_preserving_filter_1d(
+    residuals = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
         cutoff=5e-2,
         is_high_pass=True,
@@ -125,7 +125,7 @@ def test_apply_shape_noise_removal():
     surface = np.tile((shape + striations + noise).reshape(-1, 1), (1, 50))
 
     scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
-    result, mask = apply_shape_noise_removal(
+    result = apply_shape_noise_removal(
         scan_image=scan_image,
         highpass_cutoff=2e-3,
         lowpass_cutoff=2.5e-4,
@@ -133,8 +133,6 @@ def test_apply_shape_noise_removal():
 
     # Result should have form removed (smaller range than input)
     assert np.ptp(result) < np.ptp(surface)
-    # Mask should be all True (no invalid regions)
-    assert mask.all()
 
 
 def test_shape_noise_removal_filter_sequence():
@@ -155,7 +153,7 @@ def test_shape_noise_removal_filter_sequence():
     depth_data = form + striations + noise
 
     scan_image = ScanImage(data=depth_data, scale_x=scale, scale_y=scale)
-    result, _ = apply_shape_noise_removal(
+    result = apply_shape_noise_removal(
         scan_image=scan_image,
         highpass_cutoff=2e-3,
         lowpass_cutoff=2.5e-4,
@@ -198,7 +196,7 @@ def test_shape_noise_removal_short_data():
     short_data = np.random.randn(short_height, width) * 1e-6
 
     short_scan_image = ScanImage(data=short_data, scale_x=scale, scale_y=scale)
-    result_short, _ = apply_shape_noise_removal(
+    result_short = apply_shape_noise_removal(
         scan_image=short_scan_image,
         highpass_cutoff=2000e-6,
     )
@@ -207,36 +205,6 @@ def test_shape_noise_removal_short_data():
     assert result_short.shape[0] == short_height, (
         f"Short data borders were cut (got {result_short.shape[0]}, expected {short_height})"
     )
-
-
-def test_shape_noise_removal_mask_propagation():
-    """Test that masks are properly propagated through filtering."""
-    np.random.seed(42)
-
-    height, width = 200, 150
-    scale = 1e-6
-
-    x = np.arange(height) * scale
-    X, _ = np.meshgrid(x, np.arange(width), indexing="ij")
-
-    form = 5e-6 * (X / x.max()) ** 2
-    striations = 0.5e-6 * np.sin(2 * np.pi * X / 500e-6)
-    noise = 0.1e-6 * np.random.randn(height, width)
-    depth_data = form + striations + noise
-
-    mask_input = np.ones(depth_data.shape, dtype=bool)
-    mask_input[:, 0:20] = False
-
-    masked_scan_image = ScanImage(data=depth_data.copy(), scale_x=scale, scale_y=scale)
-    result_masked, mask_output = apply_shape_noise_removal(
-        scan_image=masked_scan_image,
-        highpass_cutoff=2000e-6,
-        lowpass_cutoff=250e-6,
-        mask=mask_input,
-    )
-
-    assert mask_output.shape == result_masked.shape, "Mask shape mismatch"
-    assert np.any(~mask_output), "Mask should have invalid regions"
 
 
 def test_shape_noise_removal_synthetic():
@@ -257,7 +225,7 @@ def test_shape_noise_removal_synthetic():
     depth_data = form + striations + noise
 
     scan_image = ScanImage(data=depth_data, scale_x=scale, scale_y=scale)
-    result, _ = apply_shape_noise_removal(
+    result = apply_shape_noise_removal(
         scan_image=scan_image,
         highpass_cutoff=2000e-6,
         lowpass_cutoff=250e-6,
