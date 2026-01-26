@@ -1,3 +1,4 @@
+from container_models.base import ScanMap2DArray
 import numpy as np
 from numpy.typing import NDArray
 from skimage.transform import resize
@@ -5,13 +6,12 @@ from skimage.transform import resize
 from container_models.scan_image import ScanImage
 from conversion.filter import apply_gaussian_regression_filter
 from conversion.leveling import SurfaceTerms, level_map
-from conversion.mask import mask_and_crop_scan_image
 from conversion.resample import _clip_factors
 
 # TODO: Based on what this code is doing. We can ignore this function completely
 # [] First breakdown the code smells below, make sure they give the same response
 # [x] extract resample_scan_image, resample_array (mask_and_crop_scan_image)
-# [] extract mask_scan_image, crop_scan_image (mask_and_crop_scan_image)
+# [x] extract mask_scan_image, crop_scan_image (mask_and_crop_scan_image)
 # [] extract level_map
 # [] extroct apply_gaussian_regression_filter
 # [] Remove get_cropped_image
@@ -61,6 +61,42 @@ def resample_image_array(
     return np.asarray(resampled, dtype=array.dtype)
 
 
+def mask_image(image: ScanImage) -> ScanImage:
+    """Apply the mask to the data."""
+    image = image.model_copy()
+    image.data[~image.mask] = np.nan  # type: ignore[index]
+    return image
+
+
+def _determine_bounding_box(mask: ScanMap2DArray) -> tuple[slice, slice]:
+    """
+    Determines the bounding box of non-zero values in a mask.
+
+    :param mask: Binary mask array
+    :return: Tuple of (y_slice, x_slice) for the bounding box
+    """
+    non_zero_coords = np.nonzero(mask)
+    if not non_zero_coords[0].size:
+        raise ValueError("Mask is empty")
+
+    y_min, x_min = np.min(non_zero_coords, axis=1)
+    y_max, x_max = np.max(non_zero_coords, axis=1)
+    return slice(x_min, x_max + 1), slice(y_min, y_max + 1)
+
+
+def crop_to_mask(image: ScanImage) -> ScanImage:
+    """Crop to the bounding box of the mask."""
+    if image.mask is None:
+        raise ValueError("Mask is required for cropping operation.")
+    y_slice, x_slice = _determine_bounding_box(image.mask)
+    return image.model_copy(
+        update={
+            "data": image.data[y_slice, x_slice],
+            "mask": None if image.mask is None else image.mask[y_slice, x_slice],
+        }
+    )
+
+
 def get_cropped_image(
     scan_image: ScanImage,
     terms: SurfaceTerms,
@@ -82,26 +118,22 @@ def get_cropped_image(
     :returns: A numpy array with the cropped image data.
     """
     resampling_factors = _clip_factors(resampling_factors, True)
-    resampled_scan_image = resample_scan_image(
-        image=scan_image, factors=resampling_factors
-    )
+    scan_image = resample_scan_image(image=scan_image, factors=resampling_factors)
+    if scan_image.mask is None:
+        raise ValueError("Mask is required for cropping operation.")
 
-    # Apply mask to the `ScanImage` instance
-    # Function is a code smell, call each task seprately
-    if resampled_scan_image.mask is not None:
-        resampled_scan_image = mask_and_crop_scan_image(
-            scan_image=resampled_scan_image, mask=resampled_scan_image.mask, crop=crop
-        )
+    scan_image = mask_image(scan_image)
+    if crop:
+        scan_image = crop_to_mask(scan_image)
 
-    # Level the image data
-    level_result = level_map(scan_image=resampled_scan_image, terms=terms)
+    level_result = level_map(scan_image=scan_image, terms=terms)
 
     # Filter the leveled results using a Gaussian regression filter
     data_filtered = apply_gaussian_regression_filter(
         data=level_result.leveled_map,
         regression_order=regression_order,
         cutoff_length=cutoff_length,
-        pixel_size=(resampled_scan_image.scale_x, resampled_scan_image.scale_y),
+        pixel_size=(scan_image.scale_x, scan_image.scale_y),
         is_high_pass=True,
     )
 
