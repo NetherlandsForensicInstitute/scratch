@@ -1,8 +1,9 @@
 from functools import cached_property
+from typing import Self
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import Field
+from pydantic import Field, model_validator
 from .base import ScanMap2DArray, ConfigBaseModel, MaskArray
 
 
@@ -15,9 +16,19 @@ class ScanImage(ConfigBaseModel):
     """
 
     data: ScanMap2DArray
+    mask: ScanMap2DArray | None = None
     scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     meta_data: dict = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _mask_and_data_shape_matches(self) -> Self:
+        if self.mask is not None and self.data.shape != self.mask.shape:
+            raise ValueError(
+                f"The shape of the data {self.data.shape}"
+                f" does not match the shape of the mask {self.mask.shape}."
+            )
+        return self
 
     @property
     def width(self) -> int:

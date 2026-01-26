@@ -24,9 +24,9 @@ def test_get_cropped_image(
     terms: SurfaceTerms,
     regression_order: int,
 ):
+    scan_image = scan_image_replica.model_copy(update={"mask": mask_array})
     result = get_cropped_image(
-        scan_image=scan_image_replica,
-        mask=mask_array,
+        scan_image=scan_image,
         terms=terms,
         regression_order=regression_order,
         cutoff_length=250e-6,

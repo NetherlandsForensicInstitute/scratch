@@ -1,5 +1,6 @@
 from pathlib import Path
 from functools import lru_cache
+from container_models.base import ScanMap2DArray
 from loguru import logger
 
 import numpy as np
@@ -26,10 +27,11 @@ FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
     "Successfully loaded scan file",
 )
 @impure_safe
-def load_scan_image(scan_file: Path) -> ScanImage:
+def load_scan_image(scan_file: Path, mask: ScanMap2DArray | None = None) -> ScanImage:
     """
     Load a scan image from a file. Parsed values will be converted to meters (m).
     :param scan_file: The path to the file containing the scanned image data.
+    :param mask: A 2D array representing a mask to apply to the scan data.
     :returns: An instance of `ScanImage`.
     """
     surface = Surface.load(scan_file)
@@ -42,6 +44,7 @@ def load_scan_image(scan_file: Path) -> ScanImage:
         scale_x=step_x,
         scale_y=step_y,
         meta_data=surface.metadata,
+        mask=mask,
     )
 
 

@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 
+from container_models.base import ScanMap2DArray
 from container_models.light_source import LightSource
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, parse_to_x3p, save_x3p, subsample_scan_image
@@ -21,7 +22,9 @@ from preprocessors.schemas import (
 )
 
 
-def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> ScanImage:
+def parse_scan_pipeline(
+    scan_file: Path, step_size_x: int, step_size_y: int, mask: ScanMap2DArray | None = None
+) -> ScanImage:
     """
     Parse a scan file and load it as a ScanImage.
 
@@ -32,7 +35,7 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
     """
     return run_pipeline(
         scan_file,
-        load_scan_image,
+        partial(load_scan_image, mask=mask),
         partial(subsample_scan_image, step_size_x=step_size_x, step_size_y=step_size_y),
         error_message=f"Failed to parsed given scan file: {scan_file}",
     )
