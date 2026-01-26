@@ -82,11 +82,10 @@ def get_rotation_angle(rectangle: RectangularCrop) -> float:
     for i in range(4):
         p1 = rectangle[i]
         p2 = rectangle[(i + 1) % 4]
-        angle = np.degrees(np.arctan2(p2[1] - p1[1], p2[0] - p1[0]))
-        angles.append((abs(angle), angle))
+        angles.append(np.degrees(np.arctan2(p2[1] - p1[1], p2[0] - p1[0])))
 
     # find smallest absolute angle
-    rotation_angle = min(angles, key=lambda x: abs(x[0]))[1]
+    rotation_angle = min(angles, key=lambda x: abs(x))
 
     # Normalize to [-90, 90] range
     if rotation_angle > 90:
