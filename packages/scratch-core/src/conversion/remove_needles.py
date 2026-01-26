@@ -21,15 +21,6 @@ def mask_and_remove_needles(
     """
     Mask the scan image and remove needle artifacts (i.e. steep slopes) using median filtering.
 
-    Implements the following flow:
-    - Apply the mask to the scan image to exclude any outliers/needles that are irrelevant.
-    - Apply median filtering to smooth the data. If the image is large, it is downsampled before filtering and
-        upsampled afterward. If the image is a small strip of data (width or height <= SMALL_STRIP_THRESHOLD), the
-        filter size is reduced.
-    - Compute residuals as the difference between the masked original and median filtered data.
-    - Mark points as needles where residuals exceed a computed threshold
-    - Set marked needle points to NaN in the masked original scan image
-
     :param scan_image: Scan image to mask and clean.
     :param mask: Binary mask array.
     :param median_factor: Parameter to help determine the needle threshold.

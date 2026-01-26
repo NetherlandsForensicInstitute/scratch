@@ -51,7 +51,7 @@ class MarkType(StrEnum):
         return 1.5e-6
 
 
-def validate_rectangle_shape(arr: NDArray[float64]) -> NDArray[float64]:
+def validate_rectangle_corners(arr: NDArray[float64]) -> NDArray[float64]:
     """Validate that array has shape (4, 2)"""
     if arr.shape != (4, 2):
         raise ValueError(f"Rectangle must have shape (4, 2), got {arr.shape}")
@@ -61,7 +61,7 @@ def validate_rectangle_shape(arr: NDArray[float64]) -> NDArray[float64]:
 RectangularCrop = Annotated[
     NDArray[float64],
     BeforeValidator(partial(coerce_to_array, float64)),
-    AfterValidator(partial(validate_rectangle_shape)),
+    AfterValidator(partial(validate_rectangle_corners)),
     PlainSerializer(serialize_ndarray),
 ]
 
