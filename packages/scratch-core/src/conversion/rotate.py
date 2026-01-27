@@ -75,12 +75,11 @@ def get_rotation_angle(rectangular_bounding_box: RectangularBoundingBox) -> floa
     Calculate the rotation angle of a rectangular crop region.
 
     Determines the rotation angle by computing the angles between following points (e.g. top left corner with top
-    right, top right with bottom right) and selecting the angle with the smallest absolute value. This angle is then
-    normalized to the range [-90, 90] degrees to represent the minimal rotation needed to align the rectangle.
+    right, top right with bottom right) and selecting the angle with the smallest absolute value.
 
     :param rectangular_bounding_box: Bounding box of a rectangular crop region. Expects pixel coordinates,
         i.e. top-left origin.
-    :return: The rotation angle in degrees, ranging from -90 to 90 (inclusive).
+    :return: The rotation angle in degrees, ranging from -180 to 180 (inclusive).
     """
     angles = []
     for i in range(4):
@@ -92,12 +91,6 @@ def get_rotation_angle(rectangular_bounding_box: RectangularBoundingBox) -> floa
 
     # find smallest absolute angle
     rotation_angle = min(angles, key=lambda x: abs(x))
-
-    # Normalize to [-90, 90] range
-    if rotation_angle > 90:
-        rotation_angle -= 180
-    elif rotation_angle < -90:
-        rotation_angle += 180
 
     return rotation_angle
 
