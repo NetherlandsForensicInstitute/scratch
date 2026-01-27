@@ -118,7 +118,7 @@ def get_and_remove_needles(
     The threshold is set to `the median of the absolute residuals * median_factor * MEDIAN_FACTOR_CORRECTION_FACTOR`.
 
     :param scan_image: ScanImage to remove needles from.
-    :param residual_image: Array of differences between a (masked) image and median filter smoothed image.
+    :param residual_image: Array of differences between an image and its smoothed image.
     :param median_factor: Parameter to help determine the needle threshold.
     :return: ScanImage where any needles are replaced with nan.
     """
