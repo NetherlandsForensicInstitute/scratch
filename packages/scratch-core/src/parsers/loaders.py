@@ -68,9 +68,10 @@ def make_isotropic(scan_image: ScanImage) -> ScanImage:
 
     # Upsample to the smallest pixel scale (highest resolution)
     target_scale = min(scan_image.scale_x, scan_image.scale_y)
+    upsampled = _upsample_image_data(scan_image, target_scale)
 
     return ScanImage(
-        data=_upsample_image_data(scan_image, target_scale),
+        data=upsampled,
         scale_x=target_scale,
         scale_y=target_scale,
         meta_data=scan_image.meta_data,
