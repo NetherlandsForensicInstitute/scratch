@@ -122,7 +122,7 @@ def get_and_remove_needles(
     :param median_factor: Parameter to help determine the needle threshold.
     :return: ScanImage where any needles are replaced with nan.
     """
-    median_factor = median_factor * MEDIAN_FACTOR_CORRECTION_FACTOR
+    median_factor *= MEDIAN_FACTOR_CORRECTION_FACTOR
 
     # Find needles: points where |residual| > threshold
     median_residual = np.nanmedian(np.abs(residual_image))
