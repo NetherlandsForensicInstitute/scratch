@@ -132,7 +132,7 @@ def rotate_mask_and_scan_image(
         return scan_image, mask
 
     mask = rotate(
-        mask.astype(float),
+        mask,
         -rotation_angle,
         reshape=True,
         order=0,
