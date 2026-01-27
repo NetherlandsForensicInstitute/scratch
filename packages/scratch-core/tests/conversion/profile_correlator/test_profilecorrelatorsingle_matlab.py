@@ -469,7 +469,10 @@ class TestProfileCorrelatorSingleMatlabComparison:
         """Test that partial profile flag is set correctly."""
         python_results = run_python_profile_correlator(test_case)
 
-        expected_partial = 1 if test_case.is_partial_expected else 0
+        # Use actual MATLAB output instead of metadata field, as metadata
+        # is_partial_expected is based on original lengths, but MATLAB determines
+        # partial/full based on lengths AFTER pixel size equalization.
+        expected_partial = test_case.expected_results.bPartialProfile
         assert_equal_int(
             python_results.bPartialProfile,
             expected_partial,

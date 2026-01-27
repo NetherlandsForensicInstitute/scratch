@@ -13,14 +13,10 @@ The main functions are:
 All length parameters are in meters (SI units).
 """
 
-from typing import Sequence
+from typing import Callable, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.optimize import minimize
-
-from conversion.filter.gaussian import ALPHA_GAUSSIAN
-from conversion.filter.regression import apply_order0_filter, create_gaussian_kernel_1d
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
     AlignmentResult,
@@ -34,6 +30,298 @@ from conversion.profile_correlator.transforms import (
 )
 
 
+def _fminsearchbnd_transform_to_unconstrained(
+    x: NDArray[np.floating],
+    lb: NDArray[np.floating],
+    ub: NDArray[np.floating],
+) -> NDArray[np.floating]:
+    """
+    Transform bounded variables to unconstrained space using MATLAB fminsearchbnd approach.
+
+    For doubly-bounded variables: uses sin transformation
+    This matches MATLAB's fminsearchbnd.m exactly.
+
+    :param x: Variables in bounded space.
+    :param lb: Lower bounds.
+    :param ub: Upper bounds.
+    :returns: Variables in unconstrained space.
+    """
+    xu = np.zeros_like(x, dtype=np.float64)
+    for i in range(len(x)):
+        if np.isfinite(lb[i]) and np.isfinite(ub[i]):
+            # Doubly bounded - use sin transformation (case 3 in MATLAB)
+            if x[i] <= lb[i]:
+                # Infeasible starting value
+                xu[i] = -np.pi / 2
+            elif x[i] >= ub[i]:
+                # Infeasible starting value
+                xu[i] = np.pi / 2
+            else:
+                # Normalize to [-1, 1]
+                normalized = 2 * (x[i] - lb[i]) / (ub[i] - lb[i]) - 1
+                normalized = max(-1.0, min(1.0, normalized))
+                # Shift by 2*pi to avoid problems at zero in fminsearch
+                # "otherwise, the initial simplex is vanishingly small"
+                xu[i] = 2 * np.pi + np.arcsin(normalized)
+        else:
+            # Unconstrained (case 0 in MATLAB)
+            xu[i] = x[i]
+    return xu
+
+
+def _fminsearchbnd_transform_to_bounded(
+    xu: NDArray[np.floating],
+    lb: NDArray[np.floating],
+    ub: NDArray[np.floating],
+) -> NDArray[np.floating]:
+    """
+    Transform unconstrained variables back to bounded space using MATLAB fminsearchbnd approach.
+
+    For doubly-bounded variables: uses sin transformation
+    This matches MATLAB's fminsearchbnd.m xtransform function exactly.
+
+    :param xu: Variables in unconstrained space.
+    :param lb: Lower bounds.
+    :param ub: Upper bounds.
+    :returns: Variables in bounded space.
+    """
+    x = np.zeros_like(xu, dtype=np.float64)
+    for i in range(len(xu)):
+        if np.isfinite(lb[i]) and np.isfinite(ub[i]):
+            # Doubly bounded - use sin transformation (case 3 in MATLAB)
+            # xtrans(i) = (sin(x(k))+1)/2;
+            # xtrans(i) = xtrans(i)*(params.UB(i) - params.LB(i)) + params.LB(i);
+            x[i] = (np.sin(xu[i]) + 1) / 2
+            x[i] = x[i] * (ub[i] - lb[i]) + lb[i]
+            # Just in case of any floating point problems
+            x[i] = max(lb[i], min(ub[i], x[i]))
+        else:
+            # Unconstrained (case 0 in MATLAB)
+            x[i] = xu[i]
+    return x
+
+
+def _fminsearchbnd_objective_wrapper(
+    xu: NDArray[np.floating],
+    objective_func,
+    lb: NDArray[np.floating],
+    ub: NDArray[np.floating],
+    *args,
+) -> float:
+    """
+    Wrapper for objective function that transforms variables from unconstrained to bounded space.
+
+    This is used to implement MATLAB's fminsearchbnd approach where the optimizer
+    works in unconstrained space but the objective is evaluated in bounded space.
+
+    :param xu: Variables in unconstrained space.
+    :param objective_func: The actual objective function that expects bounded variables.
+    :param lb: Lower bounds.
+    :param ub: Upper bounds.
+    :param args: Additional arguments to pass to objective_func.
+    :returns: Objective function value.
+    """
+    x = _fminsearchbnd_transform_to_bounded(xu, lb, ub)
+    return objective_func(x, *args)
+
+
+def _matlab_fminsearch(
+    fun: Callable[..., float],
+    x0: NDArray[np.floating],
+    tol_x: float = 1e-4,
+    tol_fun: float = 1e-4,
+    max_iter: int = 400,
+    max_fun_evals: int = 400,
+    args: tuple = (),
+) -> NDArray[np.floating]:
+    """
+    MATLAB-exact implementation of fminsearch (Nelder-Mead simplex method).
+
+    This replicates MATLAB's fminsearch.m algorithm exactly, including:
+    - Initial simplex creation (5% perturbation, 0.00025 for zero elements)
+    - Reflection, expansion, contraction, and shrink operations
+    - Termination criteria matching MATLAB
+    - Coefficient values: rho=1, chi=2, psi=0.5, sigma=0.5
+
+    :param fun: Objective function to minimize.
+    :param x0: Initial point (1D array).
+    :param tol_x: Termination tolerance on x (MATLAB TolX).
+    :param tol_fun: Termination tolerance on function value (MATLAB TolFun).
+    :param max_iter: Maximum number of iterations (MATLAB MaxIter).
+    :param max_fun_evals: Maximum function evaluations (MATLAB MaxFunEvals).
+    :param args: Additional arguments passed to fun.
+    :returns: Optimized point.
+    """
+    x0 = np.asarray(x0, dtype=np.float64).ravel()
+    n = len(x0)
+
+    # Nelder-Mead coefficients (matching MATLAB exactly)
+    rho = 1.0  # reflection
+    chi = 2.0  # expansion
+    psi = 0.5  # contraction
+    sigma = 0.5  # shrink
+
+    # Build initial simplex (matching MATLAB's fminsearch.m)
+    usual_delta = 0.05
+    zero_term_delta = 0.00025
+
+    # v[i] is vertex i, v has n+1 rows (vertices) x n columns (dimensions)
+    v = np.zeros((n + 1, n), dtype=np.float64)
+    v[0] = x0.copy()
+    for j in range(n):
+        y = x0.copy()
+        if y[j] != 0:
+            y[j] = (1 + usual_delta) * y[j]
+        else:
+            y[j] = zero_term_delta
+        v[j + 1] = y
+
+    # Evaluate function at all vertices
+    fv = np.zeros(n + 1, dtype=np.float64)
+    for i in range(n + 1):
+        fv[i] = fun(v[i], *args)
+    func_evals = n + 1
+
+    # Sort vertices by function value
+    sort_idx = np.argsort(fv)
+    fv = fv[sort_idx]
+    v = v[sort_idx]
+
+    iterations = 0
+
+    while True:
+        # Check convergence (matching MATLAB's criteria)
+        # max(abs(fv(1) - fv(2:end))) <= max(tolfun, 10*eps(fv(1)))
+        # max(max(abs(v(2:end,:) - v(1,:)))) <= max(tolx, 10*eps(max(v(1,:))))
+        fv_diff = np.max(np.abs(fv[0] - fv[1:]))
+        v_diff = np.max(np.abs(v[1:] - v[0]))
+
+        if fv_diff <= max(tol_fun, 10 * np.finfo(np.float64).eps * abs(fv[0])) and \
+           v_diff <= max(tol_x, 10 * np.finfo(np.float64).eps * np.max(np.abs(v[0]))):
+            break
+
+        if iterations >= max_iter:
+            break
+        if func_evals >= max_fun_evals:
+            break
+
+        iterations += 1
+
+        # Compute centroid of all vertices except the worst
+        xbar = np.mean(v[:n], axis=0)
+
+        # Reflection
+        xr = (1 + rho) * xbar - rho * v[n]
+        fxr = fun(xr, *args)
+        func_evals += 1
+
+        if fxr < fv[0]:
+            # Reflected point is better than best - try expansion
+            xe = (1 + rho * chi) * xbar - rho * chi * v[n]
+            fxe = fun(xe, *args)
+            func_evals += 1
+
+            if fxe < fxr:
+                # Expansion is better
+                v[n] = xe
+                fv[n] = fxe
+            else:
+                # Reflection is better than expansion
+                v[n] = xr
+                fv[n] = fxr
+
+        elif fxr < fv[n - 1]:
+            # Reflected is better than second-worst - accept reflection
+            v[n] = xr
+            fv[n] = fxr
+
+        else:
+            # Need to contract
+            if fxr < fv[n]:
+                # Outside contraction
+                xc = (1 + psi * rho) * xbar - psi * rho * v[n]
+                fxc = fun(xc, *args)
+                func_evals += 1
+
+                if fxc <= fxr:
+                    v[n] = xc
+                    fv[n] = fxc
+                else:
+                    # Shrink
+                    for j in range(1, n + 1):
+                        v[j] = v[0] + sigma * (v[j] - v[0])
+                        fv[j] = fun(v[j], *args)
+                    func_evals += n
+            else:
+                # Inside contraction
+                xcc = (1 - psi) * xbar + psi * v[n]
+                fxcc = fun(xcc, *args)
+                func_evals += 1
+
+                if fxcc < fv[n]:
+                    v[n] = xcc
+                    fv[n] = fxcc
+                else:
+                    # Shrink
+                    for j in range(1, n + 1):
+                        v[j] = v[0] + sigma * (v[j] - v[0])
+                        fv[j] = fun(v[j], *args)
+                    func_evals += n
+
+        # Sort vertices by function value
+        sort_idx = np.argsort(fv)
+        fv = fv[sort_idx]
+        v = v[sort_idx]
+
+    return v[0]
+
+
+def _fminsearchbnd(
+    fun: Callable[..., float],
+    x0: NDArray[np.floating],
+    lb: NDArray[np.floating],
+    ub: NDArray[np.floating],
+    tol_x: float = 1e-4,
+    tol_fun: float = 1e-4,
+    max_iter: int = 400,
+    max_fun_evals: int = 400,
+    args: tuple = (),
+) -> NDArray[np.floating]:
+    """
+    MATLAB-exact implementation of fminsearchbnd (bounded Nelder-Mead).
+
+    Wraps _matlab_fminsearch with sin transformation for bounded variables,
+    exactly matching MATLAB's fminsearchbnd.m.
+
+    :param fun: Objective function to minimize.
+    :param x0: Initial point in bounded space.
+    :param lb: Lower bounds.
+    :param ub: Upper bounds.
+    :param tol_x: Termination tolerance on x.
+    :param tol_fun: Termination tolerance on function value.
+    :param max_iter: Maximum iterations.
+    :param max_fun_evals: Maximum function evaluations.
+    :param args: Additional arguments passed to fun.
+    :returns: Optimized point in bounded space.
+    """
+    x0u = _fminsearchbnd_transform_to_unconstrained(x0, lb, ub)
+
+    def wrapped_fun(xu: NDArray[np.floating], *extra_args: object) -> float:
+        x_bounded = _fminsearchbnd_transform_to_bounded(xu, lb, ub)
+        return fun(x_bounded, *extra_args)
+
+    xu_opt = _matlab_fminsearch(
+        wrapped_fun,
+        x0u,
+        tol_x=tol_x,
+        tol_fun=tol_fun,
+        max_iter=max_iter,
+        max_fun_evals=max_fun_evals,
+        args=args,
+    )
+    return _fminsearchbnd_transform_to_bounded(xu_opt, lb, ub)
+
+
 def _apply_lowpass_filter_1d(
     profile: NDArray[np.floating],
     cutoff_wavelength: float,
@@ -43,8 +331,10 @@ def _apply_lowpass_filter_1d(
     """
     Apply Gaussian low-pass filter to a 1D profile with NaN handling.
 
-    Uses the 2D filtering infrastructure from conversion/filter by reshaping
-    the 1D profile to 2D, applying the filter, and reshaping back.
+    This implementation matches MATLAB's ApplyLowPassFilter exactly:
+    - Uses sigma = cutoff_pixels * 0.187390625 (sqrt(2*ln(2))/(2*pi))
+    - Kernel formula: exp(-0.5 * (alpha*n/(L/2))^2) with alpha=3
+    - Applies edge correction using NanConv-style normalized convolution
 
     :param profile: 1D array of heights. May contain NaN values.
     :param cutoff_wavelength: Filter cutoff wavelength in meters.
@@ -52,37 +342,54 @@ def _apply_lowpass_filter_1d(
     :param cut_borders: If True, trim filter-affected borders.
     :returns: Low-pass filtered profile.
     """
-    profile = np.asarray(profile).ravel()
+    from scipy.ndimage import convolve1d
 
-    # Convert cutoff to pixels
+    profile = np.asarray(profile).ravel().astype(np.float64)
+
+    # Convert cutoff to pixels (matches MATLAB: cutoff/xdim where both in μm)
     cutoff_pixels = cutoff_wavelength / pixel_size
 
-    # Check for NaN values
-    has_nans = np.any(np.isnan(profile))
+    # MATLAB sigma calculation: sigma = cutoff/xdim * 0.187390625
+    # where 0.187390625 = sqrt(2*ln(2))/(2*pi)
+    sigma = cutoff_pixels * 0.187390625
 
-    # Create 1D Gaussian kernel
-    kernel_1d = create_gaussian_kernel_1d(cutoff_pixels, has_nans, ALPHA_GAUSSIAN)
+    # MATLAB kernel size: L = 1 + 2*round(alpha*sigma); L = L - 1
+    alpha = 3.0
+    L = 1 + 2 * round(alpha * sigma)
+    L = L - 1  # Make L even, so L+1 kernel points is odd
 
-    # Identity kernel for the other axis
-    kernel_identity = np.array([1.0])
+    # MATLAB kernel: n = (0:L)' - L/2; t = exp(-(1/2)*(alpha*n/(L/2)).^2)
+    n = np.arange(L + 1) - L / 2  # L+1 points from -L/2 to L/2
+    kernel = np.exp(-0.5 * (alpha * n / (L / 2)) ** 2)
+    kernel = kernel / np.sum(kernel)  # Normalize
 
-    # Reshape 1D to 2D (N, 1)
-    data_2d = profile[:, np.newaxis]
+    # Find NaN positions
+    nan_mask = np.isnan(profile)
+    has_nans = np.any(nan_mask)
 
-    # Apply 2D filter with identity kernel for x-axis (filter along y-axis only)
-    mode = "constant" if has_nans else "symmetric"
-    filtered_2d = apply_order0_filter(data_2d, kernel_identity, kernel_1d, mode=mode)
+    # Create working copy with NaNs replaced by zeros
+    a = profile.copy()
+    a[nan_mask] = 0.0
 
-    # Preserve NaN positions
-    if has_nans:
-        filtered_2d[np.isnan(data_2d)] = np.nan
+    # Create ones array with zeros at NaN positions
+    on = np.ones_like(profile)
+    on[nan_mask] = 0.0
 
-    # Reshape back to 1D
-    filtered = filtered_2d.ravel()
+    # MATLAB NanConv with 'edge' option:
+    # flat = conv2(on, k, 'same')  -- edge correction divisor
+    # c = conv2(a, k, 'same') / flat
+    flat = convolve1d(on, kernel, mode="constant", cval=0.0)
+    filtered_raw = convolve1d(a, kernel, mode="constant", cval=0.0)
 
-    # Optionally cut borders
+    # Avoid division by zero
+    with np.errstate(divide="ignore", invalid="ignore"):
+        filtered = np.where(flat > 0, filtered_raw / flat, 0.0)
+
+    # Restore NaN positions (matches MATLAB 'nanout' option)
+    filtered[nan_mask] = np.nan
+
+    # Optionally cut borders (matches MATLAB cut_borders_after_smoothing)
     if cut_borders:
-        sigma = ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi)
         border = int(round(sigma))
         if border > 0 and len(filtered) > 2 * border:
             filtered = filtered[border:-border]
@@ -242,6 +549,19 @@ def align_profiles_multiscale(
     # Convert max_translation from meters to samples
     max_translation_samples = params.max_translation / pixel_size
 
+    # MATLAB's redetermine_max_trans logic:
+    # When max_translation is the default value (~10m = 1e7 μm), MATLAB sets
+    # redetermine_max_trans=1 and uses the current pass value as the
+    # translation limit at each scale level. This dramatically reduces
+    # the search space and is crucial for correct convergence.
+    # In MATLAB: max_translation(mm) == 10000 triggers this.
+    max_translation_mm = params.max_translation * 1000  # meters to mm
+    redetermine_max_trans = abs(max_translation_mm - 10000) < 1e-6
+
+    if not redetermine_max_trans:
+        # Non-default: convert to samples (MATLAB: round(max_translation/xdim/1000))
+        max_translation_samples = round(max_translation_samples)
+
     # Initialize tracking variables
     transforms: list[TransformParameters] = []
     correlation_history: list[tuple[float, float]] = []
@@ -251,19 +571,23 @@ def align_profiles_multiscale(
     scaling_total = 1.0
     current_scaling = 1.0  # For adjusting bounds at each scale
 
-    # Working copy of compared profile
+    # Working copy of compared profile (recomputed from original each iteration)
     profile_2_mod = profile_2.copy()
 
     # Process each scale level from coarse to fine (scale_passes are in meters)
+    # Use a small relative tolerance for comparisons to handle floating-point
+    # imprecision when pass values are computed from integer μm values
+    # (e.g. 10 * 1e-6 != 1e-5 due to IEEE 754 rounding).
+    _ftol = 1e-9
     for cutoff in params.scale_passes:
         # Check if this scale level should be processed
-        if cutoff < resolution_limit:
+        if cutoff < resolution_limit * (1 - _ftol):
             # Scale is finer than resolution limit, skip
             continue
-        if cutoff > cutoff_hi:
+        if cutoff > cutoff_hi * (1 + _ftol):
             # Scale is coarser than high cutoff bound, skip
             continue
-        if cutoff < cutoff_lo:
+        if cutoff < cutoff_lo * (1 - _ftol):
             # Scale is finer than low cutoff bound, skip
             continue
 
@@ -297,6 +621,13 @@ def align_profiles_multiscale(
         max_scaling_adj = params.max_scaling * (1 - (scaling_total - 1))
         min_scaling_adj = params.max_scaling * (1 + (scaling_total - 1))
 
+        # MATLAB redetermine_max_trans: override translation bounds with
+        # current pass value (in μm, treated as sample-like units)
+        if redetermine_max_trans:
+            cutoff_um = cutoff * 1e6  # Convert meters to μm
+            min_trans_adj = cutoff_um
+            max_trans_adj = cutoff_um
+
         # Bounds in subsampled coordinates
         trans_lb = -int(round(min_trans_adj / subsample_factor))
         trans_ub = int(round(max_trans_adj / subsample_factor))
@@ -305,29 +636,28 @@ def align_profiles_multiscale(
         scale_lb = ((1 - min_scaling_adj) / current_scaling - 1) * 10000
         scale_ub = ((1 + max_scaling_adj) / current_scaling - 1) * 10000
 
-        bounds = [(trans_lb, trans_ub), (scale_lb, scale_ub)]
+        # Bounds arrays
+        lb = np.array([trans_lb, scale_lb], dtype=np.float64)
+        ub = np.array([trans_ub, scale_ub], dtype=np.float64)
 
-        # Initial guess: start from previous iteration or zero
+        # Initial guess: start from zero (matches MATLAB x0 = [0 0])
         x0 = np.array([0.0, 0.0])
 
-        # Run bounded optimization
-        result = minimize(
+        # Use MATLAB-exact fminsearchbnd implementation
+        x_opt = _fminsearchbnd(
             _alignment_objective,
             x0,
+            lb,
+            ub,
+            tol_x=1e-6,
+            tol_fun=1e-6,
+            max_iter=400,
+            max_fun_evals=400,
             args=(profile_1_subsampled, profile_2_subsampled),
-            method="L-BFGS-B",
-            bounds=bounds,
-            options={
-                "ftol": 1e-6,
-                "gtol": 1e-6,
-                "maxiter": 1000,
-                "disp": False,
-            },
         )
 
-        # Extract optimized parameters (in subsampled space)
-        translation_subsampled = result.x[0]
-        scaling_encoded = result.x[1]
+        translation_subsampled = x_opt[0]
+        scaling_encoded = x_opt[1]
 
         # Convert back to full resolution
         translation = translation_subsampled * subsample_factor
@@ -342,12 +672,14 @@ def align_profiles_multiscale(
         translation_total = translation_total + translation
         scaling_total = scaling_total * scaling
 
-        # Apply transform to get aligned compared profile for correlation computation
-        # Wrap arrays in Profile objects for apply_transform
-        profile_2_mod_profile = Profile(depth_data=profile_2_mod, pixel_size=pixel_size)
-        profile_2_transformed = apply_transform(profile_2_mod_profile, transform)
+        # MATLAB recomputes profiles2_mod from the ORIGINAL profiles2 each iteration
+        # by applying ALL accumulated transforms at once (single interpolation).
+        # This avoids accumulating interpolation errors.
+        profile_2_original_profile = Profile(depth_data=profile_2, pixel_size=pixel_size)
+        profile_2_mod = apply_transform(profile_2_original_profile, transforms)
 
         # Compute correlation at this scale level (on filtered profiles)
+        # MATLAB: current_profile2_lo = TranslateScalePointset(current_profile2_lo, [translation scaling])
         profile_2_filtered_profile = Profile(
             depth_data=profile_2_filtered, pixel_size=pixel_size
         )
@@ -359,17 +691,18 @@ def align_profiles_multiscale(
         )
 
         # Compute correlation on original (unfiltered) profiles after removing zeros
+        # MATLAB: profiles2_scale_trans = TranslateScalePointset(mean_2, [translation scaling])
+        # mean_2 here is the profile_2_mod from BEFORE this iteration (already has previous transforms)
+        # But we need the version with current transform applied too.
+        # Use profile_2_mod which now has ALL transforms applied.
         profile_1_no_zeros, profile_2_no_zeros, _ = _remove_boundary_zeros(
-            profile_1, profile_2_transformed
+            profile_1, profile_2_mod
         )
         correlation_original = compute_cross_correlation(
             profile_1_no_zeros, profile_2_no_zeros
         )
 
         correlation_history.append((correlation_filtered, correlation_original))
-
-        # Update working copy of compared profile for next iteration
-        profile_2_mod = profile_2_transformed
 
     # Handle case where no scales were processed
     if len(transforms) == 0:
@@ -546,6 +879,15 @@ def align_partial_profile_multiscale(
         # Run alignment
         try:
             result = align_profiles_multiscale(ref_segment, partial_trimmed, params)
+
+            # Check that alignment produced a meaningful overlap.
+            # When the optimizer finds a spurious solution with an extreme shift,
+            # only a few samples survive boundary zero removal. The correlation
+            # on so few samples is unreliable. Require at least 50% overlap.
+            aligned_length = len(result.reference_aligned)
+            min_overlap = partial_length // 2
+            if aligned_length < min_overlap:
+                continue
 
             if result.final_correlation > best_correlation:
                 best_correlation = result.final_correlation

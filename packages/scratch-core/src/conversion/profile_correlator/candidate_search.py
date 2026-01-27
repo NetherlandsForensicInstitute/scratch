@@ -13,7 +13,8 @@ All length parameters are in meters (SI units).
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy import ndimage, signal
+from scipy import ndimage
+from scipy.interpolate import interp1d
 
 from conversion.filter.gaussian import ALPHA_GAUSSIAN
 from conversion.filter.regression import apply_order0_filter, create_gaussian_kernel_1d
@@ -113,6 +114,74 @@ def _apply_highpass_filter_1d(
             highpass = highpass[border:-border]
 
     return highpass
+
+
+def _cubic_bspline(x: NDArray[np.floating]) -> NDArray[np.floating]:
+    """Evaluate the cubic B-spline basis function.
+
+    This is the 4-point-support kernel used by DIPimage's ``resample``
+    for order-3 interpolation (direct evaluation, no prefilter).
+
+    :param x: Array of evaluation positions.
+    :returns: Kernel values (0 for |x| >= 2).
+    """
+    ax = np.abs(x)
+    result = np.zeros_like(ax)
+    # |x| < 1: (3|x|^3 - 6|x|^2 + 4) / 6
+    m1 = ax < 1.0
+    result[m1] = (3.0 * ax[m1] ** 3 - 6.0 * ax[m1] ** 2 + 4.0) / 6.0
+    # 1 <= |x| < 2: (2 - |x|)^3 / 6
+    m2 = (ax >= 1.0) & (ax < 2.0)
+    result[m2] = (2.0 - ax[m2]) ** 3 / 6.0
+    return result
+
+
+def _resample_interpolation(
+    data: NDArray[np.floating],
+    zoom: float,
+) -> NDArray[np.floating]:
+    """
+    Resample a 1D array using interpolation, matching DIPimage's resample.
+
+    DIPimage's ``resample(img, zoom)`` uses direct cubic B-spline kernel
+    evaluation (4-point local support, **no** global prefilter).  Output
+    sample *j* maps to input position ``j / zoom``.
+
+    This differs from ``scipy.signal.resample`` (FFT-based, propagates
+    NaN globally) and from ``scipy.interpolate.interp1d(kind='cubic')``
+    (global natural cubic spline).  Here NaN propagates only through
+    the local 4-point kernel, exactly matching DIPimage behaviour.
+
+    :param data: 1D input array.
+    :param zoom: Zoom factor (< 1 for downsampling, > 1 for upsampling).
+    :returns: Resampled 1D array of length ``max(1, round(len(data) * zoom))``.
+    """
+    n_in = len(data)
+    n_out = max(1, int(round(n_in * zoom)))
+
+    if n_out == n_in:
+        return data.copy()
+
+    # DIPimage coordinates: output sample j -> input position j / zoom
+    new_x = np.arange(n_out, dtype=np.float64) / zoom
+
+    result = np.empty(n_out, dtype=np.float64)
+
+    for j in range(n_out):
+        x = new_x[j]
+        # Integer indices for the 4-point B-spline stencil: [i-1, i, i+1, i+2]
+        # where i = floor(x)
+        i0 = int(np.floor(x))
+        val = 0.0
+        for di in range(-1, 3):
+            idx = i0 + di
+            # Clamp to valid range (DIPimage boundary handling)
+            idx_clamped = max(0, min(n_in - 1, idx))
+            weight = float(_cubic_bspline(np.array([x - idx]))[0])
+            val += data[idx_clamped] * weight
+        result[j] = val
+
+    return result
 
 
 def _label_connected_regions(binary_array: NDArray[np.bool_]) -> NDArray[np.intp]:
@@ -260,16 +329,16 @@ def find_match_candidates(
             scale_samples = scale / pixel_size
             subsampling = max(1, int(np.floor(scale_samples / oversampling)))
 
-            # Resample for efficiency
-            ref_length_sub = max(1, int(round(len(ref_filtered) / subsampling)))
-            partial_length_sub = max(1, int(round(len(partial_filtered) / subsampling)))
-
-            # Cast resample results to float64 arrays
-            ref_filtered_sub: NDArray[np.floating] = np.asarray(
-                signal.resample(ref_filtered, ref_length_sub), dtype=np.float64
+            # Resample for efficiency using interpolation to match
+            # DIPimage's resample() which uses cubic interpolation.
+            # Unlike scipy.signal.resample (FFT-based), this preserves
+            # NaN locally instead of propagating it to the entire output.
+            zoom = 1.0 / subsampling
+            ref_filtered_sub: NDArray[np.floating] = _resample_interpolation(
+                ref_filtered, zoom
             )
-            partial_filtered_sub: NDArray[np.floating] = np.asarray(
-                signal.resample(partial_filtered, partial_length_sub), dtype=np.float64
+            partial_filtered_sub: NDArray[np.floating] = _resample_interpolation(
+                partial_filtered, zoom
             )
 
             # Compute correlation at each position by sliding partial along reference
@@ -289,10 +358,10 @@ def find_match_candidates(
                 else:
                     xcorr_tmp[pos] = np.nan
 
-            # Upsample back to original resolution
-            target_length = max(1, len(ref_data) - len(partial_data) + 1)
-            xcorr_upsampled: NDArray[np.floating] = np.asarray(
-                signal.resample(xcorr_tmp, target_length), dtype=np.float64
+            # Upsample back to original resolution using interpolation
+            # to match DIPimage's resample(xcorr_tmp, subsampling)
+            xcorr_upsampled: NDArray[np.floating] = _resample_interpolation(
+                xcorr_tmp, float(subsampling)
             )
 
             xcorr_by_scale.append(xcorr_upsampled)

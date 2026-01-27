@@ -235,12 +235,13 @@ def apply_transform(
             total_translation = t.scaling * total_translation + t.translation
             total_scaling = t.scaling * total_scaling
 
-    # Create coordinate arrays
+    # Create coordinate arrays using 1-based indexing to match MATLAB's
+    # TranslateScalePointset: xx = (1:length(pointset))'
     n_samples = data.shape[0]
-    xx = np.arange(n_samples, dtype=np.float64)
+    xx = np.arange(1, n_samples + 1, dtype=np.float64)
 
     # Transformed coordinates: where each output position maps FROM in the input
-    # If xx_trans[i] = j, then output[i] = input[j]
+    # MATLAB: xx_trans = xx * transform_matrix(1,1) + transform_matrix(1,3)
     xx_trans = xx * total_scaling + total_translation
 
     # Handle single-column vs multi-column data
