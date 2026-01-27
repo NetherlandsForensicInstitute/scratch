@@ -4,7 +4,11 @@ from numpy.typing import NDArray
 from skimage.transform import resize
 
 from container_models.scan_image import ScanImage
-from conversion.filter import apply_gaussian_regression_filter
+from conversion.filter import (
+    _apply_order0_filter,
+    _apply_polynomial_filter,
+    _create_normalized_separable_kernels,
+)
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.resample import _clip_factors
 
@@ -15,6 +19,73 @@ from conversion.resample import _clip_factors
 # [] extract level_map
 # [] extroct apply_gaussian_regression_filter
 # [] Remove get_cropped_image
+
+
+# Constants based on ISO 16610 surface texture standards
+# Standard Gaussian alpha for 50% transmission
+ALPHA_GAUSSIAN = np.sqrt(np.log(2) / np.pi)
+# Adjusted alpha often used for higher-order regression filters to maintain properties
+# alpha = Sqrt((-1 - LambertW(-1, -1 / (2 * exp(1)))) / Pi)
+ALPHA_REGRESSION = 0.7309134280946760
+
+
+def apply_gaussian_regression_filter(
+    data: NDArray[np.floating],
+    cutoff_pixels: NDArray[np.floating],
+    regression_order: int,
+    nan_out: bool,
+) -> NDArray[np.floating]:
+    """
+    Apply a 2D Savitzky-Golay filter with Gaussian weighting via local polynomial regression (ISO 16610-21).
+
+    This implementation generalizes standard Gaussian filtering to handle missing data (NaNs) using local
+    regression techniques. It supports 0th order (Gaussian Kernel weighted average), 1st order (planar fit),
+    and 2nd order (quadratic fit) regression.
+
+    Explanation of Regression Orders:
+      - **Order 0**: Equivalent to the Nadaraya-Watson estimator. It calculates a weighted average where weights
+        are determined by the Gaussian kernel and the validity (non-NaN status) of neighboring pixels.
+      - **Order 1 & 2**: Local Weighted Least Squares (LOESS). It fits a polynomial surface (plane or quadratic) to
+        the local neighborhood weighted by the Gaussian kernel. This acts as a robust 2D Savitzky-Golay filter.
+
+    Mathematical basis:
+      - Approximate a signal s(x, y) from noisy data f(x, y) = s(x, y) + e(x, y) using weighted local regression.
+      - The approximation b(x, y) is calculated as the fitted value at point (x, y) using a weighted least squares
+        approach. Weights are non-zero within the neighborhood [x - rx, x + rx] and [y - ry, y + ry], following a
+        Gaussian distribution with standard deviations proportional to rx and ry.
+      - Optimization:
+        For **Order 0**, the operation is mathematically equivalent to a normalized convolution. This implementation
+        uses FFT-based convolution for performance gains compared to pixel-wise regression.
+
+    :param data: 2D input array containing float data. May contain NaNs.
+    :param cutoff_length: The filter cutoff wavelength in physical units.
+    :param pixel_size: Tuple of (y_size, x_size) in physical units.
+    :param regression_order: Order of the local polynomial fit (0, 1, or 2).
+        0 = Gaussian weighted average.
+        1 = Local planar fit (corrects for tilt).
+        2 = Local quadratic fit (corrects for quadratic curvature).
+    :param nan_out: If True, input NaNs remain NaNs in output. If False, the filter attempts to
+        fill gaps based on the local regression.
+    :param is_high_pass: If True, returns (input - smoothed). If False, returns smoothed.
+    :returns: The filtered 2D array of the same shape as input.
+    """
+    # 1. Prepare Filter Parameters
+    alpha = ALPHA_REGRESSION if regression_order >= 2 else ALPHA_GAUSSIAN
+
+    # 2. Generate Base 1D Kernels
+    kernel_x, kernel_y = _create_normalized_separable_kernels(alpha, cutoff_pixels)
+
+    # 3. Apply Filter Strategy
+    if regression_order == 0:
+        smoothed = _apply_order0_filter(data, kernel_x, kernel_y)
+    else:
+        smoothed = _apply_polynomial_filter(data, kernel_x, kernel_y, regression_order)
+
+    # 4. Post-processing
+    if nan_out:
+        smoothed[np.isnan(data)] = np.nan
+
+    return smoothed
 
 
 def resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> ScanImage:
@@ -132,8 +203,9 @@ def get_cropped_image(
     data_filtered = apply_gaussian_regression_filter(
         data=level_result.leveled_map,
         regression_order=regression_order,
-        cutoff_length=cutoff_length,
-        pixel_size=(scan_image.scale_x, scan_image.scale_y),
+        cutoff_pixels=cutoff_length
+        / np.array([scan_image.scale_x, scan_image.scale_y]),
+        nan_out=True,
         is_high_pass=True,
     )
 
