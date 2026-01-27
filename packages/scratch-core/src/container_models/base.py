@@ -35,7 +35,7 @@ def coerce_to_array[T: number](
     return value
 
 
-def validate_shape(n_dims: int, value: NDArray):
+def validate_shape(n_dims: int, value: NDArray) -> NDArray:
     if (array_dims := len(value.shape)) != n_dims:
         raise ValueError(
             f"Array shape mismatch, expected {n_dims} dimensions, but got {array_dims}"
