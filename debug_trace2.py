@@ -1,16 +1,18 @@
 """Trace candidate search with threshold lowering for partial_with_nans."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
-from conversion.profile_correlator.data_types import Profile, AlignmentParameters
 from conversion.profile_correlator.candidate_search import find_match_candidates
+from conversion.profile_correlator.data_types import AlignmentParameters, Profile
 
 pixel_size = 3.5e-6
 
-base = 'packages/scratch-core/tests/resources/profile_correlator/partial_with_nans'
-ref_data = np.load(f'{base}/input_profile_ref.npy').ravel()
-comp_data = np.load(f'{base}/input_profile_comp.npy').ravel()
+base = "packages/scratch-core/tests/resources/profile_correlator/partial_with_nans"
+ref_data = np.load(f"{base}/input_profile_ref.npy").ravel()
+comp_data = np.load(f"{base}/input_profile_comp.npy").ravel()
 
 pr = Profile(depth_data=ref_data, pixel_size=pixel_size, cutoff_hi=1e-3, cutoff_lo=5e-6)
 pc = Profile(depth_data=comp_data, pixel_size=pixel_size, cutoff_hi=1e-3, cutoff_lo=5e-6)
@@ -18,7 +20,8 @@ pc = Profile(depth_data=comp_data, pixel_size=pixel_size, cutoff_hi=1e-3, cutoff
 # Try different thresholds
 for threshold in [0.5, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.15, 0.10, 0.05, 0.0, -0.5, -1.0]:
     params = AlignmentParameters(
-        cutoff_hi=1e-3, cutoff_lo=5e-6,
+        cutoff_hi=1e-3,
+        cutoff_lo=5e-6,
         inclusion_threshold=threshold,
     )
     pos, shape_scales, comp_scale = find_match_candidates(pr, pc, params)
@@ -29,7 +32,8 @@ for threshold in [0.5, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.15, 0.10, 0.05, 0.0
 # Also check: what are the actual correlation values at each position?
 print("\n--- Checking raw correlations at 1000um scale ---")
 from conversion.profile_correlator.candidate_search import (
-    _apply_lowpass_filter_1d, _resample_interpolation,
+    _apply_lowpass_filter_1d,
+    _resample_interpolation,
 )
 from conversion.profile_correlator.similarity import compute_cross_correlation
 

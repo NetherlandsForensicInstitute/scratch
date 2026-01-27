@@ -1,19 +1,23 @@
 """Debug: trace objective landscape at each scale for edge_over_threshold."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
-from conversion.profile_correlator.data_types import Profile, TransformParameters
 from conversion.profile_correlator.alignment import (
-    _apply_lowpass_filter_1d, _alignment_objective, _fminsearchbnd,
+    _alignment_objective,
+    _apply_lowpass_filter_1d,
+    _fminsearchbnd,
     _remove_boundary_zeros,
 )
-from conversion.profile_correlator.transforms import apply_transform
+from conversion.profile_correlator.data_types import Profile, TransformParameters
 from conversion.profile_correlator.similarity import compute_cross_correlation
+from conversion.profile_correlator.transforms import apply_transform
 
-base = 'packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold'
-ref_data = np.load(f'{base}/input_profile_ref.npy').ravel().astype(np.float64)
-comp_data = np.load(f'{base}/input_profile_comp.npy').ravel().astype(np.float64)
+base = "packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold"
+ref_data = np.load(f"{base}/input_profile_ref.npy").ravel().astype(np.float64)
+comp_data = np.load(f"{base}/input_profile_comp.npy").ravel().astype(np.float64)
 pixel_size = 3.5e-6
 
 profile_1 = ref_data[:460].copy()  # ref segment for candidate 0
@@ -66,8 +70,14 @@ for cutoff in passes:
 
     # Run optimizer
     x_opt = _fminsearchbnd(
-        _alignment_objective, x0, lb, ub,
-        tol_x=1e-6, tol_fun=1e-6, max_iter=400, max_fun_evals=400,
+        _alignment_objective,
+        x0,
+        lb,
+        ub,
+        tol_x=1e-6,
+        tol_fun=1e-6,
+        max_iter=400,
+        max_fun_evals=400,
         args=(p1_sub, p2_sub),
     )
 
@@ -76,14 +86,18 @@ for cutoff in passes:
     translation = translation_sub * subsample_factor
     scaling = scaling_enc / 10000.0 + 1.0
 
-    print(f"Scale {cutoff_um:5.0f} um: sub={subsample_factor}, "
-          f"len=[{len(p1_sub)},{len(p2_sub)}], "
-          f"bounds=[{trans_lb},{trans_ub}]")
+    print(
+        f"Scale {cutoff_um:5.0f} um: sub={subsample_factor}, "
+        f"len=[{len(p1_sub)},{len(p2_sub)}], "
+        f"bounds=[{trans_lb},{trans_ub}]"
+    )
     print(f"  Brute-force best: t={best_t}, corr={-best_obj:.6f}")
     print(f"  Objective at t=0: corr={-obj_0:.6f}")
-    print(f"  Optimizer result: t_sub={translation_sub:.4f}, "
-          f"trans={translation:.4f}, scale={scaling:.6f}, "
-          f"corr={-_alignment_objective(x_opt, p1_sub, p2_sub):.6f}")
+    print(
+        f"  Optimizer result: t_sub={translation_sub:.4f}, "
+        f"trans={translation:.4f}, scale={scaling:.6f}, "
+        f"corr={-_alignment_objective(x_opt, p1_sub, p2_sub):.6f}"
+    )
 
     transform = TransformParameters(translation=translation, scaling=scaling)
     transforms.append(transform)
@@ -95,10 +109,11 @@ for cutoff in passes:
     profile_2_mod = apply_transform(profile_2_original_profile, transforms)
 
     p1_nz, p2_nz, _ = _remove_boundary_zeros(profile_1, profile_2_mod)
-    print(f"  After transform: total_trans={translation_total:.4f} samples, "
-          f"overlap={len(p1_nz)}, corr={compute_cross_correlation(p1_nz, p2_nz):.6f}")
+    print(
+        f"  After transform: total_trans={translation_total:.4f} samples, "
+        f"overlap={len(p1_nz)}, corr={compute_cross_correlation(p1_nz, p2_nz):.6f}"
+    )
     print()
 
-print(f"FINAL: total_trans={translation_total:.4f} samples = "
-      f"{translation_total * pixel_size * 1e6:.2f} um")
-print(f"MATLAB expected: -123.92 um = {-123.92/3.5:.2f} samples")
+print(f"FINAL: total_trans={translation_total:.4f} samples = {translation_total * pixel_size * 1e6:.2f} um")
+print(f"MATLAB expected: -123.92 um = {-123.92 / 3.5:.2f} samples")

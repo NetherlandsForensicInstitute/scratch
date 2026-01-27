@@ -14,10 +14,8 @@ All length parameters are in meters (SI units).
 import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage
-from scipy.interpolate import interp1d
+from scipy.ndimage import convolve1d
 
-from conversion.filter.gaussian import ALPHA_GAUSSIAN
-from conversion.filter.regression import apply_order0_filter, create_gaussian_kernel_1d
 from conversion.profile_correlator.data_types import AlignmentParameters, Profile
 from conversion.profile_correlator.similarity import compute_cross_correlation
 
@@ -31,8 +29,10 @@ def _apply_lowpass_filter_1d(
     """
     Apply Gaussian low-pass filter to a 1D profile with NaN handling.
 
-    Uses the 2D filtering infrastructure from conversion/filter by reshaping
-    the 1D profile to 2D, applying the filter, and reshaping back.
+    This implementation matches MATLAB's RemoveNoiseGaussian/SmoothMod exactly:
+    - Uses sigma = cutoff_pixels * 0.187390625 (ChebyCutoffToGaussSigma)
+    - Kernel formula: exp(-0.5 * (alpha*n/(L/2))^2) with alpha=3
+    - Applies edge correction using NanConv-style normalized convolution
 
     :param profile: 1D array of heights. May contain NaN values.
     :param cutoff_wavelength: Filter cutoff wavelength in meters.
@@ -40,38 +40,52 @@ def _apply_lowpass_filter_1d(
     :param cut_borders: If True, trim filter-affected borders.
     :returns: Low-pass filtered profile.
     """
-    profile = np.asarray(profile).ravel()
+    profile = np.asarray(profile).ravel().astype(np.float64)
 
-    # Convert cutoff to pixels
+    # Convert cutoff to pixels (matches MATLAB: cutoff/xdim where both in μm)
     cutoff_pixels = cutoff_wavelength / pixel_size
 
-    # Check for NaN values
-    has_nans = np.any(np.isnan(profile))
+    # MATLAB sigma calculation: sigma = cutoff/xdim * 0.187390625
+    # where 0.187390625 = sqrt(2*ln(2))/(2*pi)
+    sigma = cutoff_pixels * 0.187390625
 
-    # Create 1D Gaussian kernel
-    kernel_1d = create_gaussian_kernel_1d(cutoff_pixels, has_nans, ALPHA_GAUSSIAN)
+    # MATLAB kernel size: L = 1 + 2*round(alpha*sigma); L = L - 1
+    alpha = 3.0
+    L = 1 + 2 * round(alpha * sigma)
+    L = L - 1  # Make L even, so L+1 kernel points is odd
 
-    # Identity kernel for the other axis
-    kernel_identity = np.array([1.0])
+    # MATLAB kernel: n = (0:L)' - L/2; t = exp(-(1/2)*(alpha*n/(L/2)).^2)
+    n = np.arange(L + 1) - L / 2  # L+1 points from -L/2 to L/2
+    kernel = np.exp(-0.5 * (alpha * n / (L / 2)) ** 2)
+    kernel = kernel / np.sum(kernel)  # Normalize
 
-    # Reshape 1D to 2D (N, 1)
-    data_2d = profile[:, np.newaxis]
+    # Find NaN positions
+    nan_mask = np.isnan(profile)
 
-    # Apply 2D filter with identity kernel for x-axis (filter along y-axis only)
-    mode = "constant" if has_nans else "symmetric"
-    filtered_2d = apply_order0_filter(data_2d, kernel_identity, kernel_1d, mode=mode)
+    # Create working copy with NaNs replaced by zeros
+    a = profile.copy()
+    a[nan_mask] = 0.0
 
-    # Preserve NaN positions
-    if has_nans:
-        filtered_2d[np.isnan(data_2d)] = np.nan
+    # Create ones array with zeros at NaN positions
+    on = np.ones_like(profile)
+    on[nan_mask] = 0.0
 
-    # Reshape back to 1D
-    filtered = filtered_2d.ravel()
+    # MATLAB NanConv with 'edge' option:
+    # flat = conv2(on, k, 'same')  -- edge correction divisor
+    # c = conv2(a, k, 'same') / flat
+    flat = convolve1d(on, kernel, mode="constant", cval=0.0)
+    filtered_raw = convolve1d(a, kernel, mode="constant", cval=0.0)
 
-    # Optionally cut borders
+    # Avoid division by zero
+    with np.errstate(divide="ignore", invalid="ignore"):
+        filtered = np.where(flat > 0, filtered_raw / flat, 0.0)
+
+    # Restore NaN positions (matches MATLAB 'nanout' option)
+    filtered[nan_mask] = np.nan
+
+    # Optionally cut borders (matches MATLAB ceil(sigma))
     if cut_borders:
-        sigma = ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi)
-        border = int(round(sigma))
+        border = int(np.ceil(sigma))
         if border > 0 and len(filtered) > 2 * border:
             filtered = filtered[border:-border]
 
@@ -87,7 +101,7 @@ def _apply_highpass_filter_1d(
     """
     Apply Gaussian high-pass filter to a 1D profile.
 
-    High-pass = original - low-pass.
+    High-pass = original - low-pass. Matches MATLAB's RemoveShapeGaussian.
 
     :param profile: 1D array of heights. May contain NaN values.
     :param cutoff_wavelength: Filter cutoff wavelength in meters.
@@ -105,11 +119,11 @@ def _apply_highpass_filter_1d(
     # High-pass = original - low-pass
     highpass = profile - lowpass
 
-    # Optionally cut borders
+    # Optionally cut borders (matches MATLAB ceil(sigma))
     if cut_borders:
         cutoff_pixels = cutoff_wavelength / pixel_size
-        sigma = ALPHA_GAUSSIAN * cutoff_pixels / np.sqrt(2 * np.pi)
-        border = int(round(sigma))
+        sigma = cutoff_pixels * 0.187390625
+        border = int(np.ceil(sigma))
         if border > 0 and len(highpass) > 2 * border:
             highpass = highpass[border:-border]
 

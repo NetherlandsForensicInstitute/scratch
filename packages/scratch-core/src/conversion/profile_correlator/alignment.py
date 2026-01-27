@@ -182,8 +182,8 @@ def _matlab_fminsearch(
         fv[i] = fun(v[i], *args)
     func_evals = n + 1
 
-    # Sort vertices by function value
-    sort_idx = np.argsort(fv)
+    # Sort vertices by function value (stable sort to match MATLAB's sort)
+    sort_idx = np.argsort(fv, kind="stable")
     fv = fv[sort_idx]
     v = v[sort_idx]
 
@@ -196,8 +196,11 @@ def _matlab_fminsearch(
         fv_diff = np.max(np.abs(fv[0] - fv[1:]))
         v_diff = np.max(np.abs(v[1:] - v[0]))
 
-        if fv_diff <= max(tol_fun, 10 * np.finfo(np.float64).eps * abs(fv[0])) and \
-           v_diff <= max(tol_x, 10 * np.finfo(np.float64).eps * np.max(np.abs(v[0]))):
+        if fv_diff <= max(
+            tol_fun, 10 * np.finfo(np.float64).eps * abs(fv[0])
+        ) and v_diff <= max(
+            tol_x, 10 * np.finfo(np.float64).eps * np.max(np.abs(v[0]))
+        ):
             break
 
         if iterations >= max_iter:
@@ -268,8 +271,8 @@ def _matlab_fminsearch(
                         fv[j] = fun(v[j], *args)
                     func_evals += n
 
-        # Sort vertices by function value
-        sort_idx = np.argsort(fv)
+        # Sort vertices by function value (stable sort to match MATLAB's sort)
+        sort_idx = np.argsort(fv, kind="stable")
         fv = fv[sort_idx]
         v = v[sort_idx]
 
@@ -675,7 +678,9 @@ def align_profiles_multiscale(
         # MATLAB recomputes profiles2_mod from the ORIGINAL profiles2 each iteration
         # by applying ALL accumulated transforms at once (single interpolation).
         # This avoids accumulating interpolation errors.
-        profile_2_original_profile = Profile(depth_data=profile_2, pixel_size=pixel_size)
+        profile_2_original_profile = Profile(
+            depth_data=profile_2, pixel_size=pixel_size
+        )
         profile_2_mod = apply_transform(profile_2_original_profile, transforms)
 
         # Compute correlation at this scale level (on filtered profiles)

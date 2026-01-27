@@ -13,22 +13,22 @@ Expected MATLAB results from metadata.json:
 """
 
 import sys
-sys.path.insert(0, '/Users/laurensweijs/scratch/packages/scratch-core/src')
+
+sys.path.insert(0, "/Users/laurensweijs/scratch/packages/scratch-core/src")
 
 import numpy as np
-from conversion.profile_correlator.data_types import Profile, AlignmentParameters, TransformParameters
+from conversion.profile_correlator.alignment import _alignment_objective, _apply_lowpass_filter_1d
 from conversion.profile_correlator.candidate_search import find_match_candidates
-from conversion.profile_correlator.alignment import _apply_lowpass_filter_1d, _alignment_objective
-from conversion.profile_correlator.transforms import apply_transform
+from conversion.profile_correlator.data_types import AlignmentParameters, Profile
 from conversion.profile_correlator.similarity import compute_cross_correlation
 
 # ============================================================================
 # 1. Load test data
 # ============================================================================
-data_dir = '/Users/laurensweijs/scratch/packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold'
+data_dir = "/Users/laurensweijs/scratch/packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold"
 
-ref_data = np.load(f'{data_dir}/input_profile_ref.npy')
-comp_data = np.load(f'{data_dir}/input_profile_comp.npy')
+ref_data = np.load(f"{data_dir}/input_profile_ref.npy")
+comp_data = np.load(f"{data_dir}/input_profile_comp.npy")
 
 print("=" * 70)
 print("1. RAW DATA")
@@ -62,8 +62,8 @@ print(f"Length diff pct:  {abs(len(ref_mean) - len(comp_mean)) / min(len(ref_mea
 # 2. Create Profile objects
 # ============================================================================
 pixel_size = 3.5e-6  # meters
-cutoff_hi = 1e-3     # meters (1000 um)
-cutoff_lo = 5e-6     # meters (5 um)
+cutoff_hi = 1e-3  # meters (1000 um)
+cutoff_lo = 5e-6  # meters (5 um)
 
 ref_profile = Profile(
     depth_data=ref_data,
@@ -84,9 +84,9 @@ params = AlignmentParameters(
     cutoff_lo=cutoff_lo,
 )
 
-print(f"\nPixel size: {pixel_size*1e6:.1f} um")
-print(f"Cutoff hi:  {cutoff_hi*1e6:.0f} um")
-print(f"Cutoff lo:  {cutoff_lo*1e6:.0f} um")
+print(f"\nPixel size: {pixel_size * 1e6:.1f} um")
+print(f"Cutoff hi:  {cutoff_hi * 1e6:.0f} um")
+print(f"Cutoff lo:  {cutoff_lo * 1e6:.0f} um")
 
 # ============================================================================
 # 3. Run candidate search
@@ -95,18 +95,16 @@ print("\n" + "=" * 70)
 print("3. CANDIDATE SEARCH")
 print("=" * 70)
 
-candidate_positions, shape_scales, comp_scale = find_match_candidates(
-    ref_profile, comp_profile, params
-)
+candidate_positions, shape_scales, comp_scale = find_match_candidates(ref_profile, comp_profile, params)
 
-print(f"Shape scales (um): {[s*1e6 for s in shape_scales]}")
-print(f"Comp scale (um):   {comp_scale*1e6}")
+print(f"Shape scales (um): {[s * 1e6 for s in shape_scales]}")
+print(f"Comp scale (um):   {comp_scale * 1e6}")
 print(f"Number of candidates: {len(candidate_positions)}")
 print(f"Candidate positions (samples): {candidate_positions}")
 print(f"Candidate positions (um):      {[p * pixel_size * 1e6 for p in candidate_positions]}")
 
 # MATLAB expects: startPartProfile = 3.5 um => candidate at sample 1
-print(f"\nExpected MATLAB candidate: sample 1 (3.5 um)")
+print("\nExpected MATLAB candidate: sample 1 (3.5 um)")
 
 # ============================================================================
 # 4. Extract reference segment for candidate position 0
@@ -120,8 +118,10 @@ partial_length = len(comp_mean)  # 460
 for cand_idx, cand_pos in enumerate(candidate_positions):
     end_idx = min(cand_pos + partial_length, len(ref_mean))
     ref_segment = ref_mean[cand_pos:end_idx]
-    print(f"Candidate {cand_idx}: pos={cand_pos}, segment length={len(ref_segment)}, "
-          f"range=[{np.nanmin(ref_segment):.6e}, {np.nanmax(ref_segment):.6e}]")
+    print(
+        f"Candidate {cand_idx}: pos={cand_pos}, segment length={len(ref_segment)}, "
+        f"range=[{np.nanmin(ref_segment):.6e}, {np.nanmax(ref_segment):.6e}]"
+    )
 
 # Use first candidate
 cand_pos_0 = candidate_positions[0] if len(candidate_positions) > 0 else 0
@@ -141,17 +141,17 @@ print("=" * 70)
 # Let's determine which scales are used:
 possible_scales = np.array(list(params.scale_passes), dtype=np.float64)
 resolution_limit = max(cutoff_lo, 2 * pixel_size)
-print(f"Resolution limit: {resolution_limit*1e6:.1f} um")
+print(f"Resolution limit: {resolution_limit * 1e6:.1f} um")
 
 # Filter scales the same way align_partial_profile_multiscale does
 adjusted_scales = [s for s in params.scale_passes if s <= comp_scale]
-print(f"Adjusted scale passes (um): {[s*1e6 for s in adjusted_scales]}")
+print(f"Adjusted scale passes (um): {[s * 1e6 for s in adjusted_scales]}")
 
 # For this debug, use 500 um (5e-4 m) as the first scale
 first_scale = 5e-4  # 500 um
 if adjusted_scales:
     first_scale = adjusted_scales[0]
-    print(f"Actual first scale: {first_scale*1e6:.0f} um")
+    print(f"Actual first scale: {first_scale * 1e6:.0f} um")
 
 # Work with equal-length profiles: ref_segment_0 and comp_mean
 # They should be the same length (both 460 if candidate is valid)
@@ -168,7 +168,7 @@ print(f"Working profiles length: {min_len}")
 ref_lp = _apply_lowpass_filter_1d(work_ref, first_scale, pixel_size, cut_borders=False)
 comp_lp = _apply_lowpass_filter_1d(work_comp, first_scale, pixel_size, cut_borders=False)
 
-print(f"\nAfter lowpass at {first_scale*1e6:.0f} um:")
+print(f"\nAfter lowpass at {first_scale * 1e6:.0f} um:")
 print(f"  ref_lp range:  [{np.nanmin(ref_lp):.6e}, {np.nanmax(ref_lp):.6e}]")
 print(f"  comp_lp range: [{np.nanmin(comp_lp):.6e}, {np.nanmax(comp_lp):.6e}]")
 print(f"  ref_lp std:    {np.nanstd(ref_lp):.6e}")
@@ -210,7 +210,7 @@ trans_ub = int(round(max_trans_adj / subsample_factor))
 print(f"Subsampled translation bounds: [{trans_lb}, {trans_ub}]")
 
 # Evaluate objective function at translations from -40 to +40 (original samples)
-print(f"\n--- Objective function landscape (subsampled, first scale {first_scale*1e6:.0f} um) ---")
+print(f"\n--- Objective function landscape (subsampled, first scale {first_scale * 1e6:.0f} um) ---")
 print(f"{'trans_orig':>12s} {'trans_sub':>12s} {'objective':>12s} {'correlation':>12s}")
 
 scan_range_orig = range(-40, 41)
@@ -281,11 +281,11 @@ for t in fine_range_full:
 print("\n" + "=" * 70)
 print("7. SUMMARY: PYTHON vs MATLAB")
 print("=" * 70)
-print(f"MATLAB expected translation: ~35.4 samples ({-123.92:.2f} um / {pixel_size*1e6:.1f} um)")
-print(f"MATLAB expected overlap:     0.924")
-print(f"MATLAB expected correlation: 0.986")
-print(f"MATLAB expected candidate:   sample 1 (startPartProfile=3.5 um)")
-print(f"")
+print(f"MATLAB expected translation: ~35.4 samples ({-123.92:.2f} um / {pixel_size * 1e6:.1f} um)")
+print("MATLAB expected overlap:     0.924")
+print("MATLAB expected correlation: 0.986")
+print("MATLAB expected candidate:   sample 1 (startPartProfile=3.5 um)")
+print("")
 print(f"Python candidate position:   {cand_pos_0}")
 print(f"Python best trans (1st scale, subsampled): {best_t_orig} samples")
 print(f"Python best trans (full, no filter):       {best_t_full} samples")
@@ -297,12 +297,12 @@ print(f"Python corr at t=+35 (full): {-_alignment_objective(np.array([35.0, 0.0]
 # MATLAB says startPartProfile = 3.5 um => candidate at sample 1
 # If Python found candidate at 0, the ref segment is shifted by 1 sample
 if len(candidate_positions) > 0 and candidate_positions[0] != 1:
-    print(f"\n--- Checking with MATLAB candidate position (sample 1) ---")
-    ref_seg_matlab = ref_mean[1:1 + partial_length]
+    print("\n--- Checking with MATLAB candidate position (sample 1) ---")
+    ref_seg_matlab = ref_mean[1 : 1 + partial_length]
     min_len2 = min(len(ref_seg_matlab), len(comp_mean))
     ref_seg_matlab = ref_seg_matlab[:min_len2]
     comp_matlab = comp_mean[:min_len2]
-    
+
     for t in [-40, -35, -30, -20, -10, 0, 10, 20, 30, 35, 40]:
         x_test = np.array([float(t), 0.0])
         obj_val = _alignment_objective(x_test, ref_seg_matlab, comp_matlab)

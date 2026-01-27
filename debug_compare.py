@@ -1,20 +1,23 @@
 """Debug script to compare Python's result vs MATLAB's expected result for edge_over_threshold."""
+
 import sys
-sys.path.insert(0, '/Users/laurensweijs/scratch/packages/scratch-core/src')
+
+sys.path.insert(0, "/Users/laurensweijs/scratch/packages/scratch-core/src")
 
 import numpy as np
-from conversion.profile_correlator.data_types import Profile, AlignmentParameters
-from conversion.profile_correlator.correlator import correlate_profiles
-from conversion.profile_correlator.similarity import compute_cross_correlation
 from conversion.profile_correlator.alignment import _apply_lowpass_filter_1d
+from conversion.profile_correlator.correlator import correlate_profiles
+from conversion.profile_correlator.data_types import AlignmentParameters, Profile
+from conversion.profile_correlator.similarity import compute_cross_correlation
 
-base = '/Users/laurensweijs/scratch/packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold'
-ref_data = np.load(f'{base}/input_profile_ref.npy').ravel()
-comp_data = np.load(f'{base}/input_profile_comp.npy').ravel()
+base = "/Users/laurensweijs/scratch/packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold"
+ref_data = np.load(f"{base}/input_profile_ref.npy").ravel()
+comp_data = np.load(f"{base}/input_profile_comp.npy").ravel()
 
 pixel_size = 3.5e-6
 params = AlignmentParameters(
-    cutoff_hi=1e-3, cutoff_lo=5e-6,
+    cutoff_hi=1e-3,
+    cutoff_lo=5e-6,
     partial_mark_threshold=8.0,
     inclusion_threshold=0.5,
 )
@@ -23,23 +26,23 @@ profile_ref = Profile(depth_data=ref_data, pixel_size=pixel_size, cutoff_hi=1e-3
 profile_comp = Profile(depth_data=comp_data, pixel_size=pixel_size, cutoff_hi=1e-3, cutoff_lo=5e-6)
 
 print(f"ref: {len(ref_data)}, comp: {len(comp_data)}")
-print(f"length diff: {abs(len(ref_data)-len(comp_data))/max(len(ref_data),len(comp_data))*100:.1f}%")
+print(f"length diff: {abs(len(ref_data) - len(comp_data)) / max(len(ref_data), len(comp_data)) * 100:.1f}%")
 
 # Run Python correlator
 result = correlate_profiles(profile_ref, profile_comp, params)
-print(f"\n=== Python result ===")
-print(f"dPos: {result.position_shift*1e6:.2f} um")
+print("\n=== Python result ===")
+print(f"dPos: {result.position_shift * 1e6:.2f} um")
 print(f"dScale: {result.scale_factor:.6f}")
 print(f"simVal: {result.similarity_value:.6f}")
 print(f"pOverlap: {result.overlap_ratio:.6f}")
-print(f"lOverlap: {result.overlap_length*1e6:.2f} um")
+print(f"lOverlap: {result.overlap_length * 1e6:.2f} um")
 
-print(f"\n=== MATLAB expected ===")
-print(f"dPos: -123.92 um")
-print(f"dScale: 1.001523")
-print(f"simVal: 0.986387")
-print(f"pOverlap: 0.923913")
-print(f"lOverlap: 1487.50 um")
+print("\n=== MATLAB expected ===")
+print("dPos: -123.92 um")
+print("dScale: 1.001523")
+print("simVal: 0.986387")
+print("pOverlap: 0.923913")
+print("lOverlap: 1487.50 um")
 
 # Now compute what MATLAB's result would look like:
 # MATLAB found a translation of -35.4 samples = -123.92 um
@@ -48,9 +51,9 @@ ref_seg = ref_data[:460].astype(np.float64)
 comp_seg = comp_data.astype(np.float64).copy()
 
 # Apply MATLAB's transform: shift by -35.4 samples, scale by 1.00152
-from conversion.profile_correlator.transforms import apply_transform
-from conversion.profile_correlator.data_types import TransformParameters
 from conversion.profile_correlator.alignment import _remove_boundary_zeros
+from conversion.profile_correlator.data_types import TransformParameters
+from conversion.profile_correlator.transforms import apply_transform
 
 matlab_trans = -123.92e-6 / pixel_size  # -35.4 samples
 matlab_scale = 1.0015232185573393
@@ -61,20 +64,20 @@ comp_transformed = apply_transform(comp_prof, transform)
 # Remove boundary zeros
 ref_nz, comp_nz, start = _remove_boundary_zeros(ref_seg, comp_transformed)
 corr_matlab = compute_cross_correlation(ref_nz, comp_nz)
-print(f"\n=== Simulating MATLAB's result ===")
+print("\n=== Simulating MATLAB's result ===")
 print(f"After transform with t={matlab_trans:.4f}, s={matlab_scale:.6f}")
 print(f"Overlap: {len(ref_nz)} samples")
-print(f"pOverlap: {len(ref_nz)/460:.6f}")
+print(f"pOverlap: {len(ref_nz) / 460:.6f}")
 print(f"Correlation: {corr_matlab:.6f}")
 
 # Compare with Python's t=0 result
 corr_python = compute_cross_correlation(ref_seg, comp_seg)
-print(f"\n=== At t=0, s=1.0 (Python finds) ===")
+print("\n=== At t=0, s=1.0 (Python finds) ===")
 print(f"Correlation (full): {corr_python:.6f}")
-print(f"pOverlap: 1.0")
+print("pOverlap: 1.0")
 
 # Check objective at each scale for both solutions
-print(f"\n=== Objective function comparison at first scale (500 um) ===")
+print("\n=== Objective function comparison at first scale (500 um) ===")
 p1_lp = _apply_lowpass_filter_1d(ref_seg, 500e-6, pixel_size)
 p2_lp = _apply_lowpass_filter_1d(comp_seg, 500e-6, pixel_size)
 
@@ -84,16 +87,17 @@ p2_sub = p2_lp[::subsample]
 
 # At t=0
 from conversion.profile_correlator.alignment import _alignment_objective
+
 obj_0 = _alignment_objective(np.array([0.0, 0.0]), p1_sub, p2_sub)
 print(f"Objective at t=0: {obj_0:.6f} (corr={-obj_0:.6f})")
 
 # At t=-35.4 samples = -2.36 subsampled
 t_sub = matlab_trans / subsample
-obj_matlab = _alignment_objective(np.array([t_sub, (matlab_scale-1)*10000]), p1_sub, p2_sub)
+obj_matlab = _alignment_objective(np.array([t_sub, (matlab_scale - 1) * 10000]), p1_sub, p2_sub)
 print(f"Objective at t={t_sub:.4f} (MATLAB): {obj_matlab:.6f} (corr={-obj_matlab:.6f})")
 
 # Scan translation to find all local optima
-print(f"\n=== Objective landscape scan at 500 um scale ===")
+print("\n=== Objective landscape scan at 500 um scale ===")
 for t in np.arange(-33, 34, 1):
     obj = _alignment_objective(np.array([float(t), 0.0]), p1_sub, p2_sub)
     marker = " <-- MATLAB" if abs(t - t_sub) < 1 else (" <-- Python" if abs(t) < 0.5 else "")

@@ -1,15 +1,18 @@
 """Debug: check boundary clipping effect on objective function."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
 from conversion.profile_correlator.alignment import (
-    _alignment_objective, _apply_lowpass_filter_1d,
+    _alignment_objective,
+    _apply_lowpass_filter_1d,
 )
 
-base = 'packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold'
-ref_data = np.load(f'{base}/input_profile_ref.npy').ravel().astype(np.float64)
-comp_data = np.load(f'{base}/input_profile_comp.npy').ravel().astype(np.float64)
+base = "packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold"
+ref_data = np.load(f"{base}/input_profile_ref.npy").ravel().astype(np.float64)
+comp_data = np.load(f"{base}/input_profile_comp.npy").ravel().astype(np.float64)
 pixel_size = 3.5e-6
 
 p1 = ref_data[:460]
@@ -26,7 +29,7 @@ for t in [0.0, -1e-15, -1e-14, -7.1e-15, -1e-10, -1e-5, -0.001, -0.01, -0.1, -1.
     obj = _alignment_objective(np.array([t, 0.0]), p1_sub, p2_sub)
     print(f"  t={t:+15.2e}: obj={obj:.10f} (corr={-obj:.10f})")
 
-print(f"\nPositive translations:")
+print("\nPositive translations:")
 for t in [0.0, 1e-15, 1e-14, 7.1e-15, 1e-10, 1e-5, 0.001, 0.01, 0.1, 1.0]:
     obj = _alignment_objective(np.array([t, 0.0]), p1_sub, p2_sub)
     print(f"  t={t:+15.2e}: obj={obj:.10f} (corr={-obj:.10f})")
@@ -35,7 +38,7 @@ for t in [0.0, 1e-15, 1e-14, 7.1e-15, 1e-10, 1e-5, 0.001, 0.01, 0.1, 1.0]:
 from conversion.profile_correlator.data_types import Profile, TransformParameters
 from conversion.profile_correlator.transforms import apply_transform
 
-print(f"\nProfile values at boundaries:")
+print("\nProfile values at boundaries:")
 print(f"  p2_sub[0]  = {p2_sub[0]:.10f}")
 print(f"  p2_sub[-1] = {p2_sub[-1]:.10f}")
 

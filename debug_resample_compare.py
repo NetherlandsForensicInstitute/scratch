@@ -1,18 +1,19 @@
 """Compare resampling methods' effect on candidate correlations."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
-from scipy import signal
-from scipy.interpolate import interp1d
 from conversion.profile_correlator.candidate_search import _apply_lowpass_filter_1d
 from conversion.profile_correlator.similarity import compute_cross_correlation
+from scipy import signal
 
 pixel_size = 3.5e-6
 
-base = 'packages/scratch-core/tests/resources/profile_correlator/partial_with_nans'
-ref_data = np.load(f'{base}/input_profile_ref.npy').ravel()
-comp_data = np.load(f'{base}/input_profile_comp.npy').ravel()
+base = "packages/scratch-core/tests/resources/profile_correlator/partial_with_nans"
+ref_data = np.load(f"{base}/input_profile_ref.npy").ravel()
+comp_data = np.load(f"{base}/input_profile_comp.npy").ravel()
 
 scale = 1e-3  # 1000um
 ref_filt = _apply_lowpass_filter_1d(ref_data, scale, pixel_size)
@@ -42,6 +43,7 @@ comp_sub_mask = np.asarray(signal.resample(comp_mask, comp_len_sub), dtype=np.fl
 ref_sub_norm = np.where(ref_sub_mask > 0.5, ref_sub_data / ref_sub_mask, np.nan)
 comp_sub_norm = np.where(comp_sub_mask > 0.5, comp_sub_data / comp_sub_mask, np.nan)
 
+
 # Method 3: Linear interpolation with NaN normalization (current)
 def interp_resample(data, zoom):
     n_in = len(data)
@@ -58,15 +60,22 @@ def interp_resample(data, zoom):
         return np.where(mr > 0.5, dr / mr, np.nan)
     return np.interp(new_x, old_x, data)
 
+
 zoom = 1.0 / subsampling
 ref_sub_interp = interp_resample(ref_filt, zoom)
 comp_sub_interp = interp_resample(comp_filt, zoom)
 
-print(f"\nMethod 1 (FFT+NaN→0): ref_sub NaN={np.sum(np.isnan(ref_sub_fft))}, comp_sub NaN={np.sum(np.isnan(comp_sub_fft))}")
-print(f"Method 2 (FFT+mask):   ref_sub NaN={np.sum(np.isnan(ref_sub_norm))}, comp_sub NaN={np.sum(np.isnan(comp_sub_norm))}")
-print(f"Method 3 (interp+mask): ref_sub NaN={np.sum(np.isnan(ref_sub_interp))}, comp_sub NaN={np.sum(np.isnan(comp_sub_interp))}")
+print(
+    f"\nMethod 1 (FFT+NaN→0): ref_sub NaN={np.sum(np.isnan(ref_sub_fft))}, comp_sub NaN={np.sum(np.isnan(comp_sub_fft))}"
+)
+print(
+    f"Method 2 (FFT+mask):   ref_sub NaN={np.sum(np.isnan(ref_sub_norm))}, comp_sub NaN={np.sum(np.isnan(comp_sub_norm))}"
+)
+print(
+    f"Method 3 (interp+mask): ref_sub NaN={np.sum(np.isnan(ref_sub_interp))}, comp_sub NaN={np.sum(np.isnan(comp_sub_interp))}"
+)
 
-print(f"\nCorrelations at each position:")
+print("\nCorrelations at each position:")
 print(f"{'pos':>3}  {'FFT+NaN0':>10}  {'FFT+mask':>10}  {'interp':>10}")
 for method_name, ref_sub, comp_sub in [
     ("FFT+NaN0", ref_sub_fft, comp_sub_fft),

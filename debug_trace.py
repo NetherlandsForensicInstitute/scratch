@@ -1,23 +1,25 @@
 """Trace the full partial alignment flow for failing test cases."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
-from conversion.profile_correlator.data_types import Profile, AlignmentParameters
+from conversion.profile_correlator.alignment import align_profiles_multiscale
 from conversion.profile_correlator.candidate_search import find_match_candidates
-from conversion.profile_correlator.alignment import align_profiles_multiscale, _remove_boundary_zeros
+from conversion.profile_correlator.data_types import AlignmentParameters, Profile
 from conversion.profile_correlator.transforms import compute_cumulative_transform
 
 pixel_size = 3.5e-6
 
-for case_name in ['edge_over_threshold', 'partial_with_nans']:
-    print(f"\n{'='*60}")
+for case_name in ["edge_over_threshold", "partial_with_nans"]:
+    print(f"\n{'=' * 60}")
     print(f"Case: {case_name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
-    base = f'packages/scratch-core/tests/resources/profile_correlator/{case_name}'
-    ref_data = np.load(f'{base}/input_profile_ref.npy').ravel()
-    comp_data = np.load(f'{base}/input_profile_comp.npy').ravel()
+    base = f"packages/scratch-core/tests/resources/profile_correlator/{case_name}"
+    ref_data = np.load(f"{base}/input_profile_ref.npy").ravel()
+    comp_data = np.load(f"{base}/input_profile_comp.npy").ravel()
 
     print(f"ref: {len(ref_data)}, comp: {len(comp_data)}")
     print(f"ref NaN: {np.sum(np.isnan(ref_data))}, comp NaN: {np.sum(np.isnan(comp_data))}")
@@ -58,7 +60,7 @@ for case_name in ['edge_over_threshold', 'partial_with_nans']:
 
     # Adjusted scale passes
     adjusted_passes = tuple(s for s in params.scale_passes if s <= comp_scale)
-    print(f"Adjusted scale passes: {[f'{s*1e6:.0f}' for s in adjusted_passes]} μm")
+    print(f"Adjusted scale passes: {[f'{s * 1e6:.0f}' for s in adjusted_passes]} μm")
 
     # Step 3: Fine alignment at each candidate
     params_adj = AlignmentParameters(
@@ -72,16 +74,24 @@ for case_name in ['edge_over_threshold', 'partial_with_nans']:
         end_idx = min(pos + partial_length, len(ref_mean))
         ref_segment = ref_mean[pos:end_idx]
 
-        ref_seg_prof = Profile(depth_data=ref_segment, pixel_size=pixel_size,
-                               cutoff_hi=ref_profile.cutoff_hi, cutoff_lo=ref_profile.cutoff_lo)
+        ref_seg_prof = Profile(
+            depth_data=ref_segment,
+            pixel_size=pixel_size,
+            cutoff_hi=ref_profile.cutoff_hi,
+            cutoff_lo=ref_profile.cutoff_lo,
+        )
 
         if len(ref_segment) < partial_length:
-            part_trim = partial_mean[:len(ref_segment)]
+            part_trim = partial_mean[: len(ref_segment)]
         else:
             part_trim = partial_mean
 
-        part_prof = Profile(depth_data=part_trim, pixel_size=pixel_size,
-                           cutoff_hi=partial_profile.cutoff_hi, cutoff_lo=partial_profile.cutoff_lo)
+        part_prof = Profile(
+            depth_data=part_trim,
+            pixel_size=pixel_size,
+            cutoff_hi=partial_profile.cutoff_hi,
+            cutoff_lo=partial_profile.cutoff_lo,
+        )
 
         try:
             result = align_profiles_multiscale(ref_seg_prof, part_prof, params_adj)
@@ -101,6 +111,6 @@ for case_name in ['edge_over_threshold', 'partial_with_nans']:
             print(f"    pOverlap would be: {aligned_length / partial_length:.6f}")
 
             if aligned_length < min_overlap:
-                print(f"    SKIPPED: aligned_length < min_overlap")
+                print("    SKIPPED: aligned_length < min_overlap")
         except ValueError as e:
             print(f"\n  Candidate pos={pos}: FAILED - {e}")
