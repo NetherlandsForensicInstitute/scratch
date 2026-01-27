@@ -4,7 +4,7 @@
   "cutoff_hi": 250,
   "cutoff_lo": 5,
   "level_method": "Plane",
-  "filter_method": "R0",
+  "filter_method": 0,
   "has_mask": false,
   "has_sampling": true,
   "sampling": 1.1428571428571428,

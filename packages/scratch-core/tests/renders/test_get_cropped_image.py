@@ -9,26 +9,17 @@ from container_models.base import ScanMap2DArray, MaskArray
 from container_models.scan_image import ScanImage
 from conversion.leveling import SurfaceTerms
 
-from renders.get_cropped_image import get_cropped_image
+from renders.get_cropped_image import RegressionOrder, get_cropped_image
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "terms, regression_order",
-    [
-        (SurfaceTerms.PLANE, 0),
-        (SurfaceTerms.PLANE, 1),
-        (SurfaceTerms.PLANE, 2),
-        (SurfaceTerms.SPHERE, 0),
-        (SurfaceTerms.SPHERE, 1),
-        (SurfaceTerms.SPHERE, 2),
-    ],
-)
+@pytest.mark.parametrize("terms", tuple(SurfaceTerms))
+@pytest.mark.parametrize("regression_order", tuple(RegressionOrder))
 def test_get_cropped_image(
     scan_image_replica: ScanImage,
     mask_array: MaskArray,
     terms: SurfaceTerms,
-    regression_order: int,
+    regression_order: RegressionOrder,
 ):
     scan_image = scan_image_replica.model_copy(update={"mask": mask_array})
     result = get_cropped_image(
@@ -80,12 +71,6 @@ LEVEL_METHOD_MAP = {
     "sphere": SurfaceTerms.SPHERE,
 }
 
-FILTER_METHOD_MAP = {
-    "r0": 0,
-    "r1": 1,
-    "r2": 2,
-}
-
 
 def to_surface_terms(level_method: str) -> SurfaceTerms:
     """Convert level method to SurfaceTerms."""
@@ -93,14 +78,6 @@ def to_surface_terms(level_method: str) -> SurfaceTerms:
     if key not in LEVEL_METHOD_MAP:
         raise ValueError(f"Unknown level method: {level_method}")
     return LEVEL_METHOD_MAP[key]
-
-
-def to_regression_order(filter_method: str) -> int:
-    """Convert filter method to regression order."""
-    key = filter_method.strip().lower()
-    if key not in FILTER_METHOD_MAP:
-        raise ValueError(f"Unknown filter method: {filter_method}")
-    return FILTER_METHOD_MAP[key]
 
 
 @dataclass
@@ -116,7 +93,7 @@ class MatlabTestCase:
     input_xdim: float = 3.5e-6
     input_ydim: float = 3.5e-6
     terms: SurfaceTerms = field(default_factory=lambda: to_surface_terms("Plane"))
-    regression_order: int = field(default_factory=lambda: to_regression_order("R0"))
+    regression_order: RegressionOrder = RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE
     cutoff_length: float = 250.0
     output_xdim: float | None = None
     output_ydim: float | None = None
@@ -147,7 +124,7 @@ class MatlabTestCase:
     def _parse_metadata(meta: dict, valid_keys: set) -> dict:
         """Parse metadata JSON into dataclass field values."""
         meta["terms"] = to_surface_terms(meta["level_method"])
-        meta["regression_order"] = to_regression_order(meta["filter_method"])
+        meta["regression_order"] = RegressionOrder(meta["filter_method"])
         meta["cutoff_length"] = meta["cutoff_hi"]
         meta["resampling_factor"] = meta["sampling"]
         meta["output_xdim"] = meta["output_xdim"] or meta["input_xdim"]

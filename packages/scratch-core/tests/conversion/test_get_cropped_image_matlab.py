@@ -25,12 +25,6 @@ LEVEL_METHOD_MAP = {
     "sphere": SurfaceTerms.SPHERE,
 }
 
-FILTER_METHOD_MAP = {
-    "r0": 0,
-    "r1": 1,
-    "r2": 2,
-}
-
 
 def to_surface_terms(level_method: str) -> SurfaceTerms:
     """Convert level method to SurfaceTerms."""
@@ -38,14 +32,6 @@ def to_surface_terms(level_method: str) -> SurfaceTerms:
     if key not in LEVEL_METHOD_MAP:
         raise ValueError(f"Unknown level method: {level_method}")
     return LEVEL_METHOD_MAP[key]
-
-
-def to_regression_order(filter_method: str) -> int:
-    """Convert filter method to regression order."""
-    key = filter_method.strip().lower()
-    if key not in FILTER_METHOD_MAP:
-        raise ValueError(f"Unknown filter method: {filter_method}")
-    return FILTER_METHOD_MAP[key]
 
 
 @dataclass
@@ -60,7 +46,7 @@ class MatlabTestCase:
     input_xdim: float = 3.5e-6
     input_ydim: float = 3.5e-6
     terms: SurfaceTerms = field(default_factory=lambda: to_surface_terms("Plane"))
-    regression_order: int = field(default_factory=lambda: to_regression_order("R0"))
+    regression_order: int = 0
     cutoff_length: float = 250.0
     resampling_factor: float | None = None
     output_xdim: float | None = None
@@ -92,7 +78,7 @@ class MatlabTestCase:
     def _parse_metadata(meta: dict, valid_keys: set) -> dict:
         """Parse metadata JSON into dataclass field values."""
         meta["terms"] = to_surface_terms(meta["level_method"])
-        meta["regression_order"] = to_regression_order(meta["filter_method"])
+        meta["regression_order"] = meta["filter_method"]
         meta["cutoff_length"] = meta["cutoff_hi"]
         meta["resampling_factor"] = meta["sampling"]
         meta["output_xdim"] = meta["output_xdim"] or meta["input_xdim"]
