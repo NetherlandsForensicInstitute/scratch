@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from functools import partial
 from typing import Annotated, TypeAlias
 
-from numpy import array, bool_, float64, number, uint8
+from numpy import array, bool_, float64, number, uint8, int64
 from numpy.typing import DTypeLike, NDArray
 from pydantic import (
     AfterValidator,
@@ -49,6 +49,11 @@ UInt8Array: TypeAlias = Annotated[
     BeforeValidator(partial(coerce_to_array, uint8)),
     PlainSerializer(serialize_ndarray),
 ]
+Int64Array: TypeAlias = Annotated[
+    NDArray[float64],
+    BeforeValidator(partial(coerce_to_array, int64)),
+    PlainSerializer(serialize_ndarray),
+]
 FloatArray: TypeAlias = Annotated[
     NDArray[float64],
     BeforeValidator(partial(coerce_to_array, float64)),
@@ -70,6 +75,15 @@ FloatArray1D: TypeAlias = Annotated[
 FloatArray2D: TypeAlias = Annotated[
     FloatArray, AfterValidator(partial(validate_shape, 2))
 ]
+FloatArray3D: TypeAlias = Annotated[
+    FloatArray, AfterValidator(partial(validate_shape, 3))
+]
+FloatArray4D: TypeAlias = Annotated[
+    FloatArray, AfterValidator(partial(validate_shape, 4))
+]
+Int64Array2D: TypeAlias = Annotated[
+    Int64Array, AfterValidator(partial(validate_shape, 2))
+]
 BoolArray2D: TypeAlias = Annotated[
     BoolArray, AfterValidator(partial(validate_shape, 2))
 ]
@@ -78,8 +92,8 @@ BoolArray2D: TypeAlias = Annotated[
 ImageRGBA: TypeAlias = UInt8Array3D  # Shape: (H, W, 4)
 UnitVector: TypeAlias = FloatArray1D  # Shape: (3,)
 DepthData: TypeAlias = FloatArray2D  # Shape: (H, W)
-VectorField: TypeAlias = FloatArray2D  # Shape: (H, W) or similar
 BinaryMask: TypeAlias = BoolArray2D  # Shape: (H, W)
+VectorField: TypeAlias = FloatArray3D  # Shape (H, W, 3)
 
 
 class ConfigBaseModel(BaseModel):

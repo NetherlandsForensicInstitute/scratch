@@ -1,9 +1,8 @@
 import numpy as np
-from numpy._typing import NDArray
 from scipy.ndimage import binary_erosion
 from skimage.measure import ransac, CircleModel
 
-from container_models.base import BinaryMask
+from container_models.base import BinaryMask, FloatArray2D, Int64Array2D
 from conversion.data_formats import Mark, MarkType
 from conversion.mask import _determine_bounding_box
 from conversion.preprocess_impression.utils import Point2D
@@ -11,7 +10,7 @@ from conversion.preprocess_impression.utils import Point2D
 RANDOM_SEED = 1234
 
 
-def _get_mask_inner_edge_points(mask: BinaryMask) -> NDArray[np.floating]:
+def _get_mask_inner_edge_points(mask: BinaryMask) -> FloatArray2D:
     """
     Extract inner edge points of a binary mask.
 
@@ -24,7 +23,7 @@ def _get_mask_inner_edge_points(mask: BinaryMask) -> NDArray[np.floating]:
     return np.column_stack([cols, rows]).astype(float)
 
 
-def _points_are_collinear(points: NDArray[np.floating], tol: float = 1e-9) -> bool:
+def _points_are_collinear(points: Int64Array2D, tol: float = 1e-9) -> bool:
     """
     Check if points are approximately collinear using SVD.
 
@@ -40,7 +39,7 @@ def _points_are_collinear(points: NDArray[np.floating], tol: float = 1e-9) -> bo
 
 
 def _fit_circle_ransac(
-    points: NDArray[np.floating],
+    points: Int64Array2D,
     n_iterations: int = 1000,
     threshold: float = 1.0,
 ) -> Point2D | None:

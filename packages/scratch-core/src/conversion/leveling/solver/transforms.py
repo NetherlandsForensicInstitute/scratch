@@ -1,13 +1,12 @@
 import numpy as np
-from numpy.typing import NDArray
 from collections.abc import Mapping
+
+from container_models.base import FloatArray1D
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.data_types import NormalizedCoordinates
 
 
-def normalize_coordinates(
-    xs: NDArray[np.float64], ys: NDArray[np.float64]
-) -> NormalizedCoordinates:
+def normalize_coordinates(xs: FloatArray1D, ys: FloatArray1D) -> NormalizedCoordinates:
     """
     Normalize grid coordinates by centering and rescaling.
 

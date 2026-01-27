@@ -4,7 +4,7 @@ from typing import Final
 from returns.pipeline import flow
 from returns.result import safe
 
-from container_models.base import FloatArray2D
+from container_models.base import FloatArray2D, VectorField
 from container_models.scan_image import ScanImage
 from utils.logger import log_railway_function
 
@@ -77,23 +77,19 @@ def _add_normal_magnitude(scan_image: ScanImage) -> ScanImage:
     )
 
 
-def _normalize_to_surface_normals(scan_image: ScanImage) -> ScanImage:
+def _normalize_to_surface_normals(scan_image: ScanImage) -> VectorField:
     """Normalize gradient components to unit surface normal vectors."""
     meta = scan_image.meta_data or {}
     gradient_x = meta.pop("gradient_x")
     gradient_y = meta.pop("gradient_y")
     magnitude = meta.pop("magnitude")
-    return scan_image.model_copy(  # TODO: respect shape annotation and use meta-data attribute instead
-        update=dict(
-            data=np.stack(
-                [
-                    gradient_x / magnitude,
-                    -gradient_y / magnitude,
-                    1 / magnitude,
-                ],
-                axis=-1,
-            )
-        )
+    return np.stack(
+        [
+            gradient_x / magnitude,
+            -gradient_y / magnitude,
+            1 / magnitude,
+        ],
+        axis=-1,
     )
 
 
@@ -102,7 +98,7 @@ def _normalize_to_surface_normals(scan_image: ScanImage) -> ScanImage:
     success_message="Successfully computed surface normal components",
 )
 @safe
-def compute_surface_normals(scan_image: ScanImage) -> ScanImage:
+def compute_surface_normals(scan_image: ScanImage) -> VectorField:
     """
     Compute per-pixel surface normals from a 2D depth map.
 
@@ -130,10 +126,10 @@ def compute_surface_normals(scan_image: ScanImage) -> ScanImage:
 )
 @safe
 def normalize_2d_array(
-    image_to_normalize: ScanImage,
+    array_to_normalize: FloatArray2D,
     scale_max: float = 255,
     scale_min: float = 25,
-) -> ScanImage:
+) -> FloatArray2D:
     """
     Normalize a 2D intensity map to a specified output range.
 
@@ -141,15 +137,13 @@ def normalize_2d_array(
     1. apply min-max normalization to grayscale data
     2. stretch / scale the normalized data from the unit range to a specified output range
 
-    :param image_to_normalize: 2D array of input intensity values.
+    :param array_to_normalize: 2D array of input intensity values.
     :param scale_max: Maximum output intensity value. Default is ``255``.
     :param scale_min: Minimum output intensity value. Default is ``25``.
 
     :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
     """
-    imin = np.nanmin(image_to_normalize.data)
-    imax = np.nanmax(image_to_normalize.data)
-    norm = (image_to_normalize.data - imin) / (imax - imin)
-    return image_to_normalize.model_copy(
-        update={"data": scale_min + (scale_max - scale_min) * norm}
-    )
+    imin = np.nanmin(array_to_normalize.data)
+    imax = np.nanmax(array_to_normalize.data)
+    norm = (array_to_normalize.data - imin) / (imax - imin)
+    return scale_min + (scale_max - scale_min) * norm

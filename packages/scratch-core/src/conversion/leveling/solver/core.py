@@ -1,5 +1,6 @@
 import numpy as np
-from numpy.typing import NDArray
+
+from container_models.base import FloatArray1D
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.solver import (
     normalize_coordinates,
@@ -9,8 +10,8 @@ from conversion.leveling.solver import (
 
 
 def fit_surface(
-    xs: NDArray, ys: NDArray, zs: NDArray, terms: SurfaceTerms
-) -> tuple[NDArray[np.float64], dict[SurfaceTerms, float]]:
+    xs: FloatArray1D, ys: FloatArray1D, zs: FloatArray1D, terms: SurfaceTerms
+) -> tuple[FloatArray1D, dict[SurfaceTerms, float]]:
     """
     Core solver: fits a surface to the point cloud (xs, ys, zs).
 
