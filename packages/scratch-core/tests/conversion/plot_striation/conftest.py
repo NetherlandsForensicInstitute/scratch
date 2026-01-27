@@ -3,7 +3,7 @@ import pytest
 
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import CorrelationMetrics
-from tests.conversion.plot_striation.helper_functions import (
+from .helper_functions import (
     create_synthetic_striation_data,
     create_mock_mark,
     create_mock_profile_mark,

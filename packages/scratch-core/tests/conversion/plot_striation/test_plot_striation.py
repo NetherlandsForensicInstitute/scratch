@@ -10,7 +10,7 @@ from conversion.plots.plot_striation import (
     plot_comparison_overview,
     plot_wavelength_correlation,
 )
-from tests.conversion.plot_striation.helper_functions import assert_valid_rgb_image
+from .helper_functions import assert_valid_rgb_image
 
 OUTPUT_DIR = Path("..")
 
