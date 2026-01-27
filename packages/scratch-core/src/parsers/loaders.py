@@ -116,7 +116,7 @@ def subsample_scan_image(
 def _is_isotropic(scan_image: ScanImage) -> bool:
     """Check if a scan image is isotropic within tolerance."""
     tolerance = 1e-16
-    return np.isclose(scan_image.scale_x, scan_image.scale_y, atol=tolerance)
+    return bool(np.isclose(scan_image.scale_x, scan_image.scale_y, atol=tolerance))
 
 
 def _get_target_shape(scan_image: ScanImage, target_scale: float) -> tuple[int, int]:
