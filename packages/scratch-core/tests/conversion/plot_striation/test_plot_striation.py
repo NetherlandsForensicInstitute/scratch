@@ -26,7 +26,7 @@ def test_plot_similarity(profile_ref, profile_comp):
     Image.fromarray(result).save(OUTPUT_DIR / "similarity_plot.png")
 
 
-def test_plot_wavelength_xcorr(profile_ref, profile_comp, quality_passbands):
+def test_plot_wavelength_correlation(profile_ref, profile_comp, quality_passbands):
     result = plot_wavelength_correlation(
         profile_ref=profile_ref.flatten(),
         profile_comp=profile_comp.flatten(),
