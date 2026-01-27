@@ -1,11 +1,14 @@
 from enum import Enum
 from itertools import product
+from typing import Protocol
 
+from conversion.leveling.solver.design import build_design_matrix
+from conversion.leveling.solver.transforms import normalize_coordinates
 import numpy as np
 from numpy.typing import NDArray
 from skimage.transform import resize
 
-from container_models.base import ScanMap2DArray
+from container_models.base import ScanMap2DArray, PointCloud
 from container_models.scan_image import ScanImage
 from conversion.filter import (
     _apply_order0_filter,
@@ -14,7 +17,11 @@ from conversion.filter import (
     _create_normalized_separable_kernels,
     _solve_pixelwise_regression,
 )
-from conversion.leveling import SurfaceTerms, level_map
+from conversion.leveling import SurfaceTerms
+from conversion.leveling.solver.grid import get_2d_grid
+from conversion.leveling.solver.utils import (
+    compute_image_center,
+)
 from conversion.resample import _clip_factors
 
 # TODO: Based on what this code is doing. We can ignore this function completely
@@ -237,6 +244,100 @@ def crop_to_mask(image: ScanImage) -> ScanImage:
     )
 
 
+def get_fitted_surface_2d(
+    scan_image: ScanImage, fitted_surface: NDArray[np.float64]
+) -> ScanMap2DArray:
+    """ "Compute fitted surface in 2d from a 3d"""
+    fitted_surface_2d = np.full_like(scan_image.data, np.nan)
+    fitted_surface_2d[scan_image.valid_mask] = fitted_surface
+    return fitted_surface_2d
+
+
+def generate_point_cloud(
+    scan_image: ScanImage, reference_point: tuple[float, float]
+) -> PointCloud:
+    # Build the 2D grids and translate in the opposite direction of `reference_point`
+    x_grid, y_grid = get_2d_grid(
+        scan_image, offset=(-reference_point[0], -reference_point[1])
+    )
+    # Get the point cloud (xs, ys, zs) for the numerical data
+    xs, ys, zs = (
+        x_grid[scan_image.valid_mask],
+        y_grid[scan_image.valid_mask],
+        scan_image.valid_data,
+    )
+    return PointCloud(xs=xs, ys=ys, zs=zs)
+
+
+class CoefficientsProtocol(Protocol):
+    def __call__[T: np.number](
+        self, design_matrix: NDArray[T], zs: NDArray
+    ) -> NDArray[T]: ...
+
+
+def fit_surface(
+    point_cloud: PointCloud, terms: SurfaceTerms, solver: CoefficientsProtocol
+) -> NDArray[np.float64]:
+    """
+    Core solver: fits a surface to the point cloud (xs, ys, zs).
+
+    :param xs: The X-coordinates.
+    :param ys: The Y-coordinates.
+    :param zs: The Z-values.
+    :param terms: The terms to use in the fitting
+    :return: A tuple containing the fitted surface (z̃s) and the estimated physical parameters.
+    """
+    # 1. Normalize the grid coordinates by centering and rescaling them
+    normalized = normalize_coordinates(point_cloud.xs, point_cloud.ys)
+
+    # 2. Build the design matrix for the least-squares solver
+    design_matrix = build_design_matrix(normalized.xs, normalized.ys, terms)
+
+    # 3. Solve (Least Squares)
+    coefficients = solver(design_matrix=design_matrix, zs=point_cloud.zs)
+    # 4. Compute the surface (z̃s-values) from the fitted coefficients
+    return design_matrix @ coefficients
+
+
+def solve_least_squares(
+    design_matrix: NDArray[np.float64], zs: NDArray
+) -> NDArray[np.floating[any]]:
+    (
+        coefficients,
+        *_,
+    ) = np.linalg.lstsq(design_matrix, zs, rcond=None)
+    return coefficients
+
+
+def level_map(
+    scan_image: ScanImage,
+    terms: SurfaceTerms,
+    reference_point: tuple[float, float],
+) -> ScanMap2DArray:
+    """
+    Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
+
+    This computation effectively acts as a high-pass filter on the image data.
+
+    :param scan_image: The scan image containing the image data to level.
+    :param terms: The surface terms to use in the fitting. Note: terms can be combined using bit-operators.
+    :param reference_point: A tuple representing a reference point (X, Y) in physical coordinate space.
+        If provided, then the coordinates will be translated such that (X, Y) lies in the origin after translation.
+        If `None`, then the coordinates will be translated such that the center of the image lies in the origin.
+    :returns: An instance of `LevelingResult` containing the leveled scan data and estimated physical parameters.
+    """
+    point_cloud = generate_point_cloud(
+        scan_image=scan_image, reference_point=reference_point
+    )
+    fitted_surface = fit_surface(
+        point_cloud=point_cloud, terms=terms, solver=solve_least_squares
+    )
+    leveled_map_2d = np.full_like(scan_image.data, np.nan)
+    leveled_map_2d[scan_image.valid_mask] = point_cloud.zs - fitted_surface
+
+    return leveled_map_2d
+
+
 def get_cropped_image(
     scan_image: ScanImage,
     terms: SurfaceTerms,
@@ -266,14 +367,17 @@ def get_cropped_image(
     if crop:
         scan_image = crop_to_mask(scan_image)
 
-    level_result = level_map(scan_image=scan_image, terms=terms)
+    center_x, center_y = compute_image_center(scan_image)
+    level_result = level_map(
+        scan_image=scan_image, terms=terms, reference_point=(center_x, center_y)
+    )
 
     # Filter the leveled results using a Gaussian regression filter
     filtered_data = apply_gaussian_regression_filter(
-        data=level_result.leveled_map,
+        data=level_result,
         regression_order=regression_order,
         cutoff_pixels=cutoff_length
         / np.array([scan_image.scale_x, scan_image.scale_y]),
     )
-    filtered_data[np.isnan(level_result.leveled_map)] = np.nan
-    return level_result.leveled_map - filtered_data
+    filtered_data[np.isnan(level_result)] = np.nan
+    return level_result - filtered_data

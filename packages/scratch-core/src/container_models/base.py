@@ -57,3 +57,9 @@ class ConfigBaseModel(BaseModel):
         arbitrary_types_allowed=True,
         regex_engine="rust-regex",
     )
+
+
+class PointCloud(BaseModel, arbitrary_types_allowed=True):
+    xs: NDArray
+    ys: NDArray
+    zs: NDArray
