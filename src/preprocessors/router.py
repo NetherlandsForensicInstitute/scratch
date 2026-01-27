@@ -73,9 +73,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
         parsed_scan,
         files["surface_map"],
         upload_scan.light_sources,
-        upload_scan.observer,
-        upload_scan.scale_x,
-        upload_scan.scale_y,
+        upload_scan.observer
     )
     preview = preview_pipeline(parsed_scan, files["preview"])
 
