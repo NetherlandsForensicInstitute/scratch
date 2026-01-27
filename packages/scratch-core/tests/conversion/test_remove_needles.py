@@ -409,6 +409,18 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         assert result.data.shape == input_image.shape
 
+    def test_filter_size_larger_than_image(self):
+        """Test with larger filter size."""
+        input_image = np.random.rand(10, 10).astype(np.float64)
+
+        filter_size = 15
+
+        result = apply_median_filter(
+            ScanImage(data=input_image, scale_x=1.0, scale_y=1.0), filter_size
+        )
+
+        assert result.data.shape == input_image.shape
+
     def test_single_pixel_image(self):
         """Test edge case with 1x1 image."""
         input_image = np.array([[5.0]], dtype=np.float64)
