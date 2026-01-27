@@ -8,7 +8,7 @@ from loguru import logger
 from constants import PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
 from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation
-from file_services import create_vault, get_files, get_urls
+from file_services import create_vault
 from preprocessors.controller import process_prepare_mark
 
 from .pipelines import (
@@ -67,17 +67,13 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     """
     vault = create_vault(upload_scan.tag)
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size_x, upload_scan.step_size_y)
-    files = get_files(vault.resource_path, scan="scan.x3p", preview="preview.png", surface_map="surface_map.png")
-    scan = x3p_pipeline(parsed_scan, files["scan"])
-    surface_map = surface_map_pipeline(
-        parsed_scan, files["surface_map"], upload_scan.light_sources, upload_scan.observer
-    )
-    preview = preview_pipeline(parsed_scan, files["preview"])
+    files = ProcessedDataAccess.get_files(vault.resource_path)
+    x3p_pipeline(parsed_scan, files["scan"])
+    surface_map_pipeline(parsed_scan, files["surface_map"], upload_scan.light_sources, upload_scan.observer)
+    preview_pipeline(parsed_scan, files["preview"])
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess.model_validate(
-        get_urls(vault.access_url, scan=scan.name, preview=preview.name, surface_map=surface_map.name)
-    )
+    return ProcessedDataAccess.model_validate(ProcessedDataAccess.generate_urls(vault.access_url))
 
 
 @preprocessor_route.post(
@@ -97,26 +93,13 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression) -> PrepareMarkResponseImpression:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
-    files = get_files(
-        vault.resource_path,
-        preview="preview.png",
-        surface_map="surface_map.png",
-        mark_data="mark.npz",
-        mark_meta="mark.json",
-        processed_data="processed.npz",
-        processed_meta="processed.json",
-        leveled_data="leveled.npz",
-        leveled_meta="leveled.json",
-    )
-    files = process_prepare_mark(
-        files=files,
+    process_prepare_mark(
+        files=PrepareMarkResponseImpression.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
         marking_method=partial(impression_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
     )
     logger.info(f"Generated files saved to {vault}")
-    return PrepareMarkResponseImpression(
-        **get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()})
-    )
+    return PrepareMarkResponseImpression.generate_urls(vault.access_url)
 
 
 @preprocessor_route.post(
@@ -136,26 +119,13 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
 async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) -> PrepareMarkResponseStriation:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
-    files = get_files(
-        vault.resource_path,
-        preview="preview.png",
-        surface_map="surface_map.png",
-        mark_data="mark.npz",
-        mark_meta="mark.json",
-        processed_data="processed.npz",
-        processed_meta="processed.json",
-        profile_data="profile.npz",
-        profile_meta="profile.json",
-    )
     process_prepare_mark(
-        files=files,
+        files=PrepareMarkResponseStriation.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
         marking_method=partial(striation_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
     )
     logger.info(f"Generated files saved to {vault}")
-    return PrepareMarkResponseStriation(
-        **get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()})
-    )
+    return PrepareMarkResponseStriation.generate_urls(vault.access_url)
 
 
 @preprocessor_route.post(
@@ -186,4 +156,4 @@ async def edit_scan(edit_image: EditImage) -> ProcessedDataAccess:
     vault = create_vault(edit_image.tag)
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess.model_validate(get_urls(vault.access_url, **{}))
+    return ProcessedDataAccess.generate_urls(vault.access_url)
