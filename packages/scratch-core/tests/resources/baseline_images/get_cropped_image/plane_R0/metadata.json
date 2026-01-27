@@ -6,8 +6,8 @@
   "level_method": "Plane",
   "filter_method": "R0",
   "has_mask": false,
-  "has_sampling": false,
-  "sampling": null,
+  "has_sampling": true,
+  "sampling": 1.1428571428571428,
   "output_xdim": 4e-06,
   "output_ydim": 4e-06
 }
