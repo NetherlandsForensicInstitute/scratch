@@ -53,6 +53,11 @@ def level_map(
     # Calculate RMS of residuals
     residual_rms = compute_root_mean_square(leveled_map_2d)
 
+    # TODO:
+    # Why LevelingResult return
+    # I looked for all references of this funciton and this object
+    # But it is only refernce twice and in both cases we only care about leveled_map (leveled_map_2d)
+    # Thus In my perspective this can be nuked
     return LevelingResult(
         leveled_map=leveled_map_2d,
         parameters=physical_params,

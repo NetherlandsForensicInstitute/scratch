@@ -12,10 +12,18 @@ ALPHA_REGRESSION = 0.7309134280946760
 
 def apply_gaussian_regression_filter(
     data: NDArray[np.floating],
+    # --- TODO:
+    # these two can bo replace for cutoff_pixels
+    # both of them are only reference once to create cutoff_pixels
     cutoff_length: float,
     pixel_size: tuple[float, float] = (1.0, 1.0),
+    # ---
     regression_order: int = 0,
     nan_out: bool = True,
+    # TODO: is_high_pass can be removed
+    # All that is used for is 'data - smoothed` or `smoothed`
+    # where `smoothed` is the return type and `data` is a input
+    # let the caller decide what they wish to do with smoothed filter
     is_high_pass: bool = False,
 ) -> NDArray[np.floating]:
     """
