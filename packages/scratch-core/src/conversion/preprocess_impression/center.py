@@ -8,6 +8,8 @@ from conversion.data_formats import Mark, MarkType
 from conversion.mask import get_bounding_box
 from conversion.preprocess_impression.utils import Point2D
 
+RANDOM_SEED = 1234
+
 
 def _get_mask_inner_edge_points(mask: MaskArray) -> NDArray[np.floating]:
     """
@@ -63,6 +65,7 @@ def _fit_circle_ransac(
         min_samples=3,
         residual_threshold=threshold,
         max_trials=n_iterations,
+        rng=RANDOM_SEED,
     )
 
     if model is None:

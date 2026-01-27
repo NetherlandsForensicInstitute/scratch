@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from enum import StrEnum
+from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import UUID4, AfterValidator, BaseModel, ConfigDict, Field, FilePath, StringConstraints
 
-from constants import EXTRACTOR_ROUTE
+from constants import RoutePrefix
 from settings import get_settings
 
 
@@ -21,7 +21,17 @@ class BaseModelConfig(BaseModel):
     )
 
 
-type ProjectTag = Annotated[str, StringConstraints(pattern=r"")]
+class SupportedScanExtension(StrEnum):
+    AL3D = auto()
+    X3P = auto()
+
+
+def validate_scan_file_not_empty(scan_file: Path) -> FilePath:
+    """Validate given file is not empty."""
+    if scan_file.stat().st_size == 0:
+        raise ValueError(f"file is empty: {scan_file.name}")
+
+    return scan_file
 
 
 def validate_file_extension(filename: Path, extensions: type[StrEnum]) -> Path:
@@ -77,7 +87,17 @@ def validate_relative_path(filepath: Path) -> Path:
     return filepath
 
 
-class DirectoryAccessError(Exception): ...
+type ProjectTag = Annotated[str, StringConstraints(pattern=r"")]
+type ScanFile = Annotated[
+    FilePath,
+    AfterValidator(lambda filepath: validate_file_extension(filepath, SupportedScanExtension)),
+    AfterValidator(validate_scan_file_not_empty),
+    AfterValidator(validate_not_executable),
+    Field(
+        ...,
+        description=f"Path to the input scan file. Supported formats: {', '.join(SupportedScanExtension)}",
+    ),
+]
 
 
 def _generate_unique_token() -> UUID4:
@@ -96,13 +116,25 @@ class DirectoryAccess(BaseModelConfig):
     Uses application settings for storage location configuration.
     """
 
-    token: UUID4 = Field(default_factory=_generate_unique_token)
-    tag: ProjectTag
+    token: UUID4 = Field(
+        default_factory=_generate_unique_token,
+        description=(
+            "Unique UUID4 identifier for the storage directory. "
+            "Auto-generated to ensure no collisions with existing directories."
+        ),
+    )
+    tag: ProjectTag = Field(
+        ...,
+        description=(
+            "Project tag for directory organization. "
+            "Combined with token to create unique directory names in format '{tag}-{token.hex}'."
+        ),
+    )
 
     @property
     def access_url(self) -> str:
         """Get the URL to access files in this directory."""
-        return f"{get_settings().base_url}{EXTRACTOR_ROUTE}/files/{self.token}"
+        return f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{self.token}"
 
     @property
     def resource_path(self) -> Path:

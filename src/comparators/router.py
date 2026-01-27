@@ -1,23 +1,27 @@
 from fastapi import APIRouter
+from fastapi.responses import RedirectResponse
+
+from constants import RoutePrefix
 
 comparison_router = APIRouter(
-    prefix="/comparator",
-    tags=["comparator"],
+    prefix=f"/{RoutePrefix.COMPARATOR}",
+    tags=[RoutePrefix.COMPARATOR],
 )
 
 
 @comparison_router.get(
-    path="/",
-    summary="check status of comparison proces",
-    description="""Some description of comparison endpoint, you can use basic **markup**""",
+    path="",
+    summary="Redirect to comparator documentation",
+    description="""Redirects to the comparator section in the API documentation.""",
+    include_in_schema=False,
 )
-async def comparison_root() -> dict[str, str]:
+async def comparator_root() -> RedirectResponse:
     """
-    Fetch a simple message from the REST API.
+    Redirect to the comparator section in Swagger docs.
 
-    Here is some more information about the function some notes what is expected.
-    Special remarks what the function is doing.
+    This endpoint redirects users to the comparator tag section in the
+    interactive API documentation at /docs.
 
-    :return: A dictionary containing a status message from the comparator.
+    :return: RedirectResponse to the comparator documentation section.
     """
-    return {"message": "Hello from the comparator"}
+    return RedirectResponse(url=f"/docs#operations-tag-{RoutePrefix.COMPARATOR}")

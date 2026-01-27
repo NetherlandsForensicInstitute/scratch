@@ -1,6 +1,8 @@
+from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 
+from container_models.light_source import LightSource
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, parse_to_x3p, save_x3p, subsample_scan_image
 from renders import (
@@ -13,10 +15,13 @@ from renders import (
 from renders.normalizations import normalize_2d_array
 
 from pipelines import run_pipeline
-from preprocessors.schemas import PreprocessingImpressionParams, PreprocessingStriationParams, UploadScanParameters
+from preprocessors.schemas import (
+    PreprocessingImpressionParams,
+    PreprocessingStriationParams,
+)
 
 
-def parse_scan_pipeline(scan_file: Path, parameters: UploadScanParameters) -> ScanImage:
+def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> ScanImage:
     """
     Parse a scan file and load it as a ScanImage.
 
@@ -28,7 +33,7 @@ def parse_scan_pipeline(scan_file: Path, parameters: UploadScanParameters) -> Sc
     return run_pipeline(
         scan_file,
         load_scan_image,
-        partial(subsample_scan_image, **parameters.as_dict(include={"step_size_x", "step_size_y"})),
+        partial(subsample_scan_image, step_size_x=step_size_x, step_size_y=step_size_y),
         error_message=f"Failed to parsed given scan file: {scan_file}",
     )
 
@@ -50,7 +55,14 @@ def x3p_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     )
 
 
-def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: UploadScanParameters) -> Path:
+def surface_map_pipeline(  # noqa
+    parsed_scan: ScanImage,
+    output_path: Path,
+    light_sources: Iterable[LightSource],
+    observer: LightSource,
+    scale_x: float,
+    scale_y: float,
+) -> Path:
     """
     Generate a 3D surface map image from scan data and save it to the specified path.
 
@@ -63,7 +75,13 @@ def surface_map_pipeline(parsed_scan: ScanImage, output_path: Path, parameters: 
     return run_pipeline(
         parsed_scan,
         compute_surface_normals,
-        partial(apply_multiple_lights, **parameters.as_dict(exclude={"step_size_x", "step_size_y"})),
+        partial(
+            apply_multiple_lights,
+            light_sources=light_sources,
+            observer=observer,
+            scale_x=scale_x,
+            scale_y=scale_y,
+        ),
         normalize_2d_array,
         scan_to_image,
         partial(save_image, output_path=output_path),

@@ -1,23 +1,27 @@
 from fastapi import APIRouter
+from fastapi.responses import RedirectResponse
+
+from constants import RoutePrefix
 
 processors = APIRouter(
-    prefix="/processor",
-    tags=["processor"],
+    prefix=f"/{RoutePrefix.PROCESSOR}",
+    tags=[RoutePrefix.PROCESSOR],
 )
 
 
 @processors.get(
-    path="/",
-    summary="check status of comparison proces",
-    description="""Some description of processors endpoint, you can use basic **markup**""",
+    path="",
+    summary="Redirect to processor documentation",
+    description="""Redirects to the processor section in the API documentation.""",
+    include_in_schema=False,
 )
-async def comparison_root() -> dict[str, str]:
+async def processor_root() -> RedirectResponse:
     """
-    Fetch a simple message from the REST API.
+    Redirect to the processor section in Swagger docs.
 
-    Here is some more information about the function some notes what is expected.
-    Special remarks what the function is doing.
+    This endpoint redirects users to the processor tag section in the
+    interactive API documentation at /docs.
 
-    :return: dict[str,str] but, use as much as possible Pydantic for return types
+    :return: RedirectResponse to the processor documentation section.
     """
-    return {"message": "Hello from the processors"}
+    return RedirectResponse(url=f"/docs#operations-tag-{RoutePrefix.PROCESSOR}")

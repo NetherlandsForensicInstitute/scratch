@@ -6,6 +6,7 @@ import pytest
 from returns.pipeline import is_successful
 from scipy.constants import micro
 from surfalize import Surface
+from unittest.mock import patch
 
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, subsample_scan_image
@@ -41,6 +42,58 @@ class TestLoadScanImage:
         )
         assert scan_image.scale_y == surface.step_y * micro
         assert scan_image.scale_x == surface.step_x * micro
+
+
+class TestLoadScanImageCaching:
+    class FakeSurfaceOne:
+        pass
+
+    class FakeSurfaceTwo:
+        pass
+
+    @pytest.fixture(autouse=True)
+    def empty_cache_for_test(self):
+        load_scan_image.cache_clear()
+        yield
+
+    def test_load_scan_image_is_cached(self, tmp_path: Path) -> None:
+        # Arrange
+        scan_file = tmp_path / "scan.x3p"
+        with patch(
+            "parsers.loaders.Surface.load", return_value=self.FakeSurfaceOne()
+        ) as mock_load:
+            # Act
+            image_1 = load_scan_image(scan_file)
+            image_2 = load_scan_image(scan_file)
+
+        # Assert
+        assert image_1 is image_2, "same object expected due to caching"
+        assert mock_load.call_count == 1, (
+            "Surface.load should be called only once due to caching"
+        )
+
+    def test_load_scan_image_only_caches_one_image(self, tmp_path: Path) -> None:
+        # Arrange
+        scan_file_1 = tmp_path / "scan_1.x3p"
+        scan_file_2 = tmp_path / "scan_2.x3p"
+
+        with patch(
+            "parsers.loaders.Surface.load",
+            side_effect=[
+                self.FakeSurfaceOne(),
+                self.FakeSurfaceTwo(),
+            ],
+        ):
+            # Act
+            _image_1 = load_scan_image(scan_file_1)
+            _image_2 = load_scan_image(scan_file_1)
+            _image_3 = load_scan_image(scan_file_2)
+
+        # Assert
+        info = load_scan_image.cache_info()
+        assert info.hits == 1, "one cache hit expected"
+        assert info.misses == 2, "two different files loaded"
+        assert info.currsize == 1, "Cache should only hold one item"
 
 
 class TestSubSampleScanImage:
@@ -110,3 +163,17 @@ class TestSubSampleScanImage:
 
         # Assert
         assert not is_successful(result)
+
+    def test_subsample_skips_when_given_step_size_of_one(
+        self, scan_image: ScanImage
+    ) -> None:
+        """
+        Test when given the subsample the stepsize of one in both directions,
+        it doesn't compute the whole image but just returns the original.
+        """
+        # Act
+        result = subsample_scan_image(scan_image, 1, 1)
+        subsampled = unwrap_result(result)
+
+        # Assert
+        assert subsampled is scan_image, "Expected the same object to be returned"
