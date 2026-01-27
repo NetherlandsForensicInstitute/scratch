@@ -1,6 +1,7 @@
 from container_models.base import ScanMap2DArray
 import numpy as np
 from numpy.typing import NDArray
+from enum import Enum
 from skimage.transform import resize
 
 from container_models.scan_image import ScanImage
@@ -29,11 +30,16 @@ ALPHA_GAUSSIAN = np.sqrt(np.log(2) / np.pi)
 ALPHA_REGRESSION = 0.7309134280946760
 
 
+class RegressionOrder(Enum):
+    GAUSSIAN_WEIGHTED_AVERAGE = 0
+    LOCAL_PLANAR = 1
+    LOCAL_QUADRATIC = 2
+
+
 def apply_gaussian_regression_filter(
     data: NDArray[np.floating],
     cutoff_pixels: NDArray[np.floating],
-    regression_order: int,
-    nan_out: bool,
+    regression_order: RegressionOrder,
 ) -> NDArray[np.floating]:
     """
     Apply a 2D Savitzky-Golay filter with Gaussian weighting via local polynomial regression (ISO 16610-21).
@@ -70,22 +76,21 @@ def apply_gaussian_regression_filter(
     :returns: The filtered 2D array of the same shape as input.
     """
     # 1. Prepare Filter Parameters
-    alpha = ALPHA_REGRESSION if regression_order >= 2 else ALPHA_GAUSSIAN
+    alpha = (
+        ALPHA_REGRESSION
+        if regression_order == RegressionOrder.LOCAL_QUADRATIC
+        else ALPHA_GAUSSIAN
+    )
 
     # 2. Generate Base 1D Kernels
     kernel_x, kernel_y = _create_normalized_separable_kernels(alpha, cutoff_pixels)
 
     # 3. Apply Filter Strategy
-    if regression_order == 0:
-        smoothed = _apply_order0_filter(data, kernel_x, kernel_y)
-    else:
-        smoothed = _apply_polynomial_filter(data, kernel_x, kernel_y, regression_order)
-
-    # 4. Post-processing
-    if nan_out:
-        smoothed[np.isnan(data)] = np.nan
-
-    return smoothed
+    return (
+        _apply_order0_filter(data, kernel_x, kernel_y)
+        if regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE
+        else _apply_polynomial_filter(data, kernel_x, kernel_y, regression_order)
+    )
 
 
 def resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> ScanImage:
@@ -172,7 +177,7 @@ def get_cropped_image(
     scan_image: ScanImage,
     terms: SurfaceTerms,
     cutoff_length: float,
-    regression_order: int,
+    regression_order: RegressionOrder,
     resampling_factors: tuple[float, float],
     crop: bool = False,
 ) -> NDArray:
@@ -200,13 +205,11 @@ def get_cropped_image(
     level_result = level_map(scan_image=scan_image, terms=terms)
 
     # Filter the leveled results using a Gaussian regression filter
-    data_filtered = apply_gaussian_regression_filter(
+    filtered_data = apply_gaussian_regression_filter(
         data=level_result.leveled_map,
         regression_order=regression_order,
         cutoff_pixels=cutoff_length
         / np.array([scan_image.scale_x, scan_image.scale_y]),
-        nan_out=True,
-        is_high_pass=True,
     )
-
-    return data_filtered
+    filtered_data[np.isnan(level_result.leveled_map)] = np.nan
+    return level_result.leveled_map - filtered_data
