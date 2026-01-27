@@ -1,5 +1,7 @@
 """
 Tests comparing Python ProfileCorrelatorSingle output with MATLAB reference.
+
+Updated to work with the integrated profile_correlator.py module.
 """
 
 import json
@@ -93,6 +95,8 @@ class ProfileCorrelatorParams:
             inclusion_threshold=self.inclusion_threshold,
             use_mean=self.use_mean,
             remove_boundary_zeros=self.remove_zeros,
+            show_info=self.show_info,
+            initial_guess=self.x0,
         )
 
 
@@ -125,7 +129,9 @@ class ResultsTable:
         vPixSep1_um = float(d.get("vPixSep1") or 0.0)
         vPixSep2_um = float(d.get("vPixSep2") or 0.0)
         lOverlap_um = float(d.get("lOverlap") or 0.0)
-        trans_shift_um = d.get("trans_shift")
+        trans_shift_um = d.get(
+            "dPos"
+        )  # Changed from trans_shift to dPos (MATLAB field name)
 
         return cls(
             bProfile=int(d.get("bProfile") or 0),
@@ -135,10 +141,10 @@ class ResultsTable:
             vPixSep2=vPixSep2_um * 1e-6,  # Convert μm to m
             pOverlap=float(d.get("pOverlap") or 0.0),  # Ratio, no conversion
             lOverlap=lOverlap_um * 1e-6,  # Convert μm to m
-            xcorr=d.get("xcorr"),  # Dimensionless
-            xcorr_max=d.get("xcorr_max"),  # Dimensionless
+            xcorr=d.get("ccf"),  # MATLAB uses 'ccf' field name
+            xcorr_max=d.get("ccf"),  # Same as xcorr in current implementation
             trans_shift=trans_shift_um * 1e-6 if trans_shift_um is not None else None,
-            trans_scale=d.get("trans_scale"),  # Dimensionless
+            trans_scale=d.get("dScale"),  # MATLAB uses 'dScale' field name
         )
 
     @classmethod
@@ -236,8 +242,15 @@ class MatlabTestCase:
 
     def get_profile_ref(self) -> Profile:
         """Create Profile object for reference."""
+        # Ensure data is 2D with shape (N, 1)
+        data = self.profile_ref_data.astype(np.float64)
+        if data.ndim == 1:
+            data = data.reshape(-1, 1)
+        elif data.ndim > 2:
+            raise ValueError(f"Expected 1D or 2D array, got shape {data.shape}")
+
         return Profile(
-            depth_data=self.profile_ref_data.astype(np.float64),
+            depth_data=data,
             pixel_size=self.ref_pixel_size,
             cutoff_hi=self.params.cutoff_hi,
             cutoff_lo=self.params.cutoff_lo,
@@ -245,8 +258,15 @@ class MatlabTestCase:
 
     def get_profile_comp(self) -> Profile:
         """Create Profile object for comparison."""
+        # Ensure data is 2D with shape (N, 1)
+        data = self.profile_comp_data.astype(np.float64)
+        if data.ndim == 1:
+            data = data.reshape(-1, 1)
+        elif data.ndim > 2:
+            raise ValueError(f"Expected 1D or 2D array, got shape {data.shape}")
+
         return Profile(
-            depth_data=self.profile_comp_data.astype(np.float64),
+            depth_data=data,
             pixel_size=self.comp_pixel_size,
             cutoff_hi=self.params.cutoff_hi,
             cutoff_lo=self.params.cutoff_lo,
@@ -551,6 +571,12 @@ def run_all_tests_standalone(test_cases_dir: Path) -> None:
                     f"pOverlap: {python_results.pOverlap:.6f} != {expected.pOverlap:.6f}"
                 )
 
+            if python_results.xcorr is not None and expected.xcorr is not None:
+                if not np.isclose(python_results.xcorr, expected.xcorr, rtol=1e-3):
+                    errors.append(
+                        f"xcorr: {python_results.xcorr:.6f} != {expected.xcorr:.6f}"
+                    )
+
             if errors:
                 print(f"  FAILED: {', '.join(errors)}")
                 failed += 1
@@ -563,6 +589,9 @@ def run_all_tests_standalone(test_cases_dir: Path) -> None:
             skipped += 1
         except Exception as e:
             print(f"  ERROR: {e}")
+            import traceback
+
+            traceback.print_exc()
             failed += 1
 
     print()
