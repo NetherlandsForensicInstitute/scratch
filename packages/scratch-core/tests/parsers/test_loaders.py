@@ -174,26 +174,27 @@ class TestSubSampleScanImage:
         assert result.scale_x == 0.5
         assert result.scale_y == 0.5
         assert result.data.shape == (100, 100)
-        # Check if it returns the same instance or a perfect data match
         np.testing.assert_array_equal(result.data, scan_image.data)
 
     def test_make_isotropic_upsampling_logic(self):
         """Verify upsampling to the smallest scale and correct shape calculation."""
-        # Setup: 100x100 image with 2.0m/px width and 1.0m/px height
+        width, height = 100, 100
+        scale_coarse = 2.0
+        scale_fine = 1.0  # target scale
         scan_image = ScanImage(
-            data=np.zeros((100, 100)),
-            scale_x=2.0,  # Coarse
-            scale_y=1.0,  # Fine (target)
+            data=np.zeros((height, width)),
+            scale_x=scale_coarse,
+            scale_y=scale_fine,
         )
+        expected_width, expected_height = 200, 100
 
         result = unwrap_result(make_isotropic(scan_image))
 
-        # Scale should now be the minimum of the two (1.0)
-        assert result.scale_x == 1.0
-        assert result.scale_y == 1.0
-
-        # New width should be (original_width * (original_scale_x / target_scale))
-        assert result.data.shape == (100, 200)  # (height, width)
+        assert result.scale_x == 1.0, "Scale should now be the minimum of the two (1.0)"
+        assert result.scale_y == 1.0, "Scale should now be the minimum of the two (1.0)"
+        assert result.data.shape == (expected_height, expected_width), (
+            f"New width should be (original_width * (original_scale_x / target_scale)), but got: {result.data.shape}"
+        )
 
     def test_make_isotropic_preserves_metadata_and_range(self):
         """Ensure metadata is passed through and pixel intensities remain consistent."""
@@ -201,15 +202,12 @@ class TestSubSampleScanImage:
             meta_data={"sensor_id": "XY-Z", "timestamp": "2026-01-21"},
             scale_x=1.0,
             scale_y=0.5,
-            # Use specific values to check for interpolation range issues
             data=np.array([[0, 1000], [2000, 3000]], dtype=np.float64),
         )
 
         result = unwrap_result(make_isotropic(scan_image))
 
-        # Metadata check
         assert result.meta_data == scan_image.meta_data
-        # Intensity check
         assert np.min(result.data) == 0
         assert np.max(result.data) == 3000
         assert result.data.dtype == scan_image.data.dtype
@@ -233,7 +231,6 @@ class TestSubSampleScanImage:
             int(round(scan_image.height * scaling_factor)),
             int(round(scan_image.width)),
         )
-        # assert the number of valid pixels / NaNs have scaled correctly
         assert result.valid_mask.sum() / scan_image.valid_mask.sum() == pytest.approx(
             scaling_factor, abs=1e-3
-        )
+        ), "The number of valid pixels / NaNs have not scaled correctly"

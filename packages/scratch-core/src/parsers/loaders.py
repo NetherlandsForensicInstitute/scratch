@@ -1,6 +1,6 @@
 from pathlib import Path
 from functools import lru_cache
-
+from numpy.typing import NDArray
 import numpy as np
 from returns.io import impure_safe
 from returns.result import safe
@@ -14,8 +14,6 @@ from utils.logger import log_railway_function
 from .patches.al3d import read_al3d
 from scipy.constants import micro
 from skimage.transform import resize
-
-TOLERANCE = 1e-16
 
 # register the patched method as a parser
 FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
@@ -63,29 +61,14 @@ def make_isotropic(scan_image: ScanImage) -> ScanImage:
     :param scan_image: The ScanImage instance to be resampled.
     :returns: A new ScanImage instance with isotropic scaling.
     """
-    # Check if already isotropic within tolerance
-    if np.isclose(scan_image.scale_x, scan_image.scale_y, atol=TOLERANCE):
+    if _is_isotropic(scan_image):
         return scan_image
 
     # Upsample to the smallest pixel scale (highest resolution)
     target_scale = min(scan_image.scale_x, scan_image.scale_y)
-    target_shape = (
-        int(round(scan_image.height * scan_image.scale_y / target_scale)),
-        int(round(scan_image.width * scan_image.scale_x / target_scale)),
-    )
-
-    # Perform the resize
-    resampled_data = resize(
-        image=scan_image.data,
-        output_shape=target_shape,
-        mode="edge",
-        anti_aliasing=False,  # Disabled for pure upsampling
-        preserve_range=True,  # Keep original data intensity levels
-        order=0,  # Nearest Neighbor so that NaNs appear at corresponding coordinates
-    )
 
     return ScanImage(
-        data=np.asarray(resampled_data, dtype=np.float64),
+        data=_upsample_image_data(scan_image, target_scale),
         scale_x=target_scale,
         scale_y=target_scale,
         meta_data=scan_image.meta_data,
@@ -117,3 +100,33 @@ def subsample_scan_image(
         scale_x=scan_image.scale_x * step_size_x,
         scale_y=scan_image.scale_y * step_size_y,
     )
+
+
+def _is_isotropic(scan_image: ScanImage) -> bool:
+    """Check if a scan image is isotropic within tolerance."""
+    tolerance = 1e-16
+    return np.isclose(scan_image.scale_x, scan_image.scale_y, atol=tolerance)
+
+
+def _get_target_shape(scan_image: ScanImage, target_scale: float) -> tuple[int, int]:
+    """Get the target shape for a scan image given a target scale."""
+    height, width = (
+        int(round(scan_image.height * scan_image.scale_y / target_scale)),
+        int(round(scan_image.width * scan_image.scale_x / target_scale)),
+    )
+    return height, width
+
+
+def _upsample_image_data(
+    scan_image: ScanImage, target_scale: float
+) -> NDArray[np.float64]:
+    """Upsample image data in a `ScanImage` instance to a common target scale."""
+    upsampled = resize(
+        image=scan_image.data,
+        output_shape=_get_target_shape(scan_image, target_scale),
+        mode="edge",
+        anti_aliasing=False,  # Disabled for pure upsampling
+        preserve_range=True,  # Keep original data intensity levels
+        order=0,  # Nearest Neighbor so that NaNs appear at corresponding coordinates
+    )
+    return np.asarray(upsampled, dtype=np.float64)
