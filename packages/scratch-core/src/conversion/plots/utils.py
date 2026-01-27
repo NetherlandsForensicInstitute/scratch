@@ -7,6 +7,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
 
+DEFAULT_COLORMAP = "viridis"
+
 
 def figure_to_array(fig: Figure) -> np.ndarray:
     """
@@ -65,7 +67,7 @@ def plot_profiles_on_axes(
     ax.grid(True, alpha=0.3)
 
 
-def _plot_depthmap_on_axes(
+def plot_depthmap_on_axes(
     ax: Axes,
     fig: Figure,
     data: NDArray,
@@ -101,7 +103,7 @@ def _plot_depthmap_on_axes(
     cbar.ax.tick_params(labelsize=10)
 
 
-def _plot_side_by_side_on_axes(
+def plot_side_by_side_on_axes(
     ax: Axes,
     fig: Figure,
     data_ref: NDArray,
@@ -125,13 +127,22 @@ def _plot_side_by_side_on_axes(
     gap = np.full((data_ref.shape[0], gap_width), np.nan)
     combined = np.hstack([data_ref, gap, data_comp])
 
-    _plot_depthmap_on_axes(ax, fig, combined, scale, title, shrink_colorbar)
+    plot_depthmap_on_axes(ax, fig, combined, scale, title, shrink_colorbar)
 
 
-DEFAULT_COLORMAP = "viridis"
+def metadata_to_table_data(
+    metadata: dict[str, str], wrap_width: int
+) -> list[list[str]]:
+    """
+    Convert metadata dictionary to table rows with text wrapping.
 
+    Long values are wrapped across multiple rows, with the key only
+    appearing on the first row.
 
-def metadata_to_table_data(metadata: dict, wrap_width: int):
+    :param metadata: Dictionary of metadata key-value pairs.
+    :param wrap_width: Maximum character width before wrapping values.
+    :returns: List of [key, value] pairs suitable for table rendering.
+    """
     table_data = []
     for k, v in metadata.items():
         wrapped_lines = textwrap.wrap(str(v), width=wrap_width)

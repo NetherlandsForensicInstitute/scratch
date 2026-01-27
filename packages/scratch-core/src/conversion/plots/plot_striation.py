@@ -12,8 +12,8 @@ from conversion.plots.utils import (
     figure_to_array,
     get_fig_dimensions,
     plot_profiles_on_axes,
-    _plot_depthmap_on_axes,
-    _plot_side_by_side_on_axes,
+    plot_depthmap_on_axes,
+    plot_side_by_side_on_axes,
     metadata_to_table_data,
 )
 
@@ -173,8 +173,15 @@ def plot_wavelength_correlation(
 
 
 def get_wavelength_correlation_plot(
-    ax, quality_passbands: Mapping[tuple[float, float], float]
+    ax: Axes, quality_passbands: Mapping[tuple[float, float], float]
 ):
+    """
+    Plot correlation coefficients for different wavelength passbands.
+
+    :param ax: Matplotlib axes to plot on.
+    :param quality_passbands: Mapping from (low, high) wavelength bands in µm
+        to correlation coefficients (0-1 scale).
+    """
     xs = np.arange(1, len(quality_passbands) + 1)
 
     ax.plot(xs, [v * 100 for v in quality_passbands.values()], "b-*", linewidth=2)
@@ -206,7 +213,7 @@ def plot_depthmap_with_axes(data: NDArray, scale: float, title: str) -> np.ndarr
     fig_height, fig_width = get_fig_dimensions(height, width)
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-    _plot_depthmap_on_axes(ax, fig, data, scale, title, shrink_colorbar=0.5)
+    plot_depthmap_on_axes(ax, fig, data, scale, title, shrink_colorbar=0.5)
 
     fig.tight_layout()
     arr = figure_to_array(fig)
@@ -235,7 +242,7 @@ def plot_side_by_side_surfaces(
     fig_height, fig_width = get_fig_dimensions(height, combined_width)
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-    _plot_side_by_side_on_axes(ax, fig, data_ref, data_comp, scale, shrink_colorbar=0.5)
+    plot_side_by_side_on_axes(ax, fig, data_ref, data_comp, scale, shrink_colorbar=0.5)
 
     fig.tight_layout()
     arr = figure_to_array(fig)
@@ -245,8 +252,8 @@ def plot_side_by_side_surfaces(
 
 def _draw_metadata_box(
     ax: Axes, metadata: dict, title: str | None = None, draw_border: bool = True
-) -> None:
-    """Draw a metadata box with title and key-value pairs."""
+):
+    """Draw a metadata box with key-value pairs and optional title and border."""
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_xticks([])
@@ -296,7 +303,7 @@ def plot_comparison_overview(
     metadata_comp: dict,
 ) -> np.ndarray:
     """
-    Generate the main NFI results overview figure.
+    Generate the main results overview figure.
 
     This creates a composite figure with:
     - Row 0: Metadata tables for both profiles (with boxes)
@@ -318,10 +325,6 @@ def plot_comparison_overview(
     fig = plt.figure(figsize=(16, 14))
 
     # Create grid layout: 4 rows, 3 columns
-    # Row 0: metadata boxes (2 columns)
-    # Row 1: filtered surfaces (2 columns) + results (1 column)
-    # Row 2: side-by-side (2 columns)
-    # Row 3: profile plot (3 columns)
     gs = fig.add_gridspec(
         4,
         3,
@@ -331,16 +334,16 @@ def plot_comparison_overview(
         wspace=0.3,
     )
 
-    # === Row 0: Metadata tables with boxes ===
+    # Row 0: Metadata tables with boxes
     ax_meta_ref = fig.add_subplot(gs[0, 0])
     _draw_metadata_box(ax_meta_ref, metadata_ref, "Reference Profile (A)")
 
     ax_meta_comp = fig.add_subplot(gs[0, 1])
     _draw_metadata_box(ax_meta_comp, metadata_comp, "Compared Profile (B)")
 
-    # === Row 1: Filtered surface depth maps + Results ===
+    # Row 1: Filtered surface depth maps + Results box
     ax_ref = fig.add_subplot(gs[1, 0])
-    _plot_depthmap_on_axes(
+    plot_depthmap_on_axes(
         ax_ref,
         fig,
         mark_ref.scan_image.data,
@@ -349,7 +352,7 @@ def plot_comparison_overview(
     )
 
     ax_comp = fig.add_subplot(gs[1, 1])
-    _plot_depthmap_on_axes(
+    plot_depthmap_on_axes(
         ax_comp,
         fig,
         mark_comp.scan_image.data,
@@ -357,7 +360,6 @@ def plot_comparison_overview(
         title="Filtered Compared Surface B",
     )
 
-    # Results metrics to the right
     ax_results = fig.add_subplot(gs[1, 2])
     items = {
         "Date report": datetime.now(),
@@ -375,9 +377,9 @@ def plot_comparison_overview(
     }
     _draw_metadata_box(ax_results, items, draw_border=False)
 
-    # === Row 2: Side-by-side ===
+    # Row 2: Side-by-side
     ax_side = fig.add_subplot(gs[2, :2])
-    _plot_side_by_side_on_axes(
+    plot_side_by_side_on_axes(
         ax_side,
         fig,
         mark_ref_aligned.scan_image.data,
@@ -385,7 +387,7 @@ def plot_comparison_overview(
         mark_ref.scan_image.scale_x,
     )
 
-    # === Row 3: Profile plot ===
+    # Row 3: Profile plot
     ax_profile = fig.add_subplot(gs[3, :])
     plot_profiles_on_axes(
         ax_profile,
