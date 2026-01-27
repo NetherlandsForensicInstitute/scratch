@@ -1,13 +1,13 @@
 import numpy as np
 
-from container_models.base import ScanMap2DArray, MaskArray
+from container_models.base import DepthData, BinaryMask
 from container_models.scan_image import ScanImage
 
 
 def mask_2d_array(
-    image: ScanMap2DArray,
-    mask: MaskArray,
-) -> ScanMap2DArray:
+    image: DepthData,
+    mask: BinaryMask,
+) -> DepthData:
     """
     Masks a 2D array by setting masked pixels to NaN.
 
@@ -24,9 +24,9 @@ def mask_2d_array(
 
 
 def crop_to_mask(
-    image: ScanMap2DArray,
-    mask: MaskArray,
-) -> ScanMap2DArray:
+    image: DepthData,
+    mask: BinaryMask,
+) -> DepthData:
     """
     Crops an image to the bounding box of a mask.
 
@@ -38,7 +38,7 @@ def crop_to_mask(
     return image[y_slice, x_slice]
 
 
-def _determine_bounding_box(mask: MaskArray) -> tuple[slice, slice]:
+def _determine_bounding_box(mask: BinaryMask) -> tuple[slice, slice]:
     """
     Determines the bounding box of non-zero values in a mask.
 
@@ -55,8 +55,8 @@ def _determine_bounding_box(mask: MaskArray) -> tuple[slice, slice]:
 
 
 def mask_and_crop_2d_array(
-    image: ScanMap2DArray, mask: MaskArray, crop: bool = False
-) -> ScanMap2DArray:
+    image: DepthData, mask: BinaryMask, crop: bool = False
+) -> DepthData:
     """Apply the mask to the data and crop to the bounding box of the mask if `crop` is True."""
     image = mask_2d_array(image=image, mask=mask)
     if crop:
@@ -65,7 +65,7 @@ def mask_and_crop_2d_array(
 
 
 def mask_and_crop_scan_image(
-    scan_image: ScanImage, mask: MaskArray, crop: bool = False
+    scan_image: ScanImage, mask: BinaryMask, crop: bool = False
 ) -> ScanImage:
     """Apply masking to the data in an instance of `ScanImage`."""
     masked_data = mask_and_crop_2d_array(image=scan_image.data, mask=mask, crop=crop)

@@ -1,7 +1,7 @@
 from functools import cached_property
 import numpy as np
 from pydantic import Field
-from .base import UnitVector3DArray, ConfigBaseModel
+from .base import ConfigBaseModel, UnitVector
 
 
 class LightSource(ConfigBaseModel):
@@ -28,7 +28,7 @@ class LightSource(ConfigBaseModel):
     )
 
     @cached_property
-    def unit_vector(self) -> UnitVector3DArray:
+    def unit_vector(self) -> UnitVector:
         """
         Returns the unit direction vector [x, y, z] corresponding to the azimuth and
         elevation angles. The conversion follows a spherical-coordinate convention:

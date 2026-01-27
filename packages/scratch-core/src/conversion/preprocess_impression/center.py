@@ -3,7 +3,7 @@ from numpy._typing import NDArray
 from scipy.ndimage import binary_erosion
 from skimage.measure import ransac, CircleModel
 
-from container_models.base import MaskArray
+from container_models.base import BinaryMask
 from conversion.data_formats import Mark, MarkType
 from conversion.mask import _determine_bounding_box
 from conversion.preprocess_impression.utils import Point2D
@@ -11,7 +11,7 @@ from conversion.preprocess_impression.utils import Point2D
 RANDOM_SEED = 1234
 
 
-def _get_mask_inner_edge_points(mask: MaskArray) -> NDArray[np.floating]:
+def _get_mask_inner_edge_points(mask: BinaryMask) -> NDArray[np.floating]:
     """
     Extract inner edge points of a binary mask.
 
@@ -78,7 +78,7 @@ def _fit_circle_ransac(
     return None
 
 
-def _get_bounding_box_center(mask: MaskArray) -> Point2D:
+def _get_bounding_box_center(mask: BinaryMask) -> Point2D:
     """
     Compute center of bounding box for True values in mask.
 
@@ -93,7 +93,7 @@ def _get_bounding_box_center(mask: MaskArray) -> Point2D:
 
 
 def _compute_map_center(
-    array: MaskArray,
+    array: BinaryMask,
     use_circle_fit: bool = False,
 ) -> Point2D:
     """

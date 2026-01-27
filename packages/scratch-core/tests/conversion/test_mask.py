@@ -11,7 +11,7 @@ from conversion.mask import (
     mask_and_crop_scan_image,
 )
 from container_models.scan_image import ScanImage
-from container_models.base import MaskArray
+from container_models.base import BinaryMask
 
 
 class TestMask2dArray:
@@ -156,7 +156,7 @@ class TestDetermineBoundingBox:
 class TestCropScanImage:
     @pytest.mark.integration
     def test_mask_scan_image(
-        self, scan_image_replica: ScanImage, mask_array: MaskArray
+        self, scan_image_replica: ScanImage, mask_array: BinaryMask
     ):
         masked_scan_image = mask_and_crop_scan_image(
             scan_image=scan_image_replica, mask=mask_array, crop=False
@@ -166,7 +166,7 @@ class TestCropScanImage:
 
     @pytest.mark.integration
     def test_crop_scan_image(
-        self, scan_image_replica: ScanImage, mask_array: MaskArray
+        self, scan_image_replica: ScanImage, mask_array: BinaryMask
     ):
         cropped_scan_image = mask_and_crop_scan_image(
             scan_image=scan_image_replica, mask=mask_array, crop=True
@@ -177,7 +177,7 @@ class TestCropScanImage:
 
 @pytest.mark.integration
 def test_get_image_for_display_matches_baseline_image(
-    scan_image_with_nans: ScanImage, mask_array: MaskArray, baseline_images_dir: Path
+    scan_image_with_nans: ScanImage, mask_array: BinaryMask, baseline_images_dir: Path
 ):
     verified = np.load(baseline_images_dir / "masked_cropped_array.npy")
     masked_cropped_array = mask_and_crop_2d_array(

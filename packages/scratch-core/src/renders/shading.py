@@ -2,13 +2,13 @@ from collections.abc import Iterable
 import numpy as np
 from typing import Final
 
-from numpy.typing import ArrayLike, NDArray
 from returns.pipeline import flow
 from returns.result import safe
 
 from container_models.light_source import LightSource
 from container_models.scan_image import ScanImage
 from utils.logger import log_railway_function
+from numpy.typing import NDArray, ArrayLike
 
 
 SPECULAR_FACTOR: Final[float] = 1.0

@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from container_models.base import ScanMap2DArray, MaskArray
+from container_models.base import DepthData, BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.get_cropped_image import get_cropped_image
 from conversion.leveling import SurfaceTerms
@@ -53,9 +53,9 @@ class MatlabTestCase:
     """Container for a single MATLAB test case."""
 
     name: str
-    input_data: ScanMap2DArray
-    input_mask: MaskArray
-    output_data: ScanMap2DArray
+    input_data: DepthData
+    input_mask: BinaryMask
+    output_data: DepthData
 
     input_xdim: float = 3.5e-6
     input_ydim: float = 3.5e-6
