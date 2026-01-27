@@ -128,25 +128,27 @@ def rotate_mask_and_scan_image(
     :param rotation_angle: Rotation angle in degrees. Positive values rotate clockwise. If 0, returns inputs unchanged.
     :return: Tuple of (rotated) scan image and mask.
     """
-    if rotation_angle != 0:
-        mask = rotate(
-            mask.astype(float),
+    if np.isclose(rotation_angle, 0.0):
+        return scan_image, mask
+
+    mask = rotate(
+        mask.astype(float),
+        -rotation_angle,
+        reshape=True,
+        order=0,
+        mode="constant",
+        cval=0,
+    ).astype(bool)
+
+    scan_image = update_scan_image_data(
+        scan_image,
+        rotate(
+            scan_image.data,
             -rotation_angle,
             reshape=True,
-            order=0,
+            order=1,
             mode="constant",
-            cval=0,
-        ).astype(bool)
-
-        scan_image = update_scan_image_data(
-            scan_image,
-            rotate(
-                scan_image.data,
-                -rotation_angle,
-                reshape=True,
-                order=1,
-                mode="constant",
-                cval=np.nan,
-            ),
-        )
+            cval=np.nan,
+        ),
+    )
     return scan_image, mask
