@@ -48,10 +48,10 @@ def _compute_depth_gradients(
     return gradient_x, gradient_y
 
 
-def _add_normal_magnitude(
+def _compute_magnitude(
     gradient_x: FloatArray2D, gradient_y: FloatArray2D
 ) -> FloatArray2D:
-    """Compute and attach the normal vector magnitude to gradient components."""
+    """Compute the vector magnitude for gradient components."""
     magnitude = np.sqrt(gradient_x**2 + gradient_y**2 + 1)
     return magnitude
 
@@ -90,7 +90,7 @@ def compute_surface_normals(scan_image: ScanImage) -> VectorField:
     """
 
     gradient_x, gradient_y = _compute_depth_gradients(scan_image)
-    magnitude = _add_normal_magnitude(gradient_x, gradient_y)
+    magnitude = _compute_magnitude(gradient_x, gradient_y)
     surface_normals = _normalize_to_surface_normals(gradient_x, gradient_y, magnitude)
     return surface_normals
 
