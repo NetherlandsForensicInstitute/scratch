@@ -165,6 +165,20 @@ class TestSubSampleScanImage:
         # Assert
         assert not is_successful(result)
 
+    def test_subsample_skips_when_given_step_size_of_one(
+        self, scan_image: ScanImage
+    ) -> None:
+        """
+        Test when given the subsample the stepsize of one in both directions,
+        it doesn't compute the whole image but just returns the original.
+        """
+        # Act
+        result = subsample_scan_image(scan_image, 1, 1)
+        subsampled = unwrap_result(result)
+
+        # Assert
+        assert subsampled is scan_image, "Expected the same object to be returned"
+
     def test_make_isotropic_no_op(self):
         """Ensure no resampling occurs if pixels are already square."""
         scan_image = ScanImage(scale_x=0.5, scale_y=0.5, data=np.zeros((100, 100)))
