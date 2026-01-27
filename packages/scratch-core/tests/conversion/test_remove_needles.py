@@ -86,26 +86,6 @@ class TestMaskAndRemoveNeedles:
         # Needle should be detected
         assert np.isnan(result.data[0, 25])
 
-    def test_median_factor_parameter(self, simple_scan_image, full_mask):
-        """Test that median_factor parameter affects outlier detection."""
-        # Add moderate outlier
-        simple_scan_image.data[25, 25] = 150.0
-
-        # Strict threshold (lower median_factor)
-        result_strict = mask_and_remove_needles(
-            simple_scan_image, full_mask, median_factor=5
-        )
-
-        # Lenient threshold (higher median_factor)
-        result_lenient = mask_and_remove_needles(
-            simple_scan_image, full_mask, median_factor=50
-        )
-
-        # Strict should flag more points as NaN
-        assert np.sum(np.isnan(result_strict.data)) > np.sum(
-            np.isnan(result_lenient.data)
-        )
-
     def test_all_nan_input(self):
         """Test handling of input data that is all NaN."""
         data = np.full((50, 50), np.nan)

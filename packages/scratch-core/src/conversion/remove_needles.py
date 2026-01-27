@@ -114,19 +114,19 @@ def get_and_remove_needles(
     scan_image: ScanImage, residual_image: ScanMap2DArray, median_factor: float
 ) -> ScanImage:
     """
-    Mark points as needles where residuals exceed a threshold (determined as the absolute median of the residuals *
-    times_median * TIMES_MEDIAN_CORRECTION_FACTOR) and set marked needle points to NaN in scan image.
+    Mark points as needles where residuals exceed a threshold and set marked needle points to NaN in scan image.
+    The threshold is set to `the median of the absolute residuals * median_factor * MEDIAN_FACTOR_CORRECTION_FACTOR`.
 
     :param scan_image: ScanImage to remove needles from. Assumes any masks are already applied.
     :param residual_image: Array of differences between a (masked) image and median filter smoothed image.
     :param median_factor: Parameter to help determine the needle threshold.
-    :return: ScanImage where any needles are removed.
+    :return: ScanImage where any needles are replaced with nan.
     """
     median_factor = median_factor * MEDIAN_FACTOR_CORRECTION_FACTOR
 
     # Find needles: points where |residual| > threshold
     median_residual = np.nanmedian(np.abs(residual_image))
-    threshold = median_factor * (1 if median_residual == 0 else median_residual)
+    threshold = median_factor * median_residual
     needles_mask = np.abs(residual_image) > threshold
 
     # Remove needles from the image by setting them to NaN
