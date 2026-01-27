@@ -38,23 +38,23 @@ class TestValidateShape:
         assert np.array_equal(result, arr)
 
     def test_validate_shape_mismatch_1d_expected_2d_given(self):
-        arr = np.array([[1, 2], [3, 4]])  # 2D array
+        arr = np.array([[1, 2], [3, 4]])
         with pytest.raises(ValueError, match="expected 1 dimensions, but got 2"):
             validate_shape(1, arr)
 
     def test_validate_shape_mismatch_2d_expected_1d_given(self):
-        arr = np.array([1, 2, 3])  # 1D array
+        arr = np.array([1, 2, 3])
         with pytest.raises(ValueError, match="expected 2 dimensions, but got 1"):
             validate_shape(2, arr)
 
     def test_validate_shape_mismatch_3d_expected_2d_given(self):
-        arr = np.array([[1, 2], [3, 4]])  # 2D array
+        arr = np.array([[1, 2], [3, 4]])
         with pytest.raises(ValueError, match="expected 3 dimensions, but got 2"):
             validate_shape(3, arr)
 
     def test_validate_shape_scalar_array(self):
         """Test with 0-dimensional array (scalar)."""
-        arr = np.array(42)  # 0D array
+        arr = np.array(42)
         with pytest.raises(ValueError, match="expected 1 dimensions, but got 0"):
             validate_shape(1, arr)
 
