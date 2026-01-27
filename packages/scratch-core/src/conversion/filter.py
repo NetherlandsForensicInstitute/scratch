@@ -289,7 +289,7 @@ def _solve_pixelwise_regression(
     lhs_matrix: FloatArray4D,
     rhs_vector: FloatArray3D,
     original_data: FloatArray2D,
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """Solve the linear system for every valid pixel."""
     # rhs_vector shape: (n_params, H, W) -> (H, W, n_params, 1)
     rhs_prepared = np.moveaxis(rhs_vector, 0, -1)[..., np.newaxis]
@@ -317,9 +317,9 @@ def _solve_pixelwise_regression(
 
 
 def _solve_fallback_lstsq(
-    result_array: NDArray[np.floating],
-    lhs: NDArray[np.floating],
-    rhs: NDArray[np.floating],
+    result_array: FloatArray2D,
+    lhs: FloatArray4D,
+    rhs: FloatArray4D,
     indices: tuple[
         NDArray[np.intp], ...
     ],  # Use ellipsis to allow variadic tuples of index arrays

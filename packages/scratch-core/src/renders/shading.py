@@ -15,7 +15,7 @@ PHONG_EXPONENT: Final[int] = 4
 def _get_components(
     vector_field: VectorField,
 ) -> tuple[FloatArray2D, FloatArray2D, FloatArray2D]:
-    return tuple(vector_field[..., i] for i in range(3))
+    return vector_field[..., 0], vector_field[..., 1], vector_field[..., 2]
 
 
 def _compute_half_vector(

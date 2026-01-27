@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from functools import partial
 from typing import Annotated, TypeAlias
 
-from numpy import array, bool_, float64, number, uint8, int64
+from numpy import array, bool_, floating, number, uint8, int64
 from numpy.typing import DTypeLike, NDArray
 from pydantic import (
     AfterValidator,
@@ -50,13 +50,13 @@ UInt8Array: TypeAlias = Annotated[
     PlainSerializer(serialize_ndarray),
 ]
 Int64Array: TypeAlias = Annotated[
-    NDArray[float64],
+    NDArray[int64],
     BeforeValidator(partial(coerce_to_array, int64)),
     PlainSerializer(serialize_ndarray),
 ]
 FloatArray: TypeAlias = Annotated[
-    NDArray[float64],
-    BeforeValidator(partial(coerce_to_array, float64)),
+    NDArray[floating],
+    BeforeValidator(partial(coerce_to_array, floating)),
     PlainSerializer(serialize_ndarray),
 ]
 BoolArray: TypeAlias = Annotated[

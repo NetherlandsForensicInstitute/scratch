@@ -23,7 +23,9 @@ def _get_mask_inner_edge_points(mask: BinaryMask) -> FloatArray2D:
     return np.column_stack([cols, rows]).astype(float)
 
 
-def _points_are_collinear(points: Int64Array2D, tol: float = 1e-9) -> bool:
+def _points_are_collinear(
+    points: Int64Array2D | FloatArray2D, tol: float = 1e-9
+) -> bool:
     """
     Check if points are approximately collinear using SVD.
 
@@ -39,7 +41,7 @@ def _points_are_collinear(points: Int64Array2D, tol: float = 1e-9) -> bool:
 
 
 def _fit_circle_ransac(
-    points: Int64Array2D,
+    points: Int64Array2D | FloatArray2D,
     n_iterations: int = 1000,
     threshold: float = 1.0,
 ) -> Point2D | None:

@@ -70,10 +70,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     files = get_files(vault.resource_path, scan="scan.x3p", preview="preview.png", surface_map="surface_map.png")
     scan = x3p_pipeline(parsed_scan, files["scan"])
     surface_map = surface_map_pipeline(
-        parsed_scan,
-        files["surface_map"],
-        upload_scan.light_sources,
-        upload_scan.observer
+        parsed_scan, files["surface_map"], upload_scan.light_sources, upload_scan.observer
     )
     preview = preview_pipeline(parsed_scan, files["preview"])
 
