@@ -211,6 +211,30 @@ class TestGetResidualImage(unittest.TestCase):
         # Spike location should have large residual
         assert np.abs(residual[10, 10]) > np.abs(residual[5, 5])
 
+    def test_residual_image_of_scan_image_width_1(self):
+        """Test that residuals are large for spike outliers."""
+        data = np.ones((20, 1)) * 10.0
+        data[10, 0] = 1000.0  # Add spike
+        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+
+        residual = get_residual_image(scan_image)
+
+        # Spike location should have large residual
+        assert np.abs(residual[10, 0]) > np.abs(residual[5, 0])
+        assert residual.shape == scan_image.data.shape
+
+    def test_residual_image_of_scan_image_height_1(self):
+        """Test that residuals are large for spike outliers."""
+        data = np.ones((1, 20)) * 10.0
+        data[0, 10] = 1000.0  # Add spike
+        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+
+        residual = get_residual_image(scan_image)
+
+        # Spike location should have large residual
+        assert np.abs(residual[0, 10]) > np.abs(residual[0, 5])
+        assert residual.shape == scan_image.data.shape
+
     def test_with_nan_values(self):
         """Test handling of NaN values in input."""
         data = np.ones((20, 20))

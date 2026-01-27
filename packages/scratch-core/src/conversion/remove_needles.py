@@ -40,8 +40,9 @@ def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
     Apply median filtering to smooth the image and compute residuals as the difference between the input scan image and
     the median filtered image.
 
-    If the image is large, it is downsampled before filtering and upsampled afterward. If the image is a small strip of
-    data (width or height <= SMALL_STRIP_THRESHOLD), the filter size is reduced to avoid too extensive smoothing.
+    If the image is large, it is downsampled before filtering and upsampled afterwards.
+    If the image is a small strip of data (width or height <= SMALL_STRIP_THRESHOLD), the filter size is reduced to
+    avoid too extensive smoothing.
 
     :param scan_image: Scan image to calculate residual image for. Assumes any masks have already been applied.
     :return: Array of differences between the input scan_image.data and median filter smoothed version of that image.
@@ -51,59 +52,62 @@ def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
         scan_image.width <= SMALL_STRIP_THRESHOLD
         or scan_image.height <= SMALL_STRIP_THRESHOLD
     )
-
-    if not is_small_strip:
-        # Calculate subsampling factor for computational efficiency using the given TARGET_SCALE and the desired
-        # MEDIAN_FILTER_SIZE
-        subsample_factor = int(
-            np.ceil(TARGET_SCALE / MEDIAN_FILTER_SIZE / scan_image.scale_x)
+    # Calculate subsampling factor for computational efficiency using the given TARGET_SCALE and the desired
+    # MEDIAN_FILTER_SIZE
+    subsample_factor = int(
+        np.ceil(TARGET_SCALE / MEDIAN_FILTER_SIZE / scan_image.scale_x)
+    )
+    if not is_small_strip and subsample_factor > 1:
+        scan_image_filtered = apply_median_filter_to_large_image(
+            subsample_factor, scan_image
         )
 
-        # If the subsample_factor is more than 1, downsample the data before filtering and upsample back after
-        # filtering. Otherwise, just apply the filter directly.
-        if subsample_factor > 1:
-            scan_image_subsampled = unwrap_result(
-                subsample_scan_image(
-                    scan_image=scan_image,
-                    step_size_x=subsample_factor,
-                    step_size_y=subsample_factor,
-                )
-            )
-
-            scan_image_subsampled_filtered = apply_median_filter(
-                scan_image=scan_image_subsampled, filter_size=MEDIAN_FILTER_SIZE
-            )
-
-            upsample_factors = (1 / subsample_factor, 1 / subsample_factor)
-            scan_image_filtered, _ = resample_scan_image_and_mask(
-                scan_image=scan_image_subsampled_filtered,
-                factors=upsample_factors,
-                only_downsample=False,
-            )
-
-        else:
-            scan_image_filtered = apply_median_filter(
-                scan_image=scan_image, filter_size=MEDIAN_FILTER_SIZE
-            )
-
-        # Use slicing since the shape may deviate slightly after down- and upsampling
-        residual_image = (
-            scan_image.data
-            - scan_image_filtered.data[: scan_image.height, : scan_image.width]
-        )
     else:
-        filter_size_adjusted = int(np.round(np.sqrt(MEDIAN_FILTER_SIZE)))
         scan_image_filtered = apply_median_filter(
-            scan_image=scan_image, filter_size=filter_size_adjusted
+            scan_image=scan_image,
+            filter_size=int(np.round(np.sqrt(MEDIAN_FILTER_SIZE)))
+            if is_small_strip
+            else MEDIAN_FILTER_SIZE,
         )
 
-        # Handle transposition for single-row data
-        if scan_image_filtered.width == 1:
-            residual_image = scan_image.data - scan_image_filtered.data.T
-        else:
-            residual_image = scan_image.data - scan_image_filtered.data
-
+    # Use slicing since the shape may deviate slightly after down- and upsampling
+    residual_image = (
+        scan_image.data
+        - scan_image_filtered.data[: scan_image.height, : scan_image.width]
+    )
     return residual_image
+
+
+def apply_median_filter_to_large_image(
+    subsample_factor: int, scan_image: ScanImage
+) -> ScanImage:
+    """
+    Downsample the data before applying median filter and upsample back after filtering.
+
+    :param subsample_factor: Factor used to downsample with. The inverse is used to upsample the image after filtering.
+    :param scan_image: Scan image to downsample, filter and upsample.
+    :return: Filtered scan image.
+    """
+    scan_image_subsampled = unwrap_result(
+        subsample_scan_image(
+            scan_image=scan_image,
+            step_size_x=subsample_factor,
+            step_size_y=subsample_factor,
+        )
+    )
+
+    scan_image_subsampled_filtered = apply_median_filter(
+        scan_image=scan_image_subsampled, filter_size=MEDIAN_FILTER_SIZE
+    )
+
+    upsample_factors = (1 / subsample_factor, 1 / subsample_factor)
+    scan_image_filtered, _ = resample_scan_image_and_mask(
+        scan_image=scan_image_subsampled_filtered,
+        factors=upsample_factors,
+        only_downsample=False,
+    )
+
+    return scan_image_filtered
 
 
 def get_and_remove_needles(
