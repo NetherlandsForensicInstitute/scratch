@@ -44,7 +44,7 @@ def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
     If the image is a small strip of data (width or height <= SMALL_STRIP_THRESHOLD), the filter size is reduced to
     avoid too extensive smoothing.
 
-    :param scan_image: Scan image to calculate residual image for. Assumes any masks have already been applied.
+    :param scan_image: Scan image to calculate residual image for.
     :return: Array of differences between the input scan_image.data and median filter smoothed version of that image.
     """
     # Check if the image is a small strip of data
@@ -117,7 +117,7 @@ def get_and_remove_needles(
     Mark points as needles where residuals exceed a threshold and set marked needle points to NaN in scan image.
     The threshold is set to `the median of the absolute residuals * median_factor * MEDIAN_FACTOR_CORRECTION_FACTOR`.
 
-    :param scan_image: ScanImage to remove needles from. Assumes any masks are already applied.
+    :param scan_image: ScanImage to remove needles from.
     :param residual_image: Array of differences between a (masked) image and median filter smoothed image.
     :param median_factor: Parameter to help determine the needle threshold.
     :return: ScanImage where any needles are replaced with nan.
