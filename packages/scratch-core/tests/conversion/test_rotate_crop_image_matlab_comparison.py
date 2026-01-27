@@ -12,7 +12,7 @@ import pytest
 
 from container_models.base import ScanMap2DArray, MaskArray
 from container_models.scan_image import ScanImage
-from conversion.data_formats import RectangularCrop
+from conversion.data_formats import RectangularBoundingBox
 from conversion.rotate import get_rotation_angle, rotate_crop_and_mask_image_by_crop
 from .helper_functions import (
     _compute_correlation,
@@ -34,7 +34,7 @@ class MatlabTestCase:
     input_xdim: float = 3.5e-6
     input_ydim: float = 3.5e-6
     crop_type: str = "rectangle"
-    rectangle: RectangularCrop | None = None
+    rectangle: RectangularBoundingBox | None = None
     crop_foreground: bool = True
     times_median: float = 15.0
     has_holes: bool = False
@@ -147,7 +147,7 @@ def run_python_preprocessing(
     data_out = rotate_crop_and_mask_image_by_crop(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
-        rectangle=test_case.rectangle,
+        rectangular_bounding_box=test_case.rectangle,
         median_factor=test_case.times_median,
     )
     return data_out.data
@@ -219,7 +219,9 @@ class TestRotateCropImageMatlabComparison:
         if expected is None or test_case.rectangle is None:
             pytest.skip("No expected angle in test name or rectangle given.")
 
-        calculated_angle = get_rotation_angle(rectangle=test_case.rectangle)
+        calculated_angle = get_rotation_angle(
+            rectangular_bounding_box=test_case.rectangle
+        )
 
         assert abs(calculated_angle - expected) < 1.0, (
             f"{test_case.name}: calculated angle {calculated_angle:.2f} != {expected}"

@@ -59,7 +59,7 @@ def validate_rectangle_corners(arr: NDArray[float64]) -> NDArray[float64]:
 
 
 # Note: Our code expects pixel coordinates, i.e. top-left origin.
-RectangularCrop = Annotated[
+RectangularBoundingBox = Annotated[
     NDArray[float64],
     BeforeValidator(partial(coerce_to_array, float64)),
     AfterValidator(partial(validate_rectangle_corners)),

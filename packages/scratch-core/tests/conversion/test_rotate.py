@@ -4,7 +4,7 @@ import pytest
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
-from conversion.data_formats import RectangularCrop
+from conversion.data_formats import RectangularBoundingBox
 from conversion.rotate import (
     get_rotation_angle,
     crop_image_and_mask_to_mask,
@@ -16,7 +16,7 @@ class TestGetRotationAngle:
     """Test suite for get_rotation_angle function."""
 
     @pytest.fixture
-    def rectangle_15deg(self) -> RectangularCrop:
+    def rectangle_15deg(self) -> RectangularBoundingBox:
         return np.array(
             [
                 [53.69130745, 16.00419511],
@@ -27,7 +27,7 @@ class TestGetRotationAngle:
         )
 
     @pytest.fixture
-    def rectangle_0deg(self) -> RectangularCrop:
+    def rectangle_0deg(self) -> RectangularBoundingBox:
         return np.array(
             [
                 [30.0, 23.0],
@@ -39,19 +39,19 @@ class TestGetRotationAngle:
 
     def test_rotation_from_rectangle_crop_0_degrees(self, rectangle_0deg):
         """Test rotation calculation from horizontal rectangle."""
-        result = get_rotation_angle(rectangle=rectangle_0deg)
+        result = get_rotation_angle(rectangular_bounding_box=rectangle_0deg)
         assert result == 0
 
     def test_rotation_from_rectangle_crop_15_degrees(self, rectangle_15deg):
         """Test rotation calculation from 15-degree rotated rectangle."""
-        result = get_rotation_angle(rectangle=rectangle_15deg)
+        result = get_rotation_angle(rectangular_bounding_box=rectangle_15deg)
         assert result == pytest.approx(15)
 
     def test_rotation_normalization(self):
         """Test that angles > 90 are normalized to range [-90, 90]."""
         # Create corners that would result in angle > 90
         rectangle = np.array([[0, 0], [0, 100], [-50, 100], [-50, 0]])
-        result = get_rotation_angle(rectangle=rectangle)
+        result = get_rotation_angle(rectangular_bounding_box=rectangle)
         assert -90 <= result <= 90
 
 
