@@ -39,23 +39,23 @@ class TestValidateShape:
 
     def test_validate_shape_mismatch_1d_expected_2d_given(self):
         arr = np.array([[1, 2], [3, 4]])
-        with pytest.raises(ValueError, match="expected 1 dimensions, but got 2"):
+        with pytest.raises(ValueError, match="expected 1 dimension\(s\), but got 2"):
             validate_shape(1, arr)
 
     def test_validate_shape_mismatch_2d_expected_1d_given(self):
         arr = np.array([1, 2, 3])
-        with pytest.raises(ValueError, match="expected 2 dimensions, but got 1"):
+        with pytest.raises(ValueError, match="expected 2 dimension\(s\), but got 1"):
             validate_shape(2, arr)
 
     def test_validate_shape_mismatch_3d_expected_2d_given(self):
         arr = np.array([[1, 2], [3, 4]])
-        with pytest.raises(ValueError, match="expected 3 dimensions, but got 2"):
+        with pytest.raises(ValueError, match="expected 3 dimension\(s\), but got 2"):
             validate_shape(3, arr)
 
     def test_validate_shape_scalar_array(self):
         """Test with 0-dimensional array (scalar)."""
         arr = np.array(42)
-        with pytest.raises(ValueError, match="expected 1 dimensions, but got 0"):
+        with pytest.raises(ValueError, match="expected 1 dimension\(s\), but got 0"):
             validate_shape(1, arr)
 
 
@@ -75,7 +75,9 @@ class TestPydanticShapeValidation:
             data: FloatArray1D
 
         arr = np.array([[1.0, 2.0], [3.0, 4.0]])
-        with pytest.raises(ValidationError, match="expected 1 dimensions, but got 2"):
+        with pytest.raises(
+            ValidationError, match="expected 1 dimension\(s\), but got 2"
+        ):
             Model(data=arr)
 
     def test_float_array_2d_valid(self):
@@ -91,7 +93,9 @@ class TestPydanticShapeValidation:
             data: FloatArray2D
 
         arr = np.array([1.0, 2.0, 3.0])
-        with pytest.raises(ValidationError, match="expected 2 dimensions, but got 1"):
+        with pytest.raises(
+            ValidationError, match="expected 2 dimension\(s\), but got 1"
+        ):
             Model(data=arr)
 
     def test_uint8_array_3d_valid(self):
@@ -107,7 +111,9 @@ class TestPydanticShapeValidation:
             data: UInt8Array3D
 
         arr = np.ones((10, 20), dtype=np.uint8)
-        with pytest.raises(ValidationError, match="expected 3 dimensions, but got 2"):
+        with pytest.raises(
+            ValidationError, match="expected 3 dimension\(s\), but got 2"
+        ):
             Model(data=arr)
 
     def test_bool_array_2d_valid(self):
@@ -123,7 +129,9 @@ class TestPydanticShapeValidation:
             data: BoolArray2D
 
         arr = np.array([True, False, True])
-        with pytest.raises(ValidationError, match="expected 2 dimensions, but got 1"):
+        with pytest.raises(
+            ValidationError, match="expected 2 dimension\(s\), but got 1"
+        ):
             Model(data=arr)
 
     def test_int64_array_2d_valid(self):
