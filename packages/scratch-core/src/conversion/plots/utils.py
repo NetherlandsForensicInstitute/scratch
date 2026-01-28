@@ -24,9 +24,9 @@ def figure_to_array(fig: Figure) -> np.ndarray:
     return arr[:, :, :3].copy()
 
 
-def get_fig_dimensions(height: int, width: int) -> tuple[float, float]:
+def get_figure_dimensions(data_height: int, data_width: int) -> tuple[float, float]:
     """Calculate figure dimensions based on data aspect ratio."""
-    aspect_ratio = width / height
+    aspect_ratio = data_width / data_height
     fig_width = 10
     fig_height = fig_width / aspect_ratio
     return fig_height + 1.0, fig_width
@@ -34,8 +34,8 @@ def get_fig_dimensions(height: int, width: int) -> tuple[float, float]:
 
 def plot_profiles_on_axes(
     ax: Axes,
-    profile_ref: NDArray,
-    profile_comp: NDArray,
+    profile_reference: NDArray,
+    profile_compared: NDArray,
     scale: float,
     score: float,
     title: str,
@@ -44,17 +44,17 @@ def plot_profiles_on_axes(
     Plot two aligned profiles on the given axes.
 
     :param ax: Matplotlib axes to plot on.
-    :param profile_ref: Reference profile (aligned, 1D).
-    :param profile_comp: Compared profile (aligned, 1D).
+    :param profile_reference: Reference profile (aligned, 1D).
+    :param profile_compared: Compared profile (aligned, 1D).
     :param scale: scale of the profiles in meters.
     :param score: Pre-computed correlation coefficient.
     :param title: Prefix for the title before the correlation value.
     """
-    x1 = np.arange(len(profile_ref)) * scale * 1e6  # µm
-    x2 = np.arange(len(profile_comp)) * scale * 1e6
+    x1 = np.arange(len(profile_reference)) * scale * 1e6  # µm
+    x2 = np.arange(len(profile_compared)) * scale * 1e6
 
-    y1 = profile_ref * 1e6  # µm
-    y2 = profile_comp * 1e6
+    y1 = profile_reference * 1e6  # µm
+    y2 = profile_compared * 1e6
 
     ax.plot(x1, y1, "b-", label="Reference Profile A", linewidth=1.5)
     ax.plot(x2, y2, "r-", label="Compared Profile B", linewidth=1.5)
@@ -67,7 +67,7 @@ def plot_profiles_on_axes(
     ax.grid(True, alpha=0.3)
 
 
-def plot_depthmap_on_axes(
+def plot_depth_map_on_axes(
     ax: Axes,
     fig: Figure,
     data: NDArray,
@@ -127,7 +127,7 @@ def plot_side_by_side_on_axes(
     gap = np.full((data_ref.shape[0], gap_width), np.nan)
     combined = np.hstack([data_ref, gap, data_comp])
 
-    plot_depthmap_on_axes(ax, fig, combined, scale, title, shrink_colorbar)
+    plot_depth_map_on_axes(ax, fig, combined, scale, title, shrink_colorbar)
 
 
 def metadata_to_table_data(

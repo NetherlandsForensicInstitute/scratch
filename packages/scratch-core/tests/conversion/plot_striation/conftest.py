@@ -5,59 +5,59 @@ from conversion.data_formats import Mark
 from conversion.plots.data_formats import CorrelationMetrics
 from .helper_functions import (
     create_synthetic_striation_data,
-    create_mock_mark,
-    create_mock_profile_mark,
+    create_synthetic_mark,
+    create_synthetic_profile_mark,
 )
 
 
 @pytest.fixture
-def profile_ref() -> np.ndarray:
+def profile_reference() -> np.ndarray:
     return create_synthetic_striation_data(height=1, width=200, seed=42)
 
 
 @pytest.fixture
-def profile_comp() -> np.ndarray:
+def profile_compared() -> np.ndarray:
     return create_synthetic_striation_data(height=1, width=200, seed=43)
 
 
 @pytest.fixture
-def surface_ref() -> np.ndarray:
+def surface_reference() -> np.ndarray:
     return create_synthetic_striation_data(height=256, width=200, seed=42)
 
 
 @pytest.fixture
-def surface_comp() -> np.ndarray:
+def surface_compared() -> np.ndarray:
     return create_synthetic_striation_data(height=256, width=220, seed=43)
 
 
 @pytest.fixture
-def mark_ref() -> Mark:
-    return create_mock_mark(height=256, width=200, seed=42)
+def mark_reference() -> Mark:
+    return create_synthetic_mark(height=256, width=200, seed=42)
 
 
 @pytest.fixture
-def mark_comp() -> Mark:
-    return create_mock_mark(height=256, width=220, seed=43)
+def mark_compared() -> Mark:
+    return create_synthetic_mark(height=256, width=220, seed=43)
 
 
 @pytest.fixture
-def mark_ref_aligned() -> Mark:
-    return create_mock_mark(height=200, width=200, seed=44)
+def mark_reference_aligned() -> Mark:
+    return create_synthetic_mark(height=200, width=200, seed=44)
 
 
 @pytest.fixture
-def mark_comp_aligned() -> Mark:
-    return create_mock_mark(height=200, width=200, seed=45)
+def mark_compared_aligned() -> Mark:
+    return create_synthetic_mark(height=200, width=200, seed=45)
 
 
 @pytest.fixture
-def profile_mark_ref() -> Mark:
-    return create_mock_profile_mark(length=200, seed=46)
+def profile_mark_reference() -> Mark:
+    return create_synthetic_profile_mark(length=200, seed=46)
 
 
 @pytest.fixture
-def profile_mark_comp() -> Mark:
-    return create_mock_profile_mark(length=200, seed=47)
+def profile_mark_compared() -> Mark:
+    return create_synthetic_profile_mark(length=200, seed=47)
 
 
 @pytest.fixture
@@ -89,7 +89,7 @@ def metrics(quality_passbands) -> CorrelationMetrics:
 
 
 @pytest.fixture
-def metadata_ref() -> dict[str, str]:
+def metadata_reference() -> dict[str, str]:
     return {
         "Collection": "firearms",
         "Firearm ID": "firearm_1_-_known_match",
@@ -99,7 +99,7 @@ def metadata_ref() -> dict[str, str]:
 
 
 @pytest.fixture
-def metadata_comp() -> dict[str, str]:
+def metadata_compared() -> dict[str, str]:
     return {
         "Collection": "firearms",
         "Firearm ID": "firearm_1_-_known_match",

@@ -40,7 +40,7 @@ def create_synthetic_striation_data(
     return data * 1e-6
 
 
-def create_mock_mark(
+def create_synthetic_mark(
     height: int = 256,
     width: int = 200,
     scale: float = 1.5625e-6,
@@ -59,7 +59,7 @@ def create_mock_mark(
     )
 
 
-def create_mock_profile_mark(
+def create_synthetic_profile_mark(
     length: int = 200,
     scale: float = 1.5625e-6,
     seed: int = 42,

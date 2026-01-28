@@ -6,24 +6,24 @@ from matplotlib.figure import Figure
 
 from conversion.plots.plot_striation import (
     plot_similarity,
-    plot_depthmap_with_axes,
+    plot_depth_map_with_axes,
     plot_comparison_overview,
     plot_striation_comparison_results,
     get_wavelength_correlation_plot,
 )
 from conversion.plots.utils import (
     plot_side_by_side_on_axes,
-    plot_depthmap_on_axes,
+    plot_depth_map_on_axes,
     plot_profiles_on_axes,
     metadata_to_table_data,
-    get_fig_dimensions,
+    get_figure_dimensions,
     figure_to_array,
 )
 from .helper_functions import assert_valid_rgb_image, create_synthetic_striation_data
 
 
 @pytest.mark.parametrize(
-    "metadata_ref,metadata_comp,suffix",
+    "metadata_reference,metadata_compared,suffix",
     [
         (
             {
@@ -50,27 +50,27 @@ from .helper_functions import assert_valid_rgb_image, create_synthetic_striation
     ],
 )
 def test_plot_comparison_overview_metadata_variants(
-    mark_ref,
-    mark_comp,
-    mark_ref_aligned,
-    mark_comp_aligned,
-    profile_mark_ref,
-    profile_mark_comp,
+    mark_reference,
+    mark_compared,
+    mark_reference_aligned,
+    mark_compared_aligned,
+    profile_mark_reference,
+    profile_mark_compared,
     metrics,
-    metadata_ref,
-    metadata_comp,
+    metadata_reference,
+    metadata_compared,
     suffix,
 ):
     result = plot_comparison_overview(
-        mark_ref=mark_ref,
-        mark_comp=mark_comp,
-        mark_ref_aligned=mark_ref_aligned,
-        mark_comp_aligned=mark_comp_aligned,
-        profile_ref=profile_mark_ref,
-        profile_comp=profile_mark_comp,
+        mark_reference=mark_reference,
+        mark_compared=mark_compared,
+        mark_reference_aligned=mark_reference_aligned,
+        mark_compared_aligned=mark_compared_aligned,
+        profile_reference=profile_mark_reference,
+        profile_compared=profile_mark_compared,
         metrics=metrics,
-        metadata_ref=metadata_ref,
-        metadata_comp=metadata_comp,
+        metadata_reference=metadata_reference,
+        metadata_compared=metadata_compared,
     )
     assert_valid_rgb_image(result)
 
@@ -80,8 +80,7 @@ class TestFigureToArray:
         fig = Figure(figsize=(4, 3), dpi=100)
         FigureCanvasAgg(fig)
         arr = figure_to_array(fig)
-        assert arr.dtype == np.uint8
-        assert arr.shape[2] == 3
+        assert_valid_rgb_image(arr)
 
     def test_dimensions_match_figsize_and_dpi(self):
         fig = Figure(figsize=(4, 3), dpi=100)
@@ -100,14 +99,14 @@ class TestGetFigDimensions:
         ],
     )
     def test_width_is_constant(self, height, width, expected_width):
-        fig_height, fig_width = get_fig_dimensions(height, width)
+        fig_height, fig_width = get_figure_dimensions(height, width)
         assert fig_width == expected_width
 
     def test_height_scales_with_aspect_ratio(self):
         # Wide image -> shorter figure
-        h1, _ = get_fig_dimensions(100, 200)
+        h1, _ = get_figure_dimensions(100, 200)
         # Tall image -> taller figure
-        h2, _ = get_fig_dimensions(200, 100)
+        h2, _ = get_figure_dimensions(200, 100)
         assert h2 > h1
 
 
@@ -143,15 +142,19 @@ class TestMetadataToTableData:
 
 
 class TestPlotProfilesOnAxes:
-    def test_creates_two_lines(self, profile_ref, profile_comp):
+    def test_creates_two_lines(self, profile_reference, profile_compared):
         fig, ax = plt.subplots()
-        plot_profiles_on_axes(ax, profile_ref, profile_comp, 1.5625e-6, 0.85, "Test")
+        plot_profiles_on_axes(
+            ax, profile_reference, profile_compared, 1.5625e-6, 0.85, "Test"
+        )
         assert len(ax.lines) == 2
         plt.close(fig)
 
-    def test_sets_labels_and_title(self, profile_ref, profile_comp):
+    def test_sets_labels_and_title(self, profile_reference, profile_compared):
         fig, ax = plt.subplots()
-        plot_profiles_on_axes(ax, profile_ref, profile_comp, 1.5625e-6, 0.85, "Test")
+        plot_profiles_on_axes(
+            ax, profile_reference, profile_compared, 1.5625e-6, 0.85, "Test"
+        )
         assert "Test" in ax.get_title()
         assert "0.85" in ax.get_title()
         assert ax.get_xlabel() != ""
@@ -160,32 +163,36 @@ class TestPlotProfilesOnAxes:
 
 
 class TestPlotDepthmapOnAxes:
-    def test_creates_image(self, surface_ref):
+    def test_creates_image(self, surface_reference):
         fig, ax = plt.subplots()
-        plot_depthmap_on_axes(ax, fig, surface_ref, 1.5625e-6, "Test")
+        plot_depth_map_on_axes(ax, fig, surface_reference, 1.5625e-6, "Test")
         assert len(ax.images) == 1
         plt.close(fig)
 
-    def test_sets_title(self, surface_ref):
+    def test_sets_title(self, surface_reference):
         fig, ax = plt.subplots()
-        plot_depthmap_on_axes(ax, fig, surface_ref, 1.5625e-6, "My Title")
+        plot_depth_map_on_axes(ax, fig, surface_reference, 1.5625e-6, "My Title")
         assert ax.get_title() == "My Title"
         plt.close(fig)
 
 
 class TestPlotSideBySideOnAxes:
-    def test_creates_combined_image(self, surface_ref, surface_comp):
+    def test_creates_combined_image(self, surface_reference, surface_compared):
         fig, ax = plt.subplots()
-        plot_side_by_side_on_axes(ax, fig, surface_ref, surface_comp, 1.5625e-6)
+        plot_side_by_side_on_axes(
+            ax, fig, surface_reference, surface_compared, 1.5625e-6
+        )
         assert len(ax.images) == 1
         plt.close(fig)
 
-    def test_combined_width_includes_gap(self, surface_ref, surface_comp):
+    def test_combined_width_includes_gap(self, surface_reference, surface_compared):
         fig, ax = plt.subplots()
-        plot_side_by_side_on_axes(ax, fig, surface_ref, surface_comp, 1.5625e-6)
+        plot_side_by_side_on_axes(
+            ax, fig, surface_reference, surface_compared, 1.5625e-6
+        )
         image_data = ax.images[0].get_array()
         assert image_data is not None
-        expected_min_width = surface_ref.shape[1] + surface_comp.shape[1]
+        expected_min_width = surface_reference.shape[1] + surface_compared.shape[1]
         assert image_data.shape[1] > expected_min_width
         plt.close(fig)
 
@@ -236,54 +243,54 @@ class TestEdgeCases:
 
     def test_plot_depthmap_square_data(self):
         data = create_synthetic_striation_data(height=200, width=200, seed=42)
-        result = plot_depthmap_with_axes(data, scale=1.5625e-6, title="Square")
+        result = plot_depth_map_with_axes(data, scale=1.5625e-6, title="Square")
         assert_valid_rgb_image(result)
 
     def test_plot_depthmap_wide_data(self):
         data = create_synthetic_striation_data(height=100, width=400, seed=42)
-        result = plot_depthmap_with_axes(data, scale=1.5625e-6, title="Wide")
+        result = plot_depth_map_with_axes(data, scale=1.5625e-6, title="Wide")
         assert_valid_rgb_image(result)
 
     def test_plot_depthmap_tall_data(self):
         data = create_synthetic_striation_data(height=400, width=100, seed=42)
-        result = plot_depthmap_with_axes(data, scale=1.5625e-6, title="Tall")
+        result = plot_depth_map_with_axes(data, scale=1.5625e-6, title="Tall")
         assert_valid_rgb_image(result)
 
     def test_plot_with_nan_values(self):
         data = create_synthetic_striation_data(height=100, width=100, seed=42)
         data[40:60, 40:60] = np.nan
-        result = plot_depthmap_with_axes(data, scale=1.5625e-6, title="With NaN")
+        result = plot_depth_map_with_axes(data, scale=1.5625e-6, title="With NaN")
         assert_valid_rgb_image(result)
 
     def test_plot_with_uniform_data(self):
         data = np.ones((100, 100)) * 1e-6
-        result = plot_depthmap_with_axes(data, scale=1.5625e-6, title="Uniform")
+        result = plot_depth_map_with_axes(data, scale=1.5625e-6, title="Uniform")
         assert_valid_rgb_image(result)
 
 
 class TestStriationComparisonPlotsIntegration:
     def test_all_outputs_are_valid_images(
         self,
-        mark_ref,
-        mark_comp,
-        mark_ref_aligned,
-        mark_comp_aligned,
-        profile_mark_ref,
-        profile_mark_comp,
+        mark_reference,
+        mark_compared,
+        mark_reference_aligned,
+        mark_compared_aligned,
+        profile_mark_reference,
+        profile_mark_compared,
         metrics,
-        metadata_ref,
-        metadata_comp,
+        metadata_reference,
+        metadata_compared,
     ):
         result = plot_striation_comparison_results(
-            mark_ref=mark_ref,
-            mark_comp=mark_comp,
-            mark_ref_aligned=mark_ref_aligned,
-            mark_comp_aligned=mark_comp_aligned,
-            profile_ref_aligned=profile_mark_ref,
-            profile_comp_aligned=profile_mark_comp,
+            mark_reference=mark_reference,
+            mark_compared=mark_compared,
+            mark_reference_aligned=mark_reference_aligned,
+            mark_compared_aligned=mark_compared_aligned,
+            profile_reference_aligned=profile_mark_reference,
+            profile_compared_aligned=profile_mark_compared,
             metrics=metrics,
-            metadata_ref=metadata_ref,
-            metadata_comp=metadata_comp,
+            metadata_reference=metadata_reference,
+            metadata_compared=metadata_compared,
         )
 
         assert_valid_rgb_image(result.similarity_plot)
