@@ -3,15 +3,14 @@ from pathlib import Path
 
 from loguru import logger
 
-from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline, x3p_pipeline
+from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline
 
 
 def process_prepare_mark(
     scan_file: Path, marking_method: Callable[..., Path], files: dict[str, Path]
 ) -> dict[str, Path]:
     """Prepare striation mark data."""
-    parsed_scan = parse_scan_pipeline(scan_file, 1, 1)  # TODO: add / modify pipline for no subsampling and saving.
-    x3p_pipeline(parsed_scan, files["scan"])
+    parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
     # rotate and crop function()
     # resample()
     logger.info("Preparing mark")

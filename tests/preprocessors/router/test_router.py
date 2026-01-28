@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from loguru import logger
 
-from constants import ImpressionMarks, MaskTypes, StriationMarks
+from constants import ImpressionMarks, MaskTypes, PreprocessorEndpoint, RoutePrefix, StriationMarks
 from models import DirectoryAccess
 from preprocessors.schemas import (
     CropInfo,
@@ -18,25 +18,26 @@ from preprocessors.schemas import (
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
-    """Test that the preprocessor root endpoint returns a placeholder message."""
+    """Test that the preprocessor root endpoint redirects to documentation."""
     # Act
-    response = client.get("/preprocessor")
+    response = client.get(f"/{RoutePrefix.PREPROCESSOR}", follow_redirects=False)
 
     # Assert
-    assert response.status_code == HTTPStatus.OK, "endpoint is alive"
-    assert response.json() == {"message": "Hello from the pre-processors"}, "A placeholder response should be returned"
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, "endpoint should redirect"
+    assert response.headers["location"] == f"/docs#operations-tag-{RoutePrefix.PREPROCESSOR}", (
+        "should redirect to preprocessor docs"
+    )
 
 
 @pytest.mark.parametrize(
-    ("subroute", "schema", "mark_parameters", "mark_type", "expected_files"),
+    ("endpoint", "schema", "mark_parameters", "mark_type", "expected_files"),
     [
         pytest.param(
-            "/prepare-mark-striation",
+            PreprocessorEndpoint.PREPARE_MARK_STRIATION,
             PrepareMarkStriation,
             PreprocessingStriationParams,
             StriationMarks.APERTURE_SHEAR,
             [
-                "scan",
                 "preview",
                 "surface_map",
                 "mark_data",
@@ -49,12 +50,11 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             id="striation mark",
         ),
         pytest.param(
-            "/prepare-mark-impression",
+            PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
             PrepareMarkImpression,
             PreprocessingImpressionParams,
             ImpressionMarks.CHAMBER,
             [
-                "scan",
                 "preview",
                 "surface_map",
                 "mark_data",
@@ -76,6 +76,11 @@ class TestPrepareMarkEndpoint:
         directory_access.resource_path.mkdir(exist_ok=True)
         monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
 
+    @pytest.fixture(autouse=True)
+    def set_scan_file_path(self, scan_directory: Path):
+        """Path to a dummy scan image file."""
+        self.scan_file_path = scan_directory / "circle.x3p"
+
     def get_schema_for_endpoint(
         self,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
@@ -86,7 +91,7 @@ class TestPrepareMarkEndpoint:
         return schema(
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
-            scan_file=Path("packages/scratch-core/tests/resources/scans/circle.x3p"),
+            scan_file=self.scan_file_path,
             mask_array=[[0, 1], [1, 0]],
             crop_info=CropInfo(type=MaskTypes.CIRCLE, data={}, is_foreground=False),
             rotation_angle=15,
@@ -96,7 +101,7 @@ class TestPrepareMarkEndpoint:
     def test_prepare_mark_endpoint_returns_urls(  # noqa: PLR0913
         self,
         client: TestClient,
-        subroute: str,
+        endpoint: PreprocessorEndpoint,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
         mark_type: str,
@@ -111,7 +116,7 @@ class TestPrepareMarkEndpoint:
         )
 
         # Act
-        response = client.post(f"/preprocessor{subroute}", json=payload)
+        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
@@ -125,7 +130,7 @@ class TestPrepareMarkEndpoint:
         client: TestClient,
         directory_access: DirectoryAccess,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
-        subroute: str,
+        endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
         expected_files: list[str],
@@ -138,7 +143,7 @@ class TestPrepareMarkEndpoint:
             mark_parameters=mark_parameters,  # type: ignore
         )
         # Act
-        response = client.post(f"/preprocessor{subroute}", json=payload)
+        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
@@ -154,7 +159,7 @@ class TestPrepareMarkEndpoint:
         client: TestClient,
         directory_access: DirectoryAccess,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
-        subroute: str,
+        endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
         expected_files: list[str],
@@ -168,7 +173,7 @@ class TestPrepareMarkEndpoint:
         )
 
         # Act
-        response = client.post(f"/preprocessor{subroute}", json=payload)
+        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"

@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from pydantic import UUID4, AfterValidator, BaseModel, ConfigDict, Field, FilePath, StringConstraints
 
-from constants import EXTRACTOR_ROUTE
+from constants import RoutePrefix
 from settings import get_settings
 
 
@@ -134,7 +134,7 @@ class DirectoryAccess(BaseModelConfig):
     @property
     def access_url(self) -> str:
         """Get the URL to access files in this directory."""
-        return f"{get_settings().base_url}{EXTRACTOR_ROUTE}/files/{self.token}"
+        return f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{self.token}"
 
     @property
     def resource_path(self) -> Path:

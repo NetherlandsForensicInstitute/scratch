@@ -1,14 +1,11 @@
 import shutil
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from loguru import logger
 from uvicorn import run
 
-from comparators.router import comparison_router
-from extractors.router import extractor_route
-from preprocessors import preprocessor_route
-from processors.router import processors
+from routers import prefix_router
 from settings import get_settings
 
 
@@ -44,13 +41,8 @@ app = FastAPI(
     lifespan=_lifespan,
     title=settings.app_title,
     version=settings.app_version,
+    redirect_slashes=False,
 )
-prefix_router = APIRouter()
-
-prefix_router.include_router(preprocessor_route)
-prefix_router.include_router(processors)
-prefix_router.include_router(comparison_router)
-prefix_router.include_router(extractor_route)
 app.include_router(prefix_router)
 
 
