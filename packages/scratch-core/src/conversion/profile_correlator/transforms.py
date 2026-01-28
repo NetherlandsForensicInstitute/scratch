@@ -18,10 +18,63 @@ from typing import Sequence
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy import signal
 from scipy.interpolate import interp1d
 
 from conversion.profile_correlator.data_types import Profile, TransformParameters
+
+
+def _cubic_bspline(x: NDArray[np.floating]) -> NDArray[np.floating]:
+    """Evaluate the cubic B-spline basis function.
+
+    This is the 4-point-support kernel used by DIPimage's ``resample``
+    for order-3 interpolation (direct evaluation, no prefilter).
+
+    :param x: Array of evaluation positions.
+    :returns: Kernel values (0 for |x| >= 2).
+    """
+    ax = np.abs(x)
+    result = np.zeros_like(ax)
+    m1 = ax < 1.0
+    result[m1] = (3.0 * ax[m1] ** 3 - 6.0 * ax[m1] ** 2 + 4.0) / 6.0
+    m2 = (ax >= 1.0) & (ax < 2.0)
+    result[m2] = (2.0 - ax[m2]) ** 3 / 6.0
+    return result
+
+
+def _resample_1d(
+    data: NDArray[np.floating],
+    zoom: float,
+) -> NDArray[np.floating]:
+    """
+    Resample a 1D array using cubic B-spline interpolation (DIPimage-compatible).
+
+    Output sample *j* maps to input position ``j / zoom``.
+
+    :param data: 1D input array.
+    :param zoom: Zoom factor (< 1 for downsampling, > 1 for upsampling).
+    :returns: Resampled 1D array of length ``max(1, round(len(data) * zoom))``.
+    """
+    n_in = len(data)
+    n_out = max(1, int(round(n_in * zoom)))
+
+    if n_out == n_in:
+        return data.copy()
+
+    new_x = np.arange(n_out, dtype=np.float64) / zoom
+    result = np.empty(n_out, dtype=np.float64)
+
+    for j in range(n_out):
+        x = new_x[j]
+        i0 = int(np.floor(x))
+        val = 0.0
+        for di in range(-1, 3):
+            idx = i0 + di
+            idx_clamped = max(0, min(n_in - 1, idx))
+            weight = float(_cubic_bspline(np.array([x - idx]))[0])
+            val += data[idx_clamped] * weight
+        result[j] = val
+
+    return result
 
 
 def equalize_pixel_scale(
@@ -57,22 +110,20 @@ def equalize_pixel_scale(
     # Resample to the larger pixel size (lower resolution)
     if pixel_1 > pixel_2:
         # Profile 2 has higher resolution, resample it to match profile 1
-        resample_factor = pixel_2 / pixel_1
-        new_length = int(round(profile_2.length * resample_factor))
+        zoom = pixel_2 / pixel_1
 
         # Handle single-column vs multi-column profiles
         if profile_2.depth_data.ndim == 1:
-            # Single column: resample directly
-            resampled_data: NDArray[np.floating] = np.asarray(
-                signal.resample(profile_2.depth_data, new_length), dtype=np.float64
+            resampled_data: NDArray[np.floating] = _resample_1d(
+                profile_2.depth_data, zoom
             )
         else:
             # Multi-column: resample each column
-            # The resampling is done along axis 0 (rows = samples)
-            resampled_data = np.asarray(
-                signal.resample(profile_2.depth_data, new_length, axis=0),
-                dtype=np.float64,
-            )
+            cols = [
+                _resample_1d(profile_2.depth_data[:, c], zoom)
+                for c in range(profile_2.depth_data.shape[1])
+            ]
+            resampled_data = np.column_stack(cols)
 
         # Create new profile with updated data and pixel size
         # Note: resolution_limit is cleared as it may no longer be valid
@@ -87,18 +138,18 @@ def equalize_pixel_scale(
 
     else:
         # Profile 1 has higher resolution, resample it to match profile 2
-        resample_factor = pixel_1 / pixel_2
-        new_length = int(round(profile_1.length * resample_factor))
+        zoom = pixel_1 / pixel_2
 
         if profile_1.depth_data.ndim == 1:
-            resampled_data_1: NDArray[np.floating] = np.asarray(
-                signal.resample(profile_1.depth_data, new_length), dtype=np.float64
+            resampled_data_1: NDArray[np.floating] = _resample_1d(
+                profile_1.depth_data, zoom
             )
         else:
-            resampled_data_1 = np.asarray(
-                signal.resample(profile_1.depth_data, new_length, axis=0),
-                dtype=np.float64,
-            )
+            cols = [
+                _resample_1d(profile_1.depth_data[:, c], zoom)
+                for c in range(profile_1.depth_data.shape[1])
+            ]
+            resampled_data_1 = np.column_stack(cols)
 
         profile_1_out = Profile(
             depth_data=resampled_data_1,

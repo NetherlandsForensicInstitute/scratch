@@ -1,17 +1,19 @@
 """Evaluate the objective landscape to understand optimizer convergence."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
 from conversion.profile_correlator.alignment import (
-    _apply_lowpass_filter_1d,
     _alignment_objective,
+    _apply_lowpass_filter_1d,
 )
 
 # Load edge_over_threshold data
-base = 'packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold'
-ref_data = np.load(f'{base}/input_profile_ref.npy').ravel()
-comp_data = np.load(f'{base}/input_profile_comp.npy').ravel()
+base = "packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold"
+ref_data = np.load(f"{base}/input_profile_ref.npy").ravel()
+comp_data = np.load(f"{base}/input_profile_comp.npy").ravel()
 pixel_size = 3.5e-6
 
 profile_1 = ref_data[:460].copy()
@@ -38,7 +40,9 @@ for scale_um in scale_passes_um:
     # Scan translation at scaling=0
     best_t = 0
     best_obj = 999
-    print(f"\n=== Scale {scale_um}um (sub={subsample_factor}, n={len(p1_sub)}, trans_bound=[-{trans_bound},{trans_bound}]) ===")
+    print(
+        f"\n=== Scale {scale_um}um (sub={subsample_factor}, n={len(p1_sub)}, trans_bound=[-{trans_bound},{trans_bound}]) ==="
+    )
     for t in range(-min(trans_bound, 20), min(trans_bound, 20) + 1):
         obj = _alignment_objective(np.array([float(t), 0.0]), p1_sub, p2_sub)
         marker = " <-- " if abs(t) <= 1 else ""
@@ -59,9 +63,9 @@ p2_filt = _apply_lowpass_filter_1d(profile_2, cutoff, pixel_size, cut_borders=Fa
 p1_sub = p1_filt[::subsample_factor]
 p2_sub = p2_filt[::subsample_factor]
 
+from conversion.profile_correlator.data_types import Profile, TransformParameters
 from conversion.profile_correlator.similarity import compute_cross_correlation
 from conversion.profile_correlator.transforms import apply_transform
-from conversion.profile_correlator.data_types import Profile, TransformParameters
 
 # Direct correlation (no transform)
 corr_direct = compute_cross_correlation(p1_sub, p2_sub)

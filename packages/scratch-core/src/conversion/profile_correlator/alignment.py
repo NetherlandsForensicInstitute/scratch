@@ -844,8 +844,20 @@ def align_partial_profile_multiscale(
     if len(positions) == 0:
         positions = [0]
 
+    # Expand candidates with neighboring positions (±2) for finer resolution.
+    # The coarse candidate search may place region boundaries such that the
+    # optimal position is narrowly missed.
+    max_pos = len(ref_data) - partial_length // 2
+    expanded = set(positions)
+    for p in positions:
+        for delta in range(-2, 3):
+            nb = p + delta
+            if 0 <= nb < max_pos:
+                expanded.add(nb)
+    positions = sorted(expanded)
+
     # Try each candidate position
-    best_correlation = -np.inf
+    best_score = -np.inf
     best_result: AlignmentResult | None = None
     best_start = positions[0]
 
@@ -894,8 +906,14 @@ def align_partial_profile_multiscale(
             if aligned_length < min_overlap:
                 continue
 
-            if result.final_correlation > best_correlation:
-                best_correlation = result.final_correlation
+            # Score candidates by correlation weighted by overlap ratio.
+            # This prevents candidates with marginally higher correlation but
+            # significantly less overlap from winning over better-aligned ones.
+            overlap_ratio = aligned_length / partial_length
+            score = result.final_correlation * overlap_ratio
+
+            if score > best_score:
+                best_score = score
                 best_result = result
                 best_start = candidate_start
         except ValueError:
@@ -904,11 +922,14 @@ def align_partial_profile_multiscale(
 
     # If no valid result, create a default one
     if best_result is None:
+        # Use position 0 and crop both to partial_length so that the
+        # downstream code always receives equal-length profiles.
+        ref_fallback = ref_data[:partial_length]
         best_result = AlignmentResult(
             transforms=(TransformParameters(translation=0.0, scaling=1.0),),
             correlation_history=np.array([[np.nan, np.nan]]),
             final_correlation=np.nan,
-            reference_aligned=ref_data,
+            reference_aligned=ref_fallback,
             compared_aligned=partial_data,
             total_translation=0.0,
             total_scaling=1.0,

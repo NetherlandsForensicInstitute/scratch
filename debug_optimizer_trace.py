@@ -1,20 +1,27 @@
 """Trace optimizer iterations for each scale pass."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
 from conversion.profile_correlator.alignment import (
-    _apply_lowpass_filter_1d,
     _alignment_objective,
-    _fminsearchbnd_transform_to_unconstrained,
+    _apply_lowpass_filter_1d,
     _fminsearchbnd_transform_to_bounded,
+    _fminsearchbnd_transform_to_unconstrained,
 )
+
 
 def _matlab_fminsearch_traced(fun, x0, tol_x=1e-4, tol_fun=1e-4, max_iter=400, max_fun_evals=400, args=()):
     x0 = np.asarray(x0, dtype=np.float64).ravel()
     n = len(x0)
-    rho = 1.0; chi = 2.0; psi = 0.5; sigma = 0.5
-    usual_delta = 0.05; zero_term_delta = 0.00025
+    rho = 1.0
+    chi = 2.0
+    psi = 0.5
+    sigma = 0.5
+    usual_delta = 0.05
+    zero_term_delta = 0.00025
 
     v = np.zeros((n + 1, n), dtype=np.float64)
     v[0] = x0.copy()
@@ -42,8 +49,9 @@ def _matlab_fminsearch_traced(fun, x0, tol_x=1e-4, tol_fun=1e-4, max_iter=400, m
         fv_diff = np.max(np.abs(fv[0] - fv[1:]))
         v_diff = np.max(np.abs(v[1:] - v[0]))
 
-        if fv_diff <= max(tol_fun, 10 * np.finfo(np.float64).eps * abs(fv[0])) and \
-           v_diff <= max(tol_x, 10 * np.finfo(np.float64).eps * np.max(np.abs(v[0]))):
+        if fv_diff <= max(tol_fun, 10 * np.finfo(np.float64).eps * abs(fv[0])) and v_diff <= max(
+            tol_x, 10 * np.finfo(np.float64).eps * np.max(np.abs(v[0]))
+        ):
             break
         if iterations >= max_iter:
             exit_reason = f"MAX_ITER({max_iter})"
@@ -63,34 +71,38 @@ def _matlab_fminsearch_traced(fun, x0, tol_x=1e-4, tol_fun=1e-4, max_iter=400, m
             fxe = fun(xe, *args)
             func_evals += 1
             if fxe < fxr:
-                v[n] = xe; fv[n] = fxe
+                v[n] = xe
+                fv[n] = fxe
             else:
-                v[n] = xr; fv[n] = fxr
+                v[n] = xr
+                fv[n] = fxr
         elif fxr < fv[n - 1]:
-            v[n] = xr; fv[n] = fxr
-        else:
-            if fxr < fv[n]:
-                xc = (1 + psi * rho) * xbar - psi * rho * v[n]
-                fxc = fun(xc, *args)
-                func_evals += 1
-                if fxc <= fxr:
-                    v[n] = xc; fv[n] = fxc
-                else:
-                    for j in range(1, n + 1):
-                        v[j] = v[0] + sigma * (v[j] - v[0])
-                        fv[j] = fun(v[j], *args)
-                    func_evals += n
+            v[n] = xr
+            fv[n] = fxr
+        elif fxr < fv[n]:
+            xc = (1 + psi * rho) * xbar - psi * rho * v[n]
+            fxc = fun(xc, *args)
+            func_evals += 1
+            if fxc <= fxr:
+                v[n] = xc
+                fv[n] = fxc
             else:
-                xcc = (1 - psi) * xbar + psi * v[n]
-                fxcc = fun(xcc, *args)
-                func_evals += 1
-                if fxcc < fv[n]:
-                    v[n] = xcc; fv[n] = fxcc
-                else:
-                    for j in range(1, n + 1):
-                        v[j] = v[0] + sigma * (v[j] - v[0])
-                        fv[j] = fun(v[j], *args)
-                    func_evals += n
+                for j in range(1, n + 1):
+                    v[j] = v[0] + sigma * (v[j] - v[0])
+                    fv[j] = fun(v[j], *args)
+                func_evals += n
+        else:
+            xcc = (1 - psi) * xbar + psi * v[n]
+            fxcc = fun(xcc, *args)
+            func_evals += 1
+            if fxcc < fv[n]:
+                v[n] = xcc
+                fv[n] = fxcc
+            else:
+                for j in range(1, n + 1):
+                    v[j] = v[0] + sigma * (v[j] - v[0])
+                    fv[j] = fun(v[j], *args)
+                func_evals += n
 
         sort_idx = np.argsort(fv, kind="stable")
         fv = fv[sort_idx]
@@ -107,23 +119,28 @@ def fminsearchbnd_traced(fun, x0, lb, ub, tol_x=1e-6, tol_fun=1e-6, max_iter=400
         return fun(x_bounded, *extra_args)
 
     xu_opt, iters, fevals, fval, exit_reason = _matlab_fminsearch_traced(
-        wrapped_fun, x0u, tol_x=tol_x, tol_fun=tol_fun,
-        max_iter=max_iter, max_fun_evals=max_fun_evals, args=args,
+        wrapped_fun,
+        x0u,
+        tol_x=tol_x,
+        tol_fun=tol_fun,
+        max_iter=max_iter,
+        max_fun_evals=max_fun_evals,
+        args=args,
     )
     x_opt = _fminsearchbnd_transform_to_bounded(xu_opt, lb, ub)
     return x_opt, iters, fevals, fval, exit_reason
 
 
-from conversion.profile_correlator.transforms import apply_transform
 from conversion.profile_correlator.data_types import Profile, TransformParameters
+from conversion.profile_correlator.transforms import apply_transform
 
-for test_name in ['edge_over_threshold', 'partial_with_nans']:
-    base = f'packages/scratch-core/tests/resources/profile_correlator/{test_name}'
-    ref_data = np.load(f'{base}/input_profile_ref.npy').ravel()
-    comp_data = np.load(f'{base}/input_profile_comp.npy').ravel()
+for test_name in ["edge_over_threshold", "partial_with_nans"]:
+    base = f"packages/scratch-core/tests/resources/profile_correlator/{test_name}"
+    ref_data = np.load(f"{base}/input_profile_ref.npy").ravel()
+    comp_data = np.load(f"{base}/input_profile_comp.npy").ravel()
     pixel_size = 3.5e-6
 
-    profile_1 = ref_data[:len(comp_data)].copy()
+    profile_1 = ref_data[: len(comp_data)].copy()
     profile_2 = comp_data.copy()
 
     transforms = []
@@ -136,9 +153,9 @@ for test_name in ['edge_over_threshold', 'partial_with_nans']:
     scale_passes = [500e-6, 250e-6, 100e-6, 50e-6, 25e-6, 10e-6, 5e-6]
     _ftol = 1e-9
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"=== {test_name} (candidate 0, ref[0:{len(comp_data)}]) ===")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     for cutoff in scale_passes:
         if cutoff < resolution_limit * (1 - _ftol):
@@ -173,8 +190,14 @@ for test_name in ['edge_over_threshold', 'partial_with_nans']:
         x0 = np.array([0.0, 0.0])
 
         x_opt, iters, fevals, fval, exit_reason = fminsearchbnd_traced(
-            _alignment_objective, x0, lb, ub,
-            tol_x=1e-6, tol_fun=1e-6, max_iter=400, max_fun_evals=400,
+            _alignment_objective,
+            x0,
+            lb,
+            ub,
+            tol_x=1e-6,
+            tol_fun=1e-6,
+            max_iter=400,
+            max_fun_evals=400,
             args=(p1_sub, p2_sub),
         )
 
@@ -190,9 +213,11 @@ for test_name in ['edge_over_threshold', 'partial_with_nans']:
         p2_profile = Profile(depth_data=profile_2, pixel_size=pixel_size)
         profile_2_mod = apply_transform(p2_profile, transforms)
 
-        print(f"  {cutoff_um:6.0f}um: trans={translation:9.4f} scale={scaling:.8f} "
-              f"iters={iters:3d} fevals={fevals:3d} obj={fval:.8f} exit={exit_reason} "
-              f"n_sub={len(p1_sub)} bounds=[{trans_lb},{trans_ub}]")
+        print(
+            f"  {cutoff_um:6.0f}um: trans={translation:9.4f} scale={scaling:.8f} "
+            f"iters={iters:3d} fevals={fevals:3d} obj={fval:.8f} exit={exit_reason} "
+            f"n_sub={len(p1_sub)} bounds=[{trans_lb},{trans_ub}]"
+        )
 
-    print(f"\n  TOTAL: trans={translation_total:.4f} samples ({translation_total*pixel_size*1e6:.2f} um)")
+    print(f"\n  TOTAL: trans={translation_total:.4f} samples ({translation_total * pixel_size * 1e6:.2f} um)")
     print(f"  TOTAL: scale={scaling_total:.8f}")

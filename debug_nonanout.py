@@ -1,19 +1,22 @@
 """Check effect of NOT restoring NaN in the lowpass filter for candidate search."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
-from scipy import signal
 from conversion.profile_correlator.candidate_search import (
-    _apply_lowpass_filter_1d, _resample_interpolation,
+    _apply_lowpass_filter_1d,
+    _resample_interpolation,
 )
 from conversion.profile_correlator.similarity import compute_cross_correlation
+from scipy import signal
 
 pixel_size = 3.5e-6
 
-base = 'packages/scratch-core/tests/resources/profile_correlator/partial_with_nans'
-ref_data = np.load(f'{base}/input_profile_ref.npy').ravel()
-comp_data = np.load(f'{base}/input_profile_comp.npy').ravel()
+base = "packages/scratch-core/tests/resources/profile_correlator/partial_with_nans"
+ref_data = np.load(f"{base}/input_profile_ref.npy").ravel()
+comp_data = np.load(f"{base}/input_profile_comp.npy").ravel()
 
 scale = 1e-3  # 1000um
 oversampling = 16
@@ -22,11 +25,13 @@ oversampling = 16
 ref_filt_a = _apply_lowpass_filter_1d(ref_data, scale, pixel_size)
 comp_filt_a = _apply_lowpass_filter_1d(comp_data, scale, pixel_size)
 
+
 # Method B: Lowpass filter WITHOUT NaN restoration (fill in NaN with normalized convolution)
 def lowpass_nonanout(profile, cutoff_wavelength, pixel_size):
     """Lowpass like candidate_search._apply_lowpass_filter_1d but WITHOUT restoring NaN."""
     from conversion.filter.gaussian import ALPHA_GAUSSIAN
     from conversion.filter.regression import apply_order0_filter, create_gaussian_kernel_1d
+
     profile = np.asarray(profile).ravel()
     cutoff_pixels = cutoff_wavelength / pixel_size
     has_nans = np.any(np.isnan(profile))
@@ -37,6 +42,7 @@ def lowpass_nonanout(profile, cutoff_wavelength, pixel_size):
     filtered_2d = apply_order0_filter(data_2d, kernel_identity, kernel_1d, mode=mode)
     # NOTE: Do NOT restore NaN positions
     return filtered_2d.ravel()
+
 
 ref_filt_b = lowpass_nonanout(ref_data, scale, pixel_size)
 comp_filt_b = lowpass_nonanout(comp_data, scale, pixel_size)

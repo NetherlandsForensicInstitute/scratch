@@ -294,8 +294,11 @@ def find_match_candidates(
     possible_scales = possible_scales[possible_scales <= cutoff_hi]
     possible_scales = possible_scales[possible_scales >= resolution_limit]
 
-    # Maximum scale is based on partial profile length (in meters)
-    max_scale = pixel_size * len(partial_data) / 2
+    # Maximum scale is based on reference profile length (in meters).
+    # Using the reference (longer) profile ensures that scales comparable
+    # to the search space are treated as comparison scales rather than
+    # shape scales, giving better discrimination across candidate positions.
+    max_scale = pixel_size * len(ref_data) / 2
 
     # Filter to scales <= 4 * max_scale
     possible_scales = possible_scales[possible_scales <= 4 * max_scale]
@@ -393,9 +396,16 @@ def find_match_candidates(
         candidates_labeled = _label_connected_regions(candidates)
 
     else:
-        # No shape scales - all positions are candidates
+        # No shape scales - split positions into evenly-spaced regions
+        # so that the refinement returns multiple candidates.  This
+        # avoids committing to a single position that may lead to an
+        # unstable alignment while missing better starting points.
         n_positions = max(1, len(ref_data) - len(partial_data) + 1)
-        candidates_labeled = np.ones(n_positions, dtype=np.intp)
+        n_regions = max(1, min(n_positions, 5))
+        chunk = max(1, n_positions // n_regions)
+        candidates_labeled = np.array(
+            [i // chunk + 1 for i in range(n_positions)], dtype=np.intp
+        )
 
     # Refine candidates at comparison scale using high-pass filtered profiles
     ref_filtered_comp = _apply_highpass_filter_1d(

@@ -1,12 +1,14 @@
 """Check NaN locations and their effect on fine alignment."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
 
-base = 'packages/scratch-core/tests/resources/profile_correlator/partial_with_nans'
-ref_data = np.load(f'{base}/input_profile_ref.npy').ravel()
-comp_data = np.load(f'{base}/input_profile_comp.npy').ravel()
+base = "packages/scratch-core/tests/resources/profile_correlator/partial_with_nans"
+ref_data = np.load(f"{base}/input_profile_ref.npy").ravel()
+comp_data = np.load(f"{base}/input_profile_comp.npy").ravel()
 
 print(f"ref: len={len(ref_data)}, NaN={np.sum(np.isnan(ref_data))}")
 print(f"comp: len={len(comp_data)}, NaN={np.sum(np.isnan(comp_data))}")
@@ -21,7 +23,7 @@ ref_seg0 = ref_data[0:400]
 n_ref_nan_0 = np.sum(np.isnan(ref_seg0))
 n_comp_nan = np.sum(np.isnan(comp_data))
 combined_nan_0 = np.sum(np.isnan(ref_seg0) | np.isnan(comp_data))
-print(f"\nCandidate 0: ref[0:400]")
+print("\nCandidate 0: ref[0:400]")
 print(f"  ref NaN in segment: {n_ref_nan_0}")
 print(f"  comp NaN: {n_comp_nan}")
 print(f"  Combined NaN (either): {combined_nan_0}")
@@ -31,7 +33,7 @@ print(f"  Valid pairs: {400 - combined_nan_0}")
 ref_seg150 = ref_data[150:550]
 n_ref_nan_150 = np.sum(np.isnan(ref_seg150))
 combined_nan_150 = np.sum(np.isnan(ref_seg150) | np.isnan(comp_data))
-print(f"\nCandidate 150: ref[150:550]")
+print("\nCandidate 150: ref[150:550]")
 print(f"  ref NaN in segment: {n_ref_nan_150}")
 print(f"  comp NaN: {n_comp_nan}")
 print(f"  Combined NaN (either): {combined_nan_150}")

@@ -1,22 +1,24 @@
 """Trace the exact optimizer initial simplex for edge_over_threshold at 500um."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
 from conversion.profile_correlator.alignment import (
-    _apply_lowpass_filter_1d,
     _alignment_objective,
-    _fminsearchbnd_transform_to_unconstrained,
+    _apply_lowpass_filter_1d,
     _fminsearchbnd_transform_to_bounded,
+    _fminsearchbnd_transform_to_unconstrained,
 )
-from conversion.profile_correlator.transforms import apply_transform
 from conversion.profile_correlator.data_types import Profile, TransformParameters
 from conversion.profile_correlator.similarity import compute_cross_correlation
+from conversion.profile_correlator.transforms import apply_transform
 
 # Load edge_over_threshold data
-base = 'packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold'
-ref_data = np.load(f'{base}/input_profile_ref.npy').ravel()
-comp_data = np.load(f'{base}/input_profile_comp.npy').ravel()
+base = "packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold"
+ref_data = np.load(f"{base}/input_profile_ref.npy").ravel()
+comp_data = np.load(f"{base}/input_profile_comp.npy").ravel()
 pixel_size = 3.5e-6
 
 # Setup: candidate_start=0, partial profile
@@ -61,12 +63,12 @@ print(f"\nObjective at direct [0,0]: {obj_direct:.15f}")
 x0 = np.array([0.0, 0.0])
 x0u = _fminsearchbnd_transform_to_unconstrained(x0, lb, ub)
 print(f"\nUnconstrained x0: {x0u}")
-print(f"Expected: [2*pi, 2*pi] = [{2*np.pi}, {2*np.pi}]")
+print(f"Expected: [2*pi, 2*pi] = [{2 * np.pi}, {2 * np.pi}]")
 
 # Transform back to bounded
 x0_back = _fminsearchbnd_transform_to_bounded(x0u, lb, ub)
 print(f"Bounded x0 (back-transformed): {x0_back}")
-print(f"sin(2*pi) = {np.sin(2*np.pi):.20e}")
+print(f"sin(2*pi) = {np.sin(2 * np.pi):.20e}")
 
 # Objective at the sin-transformed initial point
 obj_sin = _alignment_objective(x0_back, p1_sub, p2_sub)
@@ -88,12 +90,12 @@ for j in range(n):
         y[j] = zero_term_delta
     v[j + 1] = y
 
-print(f"\n=== INITIAL SIMPLEX (unconstrained) ===")
+print("\n=== INITIAL SIMPLEX (unconstrained) ===")
 for i in range(3):
     print(f"v[{i}] = {v[i]}")
 
 # Transform each vertex to bounded space and evaluate
-print(f"\n=== INITIAL SIMPLEX EVALUATIONS ===")
+print("\n=== INITIAL SIMPLEX EVALUATIONS ===")
 fv = np.zeros(3)
 for i in range(3):
     x_bounded = _fminsearchbnd_transform_to_bounded(v[i], lb, ub)
@@ -107,13 +109,13 @@ print(f"Best vertex: {sort_idx[0]} with obj={fv[sort_idx[0]]:.15f}")
 
 # Check what the transformed profiles look like at v[0]
 x_v0 = _fminsearchbnd_transform_to_bounded(v[0], lb, ub)
-transform_v0 = TransformParameters(translation=x_v0[0], scaling=x_v0[1]/10000 + 1)
+transform_v0 = TransformParameters(translation=x_v0[0], scaling=x_v0[1] / 10000 + 1)
 p2_prof = Profile(depth_data=p2_sub, pixel_size=1.0)
 p2_transformed = apply_transform(p2_prof, transform_v0)
 
-print(f"\n=== v[0] transform details ===")
+print("\n=== v[0] transform details ===")
 print(f"Translation: {x_v0[0]:.20e}")
-print(f"Scaling: {x_v0[1]/10000 + 1:.20e}")
+print(f"Scaling: {x_v0[1] / 10000 + 1:.20e}")
 print(f"p2_sub[-3:]: {p2_sub[-3:]}")
 print(f"p2_transformed[-3:]: {p2_transformed[-3:]}")
 print(f"p2_transformed[0:3]: {p2_transformed[0:3]}")
@@ -121,14 +123,21 @@ print(f"Zeros in p2_transformed: {np.sum(p2_transformed == 0)}")
 print(f"Correlation: {compute_cross_correlation(p1_sub, p2_transformed):.15f}")
 
 # Now run with FULL optimizer tracing
-print(f"\n=== RUNNING FULL OPTIMIZER ===")
+print("\n=== RUNNING FULL OPTIMIZER ===")
 from conversion.profile_correlator.alignment import _fminsearchbnd
+
 x_opt = _fminsearchbnd(
-    _alignment_objective, x0, lb, ub,
-    tol_x=1e-6, tol_fun=1e-6, max_iter=400, max_fun_evals=400,
+    _alignment_objective,
+    x0,
+    lb,
+    ub,
+    tol_x=1e-6,
+    tol_fun=1e-6,
+    max_iter=400,
+    max_fun_evals=400,
     args=(p1_sub, p2_sub),
 )
 print(f"\nOptimizer result: {x_opt}")
 print(f"Translation (subsampled): {x_opt[0]:.10f}")
-print(f"Scaling: {x_opt[1]/10000 + 1:.10f}")
+print(f"Scaling: {x_opt[1] / 10000 + 1:.10f}")
 print(f"Translation (full): {x_opt[0] * subsample_factor:.6f}")

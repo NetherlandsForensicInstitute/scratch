@@ -1,23 +1,25 @@
 """Trace the full multi-scale alignment for edge_over_threshold."""
+
 import sys
-sys.path.insert(0, 'packages/scratch-core/src')
+
+sys.path.insert(0, "packages/scratch-core/src")
 
 import numpy as np
 from conversion.profile_correlator.alignment import (
-    _apply_lowpass_filter_1d,
     _alignment_objective,
+    _apply_lowpass_filter_1d,
     _fminsearchbnd,
     _remove_boundary_zeros,
 )
-from conversion.profile_correlator.data_types import Profile, AlignmentParameters, TransformParameters
-from conversion.profile_correlator.transforms import apply_transform, compute_cumulative_transform
 from conversion.profile_correlator.candidate_search import find_match_candidates
+from conversion.profile_correlator.data_types import AlignmentParameters, Profile, TransformParameters
 from conversion.profile_correlator.similarity import compute_cross_correlation
+from conversion.profile_correlator.transforms import apply_transform
 
 # Load edge_over_threshold data
-base = 'packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold'
-ref_data = np.load(f'{base}/input_profile_ref.npy').ravel()
-comp_data = np.load(f'{base}/input_profile_comp.npy').ravel()
+base = "packages/scratch-core/tests/resources/profile_correlator/edge_over_threshold"
+ref_data = np.load(f"{base}/input_profile_ref.npy").ravel()
+comp_data = np.load(f"{base}/input_profile_comp.npy").ravel()
 pixel_size = 3.5e-6
 
 ref_profile = Profile(depth_data=ref_data, pixel_size=pixel_size)
@@ -29,12 +31,12 @@ positions, shape_scales, comp_scale = find_match_candidates(ref_profile, comp_pr
 adjusted_passes = tuple(s for s in params.scale_passes if s <= comp_scale)
 
 print(f"Candidates: {positions}")
-print(f"Comp scale: {comp_scale*1e6:.0f}um")
-print(f"Passes: {[f'{s*1e6:.0f}um' for s in adjusted_passes]}")
+print(f"Comp scale: {comp_scale * 1e6:.0f}um")
+print(f"Passes: {[f'{s * 1e6:.0f}um' for s in adjusted_passes]}")
 
 # Run alignment for candidate 0
 candidate_start = positions[0]
-ref_segment = ref_data[candidate_start:candidate_start + len(comp_data)]
+ref_segment = ref_data[candidate_start : candidate_start + len(comp_data)]
 profile_1 = ref_segment.copy()
 profile_2 = comp_data.copy()
 
@@ -59,7 +61,9 @@ for i, cutoff in enumerate(adjusted_passes):
 
     # Apply lowpass filter
     p1_filt = _apply_lowpass_filter_1d(profile_1, cutoff, pixel_size, cut_borders=params.cut_borders_after_smoothing)
-    p2_filt = _apply_lowpass_filter_1d(profile_2_mod, cutoff, pixel_size, cut_borders=params.cut_borders_after_smoothing)
+    p2_filt = _apply_lowpass_filter_1d(
+        profile_2_mod, cutoff, pixel_size, cut_borders=params.cut_borders_after_smoothing
+    )
 
     # Subsample
     cutoff_pixels = cutoff / pixel_size
@@ -92,8 +96,14 @@ for i, cutoff in enumerate(adjusted_passes):
 
     # Run optimizer
     x_opt = _fminsearchbnd(
-        _alignment_objective, x0, lb, ub,
-        tol_x=1e-6, tol_fun=1e-6, max_iter=400, max_fun_evals=400,
+        _alignment_objective,
+        x0,
+        lb,
+        ub,
+        tol_x=1e-6,
+        tol_fun=1e-6,
+        max_iter=400,
+        max_fun_evals=400,
         args=(p1_sub, p2_sub),
     )
 
@@ -124,7 +134,7 @@ for i, cutoff in enumerate(adjusted_passes):
     overlap_len = len(p1_nz)
     overlap_ratio = overlap_len / len(profile_2) if len(profile_2) > 0 else 0
 
-    print(f"\nScale {cutoff_um:.0f}um (pass {i+1}/{len(adjusted_passes)}):")
+    print(f"\nScale {cutoff_um:.0f}um (pass {i + 1}/{len(adjusted_passes)}):")
     print(f"  subsample={subsample_factor}, sub_len={len(p1_sub)}, bounds=[{trans_lb},{trans_ub}]")
     print(f"  x_opt_sub=[{translation_subsampled:.6f}, {scaling_encoded:.6f}]")
     print(f"  translation={translation:.4f} samples, scaling={scaling:.8f}")
@@ -142,8 +152,8 @@ else:
 final_corr = compute_cross_correlation(p1_aligned, p2_aligned)
 pOverlap = len(p2_aligned) / len(profile_2)
 
-print(f"\n{'='*60}")
-print(f"FINAL RESULT:")
+print(f"\n{'=' * 60}")
+print("FINAL RESULT:")
 print(f"  ccf = {final_corr:.6f} (expected: 0.986387)")
 print(f"  pOverlap = {pOverlap:.6f} (expected: 0.923913)")
 print(f"  total_translation = {translation_total:.4f}")
