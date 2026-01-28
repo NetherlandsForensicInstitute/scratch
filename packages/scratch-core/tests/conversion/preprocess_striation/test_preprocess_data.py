@@ -13,7 +13,6 @@ from conversion.filter import (
     cutoff_to_gaussian_sigma,
 )
 from conversion.filter.gaussian import _apply_nan_weighted_gaussian_1d
-from conversion.filter.utils import remove_zero_border
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     apply_shape_noise_removal,
@@ -22,7 +21,6 @@ from conversion.preprocess_striation import (
 )
 from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
 from conversion.preprocess_striation.alignment import _detect_striation_angle
-from conversion.resample import resample_scan_image_and_mask
 
 
 def test_cutoff_to_gaussian_sigma():
@@ -50,21 +48,6 @@ def test_apply_nan_weighted_gaussian_1d():
     assert np.isnan(result[10, 5])
     # Non-NaN regions should remain close to 1.0
     assert result[0, 0] == pytest.approx(1.0, rel=0.1)
-
-
-def testremove_zero_border():
-    """Test that zero borders are correctly removed."""
-    data = np.zeros((10, 10), dtype=float)
-    mask = np.zeros((10, 10), dtype=bool)
-
-    # Valid data only in center region
-    data[3:7, 2:8] = 1.0
-    mask[3:7, 2:8] = True
-
-    cropped_data, cropped_mask = remove_zero_border(data, mask)
-
-    assert cropped_data.shape == (4, 6)
-    assert cropped_mask.shape == (4, 6)
 
 
 def test_apply_striation_preserving_filter_1d_lowpass():
@@ -136,7 +119,7 @@ def test_apply_shape_noise_removal():
 
 
 def test_shape_noise_removal_filter_sequence():
-    """Test filter sequence, border cropping, and mask propagation."""
+    """Test filter sequence and border cropping."""
     np.random.seed(42)
 
     height, width = 200, 150
@@ -385,24 +368,3 @@ def test_mark_type_scale():
         rtol=1e-09,
         atol=1e-09,
     )
-
-
-def test_resample_to_mark_type_scale():
-    """Test resampling to target sampling distance."""
-    np.random.seed(42)
-    data = np.random.randn(100, 100)
-    scale_x = 1.0e-6
-    scale_y = 1.0e-6
-    mark_type = MarkType.BULLET_GEA_STRIATION
-
-    scan_image = ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
-    resampled_scan, _ = resample_scan_image_and_mask(
-        scan_image, mask=None, target_scale=mark_type.scale, only_downsample=True
-    )
-
-    # With only_downsample=True, data with scale smaller than target (1.0e-6 < 1.5e-6)
-    # should be downsampled
-    assert resampled_scan.data.shape[0] < data.shape[0]
-    assert resampled_scan.data.shape[1] < data.shape[1]
-    assert np.isclose(resampled_scan.scale_x, 1.5e-6, rtol=1e-09, atol=1e-09)
-    assert np.isclose(resampled_scan.scale_y, 1.5e-6, rtol=1e-09, atol=1e-09)

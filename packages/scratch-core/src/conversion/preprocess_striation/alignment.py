@@ -15,7 +15,7 @@ from conversion.filter import (
     gaussian_sigma_to_cutoff,
     apply_gaussian_regression_filter,
 )
-from conversion.resample import resample_scan_image_and_mask
+from conversion.resample import resample_mark, resample_scan_image_and_mask
 from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
 
 # Maximum expected striation angle for outlier filtering in gradient detection (degrees)
@@ -69,15 +69,6 @@ def fine_align_bullet_marks(
         scale_y=scan_image.scale_y,
     )
 
-    # Resample to mark type target scale if specified
-    # TODO: possible the resampling is not needed as the images are already resampled before preprocessing_striation
-    result_scan, _ = resample_scan_image_and_mask(
-        result_scan,
-        None,
-        target_scale=mark.mark_type.scale,
-        only_downsample=True,
-    )
-
     result_mark = Mark(
         scan_image=result_scan,
         mark_type=mark.mark_type,
@@ -85,6 +76,7 @@ def fine_align_bullet_marks(
         meta_data=mark.meta_data,
     )
 
+    result_mark = resample_mark(result_mark, only_downsample=True)
     return result_mark, total_angle
 
 
