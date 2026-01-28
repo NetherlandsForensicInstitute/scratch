@@ -181,13 +181,17 @@ class TestSubSampleScanImage:
 
     def test_make_isotropic_no_op(self):
         """Ensure no resampling occurs if pixels are already square."""
-        scan_image = ScanImage(scale_x=0.5, scale_y=0.5, data=np.zeros((100, 100)))
+        scale = 0.5
+        width, height = 100, 100
+        scan_image = ScanImage(
+            scale_x=scale, scale_y=scale, data=np.zeros((height, width))
+        )
 
         result = unwrap_result(make_isotropic(scan_image))
 
-        assert result.scale_x == 0.5
-        assert result.scale_y == 0.5
-        assert result.data.shape == (100, 100)
+        assert np.isclose(result.scale_x, scale)
+        assert np.isclose(result.scale_y, scale)
+        assert result.data.shape == (height, width)
         np.testing.assert_array_equal(result.data, scan_image.data)
 
     def test_make_isotropic_upsampling_logic(self):
@@ -204,8 +208,12 @@ class TestSubSampleScanImage:
 
         result = unwrap_result(make_isotropic(scan_image))
 
-        assert np.isclose(result.scale_x, scale_fine), f"Scale should now be the minimum of the two {scale_fine}"
-        assert np.isclose(result.scale_y, scale_fine), f"Scale should now be the minimum of the two {scale_fine}"
+        assert np.isclose(result.scale_x, scale_fine), (
+            f"Scale should now be the minimum of the two {scale_fine}"
+        )
+        assert np.isclose(result.scale_y, scale_fine), (
+            f"Scale should now be the minimum of the two {scale_fine}"
+        )
         assert result.data.shape == (expected_height, expected_width), (
             f"New width should be (original_width * (original_scale_x / target_scale)), but got: {result.data.shape}"
         )
@@ -231,16 +239,18 @@ class TestSubSampleScanImage:
         self, scan_image_rectangular_with_nans: ScanImage, scaling_factor: float
     ):
         """Ensure the resampling deals with NaN values correctly."""
+        scale_fine = 1.5
+        scale_coarse = 1.5 * scaling_factor
         scan_image = ScanImage(
             data=scan_image_rectangular_with_nans.data,
-            scale_x=1.5,
-            scale_y=1.5 * scaling_factor,
+            scale_x=scale_fine,
+            scale_y=scale_coarse,
         )
 
         result = unwrap_result(make_isotropic(scan_image))
 
-        assert result.scale_x == 1.5
-        assert result.scale_y == 1.5
+        assert np.isclose(result.scale_x, scale_fine)
+        assert np.isclose(result.scale_y, scale_fine)
         assert result.data.shape == (
             int(round(scan_image.height * scaling_factor)),
             int(round(scan_image.width)),
