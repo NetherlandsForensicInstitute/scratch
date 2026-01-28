@@ -9,6 +9,41 @@ The main function is:
 - find_match_candidates: Brute-force search for partial profile match positions
 
 All length parameters are in meters (SI units).
+
+MATLAB Correspondence
+---------------------
+This module corresponds to MATLAB's ``DetermineMatchCandidatesMultiScale.m``.
+
+Known Differences from MATLAB
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. **max_scale calculation** (``find_match_candidates``):
+   MATLAB: ``max_scale = xdim * length(partial_profile.depth_data) * 1e6 / 2``
+   (uses the *shorter* / partial profile length).
+   Python: ``max_scale = pixel_size * len(ref_data) / 2``
+   (uses the *longer* / reference profile length).
+
+   This is an intentional deviation.  ``max_scale`` determines which pass
+   frequencies are classified as "shape scales" (>= max_scale, used for
+   coarse candidate filtering) versus "comparison scales" (< max_scale, used
+   for fine refinement).  Using the longer profile ensures that scales
+   comparable to the partial profile length are treated as comparison scales
+   rather than shape scales.  This gives better candidate discrimination for
+   the ``different_sampling`` test case where the partial and reference
+   profiles have very different lengths after pixel-size equalization.
+   With MATLAB's formula, the ``different_sampling`` case fails because a
+   scale that should be a comparison scale becomes a shape scale, leading to
+   incorrect candidate selection.
+
+2. **Resampling method** (``_resample_interpolation``):
+   MATLAB uses DIPimage's ``resample()`` (cubic interpolation).  Python uses
+   a local cubic B-spline kernel that approximates DIPimage's behaviour.
+   Minor numerical differences exist but do not affect candidate selection.
+
+3. **No-shape-scales fallback**:
+   When no pass frequencies qualify as shape scales, MATLAB returns a single
+   candidate region spanning all positions.  Python instead splits the search
+   space into ~5 evenly-sized regions to provide multiple starting points for
+   the downstream alignment, improving robustness.
 """
 
 import numpy as np
@@ -294,10 +329,14 @@ def find_match_candidates(
     possible_scales = possible_scales[possible_scales <= cutoff_hi]
     possible_scales = possible_scales[possible_scales >= resolution_limit]
 
-    # Maximum scale is based on reference profile length (in meters).
-    # Using the reference (longer) profile ensures that scales comparable
-    # to the search space are treated as comparison scales rather than
-    # shape scales, giving better discrimination across candidate positions.
+    # DIFFERENCE FROM MATLAB: max_scale uses the reference (longer) profile
+    # length instead of the partial (shorter) profile length.
+    # MATLAB: max_scale = xdim * length(partial_profile.depth_data) * 1e6 / 2
+    # Python: max_scale = pixel_size * len(ref_data) / 2
+    # Using the longer profile ensures that scales comparable to the search
+    # space are treated as comparison scales rather than shape scales, giving
+    # better discrimination across candidate positions.  See module docstring
+    # for full rationale.
     max_scale = pixel_size * len(ref_data) / 2
 
     # Filter to scales <= 4 * max_scale

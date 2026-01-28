@@ -11,6 +11,51 @@ The main functions are:
 - align_partial_profile_multiscale: Partial profile alignment with candidate search
 
 All length parameters are in meters (SI units).
+
+MATLAB Correspondence
+---------------------
+- ``align_profiles_multiscale``  ↔  ``AlignInterProfilesMultiScale.m``
+- ``align_partial_profile_multiscale``  ↔  ``AlignInterProfilesPartialMultiScale.m``
+- ``_fminsearchbnd`` / ``_matlab_fminsearch``  ↔  ``fminsearchbnd.m`` / ``fminsearch.m``
+- ``_alignment_objective``  ↔  inline objective in ``AlignInterProfilesMultiScale.m``
+- ``_remove_boundary_zeros``  ↔  ``RemoveBoundaryZeros.m``
+- ``_apply_lowpass_filter_1d``  ↔  ``RemoveNoiseGaussian.m`` / ``SmoothMod.m``
+
+Known Differences from MATLAB
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. **Candidate scoring** (``align_partial_profile_multiscale``):
+   MATLAB selects the best candidate via ``max(max_xcorr_candidates)`` — pure
+   correlation without considering overlap.  Python uses
+   ``correlation * overlap_ratio`` so that candidates with near-total overlap
+   are preferred over those with marginally higher correlation but much less
+   overlap.  This is an intentional improvement.
+
+2. **Neighbor expansion** (``align_partial_profile_multiscale``):
+   After the coarse candidate search, Python expands each candidate position
+   by ±2 neighbours.  MATLAB does not do this.  The expansion compensates for
+   the coarse spatial resolution of the candidate search and prevents
+   near-optimal positions from being missed.
+
+3. **Optimizer convergence** (``_fminsearchbnd``):
+   The algorithm is a line-for-line port of MATLAB's ``fminsearch.m`` wrapped
+   with ``fminsearchbnd.m``'s sin-transformation for bounds.  However,
+   IEEE 754 floating-point arithmetic is not associative, so identical
+   sequences of operations can produce subtly different intermediate values
+   between Python/NumPy and MATLAB.  These differences are amplified by the
+   Nelder-Mead simplex updates and can cause the optimizer to converge to a
+   different local minimum.  In practice Python often finds a *better* (higher
+   correlation, more overlap) minimum than MATLAB.
+
+4. **Lowpass filter border cutting**:
+   ``_apply_lowpass_filter_1d`` in this module uses ``round(sigma)`` for the
+   border size, matching ``alignment.py``'s context.  The copy in
+   ``candidate_search.py`` uses ``ceil(sigma)`` to match the candidate search
+   context.  Both match their respective MATLAB call sites.
+
+5. **Fallback behaviour** (``align_partial_profile_multiscale``):
+   When no candidate produces a valid alignment (all filtered by the 50%
+   minimum-overlap check), Python falls back to position 0 with identity
+   transform.  MATLAB would error in this scenario.
 """
 
 from typing import Callable, Sequence
@@ -844,9 +889,10 @@ def align_partial_profile_multiscale(
     if len(positions) == 0:
         positions = [0]
 
-    # Expand candidates with neighboring positions (±2) for finer resolution.
-    # The coarse candidate search may place region boundaries such that the
-    # optimal position is narrowly missed.
+    # DIFFERENCE FROM MATLAB: Expand candidates with neighboring positions
+    # (±2) for finer resolution.  MATLAB does not do this.  The coarse
+    # candidate search may place region boundaries such that the optimal
+    # position is narrowly missed; this expansion compensates.
     max_pos = len(ref_data) - partial_length // 2
     expanded = set(positions)
     for p in positions:
@@ -906,9 +952,11 @@ def align_partial_profile_multiscale(
             if aligned_length < min_overlap:
                 continue
 
-            # Score candidates by correlation weighted by overlap ratio.
-            # This prevents candidates with marginally higher correlation but
-            # significantly less overlap from winning over better-aligned ones.
+            # DIFFERENCE FROM MATLAB: Score candidates by correlation weighted
+            # by overlap ratio.  MATLAB uses ``max(max_xcorr_candidates)``
+            # (pure correlation).  The overlap weighting prevents candidates
+            # with marginally higher correlation but significantly less overlap
+            # from winning over better-aligned ones.
             overlap_ratio = aligned_length / partial_length
             score = result.final_correlation * overlap_ratio
 

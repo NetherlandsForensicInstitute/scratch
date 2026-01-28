@@ -10,6 +10,15 @@ The main functions are:
 - compute_comparison_metrics: Full set of comparison metrics
 
 All length and height measurements are in meters (SI units).
+
+MATLAB Correspondence
+---------------------
+- ``compute_cross_correlation``  ↔  inline xcorr computation in
+  ``AlignInterProfilesMultiScale.m`` (Pearson correlation with NaN handling)
+- ``compute_comparison_metrics``  ↔  ``GetStriatedMarkComparisonResults.m``
+
+The implementations are functionally identical to MATLAB.  No known
+behavioural differences exist in this module.
 """
 
 from typing import Sequence

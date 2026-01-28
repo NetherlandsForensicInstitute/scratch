@@ -6,12 +6,39 @@ cropping of 1D profiles during the alignment process. The functions handle
 both single-column and multi-column profile data.
 
 The main functions are:
-- equalize_sampling_distance: Resample profiles to match pixel sizes
+- equalize_pixel_scale: Resample profiles to match pixel sizes
 - make_profiles_equal_length: Symmetric cropping to equal lengths
 - apply_transform: Apply translation and scaling with interpolation
 
 All functions operate on Profile objects. For raw array operations, extract
 the depth_data from Profile objects.
+
+MATLAB Correspondence
+---------------------
+- ``equalize_pixel_scale``  ↔  ``EqualizeSamplingDistance.m``
+- ``make_profiles_equal_length``  ↔  ``MakeDatasetLengthEqual.m``
+- ``apply_transform``  ↔  ``TranslateScalePointset.m``
+
+Known Differences from MATLAB
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. **Resampling** (``equalize_pixel_scale``):
+   MATLAB uses DIPimage's ``resample(img, zoom, [0], 'bspline')`` which
+   performs direct cubic B-spline kernel evaluation with 4-point local
+   support and no global prefilter.  Python reimplements this with
+   ``_resample_1d`` / ``_cubic_bspline``.  The implementation matches
+   DIPimage's coordinate mapping (output sample j → input position j/zoom)
+   and boundary handling (clamping to valid range).  Minor floating-point
+   differences from the kernel evaluation are expected.
+
+   This differs from ``scipy.signal.resample`` (FFT-based, propagates NaN
+   globally) and ``scipy.interpolate.interp1d(kind='cubic')`` (global
+   natural cubic spline).  The local B-spline kernel ensures NaN propagates
+   only through the 4-point neighbourhood, matching DIPimage.
+
+2. **Transform interpolation** (``apply_transform``):
+   Both MATLAB (``interp1``) and Python (``scipy.interpolate.interp1d``)
+   use linear interpolation with out-of-bounds fill value 0.  The coordinate
+   system uses 1-based indexing to match MATLAB's ``TranslateScalePointset``.
 """
 
 from typing import Sequence

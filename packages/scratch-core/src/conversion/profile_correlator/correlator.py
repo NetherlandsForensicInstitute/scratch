@@ -5,6 +5,36 @@ It handles the complete workflow including sampling equalization, length matchin
 and multi-scale alignment.
 
 All length and height measurements are in meters (SI units).
+
+MATLAB Correspondence
+---------------------
+This module corresponds to MATLAB's ``ProfileCorrelatorSingle.m``.
+The overall pipeline is functionally equivalent:
+
+1. ``equalize_pixel_scale``  ↔  ``EqualizeSamplingDistance``
+2. ``make_profiles_equal_length``  ↔  ``MakeDatasetLengthEqual``
+3. ``align_profiles_multiscale``  ↔  ``AlignInterProfilesMultiScale``
+4. ``align_partial_profile_multiscale``  ↔  ``AlignInterProfilesPartialMultiScale``
+5. ``compute_comparison_metrics``  ↔  ``GetStriatedMarkComparisonResults``
+
+Known Differences from MATLAB
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- **Resampling method** (``equalize_pixel_scale``): Python uses a local cubic
+  B-spline kernel matching DIPimage's ``resample()`` behaviour, while MATLAB
+  calls DIPimage directly.  Minor numerical differences propagate through
+  downstream steps.
+- **Candidate scoring** (``align_partial_profile_multiscale``): Python scores
+  candidates by ``correlation * overlap_ratio`` (overlap-weighted), whereas
+  MATLAB selects by ``max(correlation)`` alone.  This prevents candidates with
+  marginally higher correlation but drastically less overlap from winning.
+- **Optimizer convergence**: The Nelder-Mead implementation is algorithmically
+  identical to MATLAB's ``fminsearchbnd``/``fminsearch``, but floating-point
+  differences in intermediate values can cause convergence to different local
+  minima.  In test cases ``edge_over_threshold`` and ``partial_with_nans``,
+  Python finds solutions with higher correlation and more overlap than MATLAB.
+- **max_scale in candidate search**: Python uses ``pixel_size * len(ref_data)/2``
+  (longer profile) instead of MATLAB's ``xdim * len(partial_data)/2`` (shorter
+  profile).  See ``candidate_search.py`` for rationale.
 """
 
 import numpy as np
