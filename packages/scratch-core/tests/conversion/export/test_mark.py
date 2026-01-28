@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import CropType, Mark, MarkType
+from conversion.data_formats import Mark, MarkType
 from conversion.export.mark import ExportedMarkData, load_mark_from_path, save_mark
 
 
@@ -23,7 +23,6 @@ class TestExportedMarkData:
         data = ExportedMarkData.model_validate(
             dict(
                 mark_type="BREECH_FACE_IMPRESSION",
-                crop_type="RECTANGLE",
                 center=(100.0, 200.0),
                 scale_x=1.5e-6,
                 scale_y=1.5e-6,
@@ -32,7 +31,6 @@ class TestExportedMarkData:
         )
 
         assert data.mark_type == MarkType.BREECH_FACE_IMPRESSION
-        assert data.crop_type == CropType.RECTANGLE
         assert data.center == (100.0, 200.0)
         assert data.scale_x == 1.5e-6
         assert data.scale_y == 1.5e-6
@@ -43,7 +41,6 @@ class TestExportedMarkData:
         data = ExportedMarkData.model_validate(
             dict(
                 mark_type="chamber_impression",
-                crop_type="CIRCLE",
                 center=(0.0, 0.0),
                 scale_x=1.0,
                 scale_y=1.0,
@@ -52,40 +49,12 @@ class TestExportedMarkData:
 
         assert data.mark_type == MarkType.CHAMBER_IMPRESSION
 
-    def test_lowercase_crop_type(self):
-        """Test that lowercase `crop_type` is correctly converted."""
-        data = ExportedMarkData.model_validate(
-            dict(
-                mark_type="FIRING_PIN_IMPRESSION",
-                crop_type="ellipse",
-                center=(0.0, 0.0),
-                scale_x=1.0,
-                scale_y=1.0,
-            )
-        )
-
-        assert data.crop_type == CropType.ELLIPSE
-
     def test_invalid_mark_type(self):
         """Test that invalid `mark_type` raises ValueError."""
         with pytest.raises(ValueError, match="Invalid MarkType"):
             ExportedMarkData.model_validate(
                 dict(
                     mark_type="INVALID_TYPE",
-                    crop_type="RECTANGLE",
-                    center=(0.0, 0.0),
-                    scale_x=1.0,
-                    scale_y=1.0,
-                )
-            )
-
-    def test_invalid_crop_type(self):
-        """Test that invalid `crop_type` raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid CropType"):
-            ExportedMarkData.model_validate(
-                dict(
-                    mark_type="FIRING_PIN_IMPRESSION",
-                    crop_type="HEXAGON",
                     center=(0.0, 0.0),
                     scale_x=1.0,
                     scale_y=1.0,
@@ -98,7 +67,6 @@ class TestExportedMarkData:
             _ = ExportedMarkData.model_validate(
                 dict(
                     mark_type="BREECH_FACE_IMPRESSION",
-                    crop_type="RECTANGLE",
                     scale_x=0.0,
                     scale_y=0.0,
                     center=(1.0, 1.0),
@@ -110,7 +78,6 @@ class TestExportedMarkData:
         data = ExportedMarkData.model_validate(
             dict(
                 mark_type="EJECTOR_IMPRESSION",
-                crop_type="POLYGON",
                 center=(50.0, 50.0),
                 scale_x=2.0e-6,
                 scale_y=2.0e-6,
@@ -128,7 +95,6 @@ class TestSaveAndLoadMark:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
-            crop_type=CropType.RECTANGLE,
             meta_data={"test": "data"},
         )
 
@@ -143,7 +109,6 @@ class TestSaveAndLoadMark:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
-            crop_type=CropType.CIRCLE,
         )
 
         save_mark(mark, nested_path, "test_mark")
@@ -157,7 +122,6 @@ class TestSaveAndLoadMark:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.CHAMBER_STRIATION,
-            crop_type=CropType.ELLIPSE,
             meta_data={"key": "value"},
         )
 
@@ -167,13 +131,11 @@ class TestSaveAndLoadMark:
             data = json.load(f)
 
         assert "mark_type" in data
-        assert "crop_type" in data
         assert "center" in data
         assert "scale_x" in data
         assert "scale_y" in data
         assert "meta_data" in data
         assert data["mark_type"] == "CHAMBER_STRIATION"
-        assert data["crop_type"] == "ELLIPSE"
         assert data["meta_data"] == {"key": "value"}
 
     def test_load_mark_restores_all_meta_data(
@@ -183,7 +145,6 @@ class TestSaveAndLoadMark:
         original_mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.EXTRACTOR_IMPRESSION,
-            crop_type=CropType.POLYGON,
             meta_data={"original": "data"},
             center=(123.4, 567.8),
         )
@@ -192,7 +153,6 @@ class TestSaveAndLoadMark:
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
         assert loaded_mark.mark_type == original_mark.mark_type
-        assert loaded_mark.crop_type == original_mark.crop_type
         assert loaded_mark.center == original_mark.center
         assert loaded_mark.meta_data == original_mark.meta_data
         assert loaded_mark.scan_image.scale_x == original_mark.scan_image.scale_x
@@ -205,7 +165,6 @@ class TestSaveAndLoadMark:
         original_mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BULLET_GEA_STRIATION,
-            crop_type=CropType.RECTANGLE,
         )
 
         save_mark(original_mark, tmp_path, "test_mark")
@@ -222,7 +181,6 @@ class TestSaveAndLoadMark:
         original_mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.EJECTOR_STRIATION,
-            crop_type=CropType.CIRCLE,
         )
         # Don't set explicit center - should compute from image dimensions
 
@@ -244,7 +202,6 @@ class TestSaveAndLoadMark:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.FIRING_PIN_DRAG_STRIATION,
-            crop_type=CropType.RECTANGLE,
         )
 
         # Save only JSON
@@ -271,7 +228,6 @@ class TestSaveAndLoadMark:
         original_mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.APERTURE_SHEAR_STRIATION,
-            crop_type=CropType.ELLIPSE,
             meta_data=complex_meta,
         )
 
@@ -287,14 +243,12 @@ class TestSaveAndLoadMark:
         mark1 = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
-            crop_type=CropType.RECTANGLE,
             meta_data={"id": 1},
         )
 
         mark2 = Mark(
             scan_image=scan_image,
             mark_type=MarkType.CHAMBER_IMPRESSION,
-            crop_type=CropType.CIRCLE,
             meta_data={"id": 2},
         )
 

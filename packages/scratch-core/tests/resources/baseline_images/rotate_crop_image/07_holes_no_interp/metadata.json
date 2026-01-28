@@ -1,0 +1,8 @@
+{
+  "input_xdim": 3.5e-06,
+  "input_ydim": 3.5e-06,
+  "crop_type": "rectangle",
+  "crop_foreground": true,
+  "times_median": 15,
+  "has_holes": true
+}

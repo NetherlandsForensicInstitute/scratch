@@ -1,9 +1,23 @@
+from typing import Annotated
 from enum import StrEnum, auto
-
-from pydantic import Field, computed_field
-from container_models.base import ConfigBaseModel
-from container_models.scan_image import ScanImage
 import json
+
+from functools import partial
+from pydantic import (
+    Field,
+    computed_field,
+    AfterValidator,
+    PlainSerializer,
+    BeforeValidator,
+)
+from numpy import float64
+from numpy.typing import NDArray
+from container_models.base import (
+    ConfigBaseModel,
+    coerce_to_array,
+    serialize_ndarray,
+)
+from container_models.scan_image import ScanImage
 
 
 class MarkType(StrEnum):
@@ -37,11 +51,20 @@ class MarkType(StrEnum):
         return 1.5e-6
 
 
-class CropType(StrEnum):
-    RECTANGLE = auto()
-    CIRCLE = auto()
-    ELLIPSE = auto()
-    POLYGON = auto()
+def validate_rectangle_corners(arr: NDArray[float64]) -> NDArray[float64]:
+    """Validate that array has shape (4, 2)"""
+    if arr.shape != (4, 2):
+        raise ValueError(f"Rectangle must have shape (4, 2), got {arr.shape}")
+    return arr
+
+
+# Note: Our code expects pixel coordinates, i.e. top-left origin, in the order [x, y]
+BoundingBox = Annotated[
+    NDArray[float64],
+    BeforeValidator(partial(coerce_to_array, float64)),
+    AfterValidator(partial(validate_rectangle_corners)),
+    PlainSerializer(serialize_ndarray),
+]
 
 
 class Mark(ConfigBaseModel):
@@ -51,7 +74,6 @@ class Mark(ConfigBaseModel):
 
     scan_image: ScanImage
     mark_type: MarkType
-    crop_type: CropType
     meta_data: dict = Field(default_factory=dict)
     center_: tuple[float, float] | None = Field(default=None, alias="center")
 
@@ -77,7 +99,6 @@ class Mark(ConfigBaseModel):
         """Export the `Mark` meta-data fields as a JSON string."""
         data = {
             "mark_type": self.mark_type.name,
-            "crop_type": self.crop_type.name,
             "center": self.center,
             "scale_x": self.scan_image.scale_x,
             "scale_y": self.scan_image.scale_y,

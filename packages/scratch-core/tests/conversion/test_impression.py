@@ -3,7 +3,7 @@ import pytest
 from numpy.testing import assert_array_equal
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import CropType, Mark, MarkType
+from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_impression.impression import (
     preprocess_impression_mark,
 )
@@ -75,7 +75,6 @@ def make_mark(
             scale_y=scale_y,
         ),
         mark_type=mark_type,
-        crop_type=CropType.RECTANGLE,
     )
 
 
@@ -379,7 +378,6 @@ class TestApplyAntiAliasing:
         data = np.random.default_rng(42).random((10, 10))
         mark = Mark(
             scan_image=ScanImage(data=data, scale_x=1.0, scale_y=1.0),
-            crop_type=CropType.RECTANGLE,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
         result, cutoff = _apply_anti_aliasing(mark, target_scale=1.4)
@@ -390,7 +388,6 @@ class TestApplyAntiAliasing:
         data = np.random.default_rng(42).random((10, 10))
         mark = Mark(
             scan_image=ScanImage(data=data, scale_x=1.0, scale_y=1.0),
-            crop_type=CropType.RECTANGLE,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
         _, cutoff = _apply_anti_aliasing(mark, target_scale=2.0)
@@ -798,14 +795,6 @@ class TestUpdateMarkData:
 
         assert result.mark_type == MarkType.BREECH_FACE_IMPRESSION
 
-    def test_preserves_crop_type(self):
-        """Crop type should be preserved."""
-        mark = make_mark(np.zeros((3, 3)))
-
-        result = update_mark_data(mark, np.ones((3, 3)))
-
-        assert result.crop_type == CropType.RECTANGLE
-
     def test_handles_nan_values(self):
         """Should handle NaN values in data."""
         mark = make_mark(np.zeros((3, 3)))
@@ -875,7 +864,6 @@ class TestMarkCenter:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
-            crop_type=CropType.RECTANGLE,
         )
 
         center_x, center_y = mark.center
@@ -892,7 +880,6 @@ class TestMarkCenter:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
-            crop_type=CropType.RECTANGLE,
             center=(42.0, 17.0),
         )
 
@@ -907,7 +894,6 @@ class TestMarkCenter:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
-            crop_type=CropType.RECTANGLE,
         )
 
         assert mark.center == (101.5, 50.5)
