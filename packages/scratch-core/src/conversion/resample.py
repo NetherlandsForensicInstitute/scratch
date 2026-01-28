@@ -4,9 +4,10 @@ import numpy as np
 from numpy.typing import NDArray
 from skimage.transform import resize
 
-from conversion.data_formats import Mark
-from container_models.scan_image import ScanImage
 from container_models.base import BinaryMask, FloatArray2D
+from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark
+from renders.computations import Point
 
 
 def resample_scan_image_and_mask(
@@ -114,9 +115,10 @@ def _clip_factors(
     preserve_aspect_ratio: bool,
 ) -> tuple[float, float]:
     """Clip the scaling factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
+    factors_obj = Point(*factors)
     if preserve_aspect_ratio:
         # Set the multipliers to equal values to preserve the aspect ratio
-        max_factor = max(factors)
-        factors = max_factor, max_factor
+        max_factor = max(factors_obj.x, factors_obj.y)
+        factors_obj = Point(max_factor, max_factor)
 
-    return max(factors[0], 1.0), max(factors[1], 1.0)
+    return max(factors_obj.x, 1.0), max(factors_obj.y, 1.0)
