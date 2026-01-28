@@ -224,7 +224,7 @@ def apply_transformation(
 
     Args:
         data: Input profile (1D)
-        translation: Translation in samples
+        translation: Translation in samples (positive = shift right)
         scaling: Scaling factor
 
     Returns:
@@ -232,14 +232,17 @@ def apply_transformation(
     """
     n = len(data)
     x_orig = np.arange(n, dtype=float)
-    x_transformed = x_orig * scaling + translation
 
-    # Interpolate
+    # To shift data RIGHT by translation, we sample from LEFT (subtract translation)
+    # x_query are the positions in the ORIGINAL data we need to sample from
+    x_query = (x_orig - translation) / scaling
+
+    # Interpolate: maps original indices -> data values
     interpolator = interp1d(
-        x_transformed, data, kind="linear", bounds_error=False, fill_value=0.0
+        x_orig, data, kind="linear", bounds_error=False, fill_value=0.0
     )
 
-    return interpolator(x_orig)
+    return interpolator(x_query)
 
 
 def apply_multi_scale_transformation(
@@ -356,7 +359,12 @@ def make_equal_length(
     profile_1: NDArray[np.floating], profile_2: NDArray[np.floating]
 ) -> Tuple[NDArray[np.floating], NDArray[np.floating]]:
     """
-    Crop profiles to equal length by removing from ends.
+    Crop profiles to equal length by removing from the end.
+
+    Note: We crop from the END to preserve alignment at the beginning,
+    since profiles are typically aligned at their start positions.
+    Center-cropping would introduce an artificial shift that the optimizer
+    would need to compensate for.
 
     Args:
         profile_1: First profile
@@ -373,14 +381,8 @@ def make_equal_length(
 
     min_len = min(len1, len2)
 
-    # Crop from center
-    start1 = (len1 - min_len) // 2
-    end1 = start1 + min_len
-
-    start2 = (len2 - min_len) // 2
-    end2 = start2 + min_len
-
-    return profile_1[start1:end1], profile_2[start2:end2]
+    # Crop from end to preserve alignment at start
+    return profile_1[:min_len], profile_2[:min_len]
 
 
 # ============================================================================
@@ -456,7 +458,7 @@ def error_function(
 
 
 class BoundedOptimizer:
-    """Bounded optimization using scipy."""
+    """Bounded optimization - matches MATLAB's fminsearchbnd behavior."""
 
     @staticmethod
     def optimize(
@@ -464,29 +466,78 @@ class BoundedOptimizer:
         x0: NDArray[np.floating],
         bounds: Tuple[Tuple[float, float], ...],
         args: tuple = (),
+        global_search: bool = False,
     ) -> Tuple[NDArray[np.floating], float]:
         """
-        Perform bounded optimization.
+        Perform optimization.
 
         Args:
             func: Objective function
             x0: Initial guess
             bounds: Parameter bounds
             args: Additional arguments for func
+            global_search: If True, do grid search first
 
         Returns:
             Tuple of (optimal_params, function_value)
         """
-        result = minimize(
-            func,
-            x0,
-            args=args,
-            method="L-BFGS-B",
-            bounds=bounds,
-            options={"ftol": 1e-6, "gtol": 1e-6},
+        if global_search:
+            # Grid search for first scale to find approximate solution
+            trans_min, trans_max = bounds[0]
+            n_grid = 51
+            trans_grid = np.linspace(trans_min, trans_max, n_grid)
+
+            best_trans = 0.0
+            best_error = float("inf")
+
+            for t in trans_grid:
+                try:
+                    err = func(np.array([t, 0.0]), *args)
+                    if err < best_error:
+                        best_error = err
+                        best_trans = t
+                except Exception as _:
+                    continue
+
+            x0_start = np.array([best_trans, 0.0])
+        else:
+            x0_start = x0
+
+        # Use Nelder-Mead with small initial simplex for local refinement
+        n = len(x0_start)
+        initial_simplex = np.zeros((n + 1, n))
+        initial_simplex[0] = x0_start
+        initial_simplex[1] = x0_start + np.array([0.5, 0.0])
+        initial_simplex[2] = x0_start + np.array([0.0, 10.0])
+
+        try:
+            result = minimize(
+                func,
+                x0_start,
+                args=args,
+                method="Nelder-Mead",
+                options={
+                    "xatol": 1e-4,
+                    "fatol": 1e-6,
+                    "maxiter": 1000,
+                    "initial_simplex": initial_simplex,
+                },
+            )
+            optimal_params = result.x
+        except Exception as _:
+            # Fallback to starting point if optimization fails
+            optimal_params = x0_start
+
+        # Clip to bounds
+        optimal_params = np.array(
+            [
+                np.clip(optimal_params[0], bounds[0][0], bounds[0][1]),
+                np.clip(optimal_params[1], bounds[1][0], bounds[1][1]),
+            ]
         )
 
-        return result.x, result.fun
+        final_error = func(optimal_params, *args)
+        return optimal_params, final_error
 
 
 # ============================================================================
@@ -561,13 +612,27 @@ def align_profiles_multiscale(
         subsampled_comp = filtered_comp[::subsample_factor]
 
         # Set up optimization bounds
-        max_trans = params.max_translation / pixel_size
+        # Constrain max_translation to profile length - MATLAB uses huge values that work
+        # with fminsearchbnd but cause scipy optimizers to hit boundaries
+        max_trans_from_params = params.max_translation / pixel_size
+        max_trans_from_profile = len(data_ref)  # Can't shift more than profile length
+        max_trans = min(max_trans_from_params, max_trans_from_profile)
         max_scale = params.max_scaling
 
-        max_trans_samples = max_trans / subsample_factor
+        # MATLAB shrinks translation bounds based on cumulative translation
+        # This prevents runaway translations across scales
+        max_trans_positive = (
+            max_trans - cumulative_translation
+        )  # Remaining positive translation allowed
+        max_trans_negative = (
+            max_trans + cumulative_translation
+        )  # Remaining negative translation allowed
+
+        max_trans_samples_pos = max_trans_positive / subsample_factor
+        max_trans_samples_neg = max_trans_negative / subsample_factor
 
         bounds = (
-            (-max_trans_samples, max_trans_samples),
+            (-max_trans_samples_neg, max_trans_samples_pos),
             (
                 (-max_scale / cumulative_scaling) * 10000,
                 (max_scale / cumulative_scaling) * 10000,
@@ -577,9 +642,14 @@ def align_profiles_multiscale(
         # Initial guess
         x0 = np.array([0.0, 0.0])
 
-        # Optimize
+        # Optimize - use global search on first scale to find correct region
+        is_first_scale = len(trans_array) == 0
         optimal_params, _ = BoundedOptimizer.optimize(
-            error_function, x0, bounds, args=(subsampled_ref, subsampled_comp)
+            error_function,
+            x0,
+            bounds,
+            args=(subsampled_ref, subsampled_comp),
+            global_search=is_first_scale,
         )
 
         # Extract transformation
@@ -588,13 +658,32 @@ def align_profiles_multiscale(
 
         # Update cumulative transformation
         cumulative_translation += translation
-        cumulative_scaling *= scaling
+        new_cumulative_scaling = cumulative_scaling * scaling
+
+        # Enforce total cumulative scaling stays within max_scaling bounds
+        # This prevents compounding small per-iteration changes from exceeding limits
+        min_total_scale = 1.0 - params.max_scaling
+        max_total_scale = 1.0 + params.max_scaling
+
+        if new_cumulative_scaling < min_total_scale:
+            # Clamp to minimum and adjust this iteration's scaling
+            scaling = min_total_scale / cumulative_scaling
+            new_cumulative_scaling = min_total_scale
+        elif new_cumulative_scaling > max_total_scale:
+            # Clamp to maximum and adjust this iteration's scaling
+            scaling = max_total_scale / cumulative_scaling
+            new_cumulative_scaling = max_total_scale
+
+        cumulative_scaling = new_cumulative_scaling
 
         # Store
         trans_array.append([translation, scaling])
 
-        # Apply transformation to full-resolution data
-        data_comp_transformed = apply_transformation(data_comp, translation, scaling)
+        # Apply ALL accumulated transformations to original data (like MATLAB's TranslateScalePointset)
+        trans_array_np = np.array(trans_array)
+        data_comp_transformed = apply_multi_scale_transformation(
+            data_comp, trans_array_np
+        )
 
         # Compute correlation
         corr = compute_similarity_score(
@@ -677,10 +766,25 @@ def align_partial_profile(
             cutoff_lo=profile_partial.cutoff_lo,
         )
 
-        # Align this segment
+        # Align this segment with tighter bounds since we already found approximate position
+        # MATLAB uses fminsearchbnd which does local refinement from x0=[0,0]
+        # We need to restrict translation to prevent runaway optimization
+        params_tight = AlignmentParameters(
+            scale_passes=params.scale_passes,
+            max_translation=min(
+                params.max_translation, len_partial * profile_ref.pixel_size * 0.1
+            ),  # 10% of profile
+            max_scaling=params.max_scaling,
+            cutoff_hi=params.cutoff_hi,
+            cutoff_lo=params.cutoff_lo,
+            use_mean=params.use_mean,
+            remove_boundary_zeros=params.remove_boundary_zeros,
+            partial_mark_threshold=params.partial_mark_threshold,
+        )
+
         try:
             trans, ref_aligned, partial_aligned, xcorr = align_profiles_multiscale(
-                ref_segment, partial_temp, params
+                ref_segment, partial_temp, params_tight
             )
 
             corr = xcorr[-1, 1] if len(xcorr) > 0 else 0.0
@@ -701,9 +805,174 @@ def align_partial_profile(
         best_trans,
         float(best_pos * profile_ref.pixel_size),
         best_corr,
-        best_ref_segment,
-        best_aligned,
+        best_ref_segment if best_ref_segment is not None else data_ref[:len_partial],
+        best_aligned if best_aligned is not None else data_partial,
     )
+
+
+# ============================================================================
+# VISUALIZATION
+# ============================================================================
+
+
+def _save_alignment_figure(
+    figure_path: str,
+    profile_ref: Profile,
+    profile_comp: Profile,
+    prof_ref_eq: Profile,
+    prof_comp_eq: Profile,
+    data_ref_aligned: NDArray[np.floating],
+    data_comp_aligned: NDArray[np.floating],
+    results: "ComparisonResults",
+) -> None:
+    """
+    Save alignment visualization figure.
+
+    Args:
+        figure_path: Path to save the figure
+        profile_ref: Original reference profile
+        profile_comp: Original comparison profile
+        prof_ref_eq: Equalized reference profile
+        prof_comp_eq: Equalized comparison profile
+        data_ref_aligned: Aligned reference data
+        data_comp_aligned: Aligned comparison data
+        results: Comparison results
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")  # Non-interactive backend
+    import matplotlib.pyplot as plt
+
+    # Get profile data
+    data_ref = prof_ref_eq.mean_profile()
+    data_comp = prof_comp_eq.mean_profile()
+    pixel_size_um = prof_ref_eq.pixel_size * 1e6
+
+    # Create x-axis in micrometers
+    x_ref = np.arange(len(data_ref)) * pixel_size_um
+    x_comp = np.arange(len(data_comp)) * pixel_size_um
+    x_aligned = np.arange(len(data_ref_aligned)) * pixel_size_um
+
+    # Create figure
+    fig, axes = plt.subplots(3, 1, figsize=(14, 10))
+    fig.suptitle(
+        f"Profile Alignment\n"
+        f"pOverlap={results.overlap_ratio:.4f}, ccf={results.correlation_coefficient:.4f}, "
+        f"partial={results.is_partial_profile}",
+        fontsize=12,
+    )
+
+    # Plot 1: Original profiles (after equalization)
+    ax1 = axes[0]
+    ax1.plot(
+        x_ref,
+        data_ref * 1e6,
+        "b-",
+        label=f"Reference ({len(data_ref)} samples)",
+        alpha=0.8,
+    )
+    ax1.plot(
+        x_comp,
+        data_comp * 1e6,
+        "r-",
+        label=f"Comparison ({len(data_comp)} samples)",
+        alpha=0.8,
+    )
+    ax1.set_xlabel("Position (μm)")
+    ax1.set_ylabel("Height (μm)")
+    ax1.set_title("Original Profiles (after pixel size equalization)")
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    # Plot 2: Aligned profiles
+    ax2 = axes[1]
+    ax2.plot(
+        x_aligned,
+        data_ref_aligned.flatten() * 1e6,
+        "b-",
+        label="Reference (aligned)",
+        alpha=0.8,
+    )
+    ax2.plot(
+        x_aligned,
+        data_comp_aligned.flatten() * 1e6,
+        "r-",
+        label="Comparison (aligned)",
+        alpha=0.8,
+    )
+    ax2.set_xlabel("Position (μm)")
+    ax2.set_ylabel("Height (μm)")
+    ax2.set_title(
+        f"Aligned Profiles (shift={results.position_shift * 1e6:.1f}μm, scale={results.scale_factor:.6f})"
+    )
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+
+    # Plot 3: Correlation scan (for partial profiles) or difference
+    ax3 = axes[2]
+
+    if len(data_ref) != len(data_comp):
+        # Compute correlation at each position for partial profiles
+        if len(data_ref) > len(data_comp):
+            longer, shorter = data_ref, data_comp
+        else:
+            longer, shorter = data_comp, data_ref
+
+        n_positions = len(longer) - len(shorter) + 1
+        correlations = []
+        positions = []
+
+        for pos in range(n_positions):
+            segment = longer[pos : pos + len(shorter)]
+            corr = compute_similarity_score(segment, shorter)
+            correlations.append(corr)
+            positions.append(pos * pixel_size_um)
+
+        ax3.plot(positions, correlations, "b-", linewidth=1, label="Raw correlation")
+
+        # Mark max correlation position
+        if correlations:
+            max_idx = np.argmax(correlations)
+            ax3.scatter(
+                [positions[max_idx]],
+                [correlations[max_idx]],
+                color="purple",
+                s=100,
+                zorder=5,
+                label=f"Max: {positions[max_idx]:.0f}μm ({correlations[max_idx]:.3f})",
+            )
+
+        # Mark found position
+        if results.partial_profile_start is not None:
+            ax3.axvline(
+                results.partial_profile_start * 1e6,
+                color="g",
+                linestyle="--",
+                linewidth=2,
+                label=f"Found: {results.partial_profile_start * 1e6:.0f}μm",
+            )
+
+        ax3.set_xlabel("Start Position (μm)")
+        ax3.set_ylabel("Correlation")
+        ax3.set_title("Correlation vs Start Position")
+        ax3.legend(loc="upper right", fontsize=8)
+        ax3.grid(True, alpha=0.3)
+        ax3.set_ylim(-0.5, 1.0)
+    else:
+        # Show difference for equal-length profiles
+        diff = (data_comp_aligned.flatten() - data_ref_aligned.flatten()) * 1e6
+        ax3.plot(x_aligned, diff, "g-", linewidth=1)
+        ax3.axhline(0, color="k", linestyle="--", alpha=0.3)
+        ax3.set_xlabel("Position (μm)")
+        ax3.set_ylabel("Difference (μm)")
+        ax3.set_title(f"Profile Difference (RMS={results.sq_diff:.4f}μm)")
+        ax3.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+
+    # Save figure
+    fig.savefig(figure_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
 
 
 # ============================================================================
@@ -715,6 +984,7 @@ def correlate_profiles(
     profile_ref: Profile,
     profile_comp: Profile,
     params: Optional[AlignmentParameters] = None,
+    figure_path: Optional[str] = None,
 ) -> ComparisonResults:
     """
     Main function to correlate two profiles.
@@ -723,6 +993,7 @@ def correlate_profiles(
         profile_ref: Reference profile
         profile_comp: Comparison profile
         params: Alignment parameters (uses defaults if None)
+        figure_path: Optional path to save alignment visualization figure
 
     Returns:
         ComparisonResults object with all comparison metrics
@@ -831,15 +1102,9 @@ def correlate_profiles(
 
         results.position_shift = cumulative_trans[0, 2] * results.pixel_size_ref
         results.scale_factor = cumulative_trans[0, 0]
-        if best_pos == 0.0:
-            results.overlap_length = (
-                min(len(ref_aligned), len(comp_aligned)) * results.pixel_size_ref
-            )
-        else:
-            # This is the formula that matches the Matlab code. PV does not understand the '+1', if not use anymore, if statement is not necessary.
-            results.overlap_length = (
-                min(len(ref_aligned), len(comp_aligned)) + 1
-            ) * results.pixel_size_ref - 0.5 * best_pos
+        # MATLAB: results_table.lOverlap = length(profiles1)*results_table.vPixSep1
+        # Simply use the length of the aligned profile
+        results.overlap_length = len(ref_aligned) * results.pixel_size_ref
 
         data_ref_aligned = ref_aligned
         data_comp_aligned = comp_aligned
@@ -877,79 +1142,17 @@ def correlate_profiles(
     if results.sq_ref > 0 and results.sq_comp > 0:
         results.ds = results.sq_diff**2 / (results.sq_ref * results.sq_comp)
 
-    return results
-
-
-# ============================================================================
-# LEGACY COMPATIBILITY (for old interface)
-# ============================================================================
-
-
-def profile_correlator_single(
-    profile_ref: Profile,
-    profile_comp: Profile,
-    results_table=None,
-    param=None,
-    iVerbose=0,
-):
-    """
-    Legacy interface for MATLAB compatibility.
-
-    This function maintains backward compatibility with the original MATLAB interface.
-    """
-    # Convert old-style params to new AlignmentParameters
-    if param is None:
-        params = AlignmentParameters()
-    elif isinstance(param, dict):
-        # Convert dict to AlignmentParameters
-        params = AlignmentParameters(
-            scale_passes=tuple(
-                param.get("pass", [1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6])
-            ),
-            max_translation=param.get("max_translation", 10.0),
-            max_scaling=param.get("max_scaling", 0.05),
-            cutoff_hi=param.get("cutoff_hi", 1e-3),
-            cutoff_lo=param.get("cutoff_lo", 5e-6),
-            partial_mark_threshold=param.get("part_mark_perc", 8.0),
-            use_mean=param.get("use_mean", True),
-            remove_boundary_zeros=param.get("remove_zeros", True),
-            show_info=param.get("show_info", False) or iVerbose > 0,
+    # Generate visualization if requested
+    if figure_path is not None:
+        _save_alignment_figure(
+            figure_path=figure_path,
+            profile_ref=profile_ref,
+            profile_comp=profile_comp,
+            prof_ref_eq=prof_ref_eq,
+            prof_comp_eq=prof_comp_eq,
+            data_ref_aligned=data_ref_aligned,
+            data_comp_aligned=data_comp_aligned,
+            results=results,
         )
-    else:
-        params = param
 
-    # Run correlation
-    results = correlate_profiles(profile_ref, profile_comp, params)
-
-    # Convert to old-style results dict
-    results_dict = {
-        "bProfile": 1 if results.is_profile_comparison else 0,
-        "bSegments": 0,
-        "bPartialProfile": 1 if results.is_partial_profile else 0,
-        "vPixSep1": results.pixel_size_ref,
-        "vPixSep2": results.pixel_size_comp,
-        "dPos": results.position_shift,
-        "dScale": results.scale_factor,
-        "startPartProfile": results.partial_profile_start
-        if results.partial_profile_start is not None
-        else np.nan,
-        "lOverlap": results.overlap_length,
-        "pOverlap": results.overlap_ratio,
-        "ccf": results.correlation_coefficient,
-        "simVal": results.correlation_coefficient,
-        "metric": np.nan,
-        "sa_1": results.sa_ref,
-        "sq_1": results.sq_ref,
-        "sa_2": results.sa_comp,
-        "sq_2": results.sq_comp,
-        "sa12": results.sa_diff,
-        "sq12": results.sq_diff,
-        "ds1": results.ds1,
-        "ds2": results.ds2,
-        "ds": results.ds,
-        "pathReference": "",
-        "pathCompare": "",
-        "bKM": -1,
-    }
-
-    return results_dict
+    return results

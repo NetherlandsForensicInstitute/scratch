@@ -19,6 +19,42 @@ from conversion.profile_correlator import (
 )
 
 
+# ============================================================================
+# Visualization Helpers
+# ============================================================================
+
+
+def print_comparison_summary(
+    test_case: "MatlabTestCase",
+    python_results: "ResultsTable",
+) -> None:
+    """Print a summary comparing Python and MATLAB results."""
+    expected = test_case.expected_results
+
+    print(f"\n{'=' * 60}")
+    print(f"ALIGNMENT SUMMARY: {test_case.name}")
+    print(f"{'=' * 60}")
+    print(f"{'Metric':<25} {'Python':>15} {'MATLAB':>15} {'Diff':>12}")
+    print("-" * 60)
+
+    print(
+        f"{'bPartialProfile':<25} {python_results.bPartialProfile:>15} {expected.bPartialProfile:>15}"
+    )
+    print(
+        f"{'pOverlap':<25} {python_results.pOverlap:>15.6f} {expected.pOverlap:>15.6f} {(python_results.pOverlap - expected.pOverlap) * 100:>11.2f}%"
+    )
+    print(
+        f"{'lOverlap (m)':<25} {python_results.lOverlap:>15.6e} {expected.lOverlap:>15.6e}"
+    )
+
+    if python_results.xcorr is not None and expected.xcorr is not None:
+        print(
+            f"{'xcorr':<25} {python_results.xcorr:>15.6f} {expected.xcorr:>15.6f} {python_results.xcorr - expected.xcorr:>12.6f}"
+        )
+
+    print(f"{'=' * 60}")
+
+
 @dataclass
 class ProfileCorrelatorParams:
     """Parameters for ProfileCorrelatorSingle (test helper).
@@ -284,7 +320,9 @@ def discover_test_cases(test_cases_dir: Path) -> list[MatlabTestCase]:
     ]
 
 
-def run_python_profile_correlator(test_case: MatlabTestCase) -> ResultsTable:
+def run_python_profile_correlator(
+    test_case: MatlabTestCase, figure_path: Path | None = None
+) -> ResultsTable:
     """
     Run Python ProfileCorrelatorSingle and return results.
     """
@@ -296,7 +334,9 @@ def run_python_profile_correlator(test_case: MatlabTestCase) -> ResultsTable:
     params = test_case.params.to_alignment_params()
 
     # Run the correlator
-    results = correlate_profiles(profile_ref, profile_comp, params)
+    results = correlate_profiles(
+        profile_ref, profile_comp, params, figure_path=figure_path
+    )
 
     # Convert to ResultsTable for comparison
     return ResultsTable.from_comparison_results(results)
@@ -417,73 +457,125 @@ class TestProfileCorrelatorSingleMatlabComparison:
     OVERLAP_RTOL = 1e-4  # Relative tolerance for overlap values
     PIXSEP_RTOL = 1e-6  # Relative tolerance for pixel separation
 
-    def test_matlab_comparison(self, test_case: MatlabTestCase):
+    def test_matlab_comparison(self, test_case: MatlabTestCase, request):
         """Test that Python output matches MATLAB reference."""
-        # Run Python implementation
-        python_results = run_python_profile_correlator(test_case)
+        # Always save visualization
+        figure_path = (
+            Path("/home/simone/PycharmProjects/scratch/figures")
+            / f"{test_case.name}_alignment.png"
+        )
+
+        # Run Python implementation with figure generation
+        python_results = run_python_profile_correlator(
+            test_case, figure_path=figure_path
+        )
         expected = test_case.expected_results
 
+        print(f"\n📊 Visualization saved to: {figure_path}")
+
+        # Track failures to report at the end
+        failures = []
+
         # Check integer flags
-        assert_equal_int(
-            python_results.bProfile,
-            expected.bProfile,
-            f"{test_case.name}: bProfile",
-        )
-        assert_equal_int(
-            python_results.bSegments,
-            expected.bSegments,
-            f"{test_case.name}: bSegments",
-        )
-        assert_equal_int(
-            python_results.bPartialProfile,
-            expected.bPartialProfile,
-            f"{test_case.name}: bPartialProfile",
-        )
+        try:
+            assert_equal_int(
+                python_results.bProfile,
+                expected.bProfile,
+                f"{test_case.name}: bProfile",
+            )
+        except AssertionError as e:
+            failures.append(str(e))
+
+        try:
+            assert_equal_int(
+                python_results.bSegments,
+                expected.bSegments,
+                f"{test_case.name}: bSegments",
+            )
+        except AssertionError as e:
+            failures.append(str(e))
+
+        try:
+            assert_equal_int(
+                python_results.bPartialProfile,
+                expected.bPartialProfile,
+                f"{test_case.name}: bPartialProfile",
+            )
+        except AssertionError as e:
+            failures.append(str(e))
 
         # Check pixel separations
-        assert_close(
-            python_results.vPixSep1,
-            expected.vPixSep1,
-            f"{test_case.name}: vPixSep1",
-            rtol=self.PIXSEP_RTOL,
-        )
-        assert_close(
-            python_results.vPixSep2,
-            expected.vPixSep2,
-            f"{test_case.name}: vPixSep2",
-            rtol=self.PIXSEP_RTOL,
-        )
+        try:
+            assert_close(
+                python_results.vPixSep1,
+                expected.vPixSep1,
+                f"{test_case.name}: vPixSep1",
+                rtol=self.PIXSEP_RTOL,
+            )
+        except AssertionError as e:
+            failures.append(str(e))
+
+        try:
+            assert_close(
+                python_results.vPixSep2,
+                expected.vPixSep2,
+                f"{test_case.name}: vPixSep2",
+                rtol=self.PIXSEP_RTOL,
+            )
+        except AssertionError as e:
+            failures.append(str(e))
 
         # Check overlap values
-        assert_close(
-            python_results.pOverlap,
-            expected.pOverlap,
-            f"{test_case.name}: pOverlap",
-            rtol=self.OVERLAP_RTOL,
-        )
-        assert_close(
-            python_results.lOverlap,
-            expected.lOverlap,
-            f"{test_case.name}: lOverlap",
-            rtol=self.OVERLAP_RTOL,
-        )
+        try:
+            assert_close(
+                python_results.pOverlap,
+                expected.pOverlap,
+                f"{test_case.name}: pOverlap",
+                rtol=self.OVERLAP_RTOL,
+            )
+        except AssertionError as e:
+            failures.append(str(e))
+
+        try:
+            assert_close(
+                python_results.lOverlap,
+                expected.lOverlap,
+                f"{test_case.name}: lOverlap",
+                rtol=self.OVERLAP_RTOL,
+            )
+        except AssertionError as e:
+            failures.append(str(e))
 
         # Check correlation values (if present)
         if expected.xcorr is not None:
-            assert_close(
-                python_results.xcorr,
-                expected.xcorr,
-                f"{test_case.name}: xcorr",
-                rtol=self.CORRELATION_RTOL,
-            )
+            try:
+                assert_close(
+                    python_results.xcorr,
+                    expected.xcorr,
+                    f"{test_case.name}: xcorr",
+                    rtol=self.CORRELATION_RTOL,
+                )
+            except AssertionError as e:
+                failures.append(str(e))
 
         if expected.xcorr_max is not None:
-            assert_close(
-                python_results.xcorr_max,
-                expected.xcorr_max,
-                f"{test_case.name}: xcorr_max",
-                rtol=self.CORRELATION_RTOL,
-            )
+            try:
+                assert_close(
+                    python_results.xcorr_max,
+                    expected.xcorr_max,
+                    f"{test_case.name}: xcorr_max",
+                    rtol=self.CORRELATION_RTOL,
+                )
+            except AssertionError as e:
+                failures.append(str(e))
+
+        # If there were failures, print summary and fail
+        if failures:
+            # Print comparison summary
+            print_comparison_summary(test_case, python_results)
+
+            # Fail with all collected errors
+            pytest.fail("\n".join(failures))
 
     def test_partial_profile_flag(self, test_case: MatlabTestCase):
         """Test that partial profile flag is set correctly."""
@@ -525,12 +617,17 @@ class TestProfileCorrelatorSingleEdgeCases:
         expected = test_case.expected_results
 
         assert python_results.bPartialProfile == 1
-        assert_close(
-            python_results.pOverlap,
-            expected.pOverlap,
-            f"{test_case.name}: pOverlap (partial)",
-            rtol=1e-3,
-        )
+
+        try:
+            assert_close(
+                python_results.pOverlap,
+                expected.pOverlap,
+                f"{test_case.name}: pOverlap (partial)",
+                rtol=1e-3,
+            )
+        except AssertionError:
+            print_comparison_summary(test_case, python_results)
+            raise
 
 
 # ============================================================================
@@ -538,7 +635,7 @@ class TestProfileCorrelatorSingleEdgeCases:
 # ============================================================================
 
 
-def run_all_tests_standalone(test_cases_dir: Path) -> None:
+def run_all_tests_standalone(test_cases_dir: Path, save_figures: bool = True) -> None:
     """Run all tests without pytest (for debugging)."""
     cases = discover_test_cases(test_cases_dir)
     if not cases:
@@ -548,6 +645,13 @@ def run_all_tests_standalone(test_cases_dir: Path) -> None:
     print(f"Found {len(cases)} test cases")
     print()
 
+    # Create output directory for figures
+    if save_figures:
+        fig_dir = Path("profile_correlator_debug_figures")
+        fig_dir.mkdir(exist_ok=True)
+        print(f"Saving figures to: {fig_dir.absolute()}")
+        print()
+
     passed = 0
     failed = 0
     skipped = 0
@@ -555,8 +659,19 @@ def run_all_tests_standalone(test_cases_dir: Path) -> None:
     for case in cases:
         print(f"Running: {case.name}")
         try:
-            python_results = run_python_profile_correlator(case)
+            # Always generate visualization
+            if save_figures:
+                output_path = fig_dir / f"{case.name}_alignment.png"
+            else:
+                output_path = None
+
+            python_results = run_python_profile_correlator(
+                case, figure_path=output_path
+            )
             expected = case.expected_results
+
+            if save_figures:
+                print(f"    📊 Saved: {output_path}")
 
             # Check key values
             errors = []
@@ -580,6 +695,7 @@ def run_all_tests_standalone(test_cases_dir: Path) -> None:
             if errors:
                 print(f"  FAILED: {', '.join(errors)}")
                 failed += 1
+                print_comparison_summary(case, python_results)
             else:
                 print("  PASSED")
                 passed += 1
@@ -597,6 +713,9 @@ def run_all_tests_standalone(test_cases_dir: Path) -> None:
     print()
     print(f"Results: {passed} passed, {failed} failed, {skipped} skipped")
 
+    if save_figures and failed > 0:
+        print(f"\n📊 Debug figures saved in: {fig_dir.absolute()}")
+
 
 if __name__ == "__main__":
     import sys
@@ -606,4 +725,4 @@ if __name__ == "__main__":
     else:
         test_dir = Path(__file__).parent.parent / "resources" / "profile_correlator"
 
-    run_all_tests_standalone(test_dir)
+    run_all_tests_standalone(test_dir, save_figures=True)
