@@ -5,8 +5,8 @@ from functools import cached_property
 from typing import Annotated, Self
 
 import numpy as np
-from container_models.base import BinaryMask
 from container_models.light_source import LightSource
+from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
     Field,
@@ -215,7 +215,7 @@ class EditImage(BaseParameters):
         return self
 
     @cached_property
-    def mask_array(self) -> BinaryMask:
+    def mask_array(self) -> NDArray:
         """
         Convert the mask tuple to a numpy boolean array.
 
