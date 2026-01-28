@@ -1,0 +1,15 @@
+{
+  "input_xdim": 3.5e-06,
+  "input_ydim": 3.5e-06,
+  "mark_type": "Bullet LEA striation mark",
+  "angle_accuracy": 90,
+  "cutoff_hi": 250,
+  "cutoff_lo": 5,
+  "slope_correction": 0,
+  "times_median": 15,
+  "use_mean": 1,
+  "shape_noise_removal": 1,
+  "show_info": 1,
+  "has_mask": false,
+  "output_rotation_angle": 0
+}

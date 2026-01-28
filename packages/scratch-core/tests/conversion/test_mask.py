@@ -126,7 +126,7 @@ class TestDetermineBoundingBox:
             dtype=bool,
         )
 
-        x_slice, y_slice = _determine_bounding_box(mask)
+        y_slice, x_slice = _determine_bounding_box(mask)
 
         assert y_slice == slice(1, 3)
         assert x_slice == slice(1, 3)
@@ -141,7 +141,7 @@ class TestDetermineBoundingBox:
             dtype=bool,
         )
 
-        x_slice, y_slice = _determine_bounding_box(mask)
+        y_slice, x_slice = _determine_bounding_box(mask)
 
         assert y_slice == slice(1, 2)
         assert x_slice == slice(2, 4)
