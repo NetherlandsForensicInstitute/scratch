@@ -2,6 +2,13 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.signal import fftconvolve
 
+from container_models.base import (
+    FloatArray2D,
+    FloatArray1D,
+    FloatArray4D,
+    FloatArray3D,
+)
+
 # Constants based on ISO 16610 surface texture standards
 # Standard Gaussian alpha for 50% transmission
 ALPHA_GAUSSIAN = np.sqrt(np.log(2) / np.pi)
@@ -11,13 +18,13 @@ ALPHA_REGRESSION = 0.7309134280946760
 
 
 def apply_gaussian_regression_filter(
-    data: NDArray[np.floating],
+    data: FloatArray2D,
     cutoff_length: float,
     pixel_size: tuple[float, float] = (1.0, 1.0),
     regression_order: int = 0,
     nan_out: bool = True,
     is_high_pass: bool = False,
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """
     Apply a 2D Savitzky-Golay filter with Gaussian weighting via local polynomial regression (ISO 16610-21).
 
@@ -73,8 +80,8 @@ def apply_gaussian_regression_filter(
 
 
 def _create_normalized_separable_kernels(
-    alpha: float, cutoff_pixels: NDArray[np.floating]
-) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
+    alpha: float, cutoff_pixels: FloatArray1D
+) -> tuple[FloatArray1D, FloatArray1D]:
     """
     Create normalized 1D Gaussian kernels for the X and Y axes, where:
       - `kernel_x` is the 1D horizontal kernel (row vector).
@@ -97,7 +104,7 @@ def _create_normalized_separable_kernels(
     return kernel_x / np.sqrt(total_weight), kernel_y / np.sqrt(total_weight)
 
 
-def _gaussian_1d(size: int, cutoff_pixel: float, alpha: float) -> NDArray[np.floating]:
+def _gaussian_1d(size: int, cutoff_pixel: float, alpha: float) -> FloatArray1D:
     """
     Generate a 1D Gaussian curve scaled by the cutoff wavelength.
 
@@ -117,10 +124,10 @@ def _gaussian_1d(size: int, cutoff_pixel: float, alpha: float) -> NDArray[np.flo
 
 
 def _convolve_2d_separable(
-    data: NDArray[np.floating],
-    kernel_x: NDArray[np.floating],
-    kernel_y: NDArray[np.floating],
-) -> NDArray[np.floating]:
+    data: FloatArray2D,
+    kernel_x: FloatArray1D,
+    kernel_y: FloatArray1D,
+) -> FloatArray2D:
     """Perform fast 2D convolution using separable 1D kernels via FFT."""
     # Convolve columns (Y-direction)
     temp = fftconvolve(data, kernel_y[:, np.newaxis], mode="same")
@@ -129,10 +136,10 @@ def _convolve_2d_separable(
 
 
 def _apply_order0_filter(
-    data: NDArray[np.floating],
-    kernel_x: NDArray[np.floating],
-    kernel_y: NDArray[np.floating],
-) -> NDArray[np.floating]:
+    data: FloatArray2D,
+    kernel_x: FloatArray1D,
+    kernel_y: FloatArray1D,
+) -> FloatArray2D:
     """
     Perform a 2D weighted moving average (Order-0 Regression) using separable kernels.
 
@@ -157,11 +164,11 @@ def _apply_order0_filter(
 
 
 def _apply_polynomial_filter(
-    data: NDArray[np.floating],
-    kernel_x: NDArray[np.floating],
-    kernel_y: NDArray[np.floating],
+    data: FloatArray2D,
+    kernel_x: FloatArray1D,
+    kernel_y: FloatArray1D,
     order: int,
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """
     Apply Order-1 or Order-2 Local Polynomial Regression.
 
@@ -227,13 +234,13 @@ def _get_polynomial_exponents(order: int) -> list[tuple[int, int]]:
 
 
 def _build_lhs_matrix(
-    weights: NDArray[np.floating],
-    kernel_x: NDArray[np.floating],
-    kernel_y: NDArray[np.floating],
-    x_coords: NDArray[np.floating],
-    y_coords: NDArray[np.floating],
+    weights: FloatArray2D,
+    kernel_x: FloatArray1D,
+    kernel_y: FloatArray1D,
+    x_coords: FloatArray1D,
+    y_coords: FloatArray1D,
     exponents: list[tuple[int, int]],
-) -> NDArray[np.floating]:
+) -> FloatArray4D:
     """
     Construct the LHS matrix 'A' efficiently.
 
@@ -278,10 +285,10 @@ def _build_lhs_matrix(
 
 
 def _solve_pixelwise_regression(
-    lhs_matrix: NDArray[np.floating],
-    rhs_vector: NDArray[np.floating],
-    original_data: NDArray[np.floating],
-) -> NDArray[np.floating]:
+    lhs_matrix: FloatArray4D,
+    rhs_vector: FloatArray3D,
+    original_data: FloatArray2D,
+) -> FloatArray2D:
     """Solve the linear system for every valid pixel."""
     # rhs_vector shape: (n_params, H, W) -> (H, W, n_params, 1)
     rhs_prepared = np.moveaxis(rhs_vector, 0, -1)[..., np.newaxis]
@@ -309,9 +316,9 @@ def _solve_pixelwise_regression(
 
 
 def _solve_fallback_lstsq(
-    result_array: NDArray[np.floating],
-    lhs: NDArray[np.floating],
-    rhs: NDArray[np.floating],
+    result_array: FloatArray2D,
+    lhs: FloatArray4D,
+    rhs: FloatArray4D,
     indices: tuple[
         NDArray[np.intp], ...
     ],  # Use ellipsis to allow variadic tuples of index arrays

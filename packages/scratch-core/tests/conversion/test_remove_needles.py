@@ -3,7 +3,7 @@ import pytest
 from numpy.testing import assert_array_equal
 import unittest
 
-from container_models.base import MaskArray
+from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.remove_needles import (
     mask_and_remove_needles,
@@ -29,19 +29,19 @@ class TestMaskAndRemoveNeedles:
         return ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
     @pytest.fixture
-    def full_mask(self) -> MaskArray:
+    def full_mask(self) -> BinaryMask:
         """Create a full mask (all True)."""
         return np.ones((50, 50), dtype=bool)
 
     @pytest.fixture
-    def partial_mask(self) -> MaskArray:
+    def partial_mask(self) -> BinaryMask:
         """Create a partial mask."""
         mask = np.ones((50, 50), dtype=bool)
         mask[10:20, 10:20] = False
         return mask
 
     def test_basic_functionality_no_needles(
-        self, simple_scan_image: ScanImage, full_mask: MaskArray
+        self, simple_scan_image: ScanImage, full_mask: BinaryMask
     ):
         """Test that data without needles remains mostly unchanged."""
         result = mask_and_remove_needles(simple_scan_image, full_mask, median_factor=15)
@@ -52,7 +52,7 @@ class TestMaskAndRemoveNeedles:
         # Most values should be close to original (no outliers to remove)
         assert np.nanmean(np.abs(result.data - simple_scan_image.data)) < 5.0
 
-    def test_removes_needles(self, simple_scan_image: ScanImage, full_mask: MaskArray):
+    def test_removes_needles(self, simple_scan_image: ScanImage, full_mask: BinaryMask):
         """Test that obvious spike outliers are detected and set to NaN."""
         # Add some obvious spikes
         simple_scan_image.data[10, 10] = 1000.0  # Huge spike

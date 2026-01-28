@@ -6,17 +6,17 @@ from skimage.transform import resize
 
 from conversion.data_formats import Mark
 from container_models.scan_image import ScanImage
-from container_models.base import MaskArray
+from container_models.base import BinaryMask
 
 
 def resample_scan_image_and_mask(
     scan_image: ScanImage,
-    mask: Optional[MaskArray] = None,
+    mask: Optional[BinaryMask] = None,
     factors: Optional[tuple[float, float]] = None,
     target_scale: float = 4e-6,
     only_downsample: bool = True,
     preserve_aspect_ratio: bool = True,
-) -> tuple[ScanImage, Optional[MaskArray]]:
+) -> tuple[ScanImage, Optional[BinaryMask]]:
     """
     Resample the input image and optionally its corresponding mask.
 
@@ -27,8 +27,8 @@ def resample_scan_image_and_mask(
     :param mask: Corresponding mask array.
     :param factors: The multipliers for the scale of the X- and Y-axis. The formula used is `new_scale = factor * old_scale`.
     :param target_scale: Target scale (in meters) when `factors` are not provided.
-    :param only_downsample: If True, only downsample data (default). If False, allow upsampling.
     :param preserve_aspect_ratio: Whether to preserve the aspect ratio of the image.
+    :param only_downsample: If True, only downsample data (default). If False, allow upsampling.
     :returns: Resampled ScanImage and MaskArray
     """
     if not factors:

@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from container_models.base import MaskArray
+from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.filter import apply_gaussian_regression_filter
 from conversion.leveling import SurfaceTerms, level_map
@@ -11,7 +11,7 @@ from conversion.resample import resample_scan_image_and_mask
 
 def get_cropped_image(
     scan_image: ScanImage,
-    mask: MaskArray,
+    mask: BinaryMask,
     terms: SurfaceTerms,
     cutoff_length: float,
     regression_order: int = 0,

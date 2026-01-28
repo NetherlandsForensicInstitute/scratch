@@ -1,6 +1,9 @@
 from typing import Annotated
 from enum import StrEnum, auto
 import json
+from container_models.base import (
+    FloatArray2D,
+)
 
 from functools import partial
 from pydantic import (
@@ -60,7 +63,7 @@ def validate_rectangle_corners(arr: NDArray[float64]) -> NDArray[float64]:
 
 # Note: Our code expects pixel coordinates, i.e. top-left origin, in the order [x, y]
 BoundingBox = Annotated[
-    NDArray[float64],
+    FloatArray2D,
     BeforeValidator(partial(coerce_to_array, float64)),
     AfterValidator(partial(validate_rectangle_corners)),
     PlainSerializer(serialize_ndarray),

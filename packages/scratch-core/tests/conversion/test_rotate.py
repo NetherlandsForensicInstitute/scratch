@@ -2,7 +2,7 @@ import numpy as np
 
 import pytest
 
-from container_models.base import MaskArray
+from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import (
@@ -63,7 +63,7 @@ class TestCropImageAndMaskToMask:
         return ScanImage(data=np.ones((10, 10), dtype=float), scale_x=1.0, scale_y=1.0)
 
     @pytest.fixture
-    def mask(self) -> MaskArray:
+    def mask(self) -> BinaryMask:
         mask = np.zeros((10, 10), dtype=float)
         mask[2:8, 2:8] = True
         return mask
@@ -81,7 +81,7 @@ class TestCropImageAndMaskToMask:
     def test_crop_image_and_mask_to_mask(
         self,
         scan_image: ScanImage,
-        mask: MaskArray,
+        mask: BinaryMask,
         margin: int,
         output_shape: tuple[int, int],
     ):

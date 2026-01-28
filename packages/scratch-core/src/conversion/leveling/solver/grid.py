@@ -1,11 +1,12 @@
 import numpy as np
-from numpy.typing import NDArray
+
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 
 
 def get_2d_grid(
     scan_image: ScanImage, offset: tuple[float, float] = (0, 0)
-) -> tuple[NDArray, NDArray]:
+) -> tuple[FloatArray2D, FloatArray2D]:
     """
     Return a 2D grid containing the physical coordinates of the scan data.
 

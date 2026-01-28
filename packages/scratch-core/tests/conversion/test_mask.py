@@ -11,7 +11,7 @@ from conversion.mask import (
     mask_and_crop_scan_image,
 )
 from container_models.scan_image import ScanImage
-from container_models.base import MaskArray
+from container_models.base import BinaryMask
 
 
 class TestMask2dArray:
@@ -116,13 +116,13 @@ class TestCropToMask:
 
 class TestDetermineBoundingBox:
     @pytest.fixture
-    def mask(self) -> MaskArray:
+    def mask(self) -> BinaryMask:
         mask = np.zeros((10, 10), dtype=float)
         mask[2:8, 2:8] = True
         return mask
 
     @pytest.fixture
-    def asymmetric_mask(self) -> MaskArray:
+    def asymmetric_mask(self) -> BinaryMask:
         mask = np.zeros((10, 20), dtype=float)
         mask[2:8, 3:15] = True
         return mask
@@ -138,7 +138,7 @@ class TestDetermineBoundingBox:
         ],
     )
     def test_bounding_box_slices_with_margin(
-        self, mask: MaskArray, margin: int, output_slice: slice
+        self, mask: BinaryMask, margin: int, output_slice: slice
     ):
         """Test bounding boxes with different margins."""
         x_slice, y_slice = get_bounding_box(mask, margin)
@@ -164,7 +164,7 @@ class TestDetermineBoundingBox:
     )
     def test_asymmetric_bounding_box_slices_with_margin(
         self,
-        asymmetric_mask: MaskArray,
+        asymmetric_mask: BinaryMask,
         margin: int,
         output_slice_y: slice,
         output_slice_x: slice,
@@ -191,7 +191,7 @@ class TestDetermineBoundingBox:
         assert y_slice == slice(1, 3)
         assert x_slice == slice(1, 3)
 
-    def test_asymmetric_mask_slices_only_foreground(self, asymmetric_mask: MaskArray):
+    def test_asymmetric_mask_slices_only_foreground(self, asymmetric_mask: BinaryMask):
         x_slice, y_slice = get_bounding_box(asymmetric_mask)
 
         assert y_slice == slice(2, 8)
@@ -207,7 +207,7 @@ class TestDetermineBoundingBox:
 class TestCropScanImage:
     @pytest.mark.integration
     def test_mask_scan_image(
-        self, scan_image_replica: ScanImage, mask_array: MaskArray
+        self, scan_image_replica: ScanImage, mask_array: BinaryMask
     ):
         masked_scan_image = mask_and_crop_scan_image(
             scan_image=scan_image_replica, mask=mask_array, crop=False
@@ -217,7 +217,7 @@ class TestCropScanImage:
 
     @pytest.mark.integration
     def test_crop_scan_image(
-        self, scan_image_replica: ScanImage, mask_array: MaskArray
+        self, scan_image_replica: ScanImage, mask_array: BinaryMask
     ):
         cropped_scan_image = mask_and_crop_scan_image(
             scan_image=scan_image_replica, mask=mask_array, crop=True
@@ -228,7 +228,7 @@ class TestCropScanImage:
 
 @pytest.mark.integration
 def test_get_image_for_display_matches_baseline_image(
-    scan_image_with_nans: ScanImage, mask_array: MaskArray, baseline_images_dir: Path
+    scan_image_with_nans: ScanImage, mask_array: BinaryMask, baseline_images_dir: Path
 ):
     verified = np.load(baseline_images_dir / "masked_cropped_array.npy")
     masked_cropped_array = mask_and_crop_2d_array(
