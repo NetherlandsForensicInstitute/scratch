@@ -43,7 +43,7 @@ def crop_to_mask(
 def get_bounding_box(mask: MaskArray, margin: int = 0) -> tuple[slice, slice]:
     """
     Determines the bounding box of non-zero values in a mask. If a margin is given, the bounding box will be expanded
-    (in case of a negative margin) or cropped (in case of a positive margin) by 2 * margin pixels.
+    (in case of a negative margin) or cropped (in case of a positive margin) by `margin` pixels per side.
 
     :param mask: Binary mask array
     :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box
