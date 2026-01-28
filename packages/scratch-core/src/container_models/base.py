@@ -5,6 +5,7 @@ from typing import Annotated, NamedTuple, TypeAlias
 from numpy import array, bool_, float64, number, uint8
 from numpy.typing import DTypeLike, NDArray
 from pydantic import BaseModel, BeforeValidator, ConfigDict, PlainSerializer
+from typing import NamedTuple
 
 
 def serialize_ndarray[T: number](array_: NDArray[T]) -> list[T]:
@@ -63,3 +64,8 @@ class PointCloud[T: NDArray](NamedTuple):
     xs: T
     ys: T
     zs: T
+
+
+class Point[T](NamedTuple):
+    x: T
+    y: T

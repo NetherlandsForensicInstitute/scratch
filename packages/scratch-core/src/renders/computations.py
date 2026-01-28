@@ -1,8 +1,17 @@
 from itertools import product
-
 from numpy.typing import NDArray
 
+from container_models.base import Point
 import numpy as np
+
+
+def clip_factors(factors: Point[float], preserve_aspect_ratio: bool) -> Point[float]:
+    """Clip the scaling factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
+    if preserve_aspect_ratio:
+        max_factor = max(factors.x, factors.y)
+        factors = Point(max_factor, max_factor)
+
+    return Point(max(factors.x, 1.0), max(factors.y, 1.0))
 
 
 def generate_polynomial_exponents(order: int) -> list[tuple[int, int]]:
