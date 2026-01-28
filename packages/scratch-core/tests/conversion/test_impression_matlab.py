@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType, CropType
+from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_impression.impression import preprocess_impression_mark
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from .helper_functions import (
@@ -154,9 +154,7 @@ def run_python_preprocessing(
         if test_case.use_circle_center
         else MarkType.FIRING_PIN_IMPRESSION
     )
-    mark = Mark(
-        scan_image=scan_image, mark_type=mark_type, crop_type=CropType.RECTANGLE
-    )
+    mark = Mark(scan_image=scan_image, mark_type=mark_type)
 
     processed, leveled = preprocess_impression_mark(mark, test_case.params)
 

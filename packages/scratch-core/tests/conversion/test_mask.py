@@ -6,7 +6,7 @@ from numpy.testing import assert_array_almost_equal
 from conversion.mask import (
     mask_2d_array,
     crop_to_mask,
-    _determine_bounding_box,
+    get_bounding_box,
     mask_and_crop_2d_array,
     mask_and_crop_scan_image,
 )
@@ -115,6 +115,66 @@ class TestCropToMask:
 
 
 class TestDetermineBoundingBox:
+    @pytest.fixture
+    def mask(self) -> MaskArray:
+        mask = np.zeros((10, 10), dtype=float)
+        mask[2:8, 2:8] = True
+        return mask
+
+    @pytest.fixture
+    def asymmetric_mask(self) -> MaskArray:
+        mask = np.zeros((10, 20), dtype=float)
+        mask[2:8, 3:15] = True
+        return mask
+
+    @pytest.mark.parametrize(
+        "margin, output_slice",
+        [
+            pytest.param(0, slice(2, 8), id="Normal bounding box, no margin"),
+            pytest.param(0, slice(2, 8), id="Normal bounding box, no marginx"),
+            pytest.param(1, slice(3, 7), id="Decrease bounding box"),
+            pytest.param(-1, slice(1, 9), id="Increase bounding box"),
+            pytest.param(-5, slice(0, 10), id="Margin bounding box out of bounds"),
+        ],
+    )
+    def test_bounding_box_slices_with_margin(
+        self, mask: MaskArray, margin: int, output_slice: slice
+    ):
+        """Test bounding boxes with different margins."""
+        x_slice, y_slice = get_bounding_box(mask, margin)
+
+        assert y_slice == output_slice
+        assert x_slice == output_slice
+
+    @pytest.mark.parametrize(
+        "margin, output_slice_y, output_slice_x",
+        [
+            pytest.param(
+                0, slice(2, 8), slice(3, 15), id="Normal bounding box, no margin"
+            ),
+            pytest.param(
+                0, slice(2, 8), slice(3, 15), id="Normal bounding box, no margin"
+            ),
+            pytest.param(1, slice(3, 7), slice(4, 14), id="Decrease bounding box"),
+            pytest.param(-1, slice(1, 9), slice(2, 16), id="Increase bounding box"),
+            pytest.param(
+                -20, slice(0, 10), slice(0, 20), id="Margin bounding box out of bounds"
+            ),
+        ],
+    )
+    def test_asymmetric_bounding_box_slices_with_margin(
+        self,
+        asymmetric_mask: MaskArray,
+        margin: int,
+        output_slice_y: slice,
+        output_slice_x: slice,
+    ):
+        """Test bounding boxes with different margins."""
+        x_slice, y_slice = get_bounding_box(asymmetric_mask, margin)
+
+        assert y_slice == output_slice_y
+        assert x_slice == output_slice_x
+
     def test_bounding_box_slices_only_foreground(self):
         mask = np.array(
             [
@@ -126,31 +186,22 @@ class TestDetermineBoundingBox:
             dtype=bool,
         )
 
-        x_slice, y_slice = _determine_bounding_box(mask)
+        x_slice, y_slice = get_bounding_box(mask)
 
         assert y_slice == slice(1, 3)
         assert x_slice == slice(1, 3)
 
-    def test_asymmetric_mask_slices_only_foreground(self):
-        mask = np.array(
-            [
-                [0, 0, 0, 0, 0],
-                [0, 0, 1, 1, 0],
-                [0, 0, 0, 0, 0],
-            ],
-            dtype=bool,
-        )
+    def test_asymmetric_mask_slices_only_foreground(self, asymmetric_mask: MaskArray):
+        x_slice, y_slice = get_bounding_box(asymmetric_mask)
 
-        x_slice, y_slice = _determine_bounding_box(mask)
-
-        assert y_slice == slice(1, 2)
-        assert x_slice == slice(2, 4)
+        assert y_slice == slice(2, 8)
+        assert x_slice == slice(3, 15)
 
     def test_raises_on_empty_mask(self):
         mask = np.zeros((3, 3), dtype=bool)
 
         with pytest.raises(ValueError, match="Mask is empty"):
-            _determine_bounding_box(mask)
+            get_bounding_box(mask)
 
 
 class TestCropScanImage:
