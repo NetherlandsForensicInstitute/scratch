@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from functools import partial
-from typing import Annotated, TypeAlias
+from typing import Annotated, NamedTuple, TypeAlias
 
 from numpy import array, bool_, float64, number, uint8
 from numpy.typing import DTypeLike, NDArray
@@ -59,7 +59,7 @@ class ConfigBaseModel(BaseModel):
     )
 
 
-class PointCloud(BaseModel, arbitrary_types_allowed=True):
-    xs: NDArray
-    ys: NDArray
-    zs: NDArray
+class PointCloud[T: NDArray](NamedTuple):
+    xs: T
+    ys: T
+    zs: T
