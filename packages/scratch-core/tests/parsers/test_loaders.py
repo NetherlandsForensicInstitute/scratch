@@ -189,9 +189,15 @@ class TestSubSampleScanImage:
 
         result = unwrap_result(make_isotropic(scan_image))
 
-        assert np.isclose(result.scale_x, scale)
-        assert np.isclose(result.scale_y, scale)
-        assert result.data.shape == (height, width)
+        assert np.isclose(result.scale_x, scale), (
+            f"Scale should not have changed, but now is {result.scale_x}"
+        )
+        assert np.isclose(result.scale_y, scale), (
+            f"Scale should not have changed, but now is {result.scale_y}"
+        )
+        assert result.data.shape == (height, width), (
+            f"Shape should not have changed, but now is {result.data.shape}"
+        )
         np.testing.assert_array_equal(result.data, scan_image.data)
 
     def test_make_isotropic_upsampling_logic(self):
@@ -229,8 +235,12 @@ class TestSubSampleScanImage:
         result = unwrap_result(make_isotropic(scan_image))
 
         assert result.meta_data == scan_image.meta_data
-        assert np.min(result.data) == 0
-        assert np.max(result.data) == 3000
+        assert np.min(result.data) == 0, (
+            f"Pixel intensity range should be preserved, but lowest value now is {np.min(result.data)}"
+        )
+        assert np.max(result.data) == 3000, (
+            f"Pixel intensity range should be preserved, but highest value now is {np.max(result.data)}"
+        )
         assert result.data.dtype == scan_image.data.dtype
 
     @pytest.mark.parametrize("scaling_factor", [4, 7.6, 8.1, 10.11])
@@ -245,14 +255,21 @@ class TestSubSampleScanImage:
             scale_x=scale_fine,
             scale_y=scale_coarse,
         )
+        expected_shape = (
+            int(round(scan_image.height * scaling_factor)),
+            int(round(scan_image.width)),
+        )
 
         result = unwrap_result(make_isotropic(scan_image))
 
-        assert np.isclose(result.scale_x, scale_fine)
-        assert np.isclose(result.scale_y, scale_fine)
-        assert result.data.shape == (
-            int(round(scan_image.height * scaling_factor)),
-            int(round(scan_image.width)),
+        assert np.isclose(result.scale_x, scale_fine), (
+            f"Scale should be {scale_fine}, but got {result.scale_x}"
+        )
+        assert np.isclose(result.scale_y, scale_fine), (
+            f"Scale should be {scale_fine}, but got {result.scale_y}"
+        )
+        assert result.data.shape == expected_shape, (
+            f"Shape should be {expected_shape}, but got {result.data.shape}"
         )
         assert result.valid_mask.sum() / scan_image.valid_mask.sum() == pytest.approx(
             scaling_factor, abs=1e-3
