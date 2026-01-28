@@ -51,12 +51,12 @@ def mark_compared_aligned() -> Mark:
 
 
 @pytest.fixture
-def profile_mark_reference() -> Mark:
+def mark_profile_reference() -> Mark:
     return create_synthetic_profile_mark(length=200, seed=46)
 
 
 @pytest.fixture
-def profile_mark_compared() -> Mark:
+def mark_profile_compared() -> Mark:
     return create_synthetic_profile_mark(length=200, seed=47)
 
 

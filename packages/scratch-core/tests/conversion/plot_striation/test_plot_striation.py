@@ -54,8 +54,8 @@ def test_plot_comparison_overview_metadata_variants(
     mark_compared,
     mark_reference_aligned,
     mark_compared_aligned,
-    profile_mark_reference,
-    profile_mark_compared,
+    mark_profile_reference,
+    mark_profile_compared,
     metrics,
     metadata_reference,
     metadata_compared,
@@ -66,8 +66,8 @@ def test_plot_comparison_overview_metadata_variants(
         mark_compared=mark_compared,
         mark_reference_aligned=mark_reference_aligned,
         mark_compared_aligned=mark_compared_aligned,
-        profile_reference=profile_mark_reference,
-        profile_compared=profile_mark_compared,
+        mark_profile_reference=mark_profile_reference,
+        mark_profile_compared=mark_profile_compared,
         metrics=metrics,
         metadata_reference=metadata_reference,
         metadata_compared=metadata_compared,
@@ -208,8 +208,8 @@ class TestGetWavelengthCorrelationPlot:
         fig, ax = plt.subplots()
         get_wavelength_correlation_plot(ax, quality_passbands)
         ymin, ymax = ax.get_ylim()
-        assert ymin == -5
-        assert ymax == 105
+        assert ymin == -0.05
+        assert ymax == 1.05
         plt.close(fig)
 
     def test_x_ticks_match_passbands(self, quality_passbands):
@@ -275,8 +275,8 @@ class TestStriationComparisonPlotsIntegration:
         mark_compared,
         mark_reference_aligned,
         mark_compared_aligned,
-        profile_mark_reference,
-        profile_mark_compared,
+        mark_profile_reference,
+        mark_profile_compared,
         metrics,
         metadata_reference,
         metadata_compared,
@@ -286,8 +286,8 @@ class TestStriationComparisonPlotsIntegration:
             mark_compared=mark_compared,
             mark_reference_aligned=mark_reference_aligned,
             mark_compared_aligned=mark_compared_aligned,
-            profile_reference_aligned=profile_mark_reference,
-            profile_compared_aligned=profile_mark_compared,
+            mark_profile_reference_aligned=mark_profile_reference,
+            mark_profile_compared_aligned=mark_profile_compared,
             metrics=metrics,
             metadata_reference=metadata_reference,
             metadata_compared=metadata_compared,

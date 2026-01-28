@@ -53,7 +53,7 @@ def create_synthetic_mark(
             scale_x=scale,
             scale_y=scale,
         ),
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        mark_type=MarkType.CHAMBER_STRIATION,
         crop_type=CropType.RECTANGLE,
         meta_data={"highpass_cutoff": 5, "lowpass_cutoff": 25},
     )
@@ -71,7 +71,7 @@ def create_synthetic_profile_mark(
             scale_x=scale,
             scale_y=scale,
         ),
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        mark_type=MarkType.CHAMBER_STRIATION,
         crop_type=CropType.RECTANGLE,
     )
 
