@@ -12,7 +12,7 @@ from utils.logger import log_railway_function
 
 def grayscale_to_rgba(data: FloatArray2D) -> ImageRGBA:
     """
-    Convert a 2D grayscale array to an 8-bit RGBA array.
+    Convert 2D grayscale data to an 8-bit RGBA array.
 
     The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
     NaN values will be converted to black pixels with 100% transparency.
@@ -26,13 +26,13 @@ def grayscale_to_rgba(data: FloatArray2D) -> ImageRGBA:
     return rgba
 
 
-def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArray:
-    """Perform min-max normalization on the input array and scale to the [0, 255] interval."""
+def _normalize(data: FloatArray, lower: float, upper: float) -> FloatArray:
+    """Perform min-max normalization on the data and scale to the [0, 255] interval."""
     if lower >= upper:
         raise ValueError(
             f"The lower bound ({lower}) should be smaller than the upper bound ({upper})."
         )
-    return (input_array - lower) / (upper - lower) * 255.0
+    return (data - lower) / (upper - lower) * 255.0
 
 
 def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, float]:
