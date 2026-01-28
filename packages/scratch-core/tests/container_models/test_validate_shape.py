@@ -8,7 +8,6 @@ from container_models.base import (
     FloatArray1D,
     FloatArray2D,
     FloatArray4D,
-    Int64Array2D,
     BoolArray2D,
     ConfigBaseModel,
 )
@@ -133,14 +132,6 @@ class TestPydanticShapeValidation:
             ValidationError, match="expected 2 dimension\(s\), but got 1"
         ):
             Model(data=arr)
-
-    def test_int64_array_2d_valid(self):
-        class Model(ConfigBaseModel):
-            data: Int64Array2D
-
-        arr = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64)
-        model = Model(data=arr)
-        assert np.array_equal(model.data, arr)
 
     def test_float_array_4d_valid(self):
         class Model(ConfigBaseModel):
