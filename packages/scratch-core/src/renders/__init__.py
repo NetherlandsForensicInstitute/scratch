@@ -16,7 +16,13 @@ Notes
 
 from .shading import apply_multiple_lights
 from .normalizations import compute_surface_normals, normalize_2d_array
-from .image_io import save_image, scan_to_image, get_scan_image_for_display
+from .image_io import (
+    save_image,
+    scan_to_image,
+    grayscale_to_image,
+    grayscale_to_rgba,
+    get_scan_image_for_display,
+)
 
 
 __all__ = (
@@ -25,5 +31,7 @@ __all__ = (
     "get_scan_image_for_display",
     "normalize_2d_array",
     "save_image",
+    "grayscale_to_rgba",
+    "grayscale_to_image",
     "scan_to_image",
 )

@@ -3,11 +3,11 @@ import numpy as np
 import pytest
 from returns.pipeline import is_successful
 
+from container_models.base import VectorField
 from container_models.light_source import LightSource
-from container_models.scan_image import ScanImage
 from renders.shading import apply_multiple_lights
 
-no_scale_apply_multiple_lights = partial(apply_multiple_lights, scale_x=1, scale_y=1)
+no_scale_apply_multiple_lights = partial(apply_multiple_lights)
 
 
 @pytest.fixture(scope="module")
@@ -21,27 +21,25 @@ def multiple_lights(light_source) -> tuple[LightSource, LightSource, LightSource
 
 
 def test_empty_light_list_returns_failure(
-    flat_normals_scan_image: ScanImage,
+    flat_normals: VectorField,
     observer: LightSource,
 ) -> None:
     """Test that an empty light list returns a Failure result."""
     # Act
-    result = no_scale_apply_multiple_lights(flat_normals_scan_image, [], observer)
+    result = no_scale_apply_multiple_lights(flat_normals, [], observer)
 
     # Assert
     assert not is_successful(result)
 
 
 def test_constant_normals_give_constant_output(
-    flat_normals_scan_image: ScanImage,
+    flat_normals: VectorField,
     multiple_lights: tuple[LightSource, ...],
     observer: LightSource,
 ) -> None:
     """Test that constant normals produce constant output across the image."""
     # Act
-    result = no_scale_apply_multiple_lights(
-        flat_normals_scan_image, multiple_lights, observer
-    )
+    result = no_scale_apply_multiple_lights(flat_normals, multiple_lights, observer)
 
     # Assert
     scan_image = result.unwrap()
@@ -50,7 +48,7 @@ def test_constant_normals_give_constant_output(
 
 
 def test_more_lights_increase_brightness(
-    flat_normals_scan_image: ScanImage,
+    flat_normals: VectorField,
     observer: LightSource,
     light_source: LightSource,
     multiple_lights: tuple[LightSource, ...],
@@ -58,21 +56,17 @@ def test_more_lights_increase_brightness(
     """Test that adding more lights increases total brightness."""
 
     # Act
-    result_one = no_scale_apply_multiple_lights(
-        flat_normals_scan_image, (light_source,), observer
-    )
-    result_two = no_scale_apply_multiple_lights(
-        flat_normals_scan_image, multiple_lights, observer
-    )
+    result_one = no_scale_apply_multiple_lights(flat_normals, (light_source,), observer)
+    result_two = no_scale_apply_multiple_lights(flat_normals, multiple_lights, observer)
 
     # Assert
-    brightness_one = np.mean(result_one.unwrap().data)
-    brightness_two = np.mean(result_two.unwrap().data)
+    brightness_one = np.mean(result_one.unwrap())
+    brightness_two = np.mean(result_two.unwrap())
     assert brightness_two > brightness_one
 
 
 def test_light_from_opposing_sides(
-    flat_normals_scan_image: ScanImage,
+    flat_normals: VectorField,
     observer: LightSource,
 ) -> None:
     """Test that lights from opposite horizontal directions produce symmetric results."""
@@ -83,34 +77,32 @@ def test_light_from_opposing_sides(
     ]
 
     # Act
-    result = no_scale_apply_multiple_lights(
-        flat_normals_scan_image, lights_opposite, observer
-    )
+    result = no_scale_apply_multiple_lights(flat_normals, lights_opposite, observer)
 
     # Assert
-    scan_image = result.unwrap()
+    light_intensities = result.unwrap()
     # For flat surface normals pointing up, opposite lights should contribute equally
-    assert np.all(scan_image.data >= 0)
+    assert np.all(light_intensities >= 0)
 
 
 def test_spatial_variation_with_bumpy_surface(
     observer: LightSource,
     light_source: LightSource,
-    flat_normals_scan_image: ScanImage,
+    flat_normals: VectorField,
 ) -> None:
     """Test that surface variation creates intensity variation."""
     # Arrange - Create a surface with a bump in the center
-    normals = flat_normals_scan_image.model_copy(deep=True)
-    center = normals.data.shape[0] // 2
-    normals.data[center, center, 0] = 0.5  # x-normal
-    normals.data[center, center, 2] = 0.866  # z-normal (to keep it normalized)
+    normals = flat_normals.copy()
+    center = normals.shape[0] // 2
+    normals[center, center, 0] = 0.5  # x-normal
+    normals[center, center, 2] = 0.866  # z-normal (to keep it normalized)
 
     # Act
     result = no_scale_apply_multiple_lights(normals, (light_source,), observer)
 
     # Assert
-    scan_image = result.unwrap()
-    center_value = scan_image.data[center, center]
-    corner_value = scan_image.data[0, 0]
+    light_intensities = result.unwrap()
+    center_value = light_intensities[center, center]
+    corner_value = light_intensities[0, 0]
     # Center and corner should have different intensities
     assert not np.isclose(center_value, corner_value)

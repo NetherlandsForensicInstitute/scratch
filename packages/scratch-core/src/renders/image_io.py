@@ -6,27 +6,27 @@ from returns.io import impure_safe
 from returns.result import safe
 
 from container_models.scan_image import ScanImage
-from container_models.base import ImageRGBA, FloatArray2D
+from container_models.base import ImageRGBA, FloatArray2D, FloatArray
 from utils.logger import log_railway_function
 
 
-def _grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
+def grayscale_to_rgba(data: FloatArray2D) -> ImageRGBA:
     """
     Convert a 2D grayscale array to an 8-bit RGBA array.
 
     The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
     NaN values will be converted to black pixels with 100% transparency.
 
-    :param scan_data: The grayscale image data to be converted to an 8-bit RGBA image.
+    :param data: The grayscale data to be converted to an 8-bit RGBA image.
     :returns: Array with the image data in 8-bit RGBA format.
     """
-    gray_uint8 = np.nan_to_num(scan_data, nan=0.0).astype(np.uint8)
+    gray_uint8 = np.nan_to_num(data, nan=0.0).astype(np.uint8)
     rgba = np.repeat(gray_uint8[..., np.newaxis], 4, axis=-1)
-    rgba[..., 3] = (~np.isnan(scan_data)).astype(np.uint8) * 255
+    rgba[..., 3] = (~np.isnan(data)).astype(np.uint8) * 255
     return rgba
 
 
-def _normalize(input_array: FloatArray2D, lower: float, upper: float) -> FloatArray2D:
+def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArray:
     """Perform min-max normalization on the input array and scale to the [0, 255] interval."""
     if lower >= upper:
         raise ValueError(
@@ -35,9 +35,7 @@ def _normalize(input_array: FloatArray2D, lower: float, upper: float) -> FloatAr
     return (input_array - lower) / (upper - lower) * 255.0
 
 
-def _clip_data(
-    data: FloatArray2D, std_scaler: float
-) -> tuple[FloatArray2D, float, float]:
+def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, float]:
     """
     Clip the data so that the values lie in the interval [μ - σ * S, μ + σ * S].
 
@@ -81,7 +79,13 @@ def get_scan_image_for_display(
 @log_railway_function("Failed to convert scan to image")
 @safe
 def scan_to_image(scan_image: ScanImage) -> Image:
-    return fromarray(_grayscale_to_rgba(scan_data=scan_image.data))
+    return fromarray(grayscale_to_rgba(data=scan_image.data))
+
+
+@log_railway_function("Failed to convert grayscale data to image")
+@safe
+def grayscale_to_image(grayscale: FloatArray2D) -> Image:
+    return fromarray(grayscale_to_rgba(data=grayscale))
 
 
 @log_railway_function("Failed to save image")

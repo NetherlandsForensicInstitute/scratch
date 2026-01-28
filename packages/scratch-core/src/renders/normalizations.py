@@ -1,9 +1,9 @@
 import numpy as np
 from typing import Final
 
-from returns.pipeline import flow
 from returns.result import safe
-from container_models.base import FloatArray2D
+
+from container_models.base import FloatArray2D, VectorField
 from container_models.scan_image import ScanImage
 from utils.logger import log_railway_function
 
@@ -19,21 +19,6 @@ _PAD_Y_GRADIENT: Final[tuple[tuple[int, int], ...]] = (
 )  # Pad top and bottom (rows)
 
 
-def _compute_central_diff_scales(scan_image: ScanImage) -> ScanImage:
-    """Compute scaling factors for central difference approximation: 1/(2*spacing)."""
-
-    def compute(value: float) -> float:
-        return 1 / (2 * value)
-
-    return scan_image.model_copy(
-        update={
-            "scale_x": compute(scan_image.scale_x),
-            "scale_y": compute(scan_image.scale_y),
-        },
-        deep=True,
-    )
-
-
 def _pad_gradient(
     unpadded_gradient: FloatArray2D, pad_width: tuple[tuple[int, int], tuple[int, int]]
 ) -> FloatArray2D:
@@ -41,58 +26,47 @@ def _pad_gradient(
     return np.pad(unpadded_gradient, pad_width, mode="constant", constant_values=np.nan)
 
 
-def _compute_depth_gradients(scan_image: ScanImage) -> ScanImage:
+def _compute_depth_gradients(
+    scan_image: ScanImage,
+) -> tuple[FloatArray2D, FloatArray2D]:
     """Compute depth gradients (∂z/∂x, ∂z/∂y) using central differences."""
+
+    def _compute(value: float) -> float:
+        """Compute scaling factors for central difference approximation: 1/(2*spacing)."""
+        return 1 / (2 * value)
+
     gradient_x = _pad_gradient(
-        (scan_image.data[:, :-2] - scan_image.data[:, 2:]) * scan_image.scale_x,
+        (scan_image.data[:, :-2] - scan_image.data[:, 2:])
+        * _compute(scan_image.scale_x),
         _PAD_X_GRADIENT,
     )
     gradient_y = _pad_gradient(
-        (scan_image.data[:-2, :] - scan_image.data[2:, :]) * scan_image.scale_y,
+        (scan_image.data[:-2, :] - scan_image.data[2:, :])
+        * _compute(scan_image.scale_y),
         _PAD_Y_GRADIENT,
     )
-    return scan_image.model_copy(
-        update={
-            "meta_data": {
-                **(scan_image.meta_data or {}),
-                "gradient_x": gradient_x,
-                "gradient_y": gradient_y,
-            }
-        }
-    )
+    return gradient_x, gradient_y
 
 
-def _add_normal_magnitude(scan_image: ScanImage) -> ScanImage:
-    """Compute and attach the normal vector magnitude to gradient components."""
-    meta = scan_image.meta_data
-    magnitude = np.sqrt(meta["gradient_x"] ** 2 + meta["gradient_y"] ** 2 + 1)
-    return scan_image.model_copy(
-        update={
-            "meta_data": {
-                **meta,
-                "magnitude": magnitude,
-            }
-        }
-    )
+def _compute_magnitude(
+    gradient_x: FloatArray2D, gradient_y: FloatArray2D
+) -> FloatArray2D:
+    """Compute the vector magnitude for gradient components."""
+    magnitude = np.sqrt(gradient_x**2 + gradient_y**2 + 1)
+    return magnitude
 
 
-def _normalize_to_surface_normals(scan_image: ScanImage) -> ScanImage:
+def _normalize_to_surface_normals(
+    gradient_x: FloatArray2D, gradient_y: FloatArray2D, magnitude: FloatArray2D
+) -> VectorField:
     """Normalize gradient components to unit surface normal vectors."""
-    meta = scan_image.meta_data or {}
-    gradient_x = meta.pop("gradient_x")
-    gradient_y = meta.pop("gradient_y")
-    magnitude = meta.pop("magnitude")
-    return scan_image.model_copy(
-        update=dict(
-            data=np.stack(
-                [
-                    gradient_x / magnitude,
-                    -gradient_y / magnitude,
-                    1 / magnitude,
-                ],
-                axis=-1,
-            )
-        )
+    return np.stack(
+        [
+            gradient_x / magnitude,
+            -gradient_y / magnitude,
+            1 / magnitude,
+        ],
+        axis=-1,
     )
 
 
@@ -101,7 +75,7 @@ def _normalize_to_surface_normals(scan_image: ScanImage) -> ScanImage:
     success_message="Successfully computed surface normal components",
 )
 @safe
-def compute_surface_normals(scan_image: ScanImage) -> ScanImage:
+def compute_surface_normals(scan_image: ScanImage) -> VectorField:
     """
     Compute per-pixel surface normals from a 2D depth map.
 
@@ -115,13 +89,10 @@ def compute_surface_normals(scan_image: ScanImage) -> ScanImage:
               last dimension corresponds to (nx, ny, nz).
     """
 
-    return flow(
-        scan_image,
-        _compute_central_diff_scales,
-        _compute_depth_gradients,
-        _add_normal_magnitude,
-        _normalize_to_surface_normals,
-    )
+    gradient_x, gradient_y = _compute_depth_gradients(scan_image)
+    magnitude = _compute_magnitude(gradient_x, gradient_y)
+    surface_normals = _normalize_to_surface_normals(gradient_x, gradient_y, magnitude)
+    return surface_normals
 
 
 @log_railway_function(
@@ -129,10 +100,10 @@ def compute_surface_normals(scan_image: ScanImage) -> ScanImage:
 )
 @safe
 def normalize_2d_array(
-    image_to_normalize: ScanImage,
+    array_to_normalize: FloatArray2D,
     scale_max: float = 255,
     scale_min: float = 25,
-) -> ScanImage:
+) -> FloatArray2D:
     """
     Normalize a 2D intensity map to a specified output range.
 
@@ -140,15 +111,13 @@ def normalize_2d_array(
     1. apply min-max normalization to grayscale data
     2. stretch / scale the normalized data from the unit range to a specified output range
 
-    :param image_to_normalize: 2D array of input intensity values.
+    :param array_to_normalize: 2D array of input intensity values.
     :param scale_max: Maximum output intensity value. Default is ``255``.
     :param scale_min: Minimum output intensity value. Default is ``25``.
 
     :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
     """
-    imin = np.nanmin(image_to_normalize.data)
-    imax = np.nanmax(image_to_normalize.data)
-    norm = (image_to_normalize.data - imin) / (imax - imin)
-    return image_to_normalize.model_copy(
-        update={"data": scale_min + (scale_max - scale_min) * norm}
-    )
+    imin = np.nanmin(array_to_normalize.data)
+    imax = np.nanmax(array_to_normalize.data)
+    norm = (array_to_normalize.data - imin) / (imax - imin)
+    return scale_min + (scale_max - scale_min) * norm
