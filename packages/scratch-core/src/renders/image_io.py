@@ -35,9 +35,7 @@ def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArra
     return (input_array - lower) / (upper - lower) * 255.0
 
 
-def _clip_data(
-    data: FloatArray, std_scaler: float
-) -> tuple[FloatArray, float, float]:
+def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, float]:
     """
     Clip the data so that the values lie in the interval [μ - σ * S, μ + σ * S].
 
