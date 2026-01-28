@@ -296,15 +296,20 @@ def test_fine_align_bullet_marks():
     striations = np.sin(2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 8)
 
     scan_image = ScanImage(data=striations, scale_x=1e-6, scale_y=1e-6)
-    aligned_scan, _, detected_angle = fine_align_bullet_marks(
+    mark = Mark(
         scan_image=scan_image,
+        mark_type=MarkType.BULLET_GEA_STRIATION,
+        crop_type=CropType.RECTANGLE,
+    )
+    aligned_mark, detected_angle = fine_align_bullet_marks(
+        mark=mark,
         angle_accuracy=0.5,
         cut_y_after_shift=False,
         max_iter=10,
     )
 
-    assert aligned_scan.data.shape[0] > 0
-    assert aligned_scan.data.shape[1] > 0
+    assert aligned_mark.scan_image.data.shape[0] > 0
+    assert aligned_mark.scan_image.data.shape[1] > 0
     assert abs(detected_angle) < 45
 
 

@@ -10,12 +10,11 @@ from numpy.typing import NDArray
 
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType
+from conversion.data_formats import Mark
 from conversion.filter import (
     gaussian_sigma_to_cutoff,
     apply_gaussian_regression_filter,
 )
-from conversion.mask import crop_to_mask
 from conversion.resample import resample_scan_image_and_mask
 from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
 
@@ -24,33 +23,31 @@ _MAX_GRADIENT_ANGLE_DEG = 10.0
 
 
 def fine_align_bullet_marks(
-    scan_image: ScanImage,
-    mark_type: MarkType | None = None,
-    mask: MaskArray | None = None,
+    mark: Mark,
     angle_accuracy: float = 0.1,
     cut_y_after_shift: bool = True,
     max_iter: int = 25,
     subsampling_factor: int = 1,
-) -> tuple[ScanImage, MaskArray | None, float]:
+) -> tuple[Mark, float]:
     """
     Fine alignment of striated marks by iteratively detecting striation direction.
 
     Iteratively determines the direction of striation marks, and shear transforms the
     depth data so that striations are horizontal.
 
-    :param scan_image: ScanImage containing depth data and pixel spacing.
-    :param mark_type: Mark type enum value (optional, for resampling).
-    :param mask: Optional boolean mask (True = valid).
+    :param mark: Mark containing scan_image and mark_type.
     :param angle_accuracy: Target angle accuracy in degrees (default 0.1).
     :param cut_y_after_shift: If True, crop borders after shifting.
     :param max_iter: Maximum number of iterations.
     :param subsampling_factor: Additional subsampling factor for gradient detection.
-    :returns: Tuple of (aligned_scan_image, aligned_mask, total_angle_degrees).
+    :returns: Tuple of (aligned_mark, total_angle_degrees).
     """
+    scan_image = mark.scan_image
+
     # Find alignment angle iteratively
     total_angle = _find_alignment_angle(
         scan_image,
-        mask,
+        None,
         angle_accuracy,
         cut_y_after_shift,
         max_iter,
@@ -63,23 +60,8 @@ def fine_align_bullet_marks(
         result_data = shear_data_by_shifting_profiles(
             scan_image.data, total_angle_rad, cut_y_after_shift
         )
-        if mask is not None:
-            result_mask = (
-                shear_data_by_shifting_profiles(
-                    mask, total_angle_rad, cut_y_after_shift
-                )
-                > 0.5
-            )
-        else:
-            result_mask = None
     else:
         result_data = scan_image.data
-        result_mask = mask
-
-    # Crop to mask bounding box
-    if result_mask is not None:
-        result_data = crop_to_mask(result_data, result_mask)
-        result_mask = crop_to_mask(result_mask, result_mask)
 
     result_scan = ScanImage(
         data=np.asarray(result_data, dtype=np.float64),
@@ -88,16 +70,22 @@ def fine_align_bullet_marks(
     )
 
     # Resample to mark type target scale if specified
-    if mark_type is not None:
-        # TODO: possible the resampling is not needed as the images are already resamples before preprocessing_striation
-        result_scan, result_mask = resample_scan_image_and_mask(
-            result_scan,
-            result_mask,
-            target_scale=mark_type.scale,
-            only_downsample=True,
-        )
+    # TODO: possible the resampling is not needed as the images are already resampled before preprocessing_striation
+    result_scan, _ = resample_scan_image_and_mask(
+        result_scan,
+        None,
+        target_scale=mark.mark_type.scale,
+        only_downsample=True,
+    )
 
-    return result_scan, result_mask, total_angle
+    result_mark = Mark(
+        scan_image=result_scan,
+        mark_type=mark.mark_type,
+        crop_type=mark.crop_type,
+        meta_data=mark.meta_data,
+    )
+
+    return result_mark, total_angle
 
 
 def _find_alignment_angle(

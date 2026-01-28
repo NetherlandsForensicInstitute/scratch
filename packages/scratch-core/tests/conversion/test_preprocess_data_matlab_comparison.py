@@ -165,7 +165,6 @@ def run_python_preprocessing(
         scale_y=test_case.input_ydim,
     )
 
-    mask = test_case.input_mask.astype(bool) if test_case.has_mask else None
     mark_type = _string_to_mark_type(test_case.mark_type)
 
     input_mark = Mark(
@@ -184,7 +183,6 @@ def run_python_preprocessing(
     aligned_mark, profile_mark = preprocess_striation_mark(
         mark=input_mark,
         params=params,
-        mask=mask,
     )
 
     aligned_data = aligned_mark.scan_image.data

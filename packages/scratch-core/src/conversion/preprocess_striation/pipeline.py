@@ -49,7 +49,6 @@ def preprocess_striation_mark(
           mask and total_angle in meta_data.
     """
     scan_image = mark.scan_image
-    mark_type = mark.mark_type
 
     data_filtered = apply_shape_noise_removal(
         scan_image=scan_image,
@@ -58,22 +57,22 @@ def preprocess_striation_mark(
     )
 
     if data_filtered.shape[1] > 1:
-        filtered_scan_image = scan_image.model_copy(update={"data": data_filtered})
-        aligned_scan, mask_aligned, total_angle = fine_align_bullet_marks(
-            scan_image=filtered_scan_image,
-            mark_type=mark_type,
+        filtered_mark = mark.model_copy(
+            update={"scan_image": scan_image.model_copy(update={"data": data_filtered})}
+        )
+        aligned_mark_result, total_angle = fine_align_bullet_marks(
+            mark=filtered_mark,
             angle_accuracy=params.angle_accuracy,
             cut_y_after_shift=params.cut_borders_after_smoothing,
             max_iter=params.max_iter,
             subsampling_factor=params.subsampling_factor,
         )
-        data_aligned = aligned_scan.data
-        scale_x = aligned_scan.scale_x
-        scale_y = aligned_scan.scale_y
+        data_aligned = aligned_mark_result.scan_image.data
+        scale_x = aligned_mark_result.scan_image.scale_x
+        scale_y = aligned_mark_result.scan_image.scale_y
     else:
         # Line profile case (no alignment needed)
         data_aligned = data_filtered
-        mask_aligned = None
         total_angle = 0.0
         scale_x = scan_image.scale_x
         scale_y = scan_image.scale_y
@@ -81,16 +80,10 @@ def preprocess_striation_mark(
     # Propagate NaN to adjacent pixels to match MATLAB's asymmetric NaN handling
     data_aligned = propagate_nan(data_aligned)
 
-    # Extract profile: apply mask and compute mean/median along rows
-    if mask_aligned is not None:
-        data_for_profile = np.where(mask_aligned, data_aligned, np.nan)
-    else:
-        data_for_profile = data_aligned
-
     profile = (
-        np.nanmean(data_for_profile, axis=1)
+        np.nanmean(data_aligned, axis=1)
         if params.use_mean
-        else np.nanmedian(data_for_profile, axis=1)
+        else np.nanmedian(data_aligned, axis=1)
     )
 
     # Build meta_data with mask and total_angle
@@ -99,8 +92,6 @@ def preprocess_striation_mark(
         **asdict(params),
         "total_angle": total_angle,
     }
-    if mask_aligned is not None:
-        aligned_meta_data["mask"] = mask_aligned.tolist()
 
     profile_meta_data = {
         **mark.meta_data,
@@ -115,7 +106,7 @@ def preprocess_striation_mark(
             scale_x=scale_x,
             scale_y=scale_y,
         ),
-        mark_type=mark_type,
+        mark_type=mark.mark_type,
         crop_type=mark.crop_type,
         meta_data=aligned_meta_data,
     )
@@ -127,7 +118,7 @@ def preprocess_striation_mark(
             scale_x=scale_x,
             scale_y=scale_y,
         ),
-        mark_type=mark_type,
+        mark_type=mark.mark_type,
         crop_type=mark.crop_type,
         meta_data=profile_meta_data,
     )
