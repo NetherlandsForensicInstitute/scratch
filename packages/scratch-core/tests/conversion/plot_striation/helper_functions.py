@@ -1,7 +1,7 @@
 import numpy as np
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType, CropType
+from conversion.data_formats import Mark, MarkType
 
 
 def create_synthetic_striation_data(
@@ -54,7 +54,6 @@ def create_synthetic_mark(
             scale_y=scale,
         ),
         mark_type=MarkType.CHAMBER_STRIATION,
-        crop_type=CropType.RECTANGLE,
         meta_data={"highpass_cutoff": 5, "lowpass_cutoff": 25},
     )
 
@@ -72,7 +71,6 @@ def create_synthetic_profile_mark(
             scale_y=scale,
         ),
         mark_type=MarkType.CHAMBER_STRIATION,
-        crop_type=CropType.RECTANGLE,
     )
 
 
