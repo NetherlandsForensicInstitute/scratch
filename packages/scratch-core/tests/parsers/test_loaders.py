@@ -204,7 +204,6 @@ class TestSubSampleScanImage:
             scale_x=scale_coarse,
             scale_y=scale_fine,
         )
-        expected_width, expected_height = 200, 100
 
         result = unwrap_result(make_isotropic(scan_image))
 
@@ -214,7 +213,7 @@ class TestSubSampleScanImage:
         assert np.isclose(result.scale_y, scale_fine), (
             f"Scale should now be the minimum of the two {scale_fine}"
         )
-        assert result.data.shape == (expected_height, expected_width), (
+        assert result.data.shape == (height, width * scale_coarse / scale_fine), (
             f"New width should be (original_width * (original_scale_x / target_scale)), but got: {result.data.shape}"
         )
 
