@@ -5,7 +5,7 @@ from conversion.utils import update_scan_image_data
 from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.remove_needles import mask_and_remove_needles
-from conversion.data_formats import RectangularBoundingBox
+from conversion.data_formats import BoundingBox
 from conversion.mask import crop_to_mask
 
 # Number of iterations to dilate a mask before it is rotated
@@ -15,7 +15,7 @@ DILATE_STEPS = 3
 def rotate_crop_and_mask_image_by_crop(
     scan_image: ScanImage,
     mask: MaskArray,
-    rectangular_bounding_box: RectangularBoundingBox | None,
+    bounding_box: BoundingBox | None,
     median_factor: float = 15,
 ) -> ScanImage:
     """
@@ -34,15 +34,13 @@ def rotate_crop_and_mask_image_by_crop(
 
     :param scan_image: Scan image to rotate, mask and crop.
     :param mask: Binary mask array.
-    :param rectangular_bounding_box: Bounding box of a rectangular crop region used to determine the rotation of an
+    :param bounding_box: Bounding box of a rectangular crop region used to determine the rotation of an
         image, or None. Expects pixel coordinates, i.e. top-left origin.
     :param median_factor: Parameter used to determine what is considered an outlier when removing outliers/needles.
     :return: The cropped, rotated and masked scan image.
     """
     rotation_angle = (
-        get_rotation_angle(rectangular_bounding_box)
-        if rectangular_bounding_box is not None
-        else 0.0
+        get_rotation_angle(bounding_box) if bounding_box is not None else 0.0
     )
 
     margin = 0
@@ -70,21 +68,21 @@ def rotate_crop_and_mask_image_by_crop(
     return scan_image_cropped
 
 
-def get_rotation_angle(rectangular_bounding_box: RectangularBoundingBox) -> float:
+def get_rotation_angle(bounding_box: BoundingBox) -> float:
     """
     Calculate the rotation angle of a rectangular crop region.
 
-    Determines the rotation angle by computing the angles between following points (e.g. top left corner with top
-    right, top right with bottom right) and selecting the angle with the smallest absolute value.
+    Determines the rotation angle by computing the angles between edges and the x-axis, and selecting the angle with
+    the smallest absolute value.
 
-    :param rectangular_bounding_box: Bounding box of a rectangular crop region. Expects pixel coordinates,
-        i.e. top-left origin.
+    :param bounding_box: Bounding box of a rectangular crop region. Expects pixel coordinates,
+        i.e. top-left origin, in the order [x, y].
     :return: The rotation angle in degrees, ranging from -180 to 180 (inclusive).
     """
     angles = []
     for i in range(4):
-        point1 = rectangular_bounding_box[i]
-        point2 = rectangular_bounding_box[(i + 1) % 4]
+        point1 = bounding_box[i]
+        point2 = bounding_box[(i + 1) % 4]
         angles.append(
             np.degrees(np.arctan2(point2[1] - point1[1], point2[0] - point1[0]))
         )
