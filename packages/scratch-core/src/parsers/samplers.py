@@ -13,20 +13,17 @@ def resample_scan_image(image: ScanImage, factors: Point[float]) -> ScanImage:
     :param factors: The multipliers for the scale of the X- and Y-axis.
     :returns: The resampled ScanImage.
     """
-    mask = (
-        None
-        if image.mask is None
-        else _resample_image_array(image.mask, factors=factors)
-    )
     return ScanImage(
         data=_resample_image_array(image.data, factors=factors),
         scale_x=image.scale_x * factors.x,
         scale_y=image.scale_y * factors.y,
-        mask=mask,
+        mask=None
+        if image.mask is None
+        else _resample_image_array(image.mask, factors=factors),
     )
 
 
-def _resample_image_array(array: NDArray, factors: Point[float]) -> NDArray:
+def _resample_image_array[T: NDArray](array: T, factors: Point[float]) -> T:
     """
     Resample an array using the specified resampling factors.
 
@@ -42,4 +39,4 @@ def _resample_image_array(array: NDArray, factors: Point[float]) -> NDArray:
         mode="edge",
         anti_aliasing=array.dtype != np.bool_ and all(factor > 1 for factor in factors),
     )
-    return np.asarray(resampled, dtype=array.dtype)
+    return np.asarray(resampled, dtype=array.dtype)  # type: ignore
