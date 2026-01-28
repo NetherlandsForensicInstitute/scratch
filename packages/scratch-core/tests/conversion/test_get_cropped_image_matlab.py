@@ -168,7 +168,7 @@ def test_case(
     pytest.skip(f"Test case {test_case_name} not found")
 
 
-def run_python_preprocessing(test_case: MatlabTestCase) -> np.ndarray:
+def run_python_preprocessing(test_case: MatlabTestCase) -> FloatArray2D:
     """Run Python get_cropped_image and return the result."""
     scan_image = ScanImage(
         data=test_case.input_data,

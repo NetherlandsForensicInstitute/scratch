@@ -1,5 +1,4 @@
 import numpy as np
-from numpy._typing import NDArray
 from scipy.ndimage import binary_erosion
 from skimage.measure import ransac, CircleModel
 
@@ -11,7 +10,7 @@ from conversion.preprocess_impression.utils import Point2D
 RANDOM_SEED = 1234
 
 
-def _get_mask_inner_edge_points(mask: BinaryMask) -> NDArray[np.floating]:
+def _get_mask_inner_edge_points(mask: BinaryMask) -> FloatArray2D:
     """
     Extract inner edge points of a binary mask.
 

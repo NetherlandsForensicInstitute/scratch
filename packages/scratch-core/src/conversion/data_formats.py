@@ -14,7 +14,6 @@ from pydantic import (
     BeforeValidator,
 )
 from numpy import float64
-from numpy.typing import NDArray
 from container_models.base import (
     ConfigBaseModel,
     coerce_to_array,
@@ -54,7 +53,7 @@ class MarkType(StrEnum):
         return 1.5e-6
 
 
-def validate_rectangle_corners(arr: NDArray[float64]) -> NDArray[float64]:
+def validate_rectangle_corners(arr: FloatArray2D) -> FloatArray2D:
     """Validate that array has shape (4, 2)"""
     if arr.shape != (4, 2):
         raise ValueError(f"Rectangle must have shape (4, 2), got {arr.shape}")

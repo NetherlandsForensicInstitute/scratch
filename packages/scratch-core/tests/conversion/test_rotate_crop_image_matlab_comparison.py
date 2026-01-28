@@ -136,7 +136,7 @@ def test_case(
 
 def run_python_preprocessing(
     test_case: MatlabTestCase,
-) -> np.ndarray:
+) -> FloatArray2D:
     """Run Python rotate_crop_image and return the result."""
     scan_image = ScanImage(
         data=test_case.input_data.copy(),

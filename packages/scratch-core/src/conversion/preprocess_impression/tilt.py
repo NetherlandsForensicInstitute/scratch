@@ -1,8 +1,8 @@
 from typing import NamedTuple
 
 import numpy as np
-from numpy._typing import NDArray
 
+from container_models.base import FloatArray1D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.preprocess_impression.utils import update_mark_scan_image, Point2D
@@ -13,7 +13,7 @@ class TiltEstimate(NamedTuple):
 
     tilt_x_rad: float
     tilt_y_rad: float
-    residuals: NDArray[np.floating]
+    residuals: FloatArray1D
 
 
 def apply_tilt_correction(
@@ -30,9 +30,9 @@ def apply_tilt_correction(
 
 
 def _estimate_plane_tilt(
-    x: NDArray[np.floating],
-    y: NDArray[np.floating],
-    z: NDArray[np.floating],
+    x: FloatArray1D,
+    y: FloatArray1D,
+    z: FloatArray1D,
 ) -> TiltEstimate:
     """
     Estimate best-fit plane tilt angles using least squares.
@@ -50,8 +50,8 @@ def _estimate_plane_tilt(
     (a, b, c), *_ = np.linalg.lstsq(design_matrix, z, rcond=None)
 
     return TiltEstimate(
-        tilt_x_rad=np.arctan(a),
-        tilt_y_rad=np.arctan(b),
+        tilt_x_rad=np.arctan(a).item(),
+        tilt_y_rad=np.arctan(b).item(),
         residuals=z - (a * x + b * y + c),
     )
 
@@ -59,7 +59,7 @@ def _estimate_plane_tilt(
 def _get_valid_coordinates(
     scan_image: ScanImage,
     center: Point2D,
-) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
+) -> tuple[FloatArray1D, FloatArray1D, FloatArray1D]:
     """
     Extract x, y, z coordinates of valid pixels, centered at origin.
 
@@ -73,7 +73,7 @@ def _get_valid_coordinates(
     ys = rows * scan_image.scale_y - center[1]
     zs = scan_image.valid_data
 
-    return xs, ys, zs
+    return xs.astype(np.float64), ys.astype(np.float64), zs
 
 
 def _adjust_for_plane_tilt(

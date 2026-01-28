@@ -1,7 +1,7 @@
+from container_models.base import FloatArray1D
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.solver import fit_surface
 import numpy as np
-from numpy.typing import NDArray
 import pytest
 
 from ..constants import SINGLE_AND_COMBINED_TERMS, SINGLE_TERMS
@@ -9,9 +9,9 @@ from ..constants import SINGLE_AND_COMBINED_TERMS, SINGLE_TERMS
 
 @pytest.mark.parametrize("terms", SINGLE_AND_COMBINED_TERMS)
 def test_fit_surface_reduces_variance(
-    xs: NDArray[np.float64],
-    ys: NDArray[np.float64],
-    zs: NDArray[np.float64],
+    xs: FloatArray1D,
+    ys: FloatArray1D,
+    zs: FloatArray1D,
     terms: SurfaceTerms,
 ):
     fitted_surface, _ = fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)
@@ -22,9 +22,9 @@ def test_fit_surface_reduces_variance(
 
 @pytest.mark.parametrize("terms", list(SurfaceTerms.PLANE))
 def test_fit_surface_plane_reduces_variance(
-    xs: NDArray[np.float64],
-    ys: NDArray[np.float64],
-    zs: NDArray[np.float64],
+    xs: FloatArray1D,
+    ys: FloatArray1D,
+    zs: FloatArray1D,
     terms: SurfaceTerms,
 ):
     leveled_map_terms = zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)[0]
@@ -40,9 +40,9 @@ def test_fit_surface_plane_reduces_variance(
 
 @pytest.mark.parametrize("terms", SINGLE_TERMS + [SurfaceTerms.PLANE])
 def test_fit_surface_sphere_reduces_variance(
-    xs: NDArray[np.float64],
-    ys: NDArray[np.float64],
-    zs: NDArray[np.float64],
+    xs: FloatArray1D,
+    ys: FloatArray1D,
+    zs: FloatArray1D,
     terms: SurfaceTerms,
 ):
     leveled_map_terms = zs - fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)[0]
@@ -55,9 +55,9 @@ def test_fit_surface_sphere_reduces_variance(
 
 @pytest.mark.parametrize("terms", SINGLE_AND_COMBINED_TERMS)
 def test_fit_surface_fits_terms(
-    xs: NDArray[np.float64],
-    ys: NDArray[np.float64],
-    zs: NDArray[np.float64],
+    xs: FloatArray1D,
+    ys: FloatArray1D,
+    zs: FloatArray1D,
     terms: SurfaceTerms,
 ):
     _, physical_params = fit_surface(xs=xs, ys=ys, zs=zs, terms=terms)
@@ -66,7 +66,7 @@ def test_fit_surface_fits_terms(
 
 
 def test_fit_surface_offset_is_invariant_for_tilted_surfaces(
-    xs: NDArray[np.float64], ys: NDArray[np.float64], zs: NDArray[np.float64]
+    xs: FloatArray1D, ys: FloatArray1D, zs: FloatArray1D
 ):
     _, physical_params_tilt_x = fit_surface(
         xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.TILT_X
@@ -81,7 +81,7 @@ def test_fit_surface_offset_is_invariant_for_tilted_surfaces(
 
 
 def test_fit_surface_offset_equals_mean(
-    xs: NDArray[np.float64], ys: NDArray[np.float64], zs: NDArray[np.float64]
+    xs: FloatArray1D, ys: FloatArray1D, zs: FloatArray1D
 ):
     fitted_surface_offset, physical_params_offset = fit_surface(
         xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.OFFSET
@@ -92,7 +92,7 @@ def test_fit_surface_offset_equals_mean(
 
 
 def test_fit_surface_defocus_is_positive(
-    xs: NDArray[np.float64], ys: NDArray[np.float64], zs: NDArray[np.float64]
+    xs: FloatArray1D, ys: FloatArray1D, zs: FloatArray1D
 ):
     fitted_surface_defocus, _ = fit_surface(
         xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.DEFOCUS
@@ -101,7 +101,7 @@ def test_fit_surface_defocus_is_positive(
 
 
 def test_fit_surface_none_has_no_effect(
-    xs: NDArray[np.float64], ys: NDArray[np.float64], zs: NDArray[np.float64]
+    xs: FloatArray1D, ys: FloatArray1D, zs: FloatArray1D
 ):
     fitted_surface_none, physical_params_none = fit_surface(
         xs=xs, ys=ys, zs=zs, terms=SurfaceTerms.NONE

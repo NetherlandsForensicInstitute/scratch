@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
 
+from container_models.base import FloatArray2D, DepthData
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_impression.impression import (
@@ -28,7 +29,7 @@ from conversion.preprocess_impression.parameters import PreprocessingImpressionP
 
 def make_circular_data(
     shape: tuple[int, int], center: tuple[float, float], radius: float
-) -> np.ndarray:
+) -> FloatArray2D:
     """Create circular height map data with NaN outside circle."""
     data = np.full(shape, np.nan)
     y, x = np.ogrid[: shape[0], : shape[1]]
@@ -40,7 +41,7 @@ def make_circular_data(
 
 def make_rectangular_data(
     shape: tuple[int, int], margin: int = 10, scale: float = 1e-6
-) -> np.ndarray:
+) -> FloatArray2D:
     """Create rectangular height map data with NaN border.
 
     :param shape: Shape of the output array.
@@ -62,7 +63,7 @@ def make_rectangular_data(
 
 
 def make_mark(
-    data: np.ndarray,
+    data: DepthData,
     scale_x: float = 1.0,
     scale_y: float = 1.0,
     mark_type: MarkType = MarkType.EXTRACTOR_IMPRESSION,
