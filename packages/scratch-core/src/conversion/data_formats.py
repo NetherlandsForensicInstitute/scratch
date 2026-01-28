@@ -75,7 +75,7 @@ class Mark(ConfigBaseModel):
     scan_image: ScanImage
     mark_type: MarkType
     meta_data: dict = Field(default_factory=dict)
-    _center: tuple[float, float] | None = None
+    center_: tuple[float, float] | None = Field(default=None, alias="center")
 
     @computed_field
     @property
@@ -90,8 +90,8 @@ class Mark(ConfigBaseModel):
 
         :returns: Center coordinates as (x, y),
         """
-        if self._center is not None:
-            return self._center
+        if self.center_ is not None:
+            return self.center_
         data = self.scan_image.data
         return data.shape[1] / 2, data.shape[0] / 2
 

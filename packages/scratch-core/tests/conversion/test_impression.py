@@ -880,8 +880,8 @@ class TestMarkCenter:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            center=(42.0, 17.0),
         )
-        mark._center = (42.0, 17.0)
 
         assert mark.center == (42.0, 17.0)
 

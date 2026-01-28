@@ -146,8 +146,8 @@ class TestSaveAndLoadMark:
             scan_image=scan_image,
             mark_type=MarkType.EXTRACTOR_IMPRESSION,
             meta_data={"original": "data"},
+            center=(123.4, 567.8),
         )
-        original_mark._center = (123.4, 567.8)
 
         save_mark(original_mark, tmp_path, "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")

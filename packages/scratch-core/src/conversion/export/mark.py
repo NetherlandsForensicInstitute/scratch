@@ -84,7 +84,7 @@ def load_mark_from_path(path: Path, stem: str) -> Mark:
         ),
         mark_type=meta.mark_type,
         meta_data=meta.meta_data,
+        center=meta.center,
     )
-    mark._center = meta.center
 
     return mark
