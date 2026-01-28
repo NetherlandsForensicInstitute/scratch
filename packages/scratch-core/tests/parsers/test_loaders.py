@@ -204,8 +204,8 @@ class TestSubSampleScanImage:
 
         result = unwrap_result(make_isotropic(scan_image))
 
-        assert result.scale_x == 1.0, "Scale should now be the minimum of the two (1.0)"
-        assert result.scale_y == 1.0, "Scale should now be the minimum of the two (1.0)"
+        assert np.isclose(result.scale_x, scale_fine), f"Scale should now be the minimum of the two {scale_fine}"
+        assert np.isclose(result.scale_y, scale_fine), f"Scale should now be the minimum of the two {scale_fine}"
         assert result.data.shape == (expected_height, expected_width), (
             f"New width should be (original_width * (original_scale_x / target_scale)), but got: {result.data.shape}"
         )
