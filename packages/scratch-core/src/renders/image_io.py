@@ -6,7 +6,7 @@ from returns.io import impure_safe
 from returns.result import safe
 
 from container_models.scan_image import ScanImage
-from container_models.base import ImageRGBA, FloatArray2D
+from container_models.base import ImageRGBA, FloatArray2D, FloatArray
 from utils.logger import log_railway_function
 
 
@@ -26,7 +26,7 @@ def _grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
     return rgba
 
 
-def _normalize(input_array: FloatArray2D, lower: float, upper: float) -> FloatArray2D:
+def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArray:
     """Perform min-max normalization on the input array and scale to the [0, 255] interval."""
     if lower >= upper:
         raise ValueError(
@@ -36,8 +36,8 @@ def _normalize(input_array: FloatArray2D, lower: float, upper: float) -> FloatAr
 
 
 def _clip_data(
-    data: FloatArray2D, std_scaler: float
-) -> tuple[FloatArray2D, float, float]:
+    data: FloatArray, std_scaler: float
+) -> tuple[FloatArray, float, float]:
     """
     Clip the data so that the values lie in the interval [μ - σ * S, μ + σ * S].
 
