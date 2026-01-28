@@ -3,7 +3,6 @@ from numpy.typing import NDArray
 from scipy.signal import fftconvolve
 
 from container_models.base import (
-    BinaryMask,
     FloatArray2D,
     FloatArray1D,
     FloatArray4D,
@@ -153,7 +152,7 @@ def _apply_order0_filter(
     :param kernel_y: The 1D vertical component of the separable smoothing kernel.
     :returns: A 2D array of the same shape as `data` containing the smoothed values.
     """
-    nan_mask: BinaryMask = np.isnan(data)
+    nan_mask = np.isnan(data)
     data_filled = np.where(nan_mask, 0.0, data)
     weights = np.where(nan_mask, 0.0, 1.0)
 
