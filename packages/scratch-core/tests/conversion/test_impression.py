@@ -893,8 +893,8 @@ class TestMarkCenter:
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
             crop_type=CropType.RECTANGLE,
+            center=(42.0, 17.0),
         )
-        mark._center = (42.0, 17.0)
 
         assert mark.center == (42.0, 17.0)
 
