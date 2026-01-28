@@ -1,16 +1,17 @@
 import numpy as np
 from numpy.typing import NDArray
+from container_models.base import Point
 from parsers.samplers import resample_scan_image
 from renders.filters import apply_gaussian_regression_filter
 from renders.levelers import level_map
 from utils.constants import RegressionOrder
+from renders.computations import clip_factors
 
 from container_models.scan_image import ScanImage
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.solver.utils import (
     compute_image_center,
 )
-from conversion.resample import _clip_factors
 
 # TODO: Based on what this code is doing. We can ignore this function completely
 # [] First breakdown the code smells below, make sure they give the same response
@@ -28,7 +29,7 @@ def get_cropped_image(
     terms: SurfaceTerms,
     cutoff_length: float,
     regression_order: RegressionOrder,
-    resampling_factors: tuple[float, float],
+    resampling_factors: Point[float],
     crop: bool = False,
 ) -> NDArray:
     """
@@ -42,7 +43,7 @@ def get_cropped_image(
     :param crop: If True, crop the result to the bounding box of the mask (removes outer NaNs).
     :returns: High-pass filtered image data (leveled - smoothed) as a numpy array.
     """
-    resampling_factors = _clip_factors(resampling_factors, True)
+    resampling_factors = clip_factors(resampling_factors, True)
     scan_image = resample_scan_image(image=scan_image, factors=resampling_factors)
     scan_image.apply_mask_image()
 

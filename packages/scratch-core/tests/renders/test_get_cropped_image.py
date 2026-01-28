@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from container_models.base import ScanMap2DArray, MaskArray
+from container_models.base import Point, ScanMap2DArray, MaskArray
 from container_models.scan_image import ScanImage
 from conversion.leveling import SurfaceTerms
 
@@ -27,7 +27,7 @@ def test_get_cropped_image(
         terms=terms,
         regression_order=regression_order,
         cutoff_length=250e-6,
-        resampling_factors=(2, 2),
+        resampling_factors=Point[float](2, 2),
     )
     assert result.shape == (mask_array.shape[0] // 2, mask_array.shape[1] // 2)
 
@@ -209,7 +209,9 @@ def run_python_preprocessing(test_case: MatlabTestCase) -> np.ndarray:
         mask=test_case.input_mask.astype(bool),
     )
 
-    resampling_factors = (test_case.resampling_factor, test_case.resampling_factor)
+    resampling_factors = Point[float](
+        test_case.resampling_factor, test_case.resampling_factor
+    )
 
     return get_cropped_image(
         scan_image=scan_image,
