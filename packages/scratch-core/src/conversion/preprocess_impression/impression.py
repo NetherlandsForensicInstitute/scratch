@@ -21,7 +21,7 @@ from conversion.preprocess_impression.resample import (
     needs_resampling,
 )
 from conversion.preprocess_impression.tilt import apply_tilt_correction
-from conversion.preprocess_impression.utils import update_mark_data, Point2D
+from conversion.preprocess_impression.utils import update_mark_data
 from conversion.resample import get_scaling_factors, resample_image_array
 
 
@@ -89,15 +89,11 @@ def preprocess_impression_mark(
         )
 
     # Stage 8: Final leveling
-    mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms, mark.center)
+    mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms)
 
     # Prepare leveled-only output
     mark_leveled_final = _finalize_leveled_output(
-        mark_anti_aliased,
-        fitted_surface,
-        params.pixel_size,
-        params.surface_terms,
-        mark.center,
+        mark_anti_aliased, fitted_surface, params.pixel_size, params.surface_terms
     )
 
     # Build output metadata
@@ -109,11 +105,8 @@ def preprocess_impression_mark(
 def _level_mark(
     mark: Mark,
     terms: SurfaceTerms,
-    reference_point: Point2D | None = None,
 ) -> tuple[Mark, ScanMap2DArray]:
-    result = level_map(
-        mark.scan_image, terms=terms, reference_point=reference_point or mark.center
-    )
+    result = level_map(mark.scan_image, terms=terms)
     leveled_mark = update_mark_data(mark, result.leveled_map)
     return leveled_mark, result.fitted_surface
 
@@ -135,7 +128,6 @@ def _finalize_leveled_output(
     fitted_surface: ScanMap2DArray,
     target_scale: float | None,
     surface_terms: SurfaceTerms,
-    reference_point: Point2D,
 ) -> Mark:
     """
     Prepare the leveled-only output.
@@ -156,6 +148,6 @@ def _finalize_leveled_output(
 
     # Apply PLANE-only leveling (after resampling, like MATLAB)
     rigid_terms = surface_terms & SurfaceTerms.PLANE
-    leveled_mark, _ = _level_mark(mark_restored, rigid_terms, reference_point)
+    leveled_mark, _ = _level_mark(mark_restored, rigid_terms)
 
     return leveled_mark
