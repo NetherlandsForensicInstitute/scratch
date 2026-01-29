@@ -1,17 +1,16 @@
 import numpy as np
-from numpy._typing import NDArray
 from scipy.ndimage import binary_erosion
 from skimage.measure import ransac, CircleModel
 
-from container_models.base import MaskArray
+from container_models.base import BinaryMask, FloatArray2D
 from conversion.data_formats import Mark, MarkType
-from conversion.mask import _determine_bounding_box
+from conversion.mask import get_bounding_box
 from conversion.preprocess_impression.utils import Point2D
 
 RANDOM_SEED = 1234
 
 
-def _get_mask_inner_edge_points(mask: MaskArray) -> NDArray[np.floating]:
+def _get_mask_inner_edge_points(mask: BinaryMask) -> FloatArray2D:
     """
     Extract inner edge points of a binary mask.
 
@@ -24,7 +23,7 @@ def _get_mask_inner_edge_points(mask: MaskArray) -> NDArray[np.floating]:
     return np.column_stack([cols, rows]).astype(float)
 
 
-def _points_are_collinear(points: NDArray[np.floating], tol: float = 1e-9) -> bool:
+def _points_are_collinear(points: FloatArray2D, tol: float = 1e-9) -> bool:
     """
     Check if points are approximately collinear using SVD.
 
@@ -40,7 +39,7 @@ def _points_are_collinear(points: NDArray[np.floating], tol: float = 1e-9) -> bo
 
 
 def _fit_circle_ransac(
-    points: NDArray[np.floating],
+    points: FloatArray2D,
     n_iterations: int = 1000,
     threshold: float = 1.0,
 ) -> Point2D | None:
@@ -78,14 +77,14 @@ def _fit_circle_ransac(
     return None
 
 
-def _get_bounding_box_center(mask: MaskArray) -> Point2D:
+def _get_bounding_box_center(mask: BinaryMask) -> Point2D:
     """
     Compute center of bounding box for True values in mask.
 
     :param mask: Boolean mask array.
     :return: Center (x, y) in pixel coordinates.
     """
-    x_slice, y_slice = _determine_bounding_box(mask)
+    x_slice, y_slice = get_bounding_box(mask)
     return (
         (x_slice.start + x_slice.stop) / 2,
         (y_slice.start + y_slice.stop) / 2,
@@ -93,7 +92,7 @@ def _get_bounding_box_center(mask: MaskArray) -> Point2D:
 
 
 def _compute_map_center(
-    array: MaskArray,
+    array: BinaryMask,
     use_circle_fit: bool = False,
 ) -> Point2D:
     """

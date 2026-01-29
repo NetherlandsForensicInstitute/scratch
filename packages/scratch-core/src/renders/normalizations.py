@@ -1,10 +1,9 @@
 import numpy as np
 from typing import Final
 
-from numpy.typing import NDArray
 from returns.pipeline import flow
 from returns.result import safe
-
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from utils.logger import log_railway_function
 
@@ -36,8 +35,8 @@ def _compute_central_diff_scales(scan_image: ScanImage) -> ScanImage:
 
 
 def _pad_gradient(
-    unpadded_gradient: NDArray, pad_width: tuple[tuple[int, int], tuple[int, int]]
-) -> NDArray:
+    unpadded_gradient: FloatArray2D, pad_width: tuple[tuple[int, int], tuple[int, int]]
+) -> FloatArray2D:
     """Pad a gradient array with NaN values at the borders."""
     return np.pad(unpadded_gradient, pad_width, mode="constant", constant_values=np.nan)
 

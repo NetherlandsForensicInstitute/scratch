@@ -6,17 +6,17 @@ from skimage.transform import resize
 
 from conversion.data_formats import Mark
 from container_models.scan_image import ScanImage
-from container_models.base import MaskArray
+from container_models.base import BinaryMask, FloatArray2D
 
 
 def resample_scan_image_and_mask(
     scan_image: ScanImage,
-    mask: Optional[MaskArray] = None,
+    mask: Optional[BinaryMask] = None,
     factors: Optional[tuple[float, float]] = None,
     target_scale: float = 4e-6,
     only_downsample: bool = True,
     preserve_aspect_ratio: bool = True,
-) -> tuple[ScanImage, Optional[MaskArray]]:
+) -> tuple[ScanImage, Optional[BinaryMask]]:
     """
     Resample the input image and optionally its corresponding mask.
 
@@ -77,7 +77,7 @@ def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> Scan
 
 
 def resample_image_array(
-    array: NDArray,
+    array: FloatArray2D | BinaryMask,
     factors: tuple[float, float],
 ) -> NDArray:
     """

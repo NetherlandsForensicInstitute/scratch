@@ -1,6 +1,7 @@
 import numpy as np
-from numpy.typing import NDArray
 import pytest
+
+from container_models.base import FloatArray1D
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.solver import normalize_coordinates, denormalize_parameters
 from ..constants import SINGLE_TERMS
@@ -8,7 +9,7 @@ from ..constants import SINGLE_TERMS
 
 class TestNormalizeCoordinates:
     def test_normalized_coordinates_have_zero_mean(
-        self, xs: NDArray[np.float64], ys: NDArray[np.float64]
+        self, xs: FloatArray1D, ys: FloatArray1D
     ):
         normalized = normalize_coordinates(xs=xs, ys=ys)
         assert np.isclose(np.mean(normalized.xs), 0.0)
@@ -17,21 +18,21 @@ class TestNormalizeCoordinates:
         assert normalized.ys[0] < 0 < normalized.ys[-1]
 
     def test_normalized_coordinates_are_strictly_increasing(
-        self, xs: NDArray[np.float64], ys: NDArray[np.float64]
+        self, xs: FloatArray1D, ys: FloatArray1D
     ):
         normalized = normalize_coordinates(xs=xs, ys=ys)
         assert np.all(normalized.xs[:-1] < normalized.xs[1:])
         assert np.all(normalized.ys[:-1] < normalized.ys[1:])
 
     def test_normalize_coordinates_returns_means(
-        self, xs: NDArray[np.float64], ys: NDArray[np.float64]
+        self, xs: FloatArray1D, ys: FloatArray1D
     ):
         normalized = normalize_coordinates(xs=xs, ys=ys)
         assert np.isclose(normalized.x_mean, np.mean(xs))
         assert np.isclose(normalized.y_mean, np.mean(ys))
 
     def test_normalized_coordinates_are_bounded_by_unit_disk(
-        self, xs: NDArray[np.float64], ys: NDArray[np.float64]
+        self, xs: FloatArray1D, ys: FloatArray1D
     ):
         normalized = normalize_coordinates(xs=xs, ys=ys)
         assert np.isclose(normalized.xs[-1] - normalized.xs[0], 1.0)

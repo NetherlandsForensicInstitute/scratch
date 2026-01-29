@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from container_models.base import FloatArray1D
 from container_models.light_source import LightSource
 from container_models.scan_image import ScanImage
 from renders.shading import calculate_lighting
@@ -111,9 +112,9 @@ def test_bump_changes_values(
 )
 def test_diffuse_clamps_to_zero(
     light_source: LightSource,
-    nx: np.ndarray,
-    ny: np.ndarray,
-    nz: np.ndarray,
+    nx: FloatArray1D,
+    ny: FloatArray1D,
+    nz: FloatArray1D,
     observer: LightSource,
 ) -> None:
     """Opposite direction → diffuse should be 0."""

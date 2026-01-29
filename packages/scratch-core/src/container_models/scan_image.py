@@ -1,9 +1,8 @@
 from functools import cached_property
 
 import numpy as np
-from numpy.typing import NDArray
 from pydantic import Field
-from .base import ScanMap2DArray, ConfigBaseModel, MaskArray
+from .base import ConfigBaseModel, BinaryMask, FloatArray, FloatArray1D
 
 
 class ScanImage(ConfigBaseModel):
@@ -14,7 +13,7 @@ class ScanImage(ConfigBaseModel):
     Shape: (height, width)
     """
 
-    data: ScanMap2DArray
+    data: FloatArray  # TODO: Change typing to `DepthData` or `FloatArray2D`
     scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     meta_data: dict = Field(default_factory=dict)
@@ -30,14 +29,14 @@ class ScanImage(ConfigBaseModel):
         return self.data.shape[0]
 
     @cached_property
-    def valid_mask(self) -> MaskArray:
+    def valid_mask(self) -> BinaryMask:
         """Mask of the valid pixels in the data."""
         valid_mask = ~np.isnan(self.data)
         valid_mask.setflags(write=False)
         return valid_mask
 
     @cached_property
-    def valid_data(self) -> NDArray[np.floating]:
+    def valid_data(self) -> FloatArray1D:
         """Valid pixels in the data."""
         valid_data = self.data[self.valid_mask]
         valid_data.setflags(write=False)
