@@ -27,7 +27,7 @@ def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
 
 
 def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArray:
-    """Perform min-max normalization on the input_array and scale to the [0, 255] interval."""
+    """Perform min-max normalization on the input array and scale to the [0, 255] interval."""
     if lower >= upper:
         raise ValueError(
             f"The lower bound ({lower}) should be smaller than the upper bound ({upper})."
