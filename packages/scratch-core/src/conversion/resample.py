@@ -7,7 +7,7 @@ from skimage.transform import resize
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
-from renders.computations import Point
+from renders.computations import Point, clip_factors
 
 
 def resample_scan_image_and_mask(
@@ -37,7 +37,7 @@ def resample_scan_image_and_mask(
             scales=(scan_image.scale_x, scan_image.scale_y), target_scale=target_scale
         )
     if only_downsample:
-        factors = _clip_factors(factors, preserve_aspect_ratio)
+        factors = clip_factors(Point(*factors), preserve_aspect_ratio)
     if np.allclose(factors, 1.0):
         return scan_image, mask
     image = _resample_scan_image(scan_image, factors=factors)
@@ -108,17 +108,3 @@ def get_scaling_factors(
     :returns: The computed multipliers.
     """
     return target_scale / scales[0], target_scale / scales[1]
-
-
-def _clip_factors(
-    factors: tuple[float, float],
-    preserve_aspect_ratio: bool,
-) -> tuple[float, float]:
-    """Clip the scaling factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
-    factors_obj = Point(*factors)
-    if preserve_aspect_ratio:
-        # Set the multipliers to equal values to preserve the aspect ratio
-        max_factor = max(factors_obj.x, factors_obj.y)
-        factors_obj = Point(max_factor, max_factor)
-
-    return max(factors_obj.x, 1.0), max(factors_obj.y, 1.0)

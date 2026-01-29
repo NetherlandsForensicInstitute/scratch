@@ -1,3 +1,4 @@
+from container_models.base import Point
 import numpy as np
 from unittest.mock import patch, MagicMock
 
@@ -7,7 +8,6 @@ from conversion.resample import (
     resample_scan_image_and_mask,
     _resample_scan_image,
     get_scaling_factors,
-    _clip_factors,
     resample_image_array,
     resample_mark,
 )
@@ -22,20 +22,6 @@ class TestGetScalingFactors:
 
     def test_upsampling(self):
         assert get_scaling_factors((8e-6, 8e-6), 4e-6) == (0.5, 0.5)
-
-
-class TestClipFactors:
-    def test_no_clipping_needed(self):
-        assert _clip_factors((2.0, 1.5), False) == (2.0, 1.5)
-
-    def test_clip_below_one(self):
-        assert _clip_factors((0.5, 2.0), False) == (1.0, 2.0)
-
-    def test_preserve_aspect_ratio_clips_to_max(self):
-        assert _clip_factors((0.5, 2.0), True) == (2.0, 2.0)
-
-    def test_preserve_aspect_ratio_all_below_one(self):
-        assert _clip_factors((0.5, 0.8), True) == (1.0, 1.0)
 
 
 class TestResampleArray:
@@ -112,19 +98,19 @@ class TestResampleImageAndMask:
     def test_clips_when_only_downsample(
         self, scan_image_rectangular_with_nans: ScanImage
     ):
-        with patch("conversion.resample._clip_factors") as mock_clip:
+        with patch("conversion.resample.clip_factors") as mock_clip:
             mock_clip.return_value = (1.0, 1.0)
             resample_scan_image_and_mask(
                 scan_image_rectangular_with_nans,
                 factors=(0.5, 0.5),
                 only_downsample=True,
             )
-            mock_clip.assert_called_once_with((0.5, 0.5), True)
+            mock_clip.assert_called_once_with(Point(0.5, 0.5), True)
 
     def test_no_clip_when_only_downsample_false(
         self, scan_image_rectangular_with_nans: ScanImage
     ):
-        with patch("conversion.resample._clip_factors") as mock_clip:
+        with patch("conversion.resample.clip_factors") as mock_clip:
             with patch("conversion.resample._resample_scan_image"):
                 resample_scan_image_and_mask(
                     scan_image_rectangular_with_nans,
