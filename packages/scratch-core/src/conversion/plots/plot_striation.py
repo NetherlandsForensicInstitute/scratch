@@ -30,8 +30,8 @@ def plot_striation_comparison_results(
     mark_profile_reference_aligned: Mark,
     mark_profile_compared_aligned: Mark,
     metrics: CorrelationMetrics,
-    metadata_reference: dict,
-    metadata_compared: dict,
+    metadata_reference: dict[str, str],
+    metadata_compared: dict[str, str],
 ) -> StriationComparisonPlots:
     """
     Generate visualization results for striation (profile) correlation comparison.
@@ -307,8 +307,8 @@ def plot_comparison_overview(
     mark_profile_reference: Mark,
     mark_profile_compared: Mark,
     metrics: CorrelationMetrics,
-    metadata_reference: dict,
-    metadata_compared: dict,
+    metadata_reference: dict[str, str],
+    metadata_compared: dict[str, str],
     wrap_width: int = 25,
 ) -> np.ndarray:
     """Generate the main results overview figure with dynamic sizing."""
