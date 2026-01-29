@@ -201,35 +201,35 @@ class TestFitCircleRansac:
 class TestGetBoundingBoxCenter:
     def test_returns_pixel_center_for_single_pixel(self):
         mask = np.zeros((10, 10), dtype=bool)
-        mask[3, 7] = True  # row=3, col=7
-        assert _get_bounding_box_center(mask) == (3.5, 7.5)
+        mask[3, 7] = True  # row=3, col=7 → (x=7, y=3)
+        assert _get_bounding_box_center(mask) == (7.5, 3.5)  # (x, y)
 
     def test_returns_center_for_rectangle(self):
         mask = np.zeros((10, 10), dtype=bool)
-        mask[2:6, 3:9] = True  # rows 2-5, cols 3-8
-        assert _get_bounding_box_center(mask) == (4, 6)
+        mask[2:6, 3:9] = True  # rows 2-5 (y), cols 3-8 (x)
+        assert _get_bounding_box_center(mask) == (6, 4)  # (x, y)
 
     def test_returns_center_for_scattered_pixels(self):
         mask = np.zeros((10, 10), dtype=bool)
-        mask[1, 2] = True
-        mask[7, 8] = True
-        assert _get_bounding_box_center(mask) == (4.5, 5.5)
+        mask[1, 2] = True  # (x=2, y=1)
+        mask[7, 8] = True  # (x=8, y=7)
+        assert _get_bounding_box_center(mask) == (5.5, 4.5)  # (x, y)
 
     def test_returns_center_for_filled_mask(self):
-        mask = np.ones((6, 10), dtype=bool)
-        assert _get_bounding_box_center(mask) == (3, 5)
+        mask = np.ones((6, 10), dtype=bool)  # 6 rows (y), 10 cols (x)
+        assert _get_bounding_box_center(mask) == (5, 3)  # (x, y)
 
 
 class TestComputeMapCenter:
     def test_uses_bounding_box_when_circle_disabled(self):
         mask = np.zeros((10, 10), dtype=bool)
-        mask[2:6, 3:9] = 1.0
-        assert _compute_map_center(mask, use_circle_fit=False) == (4, 6)
+        mask[2:6, 3:9] = 1.0  # rows 2-5 (y), cols 3-8 (x)
+        assert _compute_map_center(mask, use_circle_fit=False) == (6, 4)  # (x, y)
 
     def test_falls_back_to_bounding_box_for_collinear_edge(self):
         mask = np.zeros((10, 10), dtype=bool)
-        mask[5, :] = 1.0
-        assert _compute_map_center(mask, use_circle_fit=True) == (5.5, 5)
+        mask[5, :] = 1.0  # row 5 (y=5), all cols (x=0-9)
+        assert _compute_map_center(mask, use_circle_fit=True) == (5, 5.5)  # (x, y)
 
 
 class TestEstimatePlaneTilt:
