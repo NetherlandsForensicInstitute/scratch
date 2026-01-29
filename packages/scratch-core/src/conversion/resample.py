@@ -1,9 +1,8 @@
 from typing import Optional
 
 import numpy as np
-from numpy.typing import NDArray
 from skimage.transform import resize
-
+from typing import overload
 from conversion.data_formats import Mark
 from container_models.scan_image import ScanImage
 from container_models.base import BinaryMask, FloatArray2D
@@ -71,10 +70,24 @@ def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> Scan
     )
 
 
+@overload
+def resample_image_array(
+    array: FloatArray2D,
+    factors: tuple[float, float],
+) -> FloatArray2D: ...
+
+
+@overload
+def resample_image_array(
+    array: BinaryMask,
+    factors: tuple[float, float],
+) -> BinaryMask: ...
+
+
 def resample_image_array(
     array: FloatArray2D | BinaryMask,
     factors: tuple[float, float],
-) -> NDArray:
+) -> FloatArray2D | BinaryMask:
     """
     Resample an array using the specified resampling factors.
 
@@ -91,7 +104,7 @@ def resample_image_array(
         mode="edge",
         anti_aliasing=array.dtype != np.bool_ and all(factor > 1 for factor in factors),
     )
-    return np.asarray(resampled, dtype=array.dtype)
+    return np.asarray(resampled, dtype=array.dtype)  # type: ignore[return-value]
 
 
 def get_scaling_factors(
