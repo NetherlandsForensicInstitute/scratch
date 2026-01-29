@@ -7,6 +7,7 @@ from pydantic import ValidationError
 import pytest
 from scipy.constants import micro
 
+from container_models.base import Point
 from container_models.scan_image import ScanImage
 
 # TODO: Add tests for ScanImage
@@ -134,13 +135,7 @@ class TestApplyMaskImage:
             scan_image.apply_mask_image()
 
 
-class TestMaskBoundingBox:
-    """Test the mask_bounding_box property.
-
-    Note: mask_bounding_box returns (x_slice, y_slice), following the convention
-    from conversion.mask._determine_bounding_box.
-    """
-
+class TestScanImageProperties:
     @pytest.mark.parametrize(
         "mask,expected",
         [
@@ -353,3 +348,68 @@ class TestMaskBoundingBox:
 
         with pytest.raises(ValueError, match=error_match):
             _ = scan_image.mask_bounding_box
+
+    @pytest.mark.parametrize(
+        "shape,scale_x,scale_y,expected",
+        [
+            pytest.param(
+                (3, 3),
+                1 * micro,
+                1 * micro,
+                Point(1 * micro, 1 * micro),
+                id="square_image_equal_scales",
+            ),
+            pytest.param(
+                (2, 4),
+                1 * micro,
+                1 * micro,
+                Point(1.5 * micro, 0.5 * micro),
+                id="rectangular_image",
+            ),
+            pytest.param(
+                (2, 4),
+                2 * micro,
+                3 * micro,
+                Point(3 * micro, 1.5 * micro),
+                id="rectangular_image_different_scales",
+            ),
+            pytest.param(
+                (3, 3),
+                2 * micro,
+                3 * micro,
+                Point(2 * micro, 3 * micro),
+                id="different_scales",
+            ),
+            pytest.param(
+                (1, 1),
+                1 * micro,
+                1 * micro,
+                Point(0.0, 0.0),
+                id="single_pixel_image",
+            ),
+            pytest.param(
+                (1, 1),
+                2 * micro,
+                3 * micro,
+                Point(0.0, 0.0),
+                id="single_pixel_different_scale_image",
+            ),
+        ],
+    )
+    def test_center(
+        self,
+        shape: tuple[int, int],
+        scale_x: float,
+        scale_y: float,
+        expected: Point[float],
+    ) -> None:
+        # Arrange
+        data = np.ones(shape)
+        scan_image = ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
+
+        # Act
+        center = scan_image.center
+
+        # Assert
+        # NOTE: Center = ((width - 1) * scale_x * 0.5, (height - 1) * scale_y * 0.5)
+        assert center == pytest.approx(expected)
