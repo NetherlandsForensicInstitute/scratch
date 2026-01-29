@@ -10,29 +10,29 @@ from container_models.base import ImageRGBA, FloatArray2D, FloatArray
 from utils.logger import log_railway_function
 
 
-def grayscale_to_rgba(data: FloatArray2D) -> ImageRGBA:
+def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
     """
-    Convert 2D grayscale data to an 8-bit RGBA array.
+      Convert a 2D grayscale array to an 8-bit RGBA array.
 
     The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
     NaN values will be converted to black pixels with 100% transparency.
 
-    :param data: The grayscale data to be converted to an 8-bit RGBA image.
+    :param scan_data: The grayscale image data to be converted to an 8-bit RGBA image.
     :returns: Array with the image data in 8-bit RGBA format.
     """
-    gray_uint8 = np.nan_to_num(data, nan=0.0).astype(np.uint8)
+    gray_uint8 = np.nan_to_num(scan_data, nan=0.0).astype(np.uint8)
     rgba = np.repeat(gray_uint8[..., np.newaxis], 4, axis=-1)
-    rgba[..., 3] = (~np.isnan(data)).astype(np.uint8) * 255
+    rgba[..., 3] = (~np.isnan(scan_data)).astype(np.uint8) * 255
     return rgba
 
 
-def _normalize(data: FloatArray, lower: float, upper: float) -> FloatArray:
-    """Perform min-max normalization on the data and scale to the [0, 255] interval."""
+def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArray:
+    """Perform min-max normalization on the input_array and scale to the [0, 255] interval."""
     if lower >= upper:
         raise ValueError(
             f"The lower bound ({lower}) should be smaller than the upper bound ({upper})."
         )
-    return (data - lower) / (upper - lower) * 255.0
+    return (input_array - lower) / (upper - lower) * 255.0
 
 
 def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, float]:
