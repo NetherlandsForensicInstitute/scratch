@@ -4,6 +4,7 @@ from typing import Self
 import numpy as np
 from pydantic import Field, PositiveFloat, model_validator
 from .base import ConfigBaseModel, BinaryMask, FloatArray1D, DepthData
+from loguru import logger
 
 
 class ScanImage(ConfigBaseModel):
@@ -66,7 +67,7 @@ class ScanImage(ConfigBaseModel):
 
     def apply_mask_image(self) -> None:
         """Apply the mask to the image data by setting masked-out pixels to NaN."""
-
         if self.mask is None:
             raise ValueError("Mask is required for cropping operation.")
-        self.data[~self.mask] = np.nan  # type: ignore
+        logger.info("Applying mask to scan_image")
+        self.data[~self.mask] = np.nan
