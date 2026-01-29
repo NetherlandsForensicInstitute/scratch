@@ -2,7 +2,7 @@ from collections.abc import Iterable
 import numpy as np
 from typing import Final
 from returns.result import safe
-
+from returns.pipeline import flow
 from container_models.base import VectorField, UnitVector, FloatArray2D
 from container_models.light_source import LightSource
 from utils.logger import log_railway_function
@@ -69,6 +69,7 @@ def _combine_lighting_components(
 
 
 @log_railway_function("Calculating 2d maps per lighting source failed.")
+@flow
 def calculate_lighting(
     light: LightSource,
     observer: LightSource,
