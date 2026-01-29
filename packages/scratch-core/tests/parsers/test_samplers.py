@@ -61,12 +61,17 @@ class TestResampleScanImage:
         simple_scan_image: ScanImage,
         factors: Point[float],
         expected_shape: tuple[int, int],
+        caplog: pytest.LogCaptureFixture,
     ):
         # Act
         result = resample_scan_image(simple_scan_image, factors)
 
         # Assert
         assert result.data.shape == expected_shape
+        assert (
+            f"Resampling image array to new size: {float(expected_shape[0])}/{float(expected_shape[1])}"
+            in caplog.messages
+        )
 
     @pytest.mark.parametrize(
         "factors",

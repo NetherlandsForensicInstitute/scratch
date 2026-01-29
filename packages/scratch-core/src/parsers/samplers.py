@@ -1,3 +1,5 @@
+from typing import cast
+from loguru import logger
 from skimage.transform import resize
 from numpy.typing import NDArray
 from container_models.base import Point
@@ -33,10 +35,14 @@ def _resample_image_array[T: NDArray](array: T, factors: Point[float]) -> T:
     :param factors: The multipliers for the scale of the X- and Y-axis.
     :returns: A numpy array containing the resampled image data.
     """
+    output_shape = (1 / factors.y * array.shape[0], 1 / factors.x * array.shape[1])
     resampled = resize(
         image=array,
-        output_shape=(1 / factors.y * array.shape[0], 1 / factors.x * array.shape[1]),
+        output_shape=output_shape,
         mode="edge",
         anti_aliasing=array.dtype != np.bool_ and all(factor > 1 for factor in factors),
     )
-    return np.asarray(resampled, dtype=array.dtype)  # type: ignore
+    logger.debug(
+        f"Resampling image array to new size: {output_shape[0]}/{output_shape[1]}"
+    )
+    return cast(T, np.asarray(resampled, dtype=array.dtype))
