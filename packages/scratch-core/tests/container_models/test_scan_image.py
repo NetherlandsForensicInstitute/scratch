@@ -21,6 +21,12 @@ DATA: Final[NDArray[np.floating]] = np.array(
 )
 
 
+@pytest.fixture
+def scan_image_factory():
+    """Factory fixture for ScanImage with scale parameters pre-filled."""
+    return partial(ScanImage, data=DATA, scale_x=1 * micro, scale_y=1 * micro)
+
+
 class TestScanImageConstruction:
     """Test ScanImage creation and validation."""
 
@@ -70,11 +76,6 @@ class TestScanImageConstruction:
 
 class TestApplyMaskImage:
     """Test the apply_mask_image method."""
-
-    @pytest.fixture
-    def scan_image_factory(self):
-        """Factory fixture for ScanImage with scale parameters pre-filled."""
-        return partial(ScanImage, data=DATA, scale_x=1 * micro, scale_y=1 * micro)
 
     @pytest.mark.parametrize(
         "mask,expected",
@@ -131,3 +132,224 @@ class TestApplyMaskImage:
         # Act / Assert
         with pytest.raises(ValueError, match="Mask is required"):
             scan_image.apply_mask_image()
+
+
+class TestMaskBoundingBox:
+    """Test the mask_bounding_box property.
+
+    Note: mask_bounding_box returns (x_slice, y_slice), following the convention
+    from conversion.mask._determine_bounding_box.
+    """
+
+    @pytest.mark.parametrize(
+        "mask,expected",
+        [
+            pytest.param(
+                np.array(
+                    [
+                        [1, 1, 1],
+                        [1, 1, 1],
+                        [1, 1, 1],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 3), slice(0, 3)),
+                id="all-ones",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [1, 1, 1],
+                        [0, 0, 0],
+                        [1, 1, 1],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 3), slice(0, 3)),
+                id="middle-row-false",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [1, 1, 1],
+                        [1, 0, 1],
+                        [1, 1, 1],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 3), slice(0, 3)),
+                id="ring-true",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [1, 0, 1],
+                        [1, 0, 1],
+                        [1, 0, 1],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 3), slice(0, 3)),
+                id="middle-column-false",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [1, 0, 0],
+                        [0, 0, 0],
+                        [0, 0, 0],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 1), slice(0, 1)),
+                id="top-left-corner-only",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [0, 0, 0],
+                        [0, 0, 0],
+                        [0, 0, 1],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(2, 3), slice(2, 3)),
+                id="bottom-right-corner-only",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [1, 1, 1],
+                        [0, 0, 0],
+                        [0, 0, 0],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 3), slice(0, 1)),
+                id="top-row-only",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [1, 0, 0],
+                        [1, 0, 0],
+                        [1, 0, 0],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 1), slice(0, 3)),
+                id="left-column-only",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [0, 0, 0],
+                        [0, 1, 0],
+                        [0, 0, 0],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(1, 2), slice(1, 2)),
+                id="center-pixel-only",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [1, 1, 0],
+                        [1, 1, 0],
+                        [0, 0, 0],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 2), slice(0, 2)),
+                id="top-left-2x2",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [0, 0, 0],
+                        [0, 1, 1],
+                        [0, 1, 1],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(1, 3), slice(1, 3)),
+                id="bottom-right-2x2",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [1, 1, 1],
+                        [1, 0, 0],
+                        [1, 0, 0],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 3), slice(0, 3)),
+                id="L-shape",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [0, 1, 0],
+                        [0, 1, 0],
+                        [0, 1, 0],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(1, 2), slice(0, 3)),
+                id="middle-column-only",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [1, 0, 0],
+                        [0, 0, 0],
+                        [0, 0, 1],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 3), slice(0, 3)),
+                id="scattered-diagonal-corners",
+            ),
+            pytest.param(
+                np.array(
+                    [
+                        [0, 0, 1],
+                        [0, 0, 0],
+                        [1, 0, 0],
+                    ],
+                    dtype=bool,
+                ),
+                (slice(0, 3), slice(0, 3)),
+                id="scattered-anti-diagonal-corners",
+            ),
+        ],
+    )
+    def test_mask_bounding_box_subset(
+        self, mask: NDArray, expected: tuple[slice, slice], scan_image_factory
+    ) -> None:
+        # Arrange
+        scan_image = scan_image_factory(mask=mask)
+        # Act
+        slices = scan_image.mask_bounding_box
+        # assert
+        # Returns (x_slice for cols, y_slice for rows)
+        assert slices == expected
+
+    @pytest.mark.parametrize(
+        "mask,error_match",
+        [
+            pytest.param(None, "Mask is required", id="no-mask"),
+            pytest.param(
+                np.zeros(DATA.shape, dtype=bool), "zero-size array", id="all-zeros-mask"
+            ),
+        ],
+    )
+    def test_mask_bounding_box_raises_error(
+        self, mask, error_match, scan_image_factory
+    ) -> None:
+        scan_image = scan_image_factory(mask=mask)
+
+        with pytest.raises(ValueError, match=error_match):
+            _ = scan_image.mask_bounding_box
