@@ -9,8 +9,8 @@ from math import ceil
 from scipy.special import lambertw
 
 import numpy as np
-from numpy.typing import NDArray
 
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.filter.regression import (
     create_normalized_separable_kernels,
@@ -67,13 +67,13 @@ def gaussian_sigma_to_cutoff(sigma: float, pixel_size: float) -> float:
 
 
 def apply_gaussian_regression_filter(
-    data: NDArray[np.floating],
+    data: FloatArray2D,
     cutoff_length: float,
     pixel_size: tuple[float, float] = (1.0, 1.0),
     regression_order: int = 0,
     nan_out: bool = True,
     is_high_pass: bool = False,
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """
     Apply a 2D Savitzky-Golay filter with Gaussian weighting via local polynomial regression (ISO 16610-21).
 
@@ -133,7 +133,7 @@ def apply_striation_preserving_filter_1d(
     cutoff: float,
     is_high_pass: bool = False,
     cut_borders_after_smoothing: bool = True,
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """
     Apply 1D Gaussian filter along rows (y-direction) for striation-preserving surface processing.
 
@@ -190,7 +190,7 @@ def _apply_nan_weighted_gaussian_1d(
     cutoff_length: float,
     axis: int = 0,
     is_high_pass: bool = False,
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """
     Apply 1D NaN-aware Gaussian filter using FFT convolution.
 
