@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_impression.impression import preprocess_impression_mark
@@ -26,14 +27,14 @@ class MatlabTestCase:
 
     name: str
     # Input
-    input_data: np.ndarray
+    input_data: FloatArray2D
     pixel_spacing: tuple[float, float]
     # Processing options
     params: PreprocessingImpressionParams
     use_circle_center: bool
     # Expected output
-    output_data: np.ndarray
-    output_leveled: np.ndarray | None
+    output_data: FloatArray2D
+    output_leveled: FloatArray2D | None
     # Flags
     b_interpol: bool
     target_pixel_spacing: float | None
@@ -141,7 +142,7 @@ def discover_test_cases(test_cases_dir: Path) -> list[MatlabTestCase]:
 
 def run_python_preprocessing(
     test_case: MatlabTestCase,
-) -> tuple[np.ndarray, np.ndarray | None]:
+) -> tuple[FloatArray2D, FloatArray2D | None]:
     """Run Python preprocessing and return (processed, leveled) arrays."""
     scan_image = ScanImage(
         data=test_case.input_data,

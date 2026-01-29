@@ -2,7 +2,6 @@ from pathlib import Path
 from functools import lru_cache
 from loguru import logger
 
-from numpy.typing import NDArray
 import numpy as np
 from returns.io import impure_safe
 from returns.result import safe
@@ -10,6 +9,7 @@ from surfalize import Surface
 from surfalize.file import FileHandler
 from surfalize.file.al3d import MAGIC
 
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from utils.logger import log_railway_function
 
@@ -129,9 +129,7 @@ def _get_target_shape(scan_image: ScanImage, target_scale: float) -> tuple[int, 
     return height, width
 
 
-def _upsample_image_data(
-    scan_image: ScanImage, target_scale: float
-) -> NDArray[np.float64]:
+def _upsample_image_data(scan_image: ScanImage, target_scale: float) -> FloatArray2D:
     """Upsample image data in a `ScanImage` instance to a common target scale."""
     upsampled = resize(
         image=scan_image.data,

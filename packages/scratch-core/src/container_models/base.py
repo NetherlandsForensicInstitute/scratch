@@ -2,9 +2,15 @@ from collections.abc import Sequence
 from functools import partial
 from typing import Annotated, TypeAlias
 
-from numpy import array, bool_, float64, number, uint8
+from numpy import array, bool_, floating, number, uint8
 from numpy.typing import DTypeLike, NDArray
-from pydantic import BaseModel, BeforeValidator, ConfigDict, PlainSerializer
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    PlainSerializer,
+)
 
 
 def serialize_ndarray[T: number](array_: NDArray[T]) -> list[T]:
@@ -29,23 +35,57 @@ def coerce_to_array[T: number](
     return value
 
 
-ScanMapRGBA: TypeAlias = Annotated[
+def validate_shape(n_dims: int, value: NDArray) -> NDArray:
+    if (array_dims := len(value.shape)) != n_dims:
+        raise ValueError(
+            f"Array shape mismatch, expected {n_dims} dimension(s), but got {array_dims}"
+        )
+    return value
+
+
+# Tier 1: Base types
+UInt8Array: TypeAlias = Annotated[
     NDArray[uint8],
     BeforeValidator(partial(coerce_to_array, uint8)),
     PlainSerializer(serialize_ndarray),
 ]
-
-ScanMap2DArray = ScanVectorField2DArray = UnitVector3DArray = Annotated[
-    NDArray[float64],
-    BeforeValidator(partial(coerce_to_array, float64)),
+FloatArray: TypeAlias = Annotated[
+    NDArray[floating],
+    BeforeValidator(partial(coerce_to_array, floating)),
     PlainSerializer(serialize_ndarray),
 ]
-
-MaskArray = Annotated[
+BoolArray: TypeAlias = Annotated[
     NDArray[bool_],
     BeforeValidator(partial(coerce_to_array, bool_)),
     PlainSerializer(serialize_ndarray),
 ]
+
+# Tier 2: Shape and data types
+UInt8Array3D: TypeAlias = Annotated[
+    UInt8Array, AfterValidator(partial(validate_shape, 3))
+]
+FloatArray1D: TypeAlias = Annotated[
+    FloatArray, AfterValidator(partial(validate_shape, 1))
+]
+FloatArray2D: TypeAlias = Annotated[
+    FloatArray, AfterValidator(partial(validate_shape, 2))
+]
+FloatArray3D: TypeAlias = Annotated[
+    FloatArray, AfterValidator(partial(validate_shape, 3))
+]
+FloatArray4D: TypeAlias = Annotated[
+    FloatArray, AfterValidator(partial(validate_shape, 4))
+]
+BoolArray2D: TypeAlias = Annotated[
+    BoolArray, AfterValidator(partial(validate_shape, 2))
+]
+
+# Tier 3: Semantic context
+ImageRGBA: TypeAlias = UInt8Array3D  # Shape: (H, W, 4)
+UnitVector: TypeAlias = FloatArray1D  # Shape: (3,)
+DepthData: TypeAlias = FloatArray2D  # Shape: (H, W)
+BinaryMask: TypeAlias = BoolArray2D  # Shape: (H, W)
+VectorField: TypeAlias = FloatArray3D  # Shape (H, W, 3)
 
 
 class ConfigBaseModel(BaseModel):

@@ -1,8 +1,7 @@
 import numpy as np
 from scipy.ndimage import binary_dilation, rotate
-
+from container_models.base import BinaryMask
 from conversion.utils import update_scan_image_data
-from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.remove_needles import mask_and_remove_needles
 from conversion.data_formats import BoundingBox
@@ -14,7 +13,7 @@ DILATE_STEPS = 3
 
 def rotate_crop_and_mask_image_by_crop(
     scan_image: ScanImage,
-    mask: MaskArray,
+    mask: BinaryMask,
     bounding_box: BoundingBox | None,
     median_factor: float = 15,
 ) -> ScanImage:
@@ -94,8 +93,8 @@ def get_rotation_angle(bounding_box: BoundingBox) -> float:
 
 
 def crop_image_and_mask_to_mask(
-    scan_image: ScanImage, mask: MaskArray, margin: int
-) -> tuple[ScanImage, MaskArray]:
+    scan_image: ScanImage, mask: BinaryMask, margin: int
+) -> tuple[ScanImage, BinaryMask]:
     """
     Crop scan_image.data and the mask itself to the bounding box of the mask. If a margin is given, the bounding box
     will be expanded (in case of a negative margin) or cropped (in case of a positive margin) by that amount.
@@ -114,8 +113,8 @@ def crop_image_and_mask_to_mask(
 
 
 def rotate_mask_and_scan_image(
-    scan_image: ScanImage, mask: MaskArray, rotation_angle: float
-) -> tuple[ScanImage, MaskArray]:
+    scan_image: ScanImage, mask: BinaryMask, rotation_angle: float
+) -> tuple[ScanImage, BinaryMask]:
     """
     Rotate mask and scan image if rotation angle is not 0.
 

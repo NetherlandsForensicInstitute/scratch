@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from container_models.base import ScanMap2DArray, MaskArray
+from container_models.base import FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import get_rotation_angle, rotate_crop_and_mask_image_by_crop
@@ -26,10 +26,10 @@ class MatlabTestCase:
     """Container for a single MATLAB RotateCropImage test case."""
 
     name: str
-    input_data: ScanMap2DArray
-    input_mask: MaskArray
-    output_data: ScanMap2DArray
-    output_mask: MaskArray
+    input_data: FloatArray2D
+    input_mask: BinaryMask
+    output_data: FloatArray2D
+    output_mask: BinaryMask
 
     input_xdim: float = 3.5e-6
     input_ydim: float = 3.5e-6
@@ -136,7 +136,7 @@ def test_case(
 
 def run_python_preprocessing(
     test_case: MatlabTestCase,
-) -> np.ndarray:
+) -> FloatArray2D:
     """Run Python rotate_crop_image and return the result."""
     scan_image = ScanImage(
         data=test_case.input_data.copy(),

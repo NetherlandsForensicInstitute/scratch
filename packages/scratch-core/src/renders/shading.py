@@ -1,8 +1,7 @@
 from collections.abc import Iterable
 import numpy as np
 from typing import Final
-
-from numpy.typing import ArrayLike, NDArray
+from container_models.base import VectorField, FloatArray2D
 from returns.pipeline import flow
 from returns.result import safe
 
@@ -15,8 +14,8 @@ SPECULAR_FACTOR: Final[float] = 1.0
 PHONG_EXPONENT: Final[int] = 4
 
 
-def _get_normals(data: NDArray) -> tuple[ArrayLike, ArrayLike, ArrayLike]:
-    return (data[..., 0], data[..., 1], data[..., 2])
+def _get_normals(data: VectorField) -> tuple[FloatArray2D, FloatArray2D, FloatArray2D]:
+    return data[..., 0], data[..., 1], data[..., 2]
 
 
 def _compute_half_vector(scan_image: ScanImage) -> ScanImage:

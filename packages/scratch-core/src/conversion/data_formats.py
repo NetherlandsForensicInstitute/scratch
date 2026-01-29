@@ -1,6 +1,9 @@
 from typing import Annotated
 from enum import StrEnum, auto
 import json
+from container_models.base import (
+    FloatArray2D,
+)
 
 from functools import partial
 from pydantic import (
@@ -11,7 +14,6 @@ from pydantic import (
     BeforeValidator,
 )
 from numpy import float64
-from numpy.typing import NDArray
 from container_models.base import (
     ConfigBaseModel,
     coerce_to_array,
@@ -51,7 +53,7 @@ class MarkType(StrEnum):
         return 1.5e-6
 
 
-def validate_rectangle_corners(arr: NDArray[float64]) -> NDArray[float64]:
+def validate_rectangle_corners(arr: FloatArray2D) -> FloatArray2D:
     """Validate that array has shape (4, 2)"""
     if arr.shape != (4, 2):
         raise ValueError(f"Rectangle must have shape (4, 2), got {arr.shape}")
@@ -60,7 +62,7 @@ def validate_rectangle_corners(arr: NDArray[float64]) -> NDArray[float64]:
 
 # Note: Our code expects pixel coordinates, i.e. top-left origin, in the order [x, y]
 BoundingBox = Annotated[
-    NDArray[float64],
+    FloatArray2D,
     BeforeValidator(partial(coerce_to_array, float64)),
     AfterValidator(partial(validate_rectangle_corners)),
     PlainSerializer(serialize_ndarray),

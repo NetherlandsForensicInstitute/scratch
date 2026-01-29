@@ -2,7 +2,7 @@ from returns.io import IOResultE, IOSuccess
 from returns.result import ResultE, Success
 
 from container_models.scan_image import ScanImage
-from container_models.base import ScanMap2DArray
+from container_models.base import DepthData
 
 
 def unwrap_result[T](result: IOResultE[T] | ResultE[T]) -> T:
@@ -13,7 +13,7 @@ def unwrap_result[T](result: IOResultE[T] | ResultE[T]) -> T:
             assert False, "failed to unwrap"
 
 
-def update_scan_image_data(scan_image: ScanImage, data: ScanMap2DArray) -> ScanImage:
+def update_scan_image_data(scan_image: ScanImage, data: DepthData) -> ScanImage:
     """
     Return a new ScanImage with updated scan data.
 

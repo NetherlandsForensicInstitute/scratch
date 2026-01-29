@@ -1,11 +1,10 @@
-from numpy._typing import NDArray
-
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 
 
 def update_mark_data(
-    mark: Mark, data: NDArray, center: tuple[float, float] | None = None
+    mark: Mark, data: FloatArray2D, center: tuple[float, float] | None = None
 ) -> Mark:
     """
     Return a new Mark with updated scan data.

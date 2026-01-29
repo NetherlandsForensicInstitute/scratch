@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.ndimage import generic_filter
 
-from container_models.base import MaskArray, ScanMap2DArray
+from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.mask import mask_2d_array
 from conversion.resample import resample_scan_image_and_mask
@@ -16,7 +16,7 @@ MEDIAN_FACTOR_CORRECTION_FACTOR = 6
 
 
 def mask_and_remove_needles(
-    scan_image: ScanImage, mask: MaskArray, median_factor: float = 15.0
+    scan_image: ScanImage, mask: BinaryMask, median_factor: float = 15.0
 ) -> ScanImage:
     """
     Mask the scan image and remove needle artifacts (i.e. steep slopes) using median filtering.
@@ -35,7 +35,7 @@ def mask_and_remove_needles(
     return get_and_remove_needles(scan_image_masked, residual_image, median_factor)
 
 
-def get_residual_image(scan_image: ScanImage) -> ScanMap2DArray:
+def get_residual_image(scan_image: ScanImage) -> FloatArray2D:
     """
     Apply median filtering to smooth the image and compute residuals as the difference between the input scan image and
     the median filtered image.
@@ -111,7 +111,7 @@ def apply_median_filter_to_large_image(
 
 
 def get_and_remove_needles(
-    scan_image: ScanImage, residual_image: ScanMap2DArray, median_factor: float
+    scan_image: ScanImage, residual_image: FloatArray2D, median_factor: float
 ) -> ScanImage:
     """
     Mark points as needles where residuals exceed a threshold and set marked needle points to NaN in scan image.

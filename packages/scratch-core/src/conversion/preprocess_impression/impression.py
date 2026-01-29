@@ -6,7 +6,7 @@ This module provides functions to preprocess 2D scan images of impression marks
 
 from dataclasses import asdict
 
-from container_models.base import ScanMap2DArray
+from container_models.base import DepthData
 from conversion.data_formats import Mark
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import crop_to_mask
@@ -110,7 +110,7 @@ def _level_mark(
     mark: Mark,
     terms: SurfaceTerms,
     reference_point: Point2D | None = None,
-) -> tuple[Mark, ScanMap2DArray]:
+) -> tuple[Mark, DepthData]:
     result = level_map(
         mark.scan_image, terms=terms, reference_point=reference_point or mark.center
     )
@@ -132,7 +132,7 @@ def _prepare_mark(mark: Mark) -> Mark:
 
 def _finalize_leveled_output(
     mark: Mark,
-    fitted_surface: ScanMap2DArray,
+    fitted_surface: DepthData,
     target_scale: float | None,
     surface_terms: SurfaceTerms,
     reference_point: Point2D,
