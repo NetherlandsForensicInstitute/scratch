@@ -1,15 +1,11 @@
-from functools import partial
 import numpy as np
 import pytest
 
-from container_models.scan_image import ScanImage
 from renders import normalize_2d_array
 
 TEST_IMAGE_WIDTH = 10
 TEST_IMAGE_HEIGHT = 12
 TOLERANCE = 1e-5
-
-NoScaleScanImage = partial(ScanImage, scale_x=1, scale_y=1)
 
 
 @pytest.mark.parametrize(
@@ -23,15 +19,13 @@ NoScaleScanImage = partial(ScanImage, scale_x=1, scale_y=1)
 def test_bigger_numbers(start_value: int, slope: float) -> None:
     # Arrange
     row = (start_value + slope * np.arange(TEST_IMAGE_WIDTH)).astype(np.float64)
-    image = NoScaleScanImage(
-        data=np.tile(row, (TEST_IMAGE_HEIGHT, 1)).astype(np.float64)
-    )
+    image = np.tile(row, (TEST_IMAGE_HEIGHT, 1)).astype(np.float64)
     max_val = 255
     min_val = 20
     # Act
-    normalized_image = (
-        normalize_2d_array(image, scale_max=max_val, scale_min=min_val).unwrap().data
-    )
+    normalized_image = normalize_2d_array(
+        image, scale_max=max_val, scale_min=min_val
+    ).unwrap()
 
     # Assert
     assert normalized_image.max() <= max_val
@@ -49,13 +43,9 @@ def test_already_normalized_image() -> None:
     ).reshape(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT)
 
     # Act
-    normalized = (
-        normalize_2d_array(
-            NoScaleScanImage(data=image), scale_max=max_value, scale_min=min_val
-        )
-        .unwrap()
-        .data
-    )
+    normalized = normalize_2d_array(
+        array_to_normalize=image, scale_max=max_value, scale_min=min_val
+    ).unwrap()
 
     # Assert
     assert np.all(normalized >= min_val)

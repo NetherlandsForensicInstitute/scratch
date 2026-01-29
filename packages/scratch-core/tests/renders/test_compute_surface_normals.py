@@ -5,8 +5,7 @@ from scipy.constants import milli
 
 from container_models.scan_image import ScanImage
 from renders import compute_surface_normals
-from container_models.base import BinaryMask
-
+from container_models.base import BinaryMask, VectorField
 
 IMAGE_SIZE = 20
 BUMP_SIZE = 6
@@ -31,14 +30,12 @@ def outer_mask(inner_mask: BinaryMask) -> BinaryMask:
 
 
 def are_normals_allclose(
-    normals_scan: ScanImage,
+    normals: VectorField,
     mask: BinaryMask,
     expected: tuple[float, float, float],
 ) -> bool:
     """Assert nx, ny, nz at mask match expected 3-tuple."""
-    nx = normals_scan.data[..., 0]
-    ny = normals_scan.data[..., 1]
-    nz = normals_scan.data[..., 2]
+    nx, ny, nz = normals[..., 0], normals[..., 1], normals[..., 2]
     return (
         np.allclose(nx[mask], expected[0], atol=milli)
         and np.allclose(ny[mask], expected[1], atol=milli)
@@ -46,11 +43,9 @@ def are_normals_allclose(
     )
 
 
-def is_all_nan(normals_scan: ScanImage, mask: BinaryMask) -> np.bool_:
+def is_all_nan(normals: VectorField, mask: BinaryMask) -> np.bool_:
     """All channels must be NaN within mask."""
-    nx = normals_scan.data[..., 0]
-    ny = normals_scan.data[..., 1]
-    nz = normals_scan.data[..., 2]
+    nx, ny, nz = normals[..., 0], normals[..., 1], normals[..., 2]
     return (
         np.isnan(nx[mask]).all()
         and np.isnan(ny[mask]).all()
@@ -58,11 +53,9 @@ def is_all_nan(normals_scan: ScanImage, mask: BinaryMask) -> np.bool_:
     )
 
 
-def has_nan(normals_scan: ScanImage, mask: BinaryMask) -> np.bool_:
+def has_nan(normals: VectorField, mask: BinaryMask) -> np.bool_:
     """No channel should contain NaN within mask."""
-    nx = normals_scan.data[..., 0]
-    ny = normals_scan.data[..., 1]
-    nz = normals_scan.data[..., 2]
+    nx, ny, nz = normals[..., 0], normals[..., 1], normals[..., 2]
     return (
         np.isnan(nx[mask]).any()
         and np.isnan(ny[mask]).any()
@@ -71,19 +64,19 @@ def has_nan(normals_scan: ScanImage, mask: BinaryMask) -> np.bool_:
 
 
 @pytest.fixture(scope="module")
-def flat_nutral_image() -> ScanImage:
+def flat_neutral_image() -> ScanImage:
     return NoScaleScanImage(data=np.zeros((IMAGE_SIZE, IMAGE_SIZE)))
 
 
 def test_slope_has_nan_border(
-    inner_mask: BinaryMask, outer_mask: BinaryMask, flat_nutral_image: ScanImage
+    inner_mask: BinaryMask, outer_mask: BinaryMask, flat_neutral_image: ScanImage
 ) -> None:
     """
     The image is 1 pixel smaller on all sides due to the slope calculation.
     This is filled with NaN values to get the same shape as original image
     """
     # Act
-    surface_normals = compute_surface_normals(flat_nutral_image).unwrap()
+    surface_normals = compute_surface_normals(flat_neutral_image).unwrap()
 
     # Assert
     assert not has_nan(surface_normals, inner_mask)
@@ -91,12 +84,12 @@ def test_slope_has_nan_border(
 
 
 def test_flat_surface_returns_flat_surface(
-    inner_mask: BinaryMask, flat_nutral_image: ScanImage
+    inner_mask: BinaryMask, flat_neutral_image: ScanImage
 ) -> None:
     """Given a flat surface the depth map should also be flat."""
 
     # Act
-    surface_normals = compute_surface_normals(flat_nutral_image).unwrap()
+    surface_normals = compute_surface_normals(flat_neutral_image).unwrap()
 
     # Assert
     assert are_normals_allclose(surface_normals, inner_mask, (0, 0, 1))
@@ -152,9 +145,11 @@ def test_location_slope_is_where_expected(
 
     # Act
     surface_normals = compute_surface_normals(image_with_bump).unwrap()
-    nx = surface_normals.data[..., 0]
-    ny = surface_normals.data[..., 1]
-    nz = surface_normals.data[..., 2]
+    nx, ny, nz = (
+        surface_normals[..., 0],
+        surface_normals[..., 1],
+        surface_normals[..., 2],
+    )
 
     # Assert
     assert np.any(np.abs(nx[bump_mask]) > 0), "nx should have slope inside bump"
@@ -177,7 +172,7 @@ def test_corner_of_slope(image_with_bump: ScanImage) -> None:
 
     # Act
     surface_normals = compute_surface_normals(image_with_bump).unwrap()
-    nz = surface_normals.data[..., 2]
+    nz = surface_normals[..., 2]
 
     # Assert
     assert nz[corner[0], corner[1]] == expected_corner_value, (
