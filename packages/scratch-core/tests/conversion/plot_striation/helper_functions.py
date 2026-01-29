@@ -1,5 +1,6 @@
 import numpy as np
 
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 
@@ -8,7 +9,7 @@ def create_synthetic_striation_data(
     height: int = 256,
     width: int = 200,
     seed: int = 42,
-) -> np.ndarray:
+) -> FloatArray2D:
     """
     Create synthetic striation data with horizontal grooves.
 
@@ -24,7 +25,7 @@ def create_synthetic_striation_data(
     pattern_1d = 0.50 * np.sin(2.5 * x) + 0.30 * np.sin(10 * x) + 0.10 * np.sin(33 * x)
 
     if height == 1:
-        data = pattern_1d + 0.05 * rng.standard_normal(width)
+        data = np.expand_dims(pattern_1d + 0.05 * rng.standard_normal(width), axis=-1)
     else:
         y = np.linspace(0, 2 * np.pi, height)
         y = y[:, np.newaxis]
@@ -66,7 +67,7 @@ def create_synthetic_profile_mark(
     """Create a MockMark with synthetic profile data."""
     return Mark(
         scan_image=ScanImage(
-            data=create_synthetic_striation_data(height=2, width=length, seed=seed),
+            data=create_synthetic_striation_data(height=1, width=length, seed=seed),
             scale_x=scale,
             scale_y=scale,
         ),

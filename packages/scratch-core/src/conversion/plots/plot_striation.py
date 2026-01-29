@@ -4,8 +4,8 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
-from numpy.typing import NDArray
 
+from container_models.base import FloatArray2D, FloatArray3D
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import CorrelationMetrics, StriationComparisonPlots
 from conversion.plots.utils import (
@@ -107,11 +107,11 @@ def plot_striation_comparison_results(
 
 
 def plot_similarity(
-    profile_reference: NDArray,
-    profile_compared: NDArray,
+    profile_reference: FloatArray2D,
+    profile_compared: FloatArray2D,
     scale: float,
     score: float,
-) -> np.ndarray:
+) -> FloatArray3D:
     """
     Plot two aligned profiles overlaid (similarity plot).
 
@@ -138,12 +138,12 @@ def plot_similarity(
 
 
 def plot_wavelength_correlation(
-    profile_reference: NDArray,
-    profile_compared: NDArray,
+    profile_reference: FloatArray2D,
+    profile_compared: FloatArray2D,
     scale: float,
     score: float,
     quality_passbands: Mapping[tuple[float, float], float],
-) -> np.ndarray:
+) -> FloatArray3D:
     """
     Plot aligned profiles with wavelength-range dependent cross-correlation.
 
@@ -204,7 +204,9 @@ def get_wavelength_correlation_plot(
     ax.set_ylabel("Correlation Coefficient", fontsize=14)
 
 
-def plot_depth_map_with_axes(data: NDArray, scale: float, title: str) -> np.ndarray:
+def plot_depth_map_with_axes(
+    data: FloatArray2D, scale: float, title: str
+) -> FloatArray3D:
     """
     Plot a depth map rendering of a mark.
 
@@ -226,10 +228,10 @@ def plot_depth_map_with_axes(data: NDArray, scale: float, title: str) -> np.ndar
 
 
 def plot_side_by_side_surfaces(
-    data_reference: NDArray,
-    data_compared: NDArray,
+    data_reference: FloatArray2D,
+    data_compared: FloatArray2D,
     scale: float,
-) -> np.ndarray:
+) -> FloatArray3D:
     """
     Plot two aligned marks side by side with a small gap.
 

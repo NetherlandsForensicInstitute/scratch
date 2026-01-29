@@ -1,6 +1,6 @@
-import numpy as np
 import pytest
 
+from container_models.base import FloatArray2D
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import CorrelationMetrics
 from .helper_functions import (
@@ -11,22 +11,22 @@ from .helper_functions import (
 
 
 @pytest.fixture
-def profile_reference() -> np.ndarray:
+def profile_reference() -> FloatArray2D:
     return create_synthetic_striation_data(height=1, width=200, seed=42)
 
 
 @pytest.fixture
-def profile_compared() -> np.ndarray:
+def profile_compared() -> FloatArray2D:
     return create_synthetic_striation_data(height=1, width=200, seed=43)
 
 
 @pytest.fixture
-def surface_reference() -> np.ndarray:
+def surface_reference() -> FloatArray2D:
     return create_synthetic_striation_data(height=256, width=200, seed=42)
 
 
 @pytest.fixture
-def surface_compared() -> np.ndarray:
+def surface_compared() -> FloatArray2D:
     return create_synthetic_striation_data(height=256, width=220, seed=43)
 
 
