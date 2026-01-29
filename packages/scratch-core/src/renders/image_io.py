@@ -79,13 +79,13 @@ def get_scan_image_for_display(
 @log_railway_function("Failed to convert scan to image")
 @safe
 def scan_to_image(scan_image: ScanImage) -> Image:
-    return fromarray(grayscale_to_rgba(data=scan_image.data))
+    return fromarray(grayscale_to_rgba(scan_data=scan_image.data))
 
 
 @log_railway_function("Failed to convert grayscale data to image")
 @safe
 def grayscale_to_image(grayscale: FloatArray2D) -> Image:
-    return fromarray(grayscale_to_rgba(data=grayscale))
+    return fromarray(grayscale_to_rgba(scan_data=grayscale))
 
 
 @log_railway_function("Failed to save image")
