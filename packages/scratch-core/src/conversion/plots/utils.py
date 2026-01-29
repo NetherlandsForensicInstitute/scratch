@@ -7,12 +7,13 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from numpy.typing import NDArray
+
+from container_models.base import FloatArray2D, UInt8Array3D
 
 DEFAULT_COLORMAP = "viridis"
 
 
-def figure_to_array(fig: Figure) -> np.ndarray:
+def figure_to_array(fig: Figure) -> UInt8Array3D:
     """
     Convert a matplotlib figure to a numpy array.
 
@@ -49,8 +50,8 @@ def get_figure_dimensions(
 
 def plot_profiles_on_axes(
     ax: Axes,
-    profile_reference: NDArray,
-    profile_compared: NDArray,
+    profile_reference: FloatArray2D,
+    profile_compared: FloatArray2D,
     scale: float,
     score: float,
     title: str,
@@ -85,8 +86,8 @@ def plot_profiles_on_axes(
 def plot_side_by_side_on_axes(
     ax: Axes,
     fig: Figure,
-    data_ref: NDArray,
-    data_comp: NDArray,
+    data_ref: FloatArray2D,
+    data_comp: FloatArray2D,
     scale: float,
     title: str = "Reference Surface A / Moved Compared Surface B",
     colorbar_width: str = "2.5%",  # Smaller since plot is wider
@@ -122,7 +123,7 @@ def plot_side_by_side_on_axes(
 def plot_depth_map_on_axes(
     ax: Axes,
     fig: Figure,
-    data: NDArray,
+    data: FloatArray2D,
     scale: float,
     title: str,
     colorbar_width: str = "5%",
