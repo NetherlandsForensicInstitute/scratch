@@ -66,7 +66,7 @@ def create_synthetic_profile_mark(
     """Create a MockMark with synthetic profile data."""
     return Mark(
         scan_image=ScanImage(
-            data=create_synthetic_striation_data(height=1, width=length, seed=seed),
+            data=create_synthetic_striation_data(height=2, width=length, seed=seed),
             scale_x=scale,
             scale_y=scale,
         ),
