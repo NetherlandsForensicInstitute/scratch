@@ -1,7 +1,6 @@
 import numpy as np
 from typing import Final
 from returns.result import safe
-from returns.pipeline import flow
 from container_models.base import FloatArray2D, VectorField
 from container_models.scan_image import ScanImage
 from utils.logger import log_railway_function
@@ -74,7 +73,6 @@ def _normalize_to_surface_normals(
     success_message="Successfully computed surface normal components",
 )
 @safe
-@flow
 def compute_surface_normals(scan_image: ScanImage) -> VectorField:
     """
     Compute per-pixel surface normals from a 2D depth map.
