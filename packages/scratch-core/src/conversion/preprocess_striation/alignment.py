@@ -6,9 +6,8 @@ aligning striated marks to be horizontal.
 """
 
 import numpy as np
-from numpy.typing import NDArray
 
-from container_models.base import BinaryMask
+from container_models.base import FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
@@ -47,7 +46,6 @@ def fine_align_bullet_marks(
     # Find alignment angle iteratively
     total_angle = _find_alignment_angle(
         scan_image,
-        None,
         angle_accuracy,
         cut_y_after_shift,
         max_iter,
@@ -81,7 +79,6 @@ def fine_align_bullet_marks(
 
 def _find_alignment_angle(
     scan_image: ScanImage,
-    mask: BinaryMask | None,
     angle_accuracy: float,
     cut_y_after_shift: bool,
     max_iter: int,
@@ -94,7 +91,6 @@ def _find_alignment_angle(
     Positive angle means clockwise rotation.
 
     :param scan_image: ScanImage containing depth data and pixel spacing.
-    :param mask: Optional boolean mask.
     :param angle_accuracy: Target angle accuracy in degrees.
     :param cut_y_after_shift: If True, crop borders after shifting.
     :param max_iter: Maximum number of iterations.
@@ -102,7 +98,6 @@ def _find_alignment_angle(
     :returns: Total alignment angle in degrees (0.0 if max_iter reached).
     """
     data_tmp = scan_image.data
-    mask_tmp = mask
 
     total_angle = 0.0
     current_angle = -45.0  # Initialize with large angle to ensure first iteration runs
@@ -118,26 +113,17 @@ def _find_alignment_angle(
 
         tmp_scan_image = scan_image.model_copy(update={"data": data_tmp})
         current_angle = _detect_striation_angle(
-            tmp_scan_image, mask=mask_tmp, subsampling_factor=subsampling_factor
+            tmp_scan_image, subsampling_factor=subsampling_factor
         )
 
         if np.isnan(current_angle):
-            current_angle = 0.05
+            break
         else:
             total_angle += current_angle
             total_angle_rad = np.radians(total_angle)
             data_tmp = shear_data_by_shifting_profiles(
                 scan_image.data, total_angle_rad, cut_y_after_shift
             )
-            if mask is not None:
-                mask_tmp = (
-                    shear_data_by_shifting_profiles(
-                        mask, total_angle_rad, cut_y_after_shift
-                    )
-                    > 0.5
-                )
-            else:
-                mask_tmp = None
 
             # Check if stuck (same angle as previous iteration)
             if current_angle == previous_angle:
@@ -152,14 +138,12 @@ def _find_alignment_angle(
 
 def _detect_striation_angle(
     scan_image: ScanImage,
-    mask: BinaryMask | None = None,
     subsampling_factor: int = 1,
 ) -> float:
     """
     Determine the striation direction using gradient analysis.
 
     :param scan_image: ScanImage containing depth data and pixel spacing.
-    :param mask: Optional boolean mask (True = valid).
     :param subsampling_factor: Additional subsampling factor on top of the automatic
         subsampling for faster calculation, but lower precision.
     :returns: Detected striation angle in degrees (positive = clockwise),
@@ -172,9 +156,9 @@ def _detect_striation_angle(
 
     # Resample data (only x-dimension, matching MATLAB's resample function)
     if sub_samp > 1 and scan_image.width // sub_samp >= 2:
-        scan_image, mask = resample_scan_image_and_mask(
+        scan_image, _ = resample_scan_image_and_mask(
             scan_image,
-            mask,
+            None,
             factors=(sub_samp, 1),
             only_downsample=True,
         )
@@ -195,7 +179,7 @@ def _detect_striation_angle(
 
     # Calculate gradient and extract tilt angles
     fy, fx = np.gradient(smoothed)
-    angles = _compute_tilt_angles_from_gradient(fx, fy, mask)
+    angles = _compute_tilt_angles_from_gradient(fx, fy)
 
     # Filter outliers: keep only angles within expected range for fine alignment
     angles = angles[np.abs(angles) < np.radians(_MAX_GRADIENT_ANGLE_DEG)]
@@ -207,10 +191,9 @@ def _detect_striation_angle(
 
 
 def _compute_tilt_angles_from_gradient(
-    fx: NDArray[np.floating],
-    fy: NDArray[np.floating],
-    mask: BinaryMask | None = None,
-) -> NDArray[np.floating]:
+    fx: FloatArray2D,
+    fy: FloatArray2D,
+) -> FloatArray1D:
     """
     Compute striation tilt angles from gradient components.
 
@@ -219,7 +202,6 @@ def _compute_tilt_angles_from_gradient(
 
     :param fx: Gradient in x-direction.
     :param fy: Gradient in y-direction.
-    :param mask: Optional boolean mask (True = valid pixels to include).
     :returns: Array of tilt angles in radians for valid pixels.
     """
     # Calculate total gradient (L1 norm)
@@ -228,10 +210,6 @@ def _compute_tilt_angles_from_gradient(
     # Create gradient threshold mask (keep only significant gradients)
     grad_threshold = 1.5 * np.nanmedian(grad_magnitude)
     grad_mask = grad_magnitude > grad_threshold
-
-    # Combine with input mask if provided
-    if mask is not None:
-        grad_mask = grad_mask & (mask > 0.5)
 
     # Normalize fx by gradient magnitude
     with np.errstate(divide="ignore", invalid="ignore"):
