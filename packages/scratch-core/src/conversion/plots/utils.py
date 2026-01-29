@@ -8,12 +8,12 @@ from matplotlib.figure import Figure
 from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from container_models.base import FloatArray2D, UInt8Array3D
+from container_models.base import FloatArray2D, ImageRGB
 
 DEFAULT_COLORMAP = "viridis"
 
 
-def figure_to_array(fig: Figure) -> UInt8Array3D:
+def figure_to_array(fig: Figure) -> ImageRGB:
     """
     Convert a matplotlib figure to a numpy array.
 
@@ -60,8 +60,8 @@ def plot_profiles_on_axes(
     Plot two aligned profiles on the given axes.
 
     :param ax: Matplotlib axes to plot on.
-    :param profile_reference: Reference profile (aligned, 1D).
-    :param profile_compared: Compared profile (aligned, 1D).
+    :param profile_reference: Reference profile (aligned, 2D).
+    :param profile_compared: Compared profile (aligned, 2D).
     :param scale: scale of the profiles in meters.
     :param score: Pre-computed correlation coefficient.
     :param title: Prefix for the title before the correlation value.

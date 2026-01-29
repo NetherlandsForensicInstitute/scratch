@@ -147,7 +147,7 @@ def apply_shape_noise_removal(
     :param lowpass_cutoff: Low-frequency cutoff wavelength in meters (m) for noise removal.
     :param highpass_cutoff: High-frequency cutoff wavelength in meters (m) for shape removal.
 
-    :returns: Tuple of (processed_data, mask).
+    :returns: processed_data
     """
 
     # Calculate Gaussian sigma from cutoff wavelength

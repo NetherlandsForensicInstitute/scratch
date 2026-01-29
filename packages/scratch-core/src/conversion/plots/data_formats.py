@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
-
-from container_models.base import UInt8Array3D
+from container_models.base import ImageRGB
 
 
 @dataclass
@@ -46,9 +45,9 @@ class StriationComparisonPlots:
     :param wavelength_plot: Profiles + wavelength-dependent cross-correlation.
     """
 
-    similarity_plot: UInt8Array3D
-    comparison_overview: UInt8Array3D
-    mark1_filtered_preview_image: UInt8Array3D
-    mark2_filtered_preview_image: UInt8Array3D
-    mark1_vs_moved_mark2: UInt8Array3D
-    wavelength_plot: UInt8Array3D
+    similarity_plot: ImageRGB
+    comparison_overview: ImageRGB
+    mark1_filtered_preview_image: ImageRGB
+    mark2_filtered_preview_image: ImageRGB
+    mark1_vs_moved_mark2: ImageRGB
+    wavelength_plot: ImageRGB

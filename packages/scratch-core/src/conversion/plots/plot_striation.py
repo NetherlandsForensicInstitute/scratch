@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 
-from container_models.base import FloatArray2D, UInt8Array3D
+from container_models.base import FloatArray2D, ImageRGB
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import CorrelationMetrics, StriationComparisonPlots
 from conversion.plots.utils import (
@@ -111,7 +111,7 @@ def plot_similarity(
     profile_compared: FloatArray2D,
     scale: float,
     score: float,
-) -> UInt8Array3D:
+) -> ImageRGB:
     """
     Plot two aligned profiles overlaid (similarity plot).
 
@@ -143,7 +143,7 @@ def plot_wavelength_correlation(
     scale: float,
     score: float,
     quality_passbands: Mapping[tuple[float, float], float],
-) -> UInt8Array3D:
+) -> ImageRGB:
     """
     Plot aligned profiles with wavelength-range dependent cross-correlation.
 
@@ -204,9 +204,7 @@ def get_wavelength_correlation_plot(
     ax.set_ylabel("Correlation Coefficient", fontsize=14)
 
 
-def plot_depth_map_with_axes(
-    data: FloatArray2D, scale: float, title: str
-) -> UInt8Array3D:
+def plot_depth_map_with_axes(data: FloatArray2D, scale: float, title: str) -> ImageRGB:
     """
     Plot a depth map rendering of a mark.
 
@@ -231,7 +229,7 @@ def plot_side_by_side_surfaces(
     data_reference: FloatArray2D,
     data_compared: FloatArray2D,
     scale: float,
-) -> UInt8Array3D:
+) -> ImageRGB:
     """
     Plot two aligned marks side by side with a small gap.
 
@@ -312,7 +310,7 @@ def plot_comparison_overview(
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
     wrap_width: int = 25,
-) -> UInt8Array3D:
+) -> ImageRGB:
     """Generate the main results overview figure with dynamic sizing."""
 
     # Build results metadata
