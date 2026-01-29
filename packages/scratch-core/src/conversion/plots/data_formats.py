@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
-import numpy as np
+
+from container_models.base import UInt8Array3D
 
 
 @dataclass
@@ -45,9 +46,9 @@ class StriationComparisonPlots:
     :param wavelength_plot: Profiles + wavelength-dependent cross-correlation.
     """
 
-    similarity_plot: np.ndarray
-    comparison_overview: np.ndarray
-    mark1_filtered_preview_image: np.ndarray
-    mark2_filtered_preview_image: np.ndarray
-    mark1_vs_moved_mark2: np.ndarray
-    wavelength_plot: np.ndarray
+    similarity_plot: UInt8Array3D
+    comparison_overview: UInt8Array3D
+    mark1_filtered_preview_image: UInt8Array3D
+    mark2_filtered_preview_image: UInt8Array3D
+    mark1_vs_moved_mark2: UInt8Array3D
+    wavelength_plot: UInt8Array3D
