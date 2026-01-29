@@ -1,4 +1,4 @@
-from typing import Optional, overload
+from typing import Optional, TypeVar
 
 import numpy as np
 from skimage.transform import resize
@@ -6,6 +6,9 @@ from skimage.transform import resize
 from conversion.data_formats import Mark
 from container_models.scan_image import ScanImage
 from container_models.base import BinaryMask, FloatArray2D
+
+
+T = TypeVar("T", FloatArray2D, BinaryMask)
 
 
 def resample_scan_image_and_mask(
@@ -75,24 +78,10 @@ def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> Scan
     )
 
 
-@overload
 def resample_image_array(
-    array: FloatArray2D,
+    array: T,
     factors: tuple[float, float],
-) -> FloatArray2D: ...
-
-
-@overload
-def resample_image_array(
-    array: BinaryMask,
-    factors: tuple[float, float],
-) -> BinaryMask: ...
-
-
-def resample_image_array(
-    array: FloatArray2D | BinaryMask,
-    factors: tuple[float, float],
-) -> FloatArray2D | BinaryMask:
+) -> T:
     """
     Resample an array using the specified resampling factors.
 
