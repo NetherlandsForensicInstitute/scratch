@@ -3,7 +3,7 @@ from typing import Self
 
 import numpy as np
 from pydantic import Field, PositiveFloat, model_validator
-from .base import ConfigBaseModel, BinaryMask, FloatArray, FloatArray1D
+from .base import ConfigBaseModel, BinaryMask, FloatArray, FloatArray1D, Point
 from loguru import logger
 
 
@@ -49,6 +49,14 @@ class ScanImage(ConfigBaseModel):
         y_min, x_min = np.min(coordinates, axis=1)
         y_max, x_max = np.max(coordinates, axis=1)
         return slice(x_min, x_max + 1), slice(y_min, y_max + 1)
+
+    @property
+    def center(self) -> Point[float]:
+        """The centerpoint (X, Y) of a scan image in physical coordinate space."""
+        return Point(
+            (self.width - 1) * self.scale_x * 0.5,
+            (self.height - 1) * self.scale_y * 0.5,
+        )
 
     @cached_property
     def valid_mask(self) -> BinaryMask:
