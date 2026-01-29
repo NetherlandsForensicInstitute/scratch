@@ -12,7 +12,7 @@ from utils.logger import log_railway_function
 
 def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
     """
-      Convert a 2D grayscale array to an 8-bit RGBA array.
+    Convert a 2D grayscale array to an 8-bit RGBA array.
 
     The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
     NaN values will be converted to black pixels with 100% transparency.
