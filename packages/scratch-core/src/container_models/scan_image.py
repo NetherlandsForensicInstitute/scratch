@@ -40,6 +40,16 @@ class ScanImage(ConfigBaseModel):
         """The image height in pixels."""
         return self.data.shape[0]
 
+    @property
+    def mask_bounding_box(self) -> tuple[slice, slice]:
+        if self.mask is None:
+            raise ValueError("Mask is required for cropping operation.")
+
+        coordinates = np.nonzero(self.mask)
+        y_min, x_min = np.min(coordinates, axis=1)
+        y_max, x_max = np.max(coordinates, axis=1)
+        return slice(x_min, x_max + 1), slice(y_min, y_max + 1)
+
     @cached_property
     def valid_mask(self) -> BinaryMask:
         """Mask of the valid pixels in the data."""
@@ -70,4 +80,15 @@ class ScanImage(ConfigBaseModel):
         if self.mask is None:
             raise ValueError("Mask is required for cropping operation.")
         logger.info("Applying mask to scan_image")
-        self.data[~self.mask] = np.nan
+        self.data[~self.mask] = np.nan  # type: ignore
+
+    def crop_to_mask(self) -> None:
+        """
+        Crop the image to the bounding box of the mask.
+
+        :returns: New ScanImage cropped to the minimal bounding box containing all True mask values.
+        :raises ValueError: If the image does not contain a mask.
+        """
+        y_slice, x_slice = self.mask_bounding_box
+        self.data = self.data[y_slice, x_slice]
+        self.mask = self.mask[y_slice, x_slice]  # type: ignore
