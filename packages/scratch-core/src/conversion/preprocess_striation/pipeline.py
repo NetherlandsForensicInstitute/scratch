@@ -107,7 +107,6 @@ def preprocess_striation_mark(
             scale_y=scale_y,
         ),
         mark_type=mark.mark_type,
-        crop_type=mark.crop_type,
         meta_data=aligned_meta_data,
     )
 
@@ -119,7 +118,6 @@ def preprocess_striation_mark(
             scale_y=scale_y,
         ),
         mark_type=mark.mark_type,
-        crop_type=mark.crop_type,
         meta_data=profile_meta_data,
     )
 

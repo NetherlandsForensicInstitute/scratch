@@ -8,7 +8,7 @@ aligning striated marks to be horizontal.
 import numpy as np
 from numpy.typing import NDArray
 
-from container_models.base import MaskArray
+from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
@@ -72,7 +72,6 @@ def fine_align_bullet_marks(
     result_mark = Mark(
         scan_image=result_scan,
         mark_type=mark.mark_type,
-        crop_type=mark.crop_type,
         meta_data=mark.meta_data,
     )
 
@@ -82,7 +81,7 @@ def fine_align_bullet_marks(
 
 def _find_alignment_angle(
     scan_image: ScanImage,
-    mask: MaskArray | None,
+    mask: BinaryMask | None,
     angle_accuracy: float,
     cut_y_after_shift: bool,
     max_iter: int,
@@ -153,7 +152,7 @@ def _find_alignment_angle(
 
 def _detect_striation_angle(
     scan_image: ScanImage,
-    mask: MaskArray | None = None,
+    mask: BinaryMask | None = None,
     subsampling_factor: int = 1,
 ) -> float:
     """
@@ -210,7 +209,7 @@ def _detect_striation_angle(
 def _compute_tilt_angles_from_gradient(
     fx: NDArray[np.floating],
     fy: NDArray[np.floating],
-    mask: MaskArray | None = None,
+    mask: BinaryMask | None = None,
 ) -> NDArray[np.floating]:
     """
     Compute striation tilt angles from gradient components.

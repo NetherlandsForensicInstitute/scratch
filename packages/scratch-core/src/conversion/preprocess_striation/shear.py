@@ -9,11 +9,11 @@ import numpy as np
 from numpy.typing import NDArray
 from skimage.transform import AffineTransform, warp
 
-from container_models.base import MaskArray
+from container_models.base import BinaryMask
 
 
 def shear_data_by_shifting_profiles(
-    depth_data: NDArray[np.floating] | MaskArray,
+    depth_data: NDArray[np.floating] | BinaryMask,
     angle_rad: float,
     cut_y_after_shift: bool = True,
 ) -> NDArray[np.floating]:

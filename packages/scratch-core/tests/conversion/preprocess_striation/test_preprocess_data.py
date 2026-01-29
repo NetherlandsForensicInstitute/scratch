@@ -7,7 +7,7 @@ import pytest
 from math import ceil
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import CropType, Mark, MarkType
+from conversion.data_formats import Mark, MarkType
 from conversion.filter import (
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
@@ -282,7 +282,6 @@ def test_fine_align_bullet_marks():
     mark = Mark(
         scan_image=scan_image,
         mark_type=MarkType.BULLET_GEA_STRIATION,
-        crop_type=CropType.RECTANGLE,
     )
     aligned_mark, detected_angle = fine_align_bullet_marks(
         mark=mark,
@@ -320,7 +319,6 @@ def test_preprocess_striation_mark():
     input_mark = Mark(
         scan_image=scan_image,
         mark_type=MarkType.BULLET_LEA_STRIATION,
-        crop_type=CropType.RECTANGLE,
     )
     params = PreprocessingStriationParams(
         highpass_cutoff=2e-3,
