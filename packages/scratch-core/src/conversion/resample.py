@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, overload
 
 import numpy as np
 from skimage.transform import resize
@@ -44,12 +44,17 @@ def resample_scan_image_and_mask(
     return image, mask
 
 
-def resample_mark(mark: Mark) -> Mark:
-    """Resample a MarkImage so that the scale matches the scale specific for the mark type."""
+def resample_mark(mark: Mark, only_downsample: bool = False) -> Mark:
+    """Resample a Mark so that the scale matches the scale specific for the mark type.
+
+    :param mark: The Mark to resample.
+    :param only_downsample: If True, only resample if it would reduce the resolution.
+    :returns: The resampled Mark.
+    """
     resampled_scan_image, _ = resample_scan_image_and_mask(
         mark.scan_image,
         target_scale=mark.mark_type.scale,
-        only_downsample=False,
+        only_downsample=only_downsample,
     )
     return mark.model_copy(update={"scan_image": resampled_scan_image})
 

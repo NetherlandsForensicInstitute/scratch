@@ -312,7 +312,7 @@ def plot_comparison_overview(
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
     wrap_width: int = 25,
-) -> np.ndarray:
+) -> FloatArray3D:
     """Generate the main results overview figure with dynamic sizing."""
 
     # Build results metadata

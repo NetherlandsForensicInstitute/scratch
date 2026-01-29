@@ -12,7 +12,9 @@ import pytest
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
-from conversion.preprocess_impression.impression import preprocess_impression_mark
+from conversion.preprocess_impression.preprocess_impression import (
+    preprocess_impression_mark,
+)
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from .helper_functions import (
     _compute_correlation,
