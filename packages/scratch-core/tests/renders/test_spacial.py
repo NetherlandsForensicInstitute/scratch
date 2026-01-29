@@ -1,6 +1,4 @@
 import numpy as np
-import pytest
-from numpy.typing import NDArray
 
 from container_models.base import Point, PointCloud
 from container_models.scan_image import ScanImage
@@ -8,58 +6,6 @@ from conversion.leveling.data_types import SurfaceTerms
 from renders.spacial import fit_surface, generate_point_cloud
 
 # WARNING: AI generated
-
-
-@pytest.fixture
-def simple_scan_image() -> ScanImage:
-    """Create a simple 5x5 scan image with some NaN values for testing."""
-    data = np.array(
-        [
-            [1.0, 2.0, 3.0, 4.0, 5.0],
-            [2.0, 3.0, 4.0, 5.0, 6.0],
-            [3.0, 4.0, np.nan, 6.0, 7.0],
-            [4.0, 5.0, 6.0, 7.0, 8.0],
-            [5.0, 6.0, 7.0, 8.0, 9.0],
-        ]
-    )
-    return ScanImage(data=data, scale_x=0.1, scale_y=0.1)
-
-
-@pytest.fixture
-def uniform_scan_image() -> ScanImage:
-    """Create a uniform scan image without NaN values."""
-    data = np.ones((10, 10)) * 5.0
-    return ScanImage(data=data, scale_x=0.1, scale_y=0.1)
-
-
-@pytest.fixture
-def tilted_scan_image() -> ScanImage:
-    """Create a scan image with a tilted surface."""
-    x = np.linspace(0, 10, 20)
-    y = np.linspace(0, 10, 20)
-    X, Y = np.meshgrid(x, y)
-    data = 2.0 * X + 3.0 * Y + 1.0
-    return ScanImage(data=data, scale_x=0.1, scale_y=0.1)
-
-
-@pytest.fixture
-def simple_point_cloud() -> PointCloud:
-    """Create a simple point cloud for testing."""
-    vector = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    return PointCloud(xs=vector, ys=vector, zs=vector)
-
-
-@pytest.fixture
-def lstsq_solver():
-    """Least squares solver implementation for testing."""
-
-    def solver(
-        design_matrix: NDArray[np.float64], zs: NDArray[np.float64]
-    ) -> NDArray[np.float64]:
-        coefficients, *_ = np.linalg.lstsq(design_matrix, zs, rcond=None)
-        return coefficients
-
-    return solver
 
 
 class TestGeneratePointCloud:
