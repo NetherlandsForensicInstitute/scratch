@@ -163,7 +163,6 @@ def apply_striation_preserving_filter_1d(
     :param cut_borders_after_smoothing: If True, crop ceil(sigma) pixels from top and bottom edges.
 
     :returns filtered_data: Filtered data.
-    :returns mask: Boolean mask indicating valid data points in the output.
     """
 
     # Apply 1D Gaussian filter along y-direction
