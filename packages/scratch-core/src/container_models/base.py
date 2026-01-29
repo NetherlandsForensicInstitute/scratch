@@ -92,6 +92,7 @@ class ConfigBaseModel(BaseModel):
     """Base model with common configuration for all pydantic models in this project."""
 
     model_config = ConfigDict(
+        validate_assignment=True,
         extra="forbid",
         arbitrary_types_allowed=True,
         regex_engine="rust-regex",
