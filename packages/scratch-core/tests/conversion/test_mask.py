@@ -7,7 +7,6 @@ from conversion.mask import (
     mask_2d_array,
     crop_to_mask,
     get_bounding_box,
-    mask_and_crop_2d_array,
     mask_and_crop_scan_image,
 )
 from container_models.scan_image import ScanImage
@@ -231,7 +230,7 @@ def test_get_image_for_display_matches_baseline_image(
     scan_image_with_nans: ScanImage, mask_array: BinaryMask, baseline_images_dir: Path
 ):
     verified = np.load(baseline_images_dir / "masked_cropped_array.npy")
-    masked_cropped_array = mask_and_crop_2d_array(
-        scan_image_with_nans.data, mask_array, crop=True
+    masked_cropped = mask_and_crop_scan_image(
+        scan_image_with_nans, mask_array, crop=True
     )
-    assert_array_almost_equal(masked_cropped_array, verified)
+    assert_array_almost_equal(masked_cropped.data, verified)
