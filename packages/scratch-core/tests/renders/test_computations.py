@@ -45,3 +45,20 @@ def test_clip_factors(
     expected: Point[float],
 ) -> None:
     assert clip_factors(factors, preserve_aspect_ratio) == expected
+
+
+def test_clip_factor_logs_when_preserve_aspact_ratio(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Arrange
+    min_factor = 0.5
+    max_factor = 2.0
+
+    # Act
+    _ = clip_factors(factors=Point(min_factor, max_factor), preserve_aspect_ratio=True)
+
+    # Assert
+    assert (
+        f"Preserving aspact ratio in clip factors, max point: {max_factor}"
+        in caplog.messages
+    )
