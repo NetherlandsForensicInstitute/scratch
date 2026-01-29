@@ -2,10 +2,12 @@
 
 import numpy as np
 
+from container_models.base import FloatArray2D, FloatArray
+
 
 def _crop_to_common_shape(
-    arr1: np.ndarray, arr2: np.ndarray, center_crop: bool = False
-) -> tuple[np.ndarray, np.ndarray]:
+    arr1: FloatArray2D, arr2: FloatArray2D, center_crop: bool = False
+) -> tuple[FloatArray2D, FloatArray2D]:
     """
     Crop two arrays to their common shape.
 
@@ -32,7 +34,7 @@ def _crop_to_common_shape(
         return arr1[:min_rows, :min_cols], arr2[:min_rows, :min_cols]
 
 
-def _compute_correlation(arr1: np.ndarray, arr2: np.ndarray) -> float:
+def _compute_correlation(arr1: FloatArray, arr2: FloatArray) -> float:
     """
     Compute correlation between two arrays, ignoring NaN values.
 
@@ -46,7 +48,7 @@ def _compute_correlation(arr1: np.ndarray, arr2: np.ndarray) -> float:
     return np.corrcoef(arr1[valid], arr2[valid])[0, 1]
 
 
-def _compute_difference_stats(arr1: np.ndarray, arr2: np.ndarray) -> dict[str, float]:
+def _compute_difference_stats(arr1: FloatArray, arr2: FloatArray) -> dict[str, float]:
     """
     Compute difference statistics between two arrays.
 

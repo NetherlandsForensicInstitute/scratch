@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import CropType, Mark, MarkType
+from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_striation_mark,
@@ -165,13 +165,11 @@ def run_python_preprocessing(
         scale_y=test_case.input_ydim,
     )
 
-    mask = test_case.input_mask.astype(bool) if test_case.has_mask else None
     mark_type = _string_to_mark_type(test_case.mark_type)
 
     input_mark = Mark(
         scan_image=scan_image,
         mark_type=mark_type,
-        crop_type=CropType.RECTANGLE,
     )
 
     params = PreprocessingStriationParams(
@@ -184,7 +182,6 @@ def run_python_preprocessing(
     aligned_mark, profile_mark = preprocess_striation_mark(
         mark=input_mark,
         params=params,
-        mask=mask,
     )
 
     aligned_data = aligned_mark.scan_image.data

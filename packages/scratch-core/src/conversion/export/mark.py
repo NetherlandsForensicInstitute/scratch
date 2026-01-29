@@ -12,7 +12,7 @@ from pydantic import Field
 
 from container_models.base import ConfigBaseModel
 from container_models.scan_image import ScanImage
-from conversion.data_formats import CropType, Mark, MarkType
+from conversion.data_formats import Mark, MarkType
 from .utils import (
     check_if_file_exists,
     load_json,
@@ -27,7 +27,6 @@ class ExportedMarkData(ConfigBaseModel):
     """Validated data structure for exported Mark metadata."""
 
     mark_type: Annotated[MarkType, validate_enum_string(MarkType)]
-    crop_type: Annotated[CropType, validate_enum_string(CropType)]
     center: tuple[float, float]
     scale_x: float = Field(..., gt=0)
     scale_y: float = Field(..., gt=0)
@@ -83,10 +82,9 @@ def load_mark_from_path(path: Path, stem: str) -> Mark:
             scale_x=meta.scale_x,
             scale_y=meta.scale_y,
         ),
-        crop_type=meta.crop_type,
         mark_type=meta.mark_type,
         meta_data=meta.meta_data,
+        center=meta.center,
     )
-    mark._center = meta.center
 
     return mark

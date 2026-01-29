@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from container_models.base import ScanMap2DArray, MaskArray
+from container_models.base import FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.get_cropped_image import get_cropped_image
 from conversion.leveling import SurfaceTerms
@@ -53,9 +53,9 @@ class MatlabTestCase:
     """Container for a single MATLAB test case."""
 
     name: str
-    input_data: ScanMap2DArray
-    input_mask: MaskArray
-    output_data: ScanMap2DArray
+    input_data: FloatArray2D
+    input_mask: BinaryMask
+    output_data: FloatArray2D
 
     input_xdim: float = 3.5e-6
     input_ydim: float = 3.5e-6
@@ -168,7 +168,7 @@ def test_case(
     pytest.skip(f"Test case {test_case_name} not found")
 
 
-def run_python_preprocessing(test_case: MatlabTestCase) -> np.ndarray:
+def run_python_preprocessing(test_case: MatlabTestCase) -> FloatArray2D:
     """Run Python get_cropped_image and return the result."""
     scan_image = ScanImage(
         data=test_case.input_data,

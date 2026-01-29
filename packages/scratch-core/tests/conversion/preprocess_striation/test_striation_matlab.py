@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import CropType, Mark, MarkType
+from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_striation_mark,
@@ -54,9 +54,7 @@ class MatlabTestCase:
 
     name: str
     input_data: np.ndarray
-    input_mask: np.ndarray
     output_data: np.ndarray
-    output_mask: np.ndarray
 
     input_xdim: float = 1.5e-6
     input_ydim: float = 1.5e-6
@@ -69,7 +67,6 @@ class MatlabTestCase:
     use_mean: bool = True
     shape_noise_removal: bool = True
     show_info: bool = True
-    has_mask: bool = False
     output_profile: np.ndarray | None = None
     output_rotation_angle: float | None = None
 
@@ -92,9 +89,7 @@ class MatlabTestCase:
         return cls(
             name=name,
             input_data=np.load(case_dir / "input_data.npy"),
-            input_mask=np.load(case_dir / "input_mask.npy"),
             output_data=np.load(case_dir / "output_data.npy"),
-            output_mask=np.load(case_dir / "output_mask.npy"),
             output_profile=output_profile,
             **cls._parse_metadata(meta, {f.name for f in fields(cls) if f.init}),
         )
@@ -105,13 +100,7 @@ class MatlabTestCase:
         meta["use_mean"] = bool(meta.get("use_mean", 1))
         meta["shape_noise_removal"] = bool(meta.get("shape_noise_removal", 1))
         meta["show_info"] = bool(meta.get("show_info", 1))
-        meta["has_mask"] = bool(meta.get("has_mask", 0))
         return {k: v for k, v in meta.items() if k in valid_keys}
-
-    @property
-    def is_empty_mask(self) -> bool:
-        """Check if mask is empty (all False/zero)."""
-        return not np.any(self.input_mask)
 
 
 def discover_test_cases(test_cases_dir: Path) -> list[MatlabTestCase]:
@@ -173,7 +162,7 @@ def test_case(
 
 def run_python_preprocessing(
     test_case: MatlabTestCase,
-) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None, float | None]:
+) -> tuple[np.ndarray, np.ndarray | None, float | None]:
     """Run Python preprocess_striation_mark and return the results."""
     scan_image = ScanImage(
         data=test_case.input_data,
@@ -188,86 +177,61 @@ def run_python_preprocessing(
         angle_accuracy=test_case.angle_accuracy,
     )
 
-    mask = test_case.input_mask.astype(bool) if test_case.has_mask else None
     mark_type = _string_to_mark_type(test_case.mark_type)
 
     input_mark = Mark(
         scan_image=scan_image,
         mark_type=mark_type,
-        crop_type=CropType.RECTANGLE,
     )
 
     aligned_mark, profile_mark = preprocess_striation_mark(
         mark=input_mark,
         params=params,
-        mask=mask,
     )
 
     aligned_data = aligned_mark.scan_image.data
     profile = profile_mark.scan_image.data.flatten()
-    mask_out = aligned_mark.meta_data.get("mask")
-    if mask_out is not None:
-        mask_out = np.array(mask_out, dtype=bool)
     total_angle = aligned_mark.meta_data.get("total_angle")
 
-    return aligned_data, mask_out, profile, total_angle
+    return aligned_data, profile, total_angle
 
 
 class TestPreprocessDataMatlabComparison:
     """Test Python preprocess_data against MATLAB reference outputs."""
 
-    THRESHOLDS = {
-        "default": (0.99, 0.003),
-        "masked": (0.99, 0.05),
-    }
-
-    def _get_thresholds(self, test_case: MatlabTestCase) -> tuple[float, float]:
-        """Get thresholds based on test case characteristics."""
-        if test_case.has_mask:
-            return self.THRESHOLDS["masked"]
-        return self.THRESHOLDS["default"]
+    CORRELATION_THRESHOLD = 0.99
+    STD_THRESHOLD = 0.003
 
     def test_processed_output(self, test_case: MatlabTestCase):
         """Test that Python output matches MATLAB reference."""
-        python_depth, _, _, _ = run_python_preprocessing(test_case)
+        python_depth, _, _ = run_python_preprocessing(test_case)
         matlab_depth = test_case.output_data
 
-        # Empty mask case
-        if test_case.is_empty_mask:
-            assert np.all(np.isnan(python_depth)), (
-                f"{test_case.name}: empty mask should produce all-NaN output"
-            )
-            return
-
-        # Shape check (skip for masked cases - MATLAB extracts central region)
-        if not test_case.has_mask:
-            row_diff = abs(matlab_depth.shape[0] - python_depth.shape[0])
-            col_diff = abs(matlab_depth.shape[1] - python_depth.shape[1])
-            assert row_diff <= 1 and col_diff <= 1, (
-                f"{test_case.name}: shape mismatch "
-                f"{python_depth.shape} vs {matlab_depth.shape}"
-            )
+        # Shape check
+        row_diff = abs(matlab_depth.shape[0] - python_depth.shape[0])
+        col_diff = abs(matlab_depth.shape[1] - python_depth.shape[1])
+        assert row_diff <= 1 and col_diff <= 1, (
+            f"{test_case.name}: shape mismatch "
+            f"{python_depth.shape} vs {matlab_depth.shape}"
+        )
 
         # Crop to common shape for value comparisons
         python_depth, matlab_depth = _crop_to_common_shape(
-            python_depth, matlab_depth, center_crop=test_case.has_mask
+            python_depth, matlab_depth, center_crop=False
         )
-        corr_threshold, std_threshold = self._get_thresholds(test_case)
 
         # Correlation check
         correlation = _compute_correlation(python_depth, matlab_depth)
-        assert correlation > corr_threshold, (
-            f"{test_case.name}: correlation {correlation:.4f} < {corr_threshold}"
-            f"{' (masked)' if test_case.has_mask else ''}"
+        assert correlation > self.CORRELATION_THRESHOLD, (
+            f"{test_case.name}: correlation {correlation:.4f} < {self.CORRELATION_THRESHOLD}"
         )
 
         # Difference check
         stats = _compute_difference_stats(python_depth, matlab_depth)
         signal_std = np.nanstd(test_case.output_data)
         relative_std = stats["std"] / signal_std if signal_std > 0 else np.inf
-        assert relative_std < std_threshold, (
-            f"{test_case.name}: relative_std {relative_std:.4f} > {std_threshold}"
-            f"{' (masked)' if test_case.has_mask else ''}"
+        assert relative_std < self.STD_THRESHOLD, (
+            f"{test_case.name}: relative_std {relative_std:.4f} > {self.STD_THRESHOLD}"
         )
 
     def test_profile_correlation(self, test_case: MatlabTestCase):
@@ -275,7 +239,7 @@ class TestPreprocessDataMatlabComparison:
         if test_case.output_profile is None:
             pytest.skip("No profile output in this test case")
 
-        _, _, python_profile, _ = run_python_preprocessing(test_case)
+        _, python_profile, _ = run_python_preprocessing(test_case)
 
         if python_profile is None:
             pytest.skip("Python implementation did not return profile")
@@ -283,24 +247,17 @@ class TestPreprocessDataMatlabComparison:
         python_profile = np.asarray(python_profile).flatten()
         matlab_profile = np.asarray(test_case.output_profile).flatten()
 
-        # Align profiles (center crop for masked cases)
+        # Align profiles
         min_len = min(len(python_profile), len(matlab_profile))
-        if test_case.has_mask:
-            py_start = (len(python_profile) - min_len) // 2
-            ml_start = (len(matlab_profile) - min_len) // 2
-            python_profile = python_profile[py_start : py_start + min_len]
-            matlab_profile = matlab_profile[ml_start : ml_start + min_len]
-        else:
-            python_profile = python_profile[:min_len]
-            matlab_profile = matlab_profile[:min_len]
+        python_profile = python_profile[:min_len]
+        matlab_profile = matlab_profile[:min_len]
 
         correlation = _compute_correlation(
             python_profile.reshape(-1, 1), matlab_profile.reshape(-1, 1)
         )
 
-        corr_threshold, _ = self._get_thresholds(test_case)
-        assert correlation > corr_threshold, (
-            f"{test_case.name}: profile correlation {correlation:.4f} < {corr_threshold}"
+        assert correlation > self.CORRELATION_THRESHOLD, (
+            f"{test_case.name}: profile correlation {correlation:.4f} < {self.CORRELATION_THRESHOLD}"
         )
 
     def test_rotation_angle(self, test_case: MatlabTestCase):
@@ -308,7 +265,7 @@ class TestPreprocessDataMatlabComparison:
         if test_case.output_rotation_angle is None:
             pytest.skip("No rotation angle in this test case")
 
-        _, _, _, python_rotation = run_python_preprocessing(test_case)
+        _, _, python_rotation = run_python_preprocessing(test_case)
 
         if python_rotation is None:
             pytest.skip("Python implementation did not return rotation angle")
@@ -318,29 +275,6 @@ class TestPreprocessDataMatlabComparison:
             f"{test_case.name}: rotation angle diff {angle_diff:.4f}° "
             f"(MATLAB: {test_case.output_rotation_angle}, Python: {python_rotation})"
         )
-
-    def test_mask_output(self, test_case: MatlabTestCase):
-        """Test that output mask matches MATLAB reference."""
-        if not test_case.has_mask:
-            pytest.skip("Test case has no mask")
-
-        _, python_mask, _, _ = run_python_preprocessing(test_case)
-        assert python_mask is not None, (
-            "Python mask should not be None when test case has mask"
-        )
-
-        python_mask, matlab_mask = _crop_to_common_shape(
-            python_mask, test_case.output_mask, center_crop=True
-        )
-
-        python_binary = (python_mask > 0.5).astype(float)
-        matlab_binary = (matlab_mask > 0.5).astype(float)
-
-        intersection = np.sum(python_binary * matlab_binary)
-        union = np.sum(np.maximum(python_binary, matlab_binary))
-        iou = intersection / union if union > 0 else 1.0
-
-        assert iou > 0.95, f"{test_case.name}: mask IoU {iou:.4f} < 0.95"
 
 
 class TestMatlabTestCaseLoading:
@@ -358,7 +292,5 @@ class TestMatlabTestCaseLoading:
             assert case.input_data.ndim == 2
             assert case.input_xdim > 0
             assert case.input_ydim > 0
-            assert case.input_mask is not None
-            assert case.input_mask.shape == case.input_data.shape
             assert case.output_data is not None
             assert case.output_data.ndim == 2

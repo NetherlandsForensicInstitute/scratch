@@ -1,9 +1,25 @@
+from typing import Annotated
 from enum import StrEnum, auto
-
-from pydantic import Field, computed_field
-from container_models.base import ConfigBaseModel
-from container_models.scan_image import ScanImage
 import json
+from container_models.base import (
+    FloatArray2D,
+)
+
+from functools import partial
+from pydantic import (
+    Field,
+    computed_field,
+    AfterValidator,
+    PlainSerializer,
+    BeforeValidator,
+)
+from numpy import float64
+from container_models.base import (
+    ConfigBaseModel,
+    coerce_to_array,
+    serialize_ndarray,
+)
+from container_models.scan_image import ScanImage
 
 
 class MarkType(StrEnum):
@@ -37,11 +53,20 @@ class MarkType(StrEnum):
         return 1.5e-6
 
 
-class CropType(StrEnum):
-    RECTANGLE = auto()
-    CIRCLE = auto()
-    ELLIPSE = auto()
-    POLYGON = auto()
+def validate_rectangle_corners(arr: FloatArray2D) -> FloatArray2D:
+    """Validate that array has shape (4, 2)"""
+    if arr.shape != (4, 2):
+        raise ValueError(f"Rectangle must have shape (4, 2), got {arr.shape}")
+    return arr
+
+
+# Note: Our code expects pixel coordinates, i.e. top-left origin, in the order [x, y]
+BoundingBox = Annotated[
+    FloatArray2D,
+    BeforeValidator(partial(coerce_to_array, float64)),
+    AfterValidator(partial(validate_rectangle_corners)),
+    PlainSerializer(serialize_ndarray),
+]
 
 
 class Mark(ConfigBaseModel):
@@ -51,9 +76,8 @@ class Mark(ConfigBaseModel):
 
     scan_image: ScanImage
     mark_type: MarkType
-    crop_type: CropType
     meta_data: dict = Field(default_factory=dict)
-    _center: tuple[float, float] | None = None
+    center_: tuple[float, float] | None = Field(default=None, alias="center")
 
     @computed_field
     @property
@@ -68,8 +92,8 @@ class Mark(ConfigBaseModel):
 
         :returns: Center coordinates as (x, y),
         """
-        if self._center is not None:
-            return self._center
+        if self.center_ is not None:
+            return self.center_
         data = self.scan_image.data
         return data.shape[1] / 2, data.shape[0] / 2
 
@@ -77,7 +101,6 @@ class Mark(ConfigBaseModel):
         """Export the `Mark` meta-data fields as a JSON string."""
         data = {
             "mark_type": self.mark_type.name,
-            "crop_type": self.crop_type.name,
             "center": self.center,
             "scale_x": self.scan_image.scale_x,
             "scale_y": self.scan_image.scale_y,

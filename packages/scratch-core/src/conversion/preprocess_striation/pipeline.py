@@ -6,10 +6,11 @@ This module provides the high-level entry points for striation preprocessing:
 - Fine rotation to align striations horizontally and profile extraction
 """
 
+from dataclasses import asdict
+
 import numpy as np
 from numpy.typing import NDArray
 
-from container_models.base import MaskArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
@@ -24,7 +25,6 @@ from conversion.preprocess_striation.shear import propagate_nan
 def preprocess_striation_mark(
     mark: Mark,
     params: PreprocessingStriationParams = PreprocessingStriationParams(),
-    mask: MaskArray | None = None,
 ) -> tuple[Mark, Mark]:
     """
     Complete the preprocessing pipeline for striated marks.
@@ -42,7 +42,6 @@ def preprocess_striation_mark(
 
     :param mark: Input Mark object containing scan_image and mark_type.
     :param params: Preprocessing parameters.
-    :param mask: Optional boolean mask array (True = valid data).
 
     :returns: Tuple of (aligned_mark, profile_mark).
         - aligned_mark: Mark with aligned striation data, mask and total_angle in meta_data.
@@ -50,33 +49,30 @@ def preprocess_striation_mark(
           mask and total_angle in meta_data.
     """
     scan_image = mark.scan_image
-    mark_type = mark.mark_type
 
-    data_filtered, mask_filtered = apply_shape_noise_removal(
+    data_filtered = apply_shape_noise_removal(
         scan_image=scan_image,
         highpass_cutoff=params.highpass_cutoff,
         lowpass_cutoff=params.lowpass_cutoff,
-        mask=mask,
     )
 
     if data_filtered.shape[1] > 1:
-        filtered_scan_image = scan_image.model_copy(update={"data": data_filtered})
-        aligned_scan, mask_aligned, total_angle = fine_align_bullet_marks(
-            scan_image=filtered_scan_image,
-            mark_type=mark_type,
-            mask=mask_filtered,
+        filtered_mark = mark.model_copy(
+            update={"scan_image": scan_image.model_copy(update={"data": data_filtered})}
+        )
+        aligned_mark_result, total_angle = fine_align_bullet_marks(
+            mark=filtered_mark,
             angle_accuracy=params.angle_accuracy,
             cut_y_after_shift=params.cut_borders_after_smoothing,
             max_iter=params.max_iter,
             subsampling_factor=params.subsampling_factor,
         )
-        data_aligned = aligned_scan.data
-        scale_x = aligned_scan.scale_x
-        scale_y = aligned_scan.scale_y
+        data_aligned = aligned_mark_result.scan_image.data
+        scale_x = aligned_mark_result.scan_image.scale_x
+        scale_y = aligned_mark_result.scan_image.scale_y
     else:
         # Line profile case (no alignment needed)
         data_aligned = data_filtered
-        mask_aligned = mask_filtered
         total_angle = 0.0
         scale_x = scan_image.scale_x
         scale_y = scan_image.scale_y
@@ -84,28 +80,22 @@ def preprocess_striation_mark(
     # Propagate NaN to adjacent pixels to match MATLAB's asymmetric NaN handling
     data_aligned = propagate_nan(data_aligned)
 
-    # Extract profile: apply mask and compute mean/median along rows
-    if mask_aligned is not None:
-        data_for_profile = np.where(mask_aligned, data_aligned, np.nan)
-    else:
-        data_for_profile = data_aligned
-
     profile = (
-        np.nanmean(data_for_profile, axis=1)
+        np.nanmean(data_aligned, axis=1)
         if params.use_mean
-        else np.nanmedian(data_for_profile, axis=1)
+        else np.nanmedian(data_aligned, axis=1)
     )
 
     # Build meta_data with mask and total_angle
     aligned_meta_data = {
         **mark.meta_data,
+        **asdict(params),
         "total_angle": total_angle,
     }
-    if mask_aligned is not None:
-        aligned_meta_data["mask"] = mask_aligned.tolist()
 
     profile_meta_data = {
         **mark.meta_data,
+        **asdict(params),
         "total_angle": total_angle,
     }
 
@@ -116,8 +106,7 @@ def preprocess_striation_mark(
             scale_x=scale_x,
             scale_y=scale_y,
         ),
-        mark_type=mark_type,
-        crop_type=mark.crop_type,
+        mark_type=mark.mark_type,
         meta_data=aligned_meta_data,
     )
 
@@ -128,8 +117,7 @@ def preprocess_striation_mark(
             scale_x=scale_x,
             scale_y=scale_y,
         ),
-        mark_type=mark_type,
-        crop_type=mark.crop_type,
+        mark_type=mark.mark_type,
         meta_data=profile_meta_data,
     )
 
@@ -138,10 +126,9 @@ def preprocess_striation_mark(
 
 def apply_shape_noise_removal(
     scan_image: ScanImage,
-    mask: MaskArray | None = None,
     lowpass_cutoff: float = 5e-6,
     highpass_cutoff: float = 2.5e-4,
-) -> tuple[NDArray[np.floating], MaskArray]:
+) -> NDArray[np.floating]:
     """
     Apply a band-pass filter to isolate striation features by filtering out large-scale shapes and small-scale noise.
 
@@ -157,15 +144,11 @@ def apply_shape_noise_removal(
 
 
     :param scan_image: ScanImage containing depth data and pixel spacing.
-    :param mask: Boolean mask array (True = valid data).
     :param lowpass_cutoff: Low-frequency cutoff wavelength in meters (m) for noise removal.
     :param highpass_cutoff: High-frequency cutoff wavelength in meters (m) for shape removal.
 
     :returns: Tuple of (processed_data, mask).
     """
-    # Initialize mask if not provided
-    if mask is None:
-        mask = np.ones(scan_image.data.shape, dtype=bool)
 
     # Calculate Gaussian sigma from cutoff wavelength
     sigma = cutoff_to_gaussian_sigma(highpass_cutoff, scan_image.scale_x)
@@ -175,24 +158,22 @@ def apply_shape_noise_removal(
     cut_borders = (2 * sigma) <= (scan_image.height * 0.2)
 
     # Shape removal (highpass filter)
-    data_high_pass, mask_high_pass = apply_striation_preserving_filter_1d(
+    data_high_pass = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
         cutoff=highpass_cutoff,
         is_high_pass=True,
         cut_borders_after_smoothing=cut_borders,
-        mask=mask,
     )
 
     # Create an intermediate ScanImage for noise removal
     intermediate_scan_image = scan_image.model_copy(update={"data": data_high_pass})
 
     # Noise removal (lowpass filter)
-    data_no_noise, mask_no_noise = apply_striation_preserving_filter_1d(
+    data_no_noise = apply_striation_preserving_filter_1d(
         scan_image=intermediate_scan_image,
         cutoff=lowpass_cutoff,
         is_high_pass=False,
         cut_borders_after_smoothing=cut_borders,
-        mask=mask_high_pass,
     )
 
-    return data_no_noise, mask_no_noise
+    return data_no_noise

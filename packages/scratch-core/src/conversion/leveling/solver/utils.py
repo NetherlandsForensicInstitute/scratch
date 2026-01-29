@@ -1,11 +1,10 @@
 import numpy as np
-from typing import Any
-from numpy.typing import NDArray
 
+from container_models.base import FloatArray
 from container_models.scan_image import ScanImage
 
 
-def compute_root_mean_square(data: NDArray[Any]) -> float:
+def compute_root_mean_square(data: FloatArray) -> float:
     """Compute the root-mean-square from a data array and return as Python float."""
     return float(np.sqrt(np.nanmean(data**2)))
 

@@ -1,6 +1,6 @@
 import pytest
 
-from container_models.base import MaskArray
+from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.get_cropped_image import get_cropped_image
 from conversion.leveling import SurfaceTerms
@@ -20,7 +20,7 @@ from conversion.leveling import SurfaceTerms
 )
 def test_get_cropped_image(
     scan_image_replica: ScanImage,
-    mask_array: MaskArray,
+    mask_array: BinaryMask,
     terms: SurfaceTerms,
     regression_order: int,
 ):

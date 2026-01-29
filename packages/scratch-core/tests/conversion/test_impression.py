@@ -2,8 +2,9 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
 
+from container_models.base import FloatArray2D, DepthData
 from container_models.scan_image import ScanImage
-from conversion.data_formats import CropType, Mark, MarkType
+from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_impression.preprocess_impression import (
     preprocess_impression_mark,
 )
@@ -28,7 +29,7 @@ from conversion.preprocess_impression.parameters import PreprocessingImpressionP
 
 def make_circular_data(
     shape: tuple[int, int], center: tuple[float, float], radius: float
-) -> np.ndarray:
+) -> FloatArray2D:
     """Create circular height map data with NaN outside circle."""
     data = np.full(shape, np.nan)
     y, x = np.ogrid[: shape[0], : shape[1]]
@@ -40,7 +41,7 @@ def make_circular_data(
 
 def make_rectangular_data(
     shape: tuple[int, int], margin: int = 10, scale: float = 1e-6
-) -> np.ndarray:
+) -> FloatArray2D:
     """Create rectangular height map data with NaN border.
 
     :param shape: Shape of the output array.
@@ -62,7 +63,7 @@ def make_rectangular_data(
 
 
 def make_mark(
-    data: np.ndarray,
+    data: DepthData,
     scale_x: float = 1.0,
     scale_y: float = 1.0,
     mark_type: MarkType = MarkType.EXTRACTOR_IMPRESSION,
@@ -75,7 +76,6 @@ def make_mark(
             scale_y=scale_y,
         ),
         mark_type=mark_type,
-        crop_type=CropType.RECTANGLE,
     )
 
 
@@ -201,35 +201,35 @@ class TestFitCircleRansac:
 class TestGetBoundingBoxCenter:
     def test_returns_pixel_center_for_single_pixel(self):
         mask = np.zeros((10, 10), dtype=bool)
-        mask[3, 7] = True  # row=3, col=7
-        assert _get_bounding_box_center(mask) == (3.5, 7.5)
+        mask[3, 7] = True  # row=3, col=7 → (x=7, y=3)
+        assert _get_bounding_box_center(mask) == (7.5, 3.5)  # (x, y)
 
     def test_returns_center_for_rectangle(self):
         mask = np.zeros((10, 10), dtype=bool)
-        mask[2:6, 3:9] = True  # rows 2-5, cols 3-8
-        assert _get_bounding_box_center(mask) == (4, 6)
+        mask[2:6, 3:9] = True  # rows 2-5 (y), cols 3-8 (x)
+        assert _get_bounding_box_center(mask) == (6, 4)  # (x, y)
 
     def test_returns_center_for_scattered_pixels(self):
         mask = np.zeros((10, 10), dtype=bool)
-        mask[1, 2] = True
-        mask[7, 8] = True
-        assert _get_bounding_box_center(mask) == (4.5, 5.5)
+        mask[1, 2] = True  # (x=2, y=1)
+        mask[7, 8] = True  # (x=8, y=7)
+        assert _get_bounding_box_center(mask) == (5.5, 4.5)  # (x, y)
 
     def test_returns_center_for_filled_mask(self):
-        mask = np.ones((6, 10), dtype=bool)
-        assert _get_bounding_box_center(mask) == (3, 5)
+        mask = np.ones((6, 10), dtype=bool)  # 6 rows (y), 10 cols (x)
+        assert _get_bounding_box_center(mask) == (5, 3)  # (x, y)
 
 
 class TestComputeMapCenter:
     def test_uses_bounding_box_when_circle_disabled(self):
         mask = np.zeros((10, 10), dtype=bool)
-        mask[2:6, 3:9] = 1.0
-        assert _compute_map_center(mask, use_circle_fit=False) == (4, 6)
+        mask[2:6, 3:9] = 1.0  # rows 2-5 (y), cols 3-8 (x)
+        assert _compute_map_center(mask, use_circle_fit=False) == (6, 4)  # (x, y)
 
     def test_falls_back_to_bounding_box_for_collinear_edge(self):
         mask = np.zeros((10, 10), dtype=bool)
-        mask[5, :] = 1.0
-        assert _compute_map_center(mask, use_circle_fit=True) == (5.5, 5)
+        mask[5, :] = 1.0  # row 5 (y=5), all cols (x=0-9)
+        assert _compute_map_center(mask, use_circle_fit=True) == (5, 5.5)  # (x, y)
 
 
 class TestEstimatePlaneTilt:
@@ -379,7 +379,6 @@ class TestApplyAntiAliasing:
         data = np.random.default_rng(42).random((10, 10))
         mark = Mark(
             scan_image=ScanImage(data=data, scale_x=1.0, scale_y=1.0),
-            crop_type=CropType.RECTANGLE,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
         result, cutoff = _apply_anti_aliasing(mark, target_scale=1.4)
@@ -390,7 +389,6 @@ class TestApplyAntiAliasing:
         data = np.random.default_rng(42).random((10, 10))
         mark = Mark(
             scan_image=ScanImage(data=data, scale_x=1.0, scale_y=1.0),
-            crop_type=CropType.RECTANGLE,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
         _, cutoff = _apply_anti_aliasing(mark, target_scale=2.0)
@@ -798,14 +796,6 @@ class TestUpdateMarkData:
 
         assert result.mark_type == MarkType.BREECH_FACE_IMPRESSION
 
-    def test_preserves_crop_type(self):
-        """Crop type should be preserved."""
-        mark = make_mark(np.zeros((3, 3)))
-
-        result = update_mark_data(mark, np.ones((3, 3)))
-
-        assert result.crop_type == CropType.RECTANGLE
-
     def test_handles_nan_values(self):
         """Should handle NaN values in data."""
         mark = make_mark(np.zeros((3, 3)))
@@ -875,7 +865,6 @@ class TestMarkCenter:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
-            crop_type=CropType.RECTANGLE,
         )
 
         center_x, center_y = mark.center
@@ -892,9 +881,8 @@ class TestMarkCenter:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
-            crop_type=CropType.RECTANGLE,
+            center=(42.0, 17.0),
         )
-        mark._center = (42.0, 17.0)
 
         assert mark.center == (42.0, 17.0)
 
@@ -907,7 +895,6 @@ class TestMarkCenter:
         mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
-            crop_type=CropType.RECTANGLE,
         )
 
         assert mark.center == (101.5, 50.5)

@@ -1,8 +1,9 @@
 from enum import Flag, auto
 import numpy as np
 from typing import Callable
-from numpy.typing import NDArray
 from pydantic import BaseModel
+
+from container_models.base import FloatArray1D, FloatArray2D
 
 
 class SurfaceTerms(Flag):
@@ -26,7 +27,9 @@ class SurfaceTerms(Flag):
 
 
 # Mapping mathematical term indices to lambda functions for design matrix generation
-TERM_FUNCTIONS: dict[SurfaceTerms, Callable[[NDArray, NDArray], NDArray]] = {
+TERM_FUNCTIONS: dict[
+    SurfaceTerms, Callable[[FloatArray1D, FloatArray1D], FloatArray1D]
+] = {
     SurfaceTerms.OFFSET: lambda xs, ys: np.ones_like(xs),
     SurfaceTerms.TILT_X: lambda xs, ys: xs,
     SurfaceTerms.TILT_Y: lambda xs, ys: ys,
@@ -46,10 +49,10 @@ class LevelingResult(BaseModel, arbitrary_types_allowed=True):
     :param fitted_surface: 2D array of the fitted surface (same shape as `leveled_map`)
     """
 
-    leveled_map: NDArray[np.float64]
+    leveled_map: FloatArray2D
     parameters: dict[SurfaceTerms, float]
     residual_rms: float
-    fitted_surface: NDArray[np.float64]
+    fitted_surface: FloatArray2D
 
 
 class NormalizedCoordinates(BaseModel, arbitrary_types_allowed=True):
@@ -63,8 +66,8 @@ class NormalizedCoordinates(BaseModel, arbitrary_types_allowed=True):
     :param scale: The multiplier used for rescaling.
     """
 
-    xs: NDArray[np.float64]
-    ys: NDArray[np.float64]
+    xs: FloatArray1D
+    ys: FloatArray1D
     x_mean: float
     y_mean: float
     scale: float

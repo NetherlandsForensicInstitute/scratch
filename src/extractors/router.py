@@ -1,32 +1,34 @@
 from http import HTTPStatus
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import UUID4
 
-from constants import EXTRACTOR_ROUTE
+from constants import RoutePrefix
 from file_services import fetch_resource_path
 from settings import SettingsDep
 
 from .schemas import RelativePath
 
-extractor_route = APIRouter(prefix=EXTRACTOR_ROUTE, tags=[EXTRACTOR_ROUTE])
+extractor_route = APIRouter(prefix=f"/{RoutePrefix.EXTRACTOR}", tags=[RoutePrefix.EXTRACTOR])
 
 
 @extractor_route.get(
-    path="/",
-    summary="Health check for extractor service",
-    description="""Returns a simple status message to verify the extractor service is running.""",
+    path="",
+    summary="Redirect to extractor documentation",
+    description="""Redirects to the extractor section in the API documentation.""",
+    include_in_schema=False,
 )
-async def extractor_root() -> dict[str, str]:
+async def extractor_root() -> RedirectResponse:
     """
-    Health check endpoint for the extractor service.
+    Redirect to the extractor section in Swagger docs.
 
-    Returns a simple greeting message to confirm the extractor API is accessible.
+    This endpoint redirects users to the extractor tag section in the
+    interactive API documentation at /docs.
 
-    :return: Dictionary containing a status message.
+    :return: RedirectResponse to the extractor documentation section.
     """
-    return {"message": "Hello from the extractors"}
+    return RedirectResponse(url=f"/docs#operations-tag-{RoutePrefix.EXTRACTOR}")
 
 
 @extractor_route.get(

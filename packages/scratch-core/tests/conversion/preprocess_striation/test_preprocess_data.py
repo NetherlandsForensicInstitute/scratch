@@ -7,13 +7,12 @@ import pytest
 from math import ceil
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import CropType, Mark, MarkType
+from conversion.data_formats import Mark, MarkType
 from conversion.filter import (
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
 )
 from conversion.filter.gaussian import _apply_nan_weighted_gaussian_1d
-from conversion.filter.utils import remove_zero_border
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     apply_shape_noise_removal,
@@ -22,7 +21,6 @@ from conversion.preprocess_striation import (
 )
 from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
 from conversion.preprocess_striation.alignment import _detect_striation_angle
-from conversion.resample import resample_scan_image_and_mask
 
 
 def test_cutoff_to_gaussian_sigma():
@@ -52,21 +50,6 @@ def test_apply_nan_weighted_gaussian_1d():
     assert result[0, 0] == pytest.approx(1.0, rel=0.1)
 
 
-def testremove_zero_border():
-    """Test that zero borders are correctly removed."""
-    data = np.zeros((10, 10), dtype=float)
-    mask = np.zeros((10, 10), dtype=bool)
-
-    # Valid data only in center region
-    data[3:7, 2:8] = 1.0
-    mask[3:7, 2:8] = True
-
-    cropped_data, cropped_mask = remove_zero_border(data, mask)
-
-    assert cropped_data.shape == (4, 6)
-    assert cropped_mask.shape == (4, 6)
-
-
 def test_apply_striation_preserving_filter_1d_lowpass():
     """Test lowpass filtering removes high-frequency noise."""
     np.random.seed(42)
@@ -79,7 +62,7 @@ def test_apply_striation_preserving_filter_1d_lowpass():
     surface = np.tile((low_freq + high_freq).reshape(-1, 1), (1, 20))
 
     scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
-    smoothed, mask = apply_striation_preserving_filter_1d(
+    smoothed = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
         cutoff=2.5e-4,
         is_high_pass=False,
@@ -101,7 +84,7 @@ def test_apply_striation_preserving_filter_1d_highpass():
 
     # Use pixel size that makes cutoff effective for shape removal
     scan_image = ScanImage(data=surface, scale_x=1e-3, scale_y=1e-3)
-    residuals, mask = apply_striation_preserving_filter_1d(
+    residuals = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
         cutoff=5e-2,
         is_high_pass=True,
@@ -125,7 +108,7 @@ def test_apply_shape_noise_removal():
     surface = np.tile((shape + striations + noise).reshape(-1, 1), (1, 50))
 
     scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
-    result, mask = apply_shape_noise_removal(
+    result = apply_shape_noise_removal(
         scan_image=scan_image,
         highpass_cutoff=2e-3,
         lowpass_cutoff=2.5e-4,
@@ -133,12 +116,10 @@ def test_apply_shape_noise_removal():
 
     # Result should have form removed (smaller range than input)
     assert np.ptp(result) < np.ptp(surface)
-    # Mask should be all True (no invalid regions)
-    assert mask.all()
 
 
 def test_shape_noise_removal_filter_sequence():
-    """Test filter sequence, border cropping, and mask propagation."""
+    """Test filter sequence and border cropping."""
     np.random.seed(42)
 
     height, width = 200, 150
@@ -155,7 +136,7 @@ def test_shape_noise_removal_filter_sequence():
     depth_data = form + striations + noise
 
     scan_image = ScanImage(data=depth_data, scale_x=scale, scale_y=scale)
-    result, _ = apply_shape_noise_removal(
+    result = apply_shape_noise_removal(
         scan_image=scan_image,
         highpass_cutoff=2e-3,
         lowpass_cutoff=2.5e-4,
@@ -198,7 +179,7 @@ def test_shape_noise_removal_short_data():
     short_data = np.random.randn(short_height, width) * 1e-6
 
     short_scan_image = ScanImage(data=short_data, scale_x=scale, scale_y=scale)
-    result_short, _ = apply_shape_noise_removal(
+    result_short = apply_shape_noise_removal(
         scan_image=short_scan_image,
         highpass_cutoff=2000e-6,
     )
@@ -207,36 +188,6 @@ def test_shape_noise_removal_short_data():
     assert result_short.shape[0] == short_height, (
         f"Short data borders were cut (got {result_short.shape[0]}, expected {short_height})"
     )
-
-
-def test_shape_noise_removal_mask_propagation():
-    """Test that masks are properly propagated through filtering."""
-    np.random.seed(42)
-
-    height, width = 200, 150
-    scale = 1e-6
-
-    x = np.arange(height) * scale
-    X, _ = np.meshgrid(x, np.arange(width), indexing="ij")
-
-    form = 5e-6 * (X / x.max()) ** 2
-    striations = 0.5e-6 * np.sin(2 * np.pi * X / 500e-6)
-    noise = 0.1e-6 * np.random.randn(height, width)
-    depth_data = form + striations + noise
-
-    mask_input = np.ones(depth_data.shape, dtype=bool)
-    mask_input[:, 0:20] = False
-
-    masked_scan_image = ScanImage(data=depth_data.copy(), scale_x=scale, scale_y=scale)
-    result_masked, mask_output = apply_shape_noise_removal(
-        scan_image=masked_scan_image,
-        highpass_cutoff=2000e-6,
-        lowpass_cutoff=250e-6,
-        mask=mask_input,
-    )
-
-    assert mask_output.shape == result_masked.shape, "Mask shape mismatch"
-    assert np.any(~mask_output), "Mask should have invalid regions"
 
 
 def test_shape_noise_removal_synthetic():
@@ -257,7 +208,7 @@ def test_shape_noise_removal_synthetic():
     depth_data = form + striations + noise
 
     scan_image = ScanImage(data=depth_data, scale_x=scale, scale_y=scale)
-    result, _ = apply_shape_noise_removal(
+    result = apply_shape_noise_removal(
         scan_image=scan_image,
         highpass_cutoff=2000e-6,
         lowpass_cutoff=250e-6,
@@ -328,15 +279,19 @@ def test_fine_align_bullet_marks():
     striations = np.sin(2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 8)
 
     scan_image = ScanImage(data=striations, scale_x=1e-6, scale_y=1e-6)
-    aligned_scan, _, detected_angle = fine_align_bullet_marks(
+    mark = Mark(
         scan_image=scan_image,
+        mark_type=MarkType.BULLET_GEA_STRIATION,
+    )
+    aligned_mark, detected_angle = fine_align_bullet_marks(
+        mark=mark,
         angle_accuracy=0.5,
         cut_y_after_shift=False,
         max_iter=10,
     )
 
-    assert aligned_scan.data.shape[0] > 0
-    assert aligned_scan.data.shape[1] > 0
+    assert aligned_mark.scan_image.data.shape[0] > 0
+    assert aligned_mark.scan_image.data.shape[1] > 0
     assert abs(detected_angle) < 45
 
 
@@ -364,7 +319,6 @@ def test_preprocess_striation_mark():
     input_mark = Mark(
         scan_image=scan_image,
         mark_type=MarkType.BULLET_LEA_STRIATION,
-        crop_type=CropType.RECTANGLE,
     )
     params = PreprocessingStriationParams(
         highpass_cutoff=2e-3,
@@ -412,24 +366,3 @@ def test_mark_type_scale():
         rtol=1e-09,
         atol=1e-09,
     )
-
-
-def test_resample_to_mark_type_scale():
-    """Test resampling to target sampling distance."""
-    np.random.seed(42)
-    data = np.random.randn(100, 100)
-    scale_x = 1.0e-6
-    scale_y = 1.0e-6
-    mark_type = MarkType.BULLET_GEA_STRIATION
-
-    scan_image = ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
-    resampled_scan, _ = resample_scan_image_and_mask(
-        scan_image, mask=None, target_scale=mark_type.scale, only_downsample=True
-    )
-
-    # With only_downsample=True, data with scale smaller than target (1.0e-6 < 1.5e-6)
-    # should be downsampled
-    assert resampled_scan.data.shape[0] < data.shape[0]
-    assert resampled_scan.data.shape[1] < data.shape[1]
-    assert np.isclose(resampled_scan.scale_x, 1.5e-6, rtol=1e-09, atol=1e-09)
-    assert np.isclose(resampled_scan.scale_y, 1.5e-6, rtol=1e-09, atol=1e-09)

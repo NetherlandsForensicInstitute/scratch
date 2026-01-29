@@ -3,10 +3,6 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
-# API Route prefixes
-EXTRACTOR_ROUTE = "/extractor"
-PREPROCESSOR_ROUTE = "/preprocessor"
-
 
 class StriationMarks(StrEnum):
     APERTURE_SHEAR = "aperture shear striation mark"
@@ -32,3 +28,31 @@ class MaskTypes(StrEnum):
     CIRCLE = "circle"
     ELLIPSE = "ellipse"
     POLYGON = "polygon"
+
+
+class RoutePrefix(StrEnum):
+    COMPARATOR = "comparator"
+    EXTRACTOR = "extractor"
+    PREPROCESSOR = "preprocessor"
+    PROCESSOR = "processor"
+
+
+class PreprocessorEndpoint(StrEnum):
+    ROOT = ""
+    PROCESS_SCAN = "process-scan"
+    PREPARE_MARK_IMPRESSION = "prepare-mark-impression"
+    PREPARE_MARK_STRIATION = "prepare-mark-striation"
+    EDIT_SCAN = "edit-scan"
+
+
+class ExtractorEndpoint(StrEnum):
+    ROOT = ""
+    FILES = "files/{token}/{filename}"
+
+
+class ProcessorEndpoint(StrEnum):
+    ROOT = ""
+
+
+class ComparatorEndpoint(StrEnum):
+    ROOT = ""
