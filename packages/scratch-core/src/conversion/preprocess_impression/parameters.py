@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from conversion.leveling import SurfaceTerms
 
 
-@dataclass
+@dataclass(frozen=True)
 class PreprocessingImpressionParams:
     """Processing parameters for NIST preprocessing.
 

@@ -15,6 +15,11 @@ from .helper_function import unwrap_result
 TEST_ROOT = Path(__file__).parent
 
 
+@pytest.fixture
+def case_dir() -> Path:
+    return TEST_ROOT / "resources" / "preprocess_striation"
+
+
 class PropagateHandler(logging.Handler):
     """Handler that propagates loguru records to standard logging."""
 
