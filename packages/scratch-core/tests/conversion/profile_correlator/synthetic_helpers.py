@@ -176,7 +176,7 @@ def plot_correlation_result(
     """Create visualization with 3 subplots showing correlation result.
 
     - Top: Input reference profile
-    - Middle: Input comparison profile
+    - Middle: Input comparison profile (at original position for partial profiles)
     - Bottom: Aligned profiles overlaid with metrics annotation and green overlap region
 
     :param profile_ref: Reference profile.
@@ -202,18 +202,60 @@ def plot_correlation_result(
     ref_data_um = ref_data * 1e6
     comp_data_um = comp_data * 1e6
 
+    # Detect if profiles are "flipped" (reference shorter than comparison)
+    is_flipped = len(ref_data) < len(comp_data)
+
+    # For partial profiles, calculate original position of comparison within reference
+    # The comparison was extracted from the middle of the longer profile
+    if result.is_partial_profile:
+        if is_flipped:
+            # ref is short, comp is long - ref was extracted from middle of comp
+            n_long = len(comp_data)
+            n_short = len(ref_data)
+            original_start_idx = (n_long - n_short) // 2
+            # For display: show ref at its original position in comp's coordinate system
+            comp_original_start_um = 0  # comp starts at 0
+            ref_original_start_um = original_start_idx * pixel_size * 1e6
+        else:
+            # ref is long, comp is short - comp was extracted from middle of ref
+            n_long = len(ref_data)
+            n_short = len(comp_data)
+            original_start_idx = (n_long - n_short) // 2
+            comp_original_start_um = original_start_idx * pixel_size * 1e6
+            ref_original_start_um = 0  # ref starts at 0
+    else:
+        comp_original_start_um = 0
+        ref_original_start_um = 0
+
+    # Calculate common axis limits
+    all_heights = np.concatenate([ref_data_um, comp_data_um])
+    y_min, y_max = all_heights.min(), all_heights.max()
+    y_margin = (y_max - y_min) * 0.1
+    y_limits = (y_min - y_margin, y_max + y_margin)
+
+    # X-axis limits: use the longer profile's extent
+    # Account for both original positions
+    x_max = max(
+        x_ref.max() + ref_original_start_um, x_comp.max() + comp_original_start_um
+    )
+    x_limits = (0, x_max)
+
     # Top: Reference profile
-    axes[0].plot(x_ref, ref_data_um, "b-", linewidth=0.8)
+    axes[0].plot(x_ref + ref_original_start_um, ref_data_um, "b-", linewidth=0.8)
     axes[0].set_xlabel("Position (μm)")
     axes[0].set_ylabel("Height (μm)")
     axes[0].set_title("Reference Profile")
+    axes[0].set_xlim(x_limits)
+    axes[0].set_ylim(y_limits)
     axes[0].grid(True, alpha=0.3)
 
-    # Middle: Comparison profile
-    axes[1].plot(x_comp, comp_data_um, "r-", linewidth=0.8)
+    # Middle: Comparison profile (at original position for partial profiles)
+    axes[1].plot(x_comp + comp_original_start_um, comp_data_um, "r-", linewidth=0.8)
     axes[1].set_xlabel("Position (μm)")
     axes[1].set_ylabel("Height (μm)")
     axes[1].set_title("Comparison Profile")
+    axes[1].set_xlim(x_limits)
+    axes[1].set_ylim(y_limits)
     axes[1].grid(True, alpha=0.3)
 
     # Bottom: Aligned profiles overlaid
@@ -230,19 +272,23 @@ def plot_correlation_result(
 
         if is_flipped:
             # Flipped case: ref=short, comp=long
-            # Shift the long comparison so that its region at partial_start_position
-            # aligns with x=0 of the short reference
-            x_comp_aligned = x_comp * scale - start_position_um
+            # Keep the long comparison at x=0, shift the short reference to its aligned position
+            x_comp_aligned = x_comp * scale  # comparison stays at origin
+            x_ref_aligned = (
+                x_ref + start_position_um
+            )  # reference shifted to aligned position
         else:
             # Normal case: ref=long, comp=short
-            # Place the short comparison at partial_start_position on the long reference
+            # Keep reference at x=0, place the short comparison at partial_start_position
             x_comp_aligned = x_comp * scale + start_position_um
+            x_ref_aligned = x_ref  # reference stays at origin
     else:
         # For full profiles, use position_shift
         shift_um = (
             result.position_shift * 1e6 if not np.isnan(result.position_shift) else 0
         )
         x_comp_aligned = x_comp * scale + shift_um
+        x_ref_aligned = x_ref  # reference stays at origin
 
     # Calculate overlap region for green highlighting
     overlap_length_um = (
@@ -250,25 +296,62 @@ def plot_correlation_result(
     )
 
     if result.is_partial_profile and not np.isnan(result.partial_start_position):
-        # For partial profiles, overlap region depends on which profile is shorter
+        # For partial profiles, overlap region is where the shorter profile is
+        start_position_um = result.partial_start_position * 1e6
         if is_flipped:
-            # Flipped: ref=short, overlap covers the entire short reference
-            overlap_start_um = 0
-            overlap_end_um = overlap_length_um
+            # Flipped: ref=short at start_position_um, comp=long at origin
+            overlap_start_um = start_position_um
+            overlap_end_um = start_position_um + overlap_length_um
         else:
-            # Normal: ref=long, overlap starts at partial_start_position
-            overlap_start_um = result.partial_start_position * 1e6
-            overlap_end_um = overlap_start_um + overlap_length_um
+            # Normal: ref=long at origin, comp=short at start_position_um
+            overlap_start_um = start_position_um
+            overlap_end_um = start_position_um + overlap_length_um
     else:
         # For full profiles, calculate overlap from position_shift
         shift_um = (
             result.position_shift * 1e6 if not np.isnan(result.position_shift) else 0
         )
         # Overlap region is where both profiles have data
-        ref_start, ref_end = x_ref.min(), x_ref.max()
+        ref_start, ref_end = x_ref_aligned.min(), x_ref_aligned.max()
         comp_start, comp_end = x_comp_aligned.min(), x_comp_aligned.max()
         overlap_start_um = max(ref_start, comp_start)
         overlap_end_um = min(ref_end, comp_end)
+
+    # Determine which profile is larger (by number of samples)
+    comp_is_larger = len(comp_data) > len(ref_data)
+
+    # Prepare aligned comparison data for plotting
+    if abs(scale - 1.0) > 0.001:
+        # Interpolate the comparison data to show aligned heights
+        comp_interpolator = interp1d(
+            x_comp,
+            comp_data_um,
+            kind="cubic",
+            fill_value="extrapolate",  # type: ignore[arg-type]
+        )
+        # Sample at positions that correspond to the aligned reference x after inverse transform
+        if result.is_partial_profile and not np.isnan(result.partial_start_position):
+            start_position_um = result.partial_start_position * 1e6
+            if is_flipped:
+                # For flipped, x_ref_aligned = x_ref + start_position_um
+                # We need to sample comp at positions that correspond to x_ref_aligned
+                x_sample = x_ref_aligned / scale
+            else:
+                x_sample = (x_ref_aligned - start_position_um) / scale
+        else:
+            shift_um = (
+                result.position_shift * 1e6
+                if not np.isnan(result.position_shift)
+                else 0
+            )
+            x_sample = (x_ref_aligned - shift_um) / scale
+        # Only use samples within the original comparison range
+        valid_mask = (x_sample >= x_comp.min()) & (x_sample <= x_comp.max())
+        x_comp_plot = x_ref_aligned[valid_mask]
+        comp_aligned_um = comp_interpolator(x_sample[valid_mask])
+    else:
+        x_comp_plot = x_comp_aligned
+        comp_aligned_um = comp_data_um
 
     # Add green background for overlap region (draw before the lines)
     if overlap_length_um > 0:
@@ -280,49 +363,38 @@ def plot_correlation_result(
             label="Overlap region",
         )
 
-    # Plot reference profile
-    axes[2].plot(x_ref, ref_data_um, "b-", linewidth=0.8, label="Reference", alpha=0.7)
-
-    # Plot aligned comparison profile
-    # For scaled profiles, resample the height data to show it correctly
-    if abs(scale - 1.0) > 0.001:
-        # Interpolate the comparison data to show aligned heights
-        comp_interpolator = interp1d(
-            x_comp,
-            comp_data_um,
-            kind="cubic",
-            fill_value="extrapolate",  # type: ignore[arg-type]
-        )
-        # Sample at positions that correspond to reference x after inverse transform
-        if result.is_partial_profile and not np.isnan(result.partial_start_position):
-            start_position_um = result.partial_start_position * 1e6
-            if is_flipped:
-                x_sample = (x_ref + start_position_um) / scale
-            else:
-                x_sample = (x_ref - start_position_um) / scale
-        else:
-            shift_um = (
-                result.position_shift * 1e6
-                if not np.isnan(result.position_shift)
-                else 0
-            )
-            x_sample = (x_ref - shift_um) / scale
-        # Only use samples within the original comparison range
-        valid_mask = (x_sample >= x_comp.min()) & (x_sample <= x_comp.max())
-        x_plot = x_ref[valid_mask]
-        comp_aligned_um = comp_interpolator(x_sample[valid_mask])
+    # Plot profiles: larger one first (background), smaller one on top
+    if comp_is_larger:
+        # Comparison is larger - plot it first, then reference on top
         axes[2].plot(
-            x_plot,
+            x_comp_plot,
             comp_aligned_um,
             "r-",
             linewidth=0.8,
             label="Comparison (aligned)",
             alpha=0.7,
         )
-    else:
         axes[2].plot(
-            x_comp_aligned,
-            comp_data_um,
+            x_ref_aligned,
+            ref_data_um,
+            "b-",
+            linewidth=0.8,
+            label="Reference",
+            alpha=0.7,
+        )
+    else:
+        # Reference is larger or equal - plot it first, then comparison on top
+        axes[2].plot(
+            x_ref_aligned,
+            ref_data_um,
+            "b-",
+            linewidth=0.8,
+            label="Reference",
+            alpha=0.7,
+        )
+        axes[2].plot(
+            x_comp_plot,
+            comp_aligned_um,
             "r-",
             linewidth=0.8,
             label="Comparison (aligned)",
@@ -332,6 +404,8 @@ def plot_correlation_result(
     axes[2].set_xlabel("Position (μm)")
     axes[2].set_ylabel("Height (μm)")
     axes[2].set_title("Aligned Profiles")
+    axes[2].set_xlim(x_limits)
+    axes[2].set_ylim(y_limits)
     axes[2].legend(loc="upper right")
     axes[2].grid(True, alpha=0.3)
 

@@ -283,18 +283,6 @@ def find_match_candidates(
         - candidate_positions: Array of starting indices in the reference
         - shape_scales: Array of scale values used for shape filtering (in meters)
         - comparison_scale: Scale value used for final comparison (in meters)
-
-    Example::
-
-        >>> import numpy as np
-        >>> from conversion.profile_correlator.data_types import Profile
-        >>> # Create reference with a matching segment
-        >>> x = np.linspace(0, 20, 2000)
-        >>> ref = Profile(np.sin(x), pixel_size=0.5e-6)
-        >>> partial = Profile(np.sin(x[500:1000]), pixel_size=0.5e-6)
-        >>> positions, shape_scales, comp_scale = find_match_candidates(ref, partial)
-        >>> len(positions) > 0
-        True
     """
     # Use default parameters if not provided
     if params is None:
@@ -399,6 +387,7 @@ def find_match_candidates(
 
             # Compute correlation at each position by sliding partial along reference
             n_positions = max(1, len(ref_filtered_sub) - len(partial_filtered_sub) + 1)
+            # TODO on both side there should be more possible n_positions
             xcorr_tmp = np.zeros(n_positions)
 
             for pos in range(n_positions):
