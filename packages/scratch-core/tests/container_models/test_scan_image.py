@@ -109,11 +109,12 @@ class TestApplyMaskImage:
             ),
         ],
     )
-    def test_apply_mask(
+    def test_apply_mask_is_masking_scan_image(
         self,
         mask: np.ndarray,
         expected: np.ndarray,
         scan_image_factory,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         scan_image = scan_image_factory(mask=mask)
         # Act
@@ -122,6 +123,7 @@ class TestApplyMaskImage:
         assert np.array_equal(scan_image.data, expected, equal_nan=True), (
             "All False boolean in mask should result to an np.nan in data"
         )
+        assert "Applying mask to scan_image" in caplog.messages
 
     def test_apply_mask_without_mask_raises_error(self, scan_image_factory):
         # Arrange
