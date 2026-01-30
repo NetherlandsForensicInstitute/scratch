@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import astuple, dataclass
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from returns.result import ResultE
 
 if TYPE_CHECKING:
     from container_models.scan_image import ScanImage
@@ -14,11 +15,11 @@ if TYPE_CHECKING:
 class MutatorProtocol(Protocol):
     """Protocol defining the expected signature for image mutators.
 
-    All mutators must accept a ScanImage as first argument and return a ScanImage.
-    Additional keyword arguments are allowed for configuration.
+    Railway-oriented mutators accept a ScanImage and return Result[ScanImage, Exception].
+    Use @safe decorator to wrap functions that may raise exceptions.
     """
 
-    def __call__(self, scan_image: ScanImage, **kwargs: Any) -> ScanImage: ...
+    def __call__(self, scan_image: ScanImage, **kwargs: Any) -> ResultE[ScanImage]: ...
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,7 @@ class RegisteredMutator:
     func: MutatorProtocol
     metadata: MutatorMetadata
 
-    def __call__(self, scan_image: ScanImage, **kwargs: Any) -> ScanImage:
+    def __call__(self, scan_image: ScanImage, **kwargs: Any) -> ResultE[ScanImage]:
         """Execute the mutator function."""
         return self.func(scan_image, **kwargs)
 

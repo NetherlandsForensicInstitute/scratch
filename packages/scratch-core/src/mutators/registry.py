@@ -6,6 +6,8 @@ from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING, Any, overload
 
+from returns.result import ResultE
+
 from mutators.types import (
     MutatorAlreadyRegisteredError,
     MutatorMetadata,
@@ -27,8 +29,10 @@ class _MutatorRegistry:
     validated pipelines.
 
     Example:
+        >>> from returns.result import safe
         >>> registry = get_mutation_registry()
         >>> @registry.register
+        ... @safe
         ... def gaussian_blur(scan_image: ScanImage, sigma: float = 1.0) -> ScanImage:
         ...     '''Apply Gaussian blur to scan image.'''
         ...     return scan_image.model_copy(update={"data": blurred_data})
@@ -68,9 +72,11 @@ class _MutatorRegistry:
         Can be used as a decorator with or without arguments:
 
             @registry.register
+            @safe
             def my_mutator(scan_image: ScanImage) -> ScanImage: ...
 
             @registry.register(name="custom_name")
+            @safe
             def my_mutator(scan_image: ScanImage) -> ScanImage: ...
 
         :param function: The mutator function to register
@@ -92,7 +98,7 @@ class _MutatorRegistry:
             )
 
             @wraps(func)
-            def wrapper(scan_image: ScanImage, **kwargs: Any) -> ScanImage:
+            def wrapper(scan_image: ScanImage, **kwargs: Any) -> ResultE[ScanImage]:
                 return func(scan_image, **kwargs)
 
             registered = RegisteredMutator(func=wrapper, metadata=metadata)
