@@ -2,23 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any
 
 from returns.result import ResultE
 
 from mutators.types import (
     MutatorAlreadyRegisteredError,
-    MutatorMetadata,
     MutatorProtocol,
-    RegisteredMutator,
 )
 
 if TYPE_CHECKING:
     from container_models.scan_image import ScanImage
-
-type WrapRegisterMutator = Callable[[MutatorProtocol], RegisteredMutator]
 
 
 class _MutatorRegistry:
@@ -39,7 +34,7 @@ class _MutatorRegistry:
     """
 
     _instance: _MutatorRegistry | None = None
-    _mutators: dict[str, RegisteredMutator]
+    _mutators: dict[str, MutatorProtocol]
 
     def __new__(cls) -> _MutatorRegistry:
         """Implement singleton pattern."""
@@ -48,79 +43,33 @@ class _MutatorRegistry:
             cls._instance._mutators = {}
         return cls._instance
 
-    @overload
-    def register(self, function: MutatorProtocol) -> RegisteredMutator: ...
-
-    @overload
-    def register(
-        self,
-        function: None = None,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-    ) -> WrapRegisterMutator: ...
-
-    def register(
-        self,
-        function: MutatorProtocol | None = None,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-    ) -> RegisteredMutator | WrapRegisterMutator:
+    def register(self, function: MutatorProtocol) -> MutatorProtocol:
         """Register a mutator function with the global registry.
 
-        Can be used as a decorator with or without arguments:
+        Used as a decorator:
 
             @registry.register
             @safe
             def my_mutator(scan_image: ScanImage) -> ScanImage: ...
 
-            @registry.register(name="custom_name")
-            @safe
-            def my_mutator(scan_image: ScanImage) -> ScanImage: ...
-
         :param function: The mutator function to register
-        :param name: Override the mutator name (defaults to function name)
-        :param description: Override description (defaults to docstring)
-        :returns: RegisteredMutator wrapping the function
+        :returns: Wrapped mutator function
         :raises MutatorAlreadyRegisteredError: If name already registered
         """
 
-        def decorator(func: MutatorProtocol) -> RegisteredMutator:
-            mutator_name = name or func.__name__
+        if function.__name__ in self._mutators:
+            raise MutatorAlreadyRegisteredError(function.__name__)
 
-            if mutator_name in self._mutators:
-                raise MutatorAlreadyRegisteredError(mutator_name)
+        self._mutators[function.__name__] = function
 
-            metadata = MutatorMetadata(
-                name=mutator_name,
-                description=description or (func.__doc__ or "").strip().split("\n")[0],
-            )
+        @wraps(function)
+        def wrapper(scan_image: ScanImage, **kwargs: Any) -> ResultE[ScanImage]:
+            return function(scan_image, **kwargs)
 
-            @wraps(func)
-            def wrapper(scan_image: ScanImage, **kwargs: Any) -> ResultE[ScanImage]:
-                return func(scan_image, **kwargs)
+        return wrapper
 
-            registered = RegisteredMutator(func=wrapper, metadata=metadata)
-            self._mutators[mutator_name] = registered
-
-            return registered
-
-        if function is not None:
-            return decorator(function)
-        return decorator
-
-    def list_mutators(self) -> list[MutatorMetadata]:
-        """List all registered mutators.
-
-        :returns: List of mutator metadata
-        """
-        return [mutator.metadata for mutator in self._mutators.values()]
-
-    def __contains__(self, value: str | MutatorProtocol) -> bool:
-        if callable(value):
-            value = getattr(value, "name", value.__name__)
-        return value in self._mutators
+    def __contains__(self, mutator: MutatorProtocol) -> bool:
+        return mutator.__name__ in self._mutators
 
     def __len__(self) -> int:
         return len(self._mutators)
