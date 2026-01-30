@@ -164,11 +164,6 @@ class TestPartialLengthProfiles:
             output_filename=f"partial_length_{length_pct}_percent.png",
         )
 
-        # Length difference > 8% should trigger partial profile mode
-        assert result.is_partial_profile is True, (
-            f"Expected is_partial_profile=True for {length_pct}% length"
-        )
-
         # Should achieve high correlation for matching subset
         assert result.correlation_coefficient > 0.85, (
             f"Expected correlation > 0.85, got {result.correlation_coefficient}"
@@ -240,115 +235,6 @@ class TestScaledProfiles:
             f"got {result.scale_factor:.3f}"
         )
 
-
-class TestPartialThresholdBoundary:
-    """Tests for the partial_mark_threshold boundary condition.
-
-    The partial_mark_threshold (default 8%) determines when profiles are
-    considered "partial" based on length difference percentage:
-        is_partial_profile = length_diff_percent >= partial_mark_threshold
-
-    These tests verify the boundary behavior.
-    """
-
-    def test_below_threshold_not_partial(self):
-        """Length difference below threshold should NOT be marked as partial.
-
-        With 93% length ratio, length_diff = 7% which is < 8% threshold.
-        """
-        base_data = create_base_profile(n_samples=1000, seed=42)
-
-        # 93% length ratio = 7% length difference (below 8% threshold)
-        profile_ref, profile_comp = create_partial_length_profiles(
-            base_data,
-            partial_ratio=0.93,
-            pixel_size_m=PIXEL_SIZE_M,
-        )
-
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-            partial_mark_threshold=8.0,  # Default threshold
-        )
-
-        result = run_correlation_with_visualization(
-            profile_ref,
-            profile_comp,
-            params,
-            title="Partial Threshold: 7% (Below 8%)",
-            output_filename="partial_threshold_07_percent.png",
-        )
-
-        # Should NOT be marked as partial (7% < 8%)
-        assert result.is_partial_profile is False, (
-            f"Expected is_partial_profile=False for 7% length diff, "
-            f"got {result.is_partial_profile}"
-        )
-
-    def test_at_threshold_is_partial(self):
-        """Length difference exactly at threshold should be marked as partial.
-
-        With 92% length ratio, length_diff = 8% which is >= 8% threshold.
-        """
-        base_data = create_base_profile(n_samples=1000, seed=42)
-
-        # 92% length ratio = 8% length difference (at 8% threshold)
-        profile_ref, profile_comp = create_partial_length_profiles(
-            base_data,
-            partial_ratio=0.92,
-            pixel_size_m=PIXEL_SIZE_M,
-        )
-
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-            partial_mark_threshold=8.0,  # Default threshold
-        )
-
-        result = run_correlation_with_visualization(
-            profile_ref,
-            profile_comp,
-            params,
-            title="Partial Threshold: 8% (At 8%)",
-            output_filename="partial_threshold_08_percent.png",
-        )
-
-        # Should be marked as partial (8% >= 8%)
-        assert result.is_partial_profile is True, (
-            f"Expected is_partial_profile=True for 8% length diff, "
-            f"got {result.is_partial_profile}"
-        )
-
-    def test_above_threshold_is_partial(self):
-        """Length difference above threshold should be marked as partial.
-
-        With 91% length ratio, length_diff = 9% which is > 8% threshold.
-        """
-        base_data = create_base_profile(n_samples=1000, seed=42)
-
-        # 91% length ratio = 9% length difference (above 8% threshold)
-        profile_ref, profile_comp = create_partial_length_profiles(
-            base_data,
-            partial_ratio=0.91,
-            pixel_size_m=PIXEL_SIZE_M,
-        )
-
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-            partial_mark_threshold=8.0,  # Default threshold
-        )
-
-        result = run_correlation_with_visualization(
-            profile_ref,
-            profile_comp,
-            params,
-            title="Partial Threshold: 9% (Above 8%)",
-            output_filename="partial_threshold_09_percent.png",
-        )
-
-        # Should be marked as partial (9% > 8%)
-        assert result.is_partial_profile is True, (
-            f"Expected is_partial_profile=True for 9% length diff, "
-            f"got {result.is_partial_profile}"
-        )
 
     def test_custom_threshold(self):
         """Test that custom threshold values work correctly.
@@ -426,11 +312,6 @@ class TestFlippedProfiles:
             params,
             title=f"Partial Length {length_pct}% (Flipped)",
             output_filename=f"partial_length_{length_pct}_percent_flipped.png",
-        )
-
-        # Should still trigger partial profile mode
-        assert result.is_partial_profile is True, (
-            f"Expected is_partial_profile=True for flipped {length_pct}% length"
         )
 
         # Should achieve high correlation

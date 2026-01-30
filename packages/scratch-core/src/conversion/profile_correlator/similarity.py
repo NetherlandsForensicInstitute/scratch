@@ -80,7 +80,7 @@ def compute_cross_correlation(
     if n_valid == 0:
         return np.nan
 
-    # Mean-center the profiles
+    # Subtract the mean from the profile. (Results in profiles with 0 mean)
     p1_centered = p1_valid - np.mean(p1_valid)
     p2_centered = p2_valid - np.mean(p2_valid)
 

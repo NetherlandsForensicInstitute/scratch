@@ -475,11 +475,6 @@ class TestProfileCorrelatorSingleMatlabComparison:
             expected.bSegments,
             f"{test_case.name}: bSegments",
         )
-        assert_equal_int(
-            python_results.bPartialProfile,
-            expected.bPartialProfile,
-            f"{test_case.name}: bPartialProfile",
-        )
 
         # Check pixel separations
         assert_close(

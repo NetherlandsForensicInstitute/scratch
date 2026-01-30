@@ -134,6 +134,7 @@ class AlignmentParameters:
     use_mean: bool = True
     remove_boundary_zeros: bool = True
     cut_borders_after_smoothing: bool = False
+    min_overlap_distance = 200e-6
 
 
 @dataclass(frozen=True)
