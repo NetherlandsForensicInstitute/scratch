@@ -6,6 +6,7 @@ functions (mutators). All mutators used in pipelines must be registered,
 ensuring traceability and validation.
 
 Quick Start:
+    from functools import partial
     from mutators import get_mutation_registry
     from returns.pipeline import flow
 
@@ -16,15 +17,14 @@ Quick Start:
         '''Apply custom filter to scan image.'''
         return scan_image.model_copy(update={"data": filtered_data})
 
-    # Use in a pipeline with flow
+    # Use in a pipeline with flow and partial
     result = flow(
         scan_image,
-        my_filter.bind(param=2.0),
+        partial(my_filter, param=2.0),
         another_registered_mutator,
     )
 """
 
-from mutators.composition import compose_mutators, create_conditional_mutator
 from mutators.registry import get_mutation_registry
 from mutators.types import (
     MutatorAlreadyRegisteredError,
@@ -37,9 +37,6 @@ __all__ = [
     # Types
     "MutatorMetadata",
     "MutatorProtocol",
-    # Composition
-    "compose_mutators",
-    "create_conditional_mutator",
     # Exceptions
     "MutatorAlreadyRegisteredError",
 ]
