@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import astuple, dataclass, field
-from typing import TYPE_CHECKING, Any, Protocol, Self, runtime_checkable
-
-from loguru import logger
+from dataclasses import astuple, dataclass
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 
 if TYPE_CHECKING:
@@ -49,27 +47,14 @@ class RegisteredMutator:
 
     func: MutatorProtocol
     metadata: MutatorMetadata
-    kwargs: dict[str, Any] = field(default_factory=dict)
 
-    def __call__(self, scan_image: ScanImage) -> ScanImage:
+    def __call__(self, scan_image: ScanImage, **kwargs: Any) -> ScanImage:
         """Execute the mutator function."""
-        return self.func(scan_image, **self.kwargs)
+        return self.func(scan_image, **kwargs)
 
     @property
     def name(self) -> str:
         return self.metadata.name
-
-    def bind(self, **kwargs: Any) -> Self:
-        """Create a bound mutator with pre-filled arguments.
-
-        Example:
-            blurred = gaussian_blur.bind(sigma=2.0)
-            result = blurred(scan_image)
-        """
-        if not kwargs:
-            logger.warning(f"bind called on {self.metadata.name} with no keyword value")
-        self.kwargs |= kwargs
-        return self
 
 
 class MutatorAlreadyRegisteredError(Exception):
