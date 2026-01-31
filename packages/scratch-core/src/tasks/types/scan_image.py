@@ -1,0 +1,68 @@
+from typing import Literal
+
+import numpy as np
+from pydantic import BaseModel, ConfigDict, Field
+from scipy.constants import femto
+
+from container_models.base import DepthData
+
+
+# TODO: Better Name
+class Point[T](BaseModel):
+    x: T
+    y: T
+
+
+class MetaData(BaseModel):
+    processing_history: list[str] = Field(default_factory=list)
+    scale: Point[float]
+
+    @property
+    def is_isotropic(self) -> bool:
+        return bool(np.isclose(self.scale.x, self.scale.y, atol=femto))
+
+    model_config = ConfigDict(
+        validate_assignment=True,
+        extra="allow",
+        regex_engine="rust-regex",
+    )
+
+
+class ScanImage(BaseModel):
+    """
+    A 2D image/array of floats.
+
+    Used for: depth maps, intensity maps, single-channel images.
+    Shape: (height, width)
+    """
+
+    data: DepthData
+    meta_data: MetaData
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,
+        extra="forbid",
+        regex_engine="rust-regex",
+    )
+
+    @property
+    def width(self) -> int:
+        """The image width in pixels."""
+        return self.data.shape[1]
+
+    @property
+    def height(self) -> int:
+        """The image height in pixels."""
+        return self.data.shape[0]
+
+    def target_scale(self, target: Literal["upscale", "downscale"]) -> int:
+        return (min if target == "upscale" else max)(
+            self.meta_data.scale.model_dump().values()
+        )
+
+    def rescale_shape(self, target_scale: int) -> tuple[int, int]:
+        return (
+            int(round(self.height * self.meta_data.scale.y / target_scale)),
+            int(round(self.width * self.meta_data.scale.x / target_scale)),
+        )
