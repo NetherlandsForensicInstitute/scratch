@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from container_models.scan_image import ScanImage
-from tasks.loaders import Isotropic, SubSample, load_scan_image
+from image_tasks.loaders import load_scan_image, make_isotropic, subsample_scan_image
+from image_tasks.types.scan_image import ScanImage
 
 from pipelines import run_pipeline
 
@@ -18,7 +18,7 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
     return run_pipeline(
         scan_file,
         load_scan_image,
-        SubSample(step_size_x, step_size_y),
-        Isotropic(),
+        subsample_scan_image(step_size_x=step_size_x, step_size_y=step_size_y),
+        make_isotropic(),
         error_message=f"Failed to parsed given scan file: {scan_file}",
     )

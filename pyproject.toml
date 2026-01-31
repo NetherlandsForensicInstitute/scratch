@@ -98,6 +98,16 @@ ignore-decorators = ["property"]
   "PT011", # No `match` parameter necessary for pytest.raises
 ]
 
+[tool.deptry]
+known_first_party = [
+  "container_models",
+  "conversion",
+  "parsers",
+  "renders",
+  "image_tasks",
+  "utils",
+]
+
 [tool.ty.environment]
 python-version = "3.13"
 

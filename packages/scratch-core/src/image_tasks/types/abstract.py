@@ -3,26 +3,22 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Callable, Protocol
 
 from loguru import logger
 from pydantic import BaseModel
 from returns.pipeline import is_successful
+from returns.result import ResultE, Success
 
-from container_models.scan_image import ScanImage
-from returns.result import ResultE, Success, safe
+from image_tasks.types.scan_image import ScanImage
 
 
-@runtime_checkable
 class ImageTask(Protocol):
-    """Protocol defining the expected signature for image mutators.
-
-    Railway-oriented mutators accept a ScanImage and return Result[ScanImage, Exception].
-    Use @safe decorator to wrap functions that may raise exceptions.
-    """
-
-    @safe
-    def __call__(self, scan_image: ScanImage, **kwargs: Any) -> ScanImage: ...
+    def __call__(
+        self, scan_image: ScanImage, *args, **kwargs
+    ) -> ResultE[ScanImage]: ...
+    @property
+    def __name__(self) -> str: ...
 
 
 class ImageTaskContext[P: BaseModel](BaseModel):
@@ -36,13 +32,13 @@ class ImageTaskContext[P: BaseModel](BaseModel):
         return self.params.model_dump(exclude={"predicate"}) if self.params else {}
 
 
-class AbstractImageTask[C: ImageTaskContext, T: ImageTask](ABC):
-    def __init__(self, task: T, context: C) -> None:
+class AbstractImageTask[C: ImageTaskContext](ABC):
+    def __init__(self, task: ImageTask, context: C) -> None:
         self.task = task
         self.context = context
 
     def _update_scan_image_history(self, scan_image: ScanImage) -> ScanImage:
-        scan_image.meta_data.processing_history.append(str(self.task))
+        scan_image.meta_data.processing_history.append(self.context.name)
         return scan_image
 
     def __call__(self, scan_image: ScanImage) -> ResultE[ScanImage]:

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from tasks.types.scan_image import ScanImage
+from image_tasks.types.scan_image import ScanImage
 
 from preprocessors.new_pipelines import parse_scan_pipeline
 
