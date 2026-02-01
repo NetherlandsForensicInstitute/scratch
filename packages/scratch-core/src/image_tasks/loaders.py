@@ -93,7 +93,7 @@ make_isotropic = create_image_task(
     skip_predicate=lambda scan_image, **_: scan_image.meta_data.is_isotropic,
     failure_msg="Failed to make image isotropic",
     success_msg="Successfully made image isotropic",
-)
+)()
 
 
 @safe

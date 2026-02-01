@@ -29,7 +29,7 @@ class ImageTaskContext[P: BaseModel](BaseModel):
 
     @property
     def kwargs(self) -> dict[str, Any]:
-        return self.params.model_dump(exclude={"predicate"}) if self.params else {}
+        return dict(self.params) if self.params else {}
 
 
 class AbstractImageTask[C: ImageTaskContext](ABC):

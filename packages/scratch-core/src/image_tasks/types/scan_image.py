@@ -21,6 +21,10 @@ class MetaData(BaseModel):
     def is_isotropic(self) -> bool:
         return bool(np.isclose(self.scale.x, self.scale.y, atol=femto))
 
+    @property
+    def central_diff_scales(self) -> Point[float]:
+        return Point(x=self.scale.x * 0.5, y=self.scale.y * 0.5)
+
     model_config = ConfigDict(
         validate_assignment=True,
         extra="allow",

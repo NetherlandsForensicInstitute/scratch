@@ -1,9 +1,9 @@
 from pathlib import Path
 
 import pytest
-from container_models.scan_image import ScanImage
+from image_tasks.types.scan_image import ScanImage
 
-from preprocessors.pipelines import parse_scan_pipeline
+from preprocessors.new_pipelines import parse_scan_pipeline
 
 
 @pytest.fixture(scope="session")
