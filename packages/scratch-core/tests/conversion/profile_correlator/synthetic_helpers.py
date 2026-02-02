@@ -224,9 +224,9 @@ def plot_correlation_result(
         comp_original_start_um = 0
         ref_original_start_um = 0
 
-    # Calculate common axis limits
+    # Calculate common axis limits (use nanmin/nanmax to handle NaN values)
     all_heights = np.concatenate([ref_data_um, comp_data_um])
-    y_min, y_max = all_heights.min(), all_heights.max()
+    y_min, y_max = np.nanmin(all_heights), np.nanmax(all_heights)
     y_margin = (y_max - y_min) * 0.1
     y_limits = (y_min - y_margin, y_max + y_margin)
 
