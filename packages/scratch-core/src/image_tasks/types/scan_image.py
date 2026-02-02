@@ -33,13 +33,6 @@ class MetaData(BaseModel):
 
 
 class ScanImage(BaseModel):
-    """
-    A 2D image/array of floats.
-
-    Used for: depth maps, intensity maps, single-channel images.
-    Shape: (height, width)
-    """
-
     data: DepthData
     meta_data: MetaData
 

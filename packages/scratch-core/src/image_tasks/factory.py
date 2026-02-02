@@ -1,5 +1,3 @@
-"""Factory function for creating image tasks with reduced boilerplate."""
-
 from __future__ import annotations
 
 from typing import Any, Protocol
@@ -38,12 +36,14 @@ def create_image_task[P: BaseModel](
     Create an image task class from a task function.
 
     :param task: The task function to wrap. Must accept ScanImage and return ResultE[ScanImage].
+    :param alternative: An alternative task function to execute when alternative_predicate is True.
     :param params_model: Pydantic model for task parameters. If None, task takes no params.
-    :param skip_predicate: Function that determines if task should be skipped.
+    :param skip_predicate: Function that determines if task should be skipped entirely.
+    :param alternative_predicate: Function that determines if alternative task should run instead.
     :param skip_on_error: If True, continue pipeline on task failure.
     :param failure_msg: Log message on failure.
     :param success_msg: Log message on success.
-    :returns: A task class that can be instantiated with parameters.
+    :returns: A factory that creates task instances when called with parameters.
 
     Example::
 
