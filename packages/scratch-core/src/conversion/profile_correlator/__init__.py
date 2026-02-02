@@ -19,11 +19,9 @@ module, using dataclasses for parameters and results.
 Submodules
 ----------
 - data_types: Core data structures (Profile, AlignmentParameters, etc.)
-- correlator: Main entry point function
-- alignment: Multi-scale alignment algorithms
+- correlator: Main entry point function (multi-scale coarse-to-fine search)
 - transforms: Translation, scaling, and resampling operations
 - similarity: Cross-correlation and comparison metrics
-- candidate_search: Partial profile brute-force candidate detection
 
 Note: 1D filtering uses the infrastructure from conversion.filter internally.
 """
@@ -39,12 +37,6 @@ from conversion.profile_correlator.data_types import (
 
 # Main entry point
 from conversion.profile_correlator.correlator import correlate_profiles
-
-# Alignment functions
-from conversion.profile_correlator.alignment import (
-    align_partial_profile_multiscale,
-    align_profiles_multiscale,
-)
 
 # Transform functions
 from conversion.profile_correlator.transforms import (
@@ -63,9 +55,6 @@ from conversion.profile_correlator.similarity import (
 # Re-export cutoff_to_gaussian_sigma from conversion.filter for convenience
 from conversion.filter.gaussian import cutoff_to_gaussian_sigma
 
-# Candidate search
-from conversion.profile_correlator.candidate_search import find_match_candidates
-
 __all__ = [
     # Main entry point
     "correlate_profiles",
@@ -75,9 +64,6 @@ __all__ = [
     "AlignmentResult",
     "ComparisonResults",
     "TransformParameters",
-    # Alignment
-    "align_profiles_multiscale",
-    "align_partial_profile_multiscale",
     # Transforms
     "equalize_pixel_scale",
     "make_profiles_equal_length",
@@ -88,6 +74,4 @@ __all__ = [
     "compute_comparison_metrics",
     # Filtering (re-exported from conversion.filter)
     "cutoff_to_gaussian_sigma",
-    # Candidate search
-    "find_match_candidates",
 ]

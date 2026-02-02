@@ -7,24 +7,42 @@ minimum overlap constraint.
 
 All length and height measurements are in meters (SI units).
 
-Comparison with Previous Implementation
-----------------------------------------
-This implementation replaces the complex multi-scale optimization approach with
-a brute-force method that:
+Algorithm Overview
+------------------
+The algorithm uses a global brute-force search strategy:
 
-1. **Equalizes pixel scales** between profiles (same as before)
+1. **Equalizes pixel scales** between profiles (resample to common resolution)
 2. **Tries multiple scale factors** (e.g., 0.95, 0.97, ..., 1.03, 1.05)
 3. **For each scale, tries all shifts** with at least min_overlap_distance overlap
 4. **Computes correlation** at each shift position
 5. **Selects maximum** correlation as the optimal alignment
 
-Advantages:
-- **Simpler**: ~300 lines vs 3000+ lines
-- **More robust**: Guaranteed to find global maximum correlation
-- **Easier to debug**: No complex multi-stage optimization
-- **Deterministic**: Same inputs always produce same outputs
+This approach is guaranteed to find the global maximum correlation, which may
+be at a position far from zero shift for repetitive patterns.
 
-The output ComparisonResults is fully compatible with the previous implementation.
+Comparison with MATLAB
+----------------------
+This implementation deliberately simplifies the MATLAB ``ProfileCorrelateSingle.m``
+algorithm for maintainability (~300 lines vs 3000+ lines).
+
+**Intentional Simplifications** (divergence from MATLAB):
+
+1. **Global search**: MATLAB uses multi-scale coarse-to-fine search with bounded
+   ranges at each level. This implementation searches all positions globally,
+   which can find different (sometimes better) alignments for repetitive patterns.
+
+2. **No Nelder-Mead optimization**: MATLAB uses fminsearch for sub-sample
+   precision. This implementation uses discrete sample shifts only.
+
+3. **No low-pass filtering**: MATLAB filters profiles at each scale level.
+   This implementation operates on the original profiles.
+
+4. **Discrete scale factors**: Instead of continuous optimization, we try
+   a fixed set of scale factors (e.g., 0.95, 0.97, ..., 1.05).
+
+These simplifications reduce complexity while providing correct results. For
+repetitive profiles, the global search may find alignments at different positions
+than MATLAB, but with equal or higher correlation.
 """
 
 import numpy as np
@@ -83,15 +101,12 @@ def _compute_correlation(
     profile_comp: NDArray[np.floating],
 ) -> float:
     """
-    Compute correlation between two profiles at a specific shift.
+    Compute Pearson correlation between two profile segments.
 
-    Positive shift means profile_comp is shifted to the right relative to profile_ref.
-
-    :param profile_ref: (Part of) reference profile (1D array).
-    :param profile_comp: (Part of) comparison profile (1D array).
-    :returns: correlation.
+    :param profile_ref: Reference profile segment (1D array).
+    :param profile_comp: Comparison profile segment (1D array).
+    :returns: Pearson correlation coefficient, or NaN if computation fails.
     """
-
     # Find valid (non-NaN) samples in both profiles
     valid_mask = ~(np.isnan(profile_ref) | np.isnan(profile_comp))
 
@@ -100,6 +115,10 @@ def _compute_correlation(
 
     ref_valid = profile_ref[valid_mask]
     comp_valid = profile_comp[valid_mask]
+
+    # Need at least 2 samples for correlation
+    if len(ref_valid) < 2:
+        return np.nan
 
     # Compute Pearson correlation
     ref_centered = ref_valid - np.mean(ref_valid)
@@ -113,9 +132,7 @@ def _compute_correlation(
     if denominator == 0:
         return np.nan
 
-    correlation = numerator / denominator
-
-    return float(correlation)
+    return float(numerator / denominator)
 
 
 def correlate_profiles(
@@ -140,7 +157,7 @@ def correlate_profiles(
        params.max_scaling (e.g., ±5% means 0.95, 0.97, 0.99, 1.0, 1.01, 1.03, 1.05).
 
     3. **For each scale, determine shift range**: Calculate the range of valid shifts
-       that maintain at least 200 micrometers of overlap.
+       that maintain at least min_overlap_distance of overlap.
 
     4. **Brute-force search**: Try all shift/scale combinations and compute
        cross-correlation at each position.
@@ -154,41 +171,25 @@ def correlate_profiles(
 
     :param profile_ref: Reference profile to compare against.
     :param profile_comp: Compared profile to align to the reference.
-    :param params: Alignment parameters. Used parameters:
+    :param params: Alignment parameters. Key parameters:
         - use_mean: Use mean (True) or median (False) for multi-column profiles
         - max_scaling: Maximum scaling deviation (e.g., 0.05 for ±5%)
         - min_overlap_distance: Minimum overlap distance in meters (default 200 μm)
-    :returns: ComparisonResults containing all computed metrics including:
-        - correlation_coefficient: Pearson correlation after alignment
-        - position_shift: Translation applied (m)
-        - scale_factor: Scaling factor applied (e.g., 0.97, 1.0, 1.03)
-        - overlap_length: Length of overlapping region (m)
-        - overlap_ratio: Ratio of overlap to shorter profile
-        - sa_ref, sq_ref: Roughness metrics for reference (m)
-        - sa_comp, sq_comp: Roughness metrics for compared profile (m)
-        - ds_combined: Combined signature difference
+    :returns: ComparisonResults containing all computed metrics.
 
     Notes
     -----
-    The function automatically handles:
+    The global brute-force search finds the maximum correlation regardless of
+    shift position. For repetitive patterns, this may find alignments far from
+    zero shift with high correlation but lower overlap ratio.
 
-    - Different pixel sizes between profiles
-    - Different profile lengths
-    - NaN values in the profile data
-    - Multi-column profile data (averaged before comparison)
-
-    The minimum overlap distance is fixed at 200 micrometers.
-
-    Scale factors are tested at discrete intervals. By default, with max_scaling=0.05,
-    the following scale factors are tried: [0.95, 0.97, 0.99, 1.0, 1.01, 1.03, 1.05].
+    The function automatically handles different pixel sizes, profile lengths,
+    NaN values, and multi-column profile data.
     """
-    # Minimum overlap distance in meters (200 micrometers)
-    # For very short profiles, use a percentage instead
     min_overlap_distance = params.min_overlap_distance
 
     # Step 1: Equalize pixel scales
     profile_ref_eq, profile_comp_eq = equalize_pixel_scale(profile_ref, profile_comp)
-
     pixel_size = profile_ref_eq.pixel_size
 
     # Get 1D profiles (mean across columns if multi-column)
@@ -198,81 +199,85 @@ def correlate_profiles(
     len_ref = len(ref_data)
     len_comp_original = len(comp_data_original)
 
-    # Step 2: Generate scale factors to try
-    # Create discrete scale factors in the range [1-max_scaling, 1+max_scaling]
-    # Use approximately 7-9 scale factors for good coverage
+    # Minimum overlap in samples
+    min_overlap_samples = int(min_overlap_distance / pixel_size)
+
+    # Generate scale factors to try
     num_scale_steps = 7
     scale_factors = np.linspace(
         1.0 - params.max_scaling, 1.0 + params.max_scaling, num_scale_steps
     )
 
-    # Step 3: Try all scale factors and allowed shifts
+    # Step 2: Global brute-force search over all scales and shifts
     best_correlation = -np.inf
     best_shift = 0
     best_scale = 1.0
-    best_ref_overlap = None
-    best_comp_overlap = None
+    best_ref_overlap: NDArray[np.floating] | None = None
+    best_comp_overlap: NDArray[np.floating] | None = None
 
     for scale in scale_factors:
         # Apply scaling to comparison profile
         comp_data_scaled = _apply_scaling(comp_data_original, scale)
         len_comp = len(comp_data_scaled)
 
-        # Get boundaries overlap idx for reference_profile (a small amount larger than 200 mum):
-        len_overlap = int(min_overlap_distance / pixel_size)
-        if len_comp < len_overlap or len_ref < len_overlap:
-            # One of profiles too small to give sufficient overlap. Do not calculate anything.
+        # Skip if profiles too short for minimum overlap
+        if len_comp < min_overlap_samples or len_ref < min_overlap_samples:
             continue
+
+        # Determine which profile is larger
+        if len_ref >= len_comp:
+            large = ref_data
+            small = comp_data_scaled
+            ref_is_large = True
         else:
-            # move large profile from left to right. Start with smaller profile on far right side.
-            if len_ref >= len_comp:
-                large = ref_data
-                small = comp_data_scaled
+            large = comp_data_scaled
+            small = ref_data
+            ref_is_large = False
+
+        len_large = len(large)
+        len_small = len(small)
+
+        # Calculate shift range (ensure minimum overlap)
+        min_shift = -(len_small - min_overlap_samples)
+        max_shift = len_large - min_overlap_samples
+
+        # Try all shifts in range
+        for shift in range(min_shift, max_shift + 1):
+            # Calculate overlap region for this shift
+            # Positive shift: large profile shifts left (or equivalently, small shifts right)
+            if shift >= 0:
+                idx_large_start = shift
+                idx_small_start = 0
+                overlap_len = min(len_large - shift, len_small)
             else:
-                large = comp_data_scaled
-                small = ref_data
+                idx_large_start = 0
+                idx_small_start = -shift
+                overlap_len = min(len_large, len_small + shift)
 
-            len_large = len(large)
-            len_small = len(small)
+            if overlap_len < min_overlap_samples:
+                continue
 
-            min_shift = -(len_small - len_overlap)
-            max_shift = len_large - len_overlap
+            # Extract overlapping segments
+            partial_large = large[idx_large_start : idx_large_start + overlap_len]
+            partial_small = small[idx_small_start : idx_small_start + overlap_len]
 
-            for shift in range(min_shift, max_shift + 1):
-                # Calculate overlap length for this shift. We shift large to the left (for positive shifts)
-                shift = int(shift)
-                overlap_len = max(
-                    min(
-                        len_large - max(0, shift),  # How much of large is available
-                        len_small - max(0, -shift),
-                    ),  # How much of small is available
-                    len_overlap,  # Maximum we want
-                )
+            if ref_is_large:
+                partial_ref = partial_large
+                partial_comp = partial_small
+            else:
+                partial_ref = partial_small
+                partial_comp = partial_large
 
-                # Now extract exactly overlap_len samples from each
-                idx_large_start = int(max(0, shift))
-                partial_large = large[idx_large_start : idx_large_start + overlap_len]
+            correlation = _compute_correlation(partial_ref, partial_comp)
 
-                idx_small_start = int(max(0, -shift))
-                partial_small = small[idx_small_start : idx_small_start + overlap_len]
+            if not np.isnan(correlation) and correlation > best_correlation:
+                best_correlation = correlation
+                best_shift = shift
+                best_scale = scale
+                best_ref_overlap = partial_ref.copy()
+                best_comp_overlap = partial_comp.copy()
 
-                if len_ref >= len_comp:
-                    partial_ref = partial_large
-                    partial_comp = partial_small
-                else:
-                    partial_comp = partial_small
-                    partial_ref = partial_large
-
-                correlation = _compute_correlation(partial_ref, partial_comp)
-
-                if not np.isnan(correlation) and correlation > best_correlation:
-                    best_correlation = correlation
-                    best_shift = shift
-                    best_scale = scale
-                    best_ref_overlap = partial_ref
-                    best_comp_overlap = partial_comp
-
-    # Step 4: Compute metrics for the best alignment
+    # Step 3: Compute metrics for the best alignment
     if best_ref_overlap is None or best_comp_overlap is None:
         # No valid alignment found - return empty results
         return ComparisonResults(
@@ -303,23 +308,20 @@ def correlate_profiles(
     overlap_length = len(best_ref_overlap) * pixel_size
 
     # Overlap ratio (relative to shorter profile)
-    # Note: Use original lengths before scaling for overlap ratio calculation
     shorter_profile_length = min(len_ref, len_comp_original) * pixel_size
     overlap_ratio = overlap_length / shorter_profile_length
 
     # Compute roughness parameters (in meters)
-    # Sa = mean absolute height
-    # Sq = RMS roughness
-    sa_ref = float(np.mean(np.abs(best_ref_overlap)))
-    sq_ref = float(np.sqrt(np.mean(best_ref_overlap**2)))
+    sa_ref = float(np.nanmean(np.abs(best_ref_overlap)))
+    sq_ref = float(np.sqrt(np.nanmean(best_ref_overlap**2)))
 
-    sa_comp = float(np.mean(np.abs(best_comp_overlap)))
-    sq_comp = float(np.sqrt(np.mean(best_comp_overlap**2)))
+    sa_comp = float(np.nanmean(np.abs(best_comp_overlap)))
+    sq_comp = float(np.sqrt(np.nanmean(best_comp_overlap**2)))
 
     # Compute difference profile
     p_diff = best_comp_overlap - best_ref_overlap
-    sa_diff = float(np.mean(np.abs(p_diff)))
-    sq_diff = float(np.sqrt(np.mean(p_diff**2)))
+    sa_diff = float(np.nanmean(np.abs(p_diff)))
+    sq_diff = float(np.sqrt(np.nanmean(p_diff**2)))
 
     # Compute signature differences (dimensionless ratios)
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -335,7 +337,7 @@ def correlate_profiles(
     return ComparisonResults(
         is_profile_comparison=True,
         pixel_size_ref=pixel_size,
-        pixel_size_comp=pixel_size,  # Same after equalization
+        pixel_size_comp=pixel_size,
         position_shift=position_shift,
         scale_factor=1.0 / best_scale,  # Return INVERSE of applied scale
         similarity_value=best_correlation,
