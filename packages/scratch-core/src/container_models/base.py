@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from functools import partial
-from typing import Annotated, NamedTuple, TypeAlias
+from typing import Annotated, TypeAlias
 
 from numpy import array, bool_, floating, number, uint8
 from numpy.typing import DTypeLike, NDArray
@@ -11,17 +11,6 @@ from pydantic import (
     ConfigDict,
     PlainSerializer,
 )
-
-
-class PointCloud[T: NDArray](NamedTuple):
-    xs: T
-    ys: T
-    zs: T
-
-
-class Point[T](NamedTuple):
-    x: T
-    y: T
 
 
 def serialize_ndarray[T: number](array_: NDArray[T]) -> list[T]:
