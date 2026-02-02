@@ -1,7 +1,7 @@
 from returns.pipeline import is_successful
 from container_models.scan_image import ScanImage
 import pytest
-from renders.mutations.base import ImageMutation
+from mutations.base import ImageMutation
 import numpy as np
 
 
