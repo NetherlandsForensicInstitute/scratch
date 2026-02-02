@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Protocol, TypeVar
+from typing import Any, Protocol
 
 from pydantic import BaseModel
 from returns.result import ResultE
 
-from image_tasks.types.abstract import AbstractImageTask, ImageTask, ImageTaskContext
+from image_tasks.types.abstract import (
+    AbstractImageTask,
+    ImageTask,
+    ImageTaskContext,
+    Predicate,
+)
 from image_tasks.types.scan_image import ScanImage
 from utils.logger import log_railway_function
-
-P = TypeVar("P", bound=BaseModel)
-SkipPredicate = Callable[..., bool] | None
 
 
 class ImageTaskFactory(Protocol):
@@ -21,11 +23,13 @@ class ImageTaskFactory(Protocol):
     def __call__(self, **kwargs: Any) -> AbstractImageTask: ...
 
 
-def create_image_task(
+def create_image_task[P: BaseModel](
     task: ImageTask,
+    alternative: ImageTask | None = None,
     *,
     params_model: type[P] | None = None,
-    skip_predicate: SkipPredicate = None,
+    skip_predicate: Predicate | None = None,
+    alternative_predicate: Predicate | None = None,
     skip_on_error: bool = False,
     failure_msg: str = "Task failed",
     success_msg: str = "Task succeeded",
@@ -64,23 +68,26 @@ def create_image_task(
         result = task(some_scan_image)
     """
     task_name = task.__name__.strip("_")
+    alternative_name = f"_or_{alternative.__name__.strip('_')}" if alternative else ""
+    name = f"{task_name}{alternative_name}"
 
     class FactoryCreatedTask(AbstractImageTask):
         def __init__(self, **kwargs: Any) -> None:
             params = params_model(**kwargs) if params_model and kwargs else None
             context = ImageTaskContext(
-                name=task_name,
+                name=name,
                 params=params,
                 skip_predicate=skip_predicate,
+                alternative_predicate=alternative_predicate,
                 skip_on_error=skip_on_error,
             )
-            super().__init__(task, context)
+            super().__init__(task, context, alternative)
 
         @log_railway_function(failure_msg, success_msg)
         def __call__(self, scan_image: ScanImage) -> ResultE[ScanImage]:
             return super().__call__(scan_image)
 
-    FactoryCreatedTask.__name__ = task_name.title().replace("_", "")
+    FactoryCreatedTask.__name__ = name.title().replace("_", "")
     FactoryCreatedTask.__qualname__ = FactoryCreatedTask.__name__
     FactoryCreatedTask.__doc__ = task.__doc__
 

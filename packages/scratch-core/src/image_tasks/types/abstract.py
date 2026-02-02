@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Any, Callable, Protocol
+from collections.abc import Callable
+from typing import Any, Protocol
 
 from loguru import logger
 from pydantic import BaseModel
@@ -21,11 +22,15 @@ class ImageTask(Protocol):
     def __name__(self) -> str: ...
 
 
+type Predicate = Callable[..., bool]
+
+
 class ImageTaskContext[P: BaseModel](BaseModel):
     name: str
-    skip_predicate: Callable[..., bool] | None = None
-    skip_on_error: bool = False
-    params: P | None = None
+    skip_predicate: Predicate | None
+    alternative_predicate: Predicate | None
+    skip_on_error: bool
+    params: P | None
 
     @property
     def kwargs(self) -> dict[str, Any]:
@@ -33,9 +38,14 @@ class ImageTaskContext[P: BaseModel](BaseModel):
 
 
 class AbstractImageTask[C: ImageTaskContext](ABC):
-    def __init__(self, task: ImageTask, context: C) -> None:
+    def __init__(
+        self, task: ImageTask, context: C, alternative_task: ImageTask | None
+    ) -> None:
         self.task = task
         self.context = context
+        if alternative_task and not context.alternative_predicate:
+            raise ValueError("Alternative Predicate is missing")
+        self.alternative_task = alternative_task
 
     def _update_scan_image_history(self, scan_image: ScanImage) -> ScanImage:
         scan_image.meta_data.processing_history.append(self.context.name)
@@ -47,6 +57,12 @@ class AbstractImageTask[C: ImageTaskContext](ABC):
         ):
             logger.info(f"No {self.context.name} needed")
             return Success(scan_image)
+        if (
+            self.alternative_task
+            and self.context.alternative_predicate
+            and self.context.alternative_predicate(scan_image, **self.context.kwargs)
+        ):
+            return self.alternative_task(scan_image, **self.context.kwargs)
         if is_successful(result := self.task(scan_image, **self.context.kwargs)):
             return result.map(self._update_scan_image_history)
         if self.context.skip_on_error:
