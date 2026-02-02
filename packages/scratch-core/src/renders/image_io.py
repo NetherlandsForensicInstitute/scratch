@@ -5,7 +5,7 @@ import numpy as np
 from returns.io import impure_safe
 from returns.result import safe
 
-from container_models.scan_image import ScanImage
+from container_models import ImageContainer
 from container_models.base import ImageRGBA, FloatArray2D, FloatArray
 from utils.logger import log_railway_function
 
@@ -57,19 +57,19 @@ def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, 
 @log_railway_function("Failed to retrieve array for display")
 @safe
 def get_scan_image_for_display(
-    scan_image: ScanImage, *, std_scaler: float = 2.0
-) -> ScanImage:
+    scan_image: ImageContainer, *, std_scaler: float = 2.0
+) -> ImageContainer:
     """
     Clip and normalize image data for displaying purposes.
 
     First the data will be clipped so that the values lie in the interval [μ - σ * S, μ + σ * S].
     Then the values are min-max normalized and scaled to the [0, 255] interval.
 
-    :param scan_image: An instance of `ScanImage`.
+    :param scan_image: An instance of `ImageContainer`.
     :param std_scaler: The multiplier `S` for the standard deviation used above when clipping the image.
     :returns: An array containing the clipped and normalized image data.
     """
-    return ScanImage(
+    return ImageContainer(
         data=_normalize(*_clip_data(data=scan_image.data, std_scaler=std_scaler)),
         scale_x=scan_image.scale_x,
         scale_y=scan_image.scale_y,
@@ -78,7 +78,7 @@ def get_scan_image_for_display(
 
 @log_railway_function("Failed to convert scan to image")
 @safe
-def scan_to_image(scan_image: ScanImage) -> Image:
+def scan_to_image(scan_image: ImageContainer) -> Image:
     return fromarray(grayscale_to_rgba(scan_data=scan_image.data))
 
 

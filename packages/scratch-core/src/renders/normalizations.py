@@ -2,7 +2,7 @@ import numpy as np
 from typing import Final
 from returns.result import safe
 from container_models.base import FloatArray2D, VectorField
-from container_models.scan_image import ScanImage
+from container_models import ImageContainer
 from utils.logger import log_railway_function
 
 
@@ -25,7 +25,7 @@ def _pad_gradient(
 
 
 def _compute_depth_gradients(
-    scan_image: ScanImage,
+    scan_image: ImageContainer,
 ) -> tuple[FloatArray2D, FloatArray2D]:
     """Compute depth gradients (∂z/∂x, ∂z/∂y) using central differences."""
 
@@ -73,7 +73,7 @@ def _normalize_to_surface_normals(
     success_message="Successfully computed surface normal components",
 )
 @safe
-def compute_surface_normals(scan_image: ScanImage) -> VectorField:
+def compute_surface_normals(scan_image: ImageContainer) -> VectorField:
     """
     Compute per-pixel surface normals from a 2D depth map.
 
@@ -81,7 +81,7 @@ def compute_surface_normals(scan_image: ScanImage) -> VectorField:
     and the resulting normal vectors are normalized per pixel.
     The border are padded with NaN values to keep the same size as the input data.
 
-    :param scan_image: A ScanImage where the mutation/ calculation is being made on.
+    :param scan_image: A ImageContainer where the mutation/ calculation is being made on.
 
     :returns: 3D array of surface normals with shape (Height, Width, 3), where the
               last dimension corresponds to (nx, ny, nz).

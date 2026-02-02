@@ -8,7 +8,7 @@ from scipy.constants import micro
 from surfalize import Surface
 from unittest.mock import patch
 
-from container_models.scan_image import ScanImage
+from container_models import ImageContainer
 from parsers import load_scan_image, subsample_scan_image
 from parsers.loaders import make_isotropic
 
@@ -28,7 +28,7 @@ def filepath(scans_dir: Path, request: pytest.FixtureRequest):
     ],
     indirect=True,
 )
-class TestLoadScanImage:
+class TestLoadImageContainer:
     def test_load_scan_data_matches_size(self, filepath: Path) -> None:
         # Arrange
         surface = Surface.load(filepath)
@@ -45,7 +45,7 @@ class TestLoadScanImage:
         assert scan_image.scale_x == surface.step_x * micro
 
 
-class TestLoadScanImageCaching:
+class TestLoadImageContainerCaching:
     class FakeSurfaceOne:
         pass
 
@@ -97,10 +97,10 @@ class TestLoadScanImageCaching:
         assert info.currsize == 1, "Cache should only hold one item"
 
 
-class TestSubSampleScanImage:
+class TestSubSampleImageContainer:
     # TODO: find a better test methology
     def test_subsample_matches_baseline_output(
-        self, baseline_images_dir: Path, scan_image_replica: ScanImage
+        self, baseline_images_dir: Path, scan_image_replica: ImageContainer
     ) -> None:
         # arrange
         verified = np.load(baseline_images_dir / "replica_subsampled.npy")
@@ -119,7 +119,7 @@ class TestSubSampleScanImage:
         "step_size_x, step_size_y", [(1, 1), (10, 10), (25, 25), (25, 50)]
     )
     def test_subsample_matches_size(
-        self, scan_image: ScanImage, step_size_x: int, step_size_y: int
+        self, scan_image: ImageContainer, step_size_x: int, step_size_y: int
     ):
         # Arrange
         expected_height = ceil(scan_image.data.shape[0] / step_size_y)
@@ -142,7 +142,7 @@ class TestSubSampleScanImage:
         ],
     )
     def test_subsample_updates_scan_image_scales(
-        self, scan_image: ScanImage, step_x: int, step_y: int
+        self, scan_image: ImageContainer, step_x: int, step_y: int
     ) -> None:
         # Act
         result = subsample_scan_image(scan_image, step_x, step_y)
@@ -157,7 +157,7 @@ class TestSubSampleScanImage:
         [(-2, 2), (0, 0), (0, 3), (2, -1), (-1, -1), (1e3, 1e4)],
     )
     def test_subsample_rejects_incorrect_sizes(
-        self, scan_image: ScanImage, step_size_x: int, step_size_y: int
+        self, scan_image: ImageContainer, step_size_x: int, step_size_y: int
     ):
         # Act
         result = subsample_scan_image(scan_image, step_size_x, step_size_y)
@@ -166,7 +166,7 @@ class TestSubSampleScanImage:
         assert not is_successful(result)
 
     def test_subsample_skips_when_given_step_size_of_one(
-        self, scan_image: ScanImage
+        self, scan_image: ImageContainer
     ) -> None:
         """
         Test when given the subsample the stepsize of one in both directions,
@@ -183,7 +183,7 @@ class TestSubSampleScanImage:
         """Ensure no resampling occurs if pixels are already square."""
         scale = 0.5
         width, height = 100, 100
-        scan_image = ScanImage(
+        scan_image = ImageContainer(
             scale_x=scale, scale_y=scale, data=np.zeros((height, width))
         )
 
@@ -205,7 +205,7 @@ class TestSubSampleScanImage:
         width, height = 100, 100
         scale_coarse = 2.0
         scale_fine = 1.0  # target scale
-        scan_image = ScanImage(
+        scan_image = ImageContainer(
             data=np.zeros((height, width)),
             scale_x=scale_coarse,
             scale_y=scale_fine,
@@ -225,7 +225,7 @@ class TestSubSampleScanImage:
 
     def test_make_isotropic_preserves_metadata_and_range(self):
         """Ensure metadata is passed through and pixel intensities remain consistent."""
-        scan_image = ScanImage(
+        scan_image = ImageContainer(
             meta_data={"sensor_id": "XY-Z", "timestamp": "2026-01-21"},
             scale_x=1.0,
             scale_y=0.5,
@@ -245,12 +245,12 @@ class TestSubSampleScanImage:
 
     @pytest.mark.parametrize("scaling_factor", [4, 7.6, 8.1, 10.11])
     def test_make_isotropic_handles_nans(
-        self, scan_image_rectangular_with_nans: ScanImage, scaling_factor: float
+        self, scan_image_rectangular_with_nans: ImageContainer, scaling_factor: float
     ):
         """Ensure the resampling deals with NaN values correctly."""
         scale_fine = 1.5
         scale_coarse = 1.5 * scaling_factor
-        scan_image = ScanImage(
+        scan_image = ImageContainer(
             data=scan_image_rectangular_with_nans.data,
             scale_x=scale_fine,
             scale_y=scale_coarse,

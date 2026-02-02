@@ -7,7 +7,7 @@ from PIL import Image
 from loguru import logger
 
 from container_models.base import DepthData, BinaryMask
-from container_models.scan_image import ScanImage
+from container_models import ImageContainer
 from parsers.loaders import load_scan_image
 from .helper_function import unwrap_result
 
@@ -54,14 +54,14 @@ def scan_image_array(baseline_images_dir: Path) -> DepthData:
 
 
 @pytest.fixture(scope="session")
-def scan_image(scan_image_array: DepthData) -> ScanImage:
-    """Build a `ScanImage` object`."""
-    return ScanImage(data=scan_image_array, scale_x=4e-6, scale_y=4e-6)
+def scan_image(scan_image_array: DepthData) -> ImageContainer:
+    """Build a `ImageContainer` object`."""
+    return ImageContainer(data=scan_image_array, scale_x=4e-6, scale_y=4e-6)
 
 
 @pytest.fixture(scope="session")
-def scan_image_replica(scans_dir: Path) -> ScanImage:
-    """Build a `ScanImage` object`."""
+def scan_image_replica(scans_dir: Path) -> ImageContainer:
+    """Build a `ImageContainer` object`."""
     return unwrap_result(
         load_scan_image(
             scans_dir / "Klein_non_replica_mode.al3d",
@@ -69,8 +69,8 @@ def scan_image_replica(scans_dir: Path) -> ScanImage:
     )
 
 
-@pytest.fixture()
-def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
+@pytest.fixture
+def scan_image_with_nans(scan_image_replica: ImageContainer) -> ImageContainer:
     # add random NaN values
     rng = np.random.default_rng(42)
     scan_image = scan_image_replica.model_copy(deep=True)
@@ -78,10 +78,12 @@ def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
     return scan_image
 
 
-@pytest.fixture()
-def scan_image_rectangular_with_nans(scan_image_with_nans: ScanImage) -> ScanImage:
-    """Build a `ScanImage` object` with non-square image data."""
-    scan_image = ScanImage(
+@pytest.fixture
+def scan_image_rectangular_with_nans(
+    scan_image_with_nans: ImageContainer,
+) -> ImageContainer:
+    """Build a `ImageContainer` object` with non-square image data."""
+    scan_image = ImageContainer(
         data=scan_image_with_nans.data[:, : scan_image_with_nans.data.shape[1] // 2],
         scale_x=scan_image_with_nans.scale_x * 1.5,
         scale_y=scan_image_with_nans.scale_y,
@@ -90,7 +92,7 @@ def scan_image_rectangular_with_nans(scan_image_with_nans: ScanImage) -> ScanIma
 
 
 @pytest.fixture(scope="module")
-def mask_array(scan_image_replica: ScanImage) -> BinaryMask:
+def mask_array(scan_image_replica: ImageContainer) -> BinaryMask:
     """Build a `MaskArray` object`."""
     data = np.ones_like(scan_image_replica.data).astype(bool)
     # Set the borders (edges) to 0

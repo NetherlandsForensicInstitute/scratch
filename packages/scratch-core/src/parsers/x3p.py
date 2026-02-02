@@ -8,7 +8,7 @@ from returns.pipeline import flow
 from x3p import X3Pfile
 from returns.result import safe
 from returns.io import impure_safe
-from container_models.scan_image import ScanImage
+from container_models import ImageContainer
 from utils.logger import log_railway_function
 from x3p._x3pfileclasses import Ax
 
@@ -34,7 +34,7 @@ def _set_incremental_axis(axis: Ax, scale: float):
     axis.set_offset(0.0)
 
 
-def _set_record1_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
+def _set_record1_entries(x3p: X3Pfile, image: ImageContainer) -> X3Pfile:
     """Set Record1 entries (axes configuration)."""
     x3p.record1.set_featuretype("SUR")
     _set_incremental_axis(x3p.record1.axes.CX, image.scale_x)
@@ -59,13 +59,13 @@ def _set_record2_entries(x3p: X3Pfile, meta_data: X3PMetaData) -> X3Pfile:
     return x3p
 
 
-def _set_binary_data(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
+def _set_binary_data(x3p: X3Pfile, image: ImageContainer) -> X3Pfile:
     """Set the binary data."""
     x3p.set_data(np.ascontiguousarray(image.data))
     return x3p
 
 
-def _set_record3_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
+def _set_record3_entries(x3p: X3Pfile, image: ImageContainer) -> X3Pfile:
     """Set Record3 entries (matrix dimensions)."""
     # manually set the Record3 entries since these are set incorrectly in package
     x3p.record3.matrixdimension.sizeX = image.data.shape[1]  # type: ignore
@@ -78,8 +78,8 @@ def _set_record3_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
     "Successfully parse array to x3p",
 )
 @safe
-def parse_to_x3p(image: ScanImage) -> X3Pfile:
-    """Convert ScanImage to X3Pfile using a functional approach."""
+def parse_to_x3p(image: ImageContainer) -> X3Pfile:
+    """Convert ImageContainer to X3Pfile using a functional approach."""
     return flow(
         X3Pfile(),
         partial(_set_record1_entries, image=image),

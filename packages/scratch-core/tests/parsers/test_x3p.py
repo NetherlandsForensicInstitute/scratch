@@ -6,7 +6,7 @@ import pytest
 from returns.io import IOSuccess, IOFailure
 from returns.result import Failure
 
-from container_models.scan_image import ScanImage
+from container_models import ImageContainer
 from parsers import parse_to_x3p, save_x3p
 from x3p import X3Pfile
 
@@ -29,7 +29,9 @@ def is_good_fail_logs(message: str, log: str) -> bool:
     ),
 )
 class TestParseToX3PFailure:
-    def test_parse_to_x3p_returns_failure(self, function: str, scan_image: ScanImage):
+    def test_parse_to_x3p_returns_failure(
+        self, function: str, scan_image: ImageContainer
+    ):
         """Test that parse_to_x3p returns Failure when sub-functions fails."""
         with patch(f"parsers.x3p.{function}") as mocker:
             mocker.side_effect = RuntimeError("Some Error")
@@ -39,7 +41,10 @@ class TestParseToX3PFailure:
         assert isinstance(result.failure(), RuntimeError)
 
     def test_parse_to_x3p_logs_on_failure(
-        self, function: str, scan_image: ScanImage, caplog: pytest.LogCaptureFixture
+        self,
+        function: str,
+        scan_image: ImageContainer,
+        caplog: pytest.LogCaptureFixture,
     ):
         """Test that parse_to_x3p logs when sub-functions fails."""
         with patch(f"parsers.x3p.{function}") as mocker:
@@ -54,7 +59,7 @@ class TestParseToX3PFailure:
 
 class TestX3PSave:
     @pytest.fixture(scope="class")
-    def x3p(self, scan_image: ScanImage) -> X3Pfile:
+    def x3p(self, scan_image: ImageContainer) -> X3Pfile:
         return parse_to_x3p(scan_image).unwrap()
 
     def test_save_to_x3p_returns_failure_when_write_fails(self, x3p: X3Pfile):
@@ -102,7 +107,7 @@ class TestX3PSave:
 
 
 def test_parse_to_x3p_on_success(
-    caplog: pytest.LogCaptureFixture, scan_image: ScanImage
+    caplog: pytest.LogCaptureFixture, scan_image: ImageContainer
 ):
     """Test that parse_to_x3p logs INFO on successful parsing."""
     with caplog.at_level("INFO"):
@@ -113,7 +118,7 @@ def test_parse_to_x3p_on_success(
 
 
 def test_parse_to_x3p_logs_on_success(
-    caplog: pytest.LogCaptureFixture, scan_image: ScanImage
+    caplog: pytest.LogCaptureFixture, scan_image: ImageContainer
 ):
     """Test that parse_to_x3p logs INFO on successful parsing."""
     with caplog.at_level("INFO"):

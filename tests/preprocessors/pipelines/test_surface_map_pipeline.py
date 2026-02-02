@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import pytest
+from container_models import ImageContainer
 from container_models.light_source import LightSource
-from container_models.scan_image import ScanImage
 from PIL import Image
 
 from preprocessors.pipelines import surface_map_pipeline
@@ -29,7 +29,7 @@ class TestSurfaceMapPipeline:
 
     def test_generate_surface_map_success(
         self,
-        parsed_al3d_file: ScanImage,
+        parsed_al3d_file: ImageContainer,
         tmp_path: Path,
         light_sources: tuple[LightSource, LightSource],
         observer: LightSource,
@@ -47,7 +47,7 @@ class TestSurfaceMapPipeline:
             assert img.format == "PNG"
             assert img.size == parsed_al3d_file.data.shape
 
-    def test_surface_map_with_multiple_lights(self, parsed_al3d_file: ScanImage, tmp_path: Path) -> None:
+    def test_surface_map_with_multiple_lights(self, parsed_al3d_file: ImageContainer, tmp_path: Path) -> None:
         """Test surface map generation with multiple light sources."""
         # Arrange - simulate lighting from 4 cardinal directions
         light_sources = (

@@ -10,7 +10,7 @@ from surfalize.file import FileHandler
 from surfalize.file.al3d import MAGIC
 
 from container_models.base import FloatArray2D
-from container_models.scan_image import ScanImage
+from container_models import ImageContainer
 from utils.logger import log_railway_function
 
 from .patches.al3d import read_al3d
@@ -27,18 +27,18 @@ FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
     "Successfully loaded scan file",
 )
 @impure_safe
-def load_scan_image(scan_file: Path) -> ScanImage:
+def load_scan_image(scan_file: Path) -> ImageContainer:
     """
     Load a scan image from a file. Parsed values will be converted to meters (m).
     :param scan_file: The path to the file containing the scanned image data.
-    :returns: An instance of `ScanImage`.
+    :returns: An instance of `ImageContainer`.
     """
     surface = Surface.load(scan_file)
     data = np.asarray(surface.data, dtype=np.float64) * micro
     step_x = surface.step_x * micro
     step_y = surface.step_y * micro
 
-    return ScanImage(
+    return ImageContainer(
         data=data,
         scale_x=step_x,
         scale_y=step_y,
@@ -51,7 +51,7 @@ def load_scan_image(scan_file: Path) -> ScanImage:
     "Successfully upsampled image file to isotropic resolution",
 )
 @safe
-def make_isotropic(scan_image: ScanImage) -> ScanImage:
+def make_isotropic(scan_image: ImageContainer) -> ImageContainer:
     """
     Resample a scan image to isotropic resolution (i.e. equal pixel spacing in X and Y).
 
@@ -60,8 +60,8 @@ def make_isotropic(scan_image: ScanImage) -> ScanImage:
     (the smaller of the two scale factors) using nearest-neighbor interpolation.
     Note: NaN values are preserved and will not be interpolated.
 
-    :param scan_image: The ScanImage instance to be resampled.
-    :returns: A new ScanImage instance with isotropic scaling.
+    :param scan_image: The ImageContainer instance to be resampled.
+    :returns: A new ImageContainer instance with isotropic scaling.
     """
     if _is_isotropic(scan_image):
         return scan_image
@@ -70,7 +70,7 @@ def make_isotropic(scan_image: ScanImage) -> ScanImage:
     target_scale = min(scan_image.scale_x, scan_image.scale_y)
     upsampled = _upsample_image_data(scan_image, target_scale)
 
-    return ScanImage(
+    return ImageContainer(
         data=upsampled,
         scale_x=target_scale,
         scale_y=target_scale,
@@ -85,15 +85,15 @@ def make_isotropic(scan_image: ScanImage) -> ScanImage:
 @log_railway_function("Failed to subsample image file")
 @safe
 def subsample_scan_image(
-    scan_image: ScanImage, step_size_x: int, step_size_y: int
-) -> ScanImage:
+    scan_image: ImageContainer, step_size_x: int, step_size_y: int
+) -> ImageContainer:
     """
-    Subsample the data in a `ScanImage` instance by skipping steps in each dimension.
-    :param scan_image: The instance of `ScanImage` containing the 2D image data to subsample.
+    Subsample the data in a `ImageContainer` instance by skipping steps in each dimension.
+    :param scan_image: The instance of `ImageContainer` containing the 2D image data to subsample.
     :param step_size_x: The number of steps to skip in the X-direction.
     :param step_size_y: The number of steps to skip in the Y-direction.
-    :returns: A subsampled `ScanImage` with updated scales. If both step sizes are 1, the original
-        `ScanImage` instance is returned.
+    :returns: A subsampled `ImageContainer` with updated scales. If both step sizes are 1, the original
+        `ImageContainer` instance is returned.
     """
     if step_size_x == 1 and step_size_y == 1:
         logger.info("No subsampling needed, returning original scan image")
@@ -107,20 +107,22 @@ def subsample_scan_image(
     logger.info(
         "Subsampling scan image with step sizes x: {step_size_x}, y: {step_size_y}"
     )
-    return ScanImage(
+    return ImageContainer(
         data=scan_image.data[::step_size_y, ::step_size_x].copy(),
         scale_x=scan_image.scale_x * step_size_x,
         scale_y=scan_image.scale_y * step_size_y,
     )
 
 
-def _is_isotropic(scan_image: ScanImage) -> bool:
+def _is_isotropic(scan_image: ImageContainer) -> bool:
     """Check if a scan image is isotropic within tolerance."""
     tolerance = 1e-16
     return bool(np.isclose(scan_image.scale_x, scan_image.scale_y, atol=tolerance))
 
 
-def _get_target_shape(scan_image: ScanImage, target_scale: float) -> tuple[int, int]:
+def _get_target_shape(
+    scan_image: ImageContainer, target_scale: float
+) -> tuple[int, int]:
     """Get the target shape for a scan image given a target scale."""
     height, width = (
         int(round(scan_image.height * scan_image.scale_y / target_scale)),
@@ -129,8 +131,10 @@ def _get_target_shape(scan_image: ScanImage, target_scale: float) -> tuple[int, 
     return height, width
 
 
-def _upsample_image_data(scan_image: ScanImage, target_scale: float) -> FloatArray2D:
-    """Upsample image data in a `ScanImage` instance to a common target scale."""
+def _upsample_image_data(
+    scan_image: ImageContainer, target_scale: float
+) -> FloatArray2D:
+    """Upsample image data in a `ImageContainer` instance to a common target scale."""
     upsampled = resize(
         image=scan_image.data,
         output_shape=_get_target_shape(scan_image, target_scale),
