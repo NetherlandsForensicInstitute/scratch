@@ -67,16 +67,21 @@ def get_bounding_box(mask: BinaryMask, margin: int = 0) -> tuple[slice, slice]:
     return slice(x_min, x_max), slice(y_min, y_max)
 
 
+def mask_and_crop_2d_array(
+    image: FloatArray2D, mask: BinaryMask, crop: bool = False
+) -> FloatArray2D:
+    """Apply the mask to the data and crop to the bounding box of the mask if `crop` is True."""
+    image = mask_2d_array(image=image, mask=mask)
+    if crop:
+        image = crop_to_mask(image=image, mask=mask)
+    return image
+
+
 def mask_and_crop_scan_image(
     scan_image: ScanImage, mask: BinaryMask, crop: bool = False
 ) -> ScanImage:
     """Apply masking to the data in an instance of `ScanImage`."""
-    scan_image = scan_image.model_copy(
-        update={"mask": mask}
-    )  # QUICK FIX to get insynchrone with the transition from conversion
-    scan_image.apply_mask_image()
-    if crop:
-        scan_image = scan_image.model_copy(
-            update={"data": crop_to_mask(image=scan_image.data, mask=mask)}
-        )
-    return scan_image
+    masked_data = mask_and_crop_2d_array(image=scan_image.data, mask=mask, crop=crop)
+    return ScanImage(
+        data=masked_data, scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
+    )

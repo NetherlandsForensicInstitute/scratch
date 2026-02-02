@@ -1,10 +1,8 @@
 from functools import cached_property
-from typing import Self
 
 import numpy as np
-from pydantic import Field, PositiveFloat, model_validator
+from pydantic import Field
 from .base import ConfigBaseModel, BinaryMask, FloatArray1D, DepthData
-from loguru import logger
 
 
 class ScanImage(ConfigBaseModel):
@@ -16,19 +14,9 @@ class ScanImage(ConfigBaseModel):
     """
 
     data: DepthData
-    mask: BinaryMask | None = None
     scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     meta_data: dict = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def _mask_and_data_shape_matches(self) -> Self:
-        if self.mask is not None and self.data.shape != self.mask.shape:
-            raise ValueError(
-                f"The shape of the data {self.data.shape}"
-                f" does not match the shape of the mask {self.mask.shape}."
-            )
-        return self
 
     @property
     def width(self) -> int:
@@ -39,16 +27,6 @@ class ScanImage(ConfigBaseModel):
     def height(self) -> int:
         """The image height in pixels."""
         return self.data.shape[0]
-
-    @property
-    def mask_bounding_box(self) -> tuple[slice, slice]:
-        if self.mask is None:
-            raise ValueError("Mask is required for cropping operation.")
-
-        coordinates = np.nonzero(self.mask)
-        y_min, x_min = np.min(coordinates, axis=1)
-        y_max, x_max = np.max(coordinates, axis=1)
-        return slice(x_min, x_max + 1), slice(y_min, y_max + 1)
 
     @cached_property
     def valid_mask(self) -> BinaryMask:
@@ -74,21 +52,3 @@ class ScanImage(ConfigBaseModel):
                 if isinstance(attr, cached_property):
                     copy.__dict__.pop(name, None)
         return copy
-
-    def apply_mask_image(self) -> None:
-        """Apply the mask to the image data by setting masked-out pixels to NaN."""
-        if self.mask is None:
-            raise ValueError("Mask is required for cropping operation.")
-        logger.info("Applying mask to scan_image")
-        self.data[~self.mask] = np.nan  # type: ignore
-
-    def crop_to_mask(self) -> None:
-        """
-        Crop the image to the bounding box of the mask.
-
-        :returns: New ScanImage cropped to the minimal bounding box containing all True mask values.
-        :raises ValueError: If the image does not contain a mask.
-        """
-        y_slice, x_slice = self.mask_bounding_box
-        self.data = self.data[y_slice, x_slice]
-        self.mask = self.mask[y_slice, x_slice]  # type: ignore
