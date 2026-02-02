@@ -117,5 +117,5 @@ def normalize_2d_array(
     """
     imin = np.nanmin(array_to_normalize.data)
     imax = np.nanmax(array_to_normalize.data)
-    norm = (array_to_normalize.data - imin) / (imax - imin)
+    norm = (array_to_normalize - imin) / (imax - imin)
     return scale_min + (scale_max - scale_min) * norm

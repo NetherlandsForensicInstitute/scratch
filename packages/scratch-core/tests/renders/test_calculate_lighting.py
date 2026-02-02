@@ -19,7 +19,7 @@ def test_shape(
         varied_normals.shape[0],
         varied_normals.shape[1],
     )
-    assert out.data.shape == expected_shape
+    assert out.shape == expected_shape
 
 
 def test_value_range(
@@ -44,7 +44,7 @@ def test_constant_normals_give_constant_output(
     out = calculate_lighting(light_source, observer, varied_normals)
 
     # Assert
-    assert np.allclose(out.data, out.data[0, 0])
+    assert np.allclose(out, out[0, 0])
 
 
 def test_bump_changes_values(
