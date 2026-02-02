@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from math import ceil
 
-from container_models.scan_image import ScanImage
+from conversion.container_models import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.filter import (
     apply_striation_preserving_filter_1d,

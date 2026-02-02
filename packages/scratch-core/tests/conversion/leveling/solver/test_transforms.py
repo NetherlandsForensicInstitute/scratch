@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from container_models.base import FloatArray1D
+from conversion.container_models.base import FloatArray1D
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.solver import normalize_coordinates, denormalize_parameters
 from ..constants import SINGLE_TERMS

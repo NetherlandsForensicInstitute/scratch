@@ -1,8 +1,8 @@
 from returns.io import IOResultE, IOSuccess
 from returns.result import ResultE, Success
 
-from container_models.scan_image import ScanImage
-from container_models.base import DepthData
+from conversion.container_models import ScanImage
+from conversion.container_models.base import DepthData
 
 
 def unwrap_result[T](result: IOResultE[T] | ResultE[T]) -> T:

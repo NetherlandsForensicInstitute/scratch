@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 
-from container_models.base import FloatArray2D, ImageRGB, StriationProfile
+from conversion.container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import CorrelationMetrics, StriationComparisonPlots
 from conversion.plots.utils import (

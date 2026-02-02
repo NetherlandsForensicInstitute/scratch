@@ -3,7 +3,7 @@ import pytest
 
 from conversion.leveling.solver import compute_root_mean_square
 from conversion.leveling.solver.utils import compute_image_center
-from container_models.scan_image import ScanImage
+from conversion.container_models import ScanImage
 
 
 class TestRootMeanSquare:

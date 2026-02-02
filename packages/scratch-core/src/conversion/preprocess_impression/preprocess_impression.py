@@ -6,7 +6,7 @@ This module provides functions to preprocess 2D scan images of impression marks
 
 from dataclasses import asdict
 
-from container_models.base import DepthData
+from conversion.container_models.base import DepthData
 from conversion.data_formats import Mark
 from conversion.filter import (
     apply_gaussian_filter_mark,

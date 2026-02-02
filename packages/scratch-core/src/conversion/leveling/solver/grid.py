@@ -1,7 +1,7 @@
 import numpy as np
 
-from container_models.base import FloatArray2D
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray2D
+from conversion.container_models import ScanImage
 
 
 def get_2d_grid(

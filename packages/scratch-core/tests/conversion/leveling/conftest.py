@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from container_models.base import FloatArray1D
+from conversion.container_models.base import FloatArray1D
 
 N_POINTS = 100
 

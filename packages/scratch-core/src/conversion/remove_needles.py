@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.ndimage import generic_filter
 
-from container_models.base import BinaryMask, FloatArray2D
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import BinaryMask, FloatArray2D
+from conversion.container_models import ScanImage
 from conversion.mask import mask_2d_array
 from conversion.resample import resample_scan_image_and_mask
 from conversion.utils import unwrap_result, update_scan_image_data

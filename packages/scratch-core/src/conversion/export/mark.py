@@ -10,8 +10,8 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
-from container_models.base import ConfigBaseModel
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import ConfigBaseModel
+from conversion.container_models import ScanImage
 from conversion.data_formats import Mark, MarkType
 from .utils import (
     check_if_file_exists,

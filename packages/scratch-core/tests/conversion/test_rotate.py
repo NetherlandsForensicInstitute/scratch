@@ -2,8 +2,8 @@ import numpy as np
 
 import pytest
 
-from container_models.base import BinaryMask
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import BinaryMask
+from conversion.container_models import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import (
     get_rotation_angle,

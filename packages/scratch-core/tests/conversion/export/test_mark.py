@@ -4,7 +4,7 @@ from pathlib import PosixPath
 import numpy as np
 import pytest
 
-from container_models.scan_image import ScanImage
+from conversion.container_models import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.export.mark import ExportedMarkData, load_mark_from_path, save_mark
 
@@ -12,7 +12,10 @@ from conversion.export.mark import ExportedMarkData, load_mark_from_path, save_m
 @pytest.fixture()
 def scan_image(scan_image_with_nans: ScanImage) -> ScanImage:
     """Convenience fixture for a `ScanImage` instance."""
-    return scan_image_with_nans
+    rng = np.random.default_rng(42)
+    data = np.ones((924, 924))
+    data[rng.random(size=data.shape) < 0.1] = np.nan
+    return ScanImage(data=data, scale_x=1, scale_y=1)
 
 
 class TestExportedMarkData:

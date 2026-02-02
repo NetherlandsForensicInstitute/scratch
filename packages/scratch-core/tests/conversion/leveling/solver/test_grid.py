@@ -1,6 +1,6 @@
 from conversion.leveling.solver import get_2d_grid
 from conversion.leveling.solver.utils import compute_image_center
-from container_models.scan_image import ScanImage
+from conversion.container_models import ScanImage
 import numpy as np
 import pytest
 

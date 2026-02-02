@@ -3,8 +3,8 @@ import pytest
 from numpy.testing import assert_array_equal
 import unittest
 
-from container_models.base import BinaryMask
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import BinaryMask
+from conversion.container_models import ScanImage
 from conversion.remove_needles import (
     mask_and_remove_needles,
     apply_median_filter,

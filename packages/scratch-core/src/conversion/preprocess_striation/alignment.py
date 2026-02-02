@@ -7,8 +7,8 @@ aligning striated marks to be horizontal.
 
 import numpy as np
 
-from container_models.base import FloatArray1D, FloatArray2D
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray1D, FloatArray2D
+from conversion.container_models import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
     gaussian_sigma_to_cutoff,

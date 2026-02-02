@@ -10,8 +10,8 @@ from scipy.special import lambertw
 
 import numpy as np
 
-from container_models.base import FloatArray2D
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray2D
+from conversion.container_models import ScanImage
 from conversion.filter.regression import (
     create_normalized_separable_kernels,
     create_gaussian_kernel_1d,

@@ -1,7 +1,7 @@
 import numpy as np
 
-from container_models.base import FloatArray
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray
+from conversion.container_models import ScanImage
 
 
 def compute_root_mean_square(data: FloatArray) -> float:

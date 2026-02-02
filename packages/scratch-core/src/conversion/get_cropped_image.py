@@ -1,7 +1,7 @@
 import numpy as np
 
-from container_models.base import BinaryMask, FloatArray2D
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import BinaryMask, FloatArray2D
+from conversion.container_models import ScanImage
 from conversion.filter import apply_gaussian_regression_filter
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import mask_and_crop_scan_image

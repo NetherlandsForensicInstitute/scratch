@@ -10,8 +10,8 @@ from dataclasses import asdict
 
 import numpy as np
 
-from container_models.base import FloatArray2D
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray2D
+from conversion.container_models import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
     cutoff_to_gaussian_sigma,

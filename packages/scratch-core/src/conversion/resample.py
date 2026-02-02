@@ -3,8 +3,8 @@ from typing import Optional, TypeVar
 import numpy as np
 from skimage.transform import resize
 from conversion.data_formats import Mark
-from container_models.scan_image import ScanImage
-from container_models.base import BinaryMask, FloatArray2D
+from conversion.container_models import ScanImage
+from conversion.container_models.base import BinaryMask, FloatArray2D
 
 
 T = TypeVar("T", FloatArray2D, BinaryMask)

@@ -10,8 +10,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from container_models.base import DepthData, BinaryMask, StriationProfile
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import DepthData, BinaryMask, StriationProfile
+from conversion.container_models import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,

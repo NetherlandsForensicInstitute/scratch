@@ -1,7 +1,7 @@
 import numpy as np
 
-from container_models.base import FloatArray2D, BinaryMask
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray2D, BinaryMask
+from conversion.container_models import ScanImage
 
 
 def mask_2d_array(
