@@ -1,7 +1,8 @@
+from functools import partial
 import pytest
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import ValidationError
+from pydantic import ConfigDict, TypeAdapter, ValidationError
 from typing import Any
 
 from container_models.base import (
@@ -11,21 +12,9 @@ from container_models.base import (
     FloatArray2D,
     FloatArray4D,
     BoolArray2D,
-    ConfigBaseModel,
 )
 
-
-@pytest.fixture
-def create_validation_model():
-    """Factory fixture to create a validation model for a given TypeAlias."""
-
-    def _create_model(type_alias: Any) -> type[ConfigBaseModel]:
-        class _ValidationModel(ConfigBaseModel):
-            data: type_alias  # type: ignore
-
-        return _ValidationModel
-
-    return _create_model
+_TypeAdapter = partial(TypeAdapter, config=ConfigDict(arbitrary_types_allowed=True))
 
 
 class TestValidateShape:
@@ -139,18 +128,16 @@ class TestPydanticShapeValidation:
             ),
         ],
     )
-    def test_array_valid_shape(
-        self, create_validation_model: Any, array_type: Any, array: NDArray[Any]
-    ) -> None:
+    def test_array_valid_shape(self, array_type: Any, array: NDArray[Any]) -> None:
         """Test valid shape validation for various array types."""
         # Arrange
-        Model = create_validation_model(array_type)
+        adapter = _TypeAdapter(array_type)
 
         # Act
-        model = Model(data=array)
+        result = adapter.validate_python(array)
 
         # Assert
-        assert np.array_equal(model.data, array)
+        assert np.array_equal(result, array)
 
     @pytest.mark.parametrize(
         "array_type,array,expected_match",
@@ -183,15 +170,14 @@ class TestPydanticShapeValidation:
     )
     def test_array_invalid_shape(
         self,
-        create_validation_model: Any,
-        array_type: Any,
+        array_type: type,
         array: NDArray[Any],
         expected_match: str,
     ) -> None:
         """Test shape validation failures for various array types."""
         # Arrange
-        Model = create_validation_model(array_type)
+        adapter = _TypeAdapter(array_type)
 
         # Act & Assert
         with pytest.raises(ValidationError, match=expected_match):
-            Model(data=array)
+            adapter.validate_python(array)

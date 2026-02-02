@@ -4,9 +4,9 @@ Image Modifications Architecture
 
 This module defines how image modifications are structured and applied.
 
-- `ScanImage` represents the scanned image as a complete data package
+- `ImageContainer` represents the scanned image as a complete data package
   (image data + metadata).
-- `ImageMutation` is an abstract interface for modifying a `ScanImage`.
+- `ImageMutation` is an abstract interface for modifying a `ImageContainer`.
 - Concrete mutations (e.g. Resample, Crop, Mask, Scale) live in the
   `mutations` folder, each in its own file.
 - Loosely coupled or stateless functionality (such as solvers or pure
@@ -16,7 +16,7 @@ High-level Design
 -----------------
 
                  +------------------------------------------------+
-                 |                  ScanImage                     |
+                 |                  ImageContainer                     |
                  |------------------------------------------------|
                  | data     : np.ndarray                          |
                  | scale_x  : float                               |
@@ -30,7 +30,7 @@ High-level Design
                      |               <<abstract>>              |
                      |               Modification              |
                      |-----------------------------------------|
-                     | + apply_on_image(ScanImage) -> ScanImage|
+                     | + apply_on_image(ImageContainer) -> ImageContainer|
                      +-------------------+---------------------+
                                          ^
                                          |
@@ -61,7 +61,7 @@ Example
         GaussianFilter,
     )
 
-    scan_image = ScanImage(
+    scan_image = ImageContainer(
         data=ones((10, 10), float64),
         scale_x=1,
         scale_y=1,
@@ -85,15 +85,15 @@ Example
 """
 
 from abc import ABC, abstractmethod
-from container_models.scan_image import ScanImage
+from container_models import ImageContainer
 from returns.result import safe
 
 
 class ImageMutation(ABC):
     """
-    Represents a single mutation applied to a `ScanImage`.
+    Represents a single mutation applied to a `ImageContainer`.
 
-    After one `ImageMutation`, the resulting `ScanImage` must be valid
+    After one `ImageMutation`, the resulting `ImageContainer` must be valid
     input for another mutation. This enables safe chaining in pipelines.
 
     Validation or skipping logic (for example: skipping resampling when
@@ -118,33 +118,33 @@ class ImageMutation(ABC):
         return False
 
     @safe
-    def __call__(self, scan_image: ScanImage) -> ScanImage:
+    def __call__(self, scan_image: ImageContainer) -> ImageContainer:
         """
         Callable interface used by pipelines (e.g. `pipe(...)` from
         the `returns` library).
 
-        If `skip_predicate` is `True`, the input `ScanImage` is returned
+        If `skip_predicate` is `True`, the input `ImageContainer` is returned
         unchanged. Otherwise, `apply_on_image` is executed.
 
         :param scan_image:
-            The `ScanImage` to be modified.
-        :return ScanImage:
-            The resulting `ScanImage`.
+            The `ImageContainer` to be modified.
+        :return ImageContainer:
+            The resulting `ImageContainer`.
         """
         if self.skip_predicate:
             return scan_image
         return self.apply_on_image(scan_image=scan_image)
 
     @abstractmethod
-    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+    def apply_on_image(self, scan_image: ImageContainer) -> ImageContainer:
         """
-        Applies the mutation to the given `ScanImage`.
+        Applies the mutation to the given `ImageContainer`.
 
         This method must be implemented by concrete mutations and is
         called internally by `__call__` to support pipeline composition.
 
         :param scan_image:
-            The input `ScanImage` to be modified.
-        :return ScanImage:
-            A new or modified `ScanImage`.
+            The input `ImageContainer` to be modified.
+        :return ImageContainer:
+            A new or modified `ImageContainer`.
         """

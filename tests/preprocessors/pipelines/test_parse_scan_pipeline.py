@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from container_models.scan_image import ScanImage
+from container_models import ImageContainer
 
 from preprocessors.pipelines import parse_scan_pipeline
 
@@ -19,7 +19,7 @@ class TestParseScanPipeline:
         result = parse_scan_pipeline((scan_directory / "circle").with_suffix(extension), 1, 1)
 
         # Assert
-        assert isinstance(result, ScanImage)
+        assert isinstance(result, ImageContainer)
         assert result.data.size > 0
         height, width = result.data.shape
         assert height > 0
