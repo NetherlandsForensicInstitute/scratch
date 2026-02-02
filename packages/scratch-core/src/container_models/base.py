@@ -1,16 +1,10 @@
 from collections.abc import Sequence
 from functools import partial
-from typing import Annotated, TypeAlias
-from functools import cached_property
-from numpy import array, bool_, floating, float64, number, uint8
+from typing import Annotated
+
+from numpy import array, bool_, floating, number, uint8
 from numpy.typing import DTypeLike, NDArray
-from pydantic import (
-    AfterValidator,
-    BaseModel,
-    BeforeValidator,
-    ConfigDict,
-    PlainSerializer,
-)
+from pydantic import AfterValidator, BeforeValidator
 
 
 def serialize_ndarray[T: number](array_: NDArray[T]) -> list[T]:
@@ -43,77 +37,28 @@ def validate_shape(n_dims: int, value: NDArray) -> NDArray:
     return value
 
 
+type BaseType[T: number | bool_] = Annotated[
+    NDArray[T],
+    BeforeValidator(partial(coerce_to_array, type(T))),
+    AfterValidator(serialize_ndarray),
+]
+
 # Tier 1: Base types
-UInt8Array: TypeAlias = Annotated[
-    NDArray[uint8],
-    BeforeValidator(partial(coerce_to_array, uint8)),
-    PlainSerializer(serialize_ndarray),
-]
-FloatArray: TypeAlias = Annotated[
-    NDArray[floating],
-    BeforeValidator(partial(coerce_to_array, float64)),
-    PlainSerializer(serialize_ndarray),
-]
-BoolArray: TypeAlias = Annotated[
-    NDArray[bool_],
-    BeforeValidator(partial(coerce_to_array, bool_)),
-    PlainSerializer(serialize_ndarray),
-]
+type UInt8Array = BaseType[uint8]
+type FloatArray = BaseType[floating]
+type BoolArray = BaseType[bool_]
 
 # Tier 2: Shape and data types
-UInt8Array3D: TypeAlias = Annotated[
-    UInt8Array, AfterValidator(partial(validate_shape, 3))
-]
-FloatArray1D: TypeAlias = Annotated[
-    FloatArray, AfterValidator(partial(validate_shape, 1))
-]
-FloatArray2D: TypeAlias = Annotated[
-    FloatArray, AfterValidator(partial(validate_shape, 2))
-]
-FloatArray3D: TypeAlias = Annotated[
-    FloatArray, AfterValidator(partial(validate_shape, 3))
-]
-FloatArray4D: TypeAlias = Annotated[
-    FloatArray, AfterValidator(partial(validate_shape, 4))
-]
-BoolArray2D: TypeAlias = Annotated[
-    BoolArray, AfterValidator(partial(validate_shape, 2))
-]
+type UInt8Array3D = Annotated[UInt8Array, AfterValidator(partial(validate_shape, 3))]
+type FloatArray1D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 1))]
+type FloatArray2D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 2))]
+type FloatArray3D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 3))]
+type FloatArray4D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 4))]
+type BoolArray2D = Annotated[BoolArray, AfterValidator(partial(validate_shape, 2))]
 
 # Tier 3: Semantic context
-ImageRGB: TypeAlias = UInt8Array3D  # Shape: (H, W, 3)
-ImageRGBA: TypeAlias = UInt8Array3D  # Shape: (H, W, 4)
-UnitVector: TypeAlias = FloatArray1D  # Shape: (3,)
-DepthData: TypeAlias = FloatArray2D  # Shape: (H, W)
-BinaryMask: TypeAlias = BoolArray2D  # Shape: (H, W)
-VectorField: TypeAlias = FloatArray3D  # Shape (H, W, 3)
-StriationProfile: TypeAlias = FloatArray2D  # Shape (N, 1)
-
-
-class ConfigBaseModel(BaseModel):
-    """Base model with common configuration for all pydantic models in this project."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        extra="forbid",
-        arbitrary_types_allowed=True,
-        regex_engine="rust-regex",
-        revalidate_instances="always",
-    )
-
-    def model_copy(self, *, update=None, deep=False):
-        copy = super().model_copy(update=update, deep=deep)
-        if update:
-            # Invalidate cached properties when any field changes
-            self._clear_cached_properties(copy)
-            # Validate model after updating
-            copy = self.model_validate(copy, by_alias=True, by_name=True)
-        return copy
-
-    @staticmethod
-    def _clear_cached_properties(instance: BaseModel):
-        """Dynamically find and clear all cached_property values from instance."""
-        for name in dir(type(instance)):
-            attr = getattr(type(instance), name, None)
-            if isinstance(attr, cached_property):
-                instance.__dict__.pop(name, None)
+type ImageRGBA = UInt8Array3D  # Shape: (H, W, 4)
+type UnitVector = FloatArray1D  # Shape: (3,)
+type DepthData = FloatArray2D  # Shape: (H, W)
+type BinaryMask = BoolArray2D  # Shape: (H, W)
+type VectorField = FloatArray3D  # Shape (H, W, 3)
