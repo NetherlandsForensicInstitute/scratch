@@ -189,12 +189,10 @@ def compute_comparison_metrics(
 
     return ComparisonResults(
         is_profile_comparison=True,
-        is_partial_profile=False,
         pixel_size_ref=pixel_size,
         pixel_size_comp=pixel_size,
         position_shift=position_shift,
         scale_factor=total_scaling,
-        partial_start_position=np.nan,
         similarity_value=correlation,
         overlap_length=overlap_length,
         overlap_ratio=np.nan,  # Computed in correlator based on profile lengths

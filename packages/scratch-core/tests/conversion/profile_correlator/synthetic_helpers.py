@@ -202,13 +202,10 @@ def plot_correlation_result(
     ref_data_um = ref_data * 1e6
     comp_data_um = comp_data * 1e6
 
-    # Detect if profiles are "flipped" (reference shorter than comparison)
-    is_flipped = len(ref_data) < len(comp_data)
-
-    # For partial profiles, calculate original position of comparison within reference
+    # For partial length profiles, calculate original position of comparison within reference
     # The comparison was extracted from the middle of the longer profile
-    if result.is_partial_profile:
-        if is_flipped:
+    if len(ref_data) != len(comp_data):
+        if len(ref_data) < len(comp_data):
             # ref is short, comp is long - ref was extracted from middle of comp
             n_long = len(comp_data)
             n_short = len(ref_data)
@@ -259,63 +256,25 @@ def plot_correlation_result(
     axes[1].grid(True, alpha=0.3)
 
     # Bottom: Aligned profiles overlaid
-    # Determine alignment position based on whether it's partial or full matching
+    # Determine alignment position using position_shift
     scale = result.scale_factor if not np.isnan(result.scale_factor) else 1.0
 
-    # Detect if profiles are "flipped" (reference shorter than comparison)
-    is_flipped = len(ref_data) < len(comp_data)
-
-    if result.is_partial_profile and not np.isnan(result.partial_start_position):
-        # For partial profiles, use partial_start_position
-        # partial_start_position is where the shorter profile starts within the longer one
-        start_position_um = result.partial_start_position * 1e6
-
-        if is_flipped:
-            # Flipped case: ref=short, comp=long
-            # Keep the long comparison at x=0, shift the short reference to its aligned position
-            x_comp_aligned = x_comp * scale  # comparison stays at origin
-            x_ref_aligned = (
-                x_ref + start_position_um
-            )  # reference shifted to aligned position
-        else:
-            # Normal case: ref=long, comp=short
-            # Keep reference at x=0, place the short comparison at partial_start_position
-            x_comp_aligned = x_comp * scale + start_position_um
-            x_ref_aligned = x_ref  # reference stays at origin
-    else:
-        # For full profiles, use position_shift
-        shift_um = (
-            result.position_shift * 1e6 if not np.isnan(result.position_shift) else 0
-        )
-        x_comp_aligned = x_comp * scale + shift_um
-        x_ref_aligned = x_ref  # reference stays at origin
+    # Use position_shift for alignment
+    shift_um = result.position_shift * 1e6 if not np.isnan(result.position_shift) else 0
+    x_comp_aligned = x_comp * scale + shift_um
+    x_ref_aligned = x_ref  # reference stays at origin
 
     # Calculate overlap region for green highlighting
     overlap_length_um = (
         result.overlap_length * 1e6 if not np.isnan(result.overlap_length) else 0
     )
 
-    if result.is_partial_profile and not np.isnan(result.partial_start_position):
-        # For partial profiles, overlap region is where the shorter profile is
-        start_position_um = result.partial_start_position * 1e6
-        if is_flipped:
-            # Flipped: ref=short at start_position_um, comp=long at origin
-            overlap_start_um = start_position_um
-            overlap_end_um = start_position_um + overlap_length_um
-        else:
-            # Normal: ref=long at origin, comp=short at start_position_um
-            overlap_start_um = start_position_um
-            overlap_end_um = start_position_um + overlap_length_um
-    else:
-        # For full profiles, calculate overlap from position_shift
-        shift_um = (
-            result.position_shift * 1e6 if not np.isnan(result.position_shift) else 0
-        )
-        # Overlap region is where both profiles have data
-        ref_start, ref_end = x_ref_aligned.min(), x_ref_aligned.max()
-        comp_start, comp_end = x_comp_aligned.min(), x_comp_aligned.max()
-        overlap_start_um = max(ref_start, comp_start)
-        overlap_end_um = min(ref_end, comp_end)
+    # Calculate overlap from position_shift
+    # Overlap region is where both profiles have data
+    ref_start, ref_end = x_ref_aligned.min(), x_ref_aligned.max()
+    comp_start, comp_end = x_comp_aligned.min(), x_comp_aligned.max()
+    overlap_start_um = max(ref_start, comp_start)
+    overlap_end_um = min(ref_end, comp_end)
 
     # Determine which profile is larger (by number of samples)
     comp_is_larger = len(comp_data) > len(ref_data)
@@ -330,21 +289,7 @@ def plot_correlation_result(
             fill_value="extrapolate",  # type: ignore[arg-type]
         )
         # Sample at positions that correspond to the aligned reference x after inverse transform
-        if result.is_partial_profile and not np.isnan(result.partial_start_position):
-            start_position_um = result.partial_start_position * 1e6
-            if is_flipped:
-                # For flipped, x_ref_aligned = x_ref + start_position_um
-                # We need to sample comp at positions that correspond to x_ref_aligned
-                x_sample = x_ref_aligned / scale
-            else:
-                x_sample = (x_ref_aligned - start_position_um) / scale
-        else:
-            shift_um = (
-                result.position_shift * 1e6
-                if not np.isnan(result.position_shift)
-                else 0
-            )
-            x_sample = (x_ref_aligned - shift_um) / scale
+        x_sample = (x_ref_aligned - shift_um) / scale
         # Only use samples within the original comparison range
         valid_mask = (x_sample >= x_comp.min()) & (x_sample <= x_comp.max())
         x_comp_plot = x_ref_aligned[valid_mask]
@@ -410,27 +355,12 @@ def plot_correlation_result(
     axes[2].grid(True, alpha=0.3)
 
     # Add metrics text box
-    if result.is_partial_profile:
-        partial_pos_um = (
-            result.partial_start_position * 1e6
-            if not np.isnan(result.partial_start_position)
-            else 0
-        )
-        metrics_text = (
-            f"Correlation: {result.correlation_coefficient:.4f}\n"
-            f"Overlap ratio: {result.overlap_ratio:.4f}\n"
-            f"Scale factor: {result.scale_factor:.4f}\n"
-            f"Partial start: {partial_pos_um:.2f} μm\n"
-            f"Is partial: {result.is_partial_profile}"
-        )
-    else:
-        metrics_text = (
-            f"Correlation: {result.correlation_coefficient:.4f}\n"
-            f"Overlap ratio: {result.overlap_ratio:.4f}\n"
-            f"Scale factor: {result.scale_factor:.4f}\n"
-            f"Position shift: {result.position_shift * 1e6:.2f} μm\n"
-            f"Is partial: {result.is_partial_profile}"
-        )
+    metrics_text = (
+        f"Correlation: {result.correlation_coefficient:.4f}\n"
+        f"Overlap ratio: {result.overlap_ratio:.4f}\n"
+        f"Scale factor: {result.scale_factor:.4f}\n"
+        f"Position shift: {result.position_shift * 1e6:.2f} μm"
+    )
     props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
     axes[2].text(
         0.02,

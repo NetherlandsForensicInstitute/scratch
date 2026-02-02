@@ -40,8 +40,8 @@ from conversion.profile_correlator.transforms import equalize_pixel_scale
 
 
 def _apply_scaling(
-        data: NDArray[np.floating],
-        scale_factor: float,
+    data: NDArray[np.floating],
+    scale_factor: float,
 ) -> NDArray[np.floating]:
     """
     Apply scaling transformation to a profile.
@@ -65,7 +65,7 @@ def _apply_scaling(
     interpolator = interp1d(
         x_orig,  # Data positions (original)
         data,  # Data values
-        kind='linear',
+        kind="linear",
         bounds_error=False,
         fill_value=0.0,
     )
@@ -79,8 +79,8 @@ def _apply_scaling(
 
 
 def _compute_correlation(
-        profile_ref: NDArray[np.floating],
-        profile_comp: NDArray[np.floating],
+    profile_ref: NDArray[np.floating],
+    profile_comp: NDArray[np.floating],
 ) -> float:
     """
     Compute correlation between two profiles at a specific shift.
@@ -119,9 +119,9 @@ def _compute_correlation(
 
 
 def correlate_profiles(
-        profile_ref: Profile,
-        profile_comp: Profile,
-        params: AlignmentParameters = AlignmentParameters(),
+    profile_ref: Profile,
+    profile_comp: Profile,
+    params: AlignmentParameters = AlignmentParameters(),
 ) -> ComparisonResults:
     """
     Compare two striated mark profiles and compute similarity metrics.
@@ -155,9 +155,9 @@ def correlate_profiles(
     :param profile_ref: Reference profile to compare against.
     :param profile_comp: Compared profile to align to the reference.
     :param params: Alignment parameters. Used parameters:
-        - partial_mark_threshold: Threshold for partial profile classification
         - use_mean: Use mean (True) or median (False) for multi-column profiles
         - max_scaling: Maximum scaling deviation (e.g., 0.05 for ±5%)
+        - min_overlap_distance: Minimum overlap distance in meters (default 200 μm)
     :returns: ComparisonResults containing all computed metrics including:
         - correlation_coefficient: Pearson correlation after alignment
         - position_shift: Translation applied (m)
@@ -198,15 +198,12 @@ def correlate_profiles(
     len_ref = len(ref_data)
     len_comp_original = len(comp_data_original)
 
-
     # Step 2: Generate scale factors to try
     # Create discrete scale factors in the range [1-max_scaling, 1+max_scaling]
     # Use approximately 7-9 scale factors for good coverage
     num_scale_steps = 7
     scale_factors = np.linspace(
-        1.0 - params.max_scaling,
-        1.0 + params.max_scaling,
-        num_scale_steps
+        1.0 - params.max_scaling, 1.0 + params.max_scaling, num_scale_steps
     )
 
     # Step 3: Try all scale factors and allowed shifts
@@ -222,7 +219,7 @@ def correlate_profiles(
         len_comp = len(comp_data_scaled)
 
         # Get boundaries overlap idx for reference_profile (a small amount larger than 200 mum):
-        len_overlap = int(min_overlap_distance/pixel_size)
+        len_overlap = int(min_overlap_distance / pixel_size)
         if len_comp < len_overlap or len_ref < len_overlap:
             # One of profiles too small to give sufficient overlap. Do not calculate anything.
             continue
@@ -244,18 +241,20 @@ def correlate_profiles(
             for shift in range(min_shift, max_shift + 1):
                 # Calculate overlap length for this shift. We shift large to the left (for positive shifts)
                 shift = int(shift)
-                overlap_len = max(min(
-                    len_large - max(0, shift),  # How much of large is available
-                    len_small - max(0, -shift)),  # How much of small is available
-                    len_overlap  # Maximum we want
+                overlap_len = max(
+                    min(
+                        len_large - max(0, shift),  # How much of large is available
+                        len_small - max(0, -shift),
+                    ),  # How much of small is available
+                    len_overlap,  # Maximum we want
                 )
 
                 # Now extract exactly overlap_len samples from each
                 idx_large_start = int(max(0, shift))
-                partial_large = large[idx_large_start:idx_large_start + overlap_len]
+                partial_large = large[idx_large_start : idx_large_start + overlap_len]
 
                 idx_small_start = int(max(0, -shift))
-                partial_small = small[idx_small_start:idx_small_start + overlap_len]
+                partial_small = small[idx_small_start : idx_small_start + overlap_len]
 
                 if len_ref >= len_comp:
                     partial_ref = partial_large
@@ -264,10 +263,7 @@ def correlate_profiles(
                     partial_comp = partial_small
                     partial_ref = partial_large
 
-
-                correlation = _compute_correlation(
-                    partial_ref, partial_comp
-                )
+                correlation = _compute_correlation(partial_ref, partial_comp)
 
                 if not np.isnan(correlation) and correlation > best_correlation:
                     best_correlation = correlation
@@ -276,18 +272,15 @@ def correlate_profiles(
                     best_ref_overlap = partial_ref
                     best_comp_overlap = partial_comp
 
-
     # Step 4: Compute metrics for the best alignment
     if best_ref_overlap is None or best_comp_overlap is None:
         # No valid alignment found - return empty results
         return ComparisonResults(
             is_profile_comparison=True,
-            is_partial_profile=False,
             pixel_size_ref=pixel_size,
             pixel_size_comp=pixel_size,
             position_shift=np.nan,
             scale_factor=1.0,
-            partial_start_position=np.nan,
             similarity_value=np.nan,
             overlap_length=np.nan,
             overlap_ratio=np.nan,
@@ -318,22 +311,22 @@ def correlate_profiles(
     # Sa = mean absolute height
     # Sq = RMS roughness
     sa_ref = float(np.mean(np.abs(best_ref_overlap)))
-    sq_ref = float(np.sqrt(np.mean(best_ref_overlap ** 2)))
+    sq_ref = float(np.sqrt(np.mean(best_ref_overlap**2)))
 
     sa_comp = float(np.mean(np.abs(best_comp_overlap)))
-    sq_comp = float(np.sqrt(np.mean(best_comp_overlap ** 2)))
+    sq_comp = float(np.sqrt(np.mean(best_comp_overlap**2)))
 
     # Compute difference profile
     p_diff = best_comp_overlap - best_ref_overlap
     sa_diff = float(np.mean(np.abs(p_diff)))
-    sq_diff = float(np.sqrt(np.mean(p_diff ** 2)))
+    sq_diff = float(np.sqrt(np.mean(p_diff**2)))
 
     # Compute signature differences (dimensionless ratios)
     with np.errstate(divide="ignore", invalid="ignore"):
         ds_ref_norm = (sq_diff / sq_ref) ** 2 if sq_ref != 0 else np.nan
         ds_comp_norm = (sq_diff / sq_comp) ** 2 if sq_comp != 0 else np.nan
         ds_combined = (
-            sq_diff ** 2 / (sq_ref * sq_comp)
+            sq_diff**2 / (sq_ref * sq_comp)
             if (sq_ref != 0 and sq_comp != 0)
             else np.nan
         )

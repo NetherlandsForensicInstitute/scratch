@@ -167,29 +167,27 @@ class TestCorrelateProfiles:
         # After equalization, both should have same pixel size
         assert_allclose(result.pixel_size_ref, result.pixel_size_comp, atol=1e-10)
 
-    def test_partial_profile_mode(self):
-        """Profiles with >8% length difference should use partial matching."""
-        # Create reference and shorter partial profile
+    def test_different_length_profiles(self):
+        """Profiles with different lengths should still correlate."""
+        # Create reference and shorter profile
+        # With pixel_size=0.5e-6 m, need at least 400 samples for 200 μm minimum overlap
         profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
-        partial_data = profile_ref.depth_data[300:600].copy()
+        partial_data = profile_ref.depth_data[200:700].copy()  # 500 samples = 250 μm
         profile_partial = Profile(
             depth_data=partial_data, pixel_size=profile_ref.pixel_size
         )
 
         params = AlignmentParameters(
             scale_passes=(100, 50, 25, 10),
-            partial_mark_threshold=8.0,  # 8% threshold
         )
 
         result = correlate_profiles(profile_ref, profile_partial, params)
 
-        # Should be marked as partial profile comparison
-        assert result.is_partial_profile is True
-        # Should still get a valid correlation
+        # Should get a valid correlation
         assert not np.isnan(result.correlation_coefficient)
 
-    def test_full_profile_mode(self):
-        """Profiles with similar lengths should use full matching."""
+    def test_same_length_profiles(self):
+        """Profiles with same lengths should correlate."""
         profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
         profile_comp = make_synthetic_striation_profile(n_samples=500, seed=43)
 
@@ -197,8 +195,8 @@ class TestCorrelateProfiles:
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
-        # Should not be marked as partial profile
-        assert result.is_partial_profile is False
+        # Should get a valid correlation
+        assert not np.isnan(result.correlation_coefficient)
 
     def test_is_profile_comparison_flag(self):
         """is_profile_comparison flag should be True."""

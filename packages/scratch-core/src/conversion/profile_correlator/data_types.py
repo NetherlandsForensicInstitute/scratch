@@ -206,17 +206,12 @@ class ComparisonResults:
     All length and height measurements are in meters (SI units).
 
     :param is_profile_comparison: True for full profile comparison mode.
-    :param is_partial_profile: True if partial profile matching was used
-        (profiles had significantly different lengths).
     :param pixel_size_ref: Pixel separation of reference profile (m).
     :param pixel_size_comp: Pixel separation of compared profile (m).
     :param position_shift: Registration shift of compared profile
         relative to reference (m).
     :param scale_factor: Registration scale factor applied to compared
         profile (1.0 = no scaling).
-    :param partial_start_position: For partial profile matching, the
-        position in the reference where the partial profile best aligns
-        (m). NaN for full profile matching.
     :param similarity_value: Optimized value of the similarity metric
         used during registration.
     :param overlap_length: Length of the overlapping region after
@@ -240,12 +235,10 @@ class ComparisonResults:
     """
 
     is_profile_comparison: bool = True
-    is_partial_profile: bool = False
     pixel_size_ref: float = field(default=np.nan)
     pixel_size_comp: float = field(default=np.nan)
     position_shift: float = field(default=np.nan)
     scale_factor: float = field(default=np.nan)
-    partial_start_position: float = field(default=np.nan)
     similarity_value: float = field(default=np.nan)
     overlap_length: float = field(default=np.nan)
     overlap_ratio: float = field(default=np.nan)

@@ -62,11 +62,7 @@ class TestIdenticalProfiles:
 
 
 class TestShiftedProfiles:
-    """Tests for profiles with translation shifts.
-
-    Shifted profiles have partial overlap by nature, so we use partial_mark_threshold=0
-    to force partial alignment mode which is better suited for finding the overlapping region.
-    """
+    """Tests for profiles with translation shifts."""
 
     @pytest.mark.parametrize(
         "shift_pct,min_corr",
@@ -100,11 +96,8 @@ class TestShiftedProfiles:
             pixel_size_m=PIXEL_SIZE_M,
         )
 
-        # Use partial_mark_threshold=0 to force partial alignment mode
-        # since shifted profiles have partial overlap by nature
         params = AlignmentParameters(
             scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-            partial_mark_threshold=0.0,
         )
 
         result = run_correlation_with_visualization(
@@ -153,7 +146,6 @@ class TestPartialLengthProfiles:
 
         params = AlignmentParameters(
             scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-            partial_mark_threshold=8.0,  # Trigger partial matching for >8% length diff
         )
 
         result = run_correlation_with_visualization(
@@ -235,11 +227,10 @@ class TestScaledProfiles:
             f"got {result.scale_factor:.3f}"
         )
 
-
     def test_custom_threshold(self):
-        """Test that custom threshold values work correctly.
+        """Test correlation with different length profiles.
 
-        With 15% threshold and 10% length diff, should NOT be partial.
+        90% length ratio = 10% length difference. Verifies correlation works.
         """
         base_data = create_base_profile(n_samples=1000, seed=42)
 
@@ -252,21 +243,19 @@ class TestScaledProfiles:
 
         params = AlignmentParameters(
             scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-            partial_mark_threshold=15.0,  # Higher threshold
         )
 
         result = run_correlation_with_visualization(
             profile_ref,
             profile_comp,
             params,
-            title="Custom Threshold: 10% diff, 15% threshold",
+            title="Custom Threshold: 10% length diff",
             output_filename="partial_threshold_custom_15.png",
         )
 
-        # Should NOT be marked as partial (10% < 15%)
-        assert result.is_partial_profile is False, (
-            f"Expected is_partial_profile=False for 10% length diff with 15% threshold, "
-            f"got {result.is_partial_profile}"
+        # Should achieve high correlation for matching subset
+        assert result.correlation_coefficient > 0.85, (
+            f"Expected correlation > 0.85, got {result.correlation_coefficient}"
         )
 
 
@@ -303,7 +292,6 @@ class TestFlippedProfiles:
 
         params = AlignmentParameters(
             scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-            partial_mark_threshold=8.0,
         )
 
         result = run_correlation_with_visualization(
@@ -417,10 +405,8 @@ class TestFlippedProfiles:
         profile_ref = profile_b
         profile_comp = profile_a
 
-        # Use partial_mark_threshold=0 to force partial alignment mode
         params = AlignmentParameters(
             scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-            partial_mark_threshold=0.0,
         )
 
         result = run_correlation_with_visualization(
