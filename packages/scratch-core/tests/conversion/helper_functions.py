@@ -1,7 +1,7 @@
 """Helper functions for conversion tests."""
 
 import numpy as np
-from container_models.base import FloatArray
+from conversion.container_models.base import FloatArray
 
 from numpy.typing import NDArray
 

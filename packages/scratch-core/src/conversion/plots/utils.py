@@ -8,7 +8,7 @@ from matplotlib.figure import Figure
 from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from container_models.base import FloatArray2D, ImageRGB, StriationProfile
+from conversion.container_models.base import FloatArray2D, ImageRGB, StriationProfile
 
 DEFAULT_COLORMAP = "viridis"
 

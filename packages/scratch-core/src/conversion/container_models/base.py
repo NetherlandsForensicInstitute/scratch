@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from functools import partial
+from functools import cached_property, partial
 from typing import Annotated, TypeAlias
 
 from numpy import array, bool_, float64, number, uint8
@@ -100,3 +100,20 @@ class ConfigBaseModel(BaseModel):
         regex_engine="rust-regex",
         revalidate_instances="always",
     )
+
+    def model_copy(self, *, update=None, deep=False):
+        copy = super().model_copy(update=update, deep=deep)
+        if update:
+            # Invalidate cached properties when any field changes
+            self._clear_cached_properties(copy)
+            # Validate model after updating
+            copy = self.model_validate(copy, by_alias=True, by_name=True)
+        return copy
+
+    @staticmethod
+    def _clear_cached_properties(instance: BaseModel):
+        """Dynamically find and clear all cached_property values from instance."""
+        for name in dir(type(instance)):
+            attr = getattr(type(instance), name, None)
+            if isinstance(attr, cached_property):
+                instance.__dict__.pop(name, None)

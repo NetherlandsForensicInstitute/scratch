@@ -2,7 +2,7 @@ import numpy as np
 from scipy.ndimage import binary_erosion
 from skimage.measure import ransac, CircleModel
 
-from container_models.base import BinaryMask, FloatArray2D
+from conversion.container_models.base import BinaryMask, FloatArray2D
 from conversion.data_formats import Mark, MarkType
 from conversion.mask import get_bounding_box
 from conversion.preprocess_impression.utils import Point2D

@@ -8,7 +8,6 @@ from loguru import logger
 
 from container_models.base import DepthData, BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType, Mark
 from parsers.loaders import load_scan_image
 from .helper_function import unwrap_result
 
@@ -100,11 +99,3 @@ def mask_array(scan_image_replica: ScanImage) -> BinaryMask:
     data[:, 0] = 0  # First column
     data[:, -1] = 0  # Last column
     return data
-
-
-@pytest.fixture(scope="session")
-def mark(scan_image: ScanImage) -> Mark:
-    return Mark(
-        scan_image=scan_image,
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
-    )

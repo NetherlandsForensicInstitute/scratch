@@ -10,8 +10,8 @@ from conversion.mask import (
     mask_and_crop_2d_array,
     mask_and_crop_scan_image,
 )
-from container_models.scan_image import ScanImage
-from container_models.base import BinaryMask
+from conversion.container_models import ScanImage
+from conversion.container_models.base import BinaryMask
 
 
 class TestMask2dArray:

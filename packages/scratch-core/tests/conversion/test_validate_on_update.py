@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
-from container_models.base import ConfigBaseModel
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import ConfigBaseModel
+from conversion.container_models.scan_image import ScanImage
 import numpy as np
 
 

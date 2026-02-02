@@ -3,7 +3,7 @@ import numpy as np
 from typing import Callable
 from pydantic import BaseModel
 
-from container_models.base import FloatArray1D, FloatArray2D
+from conversion.container_models.base import FloatArray1D, FloatArray2D
 
 
 class SurfaceTerms(Flag):

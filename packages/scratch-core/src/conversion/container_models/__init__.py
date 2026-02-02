@@ -13,3 +13,7 @@ flows through a sequence of transformations. The immutability ensures that each
 function in the pipeline receives unmodified input, preventing side effects and
 making pipelines easier to reason about and debug.
 """
+
+from .scan_image import ScanImage
+
+__all__ = ["ScanImage"]

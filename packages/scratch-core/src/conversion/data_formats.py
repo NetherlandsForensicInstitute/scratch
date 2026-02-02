@@ -1,7 +1,7 @@
 from typing import Annotated
 from enum import StrEnum, auto
 import json
-from container_models.base import (
+from conversion.container_models.base import (
     FloatArray2D,
 )
 
@@ -14,12 +14,12 @@ from pydantic import (
     BeforeValidator,
 )
 from numpy import float64
-from container_models.base import (
+from conversion.container_models.base import (
     ConfigBaseModel,
     coerce_to_array,
     serialize_ndarray,
 )
-from container_models.scan_image import ScanImage
+from conversion.container_models import ScanImage
 
 
 class MarkType(StrEnum):
