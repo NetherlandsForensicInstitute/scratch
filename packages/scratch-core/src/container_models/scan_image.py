@@ -16,9 +16,6 @@ class ScanImage(ConfigBaseModel):
     data: DepthData
     scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
-    data: DepthData
-    scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
-    scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     meta_data: dict = Field(default_factory=dict)
 
     @property

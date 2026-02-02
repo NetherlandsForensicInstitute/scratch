@@ -101,6 +101,17 @@ class ConfigBaseModel(BaseModel):
     )
 
 
-class Point[T](NamedTuple):
+class Factors[T](NamedTuple):
+    """
+    Scaling factors for the X- and Y-axis.
+
+    Each factor represents the multiplicative change applied to the spatial
+    scale of the image. For example, a factor of ``0.5`` doubles the number of
+    pixels along that axis, while a factor of ``2.0`` halves it.
+
+    :param x: Scaling factor for the X-axis (columns)
+    :param y: Scaling factor for the Y-axis (rows)
+    """
+
     x: T
     y: T
