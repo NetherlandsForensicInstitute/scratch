@@ -192,19 +192,24 @@ def plot_correlation_result(
     # Get data
     ref_data = profile_ref.mean_profile()
     comp_data = profile_comp.mean_profile()
-    pixel_size = profile_ref.pixel_size
 
-    # X-axis in micrometers
-    x_ref = np.arange(len(ref_data)) * pixel_size * 1e6
-    x_comp = np.arange(len(comp_data)) * pixel_size * 1e6
+    # X-axis in micrometers - use each profile's own pixel size
+    x_ref = np.arange(len(ref_data)) * profile_ref.pixel_size * 1e6
+    x_comp = np.arange(len(comp_data)) * profile_comp.pixel_size * 1e6
 
     # Convert heights to micrometers
     ref_data_um = ref_data * 1e6
     comp_data_um = comp_data * 1e6
 
-    # For partial length profiles, calculate original position of comparison within reference
-    # The comparison was extracted from the middle of the longer profile
-    if len(ref_data) != len(comp_data):
+    # For partial length profiles (same pixel size but different sample counts),
+    # calculate original position of comparison within reference.
+    # This assumes one profile was extracted from the middle of the other.
+    # Note: This doesn't apply when profiles have different pixel sizes.
+    if (
+        len(ref_data) != len(comp_data)
+        and profile_ref.pixel_size == profile_comp.pixel_size
+    ):
+        pixel_size = profile_ref.pixel_size
         if len(ref_data) < len(comp_data):
             # ref is short, comp is long - ref was extracted from middle of comp
             n_long = len(comp_data)
