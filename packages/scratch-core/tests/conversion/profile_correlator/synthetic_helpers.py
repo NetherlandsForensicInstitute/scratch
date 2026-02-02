@@ -201,73 +201,94 @@ def plot_correlation_result(
     ref_data_um = ref_data * 1e6
     comp_data_um = comp_data * 1e6
 
-    # For partial length profiles (same pixel size but different sample counts),
-    # calculate original position of comparison within reference.
-    # This assumes one profile was extracted from the middle of the other.
-    # Note: This doesn't apply when profiles have different pixel sizes.
-    if (
-        len(ref_data) != len(comp_data)
-        and profile_ref.pixel_size == profile_comp.pixel_size
-    ):
-        pixel_size = profile_ref.pixel_size
-        if len(ref_data) < len(comp_data):
-            # ref is short, comp is long - ref was extracted from middle of comp
-            n_long = len(comp_data)
-            n_short = len(ref_data)
-            original_start_idx = (n_long - n_short) // 2
-            # For display: show ref at its original position in comp's coordinate system
-            comp_original_start_um = 0  # comp starts at 0
-            ref_original_start_um = original_start_idx * pixel_size * 1e6
-        else:
-            # ref is long, comp is short - comp was extracted from middle of ref
-            n_long = len(ref_data)
-            n_short = len(comp_data)
-            original_start_idx = (n_long - n_short) // 2
-            comp_original_start_um = original_start_idx * pixel_size * 1e6
-            ref_original_start_um = 0  # ref starts at 0
-    else:
-        comp_original_start_um = 0
-        ref_original_start_um = 0
-
-    # Calculate common axis limits (use nanmin/nanmax to handle NaN values)
+    # Calculate common y-axis limits (use nanmin/nanmax to handle NaN values)
     all_heights = np.concatenate([ref_data_um, comp_data_um])
     y_min, y_max = np.nanmin(all_heights), np.nanmax(all_heights)
     y_margin = (y_max - y_min) * 0.1
     y_limits = (y_min - y_margin, y_max + y_margin)
 
-    # X-axis limits: use the longer profile's extent
-    # Account for both original positions
-    x_max = max(
-        x_ref.max() + ref_original_start_um, x_comp.max() + comp_original_start_um
-    )
-    x_limits = (0, x_max)
-
-    # Top: Reference profile
-    axes[0].plot(x_ref + ref_original_start_um, ref_data_um, "b-", linewidth=0.8)
+    # Top: Reference profile (starts at 0)
+    axes[0].plot(x_ref, ref_data_um, "b-", linewidth=0.8)
     axes[0].set_xlabel("Position (μm)")
     axes[0].set_ylabel("Height (μm)")
     axes[0].set_title("Reference Profile")
-    axes[0].set_xlim(x_limits)
+    axes[0].set_xlim(0, x_ref.max())
     axes[0].set_ylim(y_limits)
     axes[0].grid(True, alpha=0.3)
 
-    # Middle: Comparison profile (at original position for partial profiles)
-    axes[1].plot(x_comp + comp_original_start_um, comp_data_um, "r-", linewidth=0.8)
+    # Middle: Comparison profile (starts at 0)
+    axes[1].plot(x_comp, comp_data_um, "r-", linewidth=0.8)
     axes[1].set_xlabel("Position (μm)")
     axes[1].set_ylabel("Height (μm)")
     axes[1].set_title("Comparison Profile")
-    axes[1].set_xlim(x_limits)
+    axes[1].set_xlim(0, x_comp.max())
     axes[1].set_ylim(y_limits)
     axes[1].grid(True, alpha=0.3)
 
     # Bottom: Aligned profiles overlaid
-    # Determine alignment position using position_shift
-    scale = result.scale_factor if not np.isnan(result.scale_factor) else 1.0
+    # For profiles with different pixel sizes, we need to use the equalized coordinate
+    # system (where both profiles have the same pixel size after resampling).
+    # The position_shift is calculated in this equalized space.
 
-    # Use position_shift for alignment
+    # Get the equalized pixel size (the larger of the two = lower resolution)
+    equalized_pixel_size = max(profile_ref.pixel_size, profile_comp.pixel_size)
+
+    # Create x coordinates in the equalized space
+    # After equalization, physical lengths are preserved but sample counts change
+    ref_physical_length_um = len(ref_data) * profile_ref.pixel_size * 1e6
+    comp_physical_length_um = len(comp_data) * profile_comp.pixel_size * 1e6
+
+    # X coordinates for equalized profiles (in micrometers)
+    n_ref_equalized = int(round(ref_physical_length_um / (equalized_pixel_size * 1e6)))
+    n_comp_equalized = int(
+        round(comp_physical_length_um / (equalized_pixel_size * 1e6))
+    )
+
+    x_ref_eq = np.arange(n_ref_equalized) * equalized_pixel_size * 1e6
+    x_comp_eq = np.arange(n_comp_equalized) * equalized_pixel_size * 1e6
+
+    # Resample profile data to equalized coordinates if needed
+    if profile_ref.pixel_size != equalized_pixel_size:
+        ref_interpolator = interp1d(
+            x_ref,
+            ref_data_um,
+            kind="linear",
+            fill_value="extrapolate",  # type: ignore[arg-type]
+        )
+        ref_data_eq_um = ref_interpolator(x_ref_eq)
+    else:
+        ref_data_eq_um = ref_data_um
+
+    if profile_comp.pixel_size != equalized_pixel_size:
+        comp_interpolator = interp1d(
+            x_comp,
+            comp_data_um,
+            kind="linear",
+            fill_value="extrapolate",  # type: ignore[arg-type]
+        )
+        comp_data_eq_um = comp_interpolator(x_comp_eq)
+    else:
+        comp_data_eq_um = comp_data_um
+
+    # Apply position_shift and scale_factor in the equalized space
+    # The correlator defines position_shift as the shift of the LARGER profile.
+    # Positive shift = larger profile shifts LEFT
+    # Negative shift = smaller profile shifts RIGHT
+    scale = result.scale_factor if not np.isnan(result.scale_factor) else 1.0
     shift_um = result.position_shift * 1e6 if not np.isnan(result.position_shift) else 0
-    x_comp_aligned = x_comp * scale + shift_um
-    x_ref_aligned = x_ref  # reference stays at origin
+
+    # Determine which profile is larger (after equalization)
+    ref_is_larger = len(x_ref_eq) >= len(x_comp_eq)
+
+    x_ref_aligned = x_ref_eq  # reference stays at origin
+    if ref_is_larger:
+        # Ref is larger: positive shift means ref shifts left
+        # Keep ref at origin, shift comp RIGHT by shift_um
+        x_comp_aligned = x_comp_eq * scale + shift_um
+    else:
+        # Comp is larger: positive shift means comp shifts left
+        # Keep ref at origin, shift comp LEFT by shift_um
+        x_comp_aligned = x_comp_eq * scale - shift_um
 
     # Calculate overlap region for green highlighting
     overlap_length_um = (
@@ -281,27 +302,12 @@ def plot_correlation_result(
     overlap_start_um = max(ref_start, comp_start)
     overlap_end_um = min(ref_end, comp_end)
 
-    # Determine which profile is larger (by number of samples)
-    comp_is_larger = len(comp_data) > len(ref_data)
+    # Determine which profile is larger (by physical length)
+    comp_is_larger = comp_physical_length_um > ref_physical_length_um
 
-    # Prepare aligned comparison data for plotting
-    if abs(scale - 1.0) > 0.001:
-        # Interpolate the comparison data to show aligned heights
-        comp_interpolator = interp1d(
-            x_comp,
-            comp_data_um,
-            kind="cubic",
-            fill_value="extrapolate",  # type: ignore[arg-type]
-        )
-        # Sample at positions that correspond to the aligned reference x after inverse transform
-        x_sample = (x_ref_aligned - shift_um) / scale
-        # Only use samples within the original comparison range
-        valid_mask = (x_sample >= x_comp.min()) & (x_sample <= x_comp.max())
-        x_comp_plot = x_ref_aligned[valid_mask]
-        comp_aligned_um = comp_interpolator(x_sample[valid_mask])
-    else:
-        x_comp_plot = x_comp_aligned
-        comp_aligned_um = comp_data_um
+    # Prepare data for plotting
+    x_comp_plot = x_comp_aligned
+    comp_aligned_um = comp_data_eq_um
 
     # Add green background for overlap region (draw before the lines)
     if overlap_length_um > 0:
@@ -314,6 +320,7 @@ def plot_correlation_result(
         )
 
     # Plot profiles: larger one first (background), smaller one on top
+    # Use the equalized profile data for the bottom panel
     if comp_is_larger:
         # Comparison is larger - plot it first, then reference on top
         axes[2].plot(
@@ -326,7 +333,7 @@ def plot_correlation_result(
         )
         axes[2].plot(
             x_ref_aligned,
-            ref_data_um,
+            ref_data_eq_um,
             "b-",
             linewidth=0.8,
             label="Reference",
@@ -336,7 +343,7 @@ def plot_correlation_result(
         # Reference is larger or equal - plot it first, then comparison on top
         axes[2].plot(
             x_ref_aligned,
-            ref_data_um,
+            ref_data_eq_um,
             "b-",
             linewidth=0.8,
             label="Reference",
@@ -351,10 +358,15 @@ def plot_correlation_result(
             alpha=0.7,
         )
 
+    # Set x_limits for bottom panel based on aligned profiles
+    aligned_x_max = max(x_ref_aligned.max(), x_comp_aligned.max())
+    aligned_x_min = min(x_ref_aligned.min(), x_comp_aligned.min())
+    aligned_x_limits = (aligned_x_min, aligned_x_max)
+
     axes[2].set_xlabel("Position (μm)")
     axes[2].set_ylabel("Height (μm)")
-    axes[2].set_title("Aligned Profiles")
-    axes[2].set_xlim(x_limits)
+    axes[2].set_title("Aligned Profiles (after pixel equalization)")
+    axes[2].set_xlim(aligned_x_limits)
     axes[2].set_ylim(y_limits)
     axes[2].legend(loc="upper right")
     axes[2].grid(True, alpha=0.3)
