@@ -8,7 +8,7 @@ from matplotlib.figure import Figure
 from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from container_models.base import FloatArray2D, ImageRGB
+from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 
 DEFAULT_COLORMAP = "viridis"
 
@@ -50,8 +50,8 @@ def get_figure_dimensions(
 
 def plot_profiles_on_axes(
     ax: Axes,
-    profile_reference: FloatArray2D,
-    profile_compared: FloatArray2D,
+    profile_reference: StriationProfile,
+    profile_compared: StriationProfile,
     scale: float,
     score: float,
     title: str,

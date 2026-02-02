@@ -8,11 +8,11 @@ by shifting vertical profiles.
 import numpy as np
 from skimage.transform import AffineTransform, warp
 
-from container_models.base import BinaryMask, DepthData, FloatArray2D
+from container_models.base import DepthData, FloatArray2D
 
 
 def shear_data_by_shifting_profiles(
-    depth_data: DepthData | BinaryMask,
+    depth_data: DepthData,
     angle_rad: float,
     cut_y_after_shift: bool = True,
 ) -> FloatArray2D:

@@ -3,7 +3,6 @@
 Tests comparing Python preprocess_data output with MATLAB PreprocessData.
 """
 
-from numpy.typing import NDArray
 import json
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -11,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from container_models.base import DepthData, BinaryMask
+from container_models.base import DepthData, BinaryMask, StriationProfile
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_striation import (
@@ -70,7 +69,7 @@ class MatlabTestCase:
     use_mean: bool = True
     show_info: bool = True
     has_mask: bool = False
-    output_profile: NDArray | None = None
+    output_profile: StriationProfile | None = None
     output_rotation_angle: float | None = None
 
     @classmethod
