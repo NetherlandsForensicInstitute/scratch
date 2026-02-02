@@ -10,7 +10,7 @@ from container_models.base import ImageRGBA, FloatArray2D, FloatArray
 from utils.logger import log_railway_function
 
 
-def _grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
+def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
     """
     Convert a 2D grayscale array to an 8-bit RGBA array.
 
@@ -79,7 +79,13 @@ def get_scan_image_for_display(
 @log_railway_function("Failed to convert scan to image")
 @safe
 def scan_to_image(scan_image: ScanImage) -> Image:
-    return fromarray(_grayscale_to_rgba(scan_data=scan_image.data))
+    return fromarray(grayscale_to_rgba(scan_data=scan_image.data))
+
+
+@log_railway_function("Failed to convert grayscale data to image")
+@safe
+def grayscale_to_image(grayscale: FloatArray2D) -> Image:
+    return fromarray(grayscale_to_rgba(scan_data=grayscale))
 
 
 @log_railway_function("Failed to save image")
