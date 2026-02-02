@@ -1,10 +1,81 @@
-from container_models.base import DepthData
+"""
+Spatial Image Mutations
+=======================
+
+This module contains image mutations that operate on the *spatial*
+properties of a `ScanImage`.
+
+Spatial mutations:
+- change the geometric arrangement of pixels
+- affect spatial resolution, scale, or coordinate systems
+- do **not** alter pixel values semantically
+
+These mutations modify *where* pixels are located or how they are
+interpreted in space, without changing the meaning or intensity of
+the pixel data itself.
+
+Typical examples include:
+- resampling or resizing
+- cropping to a region of interest
+- scaling or coordinate transforms
+
+All mutations in this module must preserve the semantic content of
+the image while adjusting its spatial representation.
+"""
+
+from container_models.base import BinaryMask, FloatArray2D, DepthData
 from container_models.scan_image import ScanImage
-from loguru import logger
 from mutations.base import ImageMutation
+
+import numpy as np
+from loguru import logger
 from pydantic import PositiveFloat
 from skimage.transform import resize
 from typing import cast
+
+
+class Crop(ImageMutation):
+    def __init__(self, crop: BinaryMask) -> None:
+        self.crop = crop
+
+    @property
+    def skip_predicate(self) -> bool:
+        """
+        Determine whether this crop should be skipped.
+
+        Skips computation if the crop contains only background (all zeros or False).
+
+        :returns: True if the crop is empty, False otherwise
+        """
+        if not np.any(self.crop):
+            return True
+        return False
+
+    def mask_bounding_box(
+        self, shape: FloatArray2D | BinaryMask
+    ) -> tuple[slice, slice]:
+        """
+        Compute the minimal bounding box of a 2D mask.
+
+        Finds the smallest axis-aligned rectangle containing all non-zero (or True) values.
+
+        :param shape: 2D mask (non-zero/True values indicate the region of interest)
+        :returns: Tuple (x_slice, y_slice) as slices for NumPy indexing, covering all mask pixels
+        """
+        coordinates = np.nonzero(shape)
+        y_min, x_min = np.min(coordinates, axis=1)
+        y_max, x_max = np.max(coordinates, axis=1)
+        return slice(x_min, x_max + 1), slice(y_min, y_max + 1)
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        """
+        Crop the image to the bounding box of the mask.
+        :returns: New ScanImage cropped to the minimal bounding box containing all True mask values.
+        """
+        y_slice, x_slice = self.mask_bounding_box(self.crop)
+        scan_image.data = scan_image.data[y_slice, x_slice]
+        self.crop = self.crop[y_slice, x_slice]
+        return scan_image
 
 
 class Resample(ImageMutation):
