@@ -1,4 +1,6 @@
+import re
 from container_models.scan_image import ScanImage
+from exceptions import ImageShapeMismatchError
 from mutations.spatial import Crop
 import pytest
 import numpy as np
@@ -38,3 +40,17 @@ class TestCropImage:
         # Assert
         assert result is scan_image
         np.testing.assert_array_equal(result.data, scan_image.data)
+
+    def test_image_and_crop_not_equal_in_size(self, scan_image: ScanImage):
+        # Arrange
+        width, height = scan_image.data.shape
+        offset_size = 1
+        cropping_mutator = Crop(
+            crop=(np.zeros((width - offset_size, height + offset_size), dtype=np.bool))
+        )
+        expected_error_message = f"image shape: {scan_image.data.shape} and crop shape: {cropping_mutator.crop.shape} are not equal"
+        # Act/ Assert
+        with pytest.raises(
+            ImageShapeMismatchError, match=re.escape(expected_error_message)
+        ):
+            _ = cropping_mutator.apply_on_image(scan_image)

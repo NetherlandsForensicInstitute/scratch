@@ -26,6 +26,7 @@ the image while adjusting its spatial representation.
 from container_models.base import BinaryMask, DepthData
 from computations.spatial import mask_bounding_box
 from container_models.scan_image import ScanImage
+from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
 
 import numpy as np
@@ -55,6 +56,10 @@ class Crop(ImageMutation):
         Crop the image to the bounding box of the mask.
         :returns: New ScanImage cropped to the minimal bounding box containing all True mask values.
         """
+        if scan_image.data.shape != self.crop.shape:
+            raise ImageShapeMismatchError(
+                f"image shape: {scan_image.data.shape} and crop shape: {self.crop.shape} are not equal"
+            )
         y_slice, x_slice = mask_bounding_box(self.crop)
         scan_image.data = scan_image.data[y_slice, x_slice]
         return scan_image
