@@ -16,7 +16,7 @@ https://github.com/fredericjs/surfalize/blob/d47b9b68636aae76e77329ac58ee0390765
 DTYPE = np.float32
 
 
-def read_al3d(filehandle, read_image_layers=False, encoding="utf-8"):
+def read_al3d(filehandle, read_image_layers=False, encoding="utf-8") -> RawSurface:
     magic = filehandle.read(17)
     if magic != MAGIC:
         raise CorruptedFileError("Incompatible file magic detected.")

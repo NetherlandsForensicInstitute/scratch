@@ -1,7 +1,7 @@
 from enum import Flag, auto
-import numpy as np
-from numpy.typing import NDArray
 from pydantic import BaseModel
+
+from container_models.base import FloatArray2D
 
 
 class SurfaceTerms(Flag):
@@ -32,5 +32,5 @@ class LevelingResult(BaseModel, arbitrary_types_allowed=True):
     :param fitted_surface: 2D array of the fitted surface (same shape as `leveled_map`)
     """
 
-    leveled_map: NDArray[np.float64]
-    fitted_surface: NDArray[np.float64]
+    leveled_map: FloatArray2D
+    fitted_surface: FloatArray2D

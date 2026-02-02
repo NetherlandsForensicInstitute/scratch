@@ -5,7 +5,6 @@ import pytest
 from container_models.scan_image import ScanImage
 
 from preprocessors.pipelines import parse_scan_pipeline, x3p_pipeline
-from preprocessors.schemas import UploadScanParameters
 
 TOLERANCE = 1e-16
 
@@ -28,9 +27,7 @@ class TestX3pPipeline:
         assert output_path.stat().st_size > 0
 
     # TODO: can we assert this differently?
-    def test_output_file_is_valid_x3p(
-        self, parsed_al3d_file: ScanImage, tmp_path: Path, default_parameters: UploadScanParameters
-    ) -> None:
+    def test_output_file_is_valid_x3p(self, parsed_al3d_file: ScanImage, tmp_path: Path) -> None:
         """Test that the output file can be parsed back as a valid X3P file."""
         # Arrange
         output_path = tmp_path / "output.x3p"
@@ -39,7 +36,7 @@ class TestX3pPipeline:
         x3p_pipeline(parsed_al3d_file, output_path)
 
         # Assert - verify we can parse the generated X3P file
-        reparsed_scan = parse_scan_pipeline(output_path, default_parameters)
+        reparsed_scan = parse_scan_pipeline(output_path, 1, 1)
         assert isinstance(reparsed_scan, ScanImage)
         assert reparsed_scan.data.shape == parsed_al3d_file.data.shape
         assert np.isclose(reparsed_scan.scale_x, parsed_al3d_file.scale_x, atol=TOLERANCE)

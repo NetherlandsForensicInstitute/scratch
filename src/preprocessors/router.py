@@ -1,37 +1,49 @@
+from functools import partial
 from http import HTTPStatus
 
 from fastapi import APIRouter
+from fastapi.responses import RedirectResponse
 from loguru import logger
 
-from constants import PREPROCESSOR_ROUTE
+from constants import PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
-from file_services import create_vault, get_files, get_urls
+from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation
+from file_services import create_vault
+from preprocessors.controller import process_prepare_mark
 
-from .pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
-from .schemas import UploadScan
+from .pipelines import (
+    impression_mark_pipeline,
+    parse_scan_pipeline,
+    preview_pipeline,
+    striation_mark_pipeline,
+    surface_map_pipeline,
+    x3p_pipeline,
+)
+from .schemas import EditImage, PrepareMarkImpression, PrepareMarkStriation, UploadScan
 
-preprocessor_route = APIRouter(prefix=PREPROCESSOR_ROUTE, tags=[PREPROCESSOR_ROUTE])
+preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[RoutePrefix.PREPROCESSOR])
 
 
 @preprocessor_route.get(
-    path="/",
-    summary="check status of comparison proces",
-    description="""Some description of pre-processors endpoint, you can use basic **markup**""",
+    path=PreprocessorEndpoint.ROOT,
+    summary="Redirect to preprocessor documentation",
+    description="""Redirects to the preprocessor section in the API documentation.""",
+    include_in_schema=False,
 )
-async def preprocessor_root() -> dict[str, str]:
+async def preprocessor_root() -> RedirectResponse:
     """
-    Fetch a simple message from the REST API.
+    Redirect to the preprocessor section in Swagger docs.
 
-    Here is some more information about the function some notes what is expected.
-    Special remarks what the function is doing.
+    This endpoint redirects users to the preprocessor tag section in the
+    interactive API documentation at /docs.
 
-    :return: Use as much as possible Pydantic for return types.
+    :return: RedirectResponse to the preprocessor documentation section.
     """
-    return {"message": "Hello from the pre-processors"}
+    return RedirectResponse(url=f"/docs#operations-tag-{RoutePrefix.PREPROCESSOR}")
 
 
 @preprocessor_route.post(
-    path="/process-scan",
+    path=f"/{PreprocessorEndpoint.PROCESS_SCAN}",
     summary="Create surface_map and preview image from the scan file.",
     description="""
     Processes the scan file from the given filepath and generates several derived outputs, including
@@ -54,11 +66,101 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     :return: Access URLs for the generated files.
     """
     vault = create_vault(upload_scan.tag)
-    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.parameters)
-    files = get_files(vault.resource_path, scan="scan.x3p", preview="preview.png", surface_map="surface_map.png")
+    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size_x, upload_scan.step_size_y)
+    files = ProcessedDataAccess.get_files(vault.resource_path)
     x3p_pipeline(parsed_scan, files["scan"])
-    surface_map_pipeline(parsed_scan, files["surface_map"], upload_scan.parameters)
+    surface_map_pipeline(
+        parsed_scan,
+        files["surface_map"],
+        upload_scan.light_sources,
+        upload_scan.observer,
+        upload_scan.scale_x,
+        upload_scan.scale_y,
+    )
     preview_pipeline(parsed_scan, files["preview"])
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess(**get_urls(vault.access_url, **{key: file_.name for key, file_ in files.items()}))
+    return ProcessedDataAccess.model_validate(ProcessedDataAccess.generate_urls(vault.access_url))
+
+
+@preprocessor_route.post(
+    path=f"/{PreprocessorEndpoint.PREPARE_MARK_IMPRESSION}",
+    summary="Preprocess a scan into analysis-ready mark files.",
+    description="""
+    Applies user-defined masking and cropping to a scan, then performs
+    mark-type-specific preprocessing (rotation, cropping, filtering) for impression marks.
+
+    Outputs two processed mark representations (.npz data and .json
+    metadata) saved to the vault, returning URLs for file access.
+    """,
+    responses={
+        HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
+    },
+)
+async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression) -> PrepareMarkResponseImpression:
+    """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
+    vault = create_vault(prepare_mark_parameters.tag)
+    process_prepare_mark(
+        files=PrepareMarkResponseImpression.get_files(vault.resource_path),
+        scan_file=prepare_mark_parameters.scan_file,
+        marking_method=partial(impression_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+    )
+    logger.info(f"Generated files saved to {vault}")
+    return PrepareMarkResponseImpression.generate_urls(vault.access_url)
+
+
+@preprocessor_route.post(
+    path=f"/{PreprocessorEndpoint.PREPARE_MARK_STRIATION}",
+    summary="Preprocess a scan into analysis-ready mark files.",
+    description="""
+    Applies user-defined masking and cropping to a scan, then performs
+    mark-type-specific preprocessing (rotation, cropping, filtering) for striation marks.
+
+    Outputs two processed mark representations (.npz data and .json
+    metadata) saved to the vault, returning URLs for file access.
+    """,
+    responses={
+        HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
+    },
+)
+async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) -> PrepareMarkResponseStriation:
+    """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
+    vault = create_vault(prepare_mark_parameters.tag)
+    process_prepare_mark(
+        files=PrepareMarkResponseStriation.get_files(vault.resource_path),
+        scan_file=prepare_mark_parameters.scan_file,
+        marking_method=partial(striation_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+    )
+    logger.info(f"Generated files saved to {vault}")
+    return PrepareMarkResponseStriation.generate_urls(vault.access_url)
+
+
+@preprocessor_route.post(
+    path=f"/{PreprocessorEndpoint.EDIT_SCAN}",
+    summary="Validate and parse a scan file with edit parameters.",
+    description="""
+    Parse and validate a scan file (X3P format only) with the provided edit parameters
+    (mask, crop, subsampling). Creates a new vault for storing future outputs.
+
+    Note: Image generation is currently not implemented.
+""",
+    responses={
+        HTTPStatus.BAD_REQUEST: {"description": "parse error"},
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "description": "processing error",
+        },
+    },
+)
+async def edit_scan(edit_image: EditImage) -> ProcessedDataAccess:
+    """
+    Validate and parse a scan file with edit parameters.
+
+    Accepts an X3P scan file and edit parameters (mask, zoom, step sizes),
+    validates the file format, parses it according to the parameters, and
+    creates a vault directory for future outputs. Returns access URLs for the vault.
+    """
+    _ = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
+    vault = create_vault(edit_image.tag)
+
+    logger.info(f"Generated files saved to {vault}")
+    return ProcessedDataAccess.generate_urls(vault.access_url)

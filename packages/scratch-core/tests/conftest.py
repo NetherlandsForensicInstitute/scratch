@@ -6,13 +6,18 @@ import pytest
 from PIL import Image
 from loguru import logger
 
-from container_models.base import ScanMap2DArray, MaskArray
+from container_models.base import DepthData, BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType, CropType, Mark
-from parsers import load_scan_image
+from conversion.data_formats import MarkType, Mark
+from parsers.loaders import load_scan_image
 from .helper_function import unwrap_result
 
 TEST_ROOT = Path(__file__).parent
+
+
+@pytest.fixture
+def case_dir() -> Path:
+    return TEST_ROOT / "resources" / "preprocess_striation"
 
 
 class PropagateHandler(logging.Handler):
@@ -43,14 +48,14 @@ def baseline_images_dir() -> Path:
 
 
 @pytest.fixture(scope="session")
-def scan_image_array(baseline_images_dir: Path) -> ScanMap2DArray:
+def scan_image_array(baseline_images_dir: Path) -> DepthData:
     """Build a fixture with ground truth image data."""
     gray = Image.open(baseline_images_dir / "circle.png").convert("L")
     return np.asarray(gray, dtype=np.float64)
 
 
 @pytest.fixture(scope="session")
-def scan_image(scan_image_array: ScanMap2DArray) -> ScanImage:
+def scan_image(scan_image_array: DepthData) -> ScanImage:
     """Build a `ScanImage` object`."""
     return ScanImage(data=scan_image_array, scale_x=4e-6, scale_y=4e-6)
 
@@ -86,7 +91,7 @@ def scan_image_rectangular_with_nans(scan_image_with_nans: ScanImage) -> ScanIma
 
 
 @pytest.fixture(scope="module")
-def mask_array(scan_image_replica: ScanImage) -> MaskArray:
+def mask_array(scan_image_replica: ScanImage) -> BinaryMask:
     """Build a `MaskArray` object`."""
     data = np.ones_like(scan_image_replica.data).astype(bool)
     # Set the borders (edges) to 0
@@ -102,5 +107,4 @@ def mark(scan_image: ScanImage) -> Mark:
     return Mark(
         scan_image=scan_image,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
-        crop_type=CropType.RECTANGLE,
     )

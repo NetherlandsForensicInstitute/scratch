@@ -6,7 +6,6 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from loguru import logger
-from pydantic import HttpUrl
 
 from models import DirectoryAccess
 from settings import get_settings
@@ -52,48 +51,3 @@ def fetch_resource_path(token: UUID) -> Path:
         return resource
     logger.error(f"Directory not found for token '{token}'")
     raise HTTPException(HTTPStatus.UNPROCESSABLE_ENTITY, f"Unable to fetch resources of token '{token}'")
-
-
-def get_files(resource_directory: Path, **filenames: str) -> dict[str, Path]:
-    """
-    Generate file paths within this directory's resource path.
-
-    Creates a mapping of field names to absolute file paths by joining
-    each filename with this directory's resource path.
-
-    :param resource_directory: The resource directory path.
-    :param filenames: Keyword arguments mapping field names to filenames.
-                      Example: scan="scan.x3p", preview="preview.png"
-    :return: Dictionary mapping field names to absolute Path objects.
-
-    .. rubric:: Examples
-
-    >>> vault = DirectoryAccess(tag="my-project")
-    >>> paths = get_files(vault.resource_path, scan="scan.x3p", preview="preview.png")
-    >>> paths["scan"]  # Returns Path like: /tmp/scratch_api/my-project-abc123/scan.x3p
-    """
-    return {field: resource_directory / file for field, file in filenames.items()}
-
-
-def get_urls(access_url: str, **filenames: str) -> dict[str, HttpUrl]:
-    """
-    Generate access URLs for files within this directory.
-
-    Creates a mapping of field names to HTTP URLs by joining each filename
-    with this directory's access URL base path.
-
-    :param access_url: The base access URL for the directory.
-    :param filenames: Keyword arguments mapping field names to filenames.
-                      Example: scan="scan.x3p", preview="preview.png"
-    :return: Dictionary mapping field names to validated HttpUrl objects.
-
-    .. rubric:: Examples
-
-    >>> vault = DirectoryAccess(tag="my-project")
-    >>> urls = get_urls(vault.access_url, scan="scan.x3p", preview="preview.png")
-    >>> str(urls["scan"])  # Returns: http://localhost:8000/files/{token}/my-project/scan.x3p
-
-    .. note::
-       URLs are validated as proper HTTP URLs via Pydantic's HttpUrl type.
-    """
-    return {field: HttpUrl(url=f"{access_url}/{file}") for field, file in filenames.items()}

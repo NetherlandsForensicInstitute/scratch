@@ -6,9 +6,11 @@ import pytest
 from returns.pipeline import is_successful
 from scipy.constants import micro
 from surfalize import Surface
+from unittest.mock import patch
 
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, subsample_scan_image
+from parsers.loaders import make_isotropic
 
 from ..helper_function import unwrap_result
 
@@ -41,6 +43,58 @@ class TestLoadScanImage:
         )
         assert scan_image.scale_y == surface.step_y * micro
         assert scan_image.scale_x == surface.step_x * micro
+
+
+class TestLoadScanImageCaching:
+    class FakeSurfaceOne:
+        pass
+
+    class FakeSurfaceTwo:
+        pass
+
+    @pytest.fixture(autouse=True)
+    def empty_cache_for_test(self):
+        load_scan_image.cache_clear()
+        yield
+
+    def test_load_scan_image_is_cached(self, tmp_path: Path) -> None:
+        # Arrange
+        scan_file = tmp_path / "scan.x3p"
+        with patch(
+            "parsers.loaders.Surface.load", return_value=self.FakeSurfaceOne()
+        ) as mock_load:
+            # Act
+            image_1 = load_scan_image(scan_file)
+            image_2 = load_scan_image(scan_file)
+
+        # Assert
+        assert image_1 is image_2, "same object expected due to caching"
+        assert mock_load.call_count == 1, (
+            "Surface.load should be called only once due to caching"
+        )
+
+    def test_load_scan_image_only_caches_one_image(self, tmp_path: Path) -> None:
+        # Arrange
+        scan_file_1 = tmp_path / "scan_1.x3p"
+        scan_file_2 = tmp_path / "scan_2.x3p"
+
+        with patch(
+            "parsers.loaders.Surface.load",
+            side_effect=[
+                self.FakeSurfaceOne(),
+                self.FakeSurfaceTwo(),
+            ],
+        ):
+            # Act
+            _image_1 = load_scan_image(scan_file_1)
+            _image_2 = load_scan_image(scan_file_1)
+            _image_3 = load_scan_image(scan_file_2)
+
+        # Assert
+        info = load_scan_image.cache_info()
+        assert info.hits == 1, "one cache hit expected"
+        assert info.misses == 2, "two different files loaded"
+        assert info.currsize == 1, "Cache should only hold one item"
 
 
 class TestSubSampleScanImage:
@@ -110,3 +164,113 @@ class TestSubSampleScanImage:
 
         # Assert
         assert not is_successful(result)
+
+    def test_subsample_skips_when_given_step_size_of_one(
+        self, scan_image: ScanImage
+    ) -> None:
+        """
+        Test when given the subsample the stepsize of one in both directions,
+        it doesn't compute the whole image but just returns the original.
+        """
+        # Act
+        result = subsample_scan_image(scan_image, 1, 1)
+        subsampled = unwrap_result(result)
+
+        # Assert
+        assert subsampled is scan_image, "Expected the same object to be returned"
+
+    def test_make_isotropic_no_op(self):
+        """Ensure no resampling occurs if pixels are already square."""
+        scale = 0.5
+        width, height = 100, 100
+        scan_image = ScanImage(
+            scale_x=scale, scale_y=scale, data=np.zeros((height, width))
+        )
+
+        result = unwrap_result(make_isotropic(scan_image))
+
+        assert np.isclose(result.scale_x, scale), (
+            f"Scale should not have changed, but now is {result.scale_x}"
+        )
+        assert np.isclose(result.scale_y, scale), (
+            f"Scale should not have changed, but now is {result.scale_y}"
+        )
+        assert result.data.shape == (height, width), (
+            f"Shape should not have changed, but now is {result.data.shape}"
+        )
+        np.testing.assert_array_equal(result.data, scan_image.data)
+
+    def test_make_isotropic_upsampling_logic(self):
+        """Verify upsampling to the smallest scale and correct shape calculation."""
+        width, height = 100, 100
+        scale_coarse = 2.0
+        scale_fine = 1.0  # target scale
+        scan_image = ScanImage(
+            data=np.zeros((height, width)),
+            scale_x=scale_coarse,
+            scale_y=scale_fine,
+        )
+
+        result = unwrap_result(make_isotropic(scan_image))
+
+        assert np.isclose(result.scale_x, scale_fine), (
+            f"Scale should now be the minimum of the two {scale_fine}"
+        )
+        assert np.isclose(result.scale_y, scale_fine), (
+            f"Scale should now be the minimum of the two {scale_fine}"
+        )
+        assert result.data.shape == (height, width * scale_coarse / scale_fine), (
+            f"New width should be (original_width * (original_scale_x / target_scale)), but got: {result.data.shape}"
+        )
+
+    def test_make_isotropic_preserves_metadata_and_range(self):
+        """Ensure metadata is passed through and pixel intensities remain consistent."""
+        scan_image = ScanImage(
+            meta_data={"sensor_id": "XY-Z", "timestamp": "2026-01-21"},
+            scale_x=1.0,
+            scale_y=0.5,
+            data=np.array([[0, 1000], [2000, 3000]], dtype=np.float64),
+        )
+
+        result = unwrap_result(make_isotropic(scan_image))
+
+        assert result.meta_data == scan_image.meta_data
+        assert np.min(result.data) == 0, (
+            f"Pixel intensity range should be preserved, but lowest value now is {np.min(result.data)}"
+        )
+        assert np.max(result.data) == 3000, (
+            f"Pixel intensity range should be preserved, but highest value now is {np.max(result.data)}"
+        )
+        assert result.data.dtype == scan_image.data.dtype
+
+    @pytest.mark.parametrize("scaling_factor", [4, 7.6, 8.1, 10.11])
+    def test_make_isotropic_handles_nans(
+        self, scan_image_rectangular_with_nans: ScanImage, scaling_factor: float
+    ):
+        """Ensure the resampling deals with NaN values correctly."""
+        scale_fine = 1.5
+        scale_coarse = 1.5 * scaling_factor
+        scan_image = ScanImage(
+            data=scan_image_rectangular_with_nans.data,
+            scale_x=scale_fine,
+            scale_y=scale_coarse,
+        )
+        expected_shape = (
+            int(round(scan_image.height * scaling_factor)),
+            int(round(scan_image.width)),
+        )
+
+        result = unwrap_result(make_isotropic(scan_image))
+
+        assert np.isclose(result.scale_x, scale_fine), (
+            f"Scale should be {scale_fine}, but got {result.scale_x}"
+        )
+        assert np.isclose(result.scale_y, scale_fine), (
+            f"Scale should be {scale_fine}, but got {result.scale_y}"
+        )
+        assert result.data.shape == expected_shape, (
+            f"Shape should be {expected_shape}, but got {result.data.shape}"
+        )
+        assert result.valid_mask.sum() / scan_image.valid_mask.sum() == pytest.approx(
+            scaling_factor, abs=1e-3
+        ), "The number of valid pixels / NaNs have not scaled correctly"

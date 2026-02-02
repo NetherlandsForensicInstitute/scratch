@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Self, cast
 
 from pydantic import AfterValidator, Field, HttpUrl
 
@@ -30,22 +30,128 @@ type RelativePath = Annotated[
 ]
 
 
-class ProcessedDataAccess(BaseModelConfig):
-    scan_image: HttpUrl = Field(
-        ...,
-        description="converted subsampled X3P image.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/scan.x3p"],
-        alias="scan",
-    )
+class BaseResponseURLs(BaseModelConfig):
+    @classmethod
+    def get_files(cls, resource_directory: Path) -> dict[str, Path]:
+        """
+        Generate file paths within this directory's resource path.
+
+        Creates a mapping of field names to absolute file paths by joining
+        each filename of the base model with this directory's resource path.
+
+        :param resource_directory: The resource directory path.
+        :return: Dictionary mapping field names to absolute Path objects.
+        """
+        return {
+            field.alias or name: resource_directory / cast(dict, field.json_schema_extra)["file_name"]
+            for name, field in cls.model_fields.items()
+        }
+
+    @classmethod
+    def generate_urls(cls, access_url: str) -> Self:
+        """
+        Generate access URLs for files within this directory.
+
+        Creates a mapping of field names to HTTP URLs by joining each filename of the base model
+        with this directory's access URL base path.
+
+        :param access_url: The base access URL for the directory.
+        :return: Dictionary mapping field names to validated HttpUrl objects.
+        .. note::
+        URLs are validated as proper HTTP URLs via Pydantic's HttpUrl type.
+        """
+        return cls(**{
+            field.alias or name: HttpUrl(url=f"{access_url}/{cast(dict, field.json_schema_extra)['file_name']}")
+            for name, field in cls.model_fields.items()
+            if isinstance(field.json_schema_extra, dict)
+        })
+
+
+class GeneratedImages(BaseResponseURLs):
     preview_image: HttpUrl = Field(
         ...,
         description="rgba image render from the parsed scan data.",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/preview.png"],
         alias="preview",
+        json_schema_extra={"file_name": "preview.png"},
     )
     surface_map_image: HttpUrl = Field(
         ...,
         description="surface image render from the scan data.",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/surface_map.png"],
         alias="surface_map",
+        json_schema_extra={"file_name": "surface_map.png"},
+    )
+
+
+class ProcessedDataAccess(GeneratedImages):
+    scan_image: HttpUrl = Field(
+        ...,
+        description="converted subsampled X3P image.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/scan.x3p"],
+        alias="scan",
+        json_schema_extra={"file_name": "scan.x3p"},
+    )
+
+
+class PrepareMarkResponse(GeneratedImages):
+    """Response model for prepared mark data access."""
+
+    mark_data: HttpUrl = Field(
+        ...,
+        description="Mark without preprocessing, only cropped, rotated and resampled.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark.npz"],
+        json_schema_extra={"file_name": "mark.npz"},
+    )
+    mark_meta: HttpUrl = Field(
+        ...,
+        description="meta data from the mark data.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark.json"],
+        json_schema_extra={"file_name": "mark.json"},
+    )
+    processed_data: HttpUrl = Field(
+        ...,
+        description="Preprocessed mark (impression or striation) after filtering and processing.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/processed.npz"],
+        json_schema_extra={"file_name": "processed.npz"},
+    )
+    processed_meta: HttpUrl = Field(
+        ...,
+        description="meta data from the processed mark data.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/processed.json"],
+        json_schema_extra={"file_name": "processed.json"},
+    )
+
+
+class PrepareMarkResponseStriation(PrepareMarkResponse):
+    """Response model for prepared striation mark data access."""
+
+    profile_data: HttpUrl = Field(
+        ...,
+        description="Mean or median profile of a striation mark.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.npz"],
+        json_schema_extra={"file_name": "profile.npz"},
+    )
+    profile_meta: HttpUrl = Field(
+        ...,
+        description="meta data from the profile data.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
+        json_schema_extra={"file_name": "profile.json"},
+    )
+
+
+class PrepareMarkResponseImpression(PrepareMarkResponse):
+    """Response model for prepared impression mark data access."""
+
+    leveled_data: HttpUrl = Field(
+        ...,
+        description="Leveled impression mark (same as processed but without filtering).",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/leveled.npz"],
+        json_schema_extra={"file_name": "leveled.npz"},
+    )
+    leveled_meta: HttpUrl = Field(
+        ...,
+        description="meta data from the leveled impression mark data.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/leveled.json"],
+        json_schema_extra={"file_name": "leveled.json"},
     )

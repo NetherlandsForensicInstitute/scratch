@@ -6,11 +6,11 @@ from returns.io import impure_safe
 from returns.result import safe
 
 from container_models.scan_image import ScanImage
-from container_models.base import ScanMapRGBA, ScanMap2DArray
+from container_models.base import ImageRGBA, FloatArray2D, FloatArray
 from utils.logger import log_railway_function
 
 
-def _grayscale_to_rgba(scan_data: ScanMap2DArray) -> ScanMapRGBA:
+def _grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
     """
     Convert a 2D grayscale array to an 8-bit RGBA array.
 
@@ -26,9 +26,7 @@ def _grayscale_to_rgba(scan_data: ScanMap2DArray) -> ScanMapRGBA:
     return rgba
 
 
-def _normalize(
-    input_array: ScanMap2DArray, lower: float, upper: float
-) -> ScanMap2DArray:
+def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArray:
     """Perform min-max normalization on the input array and scale to the [0, 255] interval."""
     if lower >= upper:
         raise ValueError(
@@ -37,9 +35,7 @@ def _normalize(
     return (input_array - lower) / (upper - lower) * 255.0
 
 
-def _clip_data(
-    data: ScanMap2DArray, std_scaler: float
-) -> tuple[ScanMap2DArray, float, float]:
+def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, float]:
     """
     Clip the data so that the values lie in the interval [μ - σ * S, μ + σ * S].
 

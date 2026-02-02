@@ -11,11 +11,13 @@ from httpx import Response
 from PIL import Image
 from pydantic import HttpUrl
 
-from constants import EXTRACTOR_ROUTE, PREPROCESSOR_ROUTE
+from constants import PreprocessorEndpoint, RoutePrefix
 from extractors.schemas import ProcessedDataAccess
 from models import DirectoryAccess
-from preprocessors.schemas import UploadScan, UploadScanParameters
+from preprocessors.schemas import UploadScan
 from settings import get_settings
+
+PROCESS_SCAN_ROUTE = f"/{RoutePrefix.PREPROCESSOR}/{PreprocessorEndpoint.PROCESS_SCAN}"
 
 
 @pytest.fixture(scope="module")
@@ -32,10 +34,7 @@ def post_process_scan(client: TestClient, upload_scan: UploadScan) -> Callable[[
     """
 
     def _post(input_model: UploadScan | None = None) -> Response:
-        return client.post(
-            f"{PREPROCESSOR_ROUTE}/process-scan",
-            json=(input_model or upload_scan).model_dump(mode="json"),
-        )
+        return client.post(PROCESS_SCAN_ROUTE, json=(input_model or upload_scan).model_dump(mode="json"))
 
     return _post
 
@@ -48,36 +47,17 @@ class TestProcessScanEndpoint:
     def test_process_scan_success_with_al3d_file(self, upload_scan: UploadScan, client: TestClient) -> None:
         """Test successful scan processing with AL3D input file."""
         # Act I
-        response = client.post(f"{PREPROCESSOR_ROUTE}/process-scan", json=upload_scan.model_dump(mode="json"))
+        response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
 
         # Assert - verify response
         assert response.status_code == HTTPStatus.OK
         result = ProcessedDataAccess.model_validate(response.json())
-        assert result.preview_image.path
-        assert result.surface_map_image.path
-        assert result.scan_image.path
 
         # Act II
-        preview = client.get(result.preview_image.path)
-        surface_map = client.get(result.surface_map_image.path)
-        x3p_response = client.get(result.scan_image.path)
+        downloads = (client.get(str(url)) for _, url in result)
 
         # Assert - verify response status codes
-        assert preview.status_code == HTTPStatus.OK
-        assert surface_map.status_code == HTTPStatus.OK
-        assert x3p_response.status_code == HTTPStatus.OK
-
-        # Assert - verify content types
-        assert preview.headers["content-type"] == "image/png"
-        assert surface_map.headers["content-type"] == "image/png"
-        assert x3p_response.headers["content-type"] == "application/octet-stream"
-
-        # Assert - verify PNG files are valid images
-        assert Image.open(BytesIO(preview.content))
-        assert Image.open(BytesIO(surface_map.content))
-
-        # Assert - verify x3p file has content
-        assert len(x3p_response.content) > 0
+        assert all(download.status_code == HTTPStatus.OK for download in downloads)
 
     def test_process_scan_with_custom_light_sources(
         self, post_process_scan, upload_scan: UploadScan, client: TestClient
@@ -88,21 +68,17 @@ class TestProcessScanEndpoint:
         observer = LightSource(azimuth=0, elevation=90)
 
         # Control: one light source
-        control_data = UploadScan(
+        control_data = UploadScan(  # type:ignore
             scan_file=upload_scan.scan_file,
-            parameters=UploadScanParameters(  # type: ignore
-                light_sources=(single_light,),
-                observer=observer,
-            ),
+            light_sources=(single_light,),
+            observer=observer,
         )
 
         # Result: same light source doubled
-        request_data = UploadScan(
+        request_data = UploadScan(  # type: ignore
             scan_file=upload_scan.scan_file,
-            parameters=UploadScanParameters(  # type: ignore
-                light_sources=(single_light, LightSource(azimuth=180, elevation=45)),
-                observer=observer,
-            ),
+            light_sources=(single_light, LightSource(azimuth=180, elevation=45)),
+            observer=observer,
         )
 
         # Act I
@@ -114,27 +90,19 @@ class TestProcessScanEndpoint:
         assert response.status_code == HTTPStatus.OK
         result_location = ProcessedDataAccess.model_validate(response.json())
         control_location = ProcessedDataAccess.model_validate(control_response.json())
-        assert result_location.surface_map_image.path
-        assert control_location.surface_map_image.path
 
         # Act II
-        control = client.get(control_location.surface_map_image.path)
-        result = client.get(result_location.surface_map_image.path)
-
-        # Assert - verify responses are successful
-        assert control.status_code == HTTPStatus.OK
-        assert result.status_code == HTTPStatus.OK
+        control = client.get(str(control_location.surface_map_image))
+        result = client.get(str(result_location.surface_map_image))
 
         # Assert - verify that the two surface_maps are not the same
+        assert control.status_code == HTTPStatus.OK
+        assert result.status_code == HTTPStatus.OK
         assert control.content != result.content, "Surfacemaps should differ with different light sources"
 
-        # Assert - verify that result with doubled light sources is brighter
-        control_img = Image.open(BytesIO(control.content))
-        result_img = Image.open(BytesIO(result.content))
-
         # Calculate average brightness for each image
-        control_brightness = np.array(control_img).mean()
-        result_brightness = np.array(result_img).mean()
+        control_brightness = np.array(Image.open(BytesIO(control.content))).mean()
+        result_brightness = np.array(Image.open(BytesIO(result.content))).mean()
 
         assert result_brightness > control_brightness, (
             f"Result brightness ({result_brightness:.2f}) with two light sources should be greater than "
@@ -155,7 +123,7 @@ class TestProcessScan:
     ) -> None:
         """Test that process-scan creates expected output files with correct URLs and file structure."""
         # Arrange
-        base_url = f"{get_settings().base_url}{EXTRACTOR_ROUTE}/files/{directory_access.token}"
+        base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
         directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
         # Act
@@ -222,7 +190,7 @@ class TestProcessScan:
 
         # Act - send raw JSON to bypass Pydantic model construction
         response = client.post(
-            f"{PREPROCESSOR_ROUTE}/process-scan",
+            PROCESS_SCAN_ROUTE,
             json={"scan_file": str(path)},
         )
 

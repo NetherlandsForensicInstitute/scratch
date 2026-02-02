@@ -1,22 +1,24 @@
-from typing import Optional
+from typing import Optional, TypeVar
 
 import numpy as np
-from numpy.typing import NDArray
 from skimage.transform import resize
 
 from conversion.data_formats import Mark
 from container_models.scan_image import ScanImage
-from container_models.base import MaskArray
+from container_models.base import BinaryMask, FloatArray2D
+
+
+T = TypeVar("T", FloatArray2D, BinaryMask)
 
 
 def resample_scan_image_and_mask(
     scan_image: ScanImage,
-    mask: Optional[MaskArray] = None,
+    mask: Optional[BinaryMask] = None,
     factors: Optional[tuple[float, float]] = None,
     target_scale: float = 4e-6,
     only_downsample: bool = True,
     preserve_aspect_ratio: bool = True,
-) -> tuple[ScanImage, Optional[MaskArray]]:
+) -> tuple[ScanImage, Optional[BinaryMask]]:
     """
     Resample the input image and optionally its corresponding mask.
 
@@ -45,12 +47,17 @@ def resample_scan_image_and_mask(
     return image, mask
 
 
-def resample_mark(mark: Mark) -> Mark:
-    """Resample a MarkImage so that the scale matches the scale specific for the mark type."""
+def resample_mark(mark: Mark, only_downsample: bool = False) -> Mark:
+    """Resample a Mark so that the scale matches the scale specific for the mark type.
+
+    :param mark: The Mark to resample.
+    :param only_downsample: If True, only resample if it would reduce the resolution.
+    :returns: The resampled Mark.
+    """
     resampled_scan_image, _ = resample_scan_image_and_mask(
         mark.scan_image,
         target_scale=mark.mark_type.scale,
-        only_downsample=False,
+        only_downsample=only_downsample,
     )
     return mark.model_copy(update={"scan_image": resampled_scan_image})
 
@@ -72,9 +79,9 @@ def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> Scan
 
 
 def resample_image_array(
-    array: NDArray,
+    array: T,
     factors: tuple[float, float],
-) -> NDArray:
+) -> T:
     """
     Resample an array using the specified resampling factors.
 
@@ -91,7 +98,7 @@ def resample_image_array(
         mode="edge",
         anti_aliasing=array.dtype != np.bool_ and all(factor > 1 for factor in factors),
     )
-    return np.asarray(resampled, dtype=array.dtype)
+    return np.asarray(resampled, dtype=array.dtype)  # type: ignore[return-value]
 
 
 def get_scaling_factors(
