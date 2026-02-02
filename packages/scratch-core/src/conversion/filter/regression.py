@@ -6,13 +6,14 @@ regression filters used by the higher-level Gaussian filter functions.
 """
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy.signal import fftconvolve
+from numpy.typing import NDArray
+from container_models.base import FloatArray1D, FloatArray2D, FloatArray4D, FloatArray3D
 
 
 def create_normalized_separable_kernels(
-    alpha: float, cutoff_pixels: NDArray[np.floating]
-) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
+    alpha: float, cutoff_pixels: FloatArray1D
+) -> tuple[FloatArray1D, FloatArray1D]:
     """
     Create normalized 1D Gaussian kernels for the X and Y axes, where:
       - `kernel_x` is the 1D kernel for the X-axis (row vector).
@@ -40,7 +41,7 @@ def create_gaussian_kernel_1d(
     cutoff_pixels: float,
     has_nans: bool,
     alpha: float,
-) -> NDArray[np.floating]:
+) -> FloatArray1D:
     """
     Create a 1D Gaussian kernel with size determined by NaN presence.
 
@@ -71,7 +72,7 @@ def create_normalized_1d_kernel(
     alpha: float,
     cutoff_pixel: float,
     size: int,
-) -> NDArray[np.floating]:
+) -> FloatArray1D:
     """
     Create a normalized 1D Gaussian kernel using ISO 16610 formula.
 
@@ -96,11 +97,11 @@ def create_normalized_1d_kernel(
 
 
 def convolve_2d_separable(
-    data: NDArray[np.floating],
-    kernel_x: NDArray[np.floating],
-    kernel_y: NDArray[np.floating],
+    data: FloatArray2D,
+    kernel_x: FloatArray1D,
+    kernel_y: FloatArray1D,
     mode: str = "constant",
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """
     Perform fast 2D convolution using separable 1D kernels via FFT.
 
@@ -137,11 +138,11 @@ def convolve_2d_separable(
 
 
 def apply_order0_filter(
-    data: NDArray[np.floating],
-    kernel_x: NDArray[np.floating],
-    kernel_y: NDArray[np.floating],
+    data: FloatArray2D,
+    kernel_x: FloatArray1D,
+    kernel_y: FloatArray1D,
     mode: str = "constant",
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """
     Perform a 2D weighted moving average (Order-0 Regression) using separable kernels.
 
@@ -169,11 +170,11 @@ def apply_order0_filter(
 
 
 def apply_polynomial_filter(
-    data: NDArray[np.floating],
-    kernel_x: NDArray[np.floating],
-    kernel_y: NDArray[np.floating],
+    data: FloatArray2D,
+    kernel_x: FloatArray1D,
+    kernel_y: FloatArray1D,
     order: int,
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """
     Apply local polynomial regression filter (orders 1 or 2).
 
@@ -233,13 +234,13 @@ def _get_polynomial_exponents(order: int) -> list[tuple[int, int]]:
 
 
 def _build_lhs_matrix(
-    weights: NDArray[np.floating],
-    kernel_x: NDArray[np.floating],
-    kernel_y: NDArray[np.floating],
-    x_coords: NDArray[np.floating],
-    y_coords: NDArray[np.floating],
+    weights: FloatArray2D,
+    kernel_x: FloatArray1D,
+    kernel_y: FloatArray1D,
+    x_coords: FloatArray1D,
+    y_coords: FloatArray1D,
     exponents: list[tuple[int, int]],
-) -> NDArray[np.floating]:
+) -> FloatArray4D:
     """
     Construct the LHS matrix 'A' efficiently.
 
@@ -284,10 +285,10 @@ def _build_lhs_matrix(
 
 
 def _solve_pixelwise_regression(
-    lhs_matrix: NDArray[np.floating],
-    rhs_vector: NDArray[np.floating],
-    original_data: NDArray[np.floating],
-) -> NDArray[np.floating]:
+    lhs_matrix: FloatArray4D,
+    rhs_vector: FloatArray3D,
+    original_data: FloatArray2D,
+) -> FloatArray2D:
     """Solve the linear system for every valid pixel."""
     # rhs_vector shape: (n_params, H, W) -> (H, W, n_params, 1)
     rhs_prepared = np.moveaxis(rhs_vector, 0, -1)[..., np.newaxis]
@@ -315,9 +316,9 @@ def _solve_pixelwise_regression(
 
 
 def _solve_fallback_lstsq(
-    result_array: NDArray[np.floating],
-    lhs: NDArray[np.floating],
-    rhs: NDArray[np.floating],
+    result_array: FloatArray2D,
+    lhs: FloatArray4D,
+    rhs: FloatArray4D,
     indices: tuple[
         NDArray[np.intp], ...
     ],  # Use ellipsis to allow variadic tuples of index arrays

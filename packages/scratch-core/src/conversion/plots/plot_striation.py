@@ -4,8 +4,8 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
-from numpy.typing import NDArray
 
+from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import CorrelationMetrics, StriationComparisonPlots
 from conversion.plots.utils import (
@@ -82,15 +82,15 @@ def plot_striation_comparison_results(
 
     # Profile plots
     similarity_plot = plot_similarity(
-        profile_reference=mark_profile_reference_aligned.scan_image.data.flatten(),
-        profile_compared=mark_profile_compared_aligned.scan_image.data.flatten(),
+        profile_reference=mark_profile_reference_aligned.scan_image.data,
+        profile_compared=mark_profile_compared_aligned.scan_image.data,
         scale=mark_profile_reference_aligned.scan_image.scale_x,
         score=metrics.score,
     )
 
     wavelength_correlation_plot = plot_wavelength_correlation(
-        profile_reference=mark_profile_reference_aligned.scan_image.data.flatten(),
-        profile_compared=mark_profile_compared_aligned.scan_image.data.flatten(),
+        profile_reference=mark_profile_reference_aligned.scan_image.data,
+        profile_compared=mark_profile_compared_aligned.scan_image.data,
         scale=mark_profile_reference_aligned.scan_image.scale_x,
         score=metrics.score,
         quality_passbands=metrics.quality_passbands,
@@ -107,11 +107,11 @@ def plot_striation_comparison_results(
 
 
 def plot_similarity(
-    profile_reference: NDArray,
-    profile_compared: NDArray,
+    profile_reference: StriationProfile,
+    profile_compared: StriationProfile,
     scale: float,
     score: float,
-) -> np.ndarray:
+) -> ImageRGB:
     """
     Plot two aligned profiles overlaid (similarity plot).
 
@@ -138,12 +138,12 @@ def plot_similarity(
 
 
 def plot_wavelength_correlation(
-    profile_reference: NDArray,
-    profile_compared: NDArray,
+    profile_reference: FloatArray2D,
+    profile_compared: FloatArray2D,
     scale: float,
     score: float,
     quality_passbands: Mapping[tuple[float, float], float],
-) -> np.ndarray:
+) -> ImageRGB:
     """
     Plot aligned profiles with wavelength-range dependent cross-correlation.
 
@@ -204,7 +204,7 @@ def get_wavelength_correlation_plot(
     ax.set_ylabel("Correlation Coefficient", fontsize=14)
 
 
-def plot_depth_map_with_axes(data: NDArray, scale: float, title: str) -> np.ndarray:
+def plot_depth_map_with_axes(data: FloatArray2D, scale: float, title: str) -> ImageRGB:
     """
     Plot a depth map rendering of a mark.
 
@@ -226,10 +226,10 @@ def plot_depth_map_with_axes(data: NDArray, scale: float, title: str) -> np.ndar
 
 
 def plot_side_by_side_surfaces(
-    data_reference: NDArray,
-    data_compared: NDArray,
+    data_reference: FloatArray2D,
+    data_compared: FloatArray2D,
     scale: float,
-) -> np.ndarray:
+) -> ImageRGB:
     """
     Plot two aligned marks side by side with a small gap.
 
@@ -310,7 +310,7 @@ def plot_comparison_overview(
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
     wrap_width: int = 25,
-) -> np.ndarray:
+) -> ImageRGB:
     """Generate the main results overview figure with dynamic sizing."""
 
     # Build results metadata

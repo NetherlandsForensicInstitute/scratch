@@ -81,11 +81,13 @@ BoolArray2D: TypeAlias = Annotated[
 ]
 
 # Tier 3: Semantic context
+ImageRGB: TypeAlias = UInt8Array3D  # Shape: (H, W, 3)
 ImageRGBA: TypeAlias = UInt8Array3D  # Shape: (H, W, 4)
 UnitVector: TypeAlias = FloatArray1D  # Shape: (3,)
 DepthData: TypeAlias = FloatArray2D  # Shape: (H, W)
 BinaryMask: TypeAlias = BoolArray2D  # Shape: (H, W)
 VectorField: TypeAlias = FloatArray3D  # Shape (H, W, 3)
+StriationProfile: TypeAlias = FloatArray2D  # Shape (N, 1)
 
 
 class ConfigBaseModel(BaseModel):

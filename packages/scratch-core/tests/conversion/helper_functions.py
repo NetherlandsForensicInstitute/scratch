@@ -1,13 +1,14 @@
 """Helper functions for conversion tests."""
 
 import numpy as np
+from container_models.base import FloatArray
 
-from container_models.base import FloatArray2D, FloatArray
+from numpy.typing import NDArray
 
 
 def _crop_to_common_shape(
-    arr1: FloatArray2D, arr2: FloatArray2D, center_crop: bool = False
-) -> tuple[FloatArray2D, FloatArray2D]:
+    arr1: NDArray, arr2: NDArray, center_crop: bool = False
+) -> tuple[NDArray, NDArray]:
     """
     Crop two arrays to their common shape.
 

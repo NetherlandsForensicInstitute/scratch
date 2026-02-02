@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from container_models.base import DepthData, BinaryMask, StriationProfile
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_striation import (
@@ -52,10 +53,10 @@ class MatlabTestCase:
     """Container for a single MATLAB PreprocessData test case."""
 
     name: str
-    input_data: np.ndarray
-    input_mask: np.ndarray
-    output_data: np.ndarray
-    output_mask: np.ndarray
+    input_data: DepthData
+    input_mask: BinaryMask
+    output_data: DepthData
+    output_mask: BinaryMask
 
     input_xdim: float = 1.5e-6
     input_ydim: float = 1.5e-6
@@ -68,7 +69,7 @@ class MatlabTestCase:
     use_mean: bool = True
     show_info: bool = True
     has_mask: bool = False
-    output_profile: np.ndarray | None = None
+    output_profile: StriationProfile | None = None
     output_rotation_angle: float | None = None
 
     @classmethod

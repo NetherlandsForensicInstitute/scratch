@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import numpy as np
+from container_models.base import ImageRGB
 
 
 @dataclass
@@ -45,9 +45,9 @@ class StriationComparisonPlots:
     :param wavelength_plot: Profiles + wavelength-dependent cross-correlation.
     """
 
-    similarity_plot: np.ndarray
-    comparison_overview: np.ndarray
-    mark1_filtered_preview_image: np.ndarray
-    mark2_filtered_preview_image: np.ndarray
-    mark1_vs_moved_mark2: np.ndarray
-    wavelength_plot: np.ndarray
+    similarity_plot: ImageRGB
+    comparison_overview: ImageRGB
+    mark1_filtered_preview_image: ImageRGB
+    mark2_filtered_preview_image: ImageRGB
+    mark1_vs_moved_mark2: ImageRGB
+    wavelength_plot: ImageRGB
