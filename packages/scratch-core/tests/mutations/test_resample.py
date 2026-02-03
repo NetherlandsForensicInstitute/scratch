@@ -2,7 +2,6 @@ from mutations.spatial import Resample
 import numpy as np
 import pytest
 
-from container_models.base import Factors
 from container_models.scan_image import ScanImage
 from scipy.constants import micro
 
@@ -27,47 +26,51 @@ def scan_image_with_mask(simple_scan_image: ScanImage) -> ScanImage:
 
 class TestResampleScanImage:
     @pytest.mark.parametrize(
-        "factors,expected_shape",
+        "y_factor,x_factor,expected_shape",
         [
             pytest.param(
-                Factors[float](2.0, 2.0),
+                2.0,
+                2.0,
                 (5, 5),
                 id="downsample_by_2x",
             ),
             pytest.param(
-                Factors[float](0.5, 0.5),
+                0.5,
+                0.5,
                 (20, 20),
                 id="upsample_by_2x",
             ),
             pytest.param(
-                Factors[float](1.0, 1.0),
+                1.0,
+                1.0,
                 (10, 10),
                 id="no_scaling",
             ),
             pytest.param(
-                Factors[float](2.0, 1.0),
-                (10, 5),
+                2.0,
+                1.0,
+                (5, 10),
                 id="downsample_x_only",
             ),
             pytest.param(
-                Factors[float](1.0, 2.0),
-                (5, 10),
+                1.0,
+                2.0,
+                (10, 5),
                 id="downsample_y_only",
             ),
-            pytest.param(
-                Factors[float](3.67, 3.67), (2.7, 2.7), id="floats are also fine"
-            ),
+            pytest.param(3.67, 3.67, (2.7, 2.7), id="floats are also fine"),
         ],
     )
     def test_resampling_changes_shape(
         self,
         simple_scan_image: ScanImage,
-        factors: Factors[float],
+        y_factor: float,
+        x_factor: float,
         expected_shape: tuple[int, int],
         caplog: pytest.LogCaptureFixture,
     ):
         # Arrange
-        resampling = Resample(factors=factors)
+        resampling = Resample(x_factor=x_factor, y_factor=y_factor)
         # Act
         result = resampling(simple_scan_image).unwrap()
         # Assert
@@ -79,36 +82,37 @@ class TestResampleScanImage:
         )
 
     @pytest.mark.parametrize(
-        "factors",
+        ("y_factor", "x_factor"),
         [
-            pytest.param(Factors[float](2.0, 2.0), id="downsample"),
-            pytest.param(Factors[float](0.5, 0.5), id="upsample"),
-            pytest.param(Factors[float](2.0, 0.5), id="mixed_scaling"),
+            pytest.param(2.0, 2.0, id="downsample"),
+            pytest.param(0.5, 0.5, id="upsample"),
+            pytest.param(2.0, 0.5, id="mixed_scaling"),
         ],
     )
     def test_resampling_updates_scale(
         self,
         simple_scan_image: ScanImage,
-        factors: Factors[float],
+        y_factor: float,
+        x_factor: float,
     ):
         # Arrange
         original_scale_x = simple_scan_image.scale_x
         original_scale_y = simple_scan_image.scale_y
-        resampling = Resample(factors=factors)
+        resampling = Resample(x_factor=x_factor, y_factor=y_factor)
 
         # Act
         result = resampling(simple_scan_image).unwrap()
 
         # Assert
-        assert result.scale_x == original_scale_x * factors.x
-        assert result.scale_y == original_scale_y * factors.y
+        assert result.scale_x == original_scale_x * x_factor
+        assert result.scale_y == original_scale_y * y_factor
 
     def test_resampling_preserves_data_properties(self, simple_scan_image: ScanImage):
         # Arrange
-        factors = Factors[float](2.0, 2.0)
+        factor = 2.0
         original_dtype = simple_scan_image.data.dtype
         original_ndim = simple_scan_image.data.ndim
-        resampling = Resample(factors=factors)
+        resampling = Resample(x_factor=factor, y_factor=factor)
 
         # Act
         result = resampling(simple_scan_image).unwrap()
@@ -127,8 +131,8 @@ class TestResampleScanImage:
             scale_x=1e-6,
             scale_y=1e-6,
         )
-        factors = Factors[float](2.0, 2.0)
-        resampling = Resample(factors=factors)
+        factor = 2.0
+        resampling = Resample(x_factor=factor, y_factor=factor)
         # Act
         result = resampling(scan_image).unwrap()
 
