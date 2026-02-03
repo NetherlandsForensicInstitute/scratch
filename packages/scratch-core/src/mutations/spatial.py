@@ -38,7 +38,7 @@ class Resample(ImageMutation):
             f"Resampling image array to new size: {round(output_shape[0], 1)}/{round(output_shape[1], 1)}"
         )
         return ScanImage(
-            data=cast(DepthData, resampled_data),
+            data=cast(DepthData, resampled_data).astype(scan_image.data.dtype),
             scale_x=scan_image.scale_x * self.x_factor,
             scale_y=scan_image.scale_y * self.y_factor,
         )
