@@ -14,4 +14,4 @@ def get_bounding_box(mask: BinaryMask) -> tuple[slice, slice]:
     coordinates = np.nonzero(mask)
     y_min, x_min = np.min(coordinates, axis=1)
     y_max, x_max = np.max(coordinates, axis=1)
-    return slice(x_min, x_max + 1), slice(y_min, y_max + 1)
+    return slice(y_min, y_max + 1), slice(x_min, x_max + 1)
