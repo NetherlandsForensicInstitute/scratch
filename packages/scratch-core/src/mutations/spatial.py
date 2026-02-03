@@ -1,10 +1,69 @@
-from container_models.base import DepthData
+"""
+Spatial Image Mutations
+=======================
+
+This module contains image mutations that operate on the *spatial*
+properties of a `ScanImage`.
+
+Spatial mutations:
+- change the geometric arrangement of pixels
+- affect spatial resolution, scale, or coordinate systems
+
+These mutations modify *where* pixels are located or how they are
+interpreted in space, without changing the meaning or intensity of
+the pixel data itself.
+
+Typical examples include:
+- resampling or resizing
+- cropping to a region of interest
+- scaling or coordinate transforms
+
+All mutations in this module must preserve the semantic content of
+the image while adjusting its spatial representation.
+"""
+
+from container_models.base import BinaryMask, DepthData
+from computations.spatial import get_bounding_box
 from container_models.scan_image import ScanImage
-from loguru import logger
+from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
+
+import numpy as np
+from loguru import logger
 from pydantic import PositiveFloat
 from skimage.transform import resize
 from typing import cast
+
+
+class CropToMask(ImageMutation):
+    def __init__(self, mask: BinaryMask) -> None:
+        if not np.any(mask):
+            raise ValueError("Can't crop to a mask where there are only 0/False")
+        self.mask = mask
+
+    @property
+    def skip_predicate(self) -> bool:
+        """
+        Determine whether this crop should be skipped.
+
+        Skips computation if the crop contains only ones.
+
+        :returns: True if the crop is empty, False otherwise
+        """
+        return bool(self.mask.all())
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        """
+        Crop the image to the bounding box of the mask.
+        :returns: New ScanImage cropped to the minimal bounding box containing all True mask values.
+        """
+        if scan_image.data.shape != self.mask.shape:
+            raise ImageShapeMismatchError(
+                f"image shape: {scan_image.data.shape} and crop shape: {self.mask.shape} are not equal"
+            )
+        y_slice, x_slice = get_bounding_box(self.mask)
+        scan_image.data = scan_image.data[y_slice, x_slice]
+        return scan_image
 
 
 class Resample(ImageMutation):
