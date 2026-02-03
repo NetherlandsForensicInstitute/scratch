@@ -39,15 +39,3 @@ class TestEqualizeSamplingDistance:
         assert p2_out.pixel_size == p1.pixel_size
         # Length should be approximately halved
         assert len(p2_out.depth_data) == pytest.approx(len(p2.depth_data) / 2, abs=2)
-
-    def test_resolution_limit_cleared_after_resampling(self):
-        """Resolution limit should be cleared after resampling."""
-        p1 = Profile(np.random.randn(100), pixel_size=1.0e-6, resolution_limit=5e-6)
-        p2 = Profile(np.random.randn(200), pixel_size=0.5e-6, resolution_limit=3e-6)
-
-        p1_out, p2_out = equalize_pixel_scale(p1, p2)
-
-        # The resampled profile should have resolution_limit cleared
-        assert p2_out.resolution_limit is None
-        # The unchanged profile should keep its resolution_limit
-        assert p1_out.resolution_limit == 5e-6

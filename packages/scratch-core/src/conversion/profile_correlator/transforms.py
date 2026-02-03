@@ -107,8 +107,7 @@ def equalize_pixel_scale(
     cubic spline interpolation.
 
     The profile with the larger pixel size is returned unchanged, while the
-    other profile is resampled. After resampling, the resolution_limit field
-    is cleared as it may no longer be valid.
+    other profile is resampled.
 
     :param profile_1: First profile with depth_data and pixel_size.
     :param profile_2: Second profile with depth_data and pixel_size.
@@ -119,7 +118,7 @@ def equalize_pixel_scale(
     pixel_1 = profile_1.pixel_size
     pixel_2 = profile_2.pixel_size
 
-    # If pixel sizes are already equal, return copies
+    # If pixel sizes are already equal, return unchanged
     if pixel_1 == pixel_2:
         return profile_1, profile_2
 
@@ -128,51 +127,21 @@ def equalize_pixel_scale(
     if pixel_1 > pixel_2:
         # Profile 2 has higher resolution, resample it to match profile 1
         zoom = pixel_2 / pixel_1
+        resampled_data = _resample_1d(profile_2.depth_data, zoom)
 
-        # Handle single-column vs multi-column profiles
-        if profile_2.depth_data.ndim == 1:
-            resampled_data: NDArray[np.floating] = _resample_1d(
-                profile_2.depth_data, zoom
-            )
-        else:
-            # Multi-column: resample each column
-            cols = [
-                _resample_1d(profile_2.depth_data[:, c], zoom)
-                for c in range(profile_2.depth_data.shape[1])
-            ]
-            resampled_data = np.column_stack(cols)
-
-        # Create a new profile with updated data and pixel size
-        # Note: resolution_limit is cleared as it may no longer be valid
         profile_2_out = Profile(
             depth_data=resampled_data,
             pixel_size=pixel_1,  # Now matches profile 1
-            cutoff_hi=profile_2.cutoff_hi,
-            cutoff_lo=profile_2.cutoff_lo,
-            resolution_limit=None,  # Clear LR after resampling
         )
         return profile_1, profile_2_out
 
     else:
         # Profile 1 has higher resolution, resample it to match profile 2
         zoom = pixel_1 / pixel_2
-
-        if profile_1.depth_data.ndim == 1:
-            resampled_data_1: NDArray[np.floating] = _resample_1d(
-                profile_1.depth_data, zoom
-            )
-        else:
-            cols = [
-                _resample_1d(profile_1.depth_data[:, c], zoom)
-                for c in range(profile_1.depth_data.shape[1])
-            ]
-            resampled_data_1 = np.column_stack(cols)
+        resampled_data = _resample_1d(profile_1.depth_data, zoom)
 
         profile_1_out = Profile(
-            depth_data=resampled_data_1,
+            depth_data=resampled_data,
             pixel_size=pixel_2,  # Now matches profile 2
-            cutoff_hi=profile_1.cutoff_hi,
-            cutoff_lo=profile_1.cutoff_lo,
-            resolution_limit=None,
         )
         return profile_1_out, profile_2

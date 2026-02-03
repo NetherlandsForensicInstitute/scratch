@@ -72,6 +72,7 @@ def _compute_correlation(
         np.dot(ref_centered, ref_centered) * np.dot(comp_centered, comp_centered)
     )
 
+    # Zero denominator means one or both profiles have zero variance (constant values)
     if denominator == 0:
         return np.nan
 
@@ -115,19 +116,9 @@ def correlate_profiles(
     :param profile_ref: Reference profile to compare against.
     :param profile_comp: Compared profile to align to the reference.
     :param params: Alignment parameters. Key parameters:
-        - use_mean: Use mean (True) or median (False) for multi-column profiles
         - max_scaling: Maximum scaling deviation (e.g., 0.05 for ±5%)
         - min_overlap_distance: Minimum overlap distance in meters (default 200 μm)
     :returns: ComparisonResults containing all computed metrics.
-
-    Notes
-    -----
-    The global brute-force search finds the maximum correlation regardless of
-    shift position. For repetitive patterns, this may find alignments far from
-    zero shift with high correlation but lower overlap ratio.
-
-    The function automatically handles different pixel sizes, profile lengths,
-    NaN values, and multi-column profile data.
     """
     min_overlap_distance = params.min_overlap_distance
 
@@ -135,17 +126,22 @@ def correlate_profiles(
     profile_ref_eq, profile_comp_eq = equalize_pixel_scale(profile_ref, profile_comp)
     pixel_size = profile_ref_eq.pixel_size
 
-    # Get 1D profiles (mean across columns if multi-column)
-    ref_data = profile_ref_eq.mean_profile(use_mean=params.use_mean)
-    comp_data_original = profile_comp_eq.mean_profile(use_mean=params.use_mean)
+    # Get 1D profile data
+    ref_data = profile_ref_eq.depth_data
+    comp_data = profile_comp_eq.depth_data
 
     len_ref = len(ref_data)
-    len_comp_original = len(comp_data_original)
+    len_comp = len(comp_data)
 
-    # Minimum overlap in samples
+    # Minimum overlap of the two Profiles in pixels
     min_overlap_samples = int(min_overlap_distance / pixel_size)
 
-    # Generate scale factors to try
+    # Generate scale factors to try.
+    # The MATLAB implementation uses fminsearchbnd to jointly optimize shift and scale
+    # as a 2D continuous optimization problem. This Python version simplifies to a
+    # brute-force grid search: iterate over discrete scale factors, and for each scale
+    # try all possible shifts. 7 scale steps gives ~1.7% intervals for the default ±5%
+    # range, balancing accuracy vs computation time.
     num_scale_steps = 7
     scale_factors = np.linspace(
         1.0 - params.max_scaling, 1.0 + params.max_scaling, num_scale_steps
@@ -160,7 +156,7 @@ def correlate_profiles(
 
     for scale in scale_factors:
         # Apply scaling to comparison profile
-        comp_data_scaled = apply_scaling(comp_data_original, scale)
+        comp_data_scaled = apply_scaling(comp_data, scale)
         len_comp = len(comp_data_scaled)
 
         # Skip if profiles too short for minimum overlap
@@ -252,7 +248,7 @@ def correlate_profiles(
 
     # Overlap ratio (relative to shorter profile)
     ref_length = len_ref * pixel_size
-    comp_length = len_comp_original * pixel_size
+    comp_length = len_comp * pixel_size
     overlap_ratio = compute_overlap_ratio(overlap_length, ref_length, comp_length)
 
     # Compute roughness parameters (in meters)

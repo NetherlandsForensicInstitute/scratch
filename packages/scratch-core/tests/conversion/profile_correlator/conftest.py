@@ -145,11 +145,9 @@ def default_params() -> AlignmentParameters:
 
 @pytest.fixture
 def fast_params() -> AlignmentParameters:
-    """Fast alignment parameters with fewer scales for quicker tests."""
+    """Fast alignment parameters for quicker tests."""
     return AlignmentParameters(
-        scale_passes=(100, 50, 25, 10),  # Fewer scales
-        max_translation=1e5,  # Smaller max translation
-        partial_mark_threshold=8.0,
+        max_scaling=0.05,
     )
 
 
@@ -213,7 +211,7 @@ def make_shifted_profile(
     if seed is not None:
         np.random.seed(seed)
 
-    data = profile.mean_profile()
+    data = profile.depth_data
     n = len(data)
 
     # Create interpolator

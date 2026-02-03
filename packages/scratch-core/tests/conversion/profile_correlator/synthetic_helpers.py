@@ -190,8 +190,8 @@ def plot_correlation_result(
     fig, axes = plt.subplots(3, 1, figsize=(12, 10))
 
     # Get data
-    ref_data = profile_ref.mean_profile()
-    comp_data = profile_comp.mean_profile()
+    ref_data = profile_ref.depth_data
+    comp_data = profile_comp.depth_data
 
     # X-axis in micrometers - use each profile's own pixel size
     x_ref = np.arange(len(ref_data)) * profile_ref.pixel_size * 1e6
@@ -401,6 +401,7 @@ def run_correlation_with_visualization(
     params: AlignmentParameters,
     title: str,
     output_filename: str,
+    output_dir: Path | None = None,
 ) -> ComparisonResults:
     """Run correlation and generate visualization.
 
@@ -411,11 +412,14 @@ def run_correlation_with_visualization(
     :param params: Alignment parameters.
     :param title: Title for the visualization.
     :param output_filename: Filename for the output PNG (without directory).
+    :param output_dir: Output directory for visualization. Defaults to OUTPUT_DIR.
     :returns: ComparisonResults from correlate_profiles.
     """
     result = correlate_profiles(profile_ref, profile_comp, params)
 
-    output_path = OUTPUT_DIR / output_filename
+    if output_dir is None:
+        output_dir = OUTPUT_DIR
+    output_path = output_dir / output_filename
     plot_correlation_result(profile_ref, profile_comp, result, title, output_path)
 
     return result

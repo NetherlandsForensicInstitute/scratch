@@ -5,7 +5,7 @@ This module defines the core data structures used for profile correlation analys
 of striated marks. It follows the patterns established in preprocess_impression.
 
 The main types are:
-- Profile: Container for 1D or multi-column profile data with metadata
+- Profile: Container for 1D profile data with metadata
 - AlignmentParameters: Configuration for the brute-force alignment algorithm
 - ComparisonResults: Full comparison metrics for striated mark analysis
 
@@ -21,62 +21,26 @@ from numpy.typing import NDArray
 @dataclass(frozen=True)
 class Profile:
     """
-    Container for a 1D or multi-column profile with metadata.
+    Container for a 1D profile with metadata.
 
     Profiles represent 1D height measurements along a scratch/striation mark.
-    Multi-column profiles contain multiple parallel scans that can be averaged
-    using mean or median to reduce noise.
-
     All measurements are in meters (SI units).
 
-    :param depth_data: Height values as (N,) for single profile or (N, M)
-        for M parallel profiles where N is the number of samples.
+    :param depth_data: Height values as a 1D array of shape (N,).
     :param pixel_size: Physical distance between samples in meters.
-    :param cutoff_hi: High-frequency cutoff wavelength in meters.
-        Wavelengths shorter than this are filtered out (optional).
-    :param cutoff_lo: Low-frequency cutoff wavelength in meters.
-        Wavelengths longer than this are filtered out (optional).
-    :param resolution_limit: Minimum resolvable wavelength in meters (optional).
     """
 
     depth_data: NDArray[np.floating]
     pixel_size: float
-    cutoff_hi: float | None = None
-    cutoff_lo: float | None = None
-    resolution_limit: float | None = None
 
     @property
     def length(self) -> int:
         """
         Get the number of samples in the profile.
 
-        :returns: Number of samples (first dimension of depth_data).
+        :returns: Number of samples in depth_data.
         """
-        return self.depth_data.shape[0]
-
-    @property
-    def num_columns(self) -> int:
-        """
-        Get the number of parallel profile columns.
-
-        :returns: 1 for a single profile, M for multi-column profiles.
-        """
-        return 1 if self.depth_data.ndim == 1 else self.depth_data.shape[1]
-
-    def mean_profile(self, use_mean: bool = True) -> NDArray[np.floating]:
-        """
-        Compute mean or median across columns.
-
-        For multi-column profiles, this reduces to a single 1D profile by
-        averaging across the columns. NaN values are ignored in the computation.
-
-        :param use_mean: If True, use nanmean; if False, use nanmedian.
-        :returns: 1D array of the averaged profile.
-        """
-        if self.depth_data.ndim == 1:
-            return self.depth_data
-        func = np.nanmean if use_mean else np.nanmedian
-        return func(self.depth_data, axis=1)
+        return len(self.depth_data)
 
 
 @dataclass(frozen=True)
@@ -92,14 +56,11 @@ class AlignmentParameters:
 
     :param max_scaling: Maximum allowed scaling deviation as a fraction.
         E.g., 0.05 means scaling can vary from 0.95 to 1.05.
-    :param use_mean: If True, average multi-column profiles with mean;
-        if False, use median.
     :param min_overlap_distance: Minimum required overlap between profiles
         in meters. Alignments with less overlap are rejected.
     """
 
     max_scaling: float = 0.05
-    use_mean: bool = True
     min_overlap_distance: float = 200e-6  # 200 μm
 
 

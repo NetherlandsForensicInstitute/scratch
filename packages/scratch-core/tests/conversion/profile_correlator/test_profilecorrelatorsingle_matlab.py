@@ -124,12 +124,11 @@ class ProfileCorrelatorParams:
         """Convert to AlignmentParameters for the Python implementation.
 
         Note: Many MATLAB parameters (scale_passes, max_translation, cutoff_hi,
-        cutoff_lo, partial_mark_threshold, inclusion_threshold, remove_boundary_zeros)
-        are not used by the simplified Python brute-force algorithm.
+        cutoff_lo, partial_mark_threshold, inclusion_threshold, remove_boundary_zeros,
+        use_mean) are not used by the simplified Python brute-force algorithm.
         """
         return AlignmentParameters(
             max_scaling=self.max_scaling,
-            use_mean=self.use_mean,
         )
 
 
@@ -276,8 +275,6 @@ class MatlabTestCase:
         return Profile(
             depth_data=self.profile_ref_data.astype(np.float64),
             pixel_size=self.ref_pixel_size,
-            cutoff_hi=self.params.cutoff_hi,
-            cutoff_lo=self.params.cutoff_lo,
         )
 
     def get_profile_comp(self) -> Profile:
@@ -285,8 +282,6 @@ class MatlabTestCase:
         return Profile(
             depth_data=self.profile_comp_data.astype(np.float64),
             pixel_size=self.comp_pixel_size,
-            cutoff_hi=self.params.cutoff_hi,
-            cutoff_lo=self.params.cutoff_lo,
         )
 
 
