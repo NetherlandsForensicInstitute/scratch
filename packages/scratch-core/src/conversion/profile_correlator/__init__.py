@@ -2,15 +2,15 @@
 Profile correlator module for striated mark comparison.
 
 This module provides functions for comparing 1D profiles of striated marks
-(scratch marks, toolmarks, etc.) using multi-scale registration and
+(scratch marks, toolmarks, etc.) using global brute-force search and
 correlation analysis.
 
 The main entry point is :func:`correlate_profiles`, which handles the complete
 comparison workflow including:
 
 - Sampling distance equalization
-- Length matching (full or partial profile comparison)
-- Multi-scale coarse-to-fine alignment
+- Global brute-force search over all shift positions and scale factors
+- Selection of alignment with maximum cross-correlation
 - Computation of comparison metrics
 
 The module structure follows the patterns established in the preprocess_impression
@@ -19,17 +19,14 @@ module, using dataclasses for parameters and results.
 Submodules
 ----------
 - data_types: Core data structures (Profile, AlignmentParameters, etc.)
-- correlator: Main entry point function (multi-scale coarse-to-fine search)
+- correlator: Main entry point function (global brute-force search)
 - transforms: Translation, scaling, and resampling operations
 - similarity: Cross-correlation and comparison metrics
-
-Note: 1D filtering uses the infrastructure from conversion.filter internally.
 """
 
 # Core data types
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
-    AlignmentResult,
     ComparisonResults,
     Profile,
     TransformParameters,
@@ -61,7 +58,6 @@ __all__ = [
     # Data types
     "Profile",
     "AlignmentParameters",
-    "AlignmentResult",
     "ComparisonResults",
     "TransformParameters",
     # Transforms

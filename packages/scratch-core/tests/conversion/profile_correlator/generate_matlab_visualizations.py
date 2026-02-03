@@ -60,9 +60,7 @@ def generate_visualization(case_name: str, case_dir: Path, output_dir: Path) -> 
     profile_ref, profile_comp, metadata = load_matlab_test_case(case_dir)
 
     # Run correlation
-    params = AlignmentParameters(
-        scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-    )
+    params = AlignmentParameters()
 
     result = correlate_profiles(profile_ref, profile_comp, params)
 

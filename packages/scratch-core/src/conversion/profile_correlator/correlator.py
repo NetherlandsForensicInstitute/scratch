@@ -1,4 +1,5 @@
-"""Main entry point for profile correlation.
+"""
+Main entry point for profile correlation.
 
 This module provides the primary interface for comparing striated mark profiles.
 It uses a brute-force approach: try all possible shifts and scales between
@@ -19,30 +20,6 @@ The algorithm uses a global brute-force search strategy:
 
 This approach is guaranteed to find the global maximum correlation, which may
 be at a position far from zero shift for repetitive patterns.
-
-Comparison with MATLAB
-----------------------
-This implementation deliberately simplifies the MATLAB ``ProfileCorrelateSingle.m``
-algorithm for maintainability (~300 lines vs 3000+ lines).
-
-**Intentional Simplifications** (divergence from MATLAB):
-
-1. **Global search**: MATLAB uses multi-scale coarse-to-fine search with bounded
-   ranges at each level. This implementation searches all positions globally,
-   which can find different (sometimes better) alignments for repetitive patterns.
-
-2. **No Nelder-Mead optimization**: MATLAB uses fminsearch for sub-sample
-   precision. This implementation uses discrete sample shifts only.
-
-3. **No low-pass filtering**: MATLAB filters profiles at each scale level.
-   This implementation operates on the original profiles.
-
-4. **Discrete scale factors**: Instead of continuous optimization, we try
-   a fixed set of scale factors (e.g., 0.95, 0.97, ..., 1.05).
-
-These simplifications reduce complexity while providing correct results. For
-repetitive profiles, the global search may find alignments at different positions
-than MATLAB, but with equal or higher correlation.
 """
 
 import numpy as np
@@ -76,7 +53,6 @@ def _apply_scaling(
 
     n = len(data)
 
-    # Original sample indices (1-based to match MATLAB)
     x_orig = np.arange(1, n + 1, dtype=np.float64)
 
     # Create interpolator: data is at original positions

@@ -38,9 +38,7 @@ class TestIdenticalProfiles:
         profile_ref = Profile(depth_data=base_data.copy(), pixel_size=PIXEL_SIZE_M)
         profile_comp = Profile(depth_data=base_data.copy(), pixel_size=PIXEL_SIZE_M)
 
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-        )
+        params = AlignmentParameters()
 
         result = run_correlation_with_visualization(
             profile_ref,
@@ -96,9 +94,7 @@ class TestShiftedProfiles:
             pixel_size_m=PIXEL_SIZE_M,
         )
 
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-        )
+        params = AlignmentParameters()
 
         result = run_correlation_with_visualization(
             profile_ref,
@@ -144,9 +140,7 @@ class TestPartialLengthProfiles:
             pixel_size_m=PIXEL_SIZE_M,
         )
 
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-        )
+        params = AlignmentParameters()
 
         result = run_correlation_with_visualization(
             profile_ref,
@@ -198,10 +192,7 @@ class TestScaledProfiles:
         # Allow scaling detection up to the applied scale
         max_scaling = scale_pct / 100.0 + 0.02  # Add small margin
 
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-            max_scaling=max_scaling,
-        )
+        params = AlignmentParameters(max_scaling=max_scaling)
 
         result = run_correlation_with_visualization(
             profile_ref,
@@ -241,9 +232,7 @@ class TestScaledProfiles:
             pixel_size_m=PIXEL_SIZE_M,
         )
 
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-        )
+        params = AlignmentParameters()
 
         result = run_correlation_with_visualization(
             profile_ref,
@@ -290,9 +279,7 @@ class TestFlippedProfiles:
         profile_ref = profile_short
         profile_comp = profile_long
 
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-        )
+        params = AlignmentParameters()
 
         result = run_correlation_with_visualization(
             profile_ref,
@@ -342,10 +329,7 @@ class TestFlippedProfiles:
 
         max_scaling = scale_pct / 100.0 + 0.02
 
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-            max_scaling=max_scaling,
-        )
+        params = AlignmentParameters(max_scaling=max_scaling)
 
         result = run_correlation_with_visualization(
             profile_ref,
@@ -405,9 +389,7 @@ class TestFlippedProfiles:
         profile_ref = profile_b
         profile_comp = profile_a
 
-        params = AlignmentParameters(
-            scale_passes=(1e-3, 5e-4, 2.5e-4, 1e-4, 5e-5, 2.5e-5, 1e-5, 5e-6),
-        )
+        params = AlignmentParameters()
 
         result = run_correlation_with_visualization(
             profile_ref,

@@ -121,17 +121,15 @@ class ProfileCorrelatorParams:
         )
 
     def to_alignment_params(self) -> AlignmentParameters:
-        """Convert to AlignmentParameters for the Python implementation."""
+        """Convert to AlignmentParameters for the Python implementation.
+
+        Note: Many MATLAB parameters (scale_passes, max_translation, cutoff_hi,
+        cutoff_lo, partial_mark_threshold, inclusion_threshold, remove_boundary_zeros)
+        are not used by the simplified Python brute-force algorithm.
+        """
         return AlignmentParameters(
-            scale_passes=tuple(self.pass_freqs),
-            max_translation=self.max_translation,
             max_scaling=self.max_scaling,
-            cutoff_hi=self.cutoff_hi,
-            cutoff_lo=self.cutoff_lo,
-            partial_mark_threshold=self.part_mark_perc,
-            inclusion_threshold=self.inclusion_threshold,
             use_mean=self.use_mean,
-            remove_boundary_zeros=self.remove_zeros,
         )
 
 

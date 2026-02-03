@@ -23,7 +23,7 @@ class TestCorrelateProfiles:
         profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -34,7 +34,7 @@ class TestCorrelateProfiles:
         profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -49,7 +49,7 @@ class TestCorrelateProfiles:
             pixel_size=profile.pixel_size,
         )
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile, profile_copy, params)
 
@@ -73,7 +73,7 @@ class TestCorrelateProfiles:
         profile_ref = Profile(depth_data=ref_data, pixel_size=pixel_size)
         profile_comp = Profile(depth_data=comp_data, pixel_size=pixel_size)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -84,7 +84,7 @@ class TestCorrelateProfiles:
         profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -95,7 +95,7 @@ class TestCorrelateProfiles:
         profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 0.0, 1.01, seed=43)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -106,7 +106,7 @@ class TestCorrelateProfiles:
         profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -122,7 +122,7 @@ class TestCorrelateProfiles:
         profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -135,7 +135,7 @@ class TestCorrelateProfiles:
         profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -148,7 +148,7 @@ class TestCorrelateProfiles:
         profile_ref = Profile(np.random.randn(500), pixel_size=pixel_size)
         profile_comp = Profile(np.random.randn(500), pixel_size=pixel_size)
 
-        params = AlignmentParameters(scale_passes=(100e-6, 50e-6, 25e-6, 10e-6))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -160,7 +160,7 @@ class TestCorrelateProfiles:
         profile_ref = Profile(np.random.randn(500), pixel_size=1.0e-6)
         profile_comp = Profile(np.random.randn(1000), pixel_size=0.5e-6)
 
-        params = AlignmentParameters(scale_passes=(100e-6, 50e-6, 25e-6, 10e-6))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -177,9 +177,7 @@ class TestCorrelateProfiles:
             depth_data=partial_data, pixel_size=profile_ref.pixel_size
         )
 
-        params = AlignmentParameters(
-            scale_passes=(100, 50, 25, 10),
-        )
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_partial, params)
 
@@ -191,7 +189,7 @@ class TestCorrelateProfiles:
         profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
         profile_comp = make_synthetic_striation_profile(n_samples=500, seed=43)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -227,7 +225,7 @@ class TestCorrelateProfilesEdgeCases:
         profile_ref = Profile(np.ones(500), pixel_size=0.5e-6)
         profile_comp = Profile(np.ones(500) * 2, pixel_size=0.5e-6)
 
-        params = AlignmentParameters(scale_passes=(100, 50, 25, 10))
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 
@@ -240,12 +238,7 @@ class TestCorrelateProfilesEdgeCases:
         profile_ref = Profile(np.random.randn(50), pixel_size=0.5e-6)
         profile_comp = Profile(np.random.randn(50), pixel_size=0.5e-6)
 
-        # Use parameters that won't skip all scales for short profiles
-        params = AlignmentParameters(
-            scale_passes=(10, 5),  # Small scales for short profiles
-            cutoff_hi=100.0,
-            cutoff_lo=2.0,
-        )
+        params = AlignmentParameters()
 
         result = correlate_profiles(profile_ref, profile_comp, params)
 

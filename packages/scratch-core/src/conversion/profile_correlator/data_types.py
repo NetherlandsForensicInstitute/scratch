@@ -1,13 +1,13 @@
-"""Data types for profile correlation.
+"""
+Data types for profile correlation.
 
 This module defines the core data structures used for profile correlation analysis
 of striated marks. It follows the patterns established in preprocess_impression.
 
 The main types are:
 - Profile: Container for 1D or multi-column profile data with metadata
-- AlignmentParameters: Configuration for the alignment algorithm
+- AlignmentParameters: Configuration for the brute-force alignment algorithm
 - TransformParameters: Single translation + scaling transform
-- AlignmentResult: Complete result from multi-scale alignment
 - ComparisonResults: Full comparison metrics for striated mark analysis
 
 All length and height measurements are in meters (SI units).
@@ -85,56 +85,23 @@ class AlignmentParameters:
     """
     Configuration parameters for profile alignment.
 
-    This dataclass contains all parameters needed for the multi-scale
-    profile alignment algorithm. Default values match the MATLAB implementation.
+    This dataclass contains parameters for the global brute-force alignment
+    algorithm. The algorithm tries all possible shift positions and scale
+    factors, selecting the combination with maximum cross-correlation.
 
     All length parameters are in meters (SI units).
 
-    :param scale_passes: Cutoff wavelengths (m) for multi-scale passes,
-        ordered from coarse to fine. At each scale, profiles are low-pass
-        filtered and aligned before proceeding to the next finer scale.
-    :param max_translation: Maximum allowed translation in meters.
-        The optimization will not exceed this shift distance.
     :param max_scaling: Maximum allowed scaling deviation as a fraction.
         E.g., 0.05 means scaling can vary from 0.95 to 1.05.
-    :param cutoff_hi: High-frequency cutoff for filtering in meters.
-        Scales finer than this will not be used.
-    :param cutoff_lo: Low-frequency cutoff for filtering in meters.
-        Scales coarser than this will not be used.
-    :param partial_mark_threshold: Length difference threshold (percent)
-        to trigger partial profile matching. If profiles differ by more
-        than this percentage, brute-force candidate search is used.
-    :param inclusion_threshold: Minimum correlation coefficient for
-        accepting a candidate position in partial profile matching.
     :param use_mean: If True, average multi-column profiles with mean;
         if False, use median.
-    :param remove_boundary_zeros: If True, remove zero-padded boundaries
-        after alignment transformation.
-    :param cut_borders_after_smoothing: If True, trim filter-affected
-        borders after applying smoothing filters.
+    :param min_overlap_distance: Minimum required overlap between profiles
+        in meters. Alignments with less overlap are rejected.
     """
 
-    # Scale passes in meters (equivalent to 1000, 500, 250, 100, 50, 25, 10, 5 μm)
-    scale_passes: tuple[float, ...] = (
-        1e-3,
-        5e-4,
-        2.5e-4,
-        1e-4,
-        5e-5,
-        2.5e-5,
-        1e-5,
-        5e-6,
-    )
-    max_translation: float = 10.0  # 10 meters (was 1e7 μm = 10 m)
     max_scaling: float = 0.05
-    cutoff_hi: float = 1e-3  # 1 mm = 1000 μm
-    cutoff_lo: float = 5e-6  # 5 μm
-    partial_mark_threshold: float = 8.0
-    inclusion_threshold: float = 0.5
     use_mean: bool = True
-    remove_boundary_zeros: bool = True
-    cut_borders_after_smoothing: bool = False
-    min_overlap_distance = 200e-6
+    min_overlap_distance: float = 200e-6  # 200 μm
 
 
 @dataclass(frozen=True)
@@ -142,55 +109,18 @@ class TransformParameters:
     """
     Single translation and scaling transformation parameters.
 
-    This immutable dataclass represents one step in the multi-scale
-    alignment process. Each scale level produces one set of transform
-    parameters.
+    This immutable dataclass represents a geometric transform that can be
+    applied to a profile. Used by helper functions in transforms.py and
+    similarity.py.
 
     The transformation is applied as: x' = scaling * x + translation
 
-    :param translation: Shift distance in samples (can be fractional
-        after optimization).
+    :param translation: Shift distance in samples (can be fractional).
     :param scaling: Scale factor where 1.0 means no scaling.
     """
 
     translation: float
     scaling: float
-
-
-@dataclass(frozen=True)
-class AlignmentResult:
-    """
-    Complete result from profile alignment.
-
-    This immutable dataclass contains all outputs from the multi-scale
-    alignment process, including the sequence of transforms applied,
-    correlation history, and the final aligned profiles.
-
-    :param transforms: Tuple of TransformParameters, one per scale level
-        that was processed. Ordered from coarse to fine.
-    :param correlation_history: Array of shape (num_scales, 2) where
-        column 0 is the correlation at each scale level and column 1
-        is the correlation of the original (unfiltered) profiles after
-        applying the cumulative transform up to that scale.
-    :param final_correlation: Final cross-correlation coefficient
-        between the aligned profiles.
-    :param reference_aligned: Reference profile after removing boundary
-        zeros (if enabled).
-    :param compared_aligned: Compared profile after alignment
-        transformation and boundary zero removal.
-    :param total_translation: Cumulative translation in samples,
-        computed from all transform steps.
-    :param total_scaling: Cumulative scaling factor, computed as the
-        product of all scaling values.
-    """
-
-    transforms: tuple[TransformParameters, ...]
-    correlation_history: NDArray[np.floating]
-    final_correlation: float
-    reference_aligned: NDArray[np.floating]
-    compared_aligned: NDArray[np.floating]
-    total_translation: float
-    total_scaling: float
 
 
 @dataclass(frozen=True)
