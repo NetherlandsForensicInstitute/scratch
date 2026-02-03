@@ -1,7 +1,7 @@
 import re
 from container_models.scan_image import ScanImage
 from exceptions import ImageShapeMismatchError
-from mutations.spatial import Crop
+from mutations.spatial import CropToMask
 import pytest
 import numpy as np
 
@@ -16,7 +16,7 @@ class TestCropImage:
         # Arrange
         mask = np.ones(scan_image.data.shape, dtype=bool)
         mask[0, :] = mask[-1, :] = mask[:, 0] = mask[:, -1] = 0
-        crop = Crop(crop=mask)
+        crop = CropToMask(mask=mask)
 
         # Act
         result = crop(scan_image).unwrap()
@@ -34,7 +34,7 @@ class TestCropImage:
 
     def test_crop_skipped_when_predicate_true(self, scan_image: ScanImage):
         # Arrange
-        crop = Crop(crop=(np.zeros(scan_image.data.shape, dtype=np.bool)))
+        crop = CropToMask(mask=(np.zeros(scan_image.data.shape, dtype=np.bool)))
         # Act
         result = crop(scan_image).unwrap()
         # Assert
@@ -45,8 +45,8 @@ class TestCropImage:
         # Arrange
         width, height = scan_image.data.shape
         offset_size = 1
-        cropping_mutator = Crop(
-            crop=(np.zeros((width - offset_size, height + offset_size), dtype=np.bool))
+        cropping_mutator = CropToMask(
+            mask=(np.zeros((width - offset_size, height + offset_size), dtype=np.bool))
         )
         expected_error_message = f"image shape: {scan_image.data.shape} and crop shape: {cropping_mutator.crop.shape} are not equal"
         # Act/ Assert

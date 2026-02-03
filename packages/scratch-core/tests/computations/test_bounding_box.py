@@ -1,4 +1,4 @@
-from computations.spatial import mask_bounding_box
+from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask
 import pytest
 import numpy as np
@@ -200,6 +200,6 @@ class TestMaskBoundingBox:
         self, mask: BinaryMask, expected: tuple[slice, slice]
     ) -> None:
         # Act
-        slices = mask_bounding_box(mask=mask)
+        slices = get_bounding_box(mask=mask)
         # assert
         assert slices == expected
