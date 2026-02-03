@@ -69,7 +69,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size_x, upload_scan.step_size_y)
     files = ProcessedDataAccess.get_files(vault.resource_path)
     x3p_pipeline(parsed_scan, files["scan"])
-    surface_map_pipeline(parsed_scan, files["surface_map"], upload_scan.light_sources, upload_scan.observer)
+    surface_map_pipeline(parsed_scan, files["surface_map"], upload_scan.light_vectors, upload_scan.observer.unit_vector)
     preview_pipeline(parsed_scan, files["preview"])
 
     logger.info(f"Generated files saved to {vault}")
