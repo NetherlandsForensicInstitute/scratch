@@ -4,14 +4,13 @@ from exceptions import ImageShapeMismatchError
 from mutations.spatial import CropToMask
 import pytest
 import numpy as np
-from returns.result import Failure
 
 
 class TestCropImage:
     @pytest.fixture
     def scan_image(self) -> ScanImage:
         data = np.arange(16, dtype=np.float32).reshape((4, 4))
-        return ScanImage(data=data.copy(), scale_x=1, scale_y=1)
+        return ScanImage(data=data, scale_x=1, scale_y=1)
 
     def test_crop_applies_bounding_box(self, scan_image: ScanImage):
         # Arrange
@@ -47,13 +46,12 @@ class TestCropImage:
         np.testing.assert_array_equal(result.data, scan_image.data)
 
     def test_crop_cropped_all(self, scan_image: ScanImage):
-        # Arrange
-        crop = CropToMask(mask=(np.zeros(scan_image.data.shape, dtype=np.bool)))
-        # Act
-        result = crop(scan_image)
-
-        # Assert
-        assert isinstance(result, Failure)
+        # Act / Assert
+        with pytest.raises(
+            ValueError,
+            match=re.escape("Can't crop to a mask where there are only 0/False"),
+        ):
+            _ = CropToMask(mask=(np.zeros(scan_image.data.shape, dtype=np.bool)))
 
     def test_image_and_crop_not_equal_in_size(self, scan_image: ScanImage):
         # Arrange

@@ -37,6 +37,8 @@ from typing import cast
 
 class CropToMask(ImageMutation):
     def __init__(self, mask: BinaryMask) -> None:
+        if not np.any(mask):
+            raise ValueError("Can't crop to a mask where there are only 0/False")
         self.mask = mask
 
     @property
