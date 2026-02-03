@@ -57,10 +57,14 @@ class TestCropImage:
 
     def test_image_and_crop_not_equal_in_size(self, scan_image: ScanImage):
         # Arrange
-        width, height = scan_image.data.shape
         offset_size = 1
         cropping_mutator = CropToMask(
-            mask=(np.zeros((width - offset_size, height + offset_size), dtype=np.bool))
+            mask=(
+                np.zeros(
+                    (scan_image.width - offset_size, scan_image.height + offset_size),
+                    dtype=np.bool,
+                )
+            )
         )
         expected_error_message = f"image shape: {scan_image.data.shape} and crop shape: {cropping_mutator.mask.shape} are not equal"
         # Act/ Assert

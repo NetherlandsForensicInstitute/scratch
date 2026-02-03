@@ -95,7 +95,7 @@ class TestMaskBoundingBox:
                     ],
                     dtype=bool,
                 ),
-                (slice(0, 3), slice(0, 1)),
+                (slice(0, 1), slice(0, 3)),
                 id="top-row-only",
             ),
             pytest.param(
@@ -107,7 +107,7 @@ class TestMaskBoundingBox:
                     ],
                     dtype=bool,
                 ),
-                (slice(0, 1), slice(0, 3)),
+                (slice(0, 3), slice(0, 1)),
                 id="left-column-only",
             ),
             pytest.param(
@@ -167,7 +167,7 @@ class TestMaskBoundingBox:
                     ],
                     dtype=bool,
                 ),
-                (slice(1, 2), slice(0, 3)),
+                (slice(0, 3), slice(1, 2)),
                 id="middle-column-only",
             ),
             pytest.param(
