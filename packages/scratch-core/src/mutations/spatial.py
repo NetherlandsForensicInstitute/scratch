@@ -4,7 +4,6 @@ from loguru import logger
 from mutations.base import ImageMutation
 from pydantic import PositiveFloat
 from skimage.transform import resize
-import numpy as np
 from typing import cast
 
 
@@ -33,8 +32,7 @@ class Resample(ImageMutation):
             image=scan_image.data,
             output_shape=output_shape,
             mode="edge",
-            anti_aliasing=scan_image.data.dtype != np.bool_
-            and all(factor > 1 for factor in (self.x_factor, self.y_factor)),
+            anti_aliasing=self.x_factor > 1 and self.y_factor > 1,
         )
         logger.debug(
             f"Resampling image array to new size: {round(output_shape[0], 1)}/{round(output_shape[1], 1)}"
