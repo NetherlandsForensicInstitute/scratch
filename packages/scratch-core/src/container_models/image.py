@@ -1,29 +1,29 @@
 from typing import NamedTuple
 
+from PIL.Image import Image, fromarray
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 from scipy.constants import femto
 
-from container_models.base import DepthData
+from container_models.base import ImageData, Pair, Scale
 
 
-# TODO: Better Name
-class Point[T](NamedTuple):
-    x: T
-    y: T
+class Shape(NamedTuple):
+    height: int
+    width: int
 
 
 class MetaData(BaseModel):
     processing_history: list[str] = Field(default_factory=list)
-    scale: Point[float]
+    scale: Scale
 
     @property
     def is_isotropic(self) -> bool:
         return bool(np.isclose(self.scale.x, self.scale.y, atol=femto))
 
     @property
-    def central_diff_scales(self) -> Point[float]:
-        return Point(x=self.scale.x * 0.5, y=self.scale.y * 0.5)
+    def central_diff_scales(self) -> Scale:
+        return Pair[float](self.scale.x * 0.5, self.scale.y * 0.5)
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -33,8 +33,8 @@ class MetaData(BaseModel):
 
 
 class ImageContainer(BaseModel):
-    data: DepthData
-    meta_data: MetaData
+    data: ImageData
+    metadata: MetaData
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -44,11 +44,9 @@ class ImageContainer(BaseModel):
     )
 
     @property
-    def width(self) -> int:
-        """The image width in pixels."""
-        return self.data.shape[1]
+    def shape(self) -> Shape:
+        return Shape(*self.data.shape)
 
     @property
-    def height(self) -> int:
-        """The image height in pixels."""
-        return self.data.shape[0]
+    def pil(self) -> Image:
+        return fromarray(self.data)
