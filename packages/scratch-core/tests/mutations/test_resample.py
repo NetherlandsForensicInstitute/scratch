@@ -54,6 +54,9 @@ class TestResampleScanImage:
                 (5, 10),
                 id="downsample_y_only",
             ),
+            pytest.param(
+                Factors[float](3.67, 3.67), (2.7, 2.7), id="floats are also fine"
+            ),
         ],
     )
     def test_resampling_changes_shape(
@@ -68,9 +71,10 @@ class TestResampleScanImage:
         # Act
         result = resampling(simple_scan_image).unwrap()
         # Assert
-        assert result.data.shape == expected_shape
+        assert result.data.shape[0] == round(expected_shape[0], 0)
+        assert result.data.shape[1] == round(expected_shape[1], 0)
         assert (
-            f"Resampling image array to new size: {float(expected_shape[0])}/{float(expected_shape[1])}"
+            f"Resampling image array to new size: {round(float(expected_shape[0]), 1)}/{round(float(expected_shape[1]), 1)}"
             in caplog.messages
         )
 
