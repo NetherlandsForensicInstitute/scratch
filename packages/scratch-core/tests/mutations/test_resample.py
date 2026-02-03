@@ -3,7 +3,6 @@ import numpy as np
 import pytest
 
 from container_models.scan_image import ScanImage
-from scipy.constants import micro
 
 
 @pytest.fixture
@@ -11,8 +10,8 @@ def simple_scan_image() -> ScanImage:
     """Create a simple 10x10 scan image for testing."""
     return ScanImage(
         data=np.arange(100, dtype=np.float64).reshape(10, 10),
-        scale_x=1 * micro,
-        scale_y=1 * micro,
+        scale_x=1,
+        scale_y=1,
     )
 
 
@@ -128,8 +127,8 @@ class TestResampleScanImage:
         data[5, 5] = 100.0
         scan_image = ScanImage(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=1,
+            scale_y=1,
         )
         factor = 2.0
         resampling = Resample(x_factor=factor, y_factor=factor)
