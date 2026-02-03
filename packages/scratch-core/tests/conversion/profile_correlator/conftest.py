@@ -1,4 +1,5 @@
-"""Shared test fixtures for profile_correlator tests.
+"""
+Shared test fixtures for profile_correlator tests.
 
 This module provides fixtures for creating synthetic profiles with known
 properties, useful for testing the profile correlation functions.
@@ -30,21 +31,23 @@ def pixel_size_1um() -> float:
 
 @pytest.fixture
 def simple_sine_profile(pixel_size_05um: float) -> Profile:
-    """Create a simple sinusoidal profile for basic tests.
+    """
+    Create a simple sinusoidal profile for basic tests.
 
     The profile contains 1000 samples of a sine wave with some added noise.
     """
     np.random.seed(42)
     x = np.linspace(0, 10 * np.pi, 1000)
     data = np.sin(x) * 1e-6  # Heights in micrometers scale
-    data += np.random.normal(0, 0.01e-6, len(data))  # Add small noise
+    data += np.random.normal(0, 0.01e-6, len(data))  # Add a small noise
 
     return Profile(depth_data=data, pixel_size=pixel_size_05um)
 
 
 @pytest.fixture
 def shifted_sine_profile(pixel_size_05um: float) -> Profile:
-    """Create a shifted version of the sine profile for alignment tests.
+    """
+    Create a shifted version of the sine profile for alignment tests.
 
     The profile is shifted by approximately 20 samples.
     """
@@ -59,7 +62,8 @@ def shifted_sine_profile(pixel_size_05um: float) -> Profile:
 
 @pytest.fixture
 def scaled_sine_profile(pixel_size_05um: float) -> Profile:
-    """Create a scaled (stretched) version of the sine profile.
+    """
+    Create a scaled (stretched) version of the sine profile.
 
     The profile is scaled by 1.02 (2% stretch).
     """
@@ -90,7 +94,8 @@ def profile_with_nans(pixel_size_05um: float) -> Profile:
 
 @pytest.fixture
 def partial_profile(pixel_size_05um: float) -> Profile:
-    """Create a partial (shorter) profile for partial matching tests.
+    """
+    Create a partial (shorter) profile for partial matching tests.
 
     This profile is a subset of a longer reference, starting at index 300
     and having length 400.
@@ -108,7 +113,8 @@ def partial_profile(pixel_size_05um: float) -> Profile:
 
 @pytest.fixture
 def multi_column_profile(pixel_size_05um: float) -> Profile:
-    """Create a multi-column profile (multiple parallel scans).
+    """
+    Create a multi-column profile (multiple parallel scans).
 
     Contains 3 columns of similar but not identical data.
     """
@@ -159,7 +165,8 @@ def make_synthetic_striation_profile(
     pixel_size_m: float = 0.5e-6,
     seed: int | None = None,
 ) -> Profile:
-    """Create a synthetic striation profile for testing.
+    """
+    Create a synthetic striation profile for testing.
 
     This function generates a profile that mimics the appearance of striation
     marks with multiple ridges and valleys.
@@ -198,7 +205,8 @@ def make_shifted_profile(
     scale_factor: float = 1.0,
     seed: int | None = None,
 ) -> Profile:
-    """Create a shifted and optionally scaled version of a profile.
+    """
+    Create a shifted and optionally scaled version of a profile.
 
     :param profile: Original profile.
     :param shift_samples: Number of samples to shift (can be fractional).
@@ -224,7 +232,7 @@ def make_shifted_profile(
     x_new = x_orig * scale_factor + shift_samples
     new_data = interpolator(x_new)
 
-    # Add small amount of noise
+    # Add a small amount of noise
     new_data += np.random.normal(0, np.nanstd(data) * 0.01, n)
 
     return Profile(depth_data=new_data, pixel_size=profile.pixel_size)

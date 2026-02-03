@@ -134,7 +134,8 @@ def correlate_profiles(
     len_comp = len(comp_data)
 
     # Minimum overlap of the two Profiles in pixels
-    min_overlap_samples = int(min_overlap_distance / pixel_size)
+    # Use ceil to ensure we meet the minimum distance (int truncates, which could give less)
+    min_overlap_samples = int(np.ceil(min_overlap_distance / pixel_size))
 
     # Generate scale factors to try.
     # The MATLAB implementation uses fminsearchbnd to jointly optimize shift and scale

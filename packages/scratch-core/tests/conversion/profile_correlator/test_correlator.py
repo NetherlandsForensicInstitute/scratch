@@ -20,7 +20,7 @@ class TestCorrelateProfiles:
 
     def test_returns_comparison_results(self):
         """Should return a ComparisonResults object."""
-        profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
+        profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
         params = AlignmentParameters()
@@ -31,7 +31,7 @@ class TestCorrelateProfiles:
 
     def test_correlation_coefficient_populated(self):
         """Correlation coefficient should be computed and valid."""
-        profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
+        profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
         params = AlignmentParameters()
@@ -43,7 +43,7 @@ class TestCorrelateProfiles:
 
     def test_identical_profiles_high_correlation(self):
         """Identical profiles should have very high correlation."""
-        profile = make_synthetic_striation_profile(n_samples=500, seed=42)
+        profile = make_synthetic_striation_profile(n_samples=1000, seed=42)
         profile_copy = Profile(
             depth_data=profile.depth_data.copy(),
             pixel_size=profile.pixel_size,
@@ -58,7 +58,7 @@ class TestCorrelateProfiles:
     def test_shifted_profiles_aligned(self):
         """Shifted profiles should be aligned with reasonable correlation."""
         np.random.seed(42)
-        n_samples = 500
+        n_samples = 1000
         pixel_size = 0.5e-6
 
         # Create a clean sine wave
@@ -81,7 +81,7 @@ class TestCorrelateProfiles:
 
     def test_position_shift_computed(self):
         """Position shift should be computed in micrometers."""
-        profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
+        profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
         params = AlignmentParameters()
@@ -92,7 +92,7 @@ class TestCorrelateProfiles:
 
     def test_scale_factor_computed(self):
         """Scale factor should be computed."""
-        profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
+        profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 0.0, 1.01, seed=43)
 
         params = AlignmentParameters()
@@ -103,7 +103,7 @@ class TestCorrelateProfiles:
 
     def test_roughness_metrics_computed(self):
         """Roughness metrics (Sa, Sq) should be computed."""
-        profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
+        profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
         params = AlignmentParameters()
@@ -119,7 +119,7 @@ class TestCorrelateProfiles:
 
     def test_signature_differences_computed(self):
         """Signature difference metrics should be computed."""
-        profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
+        profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
         params = AlignmentParameters()
@@ -132,7 +132,7 @@ class TestCorrelateProfiles:
 
     def test_overlap_metrics_computed(self):
         """Overlap length and ratio should be computed."""
-        profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
+        profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
         params = AlignmentParameters()
@@ -170,9 +170,9 @@ class TestCorrelateProfiles:
     def test_different_length_profiles(self):
         """Profiles with different lengths should still correlate."""
         # Create reference and shorter profile
-        # With pixel_size=0.5e-6 m, need at least 400 samples for 200 μm minimum overlap
+        # With pixel_size=0.5e-6 m, need at least 700 samples for 350 μm minimum overlap
         profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
-        partial_data = profile_ref.depth_data[200:700].copy()  # 500 samples = 250 μm
+        partial_data = profile_ref.depth_data[100:900].copy()  # 800 samples = 400 μm
         profile_partial = Profile(
             depth_data=partial_data, pixel_size=profile_ref.pixel_size
         )
@@ -186,8 +186,8 @@ class TestCorrelateProfiles:
 
     def test_same_length_profiles(self):
         """Profiles with same lengths should correlate."""
-        profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
-        profile_comp = make_synthetic_striation_profile(n_samples=500, seed=43)
+        profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
+        profile_comp = make_synthetic_striation_profile(n_samples=1000, seed=43)
 
         params = AlignmentParameters()
 
@@ -198,7 +198,7 @@ class TestCorrelateProfiles:
 
     def test_is_profile_comparison_flag(self):
         """is_profile_comparison flag should be True."""
-        profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
+        profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
         result = correlate_profiles(profile_ref, profile_comp)
@@ -207,7 +207,7 @@ class TestCorrelateProfiles:
 
     def test_default_parameters_used(self):
         """Should work with default parameters when none provided."""
-        profile_ref = make_synthetic_striation_profile(n_samples=500, seed=42)
+        profile_ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         profile_comp = make_shifted_profile(profile_ref, 10.0, seed=43)
 
         # Call without params argument

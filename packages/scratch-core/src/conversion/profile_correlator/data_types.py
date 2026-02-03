@@ -61,7 +61,7 @@ class AlignmentParameters:
     """
 
     max_scaling: float = 0.05
-    min_overlap_distance: float = 200e-6  # 200 μm
+    min_overlap_distance: float = 350e-6  # 350 μm
 
 
 @dataclass(frozen=True)
