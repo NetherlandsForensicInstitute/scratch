@@ -48,7 +48,7 @@ class CropToMask(ImageMutation):
 
         :returns: True if the crop is empty, False otherwise
         """
-        return bool(np.all(self.mask))
+        return bool(self.mask.all())
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
