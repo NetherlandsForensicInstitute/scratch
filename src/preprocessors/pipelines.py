@@ -1,8 +1,8 @@
 from collections.abc import Iterable
 from pathlib import Path
 
+from container_models.base import UnitVector
 from container_models.image import ImageContainer
-from container_models.light_source import LightSource
 from mutations.sampling import IsotropicResample, Subsample
 from mutations.shading import GrayScale, ImageForDisplay, LightIntensityMap
 from parsers import load_scan_image, parse_to_x3p
@@ -54,8 +54,8 @@ def x3p_pipeline(parsed_scan: ImageContainer, output_path: Path) -> Path:
 def surface_map_pipeline(  # noqa
     parsed_scan: ImageContainer,
     output_path: Path,
-    light_sources: Iterable[LightSource],
-    observer: LightSource,
+    light_sources: Iterable[UnitVector],
+    observer: UnitVector,
 ) -> Path:
     """
     Generate a 3D surface map image from scan data and save it to the specified path.
@@ -68,10 +68,7 @@ def surface_map_pipeline(  # noqa
     """
     return run_pipeline(
         parsed_scan,
-        LightIntensityMap(
-            (light.unit_vector for light in light_sources),
-            observer.unit_vector,
-        ),
+        LightIntensityMap(light_sources, observer),
         GrayScale,
         partial(save_image, output_path=output_path),
         error_message=f"Failed to create the surface map: {output_path}",
