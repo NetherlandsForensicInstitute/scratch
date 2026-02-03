@@ -4,6 +4,7 @@ from exceptions import ImageShapeMismatchError
 from mutations.spatial import CropToMask
 import pytest
 import numpy as np
+from returns.result import Failure
 
 
 class TestCropImage:
@@ -16,6 +17,10 @@ class TestCropImage:
         # Arrange
         mask = np.ones(scan_image.data.shape, dtype=bool)
         mask[0, :] = mask[-1, :] = mask[:, 0] = mask[:, -1] = 0
+        # [0,0,0,0]
+        # [0,1,1,0]
+        # [0,1,1,0]
+        # [0,0,0,0]
         crop = CropToMask(mask=mask)
 
         # Act
@@ -34,12 +39,21 @@ class TestCropImage:
 
     def test_crop_skipped_when_predicate_true(self, scan_image: ScanImage):
         # Arrange
-        crop = CropToMask(mask=(np.zeros(scan_image.data.shape, dtype=np.bool)))
+        crop = CropToMask(mask=(np.ones(scan_image.data.shape, dtype=np.bool)))
         # Act
         result = crop(scan_image).unwrap()
         # Assert
         assert result is scan_image
         np.testing.assert_array_equal(result.data, scan_image.data)
+
+    def test_crop_cropped_all(self, scan_image: ScanImage):
+        # Arrange
+        crop = CropToMask(mask=(np.zeros(scan_image.data.shape, dtype=np.bool)))
+        # Act
+        result = crop(scan_image)
+
+        # Assert
+        assert isinstance(result, Failure)
 
     def test_image_and_crop_not_equal_in_size(self, scan_image: ScanImage):
         # Arrange
@@ -48,7 +62,7 @@ class TestCropImage:
         cropping_mutator = CropToMask(
             mask=(np.zeros((width - offset_size, height + offset_size), dtype=np.bool))
         )
-        expected_error_message = f"image shape: {scan_image.data.shape} and crop shape: {cropping_mutator.crop.shape} are not equal"
+        expected_error_message = f"image shape: {scan_image.data.shape} and crop shape: {cropping_mutator.mask.shape} are not equal"
         # Act/ Assert
         with pytest.raises(
             ImageShapeMismatchError, match=re.escape(expected_error_message)
