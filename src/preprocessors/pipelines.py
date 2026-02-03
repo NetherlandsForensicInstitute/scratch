@@ -1,20 +1,13 @@
 from collections.abc import Iterable
-from functools import partial
 from pathlib import Path
 
 from container_models.image import ImageContainer
 from container_models.light_source import LightSource
-from parsers import load_scan_image, parse_to_x3p, save_x3p, subsample_scan_image
-from parsers.loaders import make_isotropic
-from renders import (
-    apply_multiple_lights,
-    compute_surface_normals,
-    get_scan_image_for_display,
-    grayscale_to_image,
-    save_image,
-    scan_to_image,
-)
-from renders.normalizations import normalize_2d_array
+from mutations.sampling import IsotropicResample, Subsample
+from mutations.shading import GrayScale, ImageForDisplay, LightIntensityMap
+from parsers import load_scan_image, parse_to_x3p
+from renders.image_io import save_image, save_x3p
+from returns.curry import partial
 
 from pipelines import run_pipeline
 from preprocessors.schemas import (
@@ -35,8 +28,8 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
     return run_pipeline(
         scan_file,
         load_scan_image,
-        partial(subsample_scan_image, step_size_x=step_size_x, step_size_y=step_size_y),
-        make_isotropic,
+        Subsample(step_size_x=step_size_x, step_size_y=step_size_y),
+        IsotropicResample,
         error_message=f"Failed to parsed given scan file: {scan_file}",
     )
 
@@ -75,14 +68,11 @@ def surface_map_pipeline(  # noqa
     """
     return run_pipeline(
         parsed_scan,
-        compute_surface_normals,
-        partial(
-            apply_multiple_lights,
-            light_sources=light_sources,
-            observer=observer,
+        LightIntensityMap(
+            (light.unit_vector for light in light_sources),
+            observer.unit_vector,
         ),
-        normalize_2d_array,
-        grayscale_to_image,
+        GrayScale,
         partial(save_image, output_path=output_path),
         error_message=f"Failed to create the surface map: {output_path}",
     )
@@ -99,8 +89,8 @@ def preview_pipeline(parsed_scan: ImageContainer, output_path: Path) -> Path:
     """
     return run_pipeline(
         parsed_scan,
-        get_scan_image_for_display,
-        scan_to_image,
+        ImageForDisplay(std_scaler=2.0),
+        GrayScale,
         partial(save_image, output_path=output_path),
         error_message=f"Failed to create the surface map: {output_path}",
     )

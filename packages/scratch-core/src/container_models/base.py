@@ -1,10 +1,20 @@
 from collections.abc import Sequence
 from functools import partial
-from typing import Annotated, TypeAlias
+from typing import Annotated, NamedTuple, TypeAlias
 
 from numpy import array, bool_, floating, number, uint8
 from numpy.typing import DTypeLike, NDArray
 from pydantic import AfterValidator, BeforeValidator, PlainSerializer
+
+
+class Pair[T](NamedTuple):
+    x: T
+    y: T
+
+
+type Coordinate = Pair[float]
+type Factor = Pair[float]
+type Scale = Pair[float]
 
 
 def serialize_ndarray[T: number](array_: NDArray[T]) -> list[T]:
@@ -80,3 +90,4 @@ UnitVector: TypeAlias = FloatArray1D  # Shape: (3,)
 DepthData: TypeAlias = FloatArray2D  # Shape: (H, W)
 BinaryMask: TypeAlias = BoolArray2D  # Shape: (H, W)
 VectorField: TypeAlias = FloatArray3D  # Shape (H, W, 3)
+ImageData: TypeAlias = DepthData | ImageRGBA

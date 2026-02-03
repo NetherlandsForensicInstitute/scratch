@@ -118,7 +118,7 @@ class ImageMutation(ABC):
         return False
 
     @safe
-    def __call__(self, scan_image: ImageContainer) -> ImageContainer:
+    def __call__(self, image: ImageContainer) -> ImageContainer:
         """
         Callable interface used by pipelines (e.g. `pipe(...)` from
         the `returns` library).
@@ -132,11 +132,11 @@ class ImageMutation(ABC):
             The resulting `ImageContainer`.
         """
         if self.skip_predicate:
-            return scan_image
-        return self.apply_on_image(scan_image=scan_image)
+            return image
+        return self.apply_on_image(image)
 
     @abstractmethod
-    def apply_on_image(self, scan_image: ImageContainer) -> ImageContainer:
+    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """
         Applies the mutation to the given `ImageContainer`.
 

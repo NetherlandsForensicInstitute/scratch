@@ -1,13 +1,11 @@
 import datetime as dt
 from functools import partial
-from pathlib import Path
 from typing import NamedTuple
 
 import numpy as np
 from returns.pipeline import flow
 from x3p import X3Pfile
 from returns.result import safe
-from returns.io import impure_safe
 from container_models import ImageContainer
 from utils.logger import log_railway_function
 from x3p._x3pfileclasses import Ax
@@ -43,19 +41,19 @@ def _set_record1_entries(x3p: X3Pfile, image: ImageContainer) -> X3Pfile:
     return x3p
 
 
-def _set_record2_entries(x3p: X3Pfile, meta_data: X3PMetaData) -> X3Pfile:
+def _set_record2_entries(x3p: X3Pfile, metadata: X3PMetaData) -> X3Pfile:
     """Set Record2 entries (metadata)."""
     x3p.record2.set_date(dt.datetime.now(tz=dt.UTC).strftime("%Y-%m-%dT%H:%M:%S"))  # type: ignore
-    x3p.record2.set_calibrationdate(meta_data.calibration_date)  # type: ignore
-    if meta_data.author:
-        x3p.record2.set_creator(meta_data.author)  # type: ignore
-    if meta_data.comment:
-        x3p.record2.set_comment(meta_data.comment)  # type: ignore
-    x3p.record2.instrument.set_model(meta_data.model)  # type: ignore
-    x3p.record2.instrument.set_manufacturer(meta_data.manufacturer)  # type: ignore
-    x3p.record2.instrument.set_version(meta_data.instrument_version)  # type: ignore
-    x3p.record2.probingsystem.set_identification(meta_data.identificaton)  # type: ignore
-    x3p.record2.probingsystem.set_type(meta_data.measurement_type)  # type: ignore
+    x3p.record2.set_calibrationdate(metadata.calibration_date)  # type: ignore
+    if metadata.author:
+        x3p.record2.set_creator(metadata.author)  # type: ignore
+    if metadata.comment:
+        x3p.record2.set_comment(metadata.comment)  # type: ignore
+    x3p.record2.instrument.set_model(metadata.model)  # type: ignore
+    x3p.record2.instrument.set_manufacturer(metadata.manufacturer)  # type: ignore
+    x3p.record2.instrument.set_version(metadata.instrument_version)  # type: ignore
+    x3p.record2.probingsystem.set_identification(metadata.identificaton)  # type: ignore
+    x3p.record2.probingsystem.set_type(metadata.measurement_type)  # type: ignore
     return x3p
 
 
@@ -83,26 +81,7 @@ def parse_to_x3p(image: ImageContainer) -> X3Pfile:
     return flow(
         X3Pfile(),
         partial(_set_record1_entries, image=image),
-        partial(_set_record2_entries, meta_data=X3PMetaData()),
+        partial(_set_record2_entries, metadata=X3PMetaData()),
         partial(_set_binary_data, image=image),
         partial(_set_record3_entries, image=image),
     )
-
-
-@log_railway_function(
-    "Failed to write X3P file",
-    "Successfully written X3P",
-)
-@impure_safe
-def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
-    """
-    Save an X3P file to disk.
-
-    :param x3p: The X3P file to save.
-    :param output_path: The path where the file should be written.
-    :returns: An ``IOResult[Path, Exception]`` — ``IOSuccess(Path)`` on success,
-              or ``IOFailure(Exception)`` if an error occurs.
-    """
-
-    x3p.write(str(output_path))
-    return output_path
