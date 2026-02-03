@@ -6,8 +6,6 @@ from numpy.testing import assert_allclose
 
 from conversion.profile_correlator import (
     compute_cross_correlation,
-    compute_comparison_metrics,
-    TransformParameters,
 )
 
 
@@ -72,66 +70,3 @@ class TestComputeCrossCorrelation:
         p2 = np.sin(x + 0.1)  # Slightly phase-shifted
         result = compute_cross_correlation(p1, p2)
         assert result > 0.95  # Should be very highly correlated
-
-
-class TestComputeComparisonMetrics:
-    """Tests for compute_comparison_metrics function."""
-
-    def test_returns_comparison_results_object(self):
-        """Should return a ComparisonResults dataclass."""
-        transforms = [TransformParameters(translation=0.0, scaling=1.0)]
-        p1 = np.array([1.0, 2.0, 3.0, 4.0, 5.0]) * 1e-6  # Heights in meters
-        p2 = np.array([1.1, 2.1, 2.9, 4.0, 5.1]) * 1e-6
-        result = compute_comparison_metrics(transforms, p1, p2, pixel_size=0.5e-6)
-
-        assert result.is_profile_comparison is True
-        assert not np.isnan(result.correlation_coefficient)
-
-    def test_position_shift_with_translation(self):
-        """Position shift should reflect translation in micrometers."""
-        transforms = [TransformParameters(translation=10.0, scaling=1.0)]
-        p1 = np.zeros(100)
-        p2 = np.zeros(100)
-        pixel_size_um = 0.5
-        result = compute_comparison_metrics(transforms, p1, p2, pixel_size_um)
-
-        # Position shift = translation * pixel_size = 10 * 0.5 = 5 um
-        assert_allclose(result.position_shift, 5.0, atol=1e-10)
-
-    def test_scale_factor_from_transforms(self):
-        """Scale factor should be accumulated from transforms."""
-        transforms = [
-            TransformParameters(translation=0.0, scaling=1.01),
-            TransformParameters(translation=0.0, scaling=1.02),
-        ]
-        p1 = np.zeros(100)
-        p2 = np.zeros(100)
-        result = compute_comparison_metrics(transforms, p1, p2, pixel_size=0.5e-6)
-
-        # Total scaling = 1.01 * 1.02 = 1.0302
-        assert_allclose(result.scale_factor, 1.0302, atol=1e-10)
-
-    def test_roughness_metrics_computed(self):
-        """Sa and Sq roughness metrics should be computed."""
-        transforms = [TransformParameters(translation=0.0, scaling=1.0)]
-        p1 = np.array([1.0, -1.0, 1.0, -1.0, 1.0]) * 1e-6
-        p2 = np.array([1.5, -1.5, 1.5, -1.5, 1.5]) * 1e-6
-        result = compute_comparison_metrics(transforms, p1, p2, pixel_size=0.5e-6)
-
-        # Sa = mean(|profile|), converted to um
-        assert result.sa_ref > 0
-        assert result.sa_comp > 0
-        assert result.sq_ref > 0
-        assert result.sq_comp > 0
-
-    def test_overlap_length_computed(self):
-        """Overlap length should be computed correctly."""
-        transforms = [TransformParameters(translation=0.0, scaling=1.0)]
-        n_samples = 100
-        p1 = np.zeros(n_samples)
-        p2 = np.zeros(n_samples)
-        pixel_size_um = 0.5
-        result = compute_comparison_metrics(transforms, p1, p2, pixel_size_um)
-
-        # Overlap length = n_samples * pixel_size = 100 * 0.5 = 50 um
-        assert_allclose(result.overlap_length, 50.0, atol=1e-10)

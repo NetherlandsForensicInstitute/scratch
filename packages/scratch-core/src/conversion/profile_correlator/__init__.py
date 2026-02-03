@@ -13,15 +13,12 @@ comparison workflow including:
 - Selection of alignment with maximum cross-correlation
 - Computation of comparison metrics
 
-The module structure follows the patterns established in the preprocess_impression
-module, using dataclasses for parameters and results.
-
 Submodules
 ----------
-- data_types: Core data structures (Profile, AlignmentParameters, etc.)
+- data_types: Core data structures (Profile, AlignmentParameters, ComparisonResults)
 - correlator: Main entry point function (global brute-force search)
-- transforms: Translation, scaling, and resampling operations
-- similarity: Cross-correlation and comparison metrics
+- transforms: Resampling operations for pixel scale equalization
+- statistics: Statistical metrics (correlation, roughness, overlap ratio)
 """
 
 # Core data types
@@ -29,24 +26,21 @@ from conversion.profile_correlator.data_types import (
     AlignmentParameters,
     ComparisonResults,
     Profile,
-    TransformParameters,
 )
 
 # Main entry point
 from conversion.profile_correlator.correlator import correlate_profiles
 
 # Transform functions
-from conversion.profile_correlator.transforms import (
-    apply_transform,
-    compute_cumulative_transform,
-    equalize_pixel_scale,
-    make_profiles_equal_length,
-)
+from conversion.profile_correlator.transforms import apply_scaling, equalize_pixel_scale
 
-# Similarity functions
-from conversion.profile_correlator.similarity import (
-    compute_comparison_metrics,
+# Statistics functions
+from conversion.profile_correlator.statistics import (
     compute_cross_correlation,
+    compute_overlap_ratio,
+    compute_roughness_sa,
+    compute_roughness_sq,
+    compute_signature_differences,
 )
 
 # Re-export cutoff_to_gaussian_sigma from conversion.filter for convenience
@@ -59,15 +53,15 @@ __all__ = [
     "Profile",
     "AlignmentParameters",
     "ComparisonResults",
-    "TransformParameters",
     # Transforms
+    "apply_scaling",
     "equalize_pixel_scale",
-    "make_profiles_equal_length",
-    "apply_transform",
-    "compute_cumulative_transform",
-    # Similarity
+    # Statistics
     "compute_cross_correlation",
-    "compute_comparison_metrics",
+    "compute_overlap_ratio",
+    "compute_roughness_sa",
+    "compute_roughness_sq",
+    "compute_signature_differences",
     # Filtering (re-exported from conversion.filter)
     "cutoff_to_gaussian_sigma",
 ]

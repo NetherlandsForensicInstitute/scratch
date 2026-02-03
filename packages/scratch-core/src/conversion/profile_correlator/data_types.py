@@ -7,7 +7,6 @@ of striated marks. It follows the patterns established in preprocess_impression.
 The main types are:
 - Profile: Container for 1D or multi-column profile data with metadata
 - AlignmentParameters: Configuration for the brute-force alignment algorithm
-- TransformParameters: Single translation + scaling transform
 - ComparisonResults: Full comparison metrics for striated mark analysis
 
 All length and height measurements are in meters (SI units).
@@ -105,31 +104,11 @@ class AlignmentParameters:
 
 
 @dataclass(frozen=True)
-class TransformParameters:
-    """
-    Single translation and scaling transformation parameters.
-
-    This immutable dataclass represents a geometric transform that can be
-    applied to a profile. Used by helper functions in transforms.py and
-    similarity.py.
-
-    The transformation is applied as: x' = scaling * x + translation
-
-    :param translation: Shift distance in samples (can be fractional).
-    :param scaling: Scale factor where 1.0 means no scaling.
-    """
-
-    translation: float
-    scaling: float
-
-
-@dataclass(frozen=True)
 class ComparisonResults:
     """
     Full comparison metrics for striated mark analysis.
 
-    This immutable dataclass mirrors the MATLAB ProfileCorrelatorResInit
-    structure. It contains all metrics computed during profile comparison,
+    This immutable dataclass contains all metrics computed during profile comparison,
     including registration parameters, roughness measurements, and
     signature differences.
 

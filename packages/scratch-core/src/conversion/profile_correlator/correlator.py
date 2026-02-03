@@ -24,52 +24,19 @@ be at a position far from zero shift for repetitive patterns.
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.interpolate import interp1d
 
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
     ComparisonResults,
     Profile,
 )
-from conversion.profile_correlator.transforms import equalize_pixel_scale
-
-
-def _apply_scaling(
-    data: NDArray[np.floating],
-    scale_factor: float,
-) -> NDArray[np.floating]:
-    """
-    Apply scaling transformation to a profile.
-
-    Scale factor > 1.0 stretches the profile (samples later in data).
-    Scale factor < 1.0 compresses the profile (samples earlier in data).
-
-    :param data: Input 1D profile data.
-    :param scale_factor: Scaling factor (1.0 = no scaling).
-    :returns: Scaled profile with same length as input.
-    """
-    if scale_factor == 1.0:
-        return data
-
-    n = len(data)
-
-    x_orig = np.arange(1, n + 1, dtype=np.float64)
-
-    # Create interpolator: data is at original positions
-    interpolator = interp1d(
-        x_orig,  # Data positions (original)
-        data,  # Data values
-        kind="linear",
-        bounds_error=False,
-        fill_value=0.0,
-    )
-
-    # Sample at scaled positions
-    # scale > 1.0: sample later (stretch)
-    # scale < 1.0: sample earlier (compress)
-    x_sample = x_orig * scale_factor
-
-    return interpolator(x_sample)
+from conversion.profile_correlator.transforms import apply_scaling, equalize_pixel_scale
+from conversion.profile_correlator.statistics import (
+    compute_overlap_ratio,
+    compute_roughness_sa,
+    compute_roughness_sq,
+    compute_signature_differences,
+)
 
 
 def _compute_correlation(
@@ -193,7 +160,7 @@ def correlate_profiles(
 
     for scale in scale_factors:
         # Apply scaling to comparison profile
-        comp_data_scaled = _apply_scaling(comp_data_original, scale)
+        comp_data_scaled = apply_scaling(comp_data_original, scale)
         len_comp = len(comp_data_scaled)
 
         # Skip if profiles too short for minimum overlap
@@ -284,30 +251,26 @@ def correlate_profiles(
     overlap_length = len(best_ref_overlap) * pixel_size
 
     # Overlap ratio (relative to shorter profile)
-    shorter_profile_length = min(len_ref, len_comp_original) * pixel_size
-    overlap_ratio = overlap_length / shorter_profile_length
+    ref_length = len_ref * pixel_size
+    comp_length = len_comp_original * pixel_size
+    overlap_ratio = compute_overlap_ratio(overlap_length, ref_length, comp_length)
 
     # Compute roughness parameters (in meters)
-    sa_ref = float(np.nanmean(np.abs(best_ref_overlap)))
-    sq_ref = float(np.sqrt(np.nanmean(best_ref_overlap**2)))
+    sa_ref = compute_roughness_sa(best_ref_overlap)
+    sq_ref = compute_roughness_sq(best_ref_overlap)
 
-    sa_comp = float(np.nanmean(np.abs(best_comp_overlap)))
-    sq_comp = float(np.sqrt(np.nanmean(best_comp_overlap**2)))
+    sa_comp = compute_roughness_sa(best_comp_overlap)
+    sq_comp = compute_roughness_sq(best_comp_overlap)
 
-    # Compute difference profile
+    # Compute difference profile roughness
     p_diff = best_comp_overlap - best_ref_overlap
-    sa_diff = float(np.nanmean(np.abs(p_diff)))
-    sq_diff = float(np.sqrt(np.nanmean(p_diff**2)))
+    sa_diff = compute_roughness_sa(p_diff)
+    sq_diff = compute_roughness_sq(p_diff)
 
     # Compute signature differences (dimensionless ratios)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        ds_ref_norm = (sq_diff / sq_ref) ** 2 if sq_ref != 0 else np.nan
-        ds_comp_norm = (sq_diff / sq_comp) ** 2 if sq_comp != 0 else np.nan
-        ds_combined = (
-            sq_diff**2 / (sq_ref * sq_comp)
-            if (sq_ref != 0 and sq_comp != 0)
-            else np.nan
-        )
+    ds_ref_norm, ds_comp_norm, ds_combined = compute_signature_differences(
+        sq_diff, sq_ref, sq_comp
+    )
 
     # Create final results
     return ComparisonResults(
