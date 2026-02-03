@@ -1,10 +1,11 @@
 from functools import cached_property
 import numpy as np
-from pydantic import Field
-from .base import UnitVector, ConfigBaseModel
+from pydantic import BaseModel, ConfigDict, Field
+from .base import UnitVector
 
 
-class LightSource(ConfigBaseModel):
+# TODO: Move this out of scratch-core
+class LightSource(BaseModel):
     """
     Representation of a light source using an angular direction (azimuth and elevation)
     together with a derived 3D unit direction vector.
@@ -25,6 +26,11 @@ class LightSource(ConfigBaseModel):
         examples=[90, 45, 180],
         ge=-90,
         le=90,
+    )
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        regex_engine="rust-regex",
     )
 
     @cached_property
