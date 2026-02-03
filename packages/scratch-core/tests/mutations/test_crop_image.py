@@ -21,7 +21,6 @@ class TestCropImage:
         # [0,1,1,0]
         # [0,0,0,0]
         crop = CropToMask(mask=mask)
-
         # Act
         result = crop(scan_image).unwrap()
 
@@ -58,7 +57,7 @@ class TestCropImage:
         offset_size = 1
         cropping_mutator = CropToMask(
             mask=(
-                np.zeros(
+                np.ones(
                     (scan_image.width - offset_size, scan_image.height + offset_size),
                     dtype=np.bool,
                 )
