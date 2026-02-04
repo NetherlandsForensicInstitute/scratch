@@ -1,7 +1,7 @@
 from typing import Optional, TypeVar
 
 import numpy as np
-from scipy.interpolate import interp1d
+from scipy.signal import resample as signal_resample
 from skimage.transform import resize
 
 from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
@@ -84,7 +84,10 @@ def resample_array_1d(
     factor: float,
 ) -> FloatArray1D:
     """
-    Resample a 1D array using cubic spline interpolation.
+    Resample a 1D array with anti-aliasing.
+
+    Uses scipy.signal.resample which applies an anti-aliasing filter before
+    resampling, matching MATLAB's resample behavior.
 
     :param data: 1D input array.
     :param factor: Scale factor for pixel size. factor > 1 means downsampling
@@ -97,18 +100,8 @@ def resample_array_1d(
     if n_out == n_in:
         return data.copy()
 
-    x_orig = np.arange(n_in, dtype=np.float64)
-    new_positions = np.arange(n_out, dtype=np.float64) * factor
-
-    interpolator = interp1d(
-        x_orig,
-        data,
-        kind="cubic",
-        bounds_error=False,
-        fill_value=0.0,
-    )
-
-    return interpolator(new_positions)
+    result: FloatArray1D = signal_resample(data, n_out)  # type: ignore[assignment]
+    return result
 
 
 def resample_array_2d(

@@ -12,7 +12,7 @@ Algorithm Overview
 ------------------
 The algorithm uses a global brute-force search strategy:
 
-1. **Equalizes pixel scales** between profiles (resample to common resolution)
+1. **Equalizes pixel scales** between profiles (downsample to common resolution)
 2. **Tries multiple scale factors** (e.g., 0.95, 0.97, ..., 1.03, 1.05)
 3. **For each scale, tries all shifts** with at least min_overlap_distance overlap
 4. **Computes correlation** at each shift position
@@ -74,20 +74,15 @@ def correlate_profiles(
     The workflow is:
 
     1. **Equalize sampling distances**: If the two profiles have different pixel
-       sizes, the higher-resolution one is resampled to match the lower resolution.
+       sizes, the higher-resolution one is downsampled to match the lower resolution.
 
-    2. **Try multiple scale factors**: Test scale factors in the range defined by
-       params.max_scaling (e.g., ±5% means 0.95, 0.97, 0.99, 1.0, 1.01, 1.03, 1.05).
+    2. **Brute-force search**: Try all shift/scale combinations and compute
+       cross-correlation at each position. For each scale factor in the range
+       defined by params.max_scaling, determine valid shifts that maintain at
+       least min_overlap_distance of overlap, and select the shift/scale with
+       maximum correlation.
 
-    3. **For each scale, determine shift range**: Calculate the range of valid shifts
-       that maintain at least min_overlap_distance of overlap.
-
-    4. **Brute-force search**: Try all shift/scale combinations and compute
-       cross-correlation at each position.
-
-    5. **Select optimal alignment**: Choose the shift/scale with maximum correlation.
-
-    6. **Compute metrics**: Calculate comprehensive comparison metrics including
+    3. **Compute metrics**: Calculate comprehensive comparison metrics including
        correlation coefficient, roughness parameters, and signature differences.
 
     All measurements are in meters (SI units).
@@ -99,8 +94,6 @@ def correlate_profiles(
         - min_overlap_distance: Minimum overlap distance in meters (default 200 μm)
     :returns: ComparisonResults containing all computed metrics.
     """
-    min_overlap_distance = params.min_overlap_distance
-
     # Step 1: Equalize pixel scales
     profile_ref_eq, profile_comp_eq = equalize_pixel_scale(profile_ref, profile_comp)
     pixel_size = profile_ref_eq.pixel_size
@@ -114,7 +107,7 @@ def correlate_profiles(
 
     # Minimum overlap of the two Profiles in pixels
     # Use ceil to ensure we meet the minimum distance (int truncates, which could give less)
-    min_overlap_samples = int(np.ceil(min_overlap_distance / pixel_size))
+    min_overlap_samples = int(np.ceil(params.min_overlap_distance / pixel_size))
 
     # Generate scale factors to try.
     # The MATLAB implementation uses fminsearchbnd to jointly optimize shift and scale

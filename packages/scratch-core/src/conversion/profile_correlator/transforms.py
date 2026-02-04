@@ -24,7 +24,7 @@ def apply_scaling(
 
     Samples at positions [0, scale, 2*scale, ...] using cubic interpolation.
     Output has the same length as input. Positions outside the input range
-    are filled with zeros.
+    are filled with NaN.
 
     Used during profile alignment to test how well profiles match at different
     scale factors (e.g., due to measurement differences between firearms).
@@ -33,7 +33,7 @@ def apply_scaling(
     :param scale_factor: Sampling interval. >1 compresses the pattern (more of
         source consumed), <1 stretches the pattern (less of source consumed).
     :returns: Scaled profile array (same length as input). Values at positions
-        beyond the original data range are filled with zeros.
+        beyond the original data range are filled with NaN.
     """
     if np.isclose(scale_factor, 1.0, atol=1e-12):
         return data.copy()
@@ -47,7 +47,7 @@ def apply_scaling(
         data,
         kind="cubic",
         bounds_error=False,
-        fill_value=0.0,
+        fill_value=np.nan,
     )
 
     return interpolator(new_positions)
@@ -86,7 +86,7 @@ def equalize_pixel_scale(
         to_downsample, other = profile_1, profile_2
 
     target_pixel_size = other.pixel_size
-    factor = to_downsample.pixel_size / target_pixel_size
+    factor = target_pixel_size / to_downsample.pixel_size
     downsampled = Profile(
         heights=resample_array_1d(to_downsample.heights, factor),
         pixel_size=target_pixel_size,
