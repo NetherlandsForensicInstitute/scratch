@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from functools import partial
-from typing import Annotated, NamedTuple, TypeAlias
+from typing import Annotated, TypeAlias
 
 from numpy import array, bool_, floating, float64, number, uint8
 from numpy.typing import DTypeLike, NDArray
@@ -117,8 +117,3 @@ class ConfigBaseModel(BaseModel):
             attr = getattr(type(instance), name, None)
             if isinstance(attr, cached_property):
                 instance.__dict__.pop(name, None)
-
-
-class Point[T](NamedTuple):
-    x: T
-    y: T
