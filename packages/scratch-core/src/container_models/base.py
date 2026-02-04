@@ -98,4 +98,10 @@ class ConfigBaseModel(BaseModel):
         extra="forbid",
         arbitrary_types_allowed=True,
         regex_engine="rust-regex",
+        revalidate_instances="always",
     )
+
+    def model_copy(self, *, update=None, deep=False):
+        copy = super().model_copy(update=update, deep=deep)
+        # Validate model after updating
+        return self.model_validate(copy)
