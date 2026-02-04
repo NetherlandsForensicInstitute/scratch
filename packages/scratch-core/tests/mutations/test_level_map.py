@@ -34,31 +34,31 @@ class TestLevelMapIntegration:
         # Arrange
         verified = np.load(self.RESOURCES_DIR / verified_file_name)
         ycor, xcor = self.compute_image_center(scan_image=scan_image_with_nans)
-        Level_map_mutator = LevelMap(
+        level_map_mutator = LevelMap(
             x_reference_point=xcor, y_reference_point=ycor, terms=terms
         )
         # Act
-        result = Level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(scan_image_with_nans).unwrap()
         # Assert
         assert np.allclose(result.data, verified, equal_nan=True)
 
     def test_map_level_none(self, scan_image_with_nans: ScanImage):
         # Arrange
         ycor, xcor = self.compute_image_center(scan_image=scan_image_with_nans)
-        Level_map_mutator = LevelMap(
+        level_map_mutator = LevelMap(
             x_reference_point=xcor, y_reference_point=ycor, terms=SurfaceTerms.NONE
         )
-        result = Level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(scan_image_with_nans).unwrap()
         assert np.allclose(result.data, scan_image_with_nans.data, equal_nan=True)
 
     def test_map_level_offset(self, scan_image_with_nans: ScanImage):
         # Arrange
         ycor, xcor = self.compute_image_center(scan_image=scan_image_with_nans)
-        Level_map_mutator = LevelMap(
+        level_map_mutator = LevelMap(
             x_reference_point=xcor, y_reference_point=ycor, terms=SurfaceTerms.OFFSET
         )
         # Act
-        result = Level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(scan_image_with_nans).unwrap()
         # Assert
         assert np.isclose(np.nanmean(result.data), 0.0)
         assert np.allclose(
@@ -83,14 +83,14 @@ class TestLevelMapIntegration:
     ):
         # Arrange
         ycor, xcor = self.compute_image_center(scan_image=scan_image_with_nans)
-        Level_map_mutator = LevelMap(
+        level_map_mutator = LevelMap(
             x_reference_point=xcor, y_reference_point=ycor, terms=terms
         )
         Level_map_ref = LevelMap(
             x_reference_point=ref_point[0], y_reference_point=ref_point[1], terms=terms
         )
         # Act
-        result_centered = Level_map_mutator(scan_image_with_nans).unwrap()
+        result_centered = level_map_mutator(scan_image_with_nans).unwrap()
         result_ref = Level_map_ref(scan_image_with_nans).unwrap()
         # Assert
         assert np.allclose(result_centered.data, result_ref.data, equal_nan=True)
