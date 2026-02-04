@@ -33,9 +33,9 @@ class TestLevelMapIntegration:
     ):
         # Arrange
         verified = np.load(self.RESOURCES_DIR / verified_file_name)
-        ycor, xcor = self.compute_image_center(scan_image=scan_image_with_nans)
+        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(
-            x_reference_point=xcor, y_reference_point=ycor, terms=terms
+            x_reference_point=x_center, y_reference_point=y_center, terms=terms
         )
         # Act
         result = level_map_mutator(scan_image_with_nans).unwrap()
@@ -44,18 +44,22 @@ class TestLevelMapIntegration:
 
     def test_map_level_none(self, scan_image_with_nans: ScanImage):
         # Arrange
-        ycor, xcor = self.compute_image_center(scan_image=scan_image_with_nans)
+        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(
-            x_reference_point=xcor, y_reference_point=ycor, terms=SurfaceTerms.NONE
+            x_reference_point=x_center,
+            y_reference_point=y_center,
+            terms=SurfaceTerms.NONE,
         )
         result = level_map_mutator(scan_image_with_nans).unwrap()
         assert np.allclose(result.data, scan_image_with_nans.data, equal_nan=True)
 
     def test_map_level_offset(self, scan_image_with_nans: ScanImage):
         # Arrange
-        ycor, xcor = self.compute_image_center(scan_image=scan_image_with_nans)
+        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(
-            x_reference_point=xcor, y_reference_point=ycor, terms=SurfaceTerms.OFFSET
+            x_reference_point=x_center,
+            y_reference_point=y_center,
+            terms=SurfaceTerms.OFFSET,
         )
         # Act
         result = level_map_mutator(scan_image_with_nans).unwrap()
@@ -82,9 +86,9 @@ class TestLevelMapIntegration:
         self, scan_image_with_nans: ScanImage, terms: SurfaceTerms, ref_point
     ):
         # Arrange
-        ycor, xcor = self.compute_image_center(scan_image=scan_image_with_nans)
+        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(
-            x_reference_point=xcor, y_reference_point=ycor, terms=terms
+            x_reference_point=x_center, y_reference_point=y_center, terms=terms
         )
         Level_map_ref = LevelMap(
             x_reference_point=ref_point[0], y_reference_point=ref_point[1], terms=terms
