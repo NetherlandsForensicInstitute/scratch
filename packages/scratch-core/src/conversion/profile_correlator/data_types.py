@@ -64,6 +64,17 @@ class AlignmentParameters:
 
 
 @dataclass(frozen=True)
+class AlignmentResult:
+    """Result from the alignment search."""
+
+    correlation: float
+    shift: int
+    scale: float
+    ref_overlap: FloatArray1D
+    comp_overlap: FloatArray1D
+
+
+@dataclass(frozen=True)
 class ComparisonResults:
     """
     Full comparison metrics for striated mark analysis.

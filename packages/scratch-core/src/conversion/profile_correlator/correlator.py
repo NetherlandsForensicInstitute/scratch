@@ -27,11 +27,13 @@ import numpy as np
 from container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
+    AlignmentResult,
     ComparisonResults,
     Profile,
 )
 from conversion.profile_correlator.transforms import apply_scaling, equalize_pixel_scale
 from conversion.profile_correlator.statistics import (
+    compute_cross_correlation,
     compute_overlap_ratio,
     compute_roughness_sa,
     compute_roughness_sq,
@@ -39,23 +41,156 @@ from conversion.profile_correlator.statistics import (
 )
 
 
-def _compute_correlation(
-    profile_ref: FloatArray1D,
-    profile_comp: FloatArray1D,
-) -> float:
+def _find_best_alignment(
+    ref_data: FloatArray1D,
+    comp_data: FloatArray1D,
+    scale_factors: FloatArray1D,
+    min_overlap_samples: int,
+) -> AlignmentResult | None:
     """
-    Compute Pearson correlation between two profile segments.
+    Find the best alignment between two profiles using brute-force search.
 
-    :param profile_ref: Reference profile segment (1D array).
-    :param profile_comp: Comparison profile segment (1D array).
-    :returns: Pearson correlation coefficient, or NaN if computation fails.
+    Tries all combinations of scale factors and shifts, returning the one
+    with maximum correlation.
+
+    :param ref_data: Reference profile heights.
+    :param comp_data: Comparison profile heights.
+    :param scale_factors: Array of scale factors to try.
+    :param min_overlap_samples: Minimum required overlap in samples.
+    :returns: Best alignment result, or None if no valid alignment found.
     """
-    valid_mask = ~(np.isnan(profile_ref) | np.isnan(profile_comp))
+    len_ref = len(ref_data)
+    len_comp = len(comp_data)
 
-    if np.sum(valid_mask) < 2:
-        return np.nan
+    # Determine once which profile is larger (apply_scaling preserves length)
+    ref_is_large = len_ref >= len_comp
+    if ref_is_large:
+        len_large, len_small = len_ref, len_comp
+    else:
+        len_large, len_small = len_comp, len_ref
 
-    return float(np.corrcoef(profile_ref[valid_mask], profile_comp[valid_mask])[0, 1])
+    # Calculate shift range (ensure minimum overlap)
+    min_shift = -(len_small - min_overlap_samples)
+    max_shift = len_large - min_overlap_samples
+
+    best_correlation = -np.inf
+    best_shift = 0
+    best_scale = 1.0
+    best_ref_overlap: FloatArray1D | None = None
+    best_comp_overlap: FloatArray1D | None = None
+
+    for scale in scale_factors:
+        comp_data_scaled = apply_scaling(comp_data, scale)
+
+        if ref_is_large:
+            large, small = ref_data, comp_data_scaled
+        else:
+            large, small = comp_data_scaled, ref_data
+
+        for shift in range(min_shift, max_shift + 1):
+            # Calculate overlap region for this shift
+            if shift >= 0:
+                idx_large_start = shift
+                idx_small_start = 0
+                overlap_len = min(len_large - shift, len_small)
+            else:
+                idx_large_start = 0
+                idx_small_start = -shift
+                overlap_len = min(len_large, len_small + shift)
+
+            if overlap_len < min_overlap_samples:
+                continue
+
+            partial_large = large[idx_large_start : idx_large_start + overlap_len]
+            partial_small = small[idx_small_start : idx_small_start + overlap_len]
+
+            correlation = compute_cross_correlation(partial_large, partial_small)
+
+            if not np.isnan(correlation) and correlation > best_correlation:
+                best_correlation = correlation
+                best_shift = shift
+                best_scale = scale
+                if ref_is_large:
+                    best_ref_overlap = partial_large.copy()
+                    best_comp_overlap = partial_small.copy()
+                else:
+                    best_ref_overlap = partial_small.copy()
+                    best_comp_overlap = partial_large.copy()
+
+    if best_ref_overlap is None or best_comp_overlap is None:
+        return None
+
+    return AlignmentResult(
+        correlation=best_correlation,
+        shift=best_shift,
+        scale=best_scale,
+        ref_overlap=best_ref_overlap,
+        comp_overlap=best_comp_overlap,
+    )
+
+
+def _compute_metrics(
+    alignment: AlignmentResult,
+    pixel_size: float,
+    len_ref: int,
+    len_comp: int,
+) -> ComparisonResults:
+    """
+    Compute comparison metrics from an alignment result.
+
+    :param alignment: The best alignment found.
+    :param pixel_size: Pixel size in meters.
+    :param len_ref: Length of reference profile in samples.
+    :param len_comp: Length of comparison profile in samples.
+    :returns: Full comparison results.
+    """
+    ref_overlap = alignment.ref_overlap
+    comp_overlap = alignment.comp_overlap
+
+    # Convert to meters
+    position_shift = alignment.shift * pixel_size
+    overlap_length = len(ref_overlap) * pixel_size
+    ref_length = len_ref * pixel_size
+    comp_length = len_comp * pixel_size
+
+    overlap_ratio = compute_overlap_ratio(overlap_length, ref_length, comp_length)
+
+    # Roughness metrics
+    sa_ref = compute_roughness_sa(ref_overlap)
+    sq_ref = compute_roughness_sq(ref_overlap)
+    sa_comp = compute_roughness_sa(comp_overlap)
+    sq_comp = compute_roughness_sq(comp_overlap)
+
+    # Difference profile roughness
+    p_diff = comp_overlap - ref_overlap
+    sa_diff = compute_roughness_sa(p_diff)
+    sq_diff = compute_roughness_sq(p_diff)
+
+    # Signature differences
+    ds_ref_norm, ds_comp_norm, ds_combined = compute_signature_differences(
+        sq_diff, sq_ref, sq_comp
+    )
+
+    return ComparisonResults(
+        is_profile_comparison=True,
+        pixel_size_ref=pixel_size,
+        pixel_size_comp=pixel_size,
+        position_shift=position_shift,
+        scale_factor=1.0 / alignment.scale,
+        similarity_value=alignment.correlation,
+        overlap_length=overlap_length,
+        overlap_ratio=overlap_ratio,
+        correlation_coefficient=alignment.correlation,
+        sa_ref=sa_ref,
+        sq_ref=sq_ref,
+        sa_comp=sa_comp,
+        sq_comp=sq_comp,
+        sa_diff=sa_diff,
+        sq_diff=sq_diff,
+        ds_ref_norm=ds_ref_norm,
+        ds_comp_norm=ds_comp_norm,
+        ds_combined=ds_combined,
+    )
 
 
 def correlate_profiles(
@@ -99,147 +234,27 @@ def correlate_profiles(
     profile_ref_eq, profile_comp_eq = equalize_pixel_scale(profile_ref, profile_comp)
     pixel_size = profile_ref_eq.pixel_size
 
-    # Get 1D profile data
     ref_data = profile_ref_eq.heights
     comp_data = profile_comp_eq.heights
-
     len_ref = len(ref_data)
     len_comp = len(comp_data)
 
-    # Minimum overlap of the two Profiles in pixels
-    # Use ceil to ensure we meet the minimum distance (int truncates, which could give less)
+    # Minimum overlap in samples
     min_overlap_samples = int(np.ceil(params.min_overlap_distance / pixel_size))
 
-    # Generate scale factors to try.
-    # The MATLAB implementation uses fminsearchbnd to jointly optimize shift and scale
-    # as a 2D continuous optimization problem. This Python version simplifies to a
-    # brute-force grid search: iterate over discrete scale factors, and for each scale
-    # try all possible shifts. 7 scale steps gives ~1.7% intervals for the default ±5%
-    # range, balancing accuracy vs computation time.
-    num_scale_steps = 7
-    scale_factors = np.linspace(
-        1.0 - params.max_scaling, 1.0 + params.max_scaling, num_scale_steps
-    )
-
-    # Step 2: Global brute-force search over all scales and shifts
-    best_correlation = -np.inf
-    best_shift = 0
-    best_scale = 1.0
-    best_ref_overlap: FloatArray1D | None = None
-    best_comp_overlap: FloatArray1D | None = None
-
-    for scale in scale_factors:
-        # Apply scaling to comparison profile
-        comp_data_scaled = apply_scaling(comp_data, scale)
-        len_comp = len(comp_data_scaled)
-
-        # Skip if profiles too short for minimum overlap
-        if len_comp < min_overlap_samples or len_ref < min_overlap_samples:
-            continue
-
-        # Determine which profile is larger
-        if len_ref >= len_comp:
-            large = ref_data
-            small = comp_data_scaled
-            ref_is_large = True
-        else:
-            large = comp_data_scaled
-            small = ref_data
-            ref_is_large = False
-
-        len_large = len(large)
-        len_small = len(small)
-
-        # Calculate shift range (ensure minimum overlap)
-        min_shift = -(len_small - min_overlap_samples)
-        max_shift = len_large - min_overlap_samples
-
-        # Try all shifts in range
-        for shift in range(min_shift, max_shift + 1):
-            # Calculate overlap region for this shift
-            # Positive shift: large profile shifts left (or equivalently, small shifts right)
-            if shift >= 0:
-                idx_large_start = shift
-                idx_small_start = 0
-                overlap_len = min(len_large - shift, len_small)
-            else:
-                idx_large_start = 0
-                idx_small_start = -shift
-                overlap_len = min(len_large, len_small + shift)
-
-            if overlap_len < min_overlap_samples:
-                continue
-
-            # Extract overlapping segments
-            partial_large = large[idx_large_start : idx_large_start + overlap_len]
-            partial_small = small[idx_small_start : idx_small_start + overlap_len]
-
-            if ref_is_large:
-                partial_ref = partial_large
-                partial_comp = partial_small
-            else:
-                partial_ref = partial_small
-                partial_comp = partial_large
-
-            correlation = _compute_correlation(partial_ref, partial_comp)
-
-            if not np.isnan(correlation) and correlation > best_correlation:
-                best_correlation = correlation
-                best_shift = shift
-                best_scale = scale
-                best_ref_overlap = partial_ref.copy()
-                best_comp_overlap = partial_comp.copy()
-
-    # Step 3: Compute metrics for the best alignment
-    if best_ref_overlap is None or best_comp_overlap is None:
+    # Early exit if either profile is too short
+    if len_ref < min_overlap_samples or len_comp < min_overlap_samples:
         return None
 
-    # Position shift in meters
-    position_shift = best_shift * pixel_size
+    # Generate scale factors to try (7 steps gives ~1.7% intervals for ±5%)
+    scale_factors = np.linspace(1.0 - params.max_scaling, 1.0 + params.max_scaling, 7)
 
-    # Overlap length in meters
-    overlap_length = len(best_ref_overlap) * pixel_size
-
-    # Overlap ratio (relative to shorter profile)
-    ref_length = len_ref * pixel_size
-    comp_length = len_comp * pixel_size
-    overlap_ratio = compute_overlap_ratio(overlap_length, ref_length, comp_length)
-
-    # Compute roughness parameters (in meters)
-    sa_ref = compute_roughness_sa(best_ref_overlap)
-    sq_ref = compute_roughness_sq(best_ref_overlap)
-
-    sa_comp = compute_roughness_sa(best_comp_overlap)
-    sq_comp = compute_roughness_sq(best_comp_overlap)
-
-    # Compute difference profile roughness
-    p_diff = best_comp_overlap - best_ref_overlap
-    sa_diff = compute_roughness_sa(p_diff)
-    sq_diff = compute_roughness_sq(p_diff)
-
-    # Compute signature differences (dimensionless ratios)
-    ds_ref_norm, ds_comp_norm, ds_combined = compute_signature_differences(
-        sq_diff, sq_ref, sq_comp
+    # Step 2: Find best alignment
+    alignment = _find_best_alignment(
+        ref_data, comp_data, scale_factors, min_overlap_samples
     )
+    if alignment is None:
+        return None
 
-    # Create final results
-    return ComparisonResults(
-        is_profile_comparison=True,
-        pixel_size_ref=pixel_size,
-        pixel_size_comp=pixel_size,
-        position_shift=position_shift,
-        scale_factor=1.0 / best_scale,  # Return INVERSE of applied scale
-        similarity_value=best_correlation,
-        overlap_length=overlap_length,
-        overlap_ratio=overlap_ratio,
-        correlation_coefficient=best_correlation,
-        sa_ref=sa_ref,
-        sq_ref=sq_ref,
-        sa_comp=sa_comp,
-        sq_comp=sq_comp,
-        sa_diff=sa_diff,
-        sq_diff=sq_diff,
-        ds_ref_norm=ds_ref_norm,
-        ds_comp_norm=ds_comp_norm,
-        ds_combined=ds_combined,
-    )
+    # Step 3: Compute and return metrics
+    return _compute_metrics(alignment, pixel_size, len_ref, len_comp)
