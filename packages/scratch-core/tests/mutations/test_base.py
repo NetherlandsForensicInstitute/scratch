@@ -1,16 +1,17 @@
+from typing import override
 from returns.pipeline import is_successful
 from container_models import ImageContainer
 import pytest
+from container_models.base import Pair
+from container_models.image import MetaData
 from mutations.base import ImageMutation
 import numpy as np
 
 
 class TestBaseMutations:
     @pytest.fixture
-    def scan_image(
-        self,
-    ) -> ImageContainer:
-        return ImageContainer(data=np.zeros((2, 2)), scale_x=1, scale_y=1)
+    def image_container(self, flat_scale: MetaData) -> ImageContainer:
+        return ImageContainer(data=np.zeros((2, 2)), metadata=flat_scale)
 
     class FakeMutation(ImageMutation):
         @property
@@ -20,45 +21,46 @@ class TestBaseMutations:
         def __init__(self, var: int) -> None:
             self.var = var
 
-        def apply_on_image(self, scan_image: ImageContainer) -> ImageContainer:
+        @override
+        def apply_on_image(self, image: ImageContainer) -> ImageContainer:
             """Small edit to do a 'mutation'"""
-            scan_image.scale_x = self.var
-            scan_image.scale_y = self.var
-            return scan_image
+            image.metadata.scale = Pair(self.var, self.var)
+            return image
 
     @pytest.mark.parametrize(
         "get_result",
         [
             pytest.param(
-                lambda mutation, scan_image: mutation.apply_on_image(scan_image),
+                lambda mutation, image_container: mutation.apply_on_image(
+                    image_container
+                ),
                 id="apply_on_image",
             ),
             pytest.param(
-                lambda mutation, scan_image: mutation(scan_image).unwrap(),
+                lambda mutation, image_container: mutation(image_container).unwrap(),
                 id="call_interface",
             ),
         ],
     )
-    def test_returns_edited_image(self, scan_image: ImageContainer, get_result):
+    def test_returns_edited_image(self, image_container: ImageContainer, get_result):
         # Arrange
         updated_variable = 2
         mutation = self.FakeMutation(var=updated_variable)
         # Act
-        result = get_result(mutation, scan_image)
+        result = get_result(mutation, image_container)
         # Assert
-        assert result.scale_x == updated_variable
-        assert result.scale_y == updated_variable
+        assert result.metadata.scale == (updated_variable, updated_variable)
 
-    def test_call_returns_success(self, scan_image: ImageContainer):
+    def test_call_returns_success(self, image_container: ImageContainer):
         # Arrange
         mutation = self.FakeMutation(var=2)
         # Act
-        result = mutation(scan_image)
+        result = mutation(image_container)
         # Assert
         assert is_successful(result)
 
     def test_call_wraps_exception_in_failure(
-        self, scan_image: ImageContainer, monkeypatch: pytest.MonkeyPatch
+        self, image_container: ImageContainer, monkeypatch: pytest.MonkeyPatch
     ):
         # Arrange
         def raise_error(_):
@@ -68,15 +70,17 @@ class TestBaseMutations:
         mutation = self.FakeMutation(var=2)
 
         # Act
-        result = mutation(scan_image)
+        result = mutation(image_container)
         # Assert
         assert not is_successful(result)
 
     def test_interface_skips_edit_image_with_predicate(
-        self, scan_image: ImageContainer
+        self, image_container: ImageContainer
     ):
         mutation = self.FakeMutation(var=3)
         # Act
-        resulting_scan_image = mutation(scan_image=scan_image).unwrap()
+        resulting_image_container = mutation(image_container).unwrap()
         # Assert
-        assert resulting_scan_image == scan_image, "Mutation should be skipped."
+        assert resulting_image_container == image_container, (
+            "Mutation should be skipped."
+        )

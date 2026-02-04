@@ -3,14 +3,15 @@ from typing import NamedTuple
 import numpy as np
 from loguru import logger
 
-from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
-from container_models.scan_image import ScanImage
+from container_models.base import BinaryMask, Coordinate, FloatArray1D, FloatArray2D
+from container_models.image import ImageContainer
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.leveling.solver.design import build_design_matrix
-from conversion.leveling.solver.grid import get_2d_grid
 from conversion.leveling.solver.transforms import normalize_coordinates
 from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
+
+from renders.grid import get_2d_grid
 
 
 class PointCloud(NamedTuple):
@@ -54,7 +55,7 @@ class Mask(ImageMutation):
             return True
         return False
 
-    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """
         Apply the mask to the image.
 
@@ -62,13 +63,13 @@ class Mask(ImageMutation):
         :return: The masked scan image.
         :raises ImageShapeMismatchError: If the mask shape does not match the image data shape.
         """
-        if self.mask.shape != scan_image.data.shape:
+        if self.mask.shape != image.data.shape:
             raise ImageShapeMismatchError(
-                f"Mask shape: {self.mask.shape} does not match image shape: {scan_image.data.shape}"
+                f"Mask shape: {self.mask.shape} does not match image shape: {image.data.shape}"
             )
         logger.info("Applying mask to scan_image")
-        scan_image.data[~self.mask] = np.nan
-        return scan_image
+        image.data[~self.mask] = np.nan
+        return image
 
 
 class LevelMap(ImageMutation):
@@ -94,11 +95,8 @@ class LevelMap(ImageMutation):
         Polynomial surface terms defining the fitted surface.
     """
 
-    def __init__(
-        self, x_reference_point: float, y_reference_point: float, terms: SurfaceTerms
-    ) -> None:
-        self.x_reference_point = x_reference_point
-        self.y_reference_point = y_reference_point
+    def __init__(self, reference: Coordinate, terms: SurfaceTerms) -> None:
+        self.reference = reference
         self.terms = terms
 
     @staticmethod
@@ -135,7 +133,7 @@ class LevelMap(ImageMutation):
 
     @staticmethod
     def _generate_point_cloud(
-        scan_image: ScanImage, x_reference_point: float, y_reference_point: float
+        image: ImageContainer, reference: Coordinate
     ) -> PointCloud:
         """
         Generate a 3D point cloud from a scan image with coordinates centered at a reference point.
@@ -144,34 +142,28 @@ class LevelMap(ImageMutation):
         :param y_reference_point: y in physical coordinates to use as the origin.
         :returns: PointCloud containing the valid X, Y, and Z coordinates.
         """
-        x_grid, y_grid = get_2d_grid(
-            scan_image, offset=(-x_reference_point, -y_reference_point)
-        )
+        x_grid, y_grid = get_2d_grid(image, offset=reference)
         xs, ys, zs = (
-            x_grid[scan_image.valid_mask],
-            y_grid[scan_image.valid_mask],
-            scan_image.valid_data,
+            x_grid[image.valid_mask],
+            y_grid[image.valid_mask],
+            image.valid_data,
         )
         return PointCloud(xs=xs, ys=ys, zs=zs)
 
-    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """
         Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
         This computation effectively acts as a high-pass filter on the image data.
         :param scan_image: The scan image containing the image data to level.
         :returns: scan_image with the array containing the leveled scan data (original data minus fitted surface).
         """
-        point_cloud = self._generate_point_cloud(
-            scan_image=scan_image,
-            y_reference_point=self.y_reference_point,
-            x_reference_point=self.x_reference_point,
-        )
+        point_cloud = self._generate_point_cloud(image, self.reference)
         fitted_surface = self._evaluate_fitted_surface(
             point_cloud=point_cloud,
             terms=self.terms,
         )
-        leveled_map_2d = np.full_like(scan_image.data, np.nan)
-        leveled_map_2d[scan_image.valid_mask] = point_cloud.zs - fitted_surface
+        leveled_map_2d = np.full_like(image.data, np.nan)
+        leveled_map_2d[image.valid_mask] = point_cloud.zs - fitted_surface
 
-        scan_image.data = leveled_map_2d
-        return scan_image
+        image.data = leveled_map_2d
+        return image

@@ -1,8 +1,9 @@
+from operator import mul
 from typing import override
 from loguru import logger
 from returns.result import safe
-from container_models.base import DepthData, ImageData
-from container_models.image import ImageContainer, Pair
+from container_models.base import DepthData, Pair
+from container_models.image import ImageContainer
 from mutations.base import ImageMutation
 from utils.logger import log_railway_function
 from numpy import float64, asarray
@@ -29,14 +30,14 @@ class _IsotropicResample(ImageMutation):
         """
         resolution = min(image.metadata.scale)
         shape = (
-            round(image.shape.height * image.metadata.scale.y / resolution),
-            round(image.shape.width * image.metadata.scale.x / resolution),
+            round(image.height * image.metadata.scale.y / resolution),
+            round(image.width * image.metadata.scale.x / resolution),
         )
         image.data = self._upsample_image(image.data, shape)
-        image.metadata.scale = Pair[float](resolution, resolution)
+        image.metadata.scale = Pair(resolution, resolution)
         return image
 
-    def _upsample_image(self, data: ImageData, shape: tuple[int, int]) -> DepthData:
+    def _upsample_image(self, data: DepthData, shape: tuple[int, int]) -> DepthData:
         """Upsample image data in a `ScanImage` instance to a common target scale."""
 
         return asarray(
@@ -74,11 +75,10 @@ class Subsample(ImageMutation):
             logger.info("No subsampling needed, returning original scan image")
             return image
         if not (
-            0 < self.step_size_x < image.shape.width
-            and 0 < self.step_size_y < image.shape.height
+            0 < self.step_size_x < image.width and 0 < self.step_size_y < image.height
         ):
             raise ValueError(
-                f"Step size should be positive and smaller than the image size: {image.shape}"
+                f"Step size should be positive and smaller than the image size: ({image.height}, {image.width})"
             )
         return self.apply_on_image(image)
 
@@ -86,8 +86,7 @@ class Subsample(ImageMutation):
     def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """Subsample image by skipping steps in each dimension."""
         image.data = image.data[:: self.step_size_y, :: self.step_size_x].copy()
-        image.metadata.scale = Pair[float](
-            image.metadata.scale.x * self.step_size_x,
-            image.metadata.scale.y * self.step_size_y,
+        image.metadata.scale = image.metadata.scale.map(
+            mul, other=(self.step_size_x, self.step_size_y)
         )
         return image

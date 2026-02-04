@@ -61,7 +61,7 @@ Example
         GaussianFilter,
     )
 
-    scan_image = ImageContainer(
+    image = ImageContainer(
         data=ones((10, 10), float64),
         scale_x=1,
         scale_y=1,
@@ -81,7 +81,7 @@ Example
         ),
     )
 
-    result = edit_image_pipeline(scan_image)
+    result = edit_image_pipeline(image)
 """
 
 from abc import ABC, abstractmethod
@@ -126,7 +126,7 @@ class ImageMutation(ABC):
         If `skip_predicate` is `True`, the input `ImageContainer` is returned
         unchanged. Otherwise, `apply_on_image` is executed.
 
-        :param scan_image:
+        :param image:
             The `ImageContainer` to be modified.
         :return ImageContainer:
             The resulting `ImageContainer`.
@@ -143,7 +143,7 @@ class ImageMutation(ABC):
         This method must be implemented by concrete mutations and is
         called internally by `__call__` to support pipeline composition.
 
-        :param scan_image:
+        :param image:
             The input `ImageContainer` to be modified.
         :return ImageContainer:
             A new or modified `ImageContainer`.

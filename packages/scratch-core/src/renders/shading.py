@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Final
-from container_models.base import DepthData, ImageData, UnitVector
+from container_models.base import DepthData, UnitVector
 
 
 SPECULAR_FACTOR: Final[float] = 1.0
@@ -12,7 +12,7 @@ def _half_vector(light: UnitVector, observer: UnitVector) -> UnitVector:
     return (vector := light + observer) / np.linalg.norm(vector)
 
 
-def _diffuse_light(data: ImageData, light: UnitVector) -> DepthData:
+def _diffuse_light(data: DepthData, light: UnitVector) -> DepthData:
     """Compute Lambertian diffuse reflection: max(N · L, 0)."""
     x_light, y_light, z_light = light
     x_normal, y_normal, z_normal = data[..., 0], data[..., 1], data[..., 2]
@@ -32,7 +32,7 @@ def _specular_light(data: DepthData, half_vector: UnitVector) -> DepthData:
     return np.maximum(np.cos(2 * np.arccos(specular)), 0) ** PHONG_EXPONENT
 
 
-def combine_lighting_components(
+def combine_light_components(
     data: DepthData, light: UnitVector, observer: UnitVector
 ) -> DepthData:
     """Combine diffuse and specular components with weighting factor."""

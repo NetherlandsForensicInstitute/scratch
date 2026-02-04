@@ -4,15 +4,16 @@ import pytest
 from scipy.constants import milli
 
 from container_models import ImageContainer
-from renders import compute_surface_normals
-from container_models.base import BinaryMask, VectorField
+from container_models.base import BinaryMask, Pair, VectorField
+from container_models.image import MetaData
+from renders.normalizations import normalize_to_surface_normals
 
 IMAGE_SIZE = 20
 BUMP_SIZE = 6
 BUMP_HEIGHT = 4
 BUMP_CENTER = IMAGE_SIZE // 2
 BUMP_SLICE = slice(BUMP_CENTER - BUMP_SIZE // 2, BUMP_CENTER + BUMP_SIZE // 2)
-NoScaleImageContainer = partial(ImageContainer, scale_x=1, scale_y=1)
+NoScaleImageContainer = partial(ImageContainer, metadata=MetaData(scale=Pair(1, 1)))
 
 
 @pytest.fixture
@@ -76,7 +77,9 @@ def test_slope_has_nan_border(
     This is filled with NaN values to get the same shape as original image
     """
     # Act
-    surface_normals = compute_surface_normals(flat_neutral_image).unwrap()
+    surface_normals = normalize_to_surface_normals(
+        flat_neutral_image.data.copy(), flat_neutral_image.metadata.central_diff_scales
+    )
 
     # Assert
     assert not has_nan(surface_normals, inner_mask)
@@ -89,7 +92,9 @@ def test_flat_surface_returns_flat_surface(
     """Given a flat surface the depth map should also be flat."""
 
     # Act
-    surface_normals = compute_surface_normals(flat_neutral_image).unwrap()
+    surface_normals = normalize_to_surface_normals(
+        flat_neutral_image.data.copy(), flat_neutral_image.metadata.central_diff_scales
+    )
 
     # Assert
     assert are_normals_allclose(surface_normals, inner_mask, (0, 0, 1))
@@ -110,14 +115,14 @@ def test_linear_slope(step_x: float, step_y: float, inner_mask: BinaryMask) -> N
     # Arrange
     x_vals = np.arange(IMAGE_SIZE) * step_x
     y_vals = np.arange(IMAGE_SIZE) * step_y
-    input_image = ImageContainer(
-        data=y_vals[:, None] + x_vals[None, :], scale_x=1, scale_y=1
-    )
+    input_image = NoScaleImageContainer(data=y_vals[:, None] + x_vals[None, :])
     norm = np.sqrt(step_x**2 + step_y**2 + 1)
     expected = (-step_x / norm, step_y / norm, 1 / norm)
 
     # Act
-    surface_normals = compute_surface_normals(input_image).unwrap()
+    surface_normals = normalize_to_surface_normals(
+        input_image.data, input_image.metadata.central_diff_scales
+    )
 
     # Assert
     assert are_normals_allclose(surface_normals, inner_mask, expected)
@@ -144,7 +149,9 @@ def test_location_slope_is_where_expected(
     outside_bump_mask = ~bump_mask & inner_mask
 
     # Act
-    surface_normals = compute_surface_normals(image_with_bump).unwrap()
+    surface_normals = normalize_to_surface_normals(
+        image_with_bump.data.copy(), image_with_bump.metadata.central_diff_scales
+    )
     nx, ny, nz = (
         surface_normals[..., 0],
         surface_normals[..., 1],
@@ -171,7 +178,9 @@ def test_corner_of_slope(image_with_bump: ImageContainer) -> None:
     )
 
     # Act
-    surface_normals = compute_surface_normals(image_with_bump).unwrap()
+    surface_normals = normalize_to_surface_normals(
+        image_with_bump.data.copy(), image_with_bump.metadata.central_diff_scales
+    )
     nz = surface_normals[..., 2]
 
     # Assert

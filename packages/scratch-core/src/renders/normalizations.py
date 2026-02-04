@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Final
-from container_models.base import DepthData, FloatArray2D, ImageData, Scale, VectorField
+from container_models.base import DepthData, FloatArray2D, Scale, VectorField
 
 
 # Padding configurations for gradient arrays to maintain original dimensions
@@ -23,7 +23,7 @@ def _pad_gradient(
     return np.pad(unpadded_gradient, pad_width, mode="constant", constant_values=np.nan)
 
 
-def normalize_to_surface_normals(data: ImageData, scale: Scale) -> VectorField:
+def normalize_to_surface_normals(data: DepthData, scale: Scale) -> VectorField:
     """Normalize gradient components to unit surface normal vectors."""
     gradient_x = _pad_gradient(
         (data[:, :-2] - data[:, 2:]) * scale.x,

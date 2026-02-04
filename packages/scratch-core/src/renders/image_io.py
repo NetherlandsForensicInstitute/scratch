@@ -2,6 +2,7 @@ from pathlib import Path
 
 from returns.io import impure_safe
 from x3p import X3Pfile
+from PIL.Image import fromarray
 
 from container_models import ImageContainer
 from utils.logger import log_railway_function
@@ -10,7 +11,7 @@ from utils.logger import log_railway_function
 @log_railway_function("Failed to save image")
 @impure_safe
 def save_image(image: ImageContainer, output_path: Path) -> Path:
-    image.pil.save(output_path)
+    fromarray(image.rgba).save(output_path)
     return output_path
 
 

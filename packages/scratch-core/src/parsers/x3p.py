@@ -1,14 +1,15 @@
 import datetime as dt
-from functools import partial
 from typing import NamedTuple
 
 import numpy as np
-from returns.pipeline import flow
-from x3p import X3Pfile
+from returns.curry import partial
+from returns.pipeline import pipe
 from returns.result import safe
+from x3p import X3Pfile
+from x3p._x3pfileclasses import Ax
+
 from container_models import ImageContainer
 from utils.logger import log_railway_function
-from x3p._x3pfileclasses import Ax
 
 
 class X3PMetaData(NamedTuple):
@@ -35,8 +36,8 @@ def _set_incremental_axis(axis: Ax, scale: float):
 def _set_record1_entries(x3p: X3Pfile, image: ImageContainer) -> X3Pfile:
     """Set Record1 entries (axes configuration)."""
     x3p.record1.set_featuretype("SUR")
-    _set_incremental_axis(x3p.record1.axes.CX, image.scale_x)
-    _set_incremental_axis(x3p.record1.axes.CY, image.scale_y)
+    _set_incremental_axis(x3p.record1.axes.CX, image.metadata.scale.x)
+    _set_incremental_axis(x3p.record1.axes.CY, image.metadata.scale.y)
     x3p.record1.axes.CZ.set_datatype("D")
     return x3p
 
@@ -78,10 +79,9 @@ def _set_record3_entries(x3p: X3Pfile, image: ImageContainer) -> X3Pfile:
 @safe
 def parse_to_x3p(image: ImageContainer) -> X3Pfile:
     """Convert ImageContainer to X3Pfile using a functional approach."""
-    return flow(
-        X3Pfile(),
+    return pipe(
         partial(_set_record1_entries, image=image),
         partial(_set_record2_entries, metadata=X3PMetaData()),
         partial(_set_binary_data, image=image),
         partial(_set_record3_entries, image=image),
-    )
+    )(X3Pfile())
