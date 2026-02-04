@@ -69,8 +69,8 @@ class TestProfilePairs:
         ref_data = np.load(ref_path).astype(np.float64)
         comp_data = np.load(comp_path).astype(np.float64)
 
-        ref = Profile(depth_data=ref_data, pixel_size=PIXEL_SIZE_M)
-        comp = Profile(depth_data=comp_data, pixel_size=PIXEL_SIZE_M)
+        ref = Profile(heights=ref_data, pixel_size=PIXEL_SIZE_M)
+        comp = Profile(heights=comp_data, pixel_size=PIXEL_SIZE_M)
 
         result = correlate_profiles(ref, comp, AlignmentParameters())
 

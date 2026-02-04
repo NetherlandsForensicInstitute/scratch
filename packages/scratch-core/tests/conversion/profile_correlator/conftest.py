@@ -41,7 +41,7 @@ def simple_sine_profile(pixel_size_05um: float) -> Profile:
     data = np.sin(x) * 1e-6  # Heights in micrometers scale
     data += np.random.normal(0, 0.01e-6, len(data))  # Add a small noise
 
-    return Profile(depth_data=data, pixel_size=pixel_size_05um)
+    return Profile(heights=data, pixel_size=pixel_size_05um)
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def shifted_sine_profile(pixel_size_05um: float) -> Profile:
     data = np.sin(x + shift) * 1e-6
     data += np.random.normal(0, 0.01e-6, len(data))
 
-    return Profile(depth_data=data, pixel_size=pixel_size_05um)
+    return Profile(heights=data, pixel_size=pixel_size_05um)
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ def scaled_sine_profile(pixel_size_05um: float) -> Profile:
     data = np.sin(x) * 1e-6
     data += np.random.normal(0, 0.01e-6, len(data))
 
-    return Profile(depth_data=data, pixel_size=pixel_size_05um)
+    return Profile(heights=data, pixel_size=pixel_size_05um)
 
 
 @pytest.fixture
@@ -89,7 +89,7 @@ def profile_with_nans(pixel_size_05um: float) -> Profile:
     data[500] = np.nan  # Single NaN
     data[700:750] = np.nan  # Larger block
 
-    return Profile(depth_data=data, pixel_size=pixel_size_05um)
+    return Profile(heights=data, pixel_size=pixel_size_05um)
 
 
 @pytest.fixture
@@ -108,7 +108,7 @@ def partial_profile(pixel_size_05um: float) -> Profile:
     partial_data = full_data[300:700].copy()
     partial_data += np.random.normal(0, 0.01e-6, len(partial_data))
 
-    return Profile(depth_data=partial_data, pixel_size=pixel_size_05um)
+    return Profile(heights=partial_data, pixel_size=pixel_size_05um)
 
 
 @pytest.fixture
@@ -120,7 +120,7 @@ def different_resolution_profile(pixel_size_1um: float) -> Profile:
     data = np.sin(x) * 1e-6
     data += np.random.normal(0, 0.01e-6, len(data))
 
-    return Profile(depth_data=data, pixel_size=pixel_size_1um)
+    return Profile(heights=data, pixel_size=pixel_size_1um)
 
 
 @pytest.fixture
@@ -176,7 +176,7 @@ def make_synthetic_striation_profile(
     noise = np.random.normal(0, amplitude_um * noise_level * 1e-6, n_samples)
     data += noise
 
-    return Profile(depth_data=data, pixel_size=pixel_size_m)
+    return Profile(heights=data, pixel_size=pixel_size_m)
 
 
 def make_shifted_profile(
@@ -199,7 +199,7 @@ def make_shifted_profile(
     if seed is not None:
         np.random.seed(seed)
 
-    data = profile.depth_data
+    data = profile.heights
     n = len(data)
 
     # Create interpolator
@@ -215,4 +215,4 @@ def make_shifted_profile(
     # Add a small amount of noise
     new_data += np.random.normal(0, np.nanstd(data) * 0.01, n)
 
-    return Profile(depth_data=new_data, pixel_size=profile.pixel_size)
+    return Profile(heights=new_data, pixel_size=profile.pixel_size)

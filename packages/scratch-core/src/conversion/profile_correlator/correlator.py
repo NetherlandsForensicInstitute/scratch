@@ -106,8 +106,8 @@ def correlate_profiles(
     pixel_size = profile_ref_eq.pixel_size
 
     # Get 1D profile data
-    ref_data = profile_ref_eq.depth_data
-    comp_data = profile_comp_eq.depth_data
+    ref_data = profile_ref_eq.heights
+    comp_data = profile_comp_eq.heights
 
     len_ref = len(ref_data)
     len_comp = len(comp_data)

@@ -21,8 +21,8 @@ class TestEqualizeSamplingDistance:
 
         p1_out, p2_out = equalize_pixel_scale(p1, p2)
 
-        assert_array_equal(p1_out.depth_data, p1.depth_data)
-        assert_array_equal(p2_out.depth_data, p2.depth_data)
+        assert_array_equal(p1_out.heights, p1.heights)
+        assert_array_equal(p2_out.heights, p2.heights)
 
     def test_resamples_higher_resolution_profile(self):
         """Higher resolution profile should be resampled to lower resolution."""
@@ -32,10 +32,10 @@ class TestEqualizeSamplingDistance:
         p1_out, p2_out = equalize_pixel_scale(p1, p2)
 
         # p1 should be unchanged (lower resolution)
-        assert_array_equal(p1_out.depth_data, p1.depth_data)
+        assert_array_equal(p1_out.heights, p1.heights)
         assert p1_out.pixel_size == p1.pixel_size
 
         # p2 should be resampled to match p1's pixel size
         assert p2_out.pixel_size == p1.pixel_size
         # Length should be approximately halved
-        assert len(p2_out.depth_data) == pytest.approx(len(p2.depth_data) / 2, abs=2)
+        assert len(p2_out.heights) == pytest.approx(len(p2.heights) / 2, abs=2)

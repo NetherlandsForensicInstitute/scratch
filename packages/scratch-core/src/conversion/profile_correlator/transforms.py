@@ -109,10 +109,10 @@ def equalize_pixel_scale(
     The profile with the larger pixel size is returned unchanged, while the
     other profile is resampled.
 
-    :param profile_1: First profile with depth_data and pixel_size.
-    :param profile_2: Second profile with depth_data and pixel_size.
+    :param profile_1: First profile with heights and pixel_size.
+    :param profile_2: Second profile with heights and pixel_size.
     :returns: Tuple of (profile_1_out, profile_2_out) with equal pixel sizes.
-        The profile that was resampled will have updated depth_data and pixel_size.
+        The profile that was resampled will have updated heights and pixel_size.
     """
     # Get pixel sizes
     pixel_1 = profile_1.pixel_size
@@ -127,10 +127,10 @@ def equalize_pixel_scale(
     if pixel_1 > pixel_2:
         # Profile 2 has higher resolution, resample it to match profile 1
         zoom = pixel_2 / pixel_1
-        resampled_data = _resample_1d(profile_2.depth_data, zoom)
+        resampled_data = _resample_1d(profile_2.heights, zoom)
 
         profile_2_out = Profile(
-            depth_data=resampled_data,
+            heights=resampled_data,
             pixel_size=pixel_1,  # Now matches profile 1
         )
         return profile_1, profile_2_out
@@ -138,10 +138,10 @@ def equalize_pixel_scale(
     else:
         # Profile 1 has higher resolution, resample it to match profile 2
         zoom = pixel_1 / pixel_2
-        resampled_data = _resample_1d(profile_1.depth_data, zoom)
+        resampled_data = _resample_1d(profile_1.heights, zoom)
 
         profile_1_out = Profile(
-            depth_data=resampled_data,
+            heights=resampled_data,
             pixel_size=pixel_2,  # Now matches profile 2
         )
         return profile_1_out, profile_2

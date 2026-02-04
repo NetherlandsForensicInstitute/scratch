@@ -41,8 +41,8 @@ def create_shifted_profiles(
     ref_data = extended[:n].copy()
     comp_data = extended[shift_samples : shift_samples + n].copy()
     return (
-        Profile(depth_data=ref_data, pixel_size=PIXEL_SIZE_M),
-        Profile(depth_data=comp_data, pixel_size=PIXEL_SIZE_M),
+        Profile(heights=ref_data, pixel_size=PIXEL_SIZE_M),
+        Profile(heights=comp_data, pixel_size=PIXEL_SIZE_M),
     )
 
 
@@ -54,9 +54,9 @@ def create_partial_profiles(
     partial_len = int(n * partial_ratio)
     start = (n - partial_len) // 2
     return (
-        Profile(depth_data=base.copy(), pixel_size=PIXEL_SIZE_M),
+        Profile(heights=base.copy(), pixel_size=PIXEL_SIZE_M),
         Profile(
-            depth_data=base[start : start + partial_len].copy(), pixel_size=PIXEL_SIZE_M
+            heights=base[start : start + partial_len].copy(), pixel_size=PIXEL_SIZE_M
         ),
     )
 
@@ -71,8 +71,8 @@ def create_scaled_profiles(
     x_scaled = np.arange(n) / scale_factor
     comp_data = interp(x_scaled)
     return (
-        Profile(depth_data=base.copy(), pixel_size=PIXEL_SIZE_M),
-        Profile(depth_data=comp_data, pixel_size=PIXEL_SIZE_M),
+        Profile(heights=base.copy(), pixel_size=PIXEL_SIZE_M),
+        Profile(heights=comp_data, pixel_size=PIXEL_SIZE_M),
     )
 
 
@@ -162,8 +162,8 @@ class TestIdenticalProfiles:
     def test_identical_profiles_perfect_correlation(self):
         """Identical profiles should have near-perfect correlation."""
         base = create_base_profile(n_samples=1000, seed=42)
-        ref = Profile(depth_data=base.copy(), pixel_size=PIXEL_SIZE_M)
-        comp = Profile(depth_data=base.copy(), pixel_size=PIXEL_SIZE_M)
+        ref = Profile(heights=base.copy(), pixel_size=PIXEL_SIZE_M)
+        comp = Profile(heights=base.copy(), pixel_size=PIXEL_SIZE_M)
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result.correlation_coefficient > 0.999
         assert result.overlap_ratio > 0.99
@@ -266,7 +266,7 @@ class TestEdgeCases:
         """Profiles with different lengths should correlate."""
         ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         partial = Profile(
-            depth_data=ref.depth_data[100:900].copy(),
+            heights=ref.heights[100:900].copy(),
             pixel_size=ref.pixel_size,
         )
         result = correlate_profiles(ref, partial, AlignmentParameters())

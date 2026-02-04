@@ -27,11 +27,11 @@ class Profile:
     Profiles represent 1D height measurements along a scratch/striation mark.
     All measurements are in meters (SI units).
 
-    :param depth_data: Height values as a 1D array of shape (N,).
+    :param heights: Height values as a 1D array of shape (N,).
     :param pixel_size: Physical distance between samples in meters.
     """
 
-    depth_data: FloatArray1D
+    heights: FloatArray1D
     pixel_size: float
 
     @property
@@ -39,9 +39,9 @@ class Profile:
         """
         Get the number of samples in the profile.
 
-        :returns: Number of samples in depth_data.
+        :returns: Number of samples in heights.
         """
-        return len(self.depth_data)
+        return len(self.heights)
 
 
 @dataclass(frozen=True)
