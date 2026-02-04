@@ -9,8 +9,8 @@ This module provides the high-level entry points for striation preprocessing:
 from dataclasses import asdict
 
 import numpy as np
-from numpy.typing import NDArray
 
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
@@ -128,7 +128,7 @@ def apply_shape_noise_removal(
     scan_image: ScanImage,
     lowpass_cutoff: float = 5e-6,
     highpass_cutoff: float = 2.5e-4,
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """
     Apply a band-pass filter to isolate striation features by filtering out large-scale shapes and small-scale noise.
 
@@ -147,7 +147,7 @@ def apply_shape_noise_removal(
     :param lowpass_cutoff: Low-frequency cutoff wavelength in meters (m) for noise removal.
     :param highpass_cutoff: High-frequency cutoff wavelength in meters (m) for shape removal.
 
-    :returns: Tuple of (processed_data, mask).
+    :returns: processed_data
     """
 
     # Calculate Gaussian sigma from cutoff wavelength

@@ -10,6 +10,7 @@ from renders import (
     apply_multiple_lights,
     compute_surface_normals,
     get_scan_image_for_display,
+    grayscale_to_image,
     save_image,
     scan_to_image,
 )
@@ -62,8 +63,6 @@ def surface_map_pipeline(  # noqa
     output_path: Path,
     light_sources: Iterable[LightSource],
     observer: LightSource,
-    scale_x: float,
-    scale_y: float,
 ) -> Path:
     """
     Generate a 3D surface map image from scan data and save it to the specified path.
@@ -81,11 +80,9 @@ def surface_map_pipeline(  # noqa
             apply_multiple_lights,
             light_sources=light_sources,
             observer=observer,
-            scale_x=scale_x,
-            scale_y=scale_y,
         ),
         normalize_2d_array,
-        scan_to_image,
+        grayscale_to_image,
         partial(save_image, output_path=output_path),
         error_message=f"Failed to create the surface map: {output_path}",
     )

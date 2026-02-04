@@ -2,7 +2,7 @@ from functools import cached_property
 
 import numpy as np
 from pydantic import Field
-from .base import ConfigBaseModel, BinaryMask, FloatArray, FloatArray1D
+from .base import ConfigBaseModel, BinaryMask, FloatArray1D, DepthData
 
 
 class ScanImage(ConfigBaseModel):
@@ -13,7 +13,7 @@ class ScanImage(ConfigBaseModel):
     Shape: (height, width)
     """
 
-    data: FloatArray  # TODO: Change typing to `DepthData` or `FloatArray2D`
+    data: DepthData
     scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     meta_data: dict = Field(default_factory=dict)
