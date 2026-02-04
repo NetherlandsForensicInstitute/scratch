@@ -1,18 +1,53 @@
 from typing import NamedTuple
-from container_models.base import FloatArray1D, FloatArray2D
+
+import numpy as np
+from loguru import logger
+
+from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.leveling.solver.design import build_design_matrix
 from conversion.leveling.solver.grid import get_2d_grid
 from conversion.leveling.solver.transforms import normalize_coordinates
+from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
-import numpy as np
 
 
 class PointCloud(NamedTuple):
     xs: FloatArray1D
     ys: FloatArray1D
     zs: FloatArray1D
+
+
+class Mask(ImageMutation):
+    """
+    A Image Mutation for masking the Image. all False / 0 values on the mask are masked on the given image.
+    """
+
+    def __init__(self, mask: BinaryMask) -> None:
+        """
+        Initialize the Mask mutation.
+
+        :param mask: Input BinaryMask to be resized
+        """
+        self.mask = mask
+        self.mask = mask
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        """
+        Apply the mask to the image.
+
+        :params scan_image: Input ScanImage to be masked
+        :return: Masked ScanImage
+        :raises ImageShapeMismatchError: If the mask and image shapes do not match
+        """
+        if self.mask.shape != scan_image.data.shape:
+            raise ImageShapeMismatchError(
+                f"Mask shape: {self.mask.shape} does not match image shape: {scan_image.data.shape}"
+            )
+        logger.info("Applying mask to scan_image")
+        scan_image.data[~self.mask] = np.nan
+        return scan_image
 
 
 class LevelMap(ImageMutation):
