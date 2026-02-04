@@ -48,7 +48,7 @@ class LevelMap(ImageMutation):
     @staticmethod
     def solve_least_squares(
         design_matrix: FloatArray2D, zs: FloatArray1D
-    ) -> FloatArray2D:
+    ) -> FloatArray1D:
         """
         Solve the least squares problem to find polynomial coefficients.
         :param design_matrix: The design matrix constructed from polynomial terms.
@@ -63,7 +63,7 @@ class LevelMap(ImageMutation):
 
     def _evaluate_fitted_surface(
         self, point_cloud: PointCloud, terms: SurfaceTerms
-    ) -> FloatArray2D:
+    ) -> FloatArray1D:
         """
         Core solver: fits a surface to the point cloud.
         :param point_cloud: PointCloud containing the X, Y, and Z coordinates.
