@@ -1,11 +1,12 @@
 import numpy as np
 import pytest
+from scipy.constants import micro
 
-from renders import normalize_2d_array
+from renders.normalizations import normalize_2d_array, MIN_SCALE, MAX_SCALE
+
 
 TEST_IMAGE_WIDTH = 10
 TEST_IMAGE_HEIGHT = 12
-TOLERANCE = 1e-5
 
 
 @pytest.mark.parametrize(
@@ -20,36 +21,28 @@ def test_bigger_numbers(start_value: int, slope: float) -> None:
     # Arrange
     row = (start_value + slope * np.arange(TEST_IMAGE_WIDTH)).astype(np.float64)
     image = np.tile(row, (TEST_IMAGE_HEIGHT, 1)).astype(np.float64)
-    max_val = 255
-    min_val = 20
     # Act
-    normalized_image = normalize_2d_array(
-        image, scale_max=max_val, scale_min=min_val
-    ).unwrap()
+    normalized_image = normalize_2d_array(image)
 
     # Assert
-    assert normalized_image.max() <= max_val
-    assert normalized_image.min() >= min_val
+    assert normalized_image.max() <= MAX_SCALE
+    assert normalized_image.min() >= MIN_SCALE
     assert normalized_image[0, 0] == normalized_image.min()
     assert normalized_image[9, 9] == normalized_image.max()
 
 
 def test_already_normalized_image() -> None:
     # Arrange
-    max_value = 255
-    min_val = 20
     image = np.linspace(
-        min_val, max_value, num=TEST_IMAGE_WIDTH * TEST_IMAGE_HEIGHT
+        MIN_SCALE, MAX_SCALE, num=TEST_IMAGE_WIDTH * TEST_IMAGE_HEIGHT
     ).reshape(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT)
 
     # Act
-    normalized = normalize_2d_array(
-        array_to_normalize=image, scale_max=max_value, scale_min=min_val
-    ).unwrap()
+    normalized = normalize_2d_array(image)
 
     # Assert
-    assert np.all(normalized >= min_val)
-    assert np.all(normalized <= max_value)
-    assert np.allclose(image, normalized, atol=TOLERANCE), (
+    assert np.all(normalized >= MIN_SCALE)
+    assert np.all(normalized <= MAX_SCALE)
+    assert np.allclose(image, normalized, atol=micro), (
         "should be the same output as the already normalized input"
     )

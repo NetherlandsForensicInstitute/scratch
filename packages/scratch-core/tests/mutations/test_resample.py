@@ -1,139 +1,110 @@
+from container_models.base import Coordinate, Factor, Pair
 from mutations.spatial import Resample
 import numpy as np
 import pytest
 
-from container_models.scan_image import ScanImage
+from container_models.image import ImageContainer, MetaData
 
 
 @pytest.fixture
-def simple_scan_image() -> ScanImage:
+def simple_image(flat_scale: MetaData) -> ImageContainer:
     """Create a simple 10x10 scan image for testing."""
-    return ScanImage(
-        data=np.arange(100, dtype=np.float64).reshape(10, 10),
-        scale_x=1,
-        scale_y=1,
+    return ImageContainer(
+        data=np.arange(100, dtype=np.float64).reshape(10, 10), metadata=flat_scale
     )
 
 
 @pytest.fixture
-def scan_image_with_mask(simple_scan_image: ScanImage) -> ScanImage:
+def image_with_mask(simple_image: ImageContainer) -> ImageContainer:
     """Create a scan image with a mask for testing."""
     mask = np.ones((10, 10), dtype=bool)
     mask[0:2, 0:2] = False
-    return simple_scan_image.model_copy(update={"mask": mask})
+    return simple_image.model_copy(update={"mask": mask})
 
 
-class TestResampleScanImage:
+class TestResampleImageContainer:
     @pytest.mark.parametrize(
-        "y_factor,x_factor,expected_shape",
+        "factors,expected_shape",
         [
-            pytest.param(
-                2.0,
-                2.0,
-                (5, 5),
-                id="downsample_by_2x",
-            ),
-            pytest.param(
-                0.5,
-                0.5,
-                (20, 20),
-                id="upsample_by_2x",
-            ),
-            pytest.param(
-                1.0,
-                1.0,
-                (10, 10),
-                id="no_scaling",
-            ),
-            pytest.param(
-                2.0,
-                1.0,
-                (5, 10),
-                id="downsample_x_only",
-            ),
-            pytest.param(
-                1.0,
-                2.0,
-                (10, 5),
-                id="downsample_y_only",
-            ),
-            pytest.param(3.67, 3.67, (2.7, 2.7), id="floats are also fine"),
+            pytest.param(Pair(2.0, 2.0), (5, 5), id="downsample_by_2x"),
+            pytest.param(Pair(0.5, 0.5), (20, 20), id="upsample_by_2x"),
+            pytest.param(Pair(1.0, 1.0), (10, 10), id="no_scaling"),
+            pytest.param(Pair(2.0, 1.0), (5, 10), id="downsample_x_only"),
+            pytest.param(Pair(1.0, 2.0), (10, 5), id="downsample_y_only"),
         ],
     )
     def test_resampling_changes_shape(
         self,
-        simple_scan_image: ScanImage,
-        y_factor: float,
-        x_factor: float,
+        simple_image: ImageContainer,
+        factors: Factor,
         expected_shape: tuple[int, int],
         caplog: pytest.LogCaptureFixture,
     ):
         # Arrange
-        resampling = Resample(x_factor=x_factor, y_factor=y_factor)
+        resampling = Resample(factors)
         # Act
-        result = resampling(simple_scan_image).unwrap()
+        result = resampling(simple_image).unwrap()
         # Assert
-        assert result.data.shape[0] == round(expected_shape[0], 0)
-        assert result.data.shape[1] == round(expected_shape[1], 0)
+        assert result.data.shape == expected_shape
         assert (
-            f"Resampling image array to new size: {round(float(expected_shape[0]), 1)}/{round(float(expected_shape[1]), 1)}"
+            f"Resampling image array to new size: {expected_shape[0]:.1f}/{expected_shape[1]:.1f}"
             in caplog.messages
         )
 
+    def test_resampling_works_with_float(
+        self, simple_image: ImageContainer, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # Arrange
+        resampling = Resample(Pair(3.67, 3.67))
+        # Act
+        result = resampling(simple_image).unwrap()
+        # Assert
+        assert result.data.shape == (3, 3)
+        assert "Resampling image array to new size: 2.7/2.7" in caplog.messages
+
     @pytest.mark.parametrize(
-        ("y_factor", "x_factor"),
+        "factors",
         [
-            pytest.param(2.0, 2.0, id="downsample"),
-            pytest.param(0.5, 0.5, id="upsample"),
-            pytest.param(2.0, 0.5, id="mixed_scaling"),
+            pytest.param(Pair(2.0, 2.0), id="downsample"),
+            pytest.param(Pair(0.5, 0.5), id="upsample"),
+            pytest.param(Pair(2.0, 0.5), id="mixed_scaling"),
         ],
     )
     def test_resampling_updates_scale(
-        self,
-        simple_scan_image: ScanImage,
-        y_factor: float,
-        x_factor: float,
+        self, simple_image: ImageContainer, factors: Coordinate
     ):
         # Arrange
-        original_scale_x = simple_scan_image.scale_x
-        original_scale_y = simple_scan_image.scale_y
-        resampling = Resample(x_factor=x_factor, y_factor=y_factor)
+        original_scale = simple_image.metadata.scale
+        resampling = Resample(factors)
 
         # Act
-        result = resampling(simple_scan_image).unwrap()
+        result = resampling(simple_image).unwrap()
 
         # Assert
-        assert result.scale_x == original_scale_x * x_factor
-        assert result.scale_y == original_scale_y * y_factor
+        assert result.metadata.scale.x == original_scale.x * factors.x
+        assert result.metadata.scale.y == original_scale.y * factors.y
 
-    def test_resampling_preserves_data_properties(self, simple_scan_image: ScanImage):
+    def test_resampling_preserves_data_properties(self, simple_image: ImageContainer):
         # Arrange
-        factor = 2.0
-        original_dtype = simple_scan_image.data.dtype
-        original_ndim = simple_scan_image.data.ndim
-        resampling = Resample(x_factor=factor, y_factor=factor)
+        original_dtype = simple_image.data.dtype
+        original_ndim = simple_image.data.ndim
+        resampling = Resample(Pair(2.0, 2.0))
 
         # Act
-        result = resampling(simple_scan_image).unwrap()
+        result = resampling(simple_image).unwrap()
 
         # Assert
         assert result.data.dtype == original_dtype
         assert result.data.ndim == original_ndim
-        assert result.data.ndim == 2
 
-    def test_resampling_with_nan_values(self):
+    def test_resampling_with_nan_values(self, flat_scale: MetaData):
         # Arrange
         data = np.full((10, 10), np.nan, dtype=np.float64)
         data[5, 5] = 100.0
-        scan_image = ScanImage(
-            data=data,
-            scale_x=1,
-            scale_y=1,
-        )
-        factor = 2.0
-        resampling = Resample(x_factor=factor, y_factor=factor)
+        image = ImageContainer(data=data, metadata=flat_scale)
+        resampling = Resample(Pair(2.0, 2.0))
         # Act
-        result = resampling(scan_image).unwrap()
+        result = resampling(image).unwrap()
 
         # Assert
         assert result.data.shape == (5, 5)

@@ -9,7 +9,7 @@ from renders.normalizations import (
     normalize_2d_array,
     normalize_to_surface_normals,
 )
-from renders.shading import combine_lighting_components
+from renders.shading import combine_light_components
 import numpy as np
 
 from utils.logger import log_railway_function
@@ -41,7 +41,7 @@ class LightIntensityMap(ImageMutation):
         data = np.nansum(
             np.stack(
                 [
-                    combine_lighting_components(normalize_data, light, self.observer)
+                    combine_light_components(normalize_data, light, self.observer)
                     for light in self.light_sources
                 ],
                 axis=-1,
@@ -81,30 +81,3 @@ class ImageForDisplay(ImageMutation):
         clipped_data = np.clip(image.data, lower, upper)
         image.data = (clipped_data - lower) / (upper - lower) * 255
         return image
-
-
-class _GrayScale(ImageMutation):
-    @log_railway_function(
-        "Failed to convert image to grayscale",
-        "Successfully convert image to grayscale",
-    )
-    @safe
-    def __call__(self, image: ImageContainer) -> ImageContainer:
-        return self.apply_on_image(image)
-
-    @override
-    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
-        """
-        Convert a 2D grayscale array to an 8-bit RGBA array.
-
-        The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
-        NaN values will be converted to black pixels with 100% transparency.
-        """
-        gray_uint8 = np.nan_to_num(image.data, nan=0.0).astype(np.uint8)
-        rgba = np.repeat(gray_uint8[..., np.newaxis], 4, axis=-1)
-        rgba[..., 3] = (~np.isnan(image.data)).astype(np.uint8) * 255
-        image.data = rgba
-        return image
-
-
-GrayScale = _GrayScale()

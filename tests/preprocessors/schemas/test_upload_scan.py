@@ -2,13 +2,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from container_models.light_source import LightSource
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
 from models import SupportedScanExtension
-from preprocessors.schemas import UploadScan
+from preprocessors.schemas import SphericalOrientation, UploadScan
 
 
 @pytest.fixture
@@ -130,10 +129,10 @@ def test_default_values(upload_scan: UploadScan) -> None:
     """Test that default parameters are set correctly."""
     # Assert
     assert upload_scan.light_sources == (
-        LightSource(azimuth=90, elevation=45),
-        LightSource(azimuth=180, elevation=45),
+        SphericalOrientation(azimuth=90, elevation=45),
+        SphericalOrientation(azimuth=180, elevation=45),
     )
-    assert upload_scan.observer == LightSource(azimuth=90, elevation=45)
+    assert upload_scan.observer == SphericalOrientation(azimuth=90, elevation=45)
     assert upload_scan.scale_x == 1.0
     assert upload_scan.scale_y == 1.0
     assert upload_scan.step_size_x == 1
@@ -143,8 +142,8 @@ def test_default_values(upload_scan: UploadScan) -> None:
 def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> None:
     """Test that custom parameters can be set."""
     # Arrange
-    custom_light = LightSource(azimuth=45, elevation=30)
-    custom_observer = LightSource(azimuth=0, elevation=90)
+    custom_light = SphericalOrientation(azimuth=45, elevation=30)
+    custom_observer = SphericalOrientation(azimuth=0, elevation=90)
 
     # Act
     params = upload_scan_parameter(  # type: ignore

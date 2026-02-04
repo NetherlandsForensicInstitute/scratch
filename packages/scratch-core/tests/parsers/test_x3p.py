@@ -7,7 +7,8 @@ from returns.io import IOSuccess, IOFailure
 from returns.result import Failure
 
 from container_models import ImageContainer
-from parsers import parse_to_x3p, save_x3p
+from parsers import parse_to_x3p
+from renders.image_io import save_x3p
 from x3p import X3Pfile
 
 
@@ -30,12 +31,12 @@ def is_good_fail_logs(message: str, log: str) -> bool:
 )
 class TestParseToX3PFailure:
     def test_parse_to_x3p_returns_failure(
-        self, function: str, scan_image: ImageContainer
+        self, function: str, image_container: ImageContainer
     ):
         """Test that parse_to_x3p returns Failure when sub-functions fails."""
         with patch(f"parsers.x3p.{function}") as mocker:
             mocker.side_effect = RuntimeError("Some Error")
-            result = parse_to_x3p(scan_image)
+            result = parse_to_x3p(image_container)
 
         assert isinstance(result, Failure)
         assert isinstance(result.failure(), RuntimeError)
@@ -43,14 +44,14 @@ class TestParseToX3PFailure:
     def test_parse_to_x3p_logs_on_failure(
         self,
         function: str,
-        scan_image: ImageContainer,
+        image_container: ImageContainer,
         caplog: pytest.LogCaptureFixture,
     ):
         """Test that parse_to_x3p logs when sub-functions fails."""
         with patch(f"parsers.x3p.{function}") as mocker:
             mocker.side_effect = RuntimeError("Some Error")
             with caplog.at_level("DEBUG"):
-                _ = parse_to_x3p(scan_image)
+                _ = parse_to_x3p(image_container)
 
         assert is_good_fail_logs("Failed to parse image X3P", caplog.text), (
             "Logs don't match expected format."
@@ -58,9 +59,9 @@ class TestParseToX3PFailure:
 
 
 class TestX3PSave:
-    @pytest.fixture(scope="class")
-    def x3p(self, scan_image: ImageContainer) -> X3Pfile:
-        return parse_to_x3p(scan_image).unwrap()
+    @pytest.fixture
+    def x3p(self, image_container: ImageContainer) -> X3Pfile:
+        return parse_to_x3p(image_container).unwrap()
 
     def test_save_to_x3p_returns_failure_when_write_fails(self, x3p: X3Pfile):
         """Test that save returns IOFailure when write operation fails."""
@@ -107,22 +108,22 @@ class TestX3PSave:
 
 
 def test_parse_to_x3p_on_success(
-    caplog: pytest.LogCaptureFixture, scan_image: ImageContainer
+    caplog: pytest.LogCaptureFixture, image_container: ImageContainer
 ):
     """Test that parse_to_x3p logs INFO on successful parsing."""
     with caplog.at_level("INFO"):
-        result = parse_to_x3p(scan_image)
+        result = parse_to_x3p(image_container)
 
     # TODO: How do I test that X3P is a valid object?
     assert isinstance(result.unwrap(), X3Pfile)
 
 
 def test_parse_to_x3p_logs_on_success(
-    caplog: pytest.LogCaptureFixture, scan_image: ImageContainer
+    caplog: pytest.LogCaptureFixture, image_container: ImageContainer
 ):
     """Test that parse_to_x3p logs INFO on successful parsing."""
     with caplog.at_level("INFO"):
-        _ = parse_to_x3p(scan_image)
+        _ = parse_to_x3p(image_container)
 
     assert compile("Successfully parse array to x3p").search(caplog.text), (
         "Logs don't match expected format."

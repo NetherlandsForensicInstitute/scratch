@@ -3,10 +3,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 from container_models import ImageContainer
+from scipy.constants import femto
 
 from preprocessors.pipelines import parse_scan_pipeline, x3p_pipeline
-
-TOLERANCE = 1e-16
 
 
 @pytest.mark.integration
@@ -37,8 +36,9 @@ class TestX3pPipeline:
 
         # Assert - verify we can parse the generated X3P file
         reparsed_scan = parse_scan_pipeline(output_path, 1, 1)
+        scale = reparsed_scan.metadata.scale
         assert isinstance(reparsed_scan, ImageContainer)
         assert reparsed_scan.data.shape == parsed_al3d_file.data.shape
-        assert np.isclose(reparsed_scan.scale_x, parsed_al3d_file.scale_x, atol=TOLERANCE)
-        assert np.isclose(reparsed_scan.scale_y, parsed_al3d_file.scale_y, atol=TOLERANCE)
-        assert np.allclose(reparsed_scan.data, parsed_al3d_file.data, atol=TOLERANCE, equal_nan=True)
+        assert np.isclose(scale.x, parsed_al3d_file.metadata.scale.x, atol=femto)
+        assert np.isclose(scale.y, parsed_al3d_file.metadata.scale.y, atol=femto)
+        assert np.allclose(reparsed_scan.data, parsed_al3d_file.data, atol=femto, equal_nan=True)

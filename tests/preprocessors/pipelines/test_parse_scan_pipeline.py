@@ -24,5 +24,5 @@ class TestParseScanPipeline:
         height, width = result.data.shape
         assert height > 0
         assert width > 0
-        assert np.isfinite(result.scale_x)
-        assert np.isfinite(result.scale_y)
+        assert np.isfinite(result.metadata.scale.x)
+        assert np.isfinite(result.metadata.scale.y)

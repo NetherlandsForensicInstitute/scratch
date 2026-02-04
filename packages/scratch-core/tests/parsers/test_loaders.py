@@ -1,16 +1,12 @@
 from math import ceil
 from pathlib import Path
 
-import numpy as np
 import pytest
-from returns.pipeline import is_successful
 from scipy.constants import micro
 from surfalize import Surface
 from unittest.mock import patch
 
-from container_models import ImageContainer
-from parsers import load_scan_image, subsample_scan_image
-from parsers.loaders import make_isotropic
+from parsers import load_scan_image
 
 from ..helper_function import unwrap_result
 
@@ -29,6 +25,12 @@ def filepath(scans_dir: Path, request: pytest.FixtureRequest):
     indirect=True,
 )
 class TestLoadImageContainer:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        """Clear the load_scan_image cache before each test."""
+        load_scan_image.cache_clear()
+        yield
+
     def test_load_scan_data_matches_size(self, filepath: Path) -> None:
         # Arrange
         surface = Surface.load(filepath)
@@ -41,8 +43,10 @@ class TestLoadImageContainer:
             ceil(surface.data.shape[0]),
             ceil(surface.data.shape[1]),
         )
-        assert scan_image.scale_y == surface.step_y * micro
-        assert scan_image.scale_x == surface.step_x * micro
+        assert scan_image.metadata.scale == (
+            surface.step_x * micro,
+            surface.step_y * micro,
+        )
 
 
 class TestLoadImageContainerCaching:
@@ -86,191 +90,12 @@ class TestLoadImageContainerCaching:
             ],
         ):
             # Act
-            _image_1 = load_scan_image(scan_file_1)
-            _image_2 = load_scan_image(scan_file_1)
-            _image_3 = load_scan_image(scan_file_2)
+            load_scan_image(scan_file_1)
+            load_scan_image(scan_file_1)
+            load_scan_image(scan_file_2)
 
         # Assert
         info = load_scan_image.cache_info()
         assert info.hits == 1, "one cache hit expected"
         assert info.misses == 2, "two different files loaded"
         assert info.currsize == 1, "Cache should only hold one item"
-
-
-class TestSubSampleImageContainer:
-    # TODO: find a better test methology
-    def test_subsample_matches_baseline_output(
-        self, baseline_images_dir: Path, scan_image_replica: ImageContainer
-    ) -> None:
-        # arrange
-        verified = np.load(baseline_images_dir / "replica_subsampled.npy")
-        # act
-        result = subsample_scan_image(scan_image_replica, 10, 15)
-        subsampled = unwrap_result(result)
-        # assert
-        assert np.allclose(
-            subsampled.data,
-            verified,
-            equal_nan=True,
-            atol=0.001,
-        )
-
-    @pytest.mark.parametrize(
-        "step_size_x, step_size_y", [(1, 1), (10, 10), (25, 25), (25, 50)]
-    )
-    def test_subsample_matches_size(
-        self, scan_image: ImageContainer, step_size_x: int, step_size_y: int
-    ):
-        # Arrange
-        expected_height = ceil(scan_image.data.shape[0] / step_size_y)
-        expected_width = ceil(scan_image.data.shape[1] / step_size_x)
-
-        # Act
-        result = subsample_scan_image(scan_image, step_size_x, step_size_y)
-        subsampled = unwrap_result(result)
-
-        #  Assert
-        assert subsampled.data.shape == (expected_height, expected_width)
-
-    @pytest.mark.parametrize(
-        ("step_x", "step_y"),
-        [
-            pytest.param(1, 1, id="default value"),
-            pytest.param(10, 1, id="only x"),
-            pytest.param(1, 10, id="only y"),
-            pytest.param(10, 5, id="different x and y"),
-        ],
-    )
-    def test_subsample_updates_scan_image_scales(
-        self, scan_image: ImageContainer, step_x: int, step_y: int
-    ) -> None:
-        # Act
-        result = subsample_scan_image(scan_image, step_x, step_y)
-        subsampled = unwrap_result(result)
-
-        # Assert
-        assert np.isclose(subsampled.scale_x, scan_image.scale_x * step_x, atol=1.0e-3)
-        assert np.isclose(subsampled.scale_y, scan_image.scale_y * step_y, atol=1.0e-3)
-
-    @pytest.mark.parametrize(
-        "step_size_x, step_size_y",
-        [(-2, 2), (0, 0), (0, 3), (2, -1), (-1, -1), (1e3, 1e4)],
-    )
-    def test_subsample_rejects_incorrect_sizes(
-        self, scan_image: ImageContainer, step_size_x: int, step_size_y: int
-    ):
-        # Act
-        result = subsample_scan_image(scan_image, step_size_x, step_size_y)
-
-        # Assert
-        assert not is_successful(result)
-
-    def test_subsample_skips_when_given_step_size_of_one(
-        self, scan_image: ImageContainer
-    ) -> None:
-        """
-        Test when given the subsample the stepsize of one in both directions,
-        it doesn't compute the whole image but just returns the original.
-        """
-        # Act
-        result = subsample_scan_image(scan_image, 1, 1)
-        subsampled = unwrap_result(result)
-
-        # Assert
-        assert subsampled is scan_image, "Expected the same object to be returned"
-
-    def test_make_isotropic_no_op(self):
-        """Ensure no resampling occurs if pixels are already square."""
-        scale = 0.5
-        width, height = 100, 100
-        scan_image = ImageContainer(
-            scale_x=scale, scale_y=scale, data=np.zeros((height, width))
-        )
-
-        result = unwrap_result(make_isotropic(scan_image))
-
-        assert np.isclose(result.scale_x, scale), (
-            f"Scale should not have changed, but now is {result.scale_x}"
-        )
-        assert np.isclose(result.scale_y, scale), (
-            f"Scale should not have changed, but now is {result.scale_y}"
-        )
-        assert result.data.shape == (height, width), (
-            f"Shape should not have changed, but now is {result.data.shape}"
-        )
-        np.testing.assert_array_equal(result.data, scan_image.data)
-
-    def test_make_isotropic_upsampling_logic(self):
-        """Verify upsampling to the smallest scale and correct shape calculation."""
-        width, height = 100, 100
-        scale_coarse = 2.0
-        scale_fine = 1.0  # target scale
-        scan_image = ImageContainer(
-            data=np.zeros((height, width)),
-            scale_x=scale_coarse,
-            scale_y=scale_fine,
-        )
-
-        result = unwrap_result(make_isotropic(scan_image))
-
-        assert np.isclose(result.scale_x, scale_fine), (
-            f"Scale should now be the minimum of the two {scale_fine}"
-        )
-        assert np.isclose(result.scale_y, scale_fine), (
-            f"Scale should now be the minimum of the two {scale_fine}"
-        )
-        assert result.data.shape == (height, width * scale_coarse / scale_fine), (
-            f"New width should be (original_width * (original_scale_x / target_scale)), but got: {result.data.shape}"
-        )
-
-    def test_make_isotropic_preserves_metadata_and_range(self):
-        """Ensure metadata is passed through and pixel intensities remain consistent."""
-        scan_image = ImageContainer(
-            meta_data={"sensor_id": "XY-Z", "timestamp": "2026-01-21"},
-            scale_x=1.0,
-            scale_y=0.5,
-            data=np.array([[0, 1000], [2000, 3000]], dtype=np.float64),
-        )
-
-        result = unwrap_result(make_isotropic(scan_image))
-
-        assert result.meta_data == scan_image.meta_data
-        assert np.min(result.data) == 0, (
-            f"Pixel intensity range should be preserved, but lowest value now is {np.min(result.data)}"
-        )
-        assert np.max(result.data) == 3000, (
-            f"Pixel intensity range should be preserved, but highest value now is {np.max(result.data)}"
-        )
-        assert result.data.dtype == scan_image.data.dtype
-
-    @pytest.mark.parametrize("scaling_factor", [4, 7.6, 8.1, 10.11])
-    def test_make_isotropic_handles_nans(
-        self, scan_image_rectangular_with_nans: ImageContainer, scaling_factor: float
-    ):
-        """Ensure the resampling deals with NaN values correctly."""
-        scale_fine = 1.5
-        scale_coarse = 1.5 * scaling_factor
-        scan_image = ImageContainer(
-            data=scan_image_rectangular_with_nans.data,
-            scale_x=scale_fine,
-            scale_y=scale_coarse,
-        )
-        expected_shape = (
-            int(round(scan_image.height * scaling_factor)),
-            int(round(scan_image.width)),
-        )
-
-        result = unwrap_result(make_isotropic(scan_image))
-
-        assert np.isclose(result.scale_x, scale_fine), (
-            f"Scale should be {scale_fine}, but got {result.scale_x}"
-        )
-        assert np.isclose(result.scale_y, scale_fine), (
-            f"Scale should be {scale_fine}, but got {result.scale_y}"
-        )
-        assert result.data.shape == expected_shape, (
-            f"Shape should be {expected_shape}, but got {result.data.shape}"
-        )
-        assert result.valid_mask.sum() / scan_image.valid_mask.sum() == pytest.approx(
-            scaling_factor, abs=1e-3
-        ), "The number of valid pixels / NaNs have not scaled correctly"

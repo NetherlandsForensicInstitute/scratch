@@ -4,7 +4,7 @@ from pathlib import Path
 from container_models.base import UnitVector
 from container_models.image import ImageContainer
 from mutations.sampling import IsotropicResample, Subsample
-from mutations.shading import GrayScale, ImageForDisplay, LightIntensityMap
+from mutations.shading import ImageForDisplay, LightIntensityMap
 from parsers import load_scan_image, parse_to_x3p
 from renders.image_io import save_image, save_x3p
 from returns.curry import partial
@@ -69,7 +69,6 @@ def surface_map_pipeline(  # noqa
     return run_pipeline(
         parsed_scan,
         LightIntensityMap(light_sources, observer),
-        GrayScale,
         partial(save_image, output_path=output_path),
         error_message=f"Failed to create the surface map: {output_path}",
     )
@@ -87,7 +86,6 @@ def preview_pipeline(parsed_scan: ImageContainer, output_path: Path) -> Path:
     return run_pipeline(
         parsed_scan,
         ImageForDisplay(std_scaler=2.0),
-        GrayScale,
         partial(save_image, output_path=output_path),
         error_message=f"Failed to create the surface map: {output_path}",
     )
