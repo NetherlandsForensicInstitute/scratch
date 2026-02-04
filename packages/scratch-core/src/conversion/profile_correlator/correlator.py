@@ -62,7 +62,7 @@ def correlate_profiles(
     profile_ref: Profile,
     profile_comp: Profile,
     params: AlignmentParameters = AlignmentParameters(),
-) -> ComparisonResults:
+) -> ComparisonResults | None:
     """
     Compare two striated mark profiles and compute similarity metrics.
 
@@ -92,7 +92,8 @@ def correlate_profiles(
     :param params: Alignment parameters. Key parameters:
         - max_scaling: Maximum scaling deviation (e.g., 0.05 for ±5%)
         - min_overlap_distance: Minimum overlap distance in meters (default 200 μm)
-    :returns: ComparisonResults containing all computed metrics.
+    :returns: ComparisonResults containing all computed metrics, or None if no
+        valid alignment could be found.
     """
     # Step 1: Equalize pixel scales
     profile_ref_eq, profile_comp_eq = equalize_pixel_scale(profile_ref, profile_comp)
@@ -191,27 +192,7 @@ def correlate_profiles(
 
     # Step 3: Compute metrics for the best alignment
     if best_ref_overlap is None or best_comp_overlap is None:
-        # No valid alignment found - return empty results
-        return ComparisonResults(
-            is_profile_comparison=True,
-            pixel_size_ref=pixel_size,
-            pixel_size_comp=pixel_size,
-            position_shift=np.nan,
-            scale_factor=1.0,
-            similarity_value=np.nan,
-            overlap_length=np.nan,
-            overlap_ratio=np.nan,
-            correlation_coefficient=np.nan,
-            sa_ref=np.nan,
-            sq_ref=np.nan,
-            sa_comp=np.nan,
-            sq_comp=np.nan,
-            sa_diff=np.nan,
-            sq_diff=np.nan,
-            ds_ref_norm=np.nan,
-            ds_comp_norm=np.nan,
-            ds_combined=np.nan,
-        )
+        return None
 
     # Position shift in meters
     position_shift = best_shift * pixel_size

@@ -12,9 +12,7 @@ The main types are:
 All length and height measurements are in meters (SI units).
 """
 
-from dataclasses import dataclass, field
-
-import numpy as np
+from dataclasses import dataclass
 
 from container_models.base import FloatArray1D
 
@@ -105,21 +103,21 @@ class ComparisonResults:
         Computed as sq_diff^2 / (sq_ref * sq_comp).
     """
 
-    is_profile_comparison: bool = True
-    pixel_size_ref: float = field(default=np.nan)
-    pixel_size_comp: float = field(default=np.nan)
-    position_shift: float = field(default=np.nan)
-    scale_factor: float = field(default=np.nan)
-    similarity_value: float = field(default=np.nan)
-    overlap_length: float = field(default=np.nan)
-    overlap_ratio: float = field(default=np.nan)
-    correlation_coefficient: float = field(default=np.nan)
-    sa_ref: float = field(default=np.nan)
-    sq_ref: float = field(default=np.nan)
-    sa_comp: float = field(default=np.nan)
-    sq_comp: float = field(default=np.nan)
-    sa_diff: float = field(default=np.nan)
-    sq_diff: float = field(default=np.nan)
-    ds_ref_norm: float = field(default=np.nan)
-    ds_comp_norm: float = field(default=np.nan)
-    ds_combined: float = field(default=np.nan)
+    is_profile_comparison: bool
+    pixel_size_ref: float
+    pixel_size_comp: float
+    position_shift: float
+    scale_factor: float
+    similarity_value: float
+    overlap_length: float
+    overlap_ratio: float
+    correlation_coefficient: float
+    sa_ref: float
+    sq_ref: float
+    sa_comp: float
+    sq_comp: float
+    sa_diff: float
+    sq_diff: float
+    ds_ref_norm: float
+    ds_comp_norm: float
+    ds_combined: float

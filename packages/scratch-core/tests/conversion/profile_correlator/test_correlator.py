@@ -94,6 +94,7 @@ class TestCorrelateProfilesBasic:
         ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         comp = make_shifted_profile(ref, 10.0, seed=43)
         result = correlate_profiles(ref, comp, AlignmentParameters())
+        assert result is not None
         assert not np.isnan(result.correlation_coefficient)
         assert -1 <= result.correlation_coefficient <= 1
 
@@ -102,6 +103,7 @@ class TestCorrelateProfilesBasic:
         ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         comp = make_shifted_profile(ref, 10.0, seed=43)
         result = correlate_profiles(ref, comp, AlignmentParameters())
+        assert result is not None
         assert not np.isnan(result.position_shift)
 
     def test_scale_factor_computed(self):
@@ -109,6 +111,7 @@ class TestCorrelateProfilesBasic:
         ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         comp = make_shifted_profile(ref, 0.0, 1.01, seed=43)
         result = correlate_profiles(ref, comp, AlignmentParameters())
+        assert result is not None
         assert not np.isnan(result.scale_factor)
 
     def test_roughness_metrics_computed(self):
@@ -116,6 +119,7 @@ class TestCorrelateProfilesBasic:
         ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         comp = make_shifted_profile(ref, 10.0, seed=43)
         result = correlate_profiles(ref, comp, AlignmentParameters())
+        assert result is not None
         assert not np.isnan(result.sa_ref)
         assert not np.isnan(result.sq_ref)
         assert result.sa_ref > 0
@@ -126,22 +130,26 @@ class TestCorrelateProfilesBasic:
         ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         comp = make_shifted_profile(ref, 10.0, seed=43)
         result = correlate_profiles(ref, comp, AlignmentParameters())
+        assert result is not None
         assert not np.isnan(result.overlap_length)
         assert result.overlap_length > 0
 
     def test_pixel_sizes_recorded(self):
         """Pixel sizes should be recorded in results."""
-        ref = Profile(np.random.randn(500), pixel_size=0.5e-6)
-        comp = Profile(np.random.randn(500), pixel_size=0.5e-6)
+        ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
+        comp = make_synthetic_striation_profile(n_samples=1000, seed=43)
         result = correlate_profiles(ref, comp, AlignmentParameters())
-        assert_allclose(result.pixel_size_ref, 0.5e-6, atol=1e-16)
-        assert_allclose(result.pixel_size_comp, 0.5e-6, atol=1e-16)
+        assert result is not None
+        assert_allclose(result.pixel_size_ref, ref.pixel_size, atol=1e-16)
+        assert_allclose(result.pixel_size_comp, comp.pixel_size, atol=1e-16)
 
     def test_equalizes_different_pixel_sizes(self):
         """Profiles with different pixel sizes should be equalized."""
-        ref = Profile(np.random.randn(500), pixel_size=1.0e-6)
-        comp = Profile(np.random.randn(1000), pixel_size=0.5e-6)
+        ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
+        comp = make_synthetic_striation_profile(n_samples=2000, seed=43)
+        comp = Profile(comp.heights, pixel_size=0.5e-6)
         result = correlate_profiles(ref, comp, AlignmentParameters())
+        assert result is not None
         assert_allclose(result.pixel_size_ref, result.pixel_size_comp, atol=1e-10)
 
     def test_default_parameters_used(self):
@@ -149,7 +157,7 @@ class TestCorrelateProfilesBasic:
         ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         comp = make_shifted_profile(ref, 10.0, seed=43)
         result = correlate_profiles(ref, comp)
-        assert isinstance(result, ComparisonResults)
+        assert result is not None
         assert not np.isnan(result.correlation_coefficient)
 
 
@@ -165,6 +173,7 @@ class TestIdenticalProfiles:
         ref = Profile(heights=base.copy(), pixel_size=PIXEL_SIZE_M)
         comp = Profile(heights=base.copy(), pixel_size=PIXEL_SIZE_M)
         result = correlate_profiles(ref, comp, AlignmentParameters())
+        assert result is not None
         assert result.correlation_coefficient > 0.999
         assert result.overlap_ratio > 0.99
 
@@ -181,6 +190,7 @@ class TestShiftedProfiles:
         base = create_base_profile(n_samples=1000, seed=42)
         ref, comp = create_shifted_profiles(base, int(1000 * shift_pct / 100))
         result = correlate_profiles(ref, comp, AlignmentParameters())
+        assert result is not None
         assert result.correlation_coefficient >= min_corr
 
     @pytest.mark.parametrize(
@@ -192,6 +202,7 @@ class TestShiftedProfiles:
         base = create_base_profile(n_samples=1000, seed=42)
         a, b = create_shifted_profiles(base, int(1000 * shift_pct / 100))
         result = correlate_profiles(b, a, AlignmentParameters())
+        assert result is not None
         assert result.correlation_coefficient >= min_corr
 
 
@@ -204,6 +215,7 @@ class TestPartialProfiles:
         base = create_base_profile(n_samples=1000, seed=42)
         ref, comp = create_partial_profiles(base, length_pct / 100.0)
         result = correlate_profiles(ref, comp, AlignmentParameters())
+        assert result is not None
         assert result.correlation_coefficient > 0.85
         assert result.overlap_ratio > 0.8
 
@@ -213,6 +225,7 @@ class TestPartialProfiles:
         base = create_base_profile(n_samples=1000, seed=42)
         long, short = create_partial_profiles(base, length_pct / 100.0)
         result = correlate_profiles(short, long, AlignmentParameters())
+        assert result is not None
         assert result.correlation_coefficient > 0.85
         assert result.overlap_ratio > 0.8
 
@@ -228,6 +241,7 @@ class TestScaledProfiles:
         ref, comp = create_scaled_profiles(base, scale)
         params = AlignmentParameters(max_scaling=scale_pct / 100.0 + 0.02)
         result = correlate_profiles(ref, comp, params)
+        assert result is not None
         assert result.correlation_coefficient >= min_corr
         assert abs(result.scale_factor - 1.0 / scale) < 0.05
 
@@ -239,6 +253,7 @@ class TestScaledProfiles:
         original, stretched = create_scaled_profiles(base, scale)
         params = AlignmentParameters(max_scaling=scale_pct / 100.0 + 0.02)
         result = correlate_profiles(stretched, original, params)
+        assert result is not None
         assert result.correlation_coefficient >= min_corr
 
 
@@ -249,18 +264,18 @@ class TestEdgeCases:
     """Edge case tests for correlate_profiles."""
 
     def test_constant_profile(self):
-        """Constant profiles should be handled (returns NaN correlation)."""
+        """Constant profiles return None (no valid correlation possible)."""
         ref = Profile(np.ones(500), pixel_size=0.5e-6)
         comp = Profile(np.ones(500) * 2, pixel_size=0.5e-6)
         result = correlate_profiles(ref, comp, AlignmentParameters())
-        assert isinstance(result, ComparisonResults)
+        assert result is None
 
     def test_very_short_profiles(self):
-        """Very short profiles should be handled."""
+        """Very short profiles return None when below min_overlap_distance."""
         ref = Profile(np.random.randn(50), pixel_size=0.5e-6)
         comp = Profile(np.random.randn(50), pixel_size=0.5e-6)
         result = correlate_profiles(ref, comp, AlignmentParameters())
-        assert isinstance(result, ComparisonResults)
+        assert result is None
 
     def test_different_length_profiles(self):
         """Profiles with different lengths should correlate."""
@@ -270,4 +285,5 @@ class TestEdgeCases:
             pixel_size=ref.pixel_size,
         )
         result = correlate_profiles(ref, partial, AlignmentParameters())
+        assert result is not None
         assert not np.isnan(result.correlation_coefficient)
