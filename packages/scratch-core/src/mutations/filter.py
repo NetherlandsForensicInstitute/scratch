@@ -16,6 +16,28 @@ class PointCloud(NamedTuple):
 
 
 class LevelMap(ImageMutation):
+    """
+    Image mutation that performs surface leveling by fitting and subtracting
+    a polynomial surface from a scan image.
+
+    The valid pixels of the input `ScanImage` are interpreted as a 3D point
+    cloud (X, Y, Z). A polynomial surface, defined by `SurfaceTerms`, is fitted
+    to this data using a least-squares approach.
+    The fitted surface is then subtracted from the original height data.
+
+    Coordinates are translated such that the given reference point becomes
+    the origin and are normalized for numerical stability.
+
+    Parameters
+    ----------
+    x_reference_point : float
+        X-coordinate used as the origin for surface fitting.
+    y_reference_point : float
+        Y-coordinate used as the origin for surface fitting.
+    terms : SurfaceTerms
+        Polynomial surface terms defining the fitted surface.
+    """
+
     def __init__(
         self, x_reference_point: float, y_reference_point: float, terms: SurfaceTerms
     ) -> None:
