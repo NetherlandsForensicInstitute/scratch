@@ -10,8 +10,8 @@ from conversion.profile_correlator import (
 )
 
 
-class TestEqualizeSamplingDistance:
-    """Tests for equalize_sampling_distance function."""
+class TestEqualizePixelScale:
+    """Tests for equalize_pixel_scale function."""
 
     def test_same_pixel_size_unchanged(self):
         """Profiles with same pixel size should be returned unchanged."""
@@ -24,8 +24,8 @@ class TestEqualizeSamplingDistance:
         assert_array_equal(p1_out.heights, p1.heights)
         assert_array_equal(p2_out.heights, p2.heights)
 
-    def test_resamples_higher_resolution_profile(self):
-        """Higher resolution profile should be resampled to lower resolution."""
+    def test_downsamples_higher_resolution_profile(self):
+        """Higher resolution profile should be downsampled to lower resolution."""
         p1 = Profile(np.random.randn(100), pixel_size=1.0e-6)  # Lower resolution
         p2 = Profile(np.random.randn(200), pixel_size=0.5e-6)  # Higher resolution
 
@@ -35,7 +35,7 @@ class TestEqualizeSamplingDistance:
         assert_array_equal(p1_out.heights, p1.heights)
         assert p1_out.pixel_size == p1.pixel_size
 
-        # p2 should be resampled to match p1's pixel size
+        # p2 should be downsampled to match p1's pixel size
         assert p2_out.pixel_size == p1.pixel_size
         # Length should be approximately halved
         assert len(p2_out.heights) == pytest.approx(len(p2.heights) / 2, abs=2)
