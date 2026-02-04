@@ -5,8 +5,8 @@ This module provides functions for computing statistical metrics between
 1D profiles, including:
 
 - compute_cross_correlation: NaN-aware normalized cross-correlation
-- compute_roughness_sa: Arithmetic mean roughness (Sa)
-- compute_roughness_sq: Root mean square roughness (Sq)
+- compute_roughness_sa: Arithmetic mean roughness
+- compute_roughness_sq: Root mean square roughness
 - compute_overlap_ratio: Overlap ratio relative to shorter profile
 - compute_signature_differences: Normalized signature difference metrics
 
@@ -16,6 +16,10 @@ All length and height measurements are in meters (SI units).
 import numpy as np
 
 from container_models.base import FloatArray1D
+from conversion.profile_correlator.data_types import (
+    RoughnessMetrics,
+    SignatureDifferences,
+)
 
 
 def compute_cross_correlation(
@@ -56,26 +60,28 @@ def compute_cross_correlation(
 
 def compute_roughness_sa(profile: FloatArray1D) -> float:
     """
-    Compute arithmetic mean roughness (Sa) of a profile.
+    Compute arithmetic mean roughness (ISO 25178 Sa parameter) of a profile.
 
     Sa is the arithmetic mean of the absolute values of the profile heights,
-    calculated as: Sa = mean(|z|)
+    calculated as: mean(|z|). The 'S' denotes a surface/areal parameter and
+    'a' denotes arithmetical mean.
 
     :param profile: 1D profile array. May contain NaN values which are ignored.
-    :returns: Sa value in the same units as the input profile.
+    :returns: Arithmetic mean roughness (Sa) in the same units as the input profile.
     """
     return float(np.nanmean(np.abs(profile)))
 
 
 def compute_roughness_sq(profile: FloatArray1D) -> float:
     """
-    Compute root mean square roughness (Sq) of a profile.
+    Compute root-mean-square roughness (ISO 25178 Sq parameter) of a profile.
 
-    Sq is the root mean square of the profile heights, calculated as:
-    Sq = sqrt(mean(z^2))
+    Sq is the root-mean-square of the profile heights, calculated as:
+    sqrt(mean(z^2)). The 'S' denotes a surface/areal parameter and 'q'
+    denotes quadratic mean (root-mean-square).
 
     :param profile: 1D profile array. May contain NaN values which are ignored.
-    :returns: Sq value in the same units as the input profile.
+    :returns: Root-mean-square roughness (Sq) in the same units as the input profile.
     """
     return float(np.sqrt(np.nanmean(profile**2)))
 
@@ -91,43 +97,42 @@ def compute_overlap_ratio(
     The overlap ratio indicates what fraction of the shorter profile is
     covered by the overlap region after alignment.
 
-    :param overlap_length: Length of the overlap region (in meters).
-    :param ref_length: Length of the reference profile (in meters).
-    :param comp_length: Length of the comparison profile (in meters).
-    :returns: Overlap ratio in range [0, 1]. Returns NaN if shorter length is 0.
+    :param overlap_length: Length of the overlap region in meters.
+    :param ref_length: Length of the reference profile in meters.
+    :param comp_length: Length of the comparison profile in meters.
+    :returns: Overlap ratio in range [0, 1]. Returns NaN if shorter length is 0
+        or if overlap_length exceeds shorter_length (invalid input).
     """
     shorter_length = min(ref_length, comp_length)
-    if shorter_length == 0:
+    if np.isclose(shorter_length, 0.0):
+        return np.nan
+    if overlap_length > shorter_length:
         return np.nan
     return overlap_length / shorter_length
 
 
-def compute_signature_differences(
-    sq_diff: float,
-    sq_ref: float,
-    sq_comp: float,
-) -> tuple[float, float, float]:
+def compute_signature_differences(roughness: RoughnessMetrics) -> SignatureDifferences:
     """
     Compute normalized signature difference metrics.
 
     These metrics quantify the difference between profiles normalized by
     their roughness, providing dimensionless measures of dissimilarity.
 
-    :param sq_diff: Sq of the difference profile (comp - ref).
-    :param sq_ref: Sq of the reference profile.
-    :param sq_comp: Sq of the comparison profile.
-    :returns: Tuple of (ds_ref_norm, ds_comp_norm, ds_combined) where:
-        - ds_ref_norm: (Sq_diff / Sq_ref)^2 - normalized to reference
-        - ds_comp_norm: (Sq_diff / Sq_comp)^2 - normalized to comparison
-        - ds_combined: Sq_diff^2 / (Sq_ref * Sq_comp) - geometric mean normalization
+    :param roughness: Container with quadratic mean roughness (Sq) values for
+        the reference profile, comparison profile, and difference profile.
+    :returns: SignatureDifferences containing normalized metrics.
         Returns NaN for any metric where division by zero would occur.
     """
+    sq_ref = roughness.sq_ref
+    sq_comp = roughness.sq_comp
+    sq_diff = roughness.sq_diff
+
     with np.errstate(divide="ignore", invalid="ignore"):
-        ds_ref_norm = (sq_diff / sq_ref) ** 2 if sq_ref != 0 else np.nan
-        ds_comp_norm = (sq_diff / sq_comp) ** 2 if sq_comp != 0 else np.nan
-        ds_combined = (
-            sq_diff**2 / (sq_ref * sq_comp)
-            if (sq_ref != 0 and sq_comp != 0)
-            else np.nan
+        ref_norm = (sq_diff / sq_ref) ** 2 if sq_ref > 0 else np.nan
+        comp_norm = (sq_diff / sq_comp) ** 2 if sq_comp > 0 else np.nan
+        combined = (
+            sq_diff**2 / (sq_ref * sq_comp) if (sq_ref > 0 and sq_comp > 0) else np.nan
         )
-    return ds_ref_norm, ds_comp_norm, ds_combined
+    return SignatureDifferences(
+        ref_norm=ref_norm, comp_norm=comp_norm, combined=combined
+    )

@@ -30,6 +30,7 @@ from conversion.profile_correlator.data_types import (
     AlignmentResult,
     ComparisonResults,
     Profile,
+    RoughnessMetrics,
 )
 from conversion.profile_correlator.transforms import apply_scaling, equalize_pixel_scale
 from conversion.profile_correlator.statistics import (
@@ -162,14 +163,13 @@ def _compute_metrics(
     sq_comp = compute_roughness_sq(comp_overlap)
 
     # Difference profile roughness
-    p_diff = comp_overlap - ref_overlap
-    sa_diff = compute_roughness_sa(p_diff)
-    sq_diff = compute_roughness_sq(p_diff)
+    diff_profile = comp_overlap - ref_overlap
+    sa_diff = compute_roughness_sa(diff_profile)
+    sq_diff = compute_roughness_sq(diff_profile)
 
     # Signature differences
-    ds_ref_norm, ds_comp_norm, ds_combined = compute_signature_differences(
-        sq_diff, sq_ref, sq_comp
-    )
+    roughness = RoughnessMetrics(sq_ref=sq_ref, sq_comp=sq_comp, sq_diff=sq_diff)
+    signature_diff = compute_signature_differences(roughness)
 
     return ComparisonResults(
         is_profile_comparison=True,
@@ -187,9 +187,9 @@ def _compute_metrics(
         sq_comp=sq_comp,
         sa_diff=sa_diff,
         sq_diff=sq_diff,
-        ds_ref_norm=ds_ref_norm,
-        ds_comp_norm=ds_comp_norm,
-        ds_combined=ds_combined,
+        ds_ref_norm=signature_diff.ref_norm,
+        ds_comp_norm=signature_diff.comp_norm,
+        ds_combined=signature_diff.combined,
     )
 
 

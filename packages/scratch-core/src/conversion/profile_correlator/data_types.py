@@ -64,6 +64,47 @@ class AlignmentParameters:
 
 
 @dataclass(frozen=True)
+class RoughnessMetrics:
+    """
+    Container for roughness metrics of a profile pair.
+
+    Uses ISO 25178 naming conventions:
+    - Sa: Arithmetic mean roughness ('S' = surface, 'a' = arithmetical mean)
+    - Sq: Quadratic mean roughness ('S' = surface, 'q' = quadratic mean)
+
+    :param sq_ref: Quadratic mean roughness (Sq) of the reference profile.
+    :param sq_comp: Quadratic mean roughness (Sq) of the comparison profile.
+    :param sq_diff: Quadratic mean roughness (Sq) of the difference profile
+        (comparison minus reference).
+    """
+
+    sq_ref: float
+    sq_comp: float
+    sq_diff: float
+
+
+@dataclass(frozen=True)
+class SignatureDifferences:
+    """
+    Container for normalized signature difference metrics.
+
+    These metrics quantify the difference between profiles normalized by
+    their roughness, providing dimensionless measures of dissimilarity.
+
+    :param ref_norm: Signature difference normalized to reference,
+        computed as (sq_diff / sq_ref)^2.
+    :param comp_norm: Signature difference normalized to comparison,
+        computed as (sq_diff / sq_comp)^2.
+    :param combined: Combined signature difference using geometric mean
+        normalization, computed as sq_diff^2 / (sq_ref * sq_comp).
+    """
+
+    ref_norm: float
+    comp_norm: float
+    combined: float
+
+
+@dataclass(frozen=True)
 class AlignmentResult:
     """Result from the alignment search."""
 
@@ -85,33 +126,39 @@ class ComparisonResults:
 
     All length and height measurements are in meters (SI units).
 
+    Roughness parameters use ISO 25178 naming conventions:
+    - Sa: Arithmetic mean roughness ('S' = surface, 'a' = arithmetical mean)
+    - Sq: Root-mean-square roughness ('S' = surface, 'q' = quadratic mean)
+
     :param is_profile_comparison: True for full profile comparison mode.
-    :param pixel_size_ref: Pixel separation of reference profile (m).
-    :param pixel_size_comp: Pixel separation of compared profile (m).
-    :param position_shift: Registration shift of compared profile
-        relative to reference (m).
-    :param scale_factor: Registration scale factor applied to compared
-        profile (1.0 = no scaling).
-    :param similarity_value: Optimized value of the similarity metric
-        used during registration.
-    :param overlap_length: Length of the overlapping region after
-        registration (m).
-    :param overlap_ratio: Ratio of overlap length to the length of the
-        shorter profile.
+    :param pixel_size_ref: Pixel separation of reference profile in meters.
+    :param pixel_size_comp: Pixel separation of compared profile in meters.
+    :param position_shift: Registration shift of compared profile relative to
+        reference in meters.
+    :param scale_factor: Registration scale factor applied to compared profile
+        (1.0 means no scaling).
+    :param similarity_value: Optimized value of the similarity metric used
+        during registration.
+    :param overlap_length: Length of the overlapping region after registration
+        in meters.
+    :param overlap_ratio: Ratio of overlap length to the length of the shorter
+        profile.
     :param correlation_coefficient: Pearson cross-correlation coefficient
         between the aligned profiles.
-    :param sa_ref: Mean absolute height (Sa) of the reference profile (m).
-    :param sq_ref: RMS roughness (Sq) of the reference profile (m).
-    :param sa_comp: Mean absolute height (Sa) of the compared profile (m).
-    :param sq_comp: RMS roughness (Sq) of the compared profile (m).
-    :param sa_diff: Mean absolute height difference between profiles (m).
-    :param sq_diff: RMS height difference between profiles (m).
-    :param ds_ref_norm: Signature difference normalized by reference Sq.
-        Computed as (sq_diff / sq_ref)^2.
-    :param ds_comp_norm: Signature difference normalized by compared Sq.
-        Computed as (sq_diff / sq_comp)^2.
-    :param ds_combined: Combined signature difference.
-        Computed as sq_diff^2 / (sq_ref * sq_comp).
+    :param sa_ref: Arithmetic mean roughness (Sa) of the reference profile in meters.
+    :param sq_ref: Root-mean-square roughness (Sq) of the reference profile in meters.
+    :param sa_comp: Arithmetic mean roughness (Sa) of the compared profile in meters.
+    :param sq_comp: Root-mean-square roughness (Sq) of the compared profile in meters.
+    :param sa_diff: Arithmetic mean roughness (Sa) of the difference profile
+        (comparison minus reference) in meters.
+    :param sq_diff: Root-mean-square roughness (Sq) of the difference profile
+        (comparison minus reference) in meters.
+    :param ds_ref_norm: Signature difference normalized by reference Sq,
+        computed as (sq_diff / sq_ref)^2.
+    :param ds_comp_norm: Signature difference normalized by compared Sq,
+        computed as (sq_diff / sq_comp)^2.
+    :param ds_combined: Combined signature difference using geometric mean
+        normalization, computed as sq_diff^2 / (sq_ref * sq_comp).
     """
 
     is_profile_comparison: bool
