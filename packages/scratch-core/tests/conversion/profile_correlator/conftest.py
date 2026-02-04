@@ -112,26 +112,6 @@ def partial_profile(pixel_size_05um: float) -> Profile:
 
 
 @pytest.fixture
-def multi_column_profile(pixel_size_05um: float) -> Profile:
-    """
-    Create a multi-column profile (multiple parallel scans).
-
-    Contains 3 columns of similar but not identical data.
-    """
-    np.random.seed(47)
-    x = np.linspace(0, 10 * np.pi, 1000)
-
-    # Create 3 columns with slightly different noise
-    col1 = np.sin(x) * 1e-6 + np.random.normal(0, 0.02e-6, len(x))
-    col2 = np.sin(x) * 1e-6 + np.random.normal(0, 0.02e-6, len(x))
-    col3 = np.sin(x) * 1e-6 + np.random.normal(0, 0.02e-6, len(x))
-
-    data = np.column_stack([col1, col2, col3])
-
-    return Profile(depth_data=data, pixel_size=pixel_size_05um)
-
-
-@pytest.fixture
 def different_resolution_profile(pixel_size_1um: float) -> Profile:
     """Create a profile with different pixel size for resampling tests."""
     np.random.seed(48)
