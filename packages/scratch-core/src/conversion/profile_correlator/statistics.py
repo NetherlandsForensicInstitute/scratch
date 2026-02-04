@@ -14,76 +14,47 @@ All length and height measurements are in meters (SI units).
 """
 
 import numpy as np
-from numpy.typing import NDArray
+
+from container_models.base import FloatArray1D
 
 
 def compute_cross_correlation(
-    profile_1: NDArray[np.floating],
-    profile_2: NDArray[np.floating],
+    profile_1: FloatArray1D,
+    profile_2: FloatArray1D,
 ) -> float:
     """
     Compute normalized cross-correlation between two profiles.
 
     This function computes the Pearson correlation coefficient between two
     1D profiles, properly handling NaN values by excluding them from the
-    calculation. Both profiles are mean-centered before computing the
-    correlation.
-
-    The formula used is::
-
-        r = (p1' * p2) / sqrt((p1' * p1) * (p2' * p2))
-
-    where p1 and p2 are the mean-centered profiles with NaN values removed.
+    calculation.
 
     :param profile_1: First profile as a 1D array. May contain NaN values.
     :param profile_2: Second profile as a 1D array. Must have the same length
         as profile_1. May contain NaN values.
     :returns: Correlation coefficient in the range [-1, 1]. Returns NaN if
-        there are no valid (non-NaN) overlapping samples.
+        there are fewer than 2 valid (non-NaN) overlapping samples or if
+        either profile has zero variance.
     :raises ValueError: If profiles have different lengths.
     """
-    # Ensure 1D arrays
     profile_1 = np.asarray(profile_1).ravel()
     profile_2 = np.asarray(profile_2).ravel()
 
-    # Validate lengths
     if len(profile_1) != len(profile_2):
         raise ValueError(
             f"Profiles must have the same length. "
             f"Got {len(profile_1)} and {len(profile_2)}."
         )
 
-    # Find indices where both profiles have valid (non-NaN) values
     valid_mask = ~(np.isnan(profile_1) | np.isnan(profile_2))
 
-    # Extract valid samples
-    p1_valid = profile_1[valid_mask]
-    p2_valid = profile_2[valid_mask]
-
-    # Check if we have any valid samples
-    n_valid = len(p1_valid)
-    if n_valid == 0:
+    if np.sum(valid_mask) < 2:
         return np.nan
 
-    # Subtract the mean from the profile. (Results in profiles with 0 mean)
-    p1_centered = p1_valid - np.mean(p1_valid)
-    p2_centered = p2_valid - np.mean(p2_valid)
-
-    # Compute correlation terms
-    a12 = np.dot(p1_centered, p2_centered)
-    a11 = np.dot(p1_centered, p1_centered)
-    a22 = np.dot(p2_centered, p2_centered)
-
-    # Compute correlation coefficient
-    denominator = np.sqrt(a11 * a22)
-    if denominator == 0:
-        # Both profiles are constant (zero variance)
-        return np.nan
-
-    return float(a12 / denominator)
+    return float(np.corrcoef(profile_1[valid_mask], profile_2[valid_mask])[0, 1])
 
 
-def compute_roughness_sa(profile: NDArray[np.floating]) -> float:
+def compute_roughness_sa(profile: FloatArray1D) -> float:
     """
     Compute arithmetic mean roughness (Sa) of a profile.
 
@@ -96,7 +67,7 @@ def compute_roughness_sa(profile: NDArray[np.floating]) -> float:
     return float(np.nanmean(np.abs(profile)))
 
 
-def compute_roughness_sq(profile: NDArray[np.floating]) -> float:
+def compute_roughness_sq(profile: FloatArray1D) -> float:
     """
     Compute root mean square roughness (Sq) of a profile.
 

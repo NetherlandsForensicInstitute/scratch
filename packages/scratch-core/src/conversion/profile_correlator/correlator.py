@@ -23,8 +23,8 @@ be at a position far from zero shift for repetitive patterns.
 """
 
 import numpy as np
-from numpy.typing import NDArray
 
+from container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
     ComparisonResults,
@@ -40,8 +40,8 @@ from conversion.profile_correlator.statistics import (
 
 
 def _compute_correlation(
-    profile_ref: NDArray[np.floating],
-    profile_comp: NDArray[np.floating],
+    profile_ref: FloatArray1D,
+    profile_comp: FloatArray1D,
 ) -> float:
     """
     Compute Pearson correlation between two profile segments.
@@ -50,33 +50,12 @@ def _compute_correlation(
     :param profile_comp: Comparison profile segment (1D array).
     :returns: Pearson correlation coefficient, or NaN if computation fails.
     """
-    # Find valid (non-NaN) samples in both profiles
     valid_mask = ~(np.isnan(profile_ref) | np.isnan(profile_comp))
 
-    if not np.any(valid_mask):
+    if np.sum(valid_mask) < 2:
         return np.nan
 
-    ref_valid = profile_ref[valid_mask]
-    comp_valid = profile_comp[valid_mask]
-
-    # Need at least 2 samples for correlation
-    if len(ref_valid) < 2:
-        return np.nan
-
-    # Compute Pearson correlation
-    ref_centered = ref_valid - np.mean(ref_valid)
-    comp_centered = comp_valid - np.mean(comp_valid)
-
-    numerator = np.dot(ref_centered, comp_centered)
-    denominator = np.sqrt(
-        np.dot(ref_centered, ref_centered) * np.dot(comp_centered, comp_centered)
-    )
-
-    # Zero denominator means one or both profiles have zero variance (constant values)
-    if denominator == 0:
-        return np.nan
-
-    return float(numerator / denominator)
+    return float(np.corrcoef(profile_ref[valid_mask], profile_comp[valid_mask])[0, 1])
 
 
 def correlate_profiles(
@@ -152,8 +131,8 @@ def correlate_profiles(
     best_correlation = -np.inf
     best_shift = 0
     best_scale = 1.0
-    best_ref_overlap: NDArray[np.floating] | None = None
-    best_comp_overlap: NDArray[np.floating] | None = None
+    best_ref_overlap: FloatArray1D | None = None
+    best_comp_overlap: FloatArray1D | None = None
 
     for scale in scale_factors:
         # Apply scaling to comparison profile

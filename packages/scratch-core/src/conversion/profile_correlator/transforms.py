@@ -8,17 +8,17 @@ This module provides resampling and scaling functions for profile alignment:
 """
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy.interpolate import interp1d
 
+from container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import Profile
 
 
 def _interpolate_1d(
-    data: NDArray[np.floating],
-    new_positions: NDArray[np.floating],
+    data: FloatArray1D,
+    new_positions: FloatArray1D,
     fill_value: float = 0.0,
-) -> NDArray[np.floating]:
+) -> FloatArray1D:
     """
     Interpolate 1D data at new positions using cubic spline interpolation.
 
@@ -42,9 +42,9 @@ def _interpolate_1d(
 
 
 def _resample_1d(
-    data: NDArray[np.floating],
+    data: FloatArray1D,
     zoom: float,
-) -> NDArray[np.floating]:
+) -> FloatArray1D:
     """
     Resample a 1D array to a new length using cubic spline interpolation.
 
@@ -67,9 +67,9 @@ def _resample_1d(
 
 
 def apply_scaling(
-    data: NDArray[np.floating],
+    data: FloatArray1D,
     scale_factor: float,
-) -> NDArray[np.floating]:
+) -> FloatArray1D:
     """
     Apply scaling transformation to a profile.
 

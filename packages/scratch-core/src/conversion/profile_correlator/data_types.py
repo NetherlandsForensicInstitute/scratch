@@ -15,7 +15,8 @@ All length and height measurements are in meters (SI units).
 from dataclasses import dataclass, field
 
 import numpy as np
-from numpy.typing import NDArray
+
+from container_models.base import FloatArray1D
 
 
 @dataclass(frozen=True)
@@ -30,7 +31,7 @@ class Profile:
     :param pixel_size: Physical distance between samples in meters.
     """
 
-    depth_data: NDArray[np.floating]
+    depth_data: FloatArray1D
     pixel_size: float
 
     @property
