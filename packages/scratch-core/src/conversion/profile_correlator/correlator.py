@@ -32,7 +32,7 @@ from conversion.profile_correlator.data_types import (
     Profile,
     RoughnessMetrics,
 )
-from conversion.profile_correlator.transforms import apply_scaling, equalize_pixel_scale
+from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.profile_correlator.statistics import (
     compute_cross_correlation,
     compute_overlap_ratio,
@@ -40,11 +40,31 @@ from conversion.profile_correlator.statistics import (
     compute_roughness_sq,
     compute_signature_differences,
 )
+from conversion.resample import resample_array_1d
+
+
+def _calculate_idx_parameters(
+    shift: int, len_small: int, len_large: int
+) -> tuple[int, int, int]:
+    """
+    Find starting idx for both striations, and compute overlap length
+    """
+
+    if shift >= 0:
+        idx_large_start = shift
+        idx_small_start = 0
+        overlap_length = min(len_large - shift, len_small)
+    else:
+        idx_large_start = 0
+        idx_small_start = -shift
+        overlap_length = min(len_large, len_small + shift)
+
+    return idx_small_start, idx_large_start, overlap_length
 
 
 def _find_best_alignment(
-    ref_data: FloatArray1D,
-    comp_data: FloatArray1D,
+    heights_ref: FloatArray1D,
+    heights_comp: FloatArray1D,
     scale_factors: FloatArray1D,
     min_overlap_samples: int,
 ) -> AlignmentResult | None:
@@ -54,69 +74,48 @@ def _find_best_alignment(
     Tries all combinations of scale factors and shifts, returning the one
     with maximum correlation.
 
-    :param ref_data: Reference profile heights.
-    :param comp_data: Comparison profile heights.
+    :param heights_ref: Reference profile heights.
+    :param heights_comp: Comparison profile heights.
     :param scale_factors: Array of scale factors to try.
     :param min_overlap_samples: Minimum required overlap in samples.
     :returns: Best alignment result, or None if no valid alignment found.
     """
-    len_ref = len(ref_data)
-    len_comp = len(comp_data)
-
-    # Determine once which profile is larger (apply_scaling preserves length)
-    ref_is_large = len_ref >= len_comp
-    if ref_is_large:
-        len_large, len_small = len_ref, len_comp
-    else:
-        len_large, len_small = len_comp, len_ref
-
-    # Calculate shift range (ensure minimum overlap)
-    min_shift = -(len_small - min_overlap_samples)
-    max_shift = len_large - min_overlap_samples
+    len_ref = len(heights_ref)
 
     best_correlation = -np.inf
-    best_shift = 0
-    best_scale = 1.0
-    best_ref_overlap: FloatArray1D | None = None
-    best_comp_overlap: FloatArray1D | None = None
+    best_shift = None
+    best_scale = None
+    best_ref_overlap = None
+    best_comp_overlap = None
 
     for scale in scale_factors:
-        comp_data_scaled = apply_scaling(comp_data, scale)
-
-        if ref_is_large:
-            large, small = ref_data, comp_data_scaled
-        else:
-            large, small = comp_data_scaled, ref_data
+        heights_comp_scaled = resample_array_1d(heights_comp, scale)
+        len_comp = len(heights_comp_scaled)
+        # Calculate shift range (ensure minimum overlap)
+        min_shift = -(len_comp - min_overlap_samples)
+        max_shift = len_ref - min_overlap_samples
 
         for shift in range(min_shift, max_shift + 1):
-            # Calculate overlap region for this shift
-            if shift >= 0:
-                idx_large_start = shift
-                idx_small_start = 0
-                overlap_len = min(len_large - shift, len_small)
-            else:
-                idx_large_start = 0
-                idx_small_start = -shift
-                overlap_len = min(len_large, len_small + shift)
+            idx_comp_start, idx_ref_start, overlap_length = _calculate_idx_parameters(
+                shift, len_comp, len_ref
+            )  # Calculate overlap region for this shift
 
-            if overlap_len < min_overlap_samples:
+            if overlap_length < min_overlap_samples:
                 continue
 
-            partial_large = large[idx_large_start : idx_large_start + overlap_len]
-            partial_small = small[idx_small_start : idx_small_start + overlap_len]
+            partial_ref = heights_ref[idx_ref_start : idx_ref_start + overlap_length]
+            partial_comp = heights_comp_scaled[
+                idx_comp_start : idx_comp_start + overlap_length
+            ]
 
-            correlation = compute_cross_correlation(partial_large, partial_small)
+            correlation = compute_cross_correlation(partial_ref, partial_comp)
 
             if not np.isnan(correlation) and correlation > best_correlation:
                 best_correlation = correlation
                 best_shift = shift
                 best_scale = scale
-                if ref_is_large:
-                    best_ref_overlap = partial_large.copy()
-                    best_comp_overlap = partial_small.copy()
-                else:
-                    best_ref_overlap = partial_small.copy()
-                    best_comp_overlap = partial_large.copy()
+                best_ref_overlap = partial_ref.copy()
+                best_comp_overlap = partial_comp.copy()
 
     if best_ref_overlap is None or best_comp_overlap is None:
         return None
@@ -234,10 +233,10 @@ def correlate_profiles(
     profile_ref_eq, profile_comp_eq = equalize_pixel_scale(profile_ref, profile_comp)
     pixel_size = profile_ref_eq.pixel_size
 
-    ref_data = profile_ref_eq.heights
-    comp_data = profile_comp_eq.heights
-    len_ref = len(ref_data)
-    len_comp = len(comp_data)
+    heights_ref = profile_ref_eq.heights
+    heights_comp = profile_comp_eq.heights
+    len_ref = len(heights_ref)
+    len_comp = len(heights_comp)
 
     # Minimum overlap in samples
     min_overlap_samples = int(np.ceil(params.min_overlap_distance / pixel_size))
@@ -249,9 +248,12 @@ def correlate_profiles(
     # Generate scale factors to try (7 steps gives ~1.7% intervals for ±5%)
     scale_factors = np.linspace(1.0 - params.max_scaling, 1.0 + params.max_scaling, 7)
 
+    # make scaling symmetric to what you choose as ref or comp
+    scale_factors = np.unique(np.concatenate((scale_factors, 1 / scale_factors)))
+
     # Step 2: Find best alignment
     alignment = _find_best_alignment(
-        ref_data, comp_data, scale_factors, min_overlap_samples
+        heights_ref, heights_comp, scale_factors, min_overlap_samples
     )
     if alignment is None:
         return None

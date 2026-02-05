@@ -8,49 +8,8 @@ This module provides scaling functions for profile alignment:
 """
 
 import numpy as np
-from scipy.interpolate import interp1d
-
-from container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import Profile
 from conversion.resample import resample_array_1d
-
-
-def apply_scaling(
-    data: FloatArray1D,
-    scale_factor: float,
-) -> FloatArray1D:
-    """
-    Resample a profile at scaled positions to simulate stretching/compression.
-
-    Samples at positions [0, scale, 2*scale, ...] using cubic interpolation.
-    Output has the same length as input. Positions outside the input range
-    are filled with NaN.
-
-    Used during profile alignment to test how well profiles match at different
-    scale factors (e.g., due to measurement differences between firearms).
-
-    :param data: Input 1D profile data.
-    :param scale_factor: Sampling interval. >1 compresses the pattern (more of
-        source consumed), <1 stretches the pattern (less of source consumed).
-    :returns: Scaled profile array (same length as input). Values at positions
-        beyond the original data range are filled with NaN.
-    """
-    if np.isclose(scale_factor, 1.0, atol=1e-12):
-        return data.copy()
-
-    n = len(data)
-    x_orig = np.arange(n, dtype=np.float64)
-    new_positions = x_orig * scale_factor
-
-    interpolator = interp1d(
-        x_orig,
-        data,
-        kind="cubic",
-        bounds_error=False,
-        fill_value=np.nan,
-    )
-
-    return interpolator(new_positions)
 
 
 def equalize_pixel_scale(

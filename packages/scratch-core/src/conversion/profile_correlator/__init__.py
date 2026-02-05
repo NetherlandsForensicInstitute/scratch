@@ -32,7 +32,7 @@ from conversion.profile_correlator.data_types import (
 from conversion.profile_correlator.correlator import correlate_profiles
 
 # Transform functions
-from conversion.profile_correlator.transforms import apply_scaling, equalize_pixel_scale
+from conversion.profile_correlator.transforms import equalize_pixel_scale
 
 # Statistics functions
 from conversion.profile_correlator.statistics import (
@@ -54,7 +54,6 @@ __all__ = [
     "AlignmentParameters",
     "ComparisonResults",
     # Transforms
-    "apply_scaling",
     "equalize_pixel_scale",
     # Statistics
     "compute_cross_correlation",
