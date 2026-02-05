@@ -25,6 +25,11 @@ def test_model_copy_raises_on_incorrect_fields(test_model: TestModel):
         test_model.model_copy(update={"float_field": "invalid_string"})
 
 
+def test_model_copy_raises_on_extra_field(test_model: TestModel):
+    with pytest.raises(ValidationError):
+        test_model.model_copy(update={"extra_field": "some_value"})
+
+
 def test_scan_image_model_copy_converts_updated_fields(
     scan_image_with_nans: ScanImage,
 ):
