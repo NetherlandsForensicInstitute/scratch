@@ -1,18 +1,74 @@
 from typing import NamedTuple
-from container_models.base import FloatArray1D, FloatArray2D
+
+import numpy as np
+from loguru import logger
+
+from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.leveling.solver.design import build_design_matrix
 from conversion.leveling.solver.grid import get_2d_grid
 from conversion.leveling.solver.transforms import normalize_coordinates
+from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
-import numpy as np
 
 
 class PointCloud(NamedTuple):
     xs: FloatArray1D
     ys: FloatArray1D
     zs: FloatArray1D
+
+
+class Mask(ImageMutation):
+    """
+    Image mutation that applies a binary mask to a scan image.
+
+    All pixels corresponding to `False` (or zero) values in the mask
+    are set to `np.nan` in the image data. Pixels where the mask is
+    `True` remain unchanged.
+    """
+
+    def __init__(self, mask: BinaryMask) -> None:
+        """
+        Initialize the Mask mutation.
+
+        :param mask: Binary mask indicating which pixels should be kept (`True`)
+            or masked (`False`).
+        """
+        self.mask = mask
+
+    @property
+    def skip_predicate(self) -> bool:
+        """
+        Determine whether the masking operation can be skipped.
+
+        If the mask contains no masked pixels (i.e. all values are `True`),
+        applying the mask would have no effect and the mutation is skipped.
+
+        :returns: bool `True` if the mutation can be skipped, otherwise `False`.
+        """
+        if self.mask.all():
+            logger.warning(
+                "skipping masking, Mask area is not containing any masking fields."
+            )
+            return True
+        return False
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        """
+        Apply the mask to the image.
+
+        :params scan_image: Input scan image to which the mask is applied.
+        :return: The masked scan image.
+        :raises ImageShapeMismatchError: If the mask shape does not match the image data shape.
+        """
+        if self.mask.shape != scan_image.data.shape:
+            raise ImageShapeMismatchError(
+                f"Mask shape: {self.mask.shape} does not match image shape: {scan_image.data.shape}"
+            )
+        logger.info("Applying mask to scan_image")
+        scan_image.data[~self.mask] = np.nan
+        return scan_image
 
 
 class LevelMap(ImageMutation):

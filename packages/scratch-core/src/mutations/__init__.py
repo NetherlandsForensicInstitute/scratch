@@ -9,8 +9,8 @@ be applied to a `ScanImage`. Mutations are designed to be composable and
 can be chained together using a pipeline (e.g. `returns.pipeline.pipe`).
 """
 
-from .filter import LevelMap
+from .filter import LevelMap, Mask
 from .spatial import CropToMask, Resample
 
 
-__all__ = ["LevelMap", "CropToMask", "Resample"]
+__all__ = ["LevelMap", "Mask", "Resample", "CropToMask"]
