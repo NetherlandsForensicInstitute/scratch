@@ -1,6 +1,7 @@
 from __future__ import annotations
 from collections.abc import Callable, Sequence
 from functools import partial
+from operator import add, mul, sub, truediv
 from typing import Annotated, Iterable, NamedTuple, TypeAlias
 
 from numpy import array, bool_, floating, number, uint8
@@ -16,6 +17,38 @@ class Pair[T](NamedTuple):
         if other:
             return Pair(*tuple(map(func, self, other)))
         return Pair(*tuple(map(func, self)))
+
+    def _apply(self, op: Callable, other: Pair[T] | T) -> Pair[T]:
+        if isinstance(other, Pair):
+            return Pair(*map(op, self, other))
+        return Pair(op(self.x, other), op(self.y, other))
+
+    def _rapply(self, op: Callable, other: T) -> Pair[T]:
+        return Pair(op(other, self.x), op(other, self.y))
+
+    def __add__(self, other: Pair[T] | T) -> Pair[T]:
+        return self._apply(add, other)
+
+    def __radd__(self, other: T) -> Pair[T]:
+        return self._rapply(add, other)
+
+    def __sub__(self, other: Pair[T] | T) -> Pair[T]:
+        return self._apply(sub, other)
+
+    def __rsub__(self, other: T) -> Pair[T]:
+        return self._rapply(sub, other)
+
+    def __mul__(self, other: Pair[T] | T) -> Pair[T]:
+        return self._apply(mul, other)
+
+    def __rmul__(self, other: T) -> Pair[T]:
+        return self._rapply(mul, other)
+
+    def __truediv__(self, other: Pair[T] | T) -> Pair[T]:
+        return self._apply(truediv, other)
+
+    def __rtruediv__(self, other: T) -> Pair[T]:
+        return self._rapply(truediv, other)
 
 
 type Coordinate = Pair[float]

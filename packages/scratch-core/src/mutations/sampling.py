@@ -1,4 +1,3 @@
-from operator import mul
 from typing import override
 from loguru import logger
 from returns.result import safe
@@ -86,7 +85,7 @@ class Subsample(ImageMutation):
     def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """Subsample image by skipping steps in each dimension."""
         image.data = image.data[:: self.step_size_y, :: self.step_size_x].copy()
-        image.metadata.scale = image.metadata.scale.map(
-            mul, other=(self.step_size_x, self.step_size_y)
+        image.metadata.scale = image.metadata.scale * Pair(
+            self.step_size_x, self.step_size_y
         )
         return image
