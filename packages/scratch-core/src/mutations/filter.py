@@ -31,7 +31,16 @@ class Mask(ImageMutation):
         :param mask: Input BinaryMask to be resized
         """
         self.mask = mask
-        self.mask = mask
+
+    @property
+    def skip_predicate(self) -> bool:
+        """skips the computation if all is not masked"""
+        if self.mask.all():
+            logger.warning(
+                "skipping masking, Mask area is not containing any masking fields."
+            )
+            return True
+        return False
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
