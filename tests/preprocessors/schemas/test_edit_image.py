@@ -4,12 +4,13 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
+from conversion.leveling.data_types import SurfaceTerms
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 from scipy.constants import micro
 
-from preprocessors.schemas import EditImage, Mask, RegressionOrder, Terms
+from preprocessors.schemas import EditImage, Mask, RegressionOrder
 
 DEFAULT_RESAMPLING_FACTOR: Final[int] = 4
 DEFAULT_STEP_SIZE: Final[int] = 1
@@ -75,7 +76,7 @@ class TestEditImage:
 
         # Assert
         assert params.resampling_factor == DEFAULT_RESAMPLING_FACTOR
-        assert params.terms == Terms.PLANE
+        assert params.terms == SurfaceTerms.PLANE
         assert params.regression_order == RegressionOrder.RO
         assert params.cutoff_length == CUTOFF_LENGTH * micro
         assert params.step_size_x == DEFAULT_STEP_SIZE
@@ -86,8 +87,8 @@ class TestEditImage:
     @pytest.mark.parametrize(
         "kwargs",
         [
-            {"terms": Terms.PLANE},
-            {"terms": Terms.SPHERE},
+            {"terms": SurfaceTerms.PLANE},
+            {"terms": SurfaceTerms.SPHERE},
             {"regression_order": RegressionOrder.RO},
             {"regression_order": RegressionOrder.R1},
             {"regression_order": RegressionOrder.R2},

@@ -90,7 +90,9 @@ class Resample(ImageMutation):
             image=scan_image.data,
             output_shape=output_shape,
             mode="edge",
-            anti_aliasing=self.x_factor > 1 and self.y_factor > 1,
+            anti_aliasing=self.x_factor > 1
+            and self.y_factor > 1
+            and scan_image.data.dtype != np.bool_,
         )
         logger.debug(
             f"Resampling image array to new size: {round(output_shape[0], 1)}/{round(output_shape[1], 1)}"
