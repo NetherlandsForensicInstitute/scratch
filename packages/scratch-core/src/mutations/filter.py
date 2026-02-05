@@ -21,20 +21,32 @@ class PointCloud(NamedTuple):
 
 class Mask(ImageMutation):
     """
-    A Image Mutation for masking the Image. all False / 0 values on the mask are masked on the given image.
+    Image mutation that applies a binary mask to a scan image.
+
+    All pixels corresponding to `False` (or zero) values in the mask
+    are set to `np.nan` in the image data. Pixels where the mask is
+    `True` remain unchanged.
     """
 
     def __init__(self, mask: BinaryMask) -> None:
         """
         Initialize the Mask mutation.
 
-        :param mask: Input BinaryMask to be resized
+        :param mask: Binary mask indicating which pixels should be kept (`True`)
+            or masked (`False`).
         """
         self.mask = mask
 
     @property
     def skip_predicate(self) -> bool:
-        """skips the computation if all is not masked"""
+        """
+        Determine whether the masking operation can be skipped.
+
+        If the mask contains no masked pixels (i.e. all values are `True`),
+        applying the mask would have no effect and the mutation is skipped.
+
+        :returns: bool `True` if the mutation can be skipped, otherwise `False`.
+        """
         if self.mask.all():
             logger.warning(
                 "skipping masking, Mask area is not containing any masking fields."
@@ -46,9 +58,9 @@ class Mask(ImageMutation):
         """
         Apply the mask to the image.
 
-        :params scan_image: Input ScanImage to be masked
-        :return: Masked ScanImage
-        :raises ImageShapeMismatchError: If the mask and image shapes do not match
+        :params scan_image: Input scan image to which the mask is applied.
+        :return: The masked scan image.
+        :raises ImageShapeMismatchError: If the mask shape does not match the image data shape.
         """
         if self.mask.shape != scan_image.data.shape:
             raise ImageShapeMismatchError(
