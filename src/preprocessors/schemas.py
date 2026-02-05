@@ -6,6 +6,7 @@ from typing import Annotated, Self
 
 import numpy as np
 from container_models.light_source import LightSource
+from conversion.leveling.data_types import SurfaceTerms
 from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
@@ -129,13 +130,6 @@ class PrepareMarkImpression(BaseParameters):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
 
 
-class Terms(StrEnum):
-    """Surface fitting terms for leveling operations."""
-
-    PLANE = auto()
-    SPHERE = auto()
-
-
 class RegressionOrder(StrEnum):
     """Polynomial regression order for surface leveling."""
 
@@ -171,8 +165,8 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: Terms = Field(
-        default=Terms.PLANE,
+    terms: SurfaceTerms = Field(
+        default=SurfaceTerms.PLANE,
         description=(
             "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
         ),

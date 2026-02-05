@@ -9,7 +9,7 @@ from constants import PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
 from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault
-from preprocessors.controller import process_prepare_mark
+from preprocessors.controller import edit_image_pipeline, process_prepare_mark
 
 from .pipelines import (
     impression_mark_pipeline,
@@ -152,8 +152,21 @@ async def edit_scan(edit_image: EditImage) -> ProcessedDataAccess:
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
-    _ = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
     vault = create_vault(edit_image.tag)
-
+    edit_image_pipeline(
+        scan_file=edit_image.scan_file,
+        terms=edit_image.terms,
+        crop=edit_image.crop,
+        mask=edit_image.mask,
+        resampling_factor=edit_image.resampling_factor,
+        step_size_x=edit_image.step_size_x,
+        step_size_y=edit_image.step_size_y,
+    )
+    ProcessedDataAccess.get_files(vault.resource_path)
+    # edit_image.export_to_png(files["scan_image"]) # TODO: waiting for branch of sharlon
+    # preview_image_controller(scan_image=editted_image).export_to_png(files["preview"]) # TODO: waiting for branch of sharlon
+    # surface_map_pipeline(scan_image=editted_image).export_to_png(files["surface_map"]) # TODO: waiting for branch of sharlon
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess.generate_urls(vault.access_url)
+    return ProcessedDataAccess.generate_urls(
+        vault.access_url
+    )  # TODO: get rid of preview image and surface image as output.
