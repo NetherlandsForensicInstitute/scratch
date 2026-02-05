@@ -5,15 +5,10 @@ from functools import cached_property
 from typing import Annotated, Self
 
 import numpy as np
+from container_models.base import BinaryMask
 from container_models.light_source import LightSource
 from numpy.typing import NDArray
-from pydantic import (
-    AfterValidator,
-    Field,
-    PositiveFloat,
-    PositiveInt,
-    model_validator,
-)
+from pydantic import AfterValidator, BeforeValidator, Field, PositiveFloat, PositiveInt, ValidationInfo, model_validator
 from scipy.constants import micro
 
 from constants import ImpressionMarks, MaskTypes, StriationMarks
@@ -144,22 +139,25 @@ class RegressionOrder(StrEnum):
     R2 = auto()
 
 
-type Mask = tuple[tuple[bool, ...], ...]
+def coerce_to_mask(data: bytes | NDArray, info: ValidationInfo) -> BinaryMask:
+    """TODO."""
+    if isinstance(data, np.ndarray):
+        return data
+    shape = info.data["shape"]
+    array = np.frombuffer(data, dtype=np.bool).reshape(*shape)
+    return array
+
+
+Mask = Annotated[BinaryMask, BeforeValidator(coerce_to_mask)]
 
 
 class EditImage(BaseParameters):
     """Request model for editing and transforming processed scan images."""
 
+    shape: tuple[PositiveInt, PositiveInt] = Field(description="TODO")
     mask: Mask = Field(
-        description=(
-            "Binary mask defining regions to include (True/1) or exclude (False/0) during processing. "
-            "Accepts both boolean (True/False) and integer (1/0) representations. "
-            "Must be a 2D tuple structure matching the scan dimensions."
-        ),
-        examples=[
-            ((1, 0), (0, 1)),  # Integer format
-            ((True, False), (False, True)),  # Boolean format
-        ],
+        description="TODO",
+        # examples=[]
     )
     cutoff_length: Annotated[PositiveFloat, AfterValidator(lambda x: x * micro)] = Field(
         description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "

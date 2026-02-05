@@ -1,7 +1,9 @@
+import json
 from functools import partial
 from http import HTTPStatus
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import RedirectResponse
 from loguru import logger
 
@@ -128,6 +130,13 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     return PrepareMarkResponseStriation.generate_urls(vault.access_url)
 
 
+async def parse_edit_image(json_data: Annotated[str, Form()], mask: Annotated[UploadFile, File()]) -> EditImage:
+    """TODO."""
+    parsed = json.loads(json_data)
+    parsed["mask"] = await mask.read()
+    return EditImage(**parsed)
+
+
 @preprocessor_route.post(
     path=f"/{PreprocessorEndpoint.EDIT_SCAN}",
     summary="Validate and parse a scan file with edit parameters.",
@@ -144,7 +153,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
         },
     },
 )
-async def edit_scan(edit_image: EditImage) -> ProcessedDataAccess:
+async def edit_scan(edit_image: Annotated[EditImage, Depends(parse_edit_image)]) -> ProcessedDataAccess:
     """
     Validate and parse a scan file with edit parameters.
 
