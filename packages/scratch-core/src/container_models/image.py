@@ -21,7 +21,7 @@ class MetaData(BaseModel):
 
     @property
     def central_diff_scales(self) -> Scale:
-        return self.scale.map(lambda x: x / 2)
+        return self.scale / 2
 
     model_config = ConfigDict(
         validate_assignment=True,

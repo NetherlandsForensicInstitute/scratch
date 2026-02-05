@@ -22,7 +22,7 @@ All mutations in this module must preserve the semantic content of
 the image while adjusting its spatial representation.
 """
 
-from container_models.base import BinaryMask, DepthData, Factor
+from container_models.base import BinaryMask, DepthData, Factor, Pair
 from computations.spatial import get_bounding_box
 from container_models.image import ImageContainer, MetaData
 from exceptions import ImageShapeMismatchError
@@ -32,7 +32,6 @@ import numpy as np
 from loguru import logger
 from skimage.transform import resize
 from typing import cast, override
-from operator import mul, truediv
 
 
 class CropToMask(ImageMutation):
@@ -84,7 +83,7 @@ class Resample(ImageMutation):
         :param image: Input ImageContainer to resample.
         :returns: The resampled ImageContainer.
         """
-        output_shape = tuple(map(truediv, reversed(image.data.shape), self.factors))
+        output_shape = Pair(*reversed(image.data.shape)) / self.factors
         resampled_data = resize(
             image=image.data,
             output_shape=output_shape,
@@ -96,5 +95,5 @@ class Resample(ImageMutation):
         )
         return ImageContainer(
             data=cast(DepthData, resampled_data).astype(image.data.dtype),
-            metadata=MetaData(scale=image.metadata.scale.map(mul, other=self.factors)),
+            metadata=MetaData(scale=image.metadata.scale * self.factors),
         )
