@@ -147,7 +147,7 @@ class TestContracts:
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{sub_route}",
             data={"json_data": json.dumps(model_dump)},
-            files={"mask": ("mask.bin", mask.tobytes(order='C'), "application/octet-stream")},
+            files={"mask": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream")},
             timeout=5,
         )
         # Assert
