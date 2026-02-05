@@ -130,9 +130,9 @@ class TestContracts:
     @pytest.mark.parametrize(
         ("fixture_name", "sub_route"),
         [
-            # pytest.param("process_scan", "process-scan", id="process_scan"),
-            # pytest.param("prepare_mark_impression", "prepare-mark-impression", id="prepare_mark_impression"),
-            # pytest.param("prepare_mark_striation", "prepare-mark-striation", id="prepare_mark_striation"),
+            pytest.param("process_scan", "process-scan", id="process_scan"),
+            pytest.param("prepare_mark_impression", "prepare-mark-impression", id="prepare_mark_impression"),
+            pytest.param("prepare_mark_striation", "prepare-mark-striation", id="prepare_mark_striation"),
             pytest.param("edit_scan", "edit-scan", marks=pytest.mark.xfail, id="edit_scan"),
         ],
     )
