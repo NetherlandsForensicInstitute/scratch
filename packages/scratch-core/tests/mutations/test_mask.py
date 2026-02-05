@@ -1,9 +1,11 @@
 import re
+
+import numpy as np
+import pytest
+
 from container_models.scan_image import ScanImage
 from exceptions import ImageShapeMismatchError
 from mutations.filter import Mask
-import numpy as np
-import pytest
 
 
 class TestMask2dArray:
@@ -39,9 +41,7 @@ class TestMask2dArray:
         ):
             masking_mutator.apply_on_image(scan_image=scan_image)
 
-    def test_full_mask_preserves_all_values(
-        self, scan_image: ScanImage, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_full_mask_preserves_all_values(self, scan_image: ScanImage) -> None:
         # Arrange
         mask = np.ones((2, 2), dtype=bool)
         masking_mutator = Mask(mask=mask)
