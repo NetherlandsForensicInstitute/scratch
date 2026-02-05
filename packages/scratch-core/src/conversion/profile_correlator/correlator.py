@@ -85,8 +85,6 @@ def _find_best_alignment(
     best_correlation = -np.inf
     best_shift = None
     best_scale = None
-    best_ref_overlap = None
-    best_comp_overlap = None
 
     for scale in scale_factors:
         heights_comp_scaled = resample_array_1d(heights_comp, scale)
@@ -110,15 +108,25 @@ def _find_best_alignment(
 
             correlation = compute_cross_correlation(partial_ref, partial_comp)
 
-            if not np.isnan(correlation) and correlation > best_correlation:
+            if correlation and correlation > best_correlation:
                 best_correlation = correlation
                 best_shift = shift
                 best_scale = scale
-                best_ref_overlap = partial_ref.copy()
-                best_comp_overlap = partial_comp.copy()
 
-    if best_ref_overlap is None or best_comp_overlap is None:
+    if best_correlation is None:
         return None
+
+    # Redo computations for best_cale and best_shift (instead of copying partial_ref and partial_comp above multiple times. This saves time.)
+    heights_comp_scaled = resample_array_1d(heights_comp, best_scale)
+    len_comp = len(heights_comp_scaled)
+    idx_comp_start, idx_ref_start, overlap_length = _calculate_idx_parameters(
+        best_shift, len_comp, len_ref
+    )
+
+    best_ref_overlap = heights_ref[idx_ref_start : idx_ref_start + overlap_length]
+    best_comp_overlap = heights_comp_scaled[
+        idx_comp_start : idx_comp_start + overlap_length
+    ]
 
     return AlignmentResult(
         correlation=best_correlation,

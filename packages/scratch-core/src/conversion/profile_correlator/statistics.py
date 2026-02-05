@@ -25,7 +25,7 @@ from conversion.profile_correlator.data_types import (
 def compute_cross_correlation(
     profile_1: FloatArray1D,
     profile_2: FloatArray1D,
-) -> float:
+) -> float | None:
     """
     Compute normalized cross-correlation between two profiles.
 
@@ -53,7 +53,7 @@ def compute_cross_correlation(
     valid_mask = ~(np.isnan(profile_1) | np.isnan(profile_2))
 
     if np.sum(valid_mask) < 2:
-        return np.nan
+        return None
 
     return float(np.corrcoef(profile_1[valid_mask], profile_2[valid_mask])[0, 1])
 

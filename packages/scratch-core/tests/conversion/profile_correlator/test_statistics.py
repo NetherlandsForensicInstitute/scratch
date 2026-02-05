@@ -42,12 +42,12 @@ class TestComputeCrossCorrelation:
         assert not np.isnan(result)
         assert result > 0.9  # Should be highly correlated
 
-    def test_all_nan_returns_nan(self):
-        """If all values are NaN, should return NaN."""
+    def test_all_nan_returns_none(self):
+        """If all values are NaN, should return None."""
         p1 = np.array([np.nan, np.nan, np.nan])
         p2 = np.array([1.0, 2.0, 3.0])
         result = compute_cross_correlation(p1, p2)
-        assert np.isnan(result)
+        assert result is None
 
     def test_different_lengths_raises_error(self):
         """Profiles with different lengths should raise ValueError."""
