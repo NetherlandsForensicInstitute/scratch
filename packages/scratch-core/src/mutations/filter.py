@@ -133,8 +133,9 @@ class LevelMap(ImageMutation):
         )
         return design_matrix @ coefficients
 
+    @staticmethod
     def _generate_point_cloud(
-        self, scan_image: ScanImage, x_reference_point: float, y_reference_point: float
+        scan_image: ScanImage, x_reference_point: float, y_reference_point: float
     ) -> PointCloud:
         """
         Generate a 3D point cloud from a scan image with coordinates centered at a reference point.
