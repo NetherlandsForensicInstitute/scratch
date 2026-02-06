@@ -1,16 +1,25 @@
+"""Filter image mutations.
+
+This module contains mutations that filter or level image data.
+
+.. seealso::
+
+    :class:`LevelMap`
+        Fit and subtract a polynomial surface from depth data.
+"""
+
 from typing import NamedTuple
 
 import numpy as np
 from loguru import logger
 
 from container_models.base import BinaryMask, Coordinate, FloatArray1D, FloatArray2D
-from container_models.image import ImageContainer
+from container_models.image import ImageContainer, MaskImage
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.leveling.solver.design import build_design_matrix
 from conversion.leveling.solver.transforms import normalize_coordinates
 from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
-
 from renders.grid import get_2d_grid
 
 
@@ -133,7 +142,8 @@ class LevelMap(ImageMutation):
 
     @staticmethod
     def _generate_point_cloud(
-        image: ImageContainer, reference: Coordinate
+        image: MaskImage,
+        reference: Coordinate,
     ) -> PointCloud:
         """
         Generate a 3D point cloud from a scan image with coordinates centered at a reference point.
@@ -143,14 +153,13 @@ class LevelMap(ImageMutation):
         :returns: PointCloud containing the valid X, Y, and Z coordinates.
         """
         x_grid, y_grid = get_2d_grid(image, offset=reference)
-        xs, ys, zs = (
-            x_grid[image.valid_mask],
-            y_grid[image.valid_mask],
-            image.valid_data,
+        return PointCloud(
+            xs=x_grid[image.valid_mask],
+            ys=y_grid[image.valid_mask],
+            zs=image.valid_data,
         )
-        return PointCloud(xs=xs, ys=ys, zs=zs)
 
-    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
+    def apply_on_image(self, image: MaskImage) -> MaskImage:
         """
         Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
         This computation effectively acts as a high-pass filter on the image data.

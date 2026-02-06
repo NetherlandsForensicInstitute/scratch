@@ -1,25 +1,23 @@
-"""
-Spatial Image Mutations
-=======================
+"""Spatial image mutations.
 
 This module contains image mutations that operate on the *spatial*
-properties of a `ImageContainer`.
+properties of an :class:`~container_models.image.ImageContainer`.
 
 Spatial mutations:
-- change the geometric arrangement of pixels
-- affect spatial resolution, scale, or coordinate systems
+
+- Change the geometric arrangement of pixels
+- Affect spatial resolution, scale, or coordinate systems
 
 These mutations modify *where* pixels are located or how they are
 interpreted in space, without changing the meaning or intensity of
 the pixel data itself.
 
-Typical examples include:
-- resampling or resizing
-- cropping to a region of interest
-- scaling or coordinate transforms
+.. seealso::
 
-All mutations in this module must preserve the semantic content of
-the image while adjusting its spatial representation.
+    :class:`CropToMask`
+        Crop image to the bounding box of a binary mask.
+    :class:`Resample`
+        Resample image by scale factors.
 """
 
 from typing import cast, override
@@ -30,7 +28,7 @@ from skimage.transform import resize
 
 from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask, DepthData, Factor, Pair
-from container_models.image import ImageContainer, MetaData
+from container_models.image import ImageContainer, MetaData, ProcessImage
 from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
 
@@ -77,7 +75,7 @@ class Resample(ImageMutation):
         self.factors = factors
 
     @override
-    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
+    def apply_on_image(self, image: ProcessImage) -> ProcessImage:
         """
         Resample the ImageContainer object using the specified resampling factors.
 
@@ -94,7 +92,7 @@ class Resample(ImageMutation):
         logger.debug(
             f"Resampling image array to new size: {round(output_shape[0], 1)}/{round(output_shape[1], 1)}"
         )
-        return ImageContainer(
+        return ProcessImage(
             data=cast(DepthData, resampled_data).astype(image.data.dtype),
             metadata=MetaData(scale=image.metadata.scale * self.factors),
         )

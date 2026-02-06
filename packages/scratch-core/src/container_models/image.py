@@ -1,12 +1,67 @@
+"""Image container architecture.
+
+This module defines the data containers used to represent images at
+different stages of the processing pipeline.
+
+Architecture
+------------
+::
+
+    +------------------------------------+
+    |           ImageContainer           |
+    |------------------------------------|
+    | data   : FloatArray2D              |
+    | height : int (rows)                |
+    | width  : int (columns)             |
+    +------------------+-----------------+
+                       ^
+                       |
+            -----------------------
+            |                     |
+  +--------------------+   +-------------------+
+  |    ProcessImage    |   |     MaskImage     |
+  |--------------------|   |-------------------|
+  | data : DepthData   |   | data : BinaryMask |
+  | metadata: MetaData |   +-------------------+
+  +--------------------+
+
+- :class:`ImageContainer` is the base abstraction for all image-like data.
+- All containers store their data as a 2D NumPy array.
+- Containers are compared by data equality (NaN-aware).
+
+.. seealso::
+
+    :class:`ProcessImage`
+        Depth maps with scale metadata.
+    :class:`MaskImage`
+        Binary masks for filtering or selection.
+
+.. note::
+
+    Mutations and computations should operate on these containers
+    rather than on raw NumPy arrays where possible.
+"""
+
+from __future__ import annotations
+from functools import lru_cache
+from surfalize.file import FileHandler
+from pathlib import Path
+from sre_constants import MAGIC
 import numpy as np
+from parsers.patches.al3d import read_al3d
+from parsers.x3p import parse_to_x3p
 from pydantic import BaseModel, ConfigDict
-from scipy.constants import femto
+from scipy.constants import femto, micro
+from PIL.Image import fromarray
+from surfalize import Surface
 
 from container_models.base import (
     BinaryMask,
     Coordinate,
     DepthData,
     FloatArray1D,
+    FloatArray2D,
+    Pair,
     Scale,
     ImageRGBA,
 )
@@ -17,7 +72,7 @@ class MetaData(BaseModel):
 
     @property
     def is_isotropic(self) -> bool:
-        return bool(np.isclose(self.scale.x, self.scale.y, atol=femto))
+        return bool(np.isclose(*self.scale, atol=femto))
 
     @property
     def central_diff_scales(self) -> Scale:
@@ -31,7 +86,7 @@ class MetaData(BaseModel):
 
 
 class ImageContainer(BaseModel):
-    data: DepthData
+    data: FloatArray2D
     metadata: MetaData
 
     model_config = ConfigDict(
@@ -52,11 +107,21 @@ class ImageContainer(BaseModel):
         return self.data.shape[1]
 
     @property
-    def rgba(self) -> ImageRGBA:
-        gray_uint8 = np.nan_to_num(self.data, nan=0.0).astype(np.uint8)
-        rgba = np.repeat(gray_uint8[..., np.newaxis], 4, axis=-1)
-        rgba[..., 3] = (~np.isnan(self.data)).astype(np.uint8) * 255
-        return rgba
+    def center(self) -> Coordinate:
+        return self.metadata.central_diff_scales.map(
+            lambda x, y: (x - 1) * y, other=reversed(self.data.shape)
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ImageContainer):
+            return NotImplemented
+        return np.array_equal(self.data, other.data, equal_nan=True)
+
+
+class MaskImage(ImageContainer):
+    """Binary mask image container."""
+
+    data: BinaryMask
 
     @property
     def valid_mask(self) -> BinaryMask:
@@ -72,8 +137,64 @@ class ImageContainer(BaseModel):
         valid_data.setflags(write=False)
         return valid_data
 
+
+class ProcessImage(ImageContainer):
+    data: DepthData
+    metadata: MetaData
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,
+        extra="forbid",
+        regex_engine="rust-regex",
+        revalidate_instances="always",
+    )
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def from_scan_file(cls, scan_file: Path) -> ProcessImage:
+        """
+        Load a scan image from a file. Parsed values will be converted to meters (m).
+        :param scan_file: The path to the file containing the scanned image data.
+        :returns: An instance of `ProcessImage`.
+        """
+        FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
+        surface = Surface.load(scan_file)
+
+        return cls(
+            data=np.asarray(surface.data, dtype=np.float64) * micro,
+            metadata=MetaData(
+                scale=Pair(surface.step_x, surface.step_y) * micro,
+            ),
+        )
+
+    @property
+    def rgba(self) -> ImageRGBA:
+        gray_uint8 = np.nan_to_num(self.data, nan=0.0).astype(np.uint8)
+        rgba = np.repeat(gray_uint8[..., np.newaxis], 4, axis=-1)
+        rgba[..., 3] = (~np.isnan(self.data)).astype(np.uint8) * 255
+        return rgba
+
     @property
     def center(self) -> Coordinate:
         return self.metadata.central_diff_scales.map(
             lambda x, y: (x - 1) * y, other=reversed(self.data.shape)
         )
+
+    def export_png(self, output_path: Path) -> Path:
+        """
+        Save an image to disk.
+        :param output_path: The path where the image should be written.
+        :returns: The path to the saved image.
+        """
+        fromarray(self.rgba).save(output_path)
+        return output_path
+
+    def export_x3p(self, output_path: Path) -> Path:
+        """
+        Save an X3P file to disk.
+        :param output_path: The path where the file should be written.
+        :returns: The path to the saved file.
+        """
+        parse_to_x3p(self).unwrap().write(str(output_path))
+        return output_path

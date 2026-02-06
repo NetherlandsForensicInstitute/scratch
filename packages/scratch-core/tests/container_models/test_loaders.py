@@ -1,14 +1,12 @@
 from math import ceil
 from pathlib import Path
 
+import numpy as np
 import pytest
 from scipy.constants import micro
 from surfalize import Surface
 from unittest.mock import patch
-
-from parsers import load_scan_image
-
-from ..helper_function import unwrap_result
+from container_models.image import ProcessImage
 
 
 @pytest.fixture(scope="class")
@@ -28,15 +26,14 @@ class TestLoadImageContainer:
     @pytest.fixture(autouse=True)
     def clear_cache(self):
         """Clear the load_scan_image cache before each test."""
-        load_scan_image.cache_clear()
+        ProcessImage.from_scan_file.cache_clear()
         yield
 
     def test_load_scan_data_matches_size(self, filepath: Path) -> None:
         # Arrange
         surface = Surface.load(filepath)
         # Act
-        result = load_scan_image(filepath)
-        scan_image = unwrap_result(result)
+        scan_image = ProcessImage.from_scan_file(filepath)
 
         # Assert
         assert scan_image.data.shape == (
@@ -51,25 +48,27 @@ class TestLoadImageContainer:
 
 class TestLoadImageContainerCaching:
     class FakeSurfaceOne:
-        pass
+        data = np.zeros((2, 2))
+        step_x = step_y = 1
 
     class FakeSurfaceTwo:
-        pass
+        data = np.zeros((3, 3))
+        step_x = step_y = 1
 
     @pytest.fixture(autouse=True)
     def empty_cache_for_test(self):
-        load_scan_image.cache_clear()
+        ProcessImage.from_scan_file.cache_clear()
         yield
 
     def test_load_scan_image_is_cached(self, tmp_path: Path) -> None:
         # Arrange
         scan_file = tmp_path / "scan.x3p"
         with patch(
-            "parsers.loaders.Surface.load", return_value=self.FakeSurfaceOne()
+            "container_models.image.Surface.load", return_value=self.FakeSurfaceOne()
         ) as mock_load:
             # Act
-            image_1 = load_scan_image(scan_file)
-            image_2 = load_scan_image(scan_file)
+            image_1 = ProcessImage.from_scan_file(scan_file)
+            image_2 = ProcessImage.from_scan_file(scan_file)
 
         # Assert
         assert image_1 is image_2, "same object expected due to caching"
@@ -83,19 +82,19 @@ class TestLoadImageContainerCaching:
         scan_file_2 = tmp_path / "scan_2.x3p"
 
         with patch(
-            "parsers.loaders.Surface.load",
+            "container_models.image.Surface.load",
             side_effect=[
                 self.FakeSurfaceOne(),
                 self.FakeSurfaceTwo(),
             ],
         ):
             # Act
-            load_scan_image(scan_file_1)
-            load_scan_image(scan_file_1)
-            load_scan_image(scan_file_2)
+            ProcessImage.from_scan_file(scan_file_1)
+            ProcessImage.from_scan_file(scan_file_1)
+            ProcessImage.from_scan_file(scan_file_2)
 
         # Assert
-        info = load_scan_image.cache_info()
+        info = ProcessImage.from_scan_file.cache_info()
         assert info.hits == 1, "one cache hit expected"
         assert info.misses == 2, "two different files loaded"
         assert info.currsize == 1, "Cache should only hold one item"
