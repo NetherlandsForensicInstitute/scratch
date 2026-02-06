@@ -8,7 +8,7 @@ This module provides functions for computing statistical metrics between
 - compute_roughness_sa: Arithmetic mean roughness
 - compute_roughness_sq: Root mean square roughness
 - compute_overlap_ratio: Overlap ratio relative to shorter profile
-- compute_signature_differences: Normalized signature difference metrics
+- compute_normalized_square_based_roughness_differences: Normalized signature difference metrics
 
 All length and height measurements are in meters (SI units).
 """
@@ -18,7 +18,7 @@ import numpy as np
 from container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import (
     RoughnessMetrics,
-    SignatureDifferences,
+    NormalizedSquareBasedRoughnessDifferences,
 )
 
 
@@ -27,7 +27,7 @@ def compute_cross_correlation(
     profile_2: FloatArray1D,
 ) -> float | None:
     """
-    Compute normalized cross-correlation between two profiles.
+    Compute cross-correlation between two profiles.
 
     This function computes the Pearson correlation coefficient between two
     1D profiles, properly handling NaN values by excluding them from the
@@ -41,8 +41,8 @@ def compute_cross_correlation(
         either profile has zero variance.
     :raises ValueError: If profiles have different lengths.
     """
-    profile_1 = np.asarray(profile_1).ravel()
-    profile_2 = np.asarray(profile_2).ravel()
+    profile_1 = profile_1.ravel()
+    profile_2 = profile_2.ravel()
 
     if len(profile_1) != len(profile_2):
         raise ValueError(
@@ -69,7 +69,7 @@ def compute_roughness_sa(profile: FloatArray1D) -> float:
     :param profile: 1D profile array. May contain NaN values which are ignored.
     :returns: Arithmetic mean roughness (Sa) in the same units as the input profile.
     """
-    return float(np.nanmean(np.abs(profile)))
+    return float(np.nanmean(np.abs(profile - np.nanmean(profile))))
 
 
 def compute_roughness_sq(profile: FloatArray1D) -> float:
@@ -83,7 +83,7 @@ def compute_roughness_sq(profile: FloatArray1D) -> float:
     :param profile: 1D profile array. May contain NaN values which are ignored.
     :returns: Root-mean-square roughness (Sq) in the same units as the input profile.
     """
-    return float(np.sqrt(np.nanmean(profile**2)))
+    return float(np.sqrt(np.nanmean((profile - np.nanmean(profile)) ** 2)))
 
 
 def compute_overlap_ratio(
@@ -92,9 +92,9 @@ def compute_overlap_ratio(
     comp_length: float,
 ) -> float:
     """
-    Compute overlap ratio relative to the shorter profile.
+    Compute mean overlap ratio relative to the two profile lengths.
 
-    The overlap ratio indicates what fraction of the shorter profile is
+    The overlap ratio indicates what fraction of the profiles are
     covered by the overlap region after alignment.
 
     :param overlap_length: Length of the overlap region in meters.
@@ -108,10 +108,12 @@ def compute_overlap_ratio(
         return np.nan
     if overlap_length > shorter_length:
         return np.nan
-    return overlap_length / shorter_length
+    return 0.5 * (overlap_length / ref_length + overlap_length / comp_length)
 
 
-def compute_signature_differences(roughness: RoughnessMetrics) -> SignatureDifferences:
+def compute_normalized_square_based_roughness_differences(
+    roughness: RoughnessMetrics,
+) -> NormalizedSquareBasedRoughnessDifferences:
     """
     Compute normalized signature difference metrics.
 
@@ -120,19 +122,31 @@ def compute_signature_differences(roughness: RoughnessMetrics) -> SignatureDiffe
 
     :param roughness: Container with quadratic mean roughness (Sq) values for
         the reference profile, comparison profile, and difference profile.
-    :returns: SignatureDifferences containing normalized metrics.
+    :returns: NormalizedSquareBasedRoughnessDifferences containing normalized metrics.
         Returns NaN for any metric where division by zero would occur.
     """
-    sq_ref = roughness.sq_ref
-    sq_comp = roughness.sq_comp
-    sq_diff = roughness.sq_diff
+    mean_square_ref = roughness.mean_square_ref
+    mean_square_comp = roughness.mean_square_comp
+    mean_square_of_difference = roughness.mean_square_of_difference
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        ref_norm = (sq_diff / sq_ref) ** 2 if sq_ref > 0 else np.nan
-        comp_norm = (sq_diff / sq_comp) ** 2 if sq_comp > 0 else np.nan
-        combined = (
-            sq_diff**2 / (sq_ref * sq_comp) if (sq_ref > 0 and sq_comp > 0) else np.nan
+        roughness_normalized_to_reference = (
+            (mean_square_of_difference / mean_square_ref) ** 2
+            if mean_square_ref > 0
+            else np.nan
         )
-    return SignatureDifferences(
-        ref_norm=ref_norm, comp_norm=comp_norm, combined=combined
+        roughness_normalized_to_compared = (
+            (mean_square_of_difference / mean_square_comp) ** 2
+            if mean_square_comp > 0
+            else np.nan
+        )
+        roughness_normalized_to_reference_and_compared = (
+            mean_square_of_difference**2 / (mean_square_ref * mean_square_comp)
+            if (mean_square_ref > 0 and mean_square_comp > 0)
+            else np.nan
+        )
+    return NormalizedSquareBasedRoughnessDifferences(
+        roughness_normalized_to_reference=roughness_normalized_to_reference,
+        roughness_normalized_to_compared=roughness_normalized_to_compared,
+        roughness_normalized_to_reference_and_compared=roughness_normalized_to_reference_and_compared,
     )

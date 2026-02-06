@@ -28,7 +28,7 @@ from container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
     AlignmentResult,
-    ComparisonResults,
+    StriationComparisonResults,
     Profile,
     RoughnessMetrics,
 )
@@ -38,9 +38,81 @@ from conversion.profile_correlator.statistics import (
     compute_overlap_ratio,
     compute_roughness_sa,
     compute_roughness_sq,
-    compute_signature_differences,
+    compute_normalized_square_based_roughness_differences,
 )
 from conversion.resample import resample_array_1d
+
+
+def correlate_profiles(
+    profile_ref: Profile,
+    profile_comp: Profile,
+    params: AlignmentParameters = AlignmentParameters(),
+) -> StriationComparisonResults | None:
+    """
+    Compare two striated mark profiles and compute similarity metrics.
+
+    This function performs profile alignment using a brute-force approach:
+    it tries multiple scale factors and all possible shifts between the profiles
+    (subject to a minimum overlap constraint) and selects the combination with
+    maximum cross-correlation.
+
+    The workflow is:
+
+    1. **Equalize sampling distances**: If the two profiles have different pixel
+       sizes, the higher-resolution one is downsampled to match the lower resolution.
+
+    2. **Brute-force search**: Try all shift/scale combinations and compute
+       cross-correlation at each position. For each scale factor in the range
+       defined by params.max_scaling, determine valid shifts that maintain at
+       least min_overlap_distance of overlap, and select the shift/scale with
+       maximum correlation.
+
+    3. **Compute metrics**: Calculate comprehensive comparison metrics including
+       correlation coefficient, roughness parameters, and signature differences.
+
+    All measurements are in meters (SI units).
+
+    :param profile_ref: Reference profile to compare against.
+    :param profile_comp: Compared profile to align to the reference.
+    :param params: Alignment parameters. Key parameters:
+        - max_scaling: Maximum scaling deviation (e.g., 0.05 for ±5%)
+        - min_overlap_distance: Minimum overlap distance in meters (default 200 μm)
+    :returns: StriationComparisonResults containing all computed metrics, or None if no
+        valid alignment could be found.
+    """
+    # Step 1: Equalize pixel scales
+    profile_ref_eq, profile_comp_eq = equalize_pixel_scale(profile_ref, profile_comp)
+    pixel_size = profile_ref_eq.pixel_size
+
+    heights_ref = profile_ref_eq.heights
+    heights_comp = profile_comp_eq.heights
+    len_ref = len(heights_ref)
+    len_comp = len(heights_comp)
+
+    # Minimum overlap in samples
+    min_overlap_samples = int(np.ceil(params.min_overlap_distance / pixel_size))
+
+    # Early exit if either profile is too short
+    if len_ref < min_overlap_samples or len_comp < min_overlap_samples:
+        return None
+
+    # Generate scale factors to try (7 steps gives ~1.7% intervals for ±5%)
+    scale_factors = np.linspace(
+        1.0 - params.max_scaling, 1.0 + params.max_scaling, params.n_scale_steps
+    )
+
+    # make scaling symmetric to what you choose as ref or comp
+    scale_factors = np.unique(np.concatenate((scale_factors, 1 / scale_factors)))
+
+    # Step 2: Find best alignment
+    alignment = _find_best_alignment(
+        heights_ref, heights_comp, scale_factors, min_overlap_samples
+    )
+    if alignment is None:
+        return None
+
+    # Step 3: Compute and return metrics
+    return _compute_metrics(alignment, pixel_size, len_ref, len_comp)
 
 
 def _calculate_idx_parameters(
@@ -142,7 +214,7 @@ def _compute_metrics(
     pixel_size: float,
     len_ref: int,
     len_comp: int,
-) -> ComparisonResults:
+) -> StriationComparisonResults:
     """
     Compute comparison metrics from an alignment result.
 
@@ -165,106 +237,38 @@ def _compute_metrics(
 
     # Roughness metrics
     sa_ref = compute_roughness_sa(ref_overlap)
-    sq_ref = compute_roughness_sq(ref_overlap)
+    mean_square_ref = compute_roughness_sq(ref_overlap)
     sa_comp = compute_roughness_sa(comp_overlap)
-    sq_comp = compute_roughness_sq(comp_overlap)
+    mean_square_comp = compute_roughness_sq(comp_overlap)
 
     # Difference profile roughness
     diff_profile = comp_overlap - ref_overlap
     sa_diff = compute_roughness_sa(diff_profile)
-    sq_diff = compute_roughness_sq(diff_profile)
+    mean_square_of_difference = compute_roughness_sq(diff_profile)
 
     # Signature differences
-    roughness = RoughnessMetrics(sq_ref=sq_ref, sq_comp=sq_comp, sq_diff=sq_diff)
-    signature_diff = compute_signature_differences(roughness)
+    roughness = RoughnessMetrics(
+        mean_square_ref=mean_square_ref,
+        mean_square_comp=mean_square_comp,
+        mean_square_of_difference=mean_square_of_difference,
+    )
+    signature_diff = compute_normalized_square_based_roughness_differences(roughness)
 
-    return ComparisonResults(
-        is_profile_comparison=True,
-        pixel_size_ref=pixel_size,
-        pixel_size_comp=pixel_size,
+    return StriationComparisonResults(
+        pixel_size=pixel_size,
         position_shift=position_shift,
-        scale_factor=1.0 / alignment.scale,
+        scale_factor=alignment.scale,
         similarity_value=alignment.correlation,
         overlap_length=overlap_length,
         overlap_ratio=overlap_ratio,
         correlation_coefficient=alignment.correlation,
         sa_ref=sa_ref,
-        sq_ref=sq_ref,
+        mean_square_ref=mean_square_ref,
         sa_comp=sa_comp,
-        sq_comp=sq_comp,
+        mean_square_comp=mean_square_comp,
         sa_diff=sa_diff,
-        sq_diff=sq_diff,
-        ds_ref_norm=signature_diff.ref_norm,
-        ds_comp_norm=signature_diff.comp_norm,
-        ds_combined=signature_diff.combined,
+        mean_square_of_difference=mean_square_of_difference,
+        ds_roughness_normalized_to_reference=signature_diff.roughness_normalized_to_reference,
+        ds_roughness_normalized_to_compared=signature_diff.roughness_normalized_to_compared,
+        ds_roughness_normalized_to_reference_and_compared=signature_diff.roughness_normalized_to_reference_and_compared,
     )
-
-
-def correlate_profiles(
-    profile_ref: Profile,
-    profile_comp: Profile,
-    params: AlignmentParameters = AlignmentParameters(),
-) -> ComparisonResults | None:
-    """
-    Compare two striated mark profiles and compute similarity metrics.
-
-    This function performs profile alignment using a brute-force approach:
-    it tries multiple scale factors and all possible shifts between the profiles
-    (subject to a minimum overlap constraint) and selects the combination with
-    maximum cross-correlation.
-
-    The workflow is:
-
-    1. **Equalize sampling distances**: If the two profiles have different pixel
-       sizes, the higher-resolution one is downsampled to match the lower resolution.
-
-    2. **Brute-force search**: Try all shift/scale combinations and compute
-       cross-correlation at each position. For each scale factor in the range
-       defined by params.max_scaling, determine valid shifts that maintain at
-       least min_overlap_distance of overlap, and select the shift/scale with
-       maximum correlation.
-
-    3. **Compute metrics**: Calculate comprehensive comparison metrics including
-       correlation coefficient, roughness parameters, and signature differences.
-
-    All measurements are in meters (SI units).
-
-    :param profile_ref: Reference profile to compare against.
-    :param profile_comp: Compared profile to align to the reference.
-    :param params: Alignment parameters. Key parameters:
-        - max_scaling: Maximum scaling deviation (e.g., 0.05 for ±5%)
-        - min_overlap_distance: Minimum overlap distance in meters (default 200 μm)
-    :returns: ComparisonResults containing all computed metrics, or None if no
-        valid alignment could be found.
-    """
-    # Step 1: Equalize pixel scales
-    profile_ref_eq, profile_comp_eq = equalize_pixel_scale(profile_ref, profile_comp)
-    pixel_size = profile_ref_eq.pixel_size
-
-    heights_ref = profile_ref_eq.heights
-    heights_comp = profile_comp_eq.heights
-    len_ref = len(heights_ref)
-    len_comp = len(heights_comp)
-
-    # Minimum overlap in samples
-    min_overlap_samples = int(np.ceil(params.min_overlap_distance / pixel_size))
-
-    # Early exit if either profile is too short
-    if len_ref < min_overlap_samples or len_comp < min_overlap_samples:
-        return None
-
-    # Generate scale factors to try (7 steps gives ~1.7% intervals for ±5%)
-    scale_factors = np.linspace(1.0 - params.max_scaling, 1.0 + params.max_scaling, 7)
-
-    # make scaling symmetric to what you choose as ref or comp
-    scale_factors = np.unique(np.concatenate((scale_factors, 1 / scale_factors)))
-
-    # Step 2: Find best alignment
-    alignment = _find_best_alignment(
-        heights_ref, heights_comp, scale_factors, min_overlap_samples
-    )
-    if alignment is None:
-        return None
-
-    # Step 3: Compute and return metrics
-    return _compute_metrics(alignment, pixel_size, len_ref, len_comp)

@@ -7,7 +7,7 @@ from scipy.interpolate import interp1d
 
 from conversion.profile_correlator import (
     AlignmentParameters,
-    ComparisonResults,
+    StriationComparisonResults,
     Profile,
     correlate_profiles,
 )
@@ -83,11 +83,11 @@ class TestCorrelateProfilesBasic:
     """Basic functionality tests for correlate_profiles."""
 
     def test_returns_comparison_results(self):
-        """Should return a ComparisonResults object."""
+        """Should return a StriationComparisonResults object."""
         ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
         comp = make_shifted_profile(ref, 10.0, seed=43)
         result = correlate_profiles(ref, comp, AlignmentParameters())
-        assert isinstance(result, ComparisonResults)
+        assert isinstance(result, StriationComparisonResults)
 
     def test_correlation_coefficient_valid(self):
         """Correlation coefficient should be computed and in valid range."""
@@ -121,9 +121,9 @@ class TestCorrelateProfilesBasic:
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result is not None
         assert not np.isnan(result.sa_ref)
-        assert not np.isnan(result.sq_ref)
+        assert not np.isnan(result.mean_square_ref)
         assert result.sa_ref > 0
-        assert result.sq_ref > 0
+        assert result.mean_square_ref > 0
 
     def test_overlap_metrics_computed(self):
         """Overlap length and ratio should be computed."""
@@ -140,17 +140,7 @@ class TestCorrelateProfilesBasic:
         comp = make_synthetic_striation_profile(n_samples=1000, seed=43)
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result is not None
-        assert_allclose(result.pixel_size_ref, ref.pixel_size, atol=1e-16)
-        assert_allclose(result.pixel_size_comp, comp.pixel_size, atol=1e-16)
-
-    def test_equalizes_different_pixel_sizes(self):
-        """Profiles with different pixel sizes should be equalized."""
-        ref = make_synthetic_striation_profile(n_samples=1000, seed=42)
-        comp = make_synthetic_striation_profile(n_samples=2000, seed=43)
-        comp = Profile(comp.heights, pixel_size=0.5e-6)
-        result = correlate_profiles(ref, comp, AlignmentParameters())
-        assert result is not None
-        assert_allclose(result.pixel_size_ref, result.pixel_size_comp, atol=1e-10)
+        assert_allclose(result.pixel_size, ref.pixel_size, atol=1e-16)
 
     def test_default_parameters_used(self):
         """Should work with default parameters when none provided."""
@@ -209,52 +199,65 @@ class TestShiftedProfiles:
 class TestPartialProfiles:
     """Tests for partial profile matching."""
 
-    @pytest.mark.parametrize("length_pct", [50, 30])
-    def test_partial_profiles(self, length_pct: int):
+    @pytest.mark.parametrize(
+        "length_pct, expected_overlap",
+        [
+            (50, 3 / 4),
+            (30, 0.65),
+        ],
+    )
+    def test_partial_profiles(self, length_pct: int, expected_overlap: float):
         """Partial profiles should match with high correlation."""
         base = create_base_profile(n_samples=1000, seed=42)
         ref, comp = create_partial_profiles(base, length_pct / 100.0)
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result is not None
-        assert result.correlation_coefficient > 0.85
-        assert result.overlap_ratio > 0.8
+        assert result.correlation_coefficient == 1
+        assert result.overlap_ratio == pytest.approx(expected_overlap, rel=1e-6)
 
-    @pytest.mark.parametrize("length_pct", [50, 30])
-    def test_partial_profiles_flipped(self, length_pct: int):
+    @pytest.mark.parametrize(
+        "length_pct, expected_overlap",
+        [
+            (50, 3 / 4),
+            (30, 0.65),
+        ],
+    )
+    def test_partial_profiles_flipped(self, length_pct: int, expected_overlap: float):
         """Partial matching works with shorter profile as reference."""
         base = create_base_profile(n_samples=1000, seed=42)
         long, short = create_partial_profiles(base, length_pct / 100.0)
         result = correlate_profiles(short, long, AlignmentParameters())
         assert result is not None
-        assert result.correlation_coefficient > 0.85
-        assert result.overlap_ratio > 0.8
+        assert result.correlation_coefficient == 1
+        assert result.overlap_ratio == pytest.approx(expected_overlap, rel=1e-6)
 
 
 class TestScaledProfiles:
     """Tests for profiles with scaling differences."""
 
-    @pytest.mark.parametrize("scale_pct,min_corr", [(5, 0.95), (10, 0.90), (20, 0.80)])
-    def test_scaled_profiles(self, scale_pct: int, min_corr: float):
+    @pytest.mark.parametrize("scale_pct", [5, 10, 20])
+    def test_scaled_profiles(self, scale_pct: int):
         """Scaled profiles should be detected and aligned."""
         base = create_base_profile(n_samples=1000, seed=42)
         scale = 1.0 + scale_pct / 100.0
         ref, comp = create_scaled_profiles(base, scale)
-        params = AlignmentParameters(max_scaling=scale_pct / 100.0 + 0.02)
+        params = AlignmentParameters(max_scaling=scale_pct / 100.0)
         result = correlate_profiles(ref, comp, params)
         assert result is not None
-        assert result.correlation_coefficient >= min_corr
-        assert abs(result.scale_factor - 1.0 / scale) < 0.05
+        assert result.correlation_coefficient >= 0.999
+        assert abs(result.scale_factor - scale) == 0
 
-    @pytest.mark.parametrize("scale_pct,min_corr", [(5, 0.95), (10, 0.90)])
-    def test_scaled_profiles_flipped(self, scale_pct: int, min_corr: float):
+    @pytest.mark.parametrize("scale_pct", [5, 10])
+    def test_scaled_profiles_flipped(self, scale_pct: int):
         """Scaled profiles work with stretched as reference."""
         base = create_base_profile(n_samples=1000, seed=42)
         scale = 1.0 + scale_pct / 100.0
         original, stretched = create_scaled_profiles(base, scale)
-        params = AlignmentParameters(max_scaling=scale_pct / 100.0 + 0.02)
+        params = AlignmentParameters(max_scaling=scale_pct / 100.0)
         result = correlate_profiles(stretched, original, params)
         assert result is not None
-        assert result.correlation_coefficient >= min_corr
+        assert result.correlation_coefficient >= 0.999
+        assert abs(result.scale_factor - 1 / scale) == 0
 
 
 # --- Edge case tests ---

@@ -15,7 +15,7 @@ comparison workflow including:
 
 Submodules
 ----------
-- data_types: Core data structures (Profile, AlignmentParameters, ComparisonResults)
+- data_types: Core data structures (Profile, AlignmentParameters, StriationComparisonResults)
 - correlator: Main entry point function (global brute-force search)
 - transforms: Resampling operations for pixel scale equalization
 - statistics: Statistical metrics (correlation, roughness, overlap ratio)
@@ -24,7 +24,7 @@ Submodules
 # Core data types
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
-    ComparisonResults,
+    StriationComparisonResults,
     Profile,
 )
 
@@ -40,7 +40,7 @@ from conversion.profile_correlator.statistics import (
     compute_overlap_ratio,
     compute_roughness_sa,
     compute_roughness_sq,
-    compute_signature_differences,
+    compute_normalized_square_based_roughness_differences,
 )
 
 # Re-export cutoff_to_gaussian_sigma from conversion.filter for convenience
@@ -52,7 +52,7 @@ __all__ = [
     # Data types
     "Profile",
     "AlignmentParameters",
-    "ComparisonResults",
+    "StriationComparisonResults",
     # Transforms
     "equalize_pixel_scale",
     # Statistics
@@ -60,7 +60,7 @@ __all__ = [
     "compute_overlap_ratio",
     "compute_roughness_sa",
     "compute_roughness_sq",
-    "compute_signature_differences",
+    "compute_normalized_square_based_roughness_differences",
     # Filtering (re-exported from conversion.filter)
     "cutoff_to_gaussian_sigma",
 ]

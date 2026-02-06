@@ -40,11 +40,10 @@ def equalize_pixel_scale(
 
     # Downsample the higher-resolution profile to match the lower-resolution one
     if pixel_1 > pixel_2:
-        to_downsample, other = profile_2, profile_1
+        to_downsample, target_pixel_size = profile_2, profile_1.pixel_size
     else:
-        to_downsample, other = profile_1, profile_2
+        to_downsample, target_pixel_size = profile_1, profile_2.pixel_size
 
-    target_pixel_size = other.pixel_size
     factor = target_pixel_size / to_downsample.pixel_size
     downsampled = Profile(
         heights=resample_array_1d(to_downsample.heights, factor),
