@@ -50,28 +50,28 @@ def scan_image_array(baseline_images_dir: Path) -> DepthData:
 
 
 @pytest.fixture
-def image_container(scan_image_array: DepthData) -> ImageContainer:
+def process_image(scan_image_array: DepthData) -> ProcessImage:
     """Build a `ImageContainer` object`."""
-    return ImageContainer(
+    return ProcessImage(
         data=scan_image_array,
         metadata=MetaData(scale=Pair(4 * micro, 4 * micro)),
     )
 
 
 @pytest.fixture(scope="session")
-def _image_replica(scans_dir: Path) -> ImageContainer:
+def _image_replica(scans_dir: Path) -> ProcessImage:
     """Build a `ImageContainer` object`."""
     return ProcessImage.from_scan_file(scans_dir / "Klein_non_replica_mode.al3d")
 
 
 @pytest.fixture
-def image_replica(_image_replica: ImageContainer) -> ImageContainer:
+def image_replica(_image_replica: ProcessImage) -> ProcessImage:
     """Build a `ImageContainer` object`."""
     return _image_replica.model_copy(deep=True)
 
 
 @pytest.fixture
-def image_with_nans(image_replica: ImageContainer) -> ImageContainer:
+def image_with_nans(image_replica: ProcessImage) -> ProcessImage:
     # add random NaN values
     rng = np.random.default_rng(42)
     image_replica.data[rng.random(size=image_replica.data.shape) < 0.1] = np.nan
@@ -80,7 +80,7 @@ def image_with_nans(image_replica: ImageContainer) -> ImageContainer:
 
 @pytest.fixture
 def image_rectangular_with_nans(
-    image_with_nans: ImageContainer,
+    image_with_nans: ProcessImage,
 ) -> ImageContainer:
     """Build a `ImageContainer` object` with non-square image data."""
     scale = image_with_nans.metadata.scale

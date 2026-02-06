@@ -56,11 +56,11 @@ from PIL.Image import fromarray
 from surfalize import Surface
 
 from container_models.base import (
+    BaseType,
     BinaryMask,
+    BoolArray1D,
     Coordinate,
     DepthData,
-    FloatArray1D,
-    FloatArray2D,
     Pair,
     Scale,
     ImageRGBA,
@@ -72,7 +72,7 @@ class MetaData(BaseModel):
 
     @property
     def is_isotropic(self) -> bool:
-        return bool(np.isclose(*self.scale, atol=femto))
+        return bool(np.isclose(*tuple(self.scale), atol=femto))
 
     @property
     def central_diff_scales(self) -> Scale:
@@ -85,8 +85,8 @@ class MetaData(BaseModel):
     )
 
 
-class ImageContainer(BaseModel):
-    data: FloatArray2D
+class ImageContainer[T: BaseType](BaseModel):
+    data: T
     metadata: MetaData
 
     model_config = ConfigDict(
@@ -118,10 +118,8 @@ class ImageContainer(BaseModel):
         return np.array_equal(self.data, other.data, equal_nan=True)
 
 
-class MaskImage(ImageContainer):
+class MaskImage(ImageContainer[BinaryMask]):
     """Binary mask image container."""
-
-    data: BinaryMask
 
     @property
     def valid_mask(self) -> BinaryMask:
@@ -131,15 +129,14 @@ class MaskImage(ImageContainer):
         return valid_mask
 
     @property
-    def valid_data(self) -> FloatArray1D:
+    def valid_data(self) -> BoolArray1D:
         """Valid pixels in the data."""
         valid_data = self.data[self.valid_mask]
         valid_data.setflags(write=False)
         return valid_data
 
 
-class ProcessImage(ImageContainer):
-    data: DepthData
+class ProcessImage(ImageContainer[DepthData]):
     metadata: MetaData
 
     model_config = ConfigDict(

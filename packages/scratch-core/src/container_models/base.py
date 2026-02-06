@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from functools import partial
 from operator import add, mul, sub, truediv
-from typing import Annotated, Iterable, NamedTuple, TypeAlias
+from typing import Annotated, Iterable, NamedTuple
 
 from numpy import array, bool_, floating, number, uint8
 from numpy.typing import DTypeLike, NDArray
@@ -94,22 +94,22 @@ type BaseType[T: number | bool_] = Annotated[
 
 # Tier 1: Base types
 type FloatArray = BaseType[floating]
+type BoolArray = BaseType[bool_]
 
 # Tier 2: Shape and data types
 type FloatArray1D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 1))]
 type FloatArray2D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 2))]
 type FloatArray3D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 3))]
 type FloatArray4D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 4))]
+type BoolArray1D = Annotated[BoolArray, AfterValidator(partial(validate_shape, 1))]
+type BoolArray2D = Annotated[BoolArray, AfterValidator(partial(validate_shape, 2))]
 type UInt8Array3D = Annotated[
     BaseType[uint8], AfterValidator(partial(validate_shape, 3))
 ]
-type BoolArray2D = Annotated[
-    BaseType[bool_], AfterValidator(partial(validate_shape, 2))
-]
 
 # Tier 3: Semantic context
-ImageRGBA: TypeAlias = UInt8Array3D  # Shape: (H, W, 4)
-UnitVector: TypeAlias = FloatArray1D  # Shape: (3,)
-DepthData: TypeAlias = FloatArray2D  # Shape: (H, W)
-BinaryMask: TypeAlias = BoolArray2D  # Shape: (H, W)
-VectorField: TypeAlias = FloatArray3D  # Shape (H, W, 3)
+type ImageRGBA = UInt8Array3D  # Shape: (H, W, 4)
+type UnitVector = FloatArray1D  # Shape: (3,)
+type DepthData = FloatArray2D  # Shape: (H, W)
+type BinaryMask = BoolArray2D  # Shape: (H, W)
+type VectorField = FloatArray3D  # Shape (H, W, 3)
