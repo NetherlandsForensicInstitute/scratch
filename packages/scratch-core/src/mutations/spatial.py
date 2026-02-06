@@ -26,10 +26,8 @@ from container_models.base import BinaryMask
 from computations.spatial import get_bounding_box
 from container_models.scan_image import ScanImage
 from exceptions import ImageShapeMismatchError
-from mutations.base import ImageMutation
-
-import numpy as np
 from loguru import logger
+from mutations.base import ImageMutation
 from pydantic import PositiveFloat
 from skimage.transform import resize
 
@@ -90,9 +88,7 @@ class Resample(ImageMutation):
             image=scan_image.data,
             output_shape=output_shape,
             mode="edge",
-            anti_aliasing=self.x_factor > 1
-            and self.y_factor > 1
-            and scan_image.data.dtype != np.bool_,
+            anti_aliasing=self.x_factor > 1 and self.y_factor > 1
         )
         logger.debug(
             f"Resampling image array to new size: {round(output_shape[0], 1)}/{round(output_shape[1], 1)}"

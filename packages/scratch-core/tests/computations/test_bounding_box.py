@@ -1,7 +1,10 @@
-from computations.spatial import get_bounding_box
+from computations.spatial import get_bounding_box, resample_array
 from container_models.base import BinaryMask
 import pytest
 import numpy as np
+
+from container_models.scan_image import ScanImage
+from mutations import Resample
 
 
 class TestMaskBoundingBox:
@@ -203,3 +206,14 @@ class TestMaskBoundingBox:
         slices = get_bounding_box(mask=mask)
         # assert
         assert slices == expected
+
+
+def test_resample_array():
+    # Arrange
+    data = np.zeros((10, 10), dtype=np.bool)
+    data[5, 5] = 1
+    # Act
+    result = resample_array(array=data ,width=6, height=6, anti_aliasing=False)
+    # Assert
+    assert result.data.shape == (6, 6)
+    assert data[5,5] == 1

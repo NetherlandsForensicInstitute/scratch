@@ -17,7 +17,7 @@ from pydantic import (
 )
 from scipy.constants import micro
 
-from constants import ImpressionMarks, MaskTypes, StriationMarks
+from constants import LIGHT_SOURCES, OBSERVER, ImpressionMarks, MaskTypes, StriationMarks
 from models import (
     BaseModelConfig,
     ProjectTag,
@@ -50,10 +50,7 @@ class BaseParameters(BaseModelConfig):
 
 class UploadScan(BaseParameters):
     light_sources: tuple[LightSource, ...] = Field(
-        (
-            LightSource(azimuth=90, elevation=45),
-            LightSource(azimuth=180, elevation=45),
-        ),
+        LIGHT_SOURCES,
         description="Light sources for surface illumination rendering.",
         examples=[
             (
@@ -63,7 +60,7 @@ class UploadScan(BaseParameters):
         ],
     )
     observer: LightSource = Field(
-        LightSource(azimuth=90, elevation=45),
+        OBSERVER,
         description="Observer viewpoint vector for surface rendering.",
         examples=[LightSource(azimuth=90, elevation=45)],
     )
