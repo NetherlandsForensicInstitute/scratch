@@ -22,7 +22,7 @@ from conversion.preprocess_impression.resample import (
 )
 from conversion.preprocess_impression.tilt import apply_tilt_correction
 from conversion.preprocess_impression.utils import update_mark_data, Point2D
-from conversion.resample import get_scaling_factors, resample_image_array
+from conversion.resample import get_scaling_factors, resample_array_2d
 
 
 def preprocess_impression_mark(
@@ -77,7 +77,7 @@ def preprocess_impression_mark(
             factors = get_scaling_factors(
                 scales=original_scales, target_scale=params.pixel_size
             )
-            fitted_surface = resample_image_array(fitted_surface, factors=factors)
+            fitted_surface = resample_array_2d(fitted_surface, factors=factors)
 
     # Stage 7: High-pass filter
     if params.highpass_cutoff is not None:
