@@ -1,87 +1,49 @@
-"""
-Image Modifications Architecture
-================================
+"""Image mutations architecture.
 
 This module defines how image modifications are structured and applied.
 
-- `ImageContainer` represents the scanned image as a complete data package
-  (image data + metadata).
-- `ImageMutation` is an abstract interface for modifying a `ImageContainer`.
-- Concrete mutations (e.g. Resample, Crop, Mask, Scale) live in the
-  `mutations` folder, each in its own file.
-- Loosely coupled or stateless functionality (such as solvers or pure
-  computations) should live in the `computations` folder.
+- :class:`~container_models.image.ImageContainer` is the base class with height/width.
+- :class:`~container_models.image.ProcessImage` extends it with scale metadata.
+- :class:`ImageMutation` is an abstract interface for modifying an ImageContainer.
+- Concrete mutations live in the ``mutations`` folder, each in its own file.
 
-High-level Design
------------------
+Architecture
+------------
+::
 
-                 +------------------------------------------------+
-                 |                  ImageContainer                     |
-                 |------------------------------------------------|
-                 | data     : np.ndarray                          |
-                 | scale_x  : float                               |
-                 | scale_y  : float                               |
-                 |------------------------------------------------|
-                 | modification : Modification                    |
-                 +-----------------------+------------------------+
-                                         |
-                                         v
-                     +-------------------+---------------------+
-                     |               <<abstract>>              |
-                     |               Modification              |
-                     |-----------------------------------------|
-                     | + apply_on_image(ImageContainer) -> ImageContainer|
-                     +-------------------+---------------------+
-                                         ^
-                                         |
-        +---------------------+----------+------------+-------------------+
-        |                     |                       |                   |
-        |                     |                       |                   |
-+-------+--------+  +---------+---------+  +----------+--------+  +-------+-------+
-|   Resample     |  |       Crop        |  |         Mask      |  |     Scale     |
-|----------------|  |-------------------|  |-------------------|  |---------------|
-| x : int        |  | area : np.ndarray |  | area : np.ndarray |  | x : int       |
-| y : int        |  |                   |  |                   |  | y : int       |
-+----------------+  +-------------------+  +-------------------+  +---------------+
-| <<overwrite>>  |  |   <<overwrite>>   |  |   <<overwrite>>   |  | <<overwrite>> |
-| apply_on_image |  |  apply_one_image  |  |   apply_on_image  |  | apply_on_image|
-+----------------+  |  skip_predicate   |  +-------------------+  +---------------+
-                    +-------------------+
-
+                    +------------------------------------+
+                    |           ImageContainer           |
+                    |------------------------------------|
+                    | data   : FloatArray2D              |
+                    | height : int                       |
+                    | width  : int                       |
+                    +------------------+-----------------+
+                                       |
+                                       v
+                   +-------------------+----------------------+
+                   |              <<abstract>>                |
+                   |              ImageMutation               |
+                   |------------------------------------------|
+                   | + apply_on_image(T) -> T                 |
+                   | + skip_predicate: bool                   |
+                   +-------------------+----------------------+
 
 Example
 -------
+.. code-block:: python
 
     from returns.pipeline import pipe
-    from numpy import ones, float64
-    from mutations import (
-        Resample,
-        Mask,
-        LevelMap,
-        GaussianFilter,
+    from mutations.spatial import Resample, CropToMask
+    from mutations.filter import LevelMap
+    from container_models.base import Pair
+
+    edit_pipeline = pipe(
+        Resample(factors=Pair(2.0, 2.0)),
+        CropToMask(mask=binary_mask),
+        LevelMap(reference=Pair(0.0, 0.0), terms=SurfaceTerms.PLANE),
     )
 
-    image = ImageContainer(
-        data=ones((10, 10), float64),
-        scale_x=1,
-        scale_y=1,
-    )
-
-    edit_image_pipeline = pipe(
-        Resample(factors=Point(2, 2)),
-        Mask(mask=np.zeros((5, 5), dtype=bool)),
-        LevelMap(
-            terms=SurfaceTerms.ASTIG_0,
-            solver=solve_least_squares,
-            reference_point=Point(3, 3),
-        ),
-        GaussianFilter(
-            cutoff_pixels=np.ones((5, 5)),
-            regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
-        ),
-    )
-
-    result = edit_image_pipeline(image)
+    result = edit_pipeline(process_image)
 """
 
 from abc import ABC, abstractmethod
@@ -89,7 +51,7 @@ from container_models import ImageContainer
 from returns.result import safe
 
 
-class ImageMutation(ABC):
+class ImageMutation[T: ImageContainer](ABC):
     """
     Represents a single mutation applied to a `ImageContainer`.
 
@@ -118,7 +80,7 @@ class ImageMutation(ABC):
         return False
 
     @safe
-    def __call__(self, image: ImageContainer) -> ImageContainer:
+    def __call__(self, image: T) -> T:
         """
         Callable interface used by pipelines (e.g. `pipe(...)` from
         the `returns` library).
@@ -136,7 +98,7 @@ class ImageMutation(ABC):
         return self.apply_on_image(image)
 
     @abstractmethod
-    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
+    def apply_on_image(self, image: T) -> T:
         """
         Applies the mutation to the given `ImageContainer`.
 

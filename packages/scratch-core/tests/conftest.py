@@ -9,9 +9,8 @@ from scipy.constants import micro
 
 from container_models.base import DepthData, BinaryMask, Pair, UnitVector
 from container_models import ImageContainer
-from container_models.image import MetaData
-from parsers.loaders import load_scan_image
-from .helper_function import unwrap_result, spherical_to_unit_vector
+from container_models.image import MetaData, ProcessImage
+from .helper_function import spherical_to_unit_vector
 
 TEST_ROOT = Path(__file__).parent
 
@@ -62,7 +61,7 @@ def image_container(scan_image_array: DepthData) -> ImageContainer:
 @pytest.fixture(scope="session")
 def _image_replica(scans_dir: Path) -> ImageContainer:
     """Build a `ImageContainer` object`."""
-    return unwrap_result(load_scan_image(scans_dir / "Klein_non_replica_mode.al3d"))
+    return ProcessImage.from_scan_file(scans_dir / "Klein_non_replica_mode.al3d")
 
 
 @pytest.fixture

@@ -1,6 +1,16 @@
+"""Filter image mutations.
+
+This module contains mutations that filter or level image data.
+
+.. seealso::
+
+    :class:`LevelMap`
+        Fit and subtract a polynomial surface from depth data.
+"""
+
 from typing import NamedTuple
 from container_models.base import Coordinate, FloatArray1D, FloatArray2D
-from container_models.image import ImageContainer
+from container_models.image import MaskImage
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.leveling.solver.design import build_design_matrix
 from conversion.leveling.solver.transforms import normalize_coordinates
@@ -77,7 +87,7 @@ class LevelMap(ImageMutation):
 
     def _generate_point_cloud(
         self,
-        image: ImageContainer,
+        image: MaskImage,
         reference: Coordinate,
     ) -> PointCloud:
         """
@@ -95,7 +105,7 @@ class LevelMap(ImageMutation):
         )
         return PointCloud(xs=xs, ys=ys, zs=zs)
 
-    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
+    def apply_on_image(self, image: MaskImage) -> MaskImage:
         """
         Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
         This computation effectively acts as a high-pass filter on the image data.

@@ -1,9 +1,19 @@
+"""Shading image mutations.
+
+This module contains mutations that apply lighting and shading effects.
+
+.. seealso::
+
+    :class:`LightIntensityMap`
+        Compute surface shading from directional light sources.
+"""
+
 from typing import Iterable, override
 
 from returns.result import safe
 
 from container_models.base import UnitVector
-from container_models.image import ImageContainer
+from container_models.image import ImageContainer, ProcessImage
 from mutations.base import ImageMutation
 from renders.normalizations import (
     normalize_2d_array,
@@ -27,11 +37,11 @@ class LightIntensityMap(ImageMutation):
         "Successfully applied lights",
     )
     @safe
-    def __call__(self, image: ImageContainer) -> ImageContainer:
+    def __call__(self, image: ProcessImage) -> ProcessImage:
         return self.apply_on_image(image)
 
     @override
-    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
+    def apply_on_image(self, image: ProcessImage) -> ProcessImage:
         """
         Combine multiple directional light sources into a single intensity map.
         """
