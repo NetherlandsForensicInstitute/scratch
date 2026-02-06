@@ -7,7 +7,7 @@ import numpy as np
 from returns.pipeline import is_successful
 from scipy.constants import milli
 from container_models.base import Pair
-from container_models.image import ImageContainer, MetaData
+from container_models.image import ImageContainer, MetaData, ProcessImage
 from mutations.sampling import IsotropicResample, Subsample
 from ..helper_function import unwrap_result
 
@@ -15,7 +15,7 @@ from ..helper_function import unwrap_result
 class TestSubsampleMutation:
     # TODO: find a better test methology
     def test_subsample_matches_baseline_output(
-        self, baseline_images_dir: Path, image_replica: ImageContainer
+        self, baseline_images_dir: Path, image_replica: ProcessImage
     ) -> None:
         # arrange
         verified = np.load(baseline_images_dir / "replica_subsampled.npy")
@@ -32,15 +32,15 @@ class TestSubsampleMutation:
         [(1, 1), (10, 10), (25, 25), (25, 50)],
     )
     def test_subsample_matches_size(
-        self, image_container: ImageContainer, step_size_x: int, step_size_y: int
+        self, process_image: ProcessImage, step_size_x: int, step_size_y: int
     ):
         # Arrange
-        expected_height = ceil(image_container.height / step_size_y)
-        expected_width = ceil(image_container.width / step_size_x)
+        expected_height = ceil(process_image.height / step_size_y)
+        expected_width = ceil(process_image.width / step_size_x)
         subsample_scan_image = Subsample(step_size_x, step_size_y)
 
         # Act
-        result = subsample_scan_image(image_container)
+        result = subsample_scan_image(process_image)
         subsampled = unwrap_result(result)
 
         #  Assert
@@ -52,28 +52,28 @@ class TestSubsampleMutation:
             pytest.param(1, 1, id="default value"),
             pytest.param(10, 1, id="only x"),
             pytest.param(1, 10, id="only y"),
-            pytest.param(10, 5, id="different x and y", marks=pytest.mark.xfail),
+            pytest.param(10, 5, id="different x and y"),
         ],
     )
     def test_subsample_updates_scan_image_scales(
-        self, image_container: ImageContainer, step_x: int, step_y: int
+        self, process_image: ProcessImage, step_x: int, step_y: int
     ) -> None:
         # Arrange
         subsample_scan_image = Subsample(step_x, step_y)
 
         # Act
-        result = subsample_scan_image(image_container)
+        result = subsample_scan_image(process_image)
         subsampled = unwrap_result(result)
 
         # Assert
         assert np.isclose(
             subsampled.metadata.scale.x,
-            image_container.metadata.scale.x * step_x,
+            process_image.metadata.scale.x * step_x,
             atol=milli,
         )
         assert np.isclose(
             subsampled.metadata.scale.y,
-            image_container.metadata.scale.y * step_y,
+            process_image.metadata.scale.y * step_y,
             atol=milli,
         )
 
@@ -82,18 +82,18 @@ class TestSubsampleMutation:
         [(-2, 2), (0, 0), (0, 3), (2, -1), (-1, -1), (1e3, 1e4)],
     )
     def test_subsample_rejects_incorrect_sizes(
-        self, image_container: ImageContainer, step_size_x: int, step_size_y: int
+        self, process_image: ProcessImage, step_size_x: int, step_size_y: int
     ):
         # Arrange
         subsample_scan_image = Subsample(step_size_x, step_size_y)
         # Act
-        result = subsample_scan_image(image_container)
+        result = subsample_scan_image(process_image)
 
         # Assert
         assert not is_successful(result)
 
     def test_subsample_skips_when_given_step_size_of_one(
-        self, image_container: ImageContainer, caplog: pytest.LogCaptureFixture
+        self, process_image: ProcessImage, caplog: pytest.LogCaptureFixture
     ) -> None:
         """
         Test when given the subsample the stepsize of one in both directions,
@@ -104,10 +104,10 @@ class TestSubsampleMutation:
 
         # Act
         with caplog.at_level(logging.INFO):
-            result = subsample_scan_image(image_container)
+            result = subsample_scan_image(process_image)
 
         # Assert
-        assert unwrap_result(result) is image_container, (
+        assert unwrap_result(result) is process_image, (
             "Expected the same object to be returned"
         )
         assert "No subsampling needed, returning original scan image" in caplog.text
