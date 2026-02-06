@@ -22,17 +22,16 @@ All mutations in this module must preserve the semantic content of
 the image while adjusting its spatial representation.
 """
 
-from container_models.base import BinaryMask, DepthData
-from computations.spatial import get_bounding_box
-from container_models.scan_image import ScanImage
-from exceptions import ImageShapeMismatchError
-from mutations.base import ImageMutation
+from typing import cast
 
 import numpy as np
+from computations.spatial import get_bounding_box,resample_array
+from container_models.base import BinaryMask, DepthData
+from container_models.scan_image import ScanImage
+from exceptions import ImageShapeMismatchError
 from loguru import logger
+from mutations.base import ImageMutation
 from pydantic import PositiveFloat
-from skimage.transform import resize
-from typing import cast
 
 
 class CropToMask(ImageMutation):
@@ -87,13 +86,11 @@ class Resample(ImageMutation):
             1 / self.y_factor * scan_image.height,
             1 / self.x_factor * scan_image.width,
         )
-        resampled_data = resize(
-            image=scan_image.data,
-            output_shape=output_shape,
-            mode="edge",
-            anti_aliasing=self.x_factor > 1
-            and self.y_factor > 1
-            and scan_image.data.dtype != np.bool_,
+        resampled_data = resample_array(
+            array=scan_image.data,
+            height=1 / self.y_factor * scan_image.height,
+            width=1 / self.x_factor * scan_image.width ,
+            anti_aliasing=self.x_factor > 1 and self.y_factor > 1
         )
         logger.debug(
             f"Resampling image array to new size: {round(output_shape[0], 1)}/{round(output_shape[1], 1)}"
