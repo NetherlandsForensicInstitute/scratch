@@ -1,15 +1,11 @@
-"""
-Impression mark comparison visualization.
+"""Impression mark comparison visualization."""
 
-Translates MATLAB functions:
-- GenerateAdditionalNISTFigures.m (orchestrator)
-- PlotResultsAreaNIST.m (area-based correlation plots)
-- PlotResultsCmcNIST.m (cell/CMC-based correlation plots)
-"""
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.signal import correlate2d
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from container_models.base import FloatArray2D, ImageRGB
 from conversion.data_formats import Mark
@@ -20,7 +16,12 @@ from conversion.plots.data_formats import (
 from conversion.plots.utils import (
     DEFAULT_COLORMAP,
     figure_to_array,
+    get_bounding_box,
+    get_col_widths,
     get_figure_dimensions,
+    get_height_ratios,
+    get_metadata_dimensions,
+    metadata_to_table_data,
     plot_depth_map_on_axes,
 )
 
@@ -31,23 +32,22 @@ def plot_impression_comparison_results(
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
     metrics: ImpressionComparisonMetrics,
-    _metadata_reference: dict[str, str],
-    _metadata_compared: dict[str, str],
+    metadata_reference: dict[str, str],
+    metadata_compared: dict[str, str],
 ) -> ImpressionComparisonPlots:
     """
     Generate visualization results for impression mark comparison.
 
-    Main orchestrator function equivalent to MATLAB GenerateAdditionalNISTFigures.m.
-    Generates both area-based and cell/CMC-based visualizations based on which
-    results are available in the metrics.
+    Main orchestrator function that generates both area-based and cell/CMC-based
+    visualizations based on which results are available in the metrics.
 
     :param mark_reference_leveled: Reference mark after leveling.
     :param mark_compared_leveled: Compared mark after leveling.
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.
     :param metrics: Comparison metrics including correlation values.
-    :param _metadata_reference: Metadata dict for reference mark display (reserved for future use).
-    :param _metadata_compared: Metadata dict for compared mark display (reserved for future use).
+    :param metadata_reference: Metadata dict for reference mark display.
+    :param metadata_compared: Metadata dict for compared mark display.
     :returns: ImpressionComparisonPlots with all rendered images.
     """
     # Initialize all plots as None
@@ -55,13 +55,10 @@ def plot_impression_comparison_results(
     leveled_comp = None
     filtered_ref = None
     filtered_comp = None
-    difference_map = None
-    area_xcorr = None
     cell_ref = None
     cell_comp = None
     cell_overlay = None
     cell_xcorr = None
-    cell_histogram = None
 
     # Generate area-based plots if available
     if metrics.has_area_results:
@@ -70,14 +67,11 @@ def plot_impression_comparison_results(
             leveled_comp,
             filtered_ref,
             filtered_comp,
-            difference_map,
-            area_xcorr,
         ) = plot_area_figures(
             mark_ref_leveled=mark_reference_leveled,
             mark_comp_leveled=mark_compared_leveled,
             mark_ref_filtered=mark_reference_filtered,
             mark_comp_filtered=mark_compared_filtered,
-            correlation_value=metrics.area_correlation,
         )
 
     # Generate cell/CMC-based plots if available
@@ -87,25 +81,33 @@ def plot_impression_comparison_results(
             cell_comp,
             cell_overlay,
             cell_xcorr,
-            cell_histogram,
         ) = plot_cmc_figures(
             mark_ref_filtered=mark_reference_filtered,
             mark_comp_filtered=mark_compared_filtered,
             cell_correlations=metrics.cell_correlations,
         )
 
+    # Generate comparison overview
+    comparison_overview = plot_comparison_overview(
+        mark_reference_leveled=mark_reference_leveled,
+        mark_compared_leveled=mark_compared_leveled,
+        mark_reference_filtered=mark_reference_filtered,
+        mark_compared_filtered=mark_compared_filtered,
+        metrics=metrics,
+        metadata_reference=metadata_reference,
+        metadata_compared=metadata_compared,
+    )
+
     return ImpressionComparisonPlots(
+        comparison_overview=comparison_overview,
         leveled_reference=leveled_ref,
         leveled_compared=leveled_comp,
         filtered_reference=filtered_ref,
         filtered_compared=filtered_comp,
-        difference_map=difference_map,
-        area_cross_correlation=area_xcorr,
         cell_reference=cell_ref,
         cell_compared=cell_comp,
         cell_overlay=cell_overlay,
         cell_cross_correlation=cell_xcorr,
-        cell_correlation_histogram=cell_histogram,
     )
 
 
@@ -114,26 +116,21 @@ def plot_area_figures(
     mark_comp_leveled: Mark,
     mark_ref_filtered: Mark,
     mark_comp_filtered: Mark,
-    correlation_value: float,
-) -> tuple[ImageRGB, ImageRGB, ImageRGB, ImageRGB, ImageRGB, ImageRGB]:
+) -> tuple[ImageRGB, ImageRGB, ImageRGB, ImageRGB]:
     """
-    Generate 6 area-based plots for impression comparison.
+    Generate 4 area-based plots for impression comparison.
 
-    Equivalent to MATLAB PlotResultsAreaNIST.m.
     Generates:
     1. Leveled reference surface
     2. Leveled compared surface
     3. Filtered reference surface
     4. Filtered compared surface
-    5. Difference map (compared - reference)
-    6. Cross-correlation surface
 
     :param mark_ref_leveled: Reference mark after leveling.
     :param mark_comp_leveled: Compared mark after leveling.
     :param mark_ref_filtered: Reference mark after filtering.
     :param mark_comp_filtered: Compared mark after filtering.
-    :param correlation_value: Areal correlation coefficient.
-    :returns: Tuple of 6 ImageRGB arrays.
+    :returns: Tuple of 4 ImageRGB arrays.
     """
     scale_ref = mark_ref_leveled.scan_image.scale_x
     scale_comp = mark_comp_leveled.scan_image.scale_x
@@ -166,44 +163,27 @@ def plot_area_figures(
         title="Filtered Compared Surface",
     )
 
-    # 5. Difference map
-    diff_map = plot_difference_map(
-        data_ref=mark_ref_filtered.scan_image.data,
-        data_comp=mark_comp_filtered.scan_image.data,
-        scale=scale_ref,
-    )
-
-    # 6. Cross-correlation surface
-    xcorr = plot_cross_correlation_surface(
-        data_ref=mark_ref_filtered.scan_image.data,
-        data_comp=mark_comp_filtered.scan_image.data,
-        scale=scale_ref,
-        correlation_value=correlation_value,
-    )
-
-    return leveled_ref, leveled_comp, filtered_ref, filtered_comp, diff_map, xcorr
+    return leveled_ref, leveled_comp, filtered_ref, filtered_comp
 
 
 def plot_cmc_figures(
     mark_ref_filtered: Mark,
     mark_comp_filtered: Mark,
     cell_correlations: FloatArray2D,
-) -> tuple[ImageRGB, ImageRGB, ImageRGB, ImageRGB, ImageRGB]:
+) -> tuple[ImageRGB, ImageRGB, ImageRGB, ImageRGB]:
     """
-    Generate 5 CMC/cell-based plots for impression comparison.
+    Generate 4 CMC/cell-based plots for impression comparison.
 
-    Equivalent to MATLAB PlotResultsCmcNIST.m.
     Generates:
     1. Cell-preprocessed reference
     2. Cell-preprocessed compared
     3. All cells overlay visualization
     4. Cell cross-correlation heatmap
-    5. Cell correlation histogram
 
     :param mark_ref_filtered: Reference mark after filtering.
     :param mark_comp_filtered: Compared mark after filtering.
     :param cell_correlations: Grid of per-cell correlation values.
-    :returns: Tuple of 5 ImageRGB arrays.
+    :returns: Tuple of 4 ImageRGB arrays.
     """
     scale = mark_ref_filtered.scan_image.scale_x
 
@@ -233,12 +213,146 @@ def plot_cmc_figures(
         cell_correlations=cell_correlations,
     )
 
-    # 5. Cell correlation histogram
-    cell_histogram = plot_correlation_histogram(
-        cell_correlations=cell_correlations,
+    return cell_ref, cell_comp, cell_overlay, cell_xcorr
+
+
+def plot_comparison_overview(
+    mark_reference_leveled: Mark,
+    mark_compared_leveled: Mark,
+    mark_reference_filtered: Mark,
+    mark_compared_filtered: Mark,
+    metrics: ImpressionComparisonMetrics,
+    metadata_reference: dict[str, str],
+    metadata_compared: dict[str, str],
+    wrap_width: int = 25,
+) -> ImageRGB:
+    """
+    Generate the main results overview figure with dynamic sizing.
+
+    Combines metadata tables, surface visualizations, cell grid overlay,
+    and cell correlation heatmap into a single overview figure.
+
+    :param mark_reference_leveled: Reference mark after leveling.
+    :param mark_compared_leveled: Compared mark after leveling.
+    :param mark_reference_filtered: Reference mark after filtering.
+    :param mark_compared_filtered: Compared mark after filtering.
+    :param metrics: Comparison metrics including correlation values.
+    :param metadata_reference: Metadata dict for reference mark display.
+    :param metadata_compared: Metadata dict for compared mark display.
+    :param wrap_width: Maximum characters per line before wrapping.
+    :returns: RGB image as uint8 array.
+    """
+    # Build results metadata
+    results_items = {
+        "Date report": datetime.now().strftime("%Y-%m-%d"),
+        "Mark type": mark_reference_leveled.mark_type.value,
+        "Area Correlation": f"{metrics.area_correlation:.4f}",
+        "CMC Score": f"{metrics.cmc_score:.1f}%",
+        "Sq(Ref)": f"{metrics.sq_ref:.4f} µm",
+        "Sq(Comp)": f"{metrics.sq_comp:.4f} µm",
+        "Sq(Diff)": f"{metrics.sq_diff:.4f} µm",
+    }
+
+    max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
+        metadata_compared, metadata_reference, wrap_width
+    )
+    height_ratios = get_height_ratios(metadata_height_ratio)
+
+    # Adjust figure height based on content
+    fig_height = 14 + (max_metadata_rows * 0.12)
+    fig_height = max(13, min(17, fig_height))
+
+    fig = plt.figure(figsize=(14, fig_height))
+
+    gs = fig.add_gridspec(
+        4,
+        3,
+        height_ratios=height_ratios,
+        width_ratios=[0.35, 0.35, 0.30],
+        hspace=0.35,
+        wspace=0.25,
     )
 
-    return cell_ref, cell_comp, cell_overlay, cell_xcorr, cell_histogram
+    # Row 0: Metadata tables
+    ax_meta_reference = fig.add_subplot(gs[0, 0])
+    _draw_metadata_box(
+        ax_meta_reference,
+        metadata_reference,
+        "Reference Mark (A)",
+        wrap_width=wrap_width,
+    )
+
+    ax_meta_compared = fig.add_subplot(gs[0, 1])
+    _draw_metadata_box(
+        ax_meta_compared,
+        metadata_compared,
+        "Compared Mark (B)",
+        wrap_width=wrap_width,
+    )
+
+    # Row 1: Leveled surfaces + Results
+    ax_leveled_ref = fig.add_subplot(gs[1, 0])
+    plot_depth_map_on_axes(
+        ax_leveled_ref,
+        fig,
+        mark_reference_leveled.scan_image.data,
+        mark_reference_leveled.scan_image.scale_x,
+        title="Leveled Reference Surface A",
+    )
+
+    ax_leveled_comp = fig.add_subplot(gs[1, 1])
+    plot_depth_map_on_axes(
+        ax_leveled_comp,
+        fig,
+        mark_compared_leveled.scan_image.data,
+        mark_compared_leveled.scan_image.scale_x,
+        title="Leveled Compared Surface B",
+    )
+
+    ax_results = fig.add_subplot(gs[1, 2])
+    _draw_metadata_box(
+        ax_results, results_items, draw_border=False, wrap_width=wrap_width
+    )
+
+    # Row 2: Filtered surfaces
+    ax_filtered_ref = fig.add_subplot(gs[2, 0])
+    plot_depth_map_on_axes(
+        ax_filtered_ref,
+        fig,
+        mark_reference_filtered.scan_image.data,
+        mark_reference_filtered.scan_image.scale_x,
+        title="Filtered Reference Surface A",
+    )
+
+    ax_filtered_comp = fig.add_subplot(gs[2, 1])
+    plot_depth_map_on_axes(
+        ax_filtered_comp,
+        fig,
+        mark_compared_filtered.scan_image.data,
+        mark_compared_filtered.scan_image.scale_x,
+        title="Filtered Compared Surface B",
+    )
+
+    # Row 2, Col 2: Cell correlation heatmap (if available)
+    if metrics.has_cell_results:
+        ax_heatmap = fig.add_subplot(gs[2, 2])
+        _plot_cell_heatmap_on_axes(ax_heatmap, fig, metrics.cell_correlations)
+
+    # Row 3: Cell grid overlay (spanning full width if cell results available)
+    if metrics.has_cell_results:
+        ax_overlay = fig.add_subplot(gs[3, :2])
+        _plot_cell_overlay_on_axes(
+            ax_overlay,
+            mark_reference_filtered.scan_image.data,
+            mark_reference_filtered.scan_image.scale_x,
+            metrics.cell_correlations,
+        )
+
+    fig.tight_layout(pad=0.8, h_pad=1.2, w_pad=0.8)
+    fig.subplots_adjust(left=0.06, right=0.98, top=0.96, bottom=0.06)
+    arr = figure_to_array(fig)
+    plt.close(fig)
+    return arr
 
 
 def plot_depth_map_with_axes(
@@ -266,146 +380,6 @@ def plot_depth_map_with_axes(
     return arr
 
 
-def plot_difference_map(
-    data_ref: FloatArray2D,
-    data_comp: FloatArray2D,
-    scale: float,
-) -> ImageRGB:
-    """
-    Plot the difference map between two surfaces.
-
-    :param data_ref: Reference surface data in meters.
-    :param data_comp: Compared surface data in meters.
-    :param scale: Pixel scale in meters.
-    :returns: RGB image as uint8 array.
-    """
-    # Compute difference (handle NaN values)
-    diff = data_comp - data_ref
-
-    # Compute Sq of difference (RMS of valid values)
-    valid_diff = diff[~np.isnan(diff)]
-    sq_diff = np.sqrt(np.mean(valid_diff**2)) * 1e6 if len(valid_diff) > 0 else 0.0
-
-    height, width = diff.shape
-    fig_height, fig_width = get_figure_dimensions(height, width)
-
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-
-    extent = (0, width * scale * 1e6, 0, height * scale * 1e6)
-    im = ax.imshow(
-        diff * 1e6,
-        cmap="RdBu_r",  # Diverging colormap centered at 0
-        aspect="equal",
-        origin="lower",
-        extent=extent,
-    )
-
-    # Center colormap at 0
-    vmax = np.nanmax(np.abs(diff * 1e6))
-    im.set_clim(-vmax, vmax)
-
-    ax.set_xlabel("X - Position [um]", fontsize=11)
-    ax.set_ylabel("Y - Position [um]", fontsize=11)
-    ax.set_title(
-        f"Difference Map (Sq = {sq_diff:.4f} um)", fontsize=12, fontweight="bold"
-    )
-    ax.tick_params(labelsize=10)
-
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    cbar = fig.colorbar(im, cax=cax, label="Difference [um]")
-    cbar.ax.tick_params(labelsize=10)
-
-    fig.tight_layout()
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr
-
-
-def plot_cross_correlation_surface(
-    data_ref: FloatArray2D,
-    data_comp: FloatArray2D,
-    scale: float,
-    correlation_value: float,
-) -> ImageRGB:
-    """
-    Plot the 2D cross-correlation surface.
-
-    :param data_ref: Reference surface data in meters.
-    :param data_comp: Compared surface data in meters.
-    :param scale: Pixel scale in meters.
-    :param correlation_value: Pre-computed correlation coefficient.
-    :returns: RGB image as uint8 array.
-    """
-    # Replace NaN with 0 for correlation computation
-    ref_clean = np.nan_to_num(data_ref, nan=0.0)
-    comp_clean = np.nan_to_num(data_comp, nan=0.0)
-
-    # Normalize for correlation
-    ref_norm = ref_clean - np.mean(ref_clean)
-    comp_norm = comp_clean - np.mean(comp_clean)
-
-    # Compute 2D cross-correlation (use 'same' mode for same-size output)
-    xcorr = correlate2d(ref_norm, comp_norm, mode="same", boundary="fill", fillvalue=0)
-
-    # Normalize to correlation coefficient scale
-    norm_factor = np.sqrt(np.sum(ref_norm**2) * np.sum(comp_norm**2))
-    if norm_factor > 0:
-        xcorr = xcorr / norm_factor
-
-    height, width = xcorr.shape
-    fig_height, fig_width = get_figure_dimensions(height, width)
-
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-
-    # Create extent in lag coordinates (centered at 0)
-    half_h = height // 2
-    half_w = width // 2
-    extent_um = (
-        -half_w * scale * 1e6,
-        half_w * scale * 1e6,
-        -half_h * scale * 1e6,
-        half_h * scale * 1e6,
-    )
-
-    im = ax.imshow(
-        xcorr,
-        cmap=DEFAULT_COLORMAP,
-        aspect="equal",
-        origin="lower",
-        extent=extent_um,
-    )
-
-    ax.set_xlabel("X - Lag [um]", fontsize=11)
-    ax.set_ylabel("Y - Lag [um]", fontsize=11)
-    ax.set_title(
-        f"Cross-Correlation (Max = {correlation_value:.4f})",
-        fontsize=12,
-        fontweight="bold",
-    )
-    ax.tick_params(labelsize=10)
-
-    # Mark the peak
-    peak_idx = np.unravel_index(np.argmax(xcorr), xcorr.shape)
-    peak_y = (peak_idx[0] - half_h) * scale * 1e6
-    peak_x = (peak_idx[1] - half_w) * scale * 1e6
-    ax.plot(peak_x, peak_y, "r+", markersize=15, markeredgewidth=2)
-
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    cbar = fig.colorbar(im, cax=cax, label="Correlation")
-    cbar.ax.tick_params(labelsize=10)
-
-    fig.tight_layout()
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr
-
-
 def plot_cell_grid_overlay(
     data: FloatArray2D,
     scale: float,
@@ -420,10 +394,105 @@ def plot_cell_grid_overlay(
     :returns: RGB image as uint8 array.
     """
     height, width = data.shape
-    n_rows, n_cols = cell_correlations.shape
-
     fig_height, fig_width = get_figure_dimensions(height, width)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+    _plot_cell_overlay_on_axes(ax, data, scale, cell_correlations)
+
+    fig.tight_layout()
+    arr = figure_to_array(fig)
+    plt.close(fig)
+    return arr
+
+
+def plot_cell_correlation_heatmap(
+    cell_correlations: FloatArray2D,
+) -> ImageRGB:
+    """
+    Plot heatmap of per-cell correlation values.
+
+    :param cell_correlations: Grid of per-cell correlation values.
+    :returns: RGB image as uint8 array.
+    """
+    n_rows, n_cols = cell_correlations.shape
+
+    # Calculate figure size based on grid dimensions
+    base_size = 6
+    aspect = n_cols / n_rows
+    if aspect > 1:
+        fig_width = base_size
+        fig_height = base_size / aspect + 1.5
+    else:
+        fig_height = base_size + 1.5
+        fig_width = base_size * aspect
+
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+    _plot_cell_heatmap_on_axes(ax, fig, cell_correlations)
+
+    fig.tight_layout()
+    arr = figure_to_array(fig)
+    plt.close(fig)
+    return arr
+
+
+# --- Helper functions for axes-level plotting ---
+
+
+def _draw_metadata_box(
+    ax: Axes,
+    metadata: dict[str, str],
+    title: str | None = None,
+    draw_border: bool = True,
+    wrap_width: int = 25,
+    side_margin: float = 0.06,
+) -> None:
+    """Draw a metadata box with key-value pairs."""
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    for spine in ax.spines.values():
+        spine.set_visible(draw_border)
+        spine.set_linewidth(1.5)
+        spine.set_edgecolor("black")
+
+    if title:
+        ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
+
+    table_data = metadata_to_table_data(metadata, wrap_width=wrap_width)
+    col_widths = get_col_widths(side_margin, table_data)
+    bounding_box = get_bounding_box(side_margin, table_data)
+
+    table = ax.table(
+        cellText=table_data,
+        cellLoc="left",
+        colWidths=col_widths,
+        loc="upper center",
+        edges="open",
+        bbox=bounding_box,
+    )
+
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+
+    for i in range(len(table_data)):
+        table[i, 0].set_text_props(fontweight="bold", ha="right")
+        table[i, 0].PAD = 0.02
+        table[i, 1].set_text_props(ha="left")
+        table[i, 1].PAD = 0.02
+
+
+def _plot_cell_overlay_on_axes(
+    ax: Axes,
+    data: FloatArray2D,
+    scale: float,
+    cell_correlations: FloatArray2D,
+) -> None:
+    """Plot surface with cell grid overlay on given axes."""
+    height, width = data.shape
+    n_rows, n_cols = cell_correlations.shape
 
     # Plot the surface
     extent = (0, width * scale * 1e6, 0, height * scale * 1e6)
@@ -474,39 +543,21 @@ def plot_cell_grid_overlay(
                     bbox=dict(boxstyle="round,pad=0.1", facecolor="black", alpha=0.5),
                 )
 
-    ax.set_xlabel("X - Position [um]", fontsize=11)
-    ax.set_ylabel("Y - Position [um]", fontsize=11)
+    ax.set_xlabel("X - Position [µm]", fontsize=11)
+    ax.set_ylabel("Y - Position [µm]", fontsize=11)
     ax.set_title("Cell Grid with Correlation Values", fontsize=12, fontweight="bold")
     ax.tick_params(labelsize=10)
 
-    fig.tight_layout()
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr
 
-
-def plot_cell_correlation_heatmap(
+def _plot_cell_heatmap_on_axes(
+    ax: Axes,
+    fig: Figure,
     cell_correlations: FloatArray2D,
-) -> ImageRGB:
-    """
-    Plot heatmap of per-cell correlation values.
+) -> None:
+    """Plot cell correlation heatmap on given axes."""
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-    :param cell_correlations: Grid of per-cell correlation values.
-    :returns: RGB image as uint8 array.
-    """
     n_rows, n_cols = cell_correlations.shape
-
-    # Calculate figure size based on grid dimensions
-    base_size = 6
-    aspect = n_cols / n_rows
-    if aspect > 1:
-        fig_width = base_size
-        fig_height = base_size / aspect + 1.5
-    else:
-        fig_height = base_size + 1.5
-        fig_width = base_size * aspect
-
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
     im = ax.imshow(
         cell_correlations,
@@ -543,98 +594,7 @@ def plot_cell_correlation_heatmap(
     ax.set_xticks(range(n_cols))
     ax.set_yticks(range(n_rows))
 
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.1)
     cbar = fig.colorbar(im, cax=cax, label="Correlation")
     cbar.ax.tick_params(labelsize=10)
-
-    fig.tight_layout()
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr
-
-
-def plot_correlation_histogram(
-    cell_correlations: FloatArray2D,
-    threshold: float = 0.5,
-) -> ImageRGB:
-    """
-    Plot histogram of per-cell correlation values.
-
-    :param cell_correlations: Grid of per-cell correlation values.
-    :param threshold: CMC threshold to mark on histogram.
-    :returns: RGB image as uint8 array.
-    """
-    # Flatten and remove NaN values
-    valid_correlations = cell_correlations.flatten()
-    valid_correlations = valid_correlations[~np.isnan(valid_correlations)]
-
-    # Count cells above threshold
-    n_above = np.sum(valid_correlations >= threshold)
-    n_total = len(valid_correlations)
-    cmc_score = (n_above / n_total * 100) if n_total > 0 else 0.0
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-
-    # Create histogram
-    n_bins = 20
-    _, _, patches = ax.hist(
-        valid_correlations,
-        bins=n_bins,
-        range=(0, 1),
-        color="steelblue",
-        edgecolor="white",
-        alpha=0.8,
-    )
-
-    # Color bars above threshold differently (patches is BarContainer for single input)
-    for patch in patches:  # type: ignore[union-attr]
-        bin_center = patch.get_x() + patch.get_width() / 2
-        if bin_center >= threshold:
-            patch.set_facecolor("forestgreen")
-
-    # Add threshold line
-    ax.axvline(
-        threshold,
-        color="red",
-        linestyle="--",
-        linewidth=2,
-        label=f"CMC Threshold = {threshold:.2f}",
-    )
-
-    ax.set_xlabel("Correlation Coefficient", fontsize=11)
-    ax.set_ylabel("Number of Cells", fontsize=11)
-    ax.set_title(
-        f"Cell Correlation Distribution (CMC = {cmc_score:.1f}%)",
-        fontsize=12,
-        fontweight="bold",
-    )
-    ax.tick_params(labelsize=10)
-    ax.set_xlim(0, 1)
-    ax.legend(loc="upper left", fontsize=10)
-    ax.grid(True, alpha=0.3, axis="y")
-
-    # Add statistics annotation
-    stats_text = (
-        f"N = {n_total}\n"
-        f"Mean = {np.mean(valid_correlations):.3f}\n"
-        f"Std = {np.std(valid_correlations):.3f}\n"
-        f"Above threshold: {n_above}/{n_total}"
-    )
-    ax.text(
-        0.98,
-        0.95,
-        stats_text,
-        transform=ax.transAxes,
-        ha="right",
-        va="top",
-        fontsize=9,
-        bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8),
-    )
-
-    fig.tight_layout()
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr

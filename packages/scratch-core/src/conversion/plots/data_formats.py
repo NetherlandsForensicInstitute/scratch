@@ -58,8 +58,6 @@ class ImpressionComparisonMetrics:
     """
     Metrics for impression comparison display.
 
-    Equivalent to MATLAB results_table structure from GenerateAdditionalNISTFigures.m.
-
     :param area_correlation: Areal correlation coefficient (from area-based comparison).
     :param cell_correlations: Grid of per-cell correlation values (shape: n_rows x n_cols).
     :param cmc_score: Congruent Matching Cells score (percentage of cells above threshold).
@@ -88,29 +86,25 @@ class ImpressionComparisonPlots:
     Contains rendered images for both area-based and cell/CMC-based visualizations.
     Fields are None when the corresponding analysis was not performed.
 
+    :param comparison_overview: Combined overview figure with all results.
     :param leveled_reference: Leveled reference surface visualization.
     :param leveled_compared: Leveled compared surface visualization.
     :param filtered_reference: Filtered reference surface visualization.
     :param filtered_compared: Filtered compared surface visualization.
-    :param difference_map: Difference map (compared - reference) visualization.
-    :param area_cross_correlation: Cross-correlation surface visualization.
     :param cell_reference: Cell-preprocessed reference visualization.
     :param cell_compared: Cell-preprocessed compared visualization.
     :param cell_overlay: All cells overlay visualization.
-    :param cell_cross_correlation: Cell-based cross-correlation visualization.
-    :param cell_correlation_histogram: Histogram of per-cell correlations.
+    :param cell_cross_correlation: Cell-based cross-correlation heatmap.
     """
 
+    comparison_overview: ImageRGB
     # Area-based plots
     leveled_reference: ImageRGB | None
     leveled_compared: ImageRGB | None
     filtered_reference: ImageRGB | None
     filtered_compared: ImageRGB | None
-    difference_map: ImageRGB | None
-    area_cross_correlation: ImageRGB | None
     # Cell/CMC-based plots
     cell_reference: ImageRGB | None
     cell_compared: ImageRGB | None
     cell_overlay: ImageRGB | None
     cell_cross_correlation: ImageRGB | None
-    cell_correlation_histogram: ImageRGB | None
