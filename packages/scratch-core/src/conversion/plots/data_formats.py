@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from container_models.base import ImageRGB
+from container_models.base import FloatArray2D, ImageRGB
 
 
 @dataclass
@@ -51,3 +51,66 @@ class StriationComparisonPlots:
     mark2_filtered_preview_image: ImageRGB
     mark1_vs_moved_mark2: ImageRGB
     wavelength_plot: ImageRGB
+
+
+@dataclass
+class ImpressionComparisonMetrics:
+    """
+    Metrics for impression comparison display.
+
+    Equivalent to MATLAB results_table structure from GenerateAdditionalNISTFigures.m.
+
+    :param area_correlation: Areal correlation coefficient (from area-based comparison).
+    :param cell_correlations: Grid of per-cell correlation values (shape: n_rows x n_cols).
+    :param cmc_score: Congruent Matching Cells score (percentage of cells above threshold).
+    :param sq_ref: Sq (RMS roughness) of reference surface in µm.
+    :param sq_comp: Sq (RMS roughness) of compared surface in µm.
+    :param sq_diff: Sq of difference (comp - ref) in µm.
+    :param has_area_results: Whether area-based results were computed.
+    :param has_cell_results: Whether cell/CMC-based results were computed.
+    """
+
+    area_correlation: float
+    cell_correlations: FloatArray2D
+    cmc_score: float
+    sq_ref: float
+    sq_comp: float
+    sq_diff: float
+    has_area_results: bool
+    has_cell_results: bool
+
+
+@dataclass
+class ImpressionComparisonPlots:
+    """
+    Results from impression mark comparison visualization.
+
+    Contains rendered images for both area-based and cell/CMC-based visualizations.
+    Fields are None when the corresponding analysis was not performed.
+
+    :param leveled_reference: Leveled reference surface visualization.
+    :param leveled_compared: Leveled compared surface visualization.
+    :param filtered_reference: Filtered reference surface visualization.
+    :param filtered_compared: Filtered compared surface visualization.
+    :param difference_map: Difference map (compared - reference) visualization.
+    :param area_cross_correlation: Cross-correlation surface visualization.
+    :param cell_reference: Cell-preprocessed reference visualization.
+    :param cell_compared: Cell-preprocessed compared visualization.
+    :param cell_overlay: All cells overlay visualization.
+    :param cell_cross_correlation: Cell-based cross-correlation visualization.
+    :param cell_correlation_histogram: Histogram of per-cell correlations.
+    """
+
+    # Area-based plots
+    leveled_reference: ImageRGB | None
+    leveled_compared: ImageRGB | None
+    filtered_reference: ImageRGB | None
+    filtered_compared: ImageRGB | None
+    difference_map: ImageRGB | None
+    area_cross_correlation: ImageRGB | None
+    # Cell/CMC-based plots
+    cell_reference: ImageRGB | None
+    cell_compared: ImageRGB | None
+    cell_overlay: ImageRGB | None
+    cell_cross_correlation: ImageRGB | None
+    cell_correlation_histogram: ImageRGB | None
