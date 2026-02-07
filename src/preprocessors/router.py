@@ -2,7 +2,7 @@ from functools import partial
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import Json
@@ -153,9 +153,9 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
                     "schema": {
                         "properties": {
                             "edit_image": EditImage.model_json_schema(),
-                            "mask": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
+                            "mask_data": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
                         },
-                        "required": ["edit_image, mask"],
+                        "required": ["edit_image, mask_data"],
                     }
                 }
             }
@@ -163,21 +163,25 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     },
 )
 async def edit_scan(
-    edit_image: Annotated[Json[EditImage], Form(...)], mask: Annotated[UploadFile, File(...)] | None = None
+    edit_image: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)] | None = None
 ) -> ProcessedDataAccess:
     """
-    Validate and parse a scan file with edit parameters.  TODO: update docstring.
+    Validate and parse a scan file with edit parameters and optional mask.
 
     Accepts an X3P scan file and edit parameters (mask, zoom, step sizes),
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
-    mask_bytes = await mask.read()
-    mask = parse_mask_pipeline(
-        raw_data=mask_bytes,
-        shape=edit_image.mask_parameters.shape,
-        is_bitpacked=edit_image.mask_parameters.is_bitpacked,
-    )
+    if mask_data is not None:
+        if edit_image.mask_parameters is None:
+            raise HTTPException(HTTPStatus.UNPROCESSABLE_CONTENT, "Invalid request: missing mask parameters.")
+
+        _ = parse_mask_pipeline(
+            raw_data=await mask_data.read(),
+            shape=edit_image.mask_parameters.shape,
+            is_bitpacked=edit_image.mask_parameters.is_bitpacked,
+        )
+
     _ = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
     vault = create_vault(edit_image.tag)
 
