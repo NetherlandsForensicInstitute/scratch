@@ -187,7 +187,7 @@ class EditImage(BaseParameters):
     def check_file_is_x3p(self):
         """Check whether the scan file is an x3p file."""
         if self.scan_file.suffix.lower() != ".x3p":
-            raise ValueError("Unsupported extension.")
+            raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
         return self
 
     @classmethod
