@@ -196,4 +196,18 @@ class EditImage(BaseParameters):
         schema = super().model_json_schema(*args, **kwargs)
         # Add schema for mask parameters to JSON model
         schema["properties"]["mask_parameters"] = MaskParameters.model_json_schema(*args, **kwargs)
+        # Add schema for BaseParameters and EditImage to JSON model
+        attr_to_class = (
+            ("scan_file", "ScanFile"),
+            ("regression_order", "RegressionOrder"),
+            ("terms", "Terms"),
+            ("project_name", "ProjectTag"),
+        )
+        for attribute, class_name in attr_to_class:
+            updated = schema["$defs"][class_name]
+            for key in ("examples", "description"):
+                if value := schema["properties"][attribute].get(key):
+                    updated[key] = value
+            schema["properties"][attribute] = updated
+
         return schema
