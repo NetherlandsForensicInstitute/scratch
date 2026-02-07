@@ -155,7 +155,7 @@ class TestContracts:
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scan",
-            data={"edit_image": json.dumps(params.model_dump(mode="json"))},
+            data={"params": json.dumps(params.model_dump(mode="json"))},
             files={"mask_data": ("mask.bin", MASK_BYTES, "application/octet-stream")},
             timeout=5,
         )

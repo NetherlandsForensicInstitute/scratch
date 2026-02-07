@@ -152,18 +152,26 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
                 "multipart/form-data": {
                     "schema": {
                         "properties": {
-                            "edit_image": EditImage.model_json_schema(),
+                            "params": EditImage.model_json_schema(),
                             "mask_data": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
                         },
-                        "required": ["edit_image, mask_data"],
+                        "required": ["params, mask_data"],
                     }
-                }
+                },
+                "application/json": {
+                    "schema": {
+                        "properties": {
+                            "params": EditImage.model_json_schema(),
+                        },
+                        "required": ["params"],
+                    }
+                },
             }
         }
     },
 )
 async def edit_scan(
-    edit_image: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)] | None = None
+    params: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)] | None = None
 ) -> ProcessedDataAccess:
     """
     Validate and parse a scan file with edit parameters and optional mask.
@@ -173,17 +181,17 @@ async def edit_scan(
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
     if mask_data is not None:
-        if edit_image.mask_parameters is None:
+        if params.mask_parameters is None:
             raise HTTPException(HTTPStatus.UNPROCESSABLE_CONTENT, "Invalid request: missing mask parameters.")
 
         _ = parse_mask_pipeline(
             raw_data=await mask_data.read(),
-            shape=edit_image.mask_parameters.shape,
-            is_bitpacked=edit_image.mask_parameters.is_bitpacked,
+            shape=params.mask_parameters.shape,
+            is_bitpacked=params.mask_parameters.is_bitpacked,
         )
 
-    _ = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
-    vault = create_vault(edit_image.tag)
+    _ = parse_scan_pipeline(params.scan_file, params.step_size_x, params.step_size_y)
+    vault = create_vault(params.tag)
 
     logger.info(f"Generated files saved to {vault}")
     return ProcessedDataAccess.generate_urls(vault.access_url)
