@@ -1,9 +1,11 @@
 from functools import partial
 from http import HTTPStatus
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from loguru import logger
+from pydantic import Json
 
 from constants import PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
@@ -13,6 +15,7 @@ from preprocessors.controller import process_prepare_mark
 
 from .pipelines import (
     impression_mark_pipeline,
+    parse_mask_pipeline,
     parse_scan_pipeline,
     preview_pipeline,
     striation_mark_pipeline,
@@ -143,17 +146,52 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
             "description": "processing error",
         },
     },
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "properties": {
+                            "params": EditImage.model_json_schema(),
+                            "mask_data": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
+                        },
+                        "required": ["params, mask_data"],
+                    }
+                },
+                "application/json": {
+                    "schema": {
+                        "properties": {
+                            "params": EditImage.model_json_schema(),
+                        },
+                        "required": ["params"],
+                    }
+                },
+            }
+        }
+    },
 )
-async def edit_scan(edit_image: EditImage) -> ProcessedDataAccess:
+async def edit_scan(
+    params: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)] | None = None
+) -> ProcessedDataAccess:
     """
-    Validate and parse a scan file with edit parameters.
+    Validate and parse a scan file with edit parameters and optional mask.
 
     Accepts an X3P scan file and edit parameters (mask, zoom, step sizes),
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
-    _ = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
-    vault = create_vault(edit_image.tag)
+    if mask_data is not None:
+        if params.mask_parameters is None:
+            raise HTTPException(HTTPStatus.UNPROCESSABLE_CONTENT, "Invalid request: missing mask parameters.")
+
+        _ = parse_mask_pipeline(
+            raw_data=await mask_data.read(),
+            shape=params.mask_parameters.shape,
+            is_bitpacked=params.mask_parameters.is_bitpacked,
+        )
+
+    _ = parse_scan_pipeline(params.scan_file, params.step_size_x, params.step_size_y)
+    vault = create_vault(params.tag)
 
     logger.info(f"Generated files saved to {vault}")
     return ProcessedDataAccess.generate_urls(vault.access_url)
