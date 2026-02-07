@@ -17,6 +17,7 @@ from extractors.schemas import (
 from models import DirectoryAccess
 from preprocessors.schemas import (
     EditImage,
+    MaskParameters,
     PrepareMarkImpression,
     PrepareMarkStriation,
     PreprocessingImpressionParams,
@@ -26,10 +27,9 @@ from preprocessors.schemas import (
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
-MASK = ((1, 0), (0, 1))
-MASK_ARRAY = np.array([[True, False], [False, True]], dtype=np.bool)
-MASK_BYTES = MASK_ARRAY.tobytes(order="C")
-MASK_SHAPE = MASK_ARRAY.shape
+MASK = np.array([[True, False], [False, True]], dtype=np.bool)
+MASK_BYTES = MASK.tobytes(order="C")
+MASK_SHAPE = MASK.shape
 CUTOFF_LENGTH = 250  # 250 micrometers in meters
 
 
@@ -106,9 +106,8 @@ class TestContracts:
         """
         data = EditImage(  # type: ignore
             scan_file=scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p",
-            shape=MASK_SHAPE,
-            mask=MASK_BYTES,
             cutoff_length=CUTOFF_LENGTH,
+            mask_parameters=MaskParameters(shape=MASK_SHAPE),
         )
         return data, ProcessedDataAccess
 
@@ -133,7 +132,6 @@ class TestContracts:
             pytest.param("process_scan", "process-scan", id="process_scan"),
             pytest.param("prepare_mark_impression", "prepare-mark-impression", id="prepare_mark_impression"),
             pytest.param("prepare_mark_striation", "prepare-mark-striation", id="prepare_mark_striation"),
-            pytest.param("edit_scan", "edit-scan", marks=pytest.mark.xfail, id="edit_scan"),
         ],
     )
     def test_pre_processor_post_requests(
@@ -141,13 +139,24 @@ class TestContracts:
     ) -> None:
         """Test if preprocessor POST endpoints return expected models."""
         data, expected_response = request.getfixturevalue(fixture_name)
-        model_dump = data.model_dump(mode="json")
-        mask = np.array(model_dump.pop("mask"), dtype=np.bool)  # mask is sent as binary data
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{sub_route}",
-            data={"json_data": json.dumps(model_dump)},
-            files={"mask": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream")},
+            json=data.model_dump(mode="json"),
+            timeout=5,
+        )
+        # Assert
+        assert response.status_code == HTTPStatus.OK
+        expected_response.model_validate(response.json())
+
+    def test_pre_processor_edit_image_post_requests(self, edit_scan: tuple[EditImage, ProcessedDataAccess]) -> None:
+        """Test if preprocessor EditImage POST endpoints return expected models."""
+        params, expected_response = edit_scan
+        # Act
+        response = requests.post(
+            f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scan",
+            data={"edit_image": json.dumps(params.model_dump(mode="json"))},
+            files={"mask": ("mask.bin", MASK_BYTES, "application/octet-stream")},
             timeout=5,
         )
         # Assert

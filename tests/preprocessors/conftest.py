@@ -5,12 +5,11 @@ from typing import Final
 import numpy as np
 import pytest
 
-from preprocessors.schemas import EditImage, UploadScan
+from preprocessors.schemas import EditImage, MaskParameters, UploadScan
 
-# MASK: Final[Mask] = ((1, 0, 1), (0, 1, 0))  # type: ignore   # TODO
-MASK_ARRAY = np.array([[True, False, True], [False, True, False]], dtype=np.bool)
-MASK_BYTES = MASK_ARRAY.tobytes(order="C")
-MASK_SHAPE = MASK_ARRAY.shape
+MASK = np.array([[True, False, True], [False, True, False]], dtype=np.bool)
+MASK_BYTES = MASK.tobytes(order="C")
+MASK_SHAPE = MASK.shape
 CUTOFF_LENGTH: Final[float] = 250
 
 
@@ -20,9 +19,8 @@ def edit_image_parameter(scan_directory: Path) -> Callable[..., EditImage]:
         return EditImage.model_validate(
             {
                 "scan_file": scan_directory / "circle.x3p",
-                "mask": MASK_BYTES,
-                "shape": MASK_SHAPE,
                 "cutoff_length": CUTOFF_LENGTH,
+                "mask_parameters": {"shape": MASK_SHAPE},
             }
             | kwargs
         )
@@ -34,9 +32,8 @@ def edit_image_parameter(scan_directory: Path) -> Callable[..., EditImage]:
 def edit_image(scan_directory: Path) -> EditImage:
     return EditImage(
         scan_file=scan_directory / "circle.x3p",
-        mask=MASK_BYTES,
-        shape=MASK_SHAPE,
         cutoff_length=CUTOFF_LENGTH,
+        mask_parameters=MaskParameters(shape=MASK_SHAPE),  # type: ignore
     )  # type: ignore
 
 
