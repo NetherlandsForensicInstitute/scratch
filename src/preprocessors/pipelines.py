@@ -44,12 +44,21 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
 
 
 def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: bool = False) -> BinaryMask:
-    """TODO."""
+    """
+    Convert incoming binary data to a 2D mask array.
+
+    :param raw_data: The binary data to convert.
+    :param shape: The shape of the mask array.
+    :param is_bitpacked: Boolean indicating whether the binary data is bit-packed
+        and should be decompressed before reshaping.
+    :returns: The 2D mask array.
+    """
     if not is_bitpacked:
+        # TODO: rewrite logic to use `run_pipeline()`
         array = np.frombuffer(raw_data, dtype=np.bool).reshape(*shape)
         return array
     else:
-        # TODO
+        # TODO: implement unpacking of bits
         raise NotImplementedError
 
 
