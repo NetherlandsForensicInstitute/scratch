@@ -29,7 +29,7 @@ def update_mark_scan_image(
     :param center: New center, or None to recompute from data.
     :return: New Mark instance with updated scan image.
     """
-    return mark.model_copy(update={"scan_image": scan_image, "_center": center})
+    return mark.model_copy(update={"scan_image": scan_image, "center_": center})
 
 
 Point2D = tuple[float, float]
