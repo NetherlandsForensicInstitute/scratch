@@ -34,9 +34,12 @@ def plot_score_histograms_kde(
     knm_scores = scores[y == 0]  # KNM (label 0)
     km_scores = scores[y == 1]  # KM (label 1)
 
-    # Set up bin edges
-    max_score = max(scores.max() * 1.05)
-    bin_edges = np.linspace(0, max_score, bins + 1)
+    if bins:
+        # Set up bin edges
+        max_score = max(scores.max() * 1.05)
+        bin_edges = np.linspace(0, max_score, bins + 1)
+    else:
+        bin_edges = np.histogram_bin_edges(scores, bins="auto")
 
     # KDEs
     kde_km = gaussian_kde(km_scores)
