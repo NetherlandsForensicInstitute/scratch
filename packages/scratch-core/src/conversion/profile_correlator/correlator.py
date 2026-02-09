@@ -217,10 +217,10 @@ def _find_best_alignment(
                 best_shift = shift
                 best_scale = scale
 
-    if best_correlation is None:
+    if best_shift is None or best_scale is None:
         return None
 
-    # Redo computations for best_cale and best_shift (instead of copying partial_ref and partial_comp above multiple times. This saves time.)
+    # Redo computations for best_scale and best_shift (instead of copying partial_ref and partial_comp above multiple times. This saves time.)
     heights_comp_scaled = resample_array_1d(heights_comp, best_scale)
     idx_comp_start, idx_ref_start, overlap_length = _calculate_idx_parameters(
         best_shift, len(heights_comp_scaled), len_ref
