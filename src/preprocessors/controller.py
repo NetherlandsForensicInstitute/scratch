@@ -5,13 +5,12 @@ from typing import cast
 import numpy as np
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.leveling.data_types import SurfaceTerms
 from loguru import logger
-from mutations import CropToMask, LevelMap, Mask, Resample
-from returns.pipeline import pipe
+from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resample
 from skimage.transform import resize
 
 from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline
+from preprocessors.schemas import EditImage
 
 
 def process_prepare_mark(
@@ -32,27 +31,29 @@ def process_prepare_mark(
     return files
 
 
-def edit_image_pipeline(
-    scan_image: ScanImage,
-    terms: SurfaceTerms,
-    crop: bool,
-    mask: BinaryMask,
-    resampling_factor: float,
-):
+def apply_changes_on_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: BinaryMask):
     """From a scan_image file to an edited image file."""
     resampled_mask = cast(
         BinaryMask,
         resize(
             image=mask,
-            output_shape=(1 / resampling_factor * scan_image.height, 1 / resampling_factor * scan_image.width),
+            output_shape=(
+                1 / edit_image_params.resampling_factor * scan_image.height,
+                1 / edit_image_params.resampling_factor * scan_image.width,
+            ),
             mode="edge",
             anti_aliasing=False,
         ),
     ).astype(np.bool_)
-    pipeline = pipe([
-        Resample(x_factor=resampling_factor, y_factor=resampling_factor),
+    pipeline = [
+        Resample(x_factor=edit_image_params.resampling_factor, y_factor=edit_image_params.resampling_factor),
         Mask(mask=resampled_mask),
-        *([CropToMask(mask=resampled_mask)] if crop else []),
-        LevelMap(x_reference_point=1, y_reference_point=1, terms=terms),
-    ])
-    return pipeline(scan_image)
+        *([CropToMask(mask=resampled_mask)] if edit_image_params.crop else []),
+        LevelMap(x_reference_point=1, y_reference_point=1, terms=edit_image_params.terms),
+        GausianRegressionFilter(
+            regression_order=edit_image_params.regression_order, cutoff_length=edit_image_params.cutoff_length
+        ),
+    ]
+    for mutation in pipeline:
+        scan_image = mutation(scan_image).unwrap()
+    return scan_image

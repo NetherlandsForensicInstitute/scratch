@@ -22,6 +22,8 @@ All mutations in this module must preserve the semantic content of
 the image while adjusting its spatial representation.
 """
 
+import numpy as np
+
 from container_models.base import BinaryMask
 from computations.spatial import get_bounding_box
 from container_models.scan_image import ScanImage
@@ -88,7 +90,7 @@ class Resample(ImageMutation):
             image=scan_image.data,
             output_shape=output_shape,
             mode="edge",
-            anti_aliasing=self.x_factor > 1 and self.y_factor > 1
+            anti_aliasing=self.x_factor > 1 and self.y_factor > 1,
         )
         logger.debug(
             f"Resampling image array to new size: {round(output_shape[0], 1)}/{round(output_shape[1], 1)}"

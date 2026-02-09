@@ -8,9 +8,9 @@ from loguru import logger
 
 from constants import LIGHT_SOURCES, OBSERVER, PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
-from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation, GeneratedImages
+from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault
-from preprocessors.controller import edit_image_pipeline, process_prepare_mark
+from preprocessors.controller import apply_changes_on_scan_image, process_prepare_mark
 
 from .pipelines import (
     impression_mark_pipeline,
@@ -156,12 +156,10 @@ async def edit_scan(edit_image: EditImage) -> GeneratedImages:
     vault = create_vault(edit_image.tag)
     scan_image = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
     mask_array = np.array(edit_image.mask, dtype=np.bool_)
-    edited_scan_image = edit_image_pipeline(
+    edited_scan_image = apply_changes_on_scan_image(
         scan_image=scan_image,
-        terms=edit_image.terms,
-        crop=edit_image.crop,
+        edit_image_params=edit_image,
         mask=mask_array,
-        resampling_factor=edit_image.resampling_factor,
     )
     files = GeneratedImages.get_files(vault.resource_path)
     preview_pipeline(parsed_scan=edited_scan_image, output_path=files["scan_image"])
@@ -172,6 +170,4 @@ async def edit_scan(edit_image: EditImage) -> GeneratedImages:
         observer=OBSERVER,
     )
     logger.info(f"Generated files saved to {vault}")
-    return GeneratedImages.generate_urls(
-        vault.access_url
-    )
+    return GeneratedImages.generate_urls(vault.access_url)

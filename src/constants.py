@@ -60,8 +60,8 @@ class ComparatorEndpoint(StrEnum):
     ROOT = ""
 
 
-LIGHT_SOURCES =    (
-        LightSource(azimuth=90, elevation=45),
-        LightSource(azimuth=180, elevation=45),
-    )
+LIGHT_SOURCES = (
+    LightSource(azimuth=90, elevation=45),
+    LightSource(azimuth=180, elevation=45),
+)
 OBSERVER = LightSource(azimuth=90, elevation=45)

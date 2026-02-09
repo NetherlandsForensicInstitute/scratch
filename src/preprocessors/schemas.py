@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import StrEnum, auto
 from functools import cached_property
 from typing import Annotated, Self
 
@@ -16,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 from scipy.constants import micro
+from utils.constants import RegressionOrder
 
 from constants import LIGHT_SOURCES, OBSERVER, ImpressionMarks, MaskTypes, StriationMarks
 from models import (
@@ -127,14 +127,6 @@ class PrepareMarkImpression(BaseParameters):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
 
 
-class RegressionOrder(StrEnum):
-    """Polynomial regression order for surface leveling."""
-
-    RO = auto()
-    R1 = auto()
-    R2 = auto()
-
-
 type Mask = tuple[tuple[bool, ...], ...]
 
 
@@ -169,7 +161,7 @@ class EditImage(BaseParameters):
         ),
     )
     regression_order: RegressionOrder = Field(
-        default=RegressionOrder.RO,
+        default=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         description="Polynomial regression order for surface fitting. R0 (constant), R1 (linear), or R2 (quadratic).",
     )
     crop: bool = Field(
