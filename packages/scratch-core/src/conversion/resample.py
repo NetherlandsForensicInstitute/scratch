@@ -1,10 +1,12 @@
 from typing import Optional, TypeVar
 
 import numpy as np
+from scipy.signal import resample as signal_resample
 from skimage.transform import resize
-from conversion.data_formats import Mark
+
+from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
-from container_models.base import BinaryMask, FloatArray2D
+from conversion.data_formats import Mark
 
 
 T = TypeVar("T", FloatArray2D, BinaryMask)
@@ -42,7 +44,7 @@ def resample_scan_image_and_mask(
         return scan_image, mask
     image = _resample_scan_image(scan_image, factors=factors)
     if mask is not None:
-        mask = resample_image_array(mask, factors=factors)
+        mask = resample_array_2d(mask, factors=factors)
     return image, mask
 
 
@@ -69,7 +71,7 @@ def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> Scan
     :param factors: The multipliers for the scale of the X- and Y-axis.
     :returns: The resampled ScanImage.
     """
-    image_array_resampled = resample_image_array(image.data, factors=factors)
+    image_array_resampled = resample_array_2d(image.data, factors=factors)
     return ScanImage(
         data=image_array_resampled,
         scale_x=image.scale_x * factors[0],
@@ -77,12 +79,37 @@ def _resample_scan_image(image: ScanImage, factors: tuple[float, float]) -> Scan
     )
 
 
-def resample_image_array(
+def resample_array_1d(
+    data: FloatArray1D,
+    factor: float,
+) -> FloatArray1D:
+    """
+    Resample a 1D array with anti-aliasing.
+
+    Uses scipy.signal.resample which applies an anti-aliasing filter before
+    resampling, matching MATLAB's resample behavior.
+
+    :param data: 1D input array.
+    :param factor: Scale factor for pixel size. factor > 1 means downsampling
+        (fewer output samples), factor < 1 means upsampling.
+    :returns: Resampled 1D array of length max(1, round(len(data) / factor)).
+    """
+    n_in = len(data)
+    n_out = max(1, int(round(n_in / factor)))
+
+    if n_out == n_in:
+        return data.copy()
+
+    result: FloatArray1D = signal_resample(data, n_out)  # type: ignore[assignment]
+    return result
+
+
+def resample_array_2d(
     array: T,
     factors: tuple[float, float],
 ) -> T:
     """
-    Resample an array using the specified resampling factors.
+    Resample a 2D array using the specified resampling factors.
 
     For example, if the scale factor is 0.5, then the image output shape will be scaled by 1 / 0.5 = 2.
 
