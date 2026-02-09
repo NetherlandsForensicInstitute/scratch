@@ -1,7 +1,7 @@
-from enum import Enum, auto
+from enum import IntEnum, auto
 
 
-class RegressionOrder(Enum):
+class RegressionOrder(IntEnum):
     GAUSSIAN_WEIGHTED_AVERAGE = auto()
     LOCAL_PLANAR = auto()
     LOCAL_QUADRATIC = auto()
