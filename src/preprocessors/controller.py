@@ -37,7 +37,7 @@ def edit_image_pipeline(
         mask: BinaryMask,
         resampling_factor: float,
 ):
-    """From a scan_image file to an editted image file."""
+    """From a scan_image file to an edited image file."""
     resampled_mask = resample_array(array=mask, height=1, width=1, anti_aliasing=False)
     pipeline = pipe([
         Resample(x_factor=resampling_factor, y_factor=resampling_factor),

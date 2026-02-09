@@ -20,7 +20,7 @@ def get_bounding_box(mask: BinaryMask) -> tuple[slice, slice]:
 
 def resample_array[T:BinaryMask|FloatArray2D](array:T,height:float,width:float, anti_aliasing:bool)->T:
     """
-    Resample a 2D array to a new resolution.
+    Resample a 2D array to a new shape.
 
     This function wraps `skimage.transform.resize`.
 
