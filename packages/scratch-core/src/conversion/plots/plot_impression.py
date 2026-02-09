@@ -95,6 +95,7 @@ def plot_impression_comparison_results(
             data=mark_reference_filtered.scan_image.data,
             scale=scale,
             cell_correlations=metrics.cell_correlations,
+            cell_similarity_threshold=metrics.cell_similarity_threshold,
         )
         cell_xcorr = plot_cell_correlation_heatmap(
             cell_correlations=metrics.cell_correlations,
@@ -128,20 +129,46 @@ def plot_cell_grid_overlay(
     data: FloatArray2D,
     scale: float,
     cell_correlations: FloatArray2D,
+    cell_label_prefix: str = "A",
+    cell_similarity_threshold: float = 0.25,
+    show_all_cells: bool = True,
+    cell_positions: np.ndarray | None = None,
+    cell_rotations: np.ndarray | None = None,
+    cell_size_um: tuple[float, float] | None = None,
 ) -> ImageRGB:
     """
-    Plot surface with cell grid overlay showing correlation values.
+    Plot surface with cell grid overlay showing cell names and CMC status.
+
+    Cells above the similarity threshold are drawn with black outlines,
+    cells below the threshold with red outlines.
 
     :param data: Surface data in meters.
     :param scale: Pixel scale in meters.
     :param cell_correlations: Grid of per-cell correlation values.
+    :param cell_label_prefix: Label prefix for cells ("A" for reference, "B" for compared).
+    :param cell_similarity_threshold: Minimum correlation for a cell to be considered CMC.
+    :param show_all_cells: If True, show all cells. If False, only show CMC cells.
+    :param cell_positions: (n_cells, 2) array of (x, y) positions in µm, row-major order.
+    :param cell_rotations: (n_cells,) array of rotation angles in radians, row-major order.
+    :param cell_size_um: (width, height) of a cell in µm (required when cell_positions is set).
     :returns: RGB image as uint8 array.
     """
     height, width = data.shape
     fig_height, fig_width = get_figure_dimensions(height, width)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
-    _plot_cell_overlay_on_axes(ax, data, scale, cell_correlations)
+    _plot_cell_overlay_on_axes(
+        ax,
+        data,
+        scale,
+        cell_correlations,
+        cell_label_prefix=cell_label_prefix,
+        cell_similarity_threshold=cell_similarity_threshold,
+        show_all_cells=show_all_cells,
+        cell_positions=cell_positions,
+        cell_rotations=cell_rotations,
+        cell_size_um=cell_size_um,
+    )
 
     fig.tight_layout()
     arr = figure_to_array(fig)
@@ -295,6 +322,9 @@ def plot_comparison_overview(
             mark_reference_filtered.scan_image.data,
             mark_reference_filtered.scan_image.scale_x,
             metrics.cell_correlations,
+            cell_label_prefix="A",
+            cell_similarity_threshold=metrics.cell_similarity_threshold,
+            show_all_cells=True,
         )
         ax_filtered_ref.set_title(
             "Filtered Reference Surface A", fontsize=12, fontweight="bold"
@@ -310,11 +340,28 @@ def plot_comparison_overview(
 
     ax_filtered_comp = fig.add_subplot(gs[2, 1])
     if metrics.has_cell_results:
+        # Compute cell size from the reference surface grid
+        ref_h, ref_w = mark_reference_filtered.scan_image.data.shape
+        ref_scale = mark_reference_filtered.scan_image.scale_x
+        n_rows, n_cols = metrics.cell_correlations.shape
+        cell_size_um = (
+            ref_w * ref_scale * 1e6 / n_cols,
+            ref_h * ref_scale * 1e6 / n_rows,
+        )
+
         _plot_cell_overlay_on_axes(
             ax_filtered_comp,
             mark_compared_filtered.scan_image.data,
             mark_compared_filtered.scan_image.scale_x,
             metrics.cell_correlations,
+            cell_label_prefix="B",
+            cell_similarity_threshold=metrics.cell_similarity_threshold,
+            show_all_cells=False,
+            cell_positions=metrics.cell_positions_compared,
+            cell_rotations=metrics.cell_rotations_compared,
+            cell_size_um=cell_size_um
+            if metrics.cell_positions_compared is not None
+            else None,
         )
         ax_filtered_comp.set_title(
             "Filtered Compared Surface B", fontsize=12, fontweight="bold"
@@ -347,8 +394,37 @@ def _plot_cell_overlay_on_axes(
     data: FloatArray2D,
     scale: float,
     cell_correlations: FloatArray2D,
+    cell_label_prefix: str = "A",
+    cell_similarity_threshold: float = 0.25,
+    show_all_cells: bool = True,
+    cell_positions: np.ndarray | None = None,
+    cell_rotations: np.ndarray | None = None,
+    cell_size_um: tuple[float, float] | None = None,
 ) -> None:
-    """Plot surface with cell grid overlay on given axes."""
+    """
+    Plot surface with cell grid overlay on given axes.
+
+    Follows the MATLAB plot_cells convention: cells above the similarity
+    threshold (CMC cells) are drawn with black outlines and labels, while
+    cells below the threshold are drawn with red outlines and labels.
+
+    When ``cell_positions`` is provided, each cell is drawn as a (possibly
+    rotated) rectangle at the given position instead of at a regular grid
+    location. This is used for the compared surface where cells appear at
+    their matched positions (``Cell(i).vPos2`` / ``Cell(i).angle2`` in
+    MATLAB).
+
+    :param ax: Matplotlib axes to plot on.
+    :param data: Surface data in meters.
+    :param scale: Pixel scale in meters.
+    :param cell_correlations: Grid of per-cell correlation values.
+    :param cell_label_prefix: Label prefix for cells ("A" for reference, "B" for compared).
+    :param cell_similarity_threshold: Minimum correlation for a cell to be considered CMC.
+    :param show_all_cells: If True, show all cells. If False, only show CMC cells.
+    :param cell_positions: (n_cells, 2) array of (x, y) positions in µm, row-major order.
+    :param cell_rotations: (n_cells,) array of rotation angles in radians, row-major order.
+    :param cell_size_um: (width, height) of a cell in µm (required when cell_positions is set).
+    """
     height, width = data.shape
     n_rows, n_cols = cell_correlations.shape
 
@@ -362,48 +438,124 @@ def _plot_cell_overlay_on_axes(
         extent=extent,
     )
 
-    # Calculate cell dimensions
+    # Calculate cell dimensions in pixels (for grid-based drawing)
     cell_height = height / n_rows
     cell_width = width / n_cols
 
-    # Draw grid and correlation values
+    # Collect cells into CMC (black) and non-CMC (red) groups.
+    # Draw CMC cells first, then non-CMC on top so red outlines are not
+    # hidden by adjacent black cell borders.
+    cmc_cells: list[tuple[int, int, int]] = []
+    non_cmc_cells: list[tuple[int, int, int]] = []
+
+    cell_index = 0
     for i in range(n_rows):
         for j in range(n_cols):
-            # Cell boundaries in um
-            x_left = j * cell_width * scale * 1e6
-            x_right = (j + 1) * cell_width * scale * 1e6
-            y_bottom = (n_rows - 1 - i) * cell_height * scale * 1e6
-            y_top = (n_rows - i) * cell_height * scale * 1e6
-
-            # Draw cell border
-            ax.plot(
-                [x_left, x_right, x_right, x_left, x_left],
-                [y_bottom, y_bottom, y_top, y_top, y_bottom],
-                "w-",
-                linewidth=0.5,
-                alpha=0.7,
-            )
-
-            # Add correlation value text
+            cell_index += 1
             corr_val = cell_correlations[i, j]
-            if not np.isnan(corr_val):
+
+            if np.isnan(corr_val):
+                continue
+
+            is_cmc = corr_val >= cell_similarity_threshold
+
+            if not is_cmc and not show_all_cells:
+                continue
+
+            if is_cmc:
+                cmc_cells.append((i, j, cell_index))
+            else:
+                non_cmc_cells.append((i, j, cell_index))
+
+    use_custom_positions = cell_positions is not None and cell_size_um is not None
+
+    for color, cells in [("black", cmc_cells), ("red", non_cmc_cells)]:
+        for i, j, idx in cells:
+            flat_index = i * n_cols + j  # row-major flat index
+
+            if use_custom_positions:
+                assert cell_positions is not None
+                assert cell_size_um is not None
+                cx = float(cell_positions[flat_index, 0])
+                cy = float(cell_positions[flat_index, 1])
+                w, h = cell_size_um
+
+                if np.isnan(cx) or np.isnan(cy):
+                    continue
+
+                # Build rectangle corners centered at origin
+                half_w, half_h = w / 2, h / 2
+                corners = np.array(
+                    [
+                        [-half_w, -half_h],
+                        [half_w, -half_h],
+                        [half_w, half_h],
+                        [-half_w, half_h],
+                    ]
+                )
+
+                # Rotate
+                angle = (
+                    float(cell_rotations[flat_index])
+                    if cell_rotations is not None
+                    else 0.0
+                )
+                cos_a, sin_a = np.cos(angle), np.sin(angle)
+                rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+                corners = corners @ rot.T
+
+                # Translate to position
+                corners[:, 0] += cx
+                corners[:, 1] += cy
+
+                # Draw closed polygon
+                xs = np.append(corners[:, 0], corners[0, 0])
+                ys = np.append(corners[:, 1], corners[0, 1])
+                ax.plot(xs, ys, color=color, linestyle="-", linewidth=1.0)
+
+                # Label at center
+                ax.text(
+                    cx,
+                    cy,
+                    f"{cell_label_prefix}{idx}",
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                    color=color,
+                    fontweight="bold",
+                )
+            else:
+                # Grid-based cell boundaries in µm
+                x_left = j * cell_width * scale * 1e6
+                x_right = (j + 1) * cell_width * scale * 1e6
+                y_bottom = (n_rows - 1 - i) * cell_height * scale * 1e6
+                y_top = (n_rows - i) * cell_height * scale * 1e6
+
+                # Draw cell border
+                ax.plot(
+                    [x_left, x_right, x_right, x_left, x_left],
+                    [y_bottom, y_bottom, y_top, y_top, y_bottom],
+                    color=color,
+                    linestyle="-",
+                    linewidth=1.0,
+                )
+
+                # Add cell name label
                 x_center = (x_left + x_right) / 2
                 y_center = (y_bottom + y_top) / 2
                 ax.text(
                     x_center,
                     y_center,
-                    f"{corr_val:.2f}",
+                    f"{cell_label_prefix}{idx}",
                     ha="center",
                     va="center",
                     fontsize=8,
-                    color="white",
+                    color=color,
                     fontweight="bold",
-                    bbox=dict(boxstyle="round,pad=0.1", facecolor="black", alpha=0.5),
                 )
 
     ax.set_xlabel("X - Position [µm]", fontsize=11)
     ax.set_ylabel("Y - Position [µm]", fontsize=11)
-    ax.set_title("Cell Grid with Correlation Values", fontsize=12, fontweight="bold")
     ax.tick_params(labelsize=10)
 
 

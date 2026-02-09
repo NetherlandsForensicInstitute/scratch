@@ -119,6 +119,39 @@ class TestPlotCellGridOverlay:
         assert result.shape[2] == 3
         assert result.dtype == np.uint8
 
+    def test_with_custom_positions_and_rotations(
+        self, sample_depth_data: np.ndarray, sample_cell_correlations: np.ndarray
+    ):
+        """Should render cells at custom positions with rotations."""
+        n_rows, n_cols = sample_cell_correlations.shape
+        n_cells = n_rows * n_cols
+        scale = 1.5e-6
+        h, w = sample_depth_data.shape
+
+        # Build positions at grid centers
+        cell_w_um = w * scale * 1e6 / n_cols
+        cell_h_um = h * scale * 1e6 / n_rows
+        positions = np.zeros((n_cells, 2), dtype=np.float64)
+        for i in range(n_rows):
+            for j in range(n_cols):
+                flat = i * n_cols + j
+                positions[flat, 0] = (j + 0.5) * cell_w_um
+                positions[flat, 1] = (n_rows - 1 - i + 0.5) * cell_h_um
+
+        rotations = np.deg2rad(np.random.default_rng(0).uniform(-5, 5, n_cells))
+
+        result = plot_cell_grid_overlay(
+            data=sample_depth_data,
+            scale=scale,
+            cell_correlations=sample_cell_correlations,
+            cell_positions=positions,
+            cell_rotations=rotations,
+            cell_size_um=(cell_w_um, cell_h_um),
+        )
+        assert result.ndim == 3
+        assert result.shape[2] == 3
+        assert result.dtype == np.uint8
+
 
 class TestPlotCellCorrelationHeatmap:
     """Tests for plot_cell_correlation_heatmap function."""
@@ -157,6 +190,58 @@ class TestPlotComparisonOverview:
             mark_reference_filtered=sample_mark,
             mark_compared_filtered=sample_mark,
             metrics=sample_metrics,
+            metadata_reference=sample_metadata_reference,
+            metadata_compared=sample_metadata_compared,
+        )
+        assert result.ndim == 3
+        assert result.shape[2] == 3
+        assert result.dtype == np.uint8
+
+    def test_with_custom_cell_positions(
+        self,
+        sample_mark: Mark,
+        sample_cell_correlations: np.ndarray,
+        sample_metadata_reference: dict[str, str],
+        sample_metadata_compared: dict[str, str],
+    ):
+        """Should render compared surface cells at custom positions."""
+        n_rows, n_cols = sample_cell_correlations.shape
+        n_cells = n_rows * n_cols
+        positions = np.full((n_cells, 2), np.nan, dtype=np.float64)
+        rotations = np.zeros(n_cells, dtype=np.float64)
+
+        # Place only CMC cells (those >= 0.25)
+        scale = sample_mark.scan_image.scale_x
+        h, w = sample_mark.scan_image.data.shape
+        cell_w_um = w * scale * 1e6 / n_cols
+        cell_h_um = h * scale * 1e6 / n_rows
+        for i in range(n_rows):
+            for j in range(n_cols):
+                if sample_cell_correlations[i, j] >= 0.25:
+                    flat = i * n_cols + j
+                    positions[flat, 0] = (j + 0.5) * cell_w_um + 10
+                    positions[flat, 1] = (n_rows - 1 - i + 0.5) * cell_h_um - 5
+                    rotations[flat] = np.deg2rad(5)
+
+        metrics = ImpressionComparisonMetrics(
+            area_correlation=0.85,
+            cell_correlations=sample_cell_correlations,
+            cmc_score=75.0,
+            sq_ref=1.5,
+            sq_comp=1.6,
+            sq_diff=0.4,
+            has_area_results=True,
+            has_cell_results=True,
+            cell_positions_compared=positions,
+            cell_rotations_compared=rotations,
+            cell_similarity_threshold=0.25,
+        )
+        result = plot_comparison_overview(
+            mark_reference_leveled=sample_mark,
+            mark_compared_leveled=sample_mark,
+            mark_reference_filtered=sample_mark,
+            mark_compared_filtered=sample_mark,
+            metrics=metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
         )

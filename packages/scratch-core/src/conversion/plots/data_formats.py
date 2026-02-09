@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from container_models.base import FloatArray2D, ImageRGB
+from container_models.base import FloatArray1D, FloatArray2D, ImageRGB
 
 
 @dataclass
@@ -66,6 +66,9 @@ class ImpressionComparisonMetrics:
     :param sq_diff: Sq of difference (comp - ref) in µm.
     :param has_area_results: Whether area-based results were computed.
     :param has_cell_results: Whether cell/CMC-based results were computed.
+    :param cell_positions_compared: (n_cells, 2) matched positions on compared surface in µm, row-major order.
+    :param cell_rotations_compared: (n_cells,) rotation angles in radians, row-major order.
+    :param cell_similarity_threshold: Minimum correlation for a cell to be CMC (default 0.25).
     """
 
     area_correlation: float
@@ -76,6 +79,9 @@ class ImpressionComparisonMetrics:
     sq_diff: float
     has_area_results: bool
     has_cell_results: bool
+    cell_positions_compared: FloatArray2D | None = None
+    cell_rotations_compared: FloatArray1D | None = None
+    cell_similarity_threshold: float = 0.25
 
 
 @dataclass
