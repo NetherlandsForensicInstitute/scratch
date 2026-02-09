@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from functools import partial
 from typing import Annotated, TypeAlias
-
+from functools import cached_property
 from numpy import array, bool_, floating, float64, number, uint8
 from numpy.typing import DTypeLike, NDArray
 from pydantic import (

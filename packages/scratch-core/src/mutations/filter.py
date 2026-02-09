@@ -5,14 +5,12 @@ from typing import NamedTuple
 import numpy as np
 from loguru import logger
 
-from container_models.base import DepthData, FloatArray1D, FloatArray2D
+from container_models.base import FloatArray1D, FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.filter.regression import (
-    _build_lhs_matrix,
-    _solve_pixelwise_regression,
     apply_order0_filter,
-    convolve_2d_separable,
     create_normalized_separable_kernels,
+    apply_polynomial_filter,
 )
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.leveling.solver.design import build_design_matrix
@@ -202,66 +200,6 @@ class GausianRegressionFilter(ImageMutation):
         self.cutoff_pixels = cutoff_pixels
         self.regression_order = regression_order
 
-    def calculate_polynomial_filter(
-        self,
-        data: DepthData,
-        kernel_x: FloatArray1D,
-        kernel_y: FloatArray1D,
-        exponents: list[_Exponent],
-    ) -> DepthData:
-        """
-        Apply Order-1 or Order-2 Local Polynomial Regression.
-        This function performs a Weighted Least Squares (WLS) fit of a polynomial surface within a local window
-        defined by the kernels. For each pixel, it solves the linear system A * c = b, where 'c' contains the
-        coefficients of the polynomial. The smoothed value is the first coefficient (c0).
-        The kernels (kernel_x, kernel_y) serve as spatial weight functions. They determine the importance of
-        neighboring pixels in the regression. A non-uniform kernel (e.g., Gaussian) ensures that points closer
-        to the target pixel have a higher influence on the fit than points at the window's edge, providing better
-        localization and noise suppression.
-        :param data: The 2D input array to be filtered. Can contain NaNs, which are treated as zero-weight during
-            the regression.
-        :param kernel_x: 1D array representing the horizontal weight distribution.
-        :param kernel_y: 1D array representing the vertical weight distribution.
-        :param exponents: List of (power_y, power_x) tuples defining the polynomial terms.
-        :returns: The filtered (smoothed) version of the input data.
-        """
-        # 1. Setup Coordinate Systems (Normalized to [-1, 1] for stability)
-        ny, nx = len(kernel_y), len(kernel_x)
-        radius_y, radius_x = (ny - 1) // 2, (nx - 1) // 2
-
-        y_coords = np.arange(-radius_y, radius_y + 1) / (radius_y if ny > 1 else 1.0)
-        x_coords = np.arange(-radius_x, radius_x + 1) / (radius_x if nx > 1 else 1.0)
-
-        # 2. Construct the Linear System Components (A matrix and b vector)
-        nan_mask = np.isnan(data)
-        weights = np.where(nan_mask, 0.0, 1.0)
-        weighted_data = np.where(nan_mask, 0.0, data * weights)
-
-        # Calculate RHS vector 'b' (Data Moments)
-        # b_k = Convolution(weighted_data, x^px * y^py * Kernel)
-        rhs_moments = np.array(
-            [
-                convolve_2d_separable(
-                    weighted_data, (x_coords**px) * kernel_x, (y_coords**py) * kernel_y
-                )
-                for py, px in exponents
-            ]
-        )
-
-        # Calculate LHS Matrix 'A' (Weight Moments)
-        # A_jk = Convolution(weights, x^(px_j + px_k) * y^(py_j + py_k) * Kernel)
-        lhs_matrix = _build_lhs_matrix(
-            weights,
-            kernel_x,
-            kernel_y,
-            x_coords,
-            y_coords,
-            exponents,  # type: ignore
-        )
-
-        # 3. Solve the System (A * c = b) per pixel
-        return _solve_pixelwise_regression(lhs_matrix, rhs_moments, data)
-
     def generate_polynomial_exponents(self, order: int) -> list[_Exponent]:
         """
         Generate polynomial exponent pairs for 2D polynomial terms up to a given order.
@@ -313,10 +251,10 @@ class GausianRegressionFilter(ImageMutation):
         if self.regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE:
             scan_image.data = apply_order0_filter(scan_image.data, kernel_x, kernel_y)
             return scan_image
-        scan_image.data = self.calculate_polynomial_filter(
-            scan_image.data,
-            kernel_x,
-            kernel_y,
-            exponents=self.generate_polynomial_exponents(self.regression_order.value),
+        scan_image.data = apply_polynomial_filter(
+            data=scan_image.data,
+            kernel_x=kernel_x,
+            kernel_y=kernel_y,
+            order=self.regression_order.value,
         )
         return scan_image
