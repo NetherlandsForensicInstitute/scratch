@@ -321,3 +321,75 @@ def get_metadata_dimensions(
         0.12, max_metadata_rows * 0.022
     )  # Increased minimum and scale
     return max_metadata_rows, metadata_height_ratio
+
+
+def plot_depth_map_with_axes(
+    data: FloatArray2D,
+    scale: float,
+    title: str,
+) -> ImageRGB:
+    """
+    Plot a depth map with axes and colorbar.
+
+    :param data: Depth data in meters.
+    :param scale: Pixel scale in meters.
+    :param title: Title for the plot.
+    :returns: RGB image as uint8 array.
+    """
+    import matplotlib.pyplot as plt
+
+    height, width = data.shape
+    fig_height, fig_width = get_figure_dimensions(height, width)
+
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    plot_depth_map_on_axes(ax, fig, data, scale, title)
+
+    fig.tight_layout()
+    arr = figure_to_array(fig)
+    plt.close(fig)
+    return arr
+
+
+def draw_metadata_box(
+    ax: Axes,
+    metadata: dict[str, str],
+    title: str | None = None,
+    draw_border: bool = True,
+    wrap_width: int = 25,
+    side_margin: float = 0.06,
+) -> None:
+    """Draw a metadata box with key-value pairs."""
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    for spine in ax.spines.values():
+        spine.set_visible(draw_border)
+        spine.set_linewidth(1.5)
+        spine.set_edgecolor("black")
+
+    if title:
+        ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
+
+    table_data = metadata_to_table_data(metadata, wrap_width=wrap_width)
+    col_widths = get_col_widths(side_margin, table_data)
+    bounding_box = get_bounding_box(side_margin, table_data)
+
+    table = ax.table(
+        cellText=table_data,
+        cellLoc="left",
+        colWidths=col_widths,
+        loc="upper center",
+        edges="open",
+        bbox=bounding_box,
+    )
+
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+
+    for i in range(len(table_data)):
+        table[i, 0].set_text_props(fontweight="bold", ha="right")
+        table[i, 0].PAD = 0.02
+        table[i, 1].set_text_props(ha="left")
+        table[i, 1].PAD = 0.02

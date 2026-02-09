@@ -15,14 +15,13 @@ from conversion.plots.data_formats import (
 )
 from conversion.plots.utils import (
     DEFAULT_COLORMAP,
+    draw_metadata_box,
     figure_to_array,
-    get_bounding_box,
-    get_col_widths,
     get_figure_dimensions,
     get_height_ratios,
     get_metadata_dimensions,
-    metadata_to_table_data,
     plot_depth_map_on_axes,
+    plot_depth_map_with_axes,
 )
 
 
@@ -275,7 +274,7 @@ def plot_comparison_overview(
 
     # Row 0: Metadata tables
     ax_meta_reference = fig.add_subplot(gs[0, 0])
-    _draw_metadata_box(
+    draw_metadata_box(
         ax_meta_reference,
         metadata_reference,
         "Reference Mark (A)",
@@ -283,7 +282,7 @@ def plot_comparison_overview(
     )
 
     ax_meta_compared = fig.add_subplot(gs[0, 1])
-    _draw_metadata_box(
+    draw_metadata_box(
         ax_meta_compared,
         metadata_compared,
         "Compared Mark (B)",
@@ -310,7 +309,7 @@ def plot_comparison_overview(
     )
 
     ax_results = fig.add_subplot(gs[1, 2])
-    _draw_metadata_box(
+    draw_metadata_box(
         ax_results, results_items, draw_border=False, wrap_width=wrap_width
     )
 
@@ -350,31 +349,6 @@ def plot_comparison_overview(
 
     fig.tight_layout(pad=0.8, h_pad=1.2, w_pad=0.8)
     fig.subplots_adjust(left=0.06, right=0.98, top=0.96, bottom=0.06)
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr
-
-
-def plot_depth_map_with_axes(
-    data: FloatArray2D,
-    scale: float,
-    title: str,
-) -> ImageRGB:
-    """
-    Plot a depth map with axes and colorbar.
-
-    :param data: Depth data in meters.
-    :param scale: Pixel scale in meters.
-    :param title: Title for the plot.
-    :returns: RGB image as uint8 array.
-    """
-    height, width = data.shape
-    fig_height, fig_width = get_figure_dimensions(height, width)
-
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-    plot_depth_map_on_axes(ax, fig, data, scale, title)
-
-    fig.tight_layout()
     arr = figure_to_array(fig)
     plt.close(fig)
     return arr
@@ -437,51 +411,6 @@ def plot_cell_correlation_heatmap(
 
 
 # --- Helper functions for axes-level plotting ---
-
-
-def _draw_metadata_box(
-    ax: Axes,
-    metadata: dict[str, str],
-    title: str | None = None,
-    draw_border: bool = True,
-    wrap_width: int = 25,
-    side_margin: float = 0.06,
-) -> None:
-    """Draw a metadata box with key-value pairs."""
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    for spine in ax.spines.values():
-        spine.set_visible(draw_border)
-        spine.set_linewidth(1.5)
-        spine.set_edgecolor("black")
-
-    if title:
-        ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
-
-    table_data = metadata_to_table_data(metadata, wrap_width=wrap_width)
-    col_widths = get_col_widths(side_margin, table_data)
-    bounding_box = get_bounding_box(side_margin, table_data)
-
-    table = ax.table(
-        cellText=table_data,
-        cellLoc="left",
-        colWidths=col_widths,
-        loc="upper center",
-        edges="open",
-        bbox=bounding_box,
-    )
-
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-
-    for i in range(len(table_data)):
-        table[i, 0].set_text_props(fontweight="bold", ha="right")
-        table[i, 0].PAD = 0.02
-        table[i, 1].set_text_props(ha="left")
-        table[i, 1].PAD = 0.02
 
 
 def _plot_cell_overlay_on_axes(
