@@ -18,7 +18,6 @@ from conversion.plots.utils import (
     draw_metadata_box,
     figure_to_array,
     get_figure_dimensions,
-    get_height_ratios,
     get_metadata_dimensions,
     plot_depth_map_on_axes,
     plot_depth_map_with_axes,
@@ -37,9 +36,6 @@ def plot_impression_comparison_results(
     """
     Generate visualization results for impression mark comparison.
 
-    Main orchestrator function that generates both area-based and cell/CMC-based
-    visualizations based on which results are available in the metrics.
-
     :param mark_reference_leveled: Reference mark after leveling.
     :param mark_compared_leveled: Compared mark after leveling.
     :param mark_reference_filtered: Reference mark after filtering.
@@ -49,44 +45,62 @@ def plot_impression_comparison_results(
     :param metadata_compared: Metadata dict for compared mark display.
     :returns: ImpressionComparisonPlots with all rendered images.
     """
-    # Initialize all plots as None
+    # Area-based plots (leveled + filtered surfaces)
     leveled_ref = None
     leveled_comp = None
     filtered_ref = None
     filtered_comp = None
+
+    if metrics.has_area_results:
+        leveled_ref = plot_depth_map_with_axes(
+            data=mark_reference_leveled.scan_image.data,
+            scale=mark_reference_leveled.scan_image.scale_x,
+            title="Leveled Reference Surface",
+        )
+        leveled_comp = plot_depth_map_with_axes(
+            data=mark_compared_leveled.scan_image.data,
+            scale=mark_compared_leveled.scan_image.scale_x,
+            title="Leveled Compared Surface",
+        )
+        filtered_ref = plot_depth_map_with_axes(
+            data=mark_reference_filtered.scan_image.data,
+            scale=mark_reference_leveled.scan_image.scale_x,
+            title="Filtered Reference Surface",
+        )
+        filtered_comp = plot_depth_map_with_axes(
+            data=mark_compared_filtered.scan_image.data,
+            scale=mark_compared_leveled.scan_image.scale_x,
+            title="Filtered Compared Surface",
+        )
+
+    # Cell/CMC-based plots
     cell_ref = None
     cell_comp = None
     cell_overlay = None
     cell_xcorr = None
 
-    # Generate area-based plots if available
-    if metrics.has_area_results:
-        (
-            leveled_ref,
-            leveled_comp,
-            filtered_ref,
-            filtered_comp,
-        ) = plot_area_figures(
-            mark_ref_leveled=mark_reference_leveled,
-            mark_comp_leveled=mark_compared_leveled,
-            mark_ref_filtered=mark_reference_filtered,
-            mark_comp_filtered=mark_compared_filtered,
-        )
-
-    # Generate cell/CMC-based plots if available
     if metrics.has_cell_results:
-        (
-            cell_ref,
-            cell_comp,
-            cell_overlay,
-            cell_xcorr,
-        ) = plot_cmc_figures(
-            mark_ref_filtered=mark_reference_filtered,
-            mark_comp_filtered=mark_compared_filtered,
+        scale = mark_reference_filtered.scan_image.scale_x
+        cell_ref = plot_depth_map_with_axes(
+            data=mark_reference_filtered.scan_image.data,
+            scale=scale,
+            title="Cell-Preprocessed Reference",
+        )
+        cell_comp = plot_depth_map_with_axes(
+            data=mark_compared_filtered.scan_image.data,
+            scale=scale,
+            title="Cell-Preprocessed Compared",
+        )
+        cell_overlay = plot_cell_grid_overlay(
+            data=mark_reference_filtered.scan_image.data,
+            scale=scale,
+            cell_correlations=metrics.cell_correlations,
+        )
+        cell_xcorr = plot_cell_correlation_heatmap(
             cell_correlations=metrics.cell_correlations,
         )
 
-    # Generate comparison overview
+    # Comparison overview
     comparison_overview = plot_comparison_overview(
         mark_reference_leveled=mark_reference_leveled,
         mark_compared_leveled=mark_compared_leveled,
@@ -108,250 +122,6 @@ def plot_impression_comparison_results(
         cell_overlay=cell_overlay,
         cell_cross_correlation=cell_xcorr,
     )
-
-
-def plot_area_figures(
-    mark_ref_leveled: Mark,
-    mark_comp_leveled: Mark,
-    mark_ref_filtered: Mark,
-    mark_comp_filtered: Mark,
-) -> tuple[ImageRGB, ImageRGB, ImageRGB, ImageRGB]:
-    """
-    Generate 4 area-based plots for impression comparison.
-
-    Generates:
-    1. Leveled reference surface
-    2. Leveled compared surface
-    3. Filtered reference surface
-    4. Filtered compared surface
-
-    :param mark_ref_leveled: Reference mark after leveling.
-    :param mark_comp_leveled: Compared mark after leveling.
-    :param mark_ref_filtered: Reference mark after filtering.
-    :param mark_comp_filtered: Compared mark after filtering.
-    :returns: Tuple of 4 ImageRGB arrays.
-    """
-    scale_ref = mark_ref_leveled.scan_image.scale_x
-    scale_comp = mark_comp_leveled.scan_image.scale_x
-
-    # 1. Leveled reference surface
-    leveled_ref = plot_depth_map_with_axes(
-        data=mark_ref_leveled.scan_image.data,
-        scale=scale_ref,
-        title="Leveled Reference Surface",
-    )
-
-    # 2. Leveled compared surface
-    leveled_comp = plot_depth_map_with_axes(
-        data=mark_comp_leveled.scan_image.data,
-        scale=scale_comp,
-        title="Leveled Compared Surface",
-    )
-
-    # 3. Filtered reference surface
-    filtered_ref = plot_depth_map_with_axes(
-        data=mark_ref_filtered.scan_image.data,
-        scale=scale_ref,
-        title="Filtered Reference Surface",
-    )
-
-    # 4. Filtered compared surface
-    filtered_comp = plot_depth_map_with_axes(
-        data=mark_comp_filtered.scan_image.data,
-        scale=scale_comp,
-        title="Filtered Compared Surface",
-    )
-
-    return leveled_ref, leveled_comp, filtered_ref, filtered_comp
-
-
-def plot_cmc_figures(
-    mark_ref_filtered: Mark,
-    mark_comp_filtered: Mark,
-    cell_correlations: FloatArray2D,
-) -> tuple[ImageRGB, ImageRGB, ImageRGB, ImageRGB]:
-    """
-    Generate 4 CMC/cell-based plots for impression comparison.
-
-    Generates:
-    1. Cell-preprocessed reference
-    2. Cell-preprocessed compared
-    3. All cells overlay visualization
-    4. Cell cross-correlation heatmap
-
-    :param mark_ref_filtered: Reference mark after filtering.
-    :param mark_comp_filtered: Compared mark after filtering.
-    :param cell_correlations: Grid of per-cell correlation values.
-    :returns: Tuple of 4 ImageRGB arrays.
-    """
-    scale = mark_ref_filtered.scan_image.scale_x
-
-    # 1. Cell-preprocessed reference
-    cell_ref = plot_depth_map_with_axes(
-        data=mark_ref_filtered.scan_image.data,
-        scale=scale,
-        title="Cell-Preprocessed Reference",
-    )
-
-    # 2. Cell-preprocessed compared
-    cell_comp = plot_depth_map_with_axes(
-        data=mark_comp_filtered.scan_image.data,
-        scale=scale,
-        title="Cell-Preprocessed Compared",
-    )
-
-    # 3. Cell overlay visualization
-    cell_overlay = plot_cell_grid_overlay(
-        data=mark_ref_filtered.scan_image.data,
-        scale=scale,
-        cell_correlations=cell_correlations,
-    )
-
-    # 4. Cell cross-correlation heatmap
-    cell_xcorr = plot_cell_correlation_heatmap(
-        cell_correlations=cell_correlations,
-    )
-
-    return cell_ref, cell_comp, cell_overlay, cell_xcorr
-
-
-def plot_comparison_overview(
-    mark_reference_leveled: Mark,
-    mark_compared_leveled: Mark,
-    mark_reference_filtered: Mark,
-    mark_compared_filtered: Mark,
-    metrics: ImpressionComparisonMetrics,
-    metadata_reference: dict[str, str],
-    metadata_compared: dict[str, str],
-    wrap_width: int = 25,
-) -> ImageRGB:
-    """
-    Generate the main results overview figure with dynamic sizing.
-
-    Combines metadata tables, surface visualizations, cell grid overlay,
-    and cell correlation heatmap into a single overview figure.
-
-    :param mark_reference_leveled: Reference mark after leveling.
-    :param mark_compared_leveled: Compared mark after leveling.
-    :param mark_reference_filtered: Reference mark after filtering.
-    :param mark_compared_filtered: Compared mark after filtering.
-    :param metrics: Comparison metrics including correlation values.
-    :param metadata_reference: Metadata dict for reference mark display.
-    :param metadata_compared: Metadata dict for compared mark display.
-    :param wrap_width: Maximum characters per line before wrapping.
-    :returns: RGB image as uint8 array.
-    """
-    # Build results metadata
-    results_items = {
-        "Date report": datetime.now().strftime("%Y-%m-%d"),
-        "Mark type": mark_reference_leveled.mark_type.value,
-        "Area Correlation": f"{metrics.area_correlation:.4f}",
-        "CMC Score": f"{metrics.cmc_score:.1f}%",
-        "Sq(Ref)": f"{metrics.sq_ref:.4f} µm",
-        "Sq(Comp)": f"{metrics.sq_comp:.4f} µm",
-        "Sq(Diff)": f"{metrics.sq_diff:.4f} µm",
-    }
-
-    max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
-        metadata_compared, metadata_reference, wrap_width
-    )
-    height_ratios = get_height_ratios(metadata_height_ratio)
-
-    # Adjust figure height based on content
-    fig_height = 14 + (max_metadata_rows * 0.12)
-    fig_height = max(13, min(17, fig_height))
-
-    fig = plt.figure(figsize=(14, fig_height))
-
-    gs = fig.add_gridspec(
-        4,
-        3,
-        height_ratios=height_ratios,
-        width_ratios=[0.35, 0.35, 0.30],
-        hspace=0.35,
-        wspace=0.25,
-    )
-
-    # Row 0: Metadata tables
-    ax_meta_reference = fig.add_subplot(gs[0, 0])
-    draw_metadata_box(
-        ax_meta_reference,
-        metadata_reference,
-        "Reference Mark (A)",
-        wrap_width=wrap_width,
-    )
-
-    ax_meta_compared = fig.add_subplot(gs[0, 1])
-    draw_metadata_box(
-        ax_meta_compared,
-        metadata_compared,
-        "Compared Mark (B)",
-        wrap_width=wrap_width,
-    )
-
-    # Row 1: Leveled surfaces + Results
-    ax_leveled_ref = fig.add_subplot(gs[1, 0])
-    plot_depth_map_on_axes(
-        ax_leveled_ref,
-        fig,
-        mark_reference_leveled.scan_image.data,
-        mark_reference_leveled.scan_image.scale_x,
-        title="Leveled Reference Surface A",
-    )
-
-    ax_leveled_comp = fig.add_subplot(gs[1, 1])
-    plot_depth_map_on_axes(
-        ax_leveled_comp,
-        fig,
-        mark_compared_leveled.scan_image.data,
-        mark_compared_leveled.scan_image.scale_x,
-        title="Leveled Compared Surface B",
-    )
-
-    ax_results = fig.add_subplot(gs[1, 2])
-    draw_metadata_box(
-        ax_results, results_items, draw_border=False, wrap_width=wrap_width
-    )
-
-    # Row 2: Filtered surfaces
-    ax_filtered_ref = fig.add_subplot(gs[2, 0])
-    plot_depth_map_on_axes(
-        ax_filtered_ref,
-        fig,
-        mark_reference_filtered.scan_image.data,
-        mark_reference_filtered.scan_image.scale_x,
-        title="Filtered Reference Surface A",
-    )
-
-    ax_filtered_comp = fig.add_subplot(gs[2, 1])
-    plot_depth_map_on_axes(
-        ax_filtered_comp,
-        fig,
-        mark_compared_filtered.scan_image.data,
-        mark_compared_filtered.scan_image.scale_x,
-        title="Filtered Compared Surface B",
-    )
-
-    # Row 2, Col 2: Cell correlation heatmap (if available)
-    if metrics.has_cell_results:
-        ax_heatmap = fig.add_subplot(gs[2, 2])
-        _plot_cell_heatmap_on_axes(ax_heatmap, fig, metrics.cell_correlations)
-
-    # Row 3: Cell grid overlay (spanning full width if cell results available)
-    if metrics.has_cell_results:
-        ax_overlay = fig.add_subplot(gs[3, :2])
-        _plot_cell_overlay_on_axes(
-            ax_overlay,
-            mark_reference_filtered.scan_image.data,
-            mark_reference_filtered.scan_image.scale_x,
-            metrics.cell_correlations,
-        )
-
-    fig.tight_layout(pad=0.8, h_pad=1.2, w_pad=0.8)
-    fig.subplots_adjust(left=0.06, right=0.98, top=0.96, bottom=0.06)
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr
 
 
 def plot_cell_grid_overlay(
@@ -405,6 +175,165 @@ def plot_cell_correlation_heatmap(
     _plot_cell_heatmap_on_axes(ax, fig, cell_correlations)
 
     fig.tight_layout()
+    arr = figure_to_array(fig)
+    plt.close(fig)
+    return arr
+
+
+def plot_comparison_overview(
+    mark_reference_leveled: Mark,
+    mark_compared_leveled: Mark,
+    mark_reference_filtered: Mark,
+    mark_compared_filtered: Mark,
+    metrics: ImpressionComparisonMetrics,
+    metadata_reference: dict[str, str],
+    metadata_compared: dict[str, str],
+    wrap_width: int = 25,
+) -> ImageRGB:
+    """
+    Generate the main results overview figure with dynamic sizing.
+
+    Combines metadata tables, surface visualizations, and cell correlation
+    heatmap into a single overview figure.
+
+    :param mark_reference_leveled: Reference mark after leveling.
+    :param mark_compared_leveled: Compared mark after leveling.
+    :param mark_reference_filtered: Reference mark after filtering.
+    :param mark_compared_filtered: Compared mark after filtering.
+    :param metrics: Comparison metrics including correlation values.
+    :param metadata_reference: Metadata dict for reference mark display.
+    :param metadata_compared: Metadata dict for compared mark display.
+    :param wrap_width: Maximum characters per line before wrapping.
+    :returns: RGB image as uint8 array.
+    """
+    # Build results metadata
+    results_items = {
+        "Date report": datetime.now().strftime("%Y-%m-%d"),
+        "Mark type": mark_reference_leveled.mark_type.value,
+        "Area Correlation": f"{metrics.area_correlation:.4f}",
+        "CMC Score": f"{metrics.cmc_score:.1f}%",
+        "Sq(Ref)": f"{metrics.sq_ref:.4f} µm",
+        "Sq(Comp)": f"{metrics.sq_comp:.4f} µm",
+        "Sq(Diff)": f"{metrics.sq_diff:.4f} µm",
+    }
+
+    max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
+        metadata_compared, metadata_reference, wrap_width
+    )
+
+    # 3-row layout: metadata, leveled surfaces + results, filtered surfaces + heatmap
+    row1_height = 0.40
+    row2_height = 0.40
+    total = metadata_height_ratio + row1_height + row2_height
+    height_ratios = [
+        metadata_height_ratio / total,
+        row1_height / total,
+        row2_height / total,
+    ]
+
+    # Adjust figure height based on content
+    fig_height = 12 + (max_metadata_rows * 0.12)
+    fig_height = max(10.0, min(15.0, fig_height))
+
+    fig = plt.figure(figsize=(14, fig_height))
+
+    gs = fig.add_gridspec(
+        3,
+        3,
+        height_ratios=height_ratios,
+        width_ratios=[0.35, 0.35, 0.30],
+        hspace=0.35,
+        wspace=0.25,
+    )
+
+    # Row 0: Metadata tables
+    ax_meta_reference = fig.add_subplot(gs[0, 0])
+    draw_metadata_box(
+        ax_meta_reference,
+        metadata_reference,
+        "Reference Surface (A)",
+        wrap_width=wrap_width,
+    )
+
+    ax_meta_compared = fig.add_subplot(gs[0, 1])
+    draw_metadata_box(
+        ax_meta_compared,
+        metadata_compared,
+        "Compared Surface (B)",
+        wrap_width=wrap_width,
+    )
+
+    # Row 1: Leveled surfaces + Results
+    ax_leveled_ref = fig.add_subplot(gs[1, 0])
+    plot_depth_map_on_axes(
+        ax_leveled_ref,
+        fig,
+        mark_reference_leveled.scan_image.data,
+        mark_reference_leveled.scan_image.scale_x,
+        title="Reference Surface A",
+    )
+
+    ax_leveled_comp = fig.add_subplot(gs[1, 1])
+    plot_depth_map_on_axes(
+        ax_leveled_comp,
+        fig,
+        mark_compared_leveled.scan_image.data,
+        mark_compared_leveled.scan_image.scale_x,
+        title="Compared Surface B",
+    )
+
+    ax_results = fig.add_subplot(gs[1, 2])
+    draw_metadata_box(
+        ax_results, results_items, draw_border=False, wrap_width=wrap_width
+    )
+
+    # Row 2: Filtered surfaces (with cell grid overlay if available) + Cell ACCF Distribution
+    ax_filtered_ref = fig.add_subplot(gs[2, 0])
+    if metrics.has_cell_results:
+        _plot_cell_overlay_on_axes(
+            ax_filtered_ref,
+            mark_reference_filtered.scan_image.data,
+            mark_reference_filtered.scan_image.scale_x,
+            metrics.cell_correlations,
+        )
+        ax_filtered_ref.set_title(
+            "Filtered Reference Surface A", fontsize=12, fontweight="bold"
+        )
+    else:
+        plot_depth_map_on_axes(
+            ax_filtered_ref,
+            fig,
+            mark_reference_filtered.scan_image.data,
+            mark_reference_filtered.scan_image.scale_x,
+            title="Filtered Reference Surface A",
+        )
+
+    ax_filtered_comp = fig.add_subplot(gs[2, 1])
+    if metrics.has_cell_results:
+        _plot_cell_overlay_on_axes(
+            ax_filtered_comp,
+            mark_compared_filtered.scan_image.data,
+            mark_compared_filtered.scan_image.scale_x,
+            metrics.cell_correlations,
+        )
+        ax_filtered_comp.set_title(
+            "Filtered Compared Surface B", fontsize=12, fontweight="bold"
+        )
+    else:
+        plot_depth_map_on_axes(
+            ax_filtered_comp,
+            fig,
+            mark_compared_filtered.scan_image.data,
+            mark_compared_filtered.scan_image.scale_x,
+            title="Filtered Compared Surface B",
+        )
+
+    if metrics.has_cell_results:
+        ax_heatmap = fig.add_subplot(gs[2, 2])
+        _plot_cell_heatmap_on_axes(ax_heatmap, fig, metrics.cell_correlations)
+
+    fig.tight_layout(pad=0.8, h_pad=1.2, w_pad=0.8)
+    fig.subplots_adjust(left=0.06, right=0.98, top=0.96, bottom=0.06)
     arr = figure_to_array(fig)
     plt.close(fig)
     return arr
@@ -516,7 +445,7 @@ def _plot_cell_heatmap_on_axes(
 
     ax.set_xlabel("Column", fontsize=11)
     ax.set_ylabel("Row", fontsize=11)
-    ax.set_title("Cell Correlation Heatmap", fontsize=12, fontweight="bold")
+    ax.set_title("Cell ACCF Distribution", fontsize=12, fontweight="bold")
     ax.tick_params(labelsize=10)
 
     # Set tick positions

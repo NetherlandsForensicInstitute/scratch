@@ -10,10 +10,8 @@ from conversion.plots.data_formats import (
     ImpressionComparisonPlots,
 )
 from conversion.plots.plot_impression import (
-    plot_area_figures,
     plot_cell_correlation_heatmap,
     plot_cell_grid_overlay,
-    plot_cmc_figures,
     plot_comparison_overview,
     plot_depth_map_with_axes,
     plot_impression_comparison_results,
@@ -140,43 +138,6 @@ class TestPlotCellCorrelationHeatmap:
             correlations = np.random.rand(rows, cols)
             result = plot_cell_correlation_heatmap(cell_correlations=correlations)
             assert result.shape[2] == 3
-
-
-class TestPlotAreaFigures:
-    """Tests for plot_area_figures function."""
-
-    def test_returns_four_images(self, sample_mark: Mark):
-        """Should return tuple of 4 RGB images."""
-        result = plot_area_figures(
-            mark_ref_leveled=sample_mark,
-            mark_comp_leveled=sample_mark,
-            mark_ref_filtered=sample_mark,
-            mark_comp_filtered=sample_mark,
-        )
-        assert len(result) == 4
-        for img in result:
-            assert img.ndim == 3
-            assert img.shape[2] == 3
-            assert img.dtype == np.uint8
-
-
-class TestPlotCmcFigures:
-    """Tests for plot_cmc_figures function."""
-
-    def test_returns_four_images(
-        self, sample_mark: Mark, sample_cell_correlations: np.ndarray
-    ):
-        """Should return tuple of 4 RGB images."""
-        result = plot_cmc_figures(
-            mark_ref_filtered=sample_mark,
-            mark_comp_filtered=sample_mark,
-            cell_correlations=sample_cell_correlations,
-        )
-        assert len(result) == 4
-        for img in result:
-            assert img.ndim == 3
-            assert img.shape[2] == 3
-            assert img.dtype == np.uint8
 
 
 class TestPlotComparisonOverview:
