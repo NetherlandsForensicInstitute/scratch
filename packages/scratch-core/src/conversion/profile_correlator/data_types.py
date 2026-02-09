@@ -105,6 +105,17 @@ class NormalizedSquareBasedRoughnessDifferences:
 
 
 @dataclass(frozen=True)
+class AlignmentInputs:
+    """Prepared inputs for the alignment search."""
+
+    heights_ref: FloatArray1D
+    heights_comp: FloatArray1D
+    pixel_size: float
+    scale_factors: FloatArray1D
+    min_overlap_samples: int
+
+
+@dataclass(frozen=True)
 class AlignmentResult:
     """Result from the alignment search."""
 

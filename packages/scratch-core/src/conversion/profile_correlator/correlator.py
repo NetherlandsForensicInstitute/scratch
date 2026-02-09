@@ -26,6 +26,7 @@ import numpy as np
 
 from container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import (
+    AlignmentInputs,
     AlignmentParameters,
     AlignmentResult,
     StriationComparisonResults,
@@ -80,20 +81,53 @@ def correlate_profiles(
     :returns: StriationComparisonResults containing all computed metrics, or None if no
         valid alignment could be found.
     """
-    # Step 1: Equalize pixel scales
+    # Step 1: Prepare alignment inputs
+    inputs = _prepare_alignment_inputs(profile_ref, profile_comp, params)
+    if inputs is None:
+        return None
+
+    # Step 2: Find best alignment
+    alignment = _find_best_alignment(
+        inputs.heights_ref,
+        inputs.heights_comp,
+        inputs.scale_factors,
+        inputs.min_overlap_samples,
+    )
+    if alignment is None:
+        return None
+
+    # Step 3: Compute and return metrics
+    return _compute_metrics(
+        alignment, inputs.pixel_size, len(inputs.heights_ref), len(inputs.heights_comp)
+    )
+
+
+def _prepare_alignment_inputs(
+    profile_ref: Profile,
+    profile_comp: Profile,
+    params: AlignmentParameters,
+) -> AlignmentInputs | None:
+    """
+    Equalize pixel scales, compute minimum overlap, and generate scale factors.
+
+    Returns None if either profile is too short for the minimum overlap requirement.
+
+    :param profile_ref: Reference profile.
+    :param profile_comp: Compared profile.
+    :param params: Alignment parameters.
+    :returns: Prepared alignment inputs, or None if profiles are too short.
+    """
     profile_ref_eq, profile_comp_eq = equalize_pixel_scale(profile_ref, profile_comp)
     pixel_size = profile_ref_eq.pixel_size
-
-    heights_ref = profile_ref_eq.heights
-    heights_comp = profile_comp_eq.heights
-    len_ref = len(heights_ref)
-    len_comp = len(heights_comp)
 
     # Minimum overlap in samples
     min_overlap_samples = int(np.ceil(params.min_overlap_distance / pixel_size))
 
     # Early exit if either profile is too short
-    if len_ref < min_overlap_samples or len_comp < min_overlap_samples:
+    if (
+        len(profile_ref_eq.heights) < min_overlap_samples
+        or len(profile_comp_eq.heights) < min_overlap_samples
+    ):
         return None
 
     # Generate scale factors to try (7 steps gives ~1.7% intervals for ±5%)
@@ -101,25 +135,23 @@ def correlate_profiles(
         1.0 - params.max_scaling, 1.0 + params.max_scaling, params.n_scale_steps
     )
 
-    # make scaling symmetric to what you choose as ref or comp
+    # Make scaling symmetric to what you choose as ref or comp
     scale_factors = np.unique(np.concatenate((scale_factors, 1 / scale_factors)))
 
-    # Step 2: Find best alignment
-    alignment = _find_best_alignment(
-        heights_ref, heights_comp, scale_factors, min_overlap_samples
+    return AlignmentInputs(
+        heights_ref=profile_ref_eq.heights,
+        heights_comp=profile_comp_eq.heights,
+        pixel_size=pixel_size,
+        scale_factors=scale_factors,
+        min_overlap_samples=min_overlap_samples,
     )
-    if alignment is None:
-        return None
-
-    # Step 3: Compute and return metrics
-    return _compute_metrics(alignment, pixel_size, len_ref, len_comp)
 
 
 def _calculate_idx_parameters(
     shift: int, len_small: int, len_large: int
 ) -> tuple[int, int, int]:
     """
-    Find starting idx for both striations, and compute overlap length
+    Find starting index for both striations, and compute overlap length
     """
 
     if shift >= 0:
@@ -190,9 +222,8 @@ def _find_best_alignment(
 
     # Redo computations for best_cale and best_shift (instead of copying partial_ref and partial_comp above multiple times. This saves time.)
     heights_comp_scaled = resample_array_1d(heights_comp, best_scale)
-    len_comp = len(heights_comp_scaled)
     idx_comp_start, idx_ref_start, overlap_length = _calculate_idx_parameters(
-        best_shift, len_comp, len_ref
+        best_shift, len(heights_comp_scaled), len_ref
     )
 
     best_ref_overlap = heights_ref[idx_ref_start : idx_ref_start + overlap_length]
