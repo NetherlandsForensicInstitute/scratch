@@ -7,11 +7,7 @@ from loguru import logger
 
 from container_models.base import FloatArray1D, FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.filter.regression import (
-    apply_order0_filter,
-    create_normalized_separable_kernels,
-    apply_polynomial_filter,
-)
+from conversion.filter import apply_gaussian_regression_filter
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.leveling.solver.design import build_design_matrix
 from conversion.leveling.solver.grid import get_2d_grid
@@ -194,10 +190,8 @@ class GausianRegressionFilter(ImageMutation):
     ALPHA_REGRESSION = 0.7309134280946760
     _Exponent = namedtuple("Exponent", ["y", "x"])
 
-    def __init__(
-        self, cutoff_pixels: FloatArray1D, regression_order: RegressionOrder
-    ) -> None:
-        self.cutoff_pixels = cutoff_pixels
+    def __init__(self, cutoff_length: float, regression_order: RegressionOrder) -> None:
+        self.cutoff_length = cutoff_length
         self.regression_order = regression_order
 
     def generate_polynomial_exponents(self, order: int) -> list[_Exponent]:
@@ -231,30 +225,18 @@ class GausianRegressionFilter(ImageMutation):
         - Optimization:
             For **Order 0**, the operation is mathematically equivalent to a normalized convolution. This implementation
             uses FFT-based convolution for performance gains compared to pixel-wise regression.
-        :param data: 2D input array containing float data. May contain NaNs.
-        :param cutoff_pixels: The filter cutoff wavelength in pixels as array [cutoff_y, cutoff_x].
-        :param regression_order: RegressionOrder enum specifying the polynomial fit order:
-            GAUSSIAN_WEIGHTED_AVERAGE (0) = Gaussian weighted average.
-            LOCAL_PLANAR (1) = Local planar fit (corrects for tilt).
-            LOCAL_QUADRATIC (2) = Local quadratic fit (corrects for quadratic curvature).
-        :returns: The filtered 2D array of the same shape as input.
+        :param scan_image: Gausian filter is applied on this scan_image data.
+        :returns: ScanImage with the filtered 2D array.
         """
-        alpha = (
-            self.ALPHA_REGRESSION
-            if self.regression_order == RegressionOrder.LOCAL_QUADRATIC
-            else self.ALPHA_GAUSSIAN
-        )
-        kernel_x, kernel_y = create_normalized_separable_kernels(
-            alpha, self.cutoff_pixels
-        )
-
-        if self.regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE:
-            scan_image.data = apply_order0_filter(scan_image.data, kernel_x, kernel_y)
-            return scan_image
-        scan_image.data = apply_polynomial_filter(
+        pixel_size = (1.0, 1.0)
+        nan_out = True
+        is_high_pass = False
+        scan_image.data = apply_gaussian_regression_filter(
             data=scan_image.data,
-            kernel_x=kernel_x,
-            kernel_y=kernel_y,
-            order=self.regression_order.value,
+            cutoff_length=self.cutoff_length,
+            pixel_size=pixel_size,
+            regression_order=self.regression_order.value,
+            nan_out=nan_out,
+            is_high_pass=is_high_pass,
         )
         return scan_image
