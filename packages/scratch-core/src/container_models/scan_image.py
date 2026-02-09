@@ -2,7 +2,7 @@ from functools import cached_property
 
 import numpy as np
 from pydantic import Field
-from .base import ConfigBaseModel, BinaryMask, FloatArray, FloatArray1D
+from .base import ConfigBaseModel, BinaryMask, FloatArray1D, DepthData
 
 
 class ScanImage(ConfigBaseModel):
@@ -13,7 +13,7 @@ class ScanImage(ConfigBaseModel):
     Shape: (height, width)
     """
 
-    data: FloatArray  # TODO: Change typing to `DepthData` or `FloatArray2D`
+    data: DepthData
     scale_x: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     scale_y: float = Field(..., gt=0.0, description="pixel size in meters (m)")
     meta_data: dict = Field(default_factory=dict)
@@ -41,14 +41,3 @@ class ScanImage(ConfigBaseModel):
         valid_data = self.data[self.valid_mask]
         valid_data.setflags(write=False)
         return valid_data
-
-    def model_copy(self, *, update=None, deep=False):
-        copy = super().model_copy(update=update, deep=deep)
-        # Invalidate cached properties when any field changes
-        if update:
-            # Dynamically find and clear all cached_property attributes
-            for name in dir(type(copy)):
-                attr = getattr(type(copy), name, None)
-                if isinstance(attr, cached_property):
-                    copy.__dict__.pop(name, None)
-        return copy
