@@ -73,6 +73,7 @@ class TestProfilePairs:
         comp = Profile(heights=comp_data, pixel_size=PIXEL_SIZE_M)
 
         result = correlate_profiles(ref, comp, AlignmentParameters())
+        assert result is not None
 
         expected = EXPECTED_CORRELATIONS[name]
         assert abs(result.correlation_coefficient - expected) < 0.01, (

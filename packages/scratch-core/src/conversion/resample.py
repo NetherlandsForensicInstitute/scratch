@@ -100,7 +100,7 @@ def resample_array_1d(
     if n_out == n_in:
         return data.copy()
 
-    result = signal_resample(data, n_out)  # type: ignore[assignment]
+    result: FloatArray1D = signal_resample(data, n_out)  # type: ignore[assignment]
     return result
 
 
