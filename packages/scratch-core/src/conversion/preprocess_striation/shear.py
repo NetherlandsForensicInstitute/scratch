@@ -6,17 +6,16 @@ by shifting vertical profiles.
 """
 
 import numpy as np
-from numpy.typing import NDArray
 from skimage.transform import AffineTransform, warp
 
-from container_models.base import BinaryMask
+from container_models.base import DepthData, FloatArray2D
 
 
 def shear_data_by_shifting_profiles(
-    depth_data: NDArray[np.floating] | BinaryMask,
+    depth_data: DepthData,
     angle_rad: float,
     cut_y_after_shift: bool = True,
-) -> NDArray[np.floating]:
+) -> FloatArray2D:
     """
     Shear depth data by shifting each column (profile) vertically.
 
@@ -83,7 +82,7 @@ def shear_data_by_shifting_profiles(
     return output
 
 
-def propagate_nan(data: NDArray[np.floating]) -> NDArray[np.floating]:
+def propagate_nan(data: FloatArray2D) -> FloatArray2D:
     """
     Propagate NaN values to adjacent pixels in the down and right directions.
 

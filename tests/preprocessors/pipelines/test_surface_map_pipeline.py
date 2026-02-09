@@ -39,7 +39,7 @@ class TestSurfaceMapPipeline:
         output_path = tmp_path / "surface_map.png"
 
         # Act
-        surface_map = surface_map_pipeline(parsed_al3d_file, output_path, light_sources, observer, 1.0, 1.0)
+        surface_map = surface_map_pipeline(parsed_al3d_file, output_path, light_sources, observer)
 
         # Assert
         assert surface_map == output_path
@@ -60,7 +60,7 @@ class TestSurfaceMapPipeline:
 
         # Act
         surface_map = surface_map_pipeline(
-            parsed_al3d_file, tmp_path / "multi_light_surface_map.png", light_sources, observer, 1.0, 1.0
+            parsed_al3d_file, tmp_path / "multi_light_surface_map.png", light_sources, observer
         )
 
         # Assert

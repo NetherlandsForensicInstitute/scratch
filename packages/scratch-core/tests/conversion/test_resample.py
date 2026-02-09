@@ -8,7 +8,7 @@ from conversion.resample import (
     _resample_scan_image,
     get_scaling_factors,
     _clip_factors,
-    resample_image_array,
+    resample_array_2d,
     resample_mark,
 )
 
@@ -44,7 +44,7 @@ class TestResampleArray:
         array = np.zeros((100, 200))
         mock_resize.return_value = np.zeros((50, 100))
 
-        resample_image_array(array, factors=(2.0, 2.0))
+        resample_array_2d(array, factors=(2.0, 2.0))
 
         call_args = mock_resize.call_args[1]
         assert call_args["output_shape"] == (50.0, 100.0)
@@ -54,7 +54,7 @@ class TestResampleArray:
         array = np.zeros((100, 100))
         mock_resize.return_value = np.zeros((200, 200))
 
-        resample_image_array(array, factors=(0.5, 0.5))
+        resample_array_2d(array, factors=(0.5, 0.5))
 
         assert mock_resize.call_args[1]["anti_aliasing"] is False
 
@@ -63,14 +63,14 @@ class TestResampleArray:
         array = np.zeros((100, 100))
         mock_resize.return_value = np.zeros((50, 50))
 
-        resample_image_array(array, factors=(2.0, 2.0))
+        resample_array_2d(array, factors=(2.0, 2.0))
 
         assert mock_resize.call_args[1]["anti_aliasing"] is True
 
 
 class TestResampleScanImage:
     def test_updates_scales(self, scan_image_rectangular_with_nans: ScanImage):
-        with patch("conversion.resample.resample_image_array") as mock:
+        with patch("conversion.resample.resample_array_2d") as mock:
             mock.return_value = np.zeros((50, 50))
 
             result = _resample_scan_image(scan_image_rectangular_with_nans, (2.0, 2.0))
@@ -138,7 +138,7 @@ class TestResampleImageAndMask:
     ):
         mask = np.ones((100, 100), dtype=np.bool_)
 
-        with patch("conversion.resample.resample_image_array") as mock:
+        with patch("conversion.resample.resample_array_2d") as mock:
             mock.return_value = np.zeros((50, 50))
 
             _, result_mask = resample_scan_image_and_mask(

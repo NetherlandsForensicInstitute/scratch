@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from container_models.base import DepthData
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_striation import (
@@ -53,8 +54,8 @@ class MatlabTestCase:
     """Container for a single MATLAB PreprocessData test case."""
 
     name: str
-    input_data: np.ndarray
-    output_data: np.ndarray
+    input_data: DepthData
+    output_data: DepthData
 
     input_xdim: float = 1.5e-6
     input_ydim: float = 1.5e-6

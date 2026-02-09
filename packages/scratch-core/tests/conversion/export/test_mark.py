@@ -9,7 +9,7 @@ from conversion.data_formats import Mark, MarkType
 from conversion.export.mark import ExportedMarkData, load_mark_from_path, save_mark
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def scan_image(scan_image_with_nans: ScanImage) -> ScanImage:
     """Convenience fixture for a `ScanImage` instance."""
     return scan_image_with_nans
