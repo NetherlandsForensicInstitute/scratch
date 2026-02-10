@@ -69,14 +69,18 @@ class TestResampleScanImage:
         caplog: pytest.LogCaptureFixture,
     ):
         # Arrange
-        resampling = Resample(x_factor=x_factor, y_factor=y_factor)
+        expected_resampled_output_shape = (
+            1 / y_factor * simple_scan_image.height,
+            1 / x_factor * simple_scan_image.width,
+        )
+        resampling = Resample(expected_output_shape=expected_resampled_output_shape)
         # Act
         result = resampling(simple_scan_image).unwrap()
         # Assert
         assert result.data.shape[0] == round(expected_shape[0], 0)
         assert result.data.shape[1] == round(expected_shape[1], 0)
         assert (
-            f"Resampling image array to new size: {round(float(expected_shape[0]), 1)}/{round(float(expected_shape[1]), 1)}"
+            f"Resampling image array to new size: {round(float(expected_shape[0]), 1)}/{round(float(expected_shape[1]), 1)} with scale: x:{round(x_factor, 1)}, y:{round(y_factor, 1)}"
             in caplog.messages
         )
 
@@ -95,9 +99,13 @@ class TestResampleScanImage:
         x_factor: float,
     ):
         # Arrange
+        expected_resampled_output_shape = (
+            1 / y_factor * simple_scan_image.height,
+            1 / x_factor * simple_scan_image.width,
+        )
         original_scale_x = simple_scan_image.scale_x
         original_scale_y = simple_scan_image.scale_y
-        resampling = Resample(x_factor=x_factor, y_factor=y_factor)
+        resampling = Resample(expected_output_shape=expected_resampled_output_shape)
 
         # Act
         result = resampling(simple_scan_image).unwrap()
@@ -109,9 +117,13 @@ class TestResampleScanImage:
     def test_resampling_preserves_data_properties(self, simple_scan_image: ScanImage):
         # Arrange
         factor = 2.0
+        expected_resampled_output_shape = (
+            1 / factor * simple_scan_image.height,
+            1 / factor * simple_scan_image.width,
+        )
         original_dtype = simple_scan_image.data.dtype
         original_ndim = simple_scan_image.data.ndim
-        resampling = Resample(x_factor=factor, y_factor=factor)
+        resampling = Resample(expected_output_shape=expected_resampled_output_shape)
 
         # Act
         result = resampling(simple_scan_image).unwrap()
@@ -131,7 +143,11 @@ class TestResampleScanImage:
             scale_y=1,
         )
         factor = 2.0
-        resampling = Resample(x_factor=factor, y_factor=factor)
+        expected_resampled_output_shape = (
+            1 / factor * data.shape[0],
+            1 / factor * data.shape[1],
+        )
+        resampling = Resample(expected_output_shape=expected_resampled_output_shape)
         # Act
         result = resampling(scan_image).unwrap()
 
