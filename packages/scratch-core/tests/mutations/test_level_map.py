@@ -1,6 +1,6 @@
 from pathlib import Path
 from container_models.base import Coordinate, Pair
-from container_models.image import MaskImage, ProcessImage
+from container_models.image import ImageContainer
 from mutations.filter import LevelMap
 import pytest
 import numpy as np
@@ -8,10 +8,8 @@ from conversion.leveling.data_types import SurfaceTerms
 
 
 @pytest.fixture
-def mask_image_with_nans(image_with_nans: ProcessImage) -> MaskImage:
-    return MaskImage(
-        data=image_with_nans.data.astype(np.bool_), metadata=image_with_nans.metadata
-    )
+def mask_image_with_nans(image_with_nans: ImageContainer) -> ImageContainer:
+    return ImageContainer(data=image_with_nans.data, metadata=image_with_nans.metadata)
 
 
 @pytest.mark.integration
@@ -29,7 +27,7 @@ class TestLevelMapIntegration:
     )
     def test_map_level(
         self,
-        mask_image_with_nans: MaskImage,
+        mask_image_with_nans: ImageContainer,
         verified_file_name: str,
         terms: SurfaceTerms,
     ):
@@ -41,7 +39,7 @@ class TestLevelMapIntegration:
         # Assert
         assert np.allclose(result.data, verified, equal_nan=True)
 
-    def test_map_level_none(self, mask_image_with_nans: MaskImage):
+    def test_map_level_none(self, mask_image_with_nans: ImageContainer):
         # Arrange
         level_map_mutator = LevelMap(
             reference=mask_image_with_nans.center, terms=SurfaceTerms.NONE
@@ -51,7 +49,7 @@ class TestLevelMapIntegration:
         # Assert
         assert np.allclose(result.data, mask_image_with_nans.data, equal_nan=True)
 
-    def test_map_level_offset(self, mask_image_with_nans: MaskImage):
+    def test_map_level_offset(self, mask_image_with_nans: ImageContainer):
         # Arrange
         level_map_mutator = LevelMap(
             reference=mask_image_with_nans.center, terms=SurfaceTerms.OFFSET
@@ -79,7 +77,7 @@ class TestLevelMapIntegration:
     )
     def test_map_level_reference_point_has_no_effect(
         self,
-        mask_image_with_nans: MaskImage,
+        mask_image_with_nans: ImageContainer,
         terms: SurfaceTerms,
         ref_point: Coordinate,
     ):

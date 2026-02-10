@@ -6,7 +6,7 @@ import pytest
 from scipy.constants import micro
 
 from container_models.base import DepthData, Pair
-from container_models.image import ImageContainer, MaskImage, MetaData, ProcessImage
+from container_models.image import MetaData, ImageContainer
 
 
 class TestMetaData:
@@ -55,6 +55,30 @@ class TestImageContainer:
         """Create a simple 10x20 image container."""
         data = np.ones((10, 20), dtype=np.float64)
         return ImageContainer(data=data, metadata=flat_scale)
+
+    @pytest.fixture
+    def process_image(self, flat_scale: MetaData) -> ImageContainer:
+        """Create a simple process image."""
+        return ImageContainer(
+            data=np.array([[100.0, 150.0], [200.0, 250.0]], dtype=np.float64),
+            metadata=flat_scale,
+        )
+
+    @pytest.fixture
+    def process_image_with_nan(self, flat_scale: MetaData) -> ImageContainer:
+        """Create a process image with NaN values."""
+        return ImageContainer(
+            data=np.array([[100.0, np.nan], [np.nan, 250.0]], dtype=np.float64),
+            metadata=flat_scale,
+        )
+
+    @pytest.fixture
+    def mask_image(self, flat_scale: MetaData) -> ImageContainer:
+        """Create a mask image."""
+        return ImageContainer(
+            data=np.array([[1, 0, 1], [0, 1, 0]]),
+            metadata=flat_scale,
+        )
 
     def test_shape(self, simple_image: ImageContainer) -> None:
         # Assert
@@ -127,20 +151,8 @@ class TestImageContainer:
         assert result_string is False
         assert result_int is False
 
-
-class TestMaskImage:
-    """Tests for MaskImage class."""
-
-    @pytest.fixture
-    def mask_image(self, flat_scale: MetaData) -> MaskImage:
-        """Create a mask image."""
-        return MaskImage(
-            data=np.array([[True, False, True], [False, True, False]], dtype=bool),
-            metadata=flat_scale,
-        )
-
     # TODO: need better test
-    def test_valid_mask_shape(self, mask_image: MaskImage) -> None:
+    def test_valid_mask_shape(self, mask_image: ImageContainer) -> None:
         # Act
         result = mask_image.valid_mask
         # Assert - Bool arrays don't have NaN, so all should be valid
@@ -148,58 +160,38 @@ class TestMaskImage:
         assert result.all()
 
     # TODO: need better test
-    def test_valid_data_length(self, mask_image: MaskImage) -> None:
+    def test_valid_data_length(self, mask_image: ImageContainer) -> None:
         # Act
         result = mask_image.valid_data
         # Assert
         assert len(result) == 6  # All 6 values are valid
 
-    def test_valid_mask_is_readonly(self, mask_image: MaskImage) -> None:
+    def test_valid_mask_is_readonly(self, mask_image: ImageContainer) -> None:
         # Act
         result = mask_image.valid_mask
         # Assert
         assert not result.flags.writeable
 
-    def test_valid_data_is_readonly(self, mask_image: MaskImage) -> None:
+    def test_valid_data_is_readonly(self, mask_image: ImageContainer) -> None:
         # Act
         result = mask_image.valid_data
         # Assert
         assert not result.flags.writeable
 
-
-class TestProcessImage:
-    """Tests for ProcessImage class."""
-
-    @pytest.fixture
-    def process_image(self, flat_scale: MetaData) -> ProcessImage:
-        """Create a simple process image."""
-        return ProcessImage(
-            data=np.array([[100.0, 150.0], [200.0, 250.0]], dtype=np.float64),
-            metadata=flat_scale,
-        )
-
-    @pytest.fixture
-    def process_image_with_nan(self, flat_scale: MetaData) -> ProcessImage:
-        """Create a process image with NaN values."""
-        return ProcessImage(
-            data=np.array([[100.0, np.nan], [np.nan, 250.0]], dtype=np.float64),
-            metadata=flat_scale,
-        )
-
-    def test_rgba_shape(self, process_image: ProcessImage) -> None:
+    def test_rgba_shape(self, process_image: ImageContainer) -> None:
         # Act
         result = process_image.rgba
         # Assert
         assert result.shape == (2, 2, 4)
 
-    def test_rgba_alpha_channel_opaque(self, process_image: ProcessImage) -> None:
+    def test_rgba_alpha_channel_opaque(self, process_image: ImageContainer) -> None:
         # Act
         result = process_image.rgba
         # Assert - All pixels should be fully opaque (255) when no NaN
         assert np.all(result[..., 3] == 255)
 
     def test_rgba_alpha_channel_with_nan(
-        self, process_image_with_nan: ProcessImage
+        self, process_image_with_nan: ImageContainer
     ) -> None:
         # Act
         result = process_image_with_nan.rgba
@@ -219,7 +211,7 @@ class TestProcessImage:
 )
 class TestFileExport:
     def test_export_x3p_returns_failure_when_write_fails(
-        self, exporter: str, filename: str, image_replica: ProcessImage
+        self, exporter: str, filename: str, image_replica: ImageContainer
     ):
         """Test that save returns IOFailure when write operation fails."""
         # Arrange
@@ -230,7 +222,11 @@ class TestFileExport:
             _ = export(output_path=Path(f"nonexistent_dir/{filename}"))
 
     def test_export_x3p_returns_success_on_valid_input(
-        self, exporter: str, filename: str, image_replica: ProcessImage, tmp_path: Path
+        self,
+        exporter: str,
+        filename: str,
+        image_replica: ImageContainer,
+        tmp_path: Path,
     ):
         """Test that save_to_x3p returns IOSuccess(None) when save succeeds."""
         # Arrange

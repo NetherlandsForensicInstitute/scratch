@@ -14,7 +14,7 @@ import numpy as np
 from loguru import logger
 
 from container_models.base import BinaryMask, Coordinate, FloatArray1D, FloatArray2D
-from container_models.image import ImageContainer, MaskImage
+from container_models.image import ImageContainer
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.leveling.solver.design import build_design_matrix
 from conversion.leveling.solver.transforms import normalize_coordinates
@@ -86,7 +86,7 @@ class LevelMap(ImageMutation):
     Image mutation that performs surface leveling by fitting and subtracting
     a polynomial surface from a scan image.
 
-    The valid pixels of the input `ScanImage` are interpreted as a 3D point
+    The valid pixels of the input `ImageContainer` are interpreted as a 3D point
     cloud (X, Y, Z). A polynomial surface, defined by `SurfaceTerms`, is fitted
     to this data using a least-squares approach.
     The fitted surface is then subtracted from the original height data.
@@ -142,14 +142,12 @@ class LevelMap(ImageMutation):
 
     @staticmethod
     def _generate_point_cloud(
-        image: MaskImage,
-        reference: Coordinate,
+        image: ImageContainer, reference: Coordinate
     ) -> PointCloud:
         """
-        Generate a 3D point cloud from a scan image with coordinates centered at a reference point.
-        :param scan_image: The scan image containing the height data and mask.
-        :param x_reference_point: x in physical coordinates to use as the origin.
-        :param y_reference_point: y in physical coordinates to use as the origin.
+        Generate a 3D point cloud from an image with coordinates centered at a reference point.
+        :param image: The image containing the height data and valid mask.
+        :param reference: Physical coordinate to use as the origin.
         :returns: PointCloud containing the valid X, Y, and Z coordinates.
         """
         x_grid, y_grid = get_2d_grid(image, offset=reference)
@@ -159,12 +157,12 @@ class LevelMap(ImageMutation):
             zs=image.valid_data,
         )
 
-    def apply_on_image(self, image: MaskImage) -> MaskImage:
+    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """
         Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
         This computation effectively acts as a high-pass filter on the image data.
-        :param scan_image: The scan image containing the image data to level.
-        :returns: scan_image with the array containing the leveled scan data (original data minus fitted surface).
+        :param image: The image containing the depth data to level.
+        :returns: Image with leveled data (original data minus fitted surface).
         """
         point_cloud = self._generate_point_cloud(image, self.reference)
         fitted_surface = self._evaluate_fitted_surface(

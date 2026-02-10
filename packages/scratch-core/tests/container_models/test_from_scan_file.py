@@ -6,7 +6,7 @@ import pytest
 from scipy.constants import micro
 from surfalize import Surface
 from unittest.mock import patch
-from container_models.image import ProcessImage
+from container_models.image import ImageContainer
 
 
 @pytest.fixture(scope="class")
@@ -26,14 +26,14 @@ class TestLoadImageContainer:
     @pytest.fixture(autouse=True)
     def clear_cache(self):
         """Clear the load_scan_image cache before each test."""
-        ProcessImage.from_scan_file.cache_clear()
+        ImageContainer.from_scan_file.cache_clear()
         yield
 
     def test_load_scan_data_matches_size(self, filepath: Path) -> None:
         # Arrange
         surface = Surface.load(filepath)
         # Act
-        scan_image = ProcessImage.from_scan_file(filepath)
+        scan_image = ImageContainer.from_scan_file(filepath)
 
         # Assert
         assert scan_image.data.shape == (
@@ -57,7 +57,7 @@ class TestLoadImageContainerCaching:
 
     @pytest.fixture(autouse=True)
     def empty_cache_for_test(self):
-        ProcessImage.from_scan_file.cache_clear()
+        ImageContainer.from_scan_file.cache_clear()
         yield
 
     def test_load_scan_image_is_cached(self, tmp_path: Path) -> None:
@@ -67,8 +67,8 @@ class TestLoadImageContainerCaching:
             "container_models.image.Surface.load", return_value=self.FakeSurfaceOne()
         ) as mock_load:
             # Act
-            image_1 = ProcessImage.from_scan_file(scan_file)
-            image_2 = ProcessImage.from_scan_file(scan_file)
+            image_1 = ImageContainer.from_scan_file(scan_file)
+            image_2 = ImageContainer.from_scan_file(scan_file)
 
         # Assert
         assert image_1 is image_2, "same object expected due to caching"
@@ -89,12 +89,12 @@ class TestLoadImageContainerCaching:
             ],
         ):
             # Act
-            ProcessImage.from_scan_file(scan_file_1)
-            ProcessImage.from_scan_file(scan_file_1)
-            ProcessImage.from_scan_file(scan_file_2)
+            ImageContainer.from_scan_file(scan_file_1)
+            ImageContainer.from_scan_file(scan_file_1)
+            ImageContainer.from_scan_file(scan_file_2)
 
         # Assert
-        info = ProcessImage.from_scan_file.cache_info()
+        info = ImageContainer.from_scan_file.cache_info()
         assert info.hits == 1, "one cache hit expected"
         assert info.misses == 2, "two different files loaded"
         assert info.currsize == 1, "Cache should only hold one item"

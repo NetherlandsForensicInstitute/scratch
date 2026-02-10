@@ -3,32 +3,32 @@ import re
 import numpy as np
 import pytest
 
-from container_models.scan_image import ScanImage
+from container_models.image import MetaData, ImageContainer
 from exceptions import ImageShapeMismatchError
 from mutations.filter import Mask
 
 
 class TestMask2dArray:
     @pytest.fixture
-    def scan_image(
-        self,
-    ):
-        return ScanImage(
-            data=np.array([[1, 2], [3, 4]], dtype=float), scale_x=1.0, scale_y=1.0
+    def scan_image(self, flat_scale: MetaData) -> ImageContainer:
+        return ImageContainer(
+            data=np.array([[1, 2], [3, 4]], dtype=float), metadata=flat_scale
         )
 
-    def test_mask_sets_background_pixels_to_nan(self, scan_image: ScanImage) -> None:
+    def test_mask_sets_background_pixels_to_nan(
+        self, scan_image: ImageContainer
+    ) -> None:
         # Arrange
         mask = np.array([[1, 0], [0, 1]], dtype=bool)
         masking_mutator = Mask(mask=mask)
         # Act
-        result = masking_mutator.apply_on_image(scan_image=scan_image)
+        result = masking_mutator.apply_on_image(image=scan_image)
         # Assert
         assert np.array_equal(
             result.data, np.array([[1, np.nan], [np.nan, 4]]), equal_nan=True
         )
 
-    def test_raises_on_shape_mismatch(self, scan_image: ScanImage) -> None:
+    def test_raises_on_shape_mismatch(self, scan_image: ImageContainer) -> None:
         # Arrange
         mask = np.array([[1, 0, 0], [0, 1, 0]], dtype=bool)
         masking_mutator = Mask(mask=mask)
@@ -39,25 +39,25 @@ class TestMask2dArray:
                 f"Mask shape: {mask.shape} does not match image shape: {scan_image.data.shape}"
             ),
         ):
-            masking_mutator.apply_on_image(scan_image=scan_image)
+            masking_mutator.apply_on_image(image=scan_image)
 
-    def test_full_mask_preserves_all_values(self, scan_image: ScanImage) -> None:
+    def test_full_mask_preserves_all_values(self, scan_image: ImageContainer) -> None:
         # Arrange
         mask = np.ones((2, 2), dtype=bool)
         masking_mutator = Mask(mask=mask)
         # Act
-        result = masking_mutator.apply_on_image(scan_image=scan_image)
+        result = masking_mutator.apply_on_image(image=scan_image)
         # Assert
         assert np.array_equal(result.data, scan_image.data, equal_nan=True)
 
     def test_full_mask_skips_calculation(
-        self, scan_image: ScanImage, caplog: pytest.LogCaptureFixture
+        self, scan_image: ImageContainer, caplog: pytest.LogCaptureFixture
     ) -> None:
         # Arrange
         mask = np.ones((2, 2), dtype=bool)
         masking_mutator = Mask(mask=mask)
         # Act
-        result = masking_mutator(scan_image=scan_image).unwrap()
+        result = masking_mutator(scan_image).unwrap()
         # Assert
         assert np.array_equal(result.data, scan_image.data, equal_nan=True)
         assert (
@@ -66,12 +66,12 @@ class TestMask2dArray:
         )
 
     def test_empty_mask_sets_all_to_nan(
-        self, scan_image: ScanImage, caplog: pytest.LogCaptureFixture
+        self, scan_image: ImageContainer, caplog: pytest.LogCaptureFixture
     ) -> None:
         # Arrange
         mask = np.zeros((2, 2), dtype=bool)
         masking_mutator = Mask(mask=mask)
-        result = masking_mutator(scan_image=scan_image).unwrap()
+        result = masking_mutator(scan_image).unwrap()
 
         assert np.all(np.isnan(result.data))
         assert "Applying mask to scan_image" in caplog.messages

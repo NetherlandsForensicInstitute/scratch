@@ -1,44 +1,36 @@
 """Image container architecture.
 
-This module defines the data containers used to represent images at
-different stages of the processing pipeline.
+This module defines the data container used to represent images throughout
+the processing pipeline.
 
 Architecture
 ------------
 ::
 
-    +------------------------------------+
-    |           ImageContainer           |
-    |------------------------------------|
-    | data   : FloatArray2D              |
-    | height : int (rows)                |
-    | width  : int (columns)             |
-    +------------------+-----------------+
-                       ^
-                       |
-            -----------------------
-            |                     |
-  +--------------------+   +-------------------+
-  |    ProcessImage    |   |     MaskImage     |
-  |--------------------|   |-------------------|
-  | data : DepthData   |   | data : BinaryMask |
-  | metadata: MetaData |   +-------------------+
-  +--------------------+
+    +--------------------------------------+
+    |           ImageContainer             |
+    |--------------------------------------|
+    | data     : DepthData                 |
+    | metadata : MetaData                  |
+    | height   : int (rows)                |
+    | width    : int (columns)             |
+    +--------------------------------------+
+    | from_scan_file(path) -> cls          |
+    | valid_mask -> BinaryMask             |
+    | valid_data -> BoolArray1D            |
+    | center -> Coordinate                 |
+    | rgba -> ImageRGBA                    |
+    | export_png(path) -> Path             |
+    | export_x3p(path) -> Path             |
+    +--------------------------------------+
 
-- :class:`ImageContainer` is the base abstraction for all image-like data.
-- All containers store their data as a 2D NumPy array.
-- Containers are compared by data equality (NaN-aware).
-
-.. seealso::
-
-    :class:`ProcessImage`
-        Depth maps with scale metadata.
-    :class:`MaskImage`
-        Binary masks for filtering or selection.
+- :class:`ImageContainer` is the single container for all image data.
+- Stores depth data as a 2D float64 NumPy array with scale metadata.
+- Compared by data equality (NaN-aware).
 
 .. note::
 
-    Mutations and computations should operate on these containers
+    Mutations and computations should operate on :class:`ImageContainer`
     rather than on raw NumPy arrays where possible.
 """
 
@@ -56,7 +48,6 @@ from PIL.Image import fromarray
 from surfalize import Surface
 
 from container_models.base import (
-    BaseType,
     BinaryMask,
     BoolArray1D,
     Coordinate,
@@ -85,8 +76,8 @@ class MetaData(BaseModel):
     )
 
 
-class ImageContainer[T: BaseType](BaseModel):
-    data: T
+class ImageContainer(BaseModel):
+    data: DepthData
     metadata: MetaData
 
     model_config = ConfigDict(
@@ -94,6 +85,7 @@ class ImageContainer[T: BaseType](BaseModel):
         validate_assignment=True,
         extra="forbid",
         regex_engine="rust-regex",
+        revalidate_instances="always",
     )
 
     @property
@@ -117,10 +109,6 @@ class ImageContainer[T: BaseType](BaseModel):
             return NotImplemented
         return np.array_equal(self.data, other.data, equal_nan=True)
 
-
-class MaskImage(ImageContainer[BinaryMask]):
-    """Binary mask image container."""
-
     @property
     def valid_mask(self) -> BinaryMask:
         """Mask of the valid pixels in the data."""
@@ -131,29 +119,17 @@ class MaskImage(ImageContainer[BinaryMask]):
     @property
     def valid_data(self) -> BoolArray1D:
         """Valid pixels in the data."""
-        valid_data = self.data[self.valid_mask]
+        valid_data = self.data[self.valid_mask].astype(np.bool_)
         valid_data.setflags(write=False)
         return valid_data
 
-
-class ProcessImage(ImageContainer[DepthData]):
-    metadata: MetaData
-
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        validate_assignment=True,
-        extra="forbid",
-        regex_engine="rust-regex",
-        revalidate_instances="always",
-    )
-
     @classmethod
     @lru_cache(maxsize=1)
-    def from_scan_file(cls, scan_file: Path) -> ProcessImage:
+    def from_scan_file(cls, scan_file: Path) -> ImageContainer:
         """
         Load a scan image from a file. Parsed values will be converted to meters (m).
         :param scan_file: The path to the file containing the scanned image data.
-        :returns: An instance of `ProcessImage`.
+        :returns: An instance of `ImageContainer`.
         """
         FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
         surface = Surface.load(scan_file)
@@ -171,12 +147,6 @@ class ProcessImage(ImageContainer[DepthData]):
         rgba = np.repeat(gray_uint8[..., np.newaxis], 4, axis=-1)
         rgba[..., 3] = (~np.isnan(self.data)).astype(np.uint8) * 255
         return rgba
-
-    @property
-    def center(self) -> Coordinate:
-        return self.metadata.central_diff_scales.map(
-            lambda x, y: (x - 1) * y, other=reversed(self.data.shape)
-        )
 
     def export_png(self, output_path: Path) -> Path:
         """

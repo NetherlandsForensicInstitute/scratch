@@ -13,7 +13,7 @@ from typing import Iterable, override
 from returns.result import safe
 
 from container_models.base import UnitVector
-from container_models.image import ImageContainer, ProcessImage
+from container_models.image import ImageContainer
 from mutations.base import ImageMutation
 from renders.normalizations import (
     normalize_2d_array,
@@ -37,11 +37,11 @@ class LightIntensityMap(ImageMutation):
         "Successfully applied lights",
     )
     @safe
-    def __call__(self, image: ProcessImage) -> ProcessImage:
+    def __call__(self, image: ImageContainer) -> ImageContainer:
         return self.apply_on_image(image)
 
     @override
-    def apply_on_image(self, image: ProcessImage) -> ProcessImage:
+    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """
         Combine multiple directional light sources into a single intensity map.
         """

@@ -7,7 +7,7 @@ import numpy as np
 from returns.pipeline import is_successful
 from scipy.constants import milli
 from container_models.base import Pair
-from container_models.image import ImageContainer, MetaData, ProcessImage
+from container_models.image import MetaData, ImageContainer
 from mutations.sampling import IsotropicResample, Subsample
 from ..helper_function import unwrap_result
 
@@ -15,7 +15,7 @@ from ..helper_function import unwrap_result
 class TestSubsampleMutation:
     # TODO: find a better test methology
     def test_subsample_matches_baseline_output(
-        self, baseline_images_dir: Path, image_replica: ProcessImage
+        self, baseline_images_dir: Path, image_replica: ImageContainer
     ) -> None:
         # arrange
         verified = np.load(baseline_images_dir / "replica_subsampled.npy")
@@ -32,7 +32,7 @@ class TestSubsampleMutation:
         [(1, 1), (10, 10), (25, 25), (25, 50)],
     )
     def test_subsample_matches_size(
-        self, process_image: ProcessImage, step_size_x: int, step_size_y: int
+        self, process_image: ImageContainer, step_size_x: int, step_size_y: int
     ):
         # Arrange
         expected_height = ceil(process_image.height / step_size_y)
@@ -56,7 +56,7 @@ class TestSubsampleMutation:
         ],
     )
     def test_subsample_updates_scan_image_scales(
-        self, process_image: ProcessImage, step_x: int, step_y: int
+        self, process_image: ImageContainer, step_x: int, step_y: int
     ) -> None:
         # Arrange
         subsample_scan_image = Subsample(step_x, step_y)
@@ -82,7 +82,7 @@ class TestSubsampleMutation:
         [(-2, 2), (0, 0), (0, 3), (2, -1), (-1, -1), (1e3, 1e4)],
     )
     def test_subsample_rejects_incorrect_sizes(
-        self, process_image: ProcessImage, step_size_x: int, step_size_y: int
+        self, process_image: ImageContainer, step_size_x: int, step_size_y: int
     ):
         # Arrange
         subsample_scan_image = Subsample(step_size_x, step_size_y)
@@ -93,7 +93,7 @@ class TestSubsampleMutation:
         assert not is_successful(result)
 
     def test_subsample_skips_when_given_step_size_of_one(
-        self, process_image: ProcessImage, caplog: pytest.LogCaptureFixture
+        self, process_image: ImageContainer, caplog: pytest.LogCaptureFixture
     ) -> None:
         """
         Test when given the subsample the stepsize of one in both directions,

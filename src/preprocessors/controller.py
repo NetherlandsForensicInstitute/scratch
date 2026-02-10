@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from container_models.base import UnitVector
-from container_models.image import ProcessImage
+from container_models.image import ImageContainer
 from loguru import logger
 from mutations.shading import ImageForDisplay, LightIntensityMap
 from returns.pipeline import pipe
@@ -23,7 +23,7 @@ from extractors.schemas import ProcessedDataAccess
 from pipelines import run_pipeline
 
 
-def _run_preview(image: ProcessImage, output_path: Path) -> None:
+def _run_preview(image: ImageContainer, output_path: Path) -> None:
     run_pipeline(
         pipe(ImageForDisplay(std_scaler=2.0)),
         image,
@@ -37,7 +37,7 @@ def process_scan_controller(
     """Process a scan file to generate a surface map and preview image, saving them to the specified output path."""
     files = ProcessedDataAccess.get_files(output_path)
 
-    image = ProcessImage.from_scan_file(scan_file)
+    image = ImageContainer.from_scan_file(scan_file)
     image.export_x3p(files["scan"])
 
     run_pipeline(
@@ -50,7 +50,7 @@ def process_scan_controller(
 
 def process_prepare_mark(scan_file: Path, files: dict[str, Path]) -> dict[str, Path]:
     """Prepare striation mark data."""
-    parsed_scan = ProcessImage.from_scan_file(scan_file)
+    parsed_scan = ImageContainer.from_scan_file(scan_file)
     # rotate and crop function()
     # resample()
     logger.info("Preparing mark")

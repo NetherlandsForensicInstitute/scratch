@@ -14,7 +14,7 @@ from typing import override
 from loguru import logger
 from returns.result import safe
 from container_models.base import DepthData, Pair
-from container_models.image import ImageContainer, ProcessImage
+from container_models.image import ImageContainer
 from mutations.base import ImageMutation
 from utils.logger import log_railway_function
 from numpy import float64, asarray
@@ -27,11 +27,11 @@ class _IsotropicResample(ImageMutation):
         "Successfully upsampled image file to isotropic resolution",
     )
     @safe
-    def __call__(self, image: ProcessImage) -> ImageContainer:
+    def __call__(self, image: ImageContainer) -> ImageContainer:
         return image if image.metadata.is_isotropic else self.apply_on_image(image)
 
     @override
-    def apply_on_image(self, image: ProcessImage) -> ImageContainer:
+    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """
         Resample a scan image to isotropic resolution (i.e. equal pixel spacing in X and Y).
 
@@ -49,7 +49,7 @@ class _IsotropicResample(ImageMutation):
         return image
 
     def _upsample_image(self, data: DepthData, shape: tuple[int, int]) -> DepthData:
-        """Upsample image data in a `ScanImage` instance to a common target scale."""
+        """Upsample image data to a common target scale using nearest-neighbor interpolation."""
 
         return asarray(
             resize(
@@ -81,7 +81,7 @@ class Subsample(ImageMutation):
         "Successfully subsampled scan file",
     )
     @safe
-    def __call__(self, image: ProcessImage) -> ProcessImage:
+    def __call__(self, image: ImageContainer) -> ImageContainer:
         if self.skip_predicate:
             logger.info("No subsampling needed, returning original scan image")
             return image
@@ -94,7 +94,7 @@ class Subsample(ImageMutation):
         return self.apply_on_image(image)
 
     @override
-    def apply_on_image(self, image: ProcessImage) -> ProcessImage:
+    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """Subsample image by skipping steps in each dimension."""
         image.data = image.data[:: self.step_size_y, :: self.step_size_x].copy()
         image.metadata.scale = image.metadata.scale * Pair(

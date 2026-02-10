@@ -8,8 +8,7 @@ from loguru import logger
 from scipy.constants import micro
 
 from container_models.base import DepthData, BinaryMask, Pair, UnitVector
-from container_models import ImageContainer
-from container_models.image import MetaData, ProcessImage
+from container_models.image import MetaData, ImageContainer
 from .helper_function import spherical_to_unit_vector
 
 TEST_ROOT = Path(__file__).parent
@@ -50,28 +49,28 @@ def scan_image_array(baseline_images_dir: Path) -> DepthData:
 
 
 @pytest.fixture
-def process_image(scan_image_array: DepthData) -> ProcessImage:
+def process_image(scan_image_array: DepthData) -> ImageContainer:
     """Build a `ImageContainer` object`."""
-    return ProcessImage(
+    return ImageContainer(
         data=scan_image_array,
         metadata=MetaData(scale=Pair(4 * micro, 4 * micro)),
     )
 
 
 @pytest.fixture(scope="session")
-def _image_replica(scans_dir: Path) -> ProcessImage:
+def _image_replica(scans_dir: Path) -> ImageContainer:
     """Build a `ImageContainer` object`."""
-    return ProcessImage.from_scan_file(scans_dir / "Klein_non_replica_mode.al3d")
+    return ImageContainer.from_scan_file(scans_dir / "Klein_non_replica_mode.al3d")
 
 
 @pytest.fixture
-def image_replica(_image_replica: ProcessImage) -> ProcessImage:
+def image_replica(_image_replica: ImageContainer) -> ImageContainer:
     """Build a `ImageContainer` object`."""
     return _image_replica.model_copy(deep=True)
 
 
 @pytest.fixture
-def image_with_nans(image_replica: ProcessImage) -> ProcessImage:
+def image_with_nans(image_replica: ImageContainer) -> ImageContainer:
     # add random NaN values
     rng = np.random.default_rng(42)
     image_replica.data[rng.random(size=image_replica.data.shape) < 0.1] = np.nan
@@ -80,7 +79,7 @@ def image_with_nans(image_replica: ProcessImage) -> ProcessImage:
 
 @pytest.fixture
 def image_rectangular_with_nans(
-    image_with_nans: ProcessImage,
+    image_with_nans: ImageContainer,
 ) -> ImageContainer:
     """Build a `ImageContainer` object` with non-square image data."""
     scale = image_with_nans.metadata.scale

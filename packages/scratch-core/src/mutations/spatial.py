@@ -28,7 +28,7 @@ from skimage.transform import resize
 
 from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask, DepthData, Factor, Pair
-from container_models.image import ImageContainer, MetaData, ProcessImage
+from container_models.image import ImageContainer, MetaData
 from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
 
@@ -75,7 +75,7 @@ class Resample(ImageMutation):
         self.factors = factors
 
     @override
-    def apply_on_image(self, image: ProcessImage) -> ProcessImage:
+    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """
         Resample the ImageContainer object using the specified resampling factors.
 
@@ -92,7 +92,7 @@ class Resample(ImageMutation):
         logger.debug(
             f"Resampling image array to new size: {round(output_shape[0], 1)}/{round(output_shape[1], 1)}"
         )
-        return ProcessImage(
+        return ImageContainer(
             data=cast(DepthData, resampled_data).astype(image.data.dtype),
             metadata=MetaData(scale=image.metadata.scale * self.factors),
         )

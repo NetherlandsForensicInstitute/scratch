@@ -5,7 +5,7 @@ import pytest
 from returns.result import Failure
 from x3p import X3Pfile
 
-from container_models.image import ProcessImage
+from container_models.image import ImageContainer
 from parsers.x3p import parse_to_x3p
 
 
@@ -28,7 +28,7 @@ def is_good_fail_logs(message: str, log: str) -> bool:
 )
 class TestParseToX3PFailure:
     def test_parse_to_x3p_returns_failure(
-        self, function: str, process_image: ProcessImage
+        self, function: str, process_image: ImageContainer
     ):
         """Test that parse_to_x3p returns Failure when sub-functions fails."""
         with patch(f"parsers.x3p.{function}") as mocker:
@@ -41,7 +41,7 @@ class TestParseToX3PFailure:
     def test_parse_to_x3p_logs_on_failure(
         self,
         function: str,
-        process_image: ProcessImage,
+        process_image: ImageContainer,
         caplog: pytest.LogCaptureFixture,
     ):
         """Test that parse_to_x3p logs when sub-functions fails."""
@@ -57,7 +57,7 @@ class TestParseToX3PFailure:
 
 class TestParseToX3PSuccess:
     def test_parse_to_x3p_on_success(
-        self, caplog: pytest.LogCaptureFixture, process_image: ProcessImage
+        self, caplog: pytest.LogCaptureFixture, process_image: ImageContainer
     ):
         """Test that parse_to_x3p logs INFO on successful parsing."""
         with caplog.at_level("INFO"):
@@ -67,7 +67,7 @@ class TestParseToX3PSuccess:
         assert isinstance(result.unwrap(), X3Pfile)
 
     def test_parse_to_x3p_logs_on_success(
-        self, caplog: pytest.LogCaptureFixture, process_image: ProcessImage
+        self, caplog: pytest.LogCaptureFixture, process_image: ImageContainer
     ):
         """Test that parse_to_x3p logs INFO on successful parsing."""
         with caplog.at_level("INFO"):

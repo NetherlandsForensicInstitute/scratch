@@ -2,8 +2,7 @@
 
 This module defines how image modifications are structured and applied.
 
-- :class:`~container_models.image.ImageContainer` is the base class with height/width.
-- :class:`~container_models.image.ProcessImage` extends it with scale metadata.
+- :class:`~container_models.image.ImageContainer` holds depth data with scale metadata.
 - :class:`ImageMutation` is an abstract interface for modifying an ImageContainer.
 - Concrete mutations live in the ``mutations`` folder, each in its own file.
 
@@ -14,9 +13,8 @@ Architecture
                     +------------------------------------+
                     |           ImageContainer           |
                     |------------------------------------|
-                    | data   : FloatArray2D              |
-                    | height : int                       |
-                    | width  : int                       |
+                    | data     : DepthData               |
+                    | metadata : MetaData                |
                     +------------------+-----------------+
                                        |
                                        v
@@ -53,7 +51,7 @@ from returns.result import safe
 
 class ImageMutation[T: ImageContainer](ABC):
     """
-    Represents a single mutation applied to a `ImageContainer`.
+    Represents a single mutation applied to an :class:`~container_models.image.ImageContainer`.
 
     After one `ImageMutation`, the resulting `ImageContainer` must be valid
     input for another mutation. This enables safe chaining in pipelines.

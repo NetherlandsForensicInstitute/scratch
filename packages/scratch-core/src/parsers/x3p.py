@@ -1,12 +1,12 @@
 """X3P file format support.
 
-This module provides utilities for converting ProcessImage containers
+This module provides utilities for converting an :class:`~container_models.image.ImageContainer`
 to ISO 25178-72 X3P format for surface texture data exchange.
 
 .. seealso::
 
     :func:`parse_to_x3p`
-        Convert a ProcessImage to an X3P file object.
+        Convert an ImageContainer to an X3P file object.
 """
 
 from __future__ import annotations
@@ -92,7 +92,7 @@ def _set_record3_entries(x3p: X3Pfile, image: ImageContainer) -> X3Pfile:
 )
 @safe
 def parse_to_x3p(image: ImageContainer) -> X3Pfile:
-    """Convert ImageContainer to X3Pfile using a functional approach."""
+    """Convert an ImageContainer to X3Pfile using a functional approach."""
     return pipe(
         partial(_set_record1_entries, image=image),
         partial(_set_record2_entries, metadata=X3PMetaData()),
