@@ -57,8 +57,9 @@ def apply_changes_on_scan_image(scan_image: ScanImage, edit_image_params: EditIm
             regression_order=edit_image_params.regression_order, cutoff_length=edit_image_params.cutoff_length
         ),
     ]
-    logger.debug(f"mutations to be applied on the scan image:{[item.__name__ for item in pipeline]}")
+    logger.debug(f"mutations to be applied on the scan image:{[item.__class__.__name__ for item in pipeline]}")
     for mutation in pipeline:
-        logger.debug(f"Mutating the image with: {mutation.__name__}")
+        logger.debug(f"Mutating the image with: {mutation.__class__.__name__}")
         scan_image = mutation(scan_image).unwrap()
+        logger.debug(f"new scan image data is : {scan_image.data}")
     return scan_image
