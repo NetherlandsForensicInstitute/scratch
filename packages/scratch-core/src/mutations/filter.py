@@ -3,14 +3,16 @@ from typing import NamedTuple
 import numpy as np
 from loguru import logger
 
-from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
+from container_models.base import FloatArray1D, FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
+from conversion.filter import apply_gaussian_regression_filter
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.leveling.solver.design import build_design_matrix
 from conversion.leveling.solver.grid import get_2d_grid
 from conversion.leveling.solver.transforms import normalize_coordinates
 from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
+from utils.constants import RegressionOrder
 
 
 class PointCloud(NamedTuple):
@@ -174,4 +176,47 @@ class LevelMap(ImageMutation):
         leveled_map_2d[scan_image.valid_mask] = point_cloud.zs - fitted_surface
 
         scan_image.data = leveled_map_2d
+        return scan_image
+
+
+class GausianRegressionFilter(ImageMutation):  # pragma: no cover
+    NAN_OUT = True
+    IS_HIGHT_PASS = False
+
+    def __init__(self, cutoff_length: float, regression_order: RegressionOrder) -> None:
+        self.cutoff_length = cutoff_length
+        self.regression_order = regression_order
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        """
+        Apply a 2D Savitzky-Golay filter with Gaussian weighting via local polynomial regression (ISO 16610-21).
+        This implementation generalizes standard Gaussian filtering to handle missing data (NaNs) using local
+        regression techniques. It supports 0th order (Gaussian Kernel weighted average), 1st order (planar fit),
+        and 2nd order (quadratic fit) regression.
+        Explanation of Regression Orders:
+        - **Order 0**: Equivalent to the Nadaraya-Watson estimator. It calculates a weighted average where weights
+            are determined by the Gaussian kernel and the validity (non-NaN status) of neighboring pixels.
+        - **Order 1 & 2**: Local Weighted Least Squares (LOESS). It fits a polynomial surface (plane or quadratic) to
+            the local neighborhood weighted by the Gaussian kernel. This acts as a robust 2D Savitzky-Golay filter.
+        Mathematical basis:
+        - Approximate a signal s(x, y) from noisy data f(x, y) = s(x, y) + e(x, y) using weighted local regression.
+        - The approximation b(x, y) is calculated as the fitted value at point (x, y) using a weighted least squares
+            approach. Weights are non-zero within the neighborhood [x - rx, x + rx] and [y - ry, y + ry], following a
+            Gaussian distribution with standard deviations proportional to rx and ry.
+        - Optimization:
+            For **Order 0**, the operation is mathematically equivalent to a normalized convolution. This implementation
+            uses FFT-based convolution for performance gains compared to pixel-wise regression.
+        :param scan_image: Gausian filter is applied on this scan_image data.
+        :returns: ScanImage with the filtered 2D array.
+        """
+
+        pixel_size = (scan_image.scale_y, scan_image.scale_x)
+        scan_image.data = apply_gaussian_regression_filter(
+            data=scan_image.data,
+            cutoff_length=self.cutoff_length,
+            pixel_size=pixel_size,
+            regression_order=self.regression_order.value,
+            nan_out=self.NAN_OUT,
+            is_high_pass=self.IS_HIGHT_PASS,
+        )
         return scan_image
