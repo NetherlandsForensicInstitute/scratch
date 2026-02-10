@@ -206,7 +206,8 @@ class GausianRegressionFilter(ImageMutation):
         :param scan_image: Gausian filter is applied on this scan_image data.
         :returns: ScanImage with the filtered 2D array.
         """
-        pixel_size = (1.0, 1.0)
+
+        pixel_size = (scan_image.scale_y, scan_image.scale_x)
         nan_out = True
         is_high_pass = False
         scan_image.data = apply_gaussian_regression_filter(
