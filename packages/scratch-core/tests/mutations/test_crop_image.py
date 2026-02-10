@@ -1,5 +1,5 @@
 import re
-from container_models.scan_image import ScanImage
+from container_models.image import ImageContainer, MetaData
 from exceptions import ImageShapeMismatchError
 from mutations.spatial import CropToMask
 import pytest
@@ -8,18 +8,22 @@ import numpy as np
 
 class TestCropImage:
     @pytest.fixture
-    def scan_image(self) -> ScanImage:
-        data = np.arange(16, dtype=np.float32).reshape((4, 4))
-        return ScanImage(data=data, scale_x=1, scale_y=1)
+    def scan_image(self, flat_scale: MetaData) -> ImageContainer:
+        return ImageContainer(
+            data=np.arange(16, dtype=np.float64).reshape((4, 4)), metadata=flat_scale
+        )
 
-    def test_crop_applies_bounding_box(self, scan_image: ScanImage):
+    def test_crop_applies_bounding_box(self, scan_image: ImageContainer):
         # Arrange
-        mask = np.ones(scan_image.data.shape, dtype=bool)
-        mask[0, :] = mask[-1, :] = mask[:, 0] = mask[:, -1] = 0
-        # [0,0,0,0]
-        # [0,1,1,0]
-        # [0,1,1,0]
-        # [0,0,0,0]
+        mask = np.array(
+            [
+                [0, 0, 0, 0],
+                [0, 1, 1, 0],
+                [0, 1, 1, 0],
+                [0, 0, 0, 0],
+            ],
+            dtype=bool,
+        )
         crop = CropToMask(mask=mask)
         # Act
         result = crop(scan_image).unwrap()
@@ -28,14 +32,11 @@ class TestCropImage:
         removed_border = np.array([[5, 6], [9, 10]], dtype=scan_image.data.dtype)
         assert result.data.shape == (2, 2)
         np.testing.assert_array_equal(result.data, removed_border)
-        assert result.scale_x == scan_image.scale_x, (
-            "scale should be the same (unchanged)"
-        )
-        assert result.scale_y == scan_image.scale_y, (
+        assert result.metadata.scale == scan_image.metadata.scale, (
             "scale should be the same (unchanged)"
         )
 
-    def test_crop_skipped_when_predicate_true(self, scan_image: ScanImage):
+    def test_crop_skipped_when_predicate_true(self, scan_image: ImageContainer):
         # Arrange
         crop = CropToMask(mask=(np.ones(scan_image.data.shape, dtype=np.bool)))
         # Act
@@ -44,7 +45,7 @@ class TestCropImage:
         assert result is scan_image
         np.testing.assert_array_equal(result.data, scan_image.data)
 
-    def test_crop_cropped_all(self, scan_image: ScanImage):
+    def test_crop_cropped_all(self, scan_image: ImageContainer):
         # Act / Assert
         with pytest.raises(
             ValueError,
@@ -52,7 +53,7 @@ class TestCropImage:
         ):
             _ = CropToMask(mask=(np.zeros(scan_image.data.shape, dtype=np.bool)))
 
-    def test_image_and_crop_not_equal_in_size(self, scan_image: ScanImage):
+    def test_image_and_crop_not_equal_in_size(self, scan_image: ImageContainer):
         # Arrange
         offset_size = 1
         cropping_mutator = CropToMask(

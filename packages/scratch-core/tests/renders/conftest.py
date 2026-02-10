@@ -2,23 +2,8 @@ import numpy as np
 import pytest
 
 from container_models.base import VectorField
-from container_models.light_source import LightSource
-
 
 TEST_IMAGE_SIZE = 10
-TEST_IMAGE_CENTER = TEST_IMAGE_SIZE // 2
-
-
-@pytest.fixture(scope="module")
-def light_source() -> LightSource:
-    """Single light from 45 degrees azimuth and elevation."""
-    return LightSource(azimuth=45, elevation=45)
-
-
-@pytest.fixture(scope="module")
-def observer() -> LightSource:
-    """Observer looking straight down from +Z direction."""
-    return LightSource(azimuth=0, elevation=90)
 
 
 @pytest.fixture(scope="module")

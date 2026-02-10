@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
 
-from container_models.base import FloatArray2D, DepthData
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray2D, DepthData
+from conversion.container_models import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_impression.preprocess_impression import (
     preprocess_impression_mark,

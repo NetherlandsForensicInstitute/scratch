@@ -9,8 +9,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from container_models.base import FloatArray2D
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray2D
+from conversion.container_models import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_impression.preprocess_impression import (
     preprocess_impression_mark,

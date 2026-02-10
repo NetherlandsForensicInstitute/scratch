@@ -1,9 +1,15 @@
 from pathlib import Path
+from container_models.base import Coordinate, Pair
+from container_models.image import ImageContainer
 from mutations.filter import LevelMap
 import pytest
 import numpy as np
-from container_models.scan_image import ScanImage
 from conversion.leveling.data_types import SurfaceTerms
+
+
+@pytest.fixture
+def mask_image_with_nans(image_with_nans: ImageContainer) -> ImageContainer:
+    return ImageContainer(data=image_with_nans.data, metadata=image_with_nans.metadata)
 
 
 @pytest.mark.integration
@@ -11,12 +17,6 @@ class TestLevelMapIntegration:
     RESOURCES_DIR = (
         Path(__file__).parent.parent / "conversion" / "leveling" / "resources"
     )
-
-    def compute_image_center(self, scan_image: ScanImage) -> tuple[float, float]:
-        """Compute the centerpoint (Y, X) of a scan image in physical coordinate space."""
-        center_x = (scan_image.width - 1) * scan_image.scale_x * 0.5
-        center_y = (scan_image.height - 1) * scan_image.scale_y * 0.5
-        return center_y, center_x
 
     @pytest.mark.parametrize(
         "terms, verified_file_name",
@@ -27,74 +27,65 @@ class TestLevelMapIntegration:
     )
     def test_map_level(
         self,
-        scan_image_with_nans: ScanImage,
+        mask_image_with_nans: ImageContainer,
         verified_file_name: str,
         terms: SurfaceTerms,
     ):
         # Arrange
         verified = np.load(self.RESOURCES_DIR / verified_file_name)
-        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
-        level_map_mutator = LevelMap(
-            x_reference_point=x_center, y_reference_point=y_center, terms=terms
-        )
+        level_map_mutator = LevelMap(reference=mask_image_with_nans.center, terms=terms)
         # Act
-        result = level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(mask_image_with_nans).unwrap()
         # Assert
         assert np.allclose(result.data, verified, equal_nan=True)
 
-    def test_map_level_none(self, scan_image_with_nans: ScanImage):
+    def test_map_level_none(self, mask_image_with_nans: ImageContainer):
         # Arrange
-        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(
-            x_reference_point=x_center,
-            y_reference_point=y_center,
-            terms=SurfaceTerms.NONE,
-        )
-        result = level_map_mutator(scan_image_with_nans).unwrap()
-        assert np.allclose(result.data, scan_image_with_nans.data, equal_nan=True)
-
-    def test_map_level_offset(self, scan_image_with_nans: ScanImage):
-        # Arrange
-        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
-        level_map_mutator = LevelMap(
-            x_reference_point=x_center,
-            y_reference_point=y_center,
-            terms=SurfaceTerms.OFFSET,
+            reference=mask_image_with_nans.center, terms=SurfaceTerms.NONE
         )
         # Act
-        result = level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(mask_image_with_nans).unwrap()
+        # Assert
+        assert np.allclose(result.data, mask_image_with_nans.data, equal_nan=True)
+
+    def test_map_level_offset(self, mask_image_with_nans: ImageContainer):
+        # Arrange
+        level_map_mutator = LevelMap(
+            reference=mask_image_with_nans.center, terms=SurfaceTerms.OFFSET
+        )
+        # Act
+        result = level_map_mutator(mask_image_with_nans).unwrap()
         # Assert
         assert np.isclose(np.nanmean(result.data), 0.0)
         assert np.allclose(
-            result.data + np.nanmean(scan_image_with_nans.data),
-            scan_image_with_nans.data,
+            result.data + np.nanmean(mask_image_with_nans.data),
+            mask_image_with_nans.data,
             equal_nan=True,
         )
 
     @pytest.mark.parametrize(
         "terms, ref_point",
         [
-            [SurfaceTerms.NONE, (10.5, -5.2)],
-            [SurfaceTerms.PLANE, (10.5, -5.2)],
-            [SurfaceTerms.SPHERE, (10.5, -5.2)],
-            [SurfaceTerms.OFFSET, (10.5, -5.2)],
-            [SurfaceTerms.DEFOCUS, (1234.567, 1234.567)],
-            [SurfaceTerms.ASTIG_45, (1234.567, 1234.567)],
+            [SurfaceTerms.NONE, Pair(10.5, -5.2)],
+            [SurfaceTerms.PLANE, Pair(10.5, -5.2)],
+            [SurfaceTerms.SPHERE, Pair(10.5, -5.2)],
+            [SurfaceTerms.OFFSET, Pair(10.5, -5.2)],
+            [SurfaceTerms.DEFOCUS, Pair(1234.567, 1234.567)],
+            [SurfaceTerms.ASTIG_45, Pair(1234.567, 1234.567)],
         ],
     )
     def test_map_level_reference_point_has_no_effect(
-        self, scan_image_with_nans: ScanImage, terms: SurfaceTerms, ref_point
+        self,
+        mask_image_with_nans: ImageContainer,
+        terms: SurfaceTerms,
+        ref_point: Coordinate,
     ):
         # Arrange
-        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
-        level_map_mutator = LevelMap(
-            x_reference_point=x_center, y_reference_point=y_center, terms=terms
-        )
-        Level_map_ref = LevelMap(
-            x_reference_point=ref_point[0], y_reference_point=ref_point[1], terms=terms
-        )
+        level_map_mutator = LevelMap(reference=mask_image_with_nans.center, terms=terms)
+        Level_map_ref = LevelMap(reference=ref_point, terms=terms)
         # Act
-        result_centered = level_map_mutator(scan_image_with_nans).unwrap()
-        result_ref = Level_map_ref(scan_image_with_nans).unwrap()
+        result_centered = level_map_mutator(mask_image_with_nans).unwrap()
+        result_ref = Level_map_ref(mask_image_with_nans).unwrap()
         # Assert
         assert np.allclose(result_centered.data, result_ref.data, equal_nan=True)

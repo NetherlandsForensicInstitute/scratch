@@ -1,6 +1,6 @@
 import pytest
 
-from container_models.base import FloatArray2D
+from conversion.container_models.base import FloatArray2D
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import CorrelationMetrics
 from .helper_functions import (

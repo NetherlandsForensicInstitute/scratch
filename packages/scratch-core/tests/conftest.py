@@ -5,19 +5,13 @@ import numpy as np
 import pytest
 from PIL import Image
 from loguru import logger
+from scipy.constants import micro
 
-from container_models.base import DepthData, BinaryMask
-from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType, Mark
-from parsers.loaders import load_scan_image
-from .helper_function import unwrap_result
+from container_models.base import DepthData, BinaryMask, Pair, UnitVector
+from container_models.image import MetaData, ImageContainer
+from .helper_function import spherical_to_unit_vector
 
 TEST_ROOT = Path(__file__).parent
-
-
-@pytest.fixture
-def case_dir() -> Path:
-    return TEST_ROOT / "resources" / "preprocess_striation"
 
 
 class PropagateHandler(logging.Handler):
@@ -54,46 +48,50 @@ def scan_image_array(baseline_images_dir: Path) -> DepthData:
     return np.asarray(gray, dtype=np.float64)
 
 
-@pytest.fixture(scope="session")
-def scan_image(scan_image_array: DepthData) -> ScanImage:
-    """Build a `ScanImage` object`."""
-    return ScanImage(data=scan_image_array, scale_x=4e-6, scale_y=4e-6)
-
-
-@pytest.fixture(scope="session")
-def scan_image_replica(scans_dir: Path) -> ScanImage:
-    """Build a `ScanImage` object`."""
-    return unwrap_result(
-        load_scan_image(
-            scans_dir / "Klein_non_replica_mode.al3d",
-        )
+@pytest.fixture
+def process_image(scan_image_array: DepthData) -> ImageContainer:
+    """Build a `ImageContainer` object`."""
+    return ImageContainer(
+        data=scan_image_array,
+        metadata=MetaData(scale=Pair(4 * micro, 4 * micro)),
     )
 
 
-@pytest.fixture()
-def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
+@pytest.fixture(scope="session")
+def _image_replica(scans_dir: Path) -> ImageContainer:
+    """Build a `ImageContainer` object`."""
+    return ImageContainer.from_scan_file(scans_dir / "Klein_non_replica_mode.al3d")
+
+
+@pytest.fixture
+def image_replica(_image_replica: ImageContainer) -> ImageContainer:
+    """Build a `ImageContainer` object`."""
+    return _image_replica.model_copy(deep=True)
+
+
+@pytest.fixture
+def image_with_nans(image_replica: ImageContainer) -> ImageContainer:
     # add random NaN values
     rng = np.random.default_rng(42)
-    scan_image = scan_image_replica.model_copy(deep=True)
-    scan_image.data[rng.random(size=scan_image.data.shape) < 0.1] = np.nan
-    return scan_image
+    image_replica.data[rng.random(size=image_replica.data.shape) < 0.1] = np.nan
+    return image_replica
 
 
-@pytest.fixture()
-def scan_image_rectangular_with_nans(scan_image_with_nans: ScanImage) -> ScanImage:
-    """Build a `ScanImage` object` with non-square image data."""
-    scan_image = ScanImage(
-        data=scan_image_with_nans.data[:, : scan_image_with_nans.data.shape[1] // 2],
-        scale_x=scan_image_with_nans.scale_x * 1.5,
-        scale_y=scan_image_with_nans.scale_y,
-    )
-    return scan_image
+@pytest.fixture
+def image_rectangular_with_nans(
+    image_with_nans: ImageContainer,
+) -> ImageContainer:
+    """Build a `ImageContainer` object` with non-square image data."""
+    scale = image_with_nans.metadata.scale
+    image_with_nans.data = image_with_nans.data[:, : image_with_nans.width // 2]
+    image_with_nans.metadata.scale = Pair(scale.x * 1.5, scale.y)
+    return image_with_nans
 
 
-@pytest.fixture(scope="module")
-def mask_array(scan_image_replica: ScanImage) -> BinaryMask:
+@pytest.fixture
+def mask_array(image_replica: ImageContainer) -> BinaryMask:
     """Build a `MaskArray` object`."""
-    data = np.ones_like(scan_image_replica.data).astype(bool)
+    data = np.ones_like(image_replica.data).astype(bool)
     # Set the borders (edges) to 0
     data[0, :] = 0  # First row
     data[-1, :] = 0  # Last row
@@ -102,9 +100,42 @@ def mask_array(scan_image_replica: ScanImage) -> BinaryMask:
     return data
 
 
-@pytest.fixture(scope="session")
-def mark(scan_image: ScanImage) -> Mark:
-    return Mark(
-        scan_image=scan_image,
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+# Lighting fixtures for shading tests
+TEST_IMAGE_SIZE = 10
+
+
+@pytest.fixture(scope="module")
+def light_source() -> UnitVector:
+    """Single light from 45 degrees azimuth and elevation as UnitVector."""
+    return spherical_to_unit_vector(azimuth=45, elevation=45)
+
+
+@pytest.fixture(scope="module")
+def observer() -> UnitVector:
+    """Observer looking straight down from +Z direction as UnitVector."""
+    return np.array([0.0, 0.0, 1.0], dtype=np.float64)
+
+
+@pytest.fixture
+def flat_scale() -> MetaData:
+    return MetaData(scale=Pair(x=1.0, y=1.0))
+
+
+@pytest.fixture
+def flat_image(flat_scale: MetaData) -> ImageContainer:
+    """ImageContainer with flat (constant) depth data - produces normals pointing +Z."""
+    return ImageContainer(
+        data=np.ones((TEST_IMAGE_SIZE, TEST_IMAGE_SIZE), dtype=np.float64),
+        metadata=flat_scale,
+    )
+
+
+@pytest.fixture
+def bumpy_image(flat_scale: MetaData) -> ImageContainer:
+    """ImageContainer with a bump in the center - produces varied normals."""
+    y, x = np.ogrid[:TEST_IMAGE_SIZE, :TEST_IMAGE_SIZE]
+    center = TEST_IMAGE_SIZE // 2
+    return ImageContainer(
+        data=np.exp(-((x - center) ** 2 + (y - center) ** 2) / 8.0),
+        metadata=flat_scale,
     )

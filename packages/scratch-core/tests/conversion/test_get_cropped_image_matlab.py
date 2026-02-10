@@ -9,8 +9,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from container_models.base import FloatArray2D, BinaryMask
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray2D, BinaryMask
+from conversion.container_models import ScanImage
 from conversion.get_cropped_image import get_cropped_image
 from conversion.leveling import SurfaceTerms
 from .helper_functions import (
