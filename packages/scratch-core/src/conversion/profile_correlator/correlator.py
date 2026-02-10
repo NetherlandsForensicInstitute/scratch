@@ -24,7 +24,7 @@ be at a position far from zero shift for repetitive patterns.
 
 import numpy as np
 
-from container_models.base import FloatArray1D
+from conversion.container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import (
     AlignmentInputs,
     AlignmentParameters,

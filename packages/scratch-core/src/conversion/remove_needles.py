@@ -1,12 +1,11 @@
 import numpy as np
 from scipy.ndimage import generic_filter
 
-from container_models.base import BinaryMask, FloatArray2D
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import BinaryMask, FloatArray2D
+from conversion.container_models import ScanImage
 from conversion.mask import mask_2d_array
 from conversion.resample import resample_scan_image_and_mask
-from conversion.utils import unwrap_result, update_scan_image_data
-from parsers import subsample_scan_image
+from conversion.utils import update_scan_image_data
 
 # Downsample goal in micrometers to make filter computations faster
 TARGET_SCALE = 7e-5
@@ -78,6 +77,32 @@ def get_residual_image(scan_image: ScanImage) -> FloatArray2D:
     return residual_image
 
 
+def subsample_scan_image(
+    scan_image: ScanImage, step_size_x: int, step_size_y: int
+) -> ScanImage:
+    """
+    Subsample the data in a `ScanImage` instance by skipping steps in each dimension.
+    :param scan_image: The instance of `ScanImage` containing the 2D image data to subsample.
+    :param step_size_x: The number of steps to skip in the X-direction.
+    :param step_size_y: The number of steps to skip in the Y-direction.
+    :returns: A subsampled `ScanImage` with updated scales. If both step sizes are 1, the original
+        `ScanImage` instance is returned.
+    """
+    if step_size_x == 1 and step_size_y == 1:
+        return scan_image
+
+    width, height = scan_image.width, scan_image.height
+    if not (0 < step_size_x < width and 0 < step_size_y < height):
+        raise ValueError(
+            f"Step size should be positive and smaller than the image size: {(height, width)}"
+        )
+    return ScanImage(
+        data=scan_image.data[::step_size_y, ::step_size_x].copy(),
+        scale_x=scan_image.scale_x * step_size_x,
+        scale_y=scan_image.scale_y * step_size_y,
+    )
+
+
 def apply_median_filter_to_large_image(
     subsample_factor: int, scan_image: ScanImage
 ) -> ScanImage:
@@ -88,12 +113,10 @@ def apply_median_filter_to_large_image(
     :param scan_image: Scan image to downsample, filter and upsample.
     :return: Filtered scan image.
     """
-    scan_image_subsampled = unwrap_result(
-        subsample_scan_image(
-            scan_image=scan_image,
-            step_size_x=subsample_factor,
-            step_size_y=subsample_factor,
-        )
+    scan_image_subsampled = subsample_scan_image(
+        scan_image=scan_image,
+        step_size_x=subsample_factor,
+        step_size_y=subsample_factor,
     )
 
     scan_image_subsampled_filtered = apply_median_filter(

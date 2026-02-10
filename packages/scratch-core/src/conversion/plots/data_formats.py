@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from container_models.base import ImageRGB
+from conversion.container_models.base import ImageRGB
 
 
 @dataclass

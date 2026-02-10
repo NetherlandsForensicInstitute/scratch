@@ -1,7 +1,9 @@
+from typing import cast
+
 import numpy as np
 
-from container_models.base import FloatArray2D
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray2D
+from conversion.container_models import ScanImage
 
 
 def get_2d_grid(
@@ -24,4 +26,4 @@ def get_2d_grid(
     x_grid = (x_indices * scan_image.scale_x) + offset[0]
     y_grid = (y_indices * scan_image.scale_y) + offset[1]
 
-    return x_grid, y_grid
+    return cast(FloatArray2D, x_grid), cast(FloatArray2D, y_grid)
