@@ -1,6 +1,10 @@
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 from conversion.plots.plot_score_histogram_kde import plot_score_histograms_kde
+from PIL import Image
+from matplotlib.figure import Figure
 
 
 def generate_test_data():
@@ -36,7 +40,22 @@ def generate_test_data():
     return scores, y
 
 
-def test_default_plt_with_new_score():
+def assert_plot_is_valid_image(fig: Figure, tmp_path: Path) -> None:
+    # Create file path inside pytest temp dir
+    img_path = tmp_path / "plot.png"
+
+    # Save figure
+    fig.savefig(img_path, format="png")
+
+    assert img_path.exists()
+    assert img_path.stat().st_size > 0
+
+    # Validate it's a real image
+    img = Image.open(img_path)
+    img.verify()
+
+
+def test_default_plt_with_new_score(tmp_path: Path) -> None:
     """
     Test 1: Using default plt (creates new figure) with new_score.
 
@@ -45,7 +64,6 @@ def test_default_plt_with_new_score():
     - Adding a green vertical line at new_score=5.0
     - Including KDE density curves (show_density=True, default)
     """
-    print("Running Test 1: Default plt with new_score...")
 
     # Generate test data
     scores, y = generate_test_data()
@@ -53,24 +71,17 @@ def test_default_plt_with_new_score():
     # Define a new score to highlight
     new_score = 5.0
 
-    # Create figure and plot using default plt
-    plt.figure(figsize=(10, 6))
-    plot_score_histograms_kde(scores, y, new_score=new_score, bins=50)
-    plt.title("Test 1: Score histograms with KDE (default plt)")
+    # Create figure and plot using default settings
+    fig, ax = plt.subplots()
 
-    # Save figure
-    plt.savefig(
-        "/mnt/user-data/outputs/test_1_default_plt.png", dpi=300, bbox_inches="tight"
-    )
+    # Plot using custom axis
+    plot_score_histograms_kde(scores, y, new_score=new_score, bins=50, ax=ax)
+    plt.title("Test 1: Score histograms with KDE (default plt)")
+    assert_plot_is_valid_image(fig, tmp_path)
     plt.close()
 
-    print(
-        f"✓ Test 1 complete: Plot saved with green vertical line at score={new_score}"
-    )
-    return True
 
-
-def test_custom_axis_with_new_score():
+def test_custom_axis_with_new_score(tmp_path: Path) -> None:
     """
     Test 2: Using custom axis with new_score.
 
@@ -80,7 +91,6 @@ def test_custom_axis_with_new_score():
     - Including KDE density curves
     - Customizing the axis after plotting
     """
-    print("\nRunning Test 2: Custom axis with new_score...")
 
     # Generate test data
     scores, y = generate_test_data()
@@ -97,19 +107,11 @@ def test_custom_axis_with_new_score():
     # Customize the axis after plotting
     ax.set_title("Test 2: Score histograms with KDE (custom axis)")
 
-    # Save figure
-    plt.savefig(
-        "/mnt/user-data/outputs/test_2_custom_axis.png", dpi=300, bbox_inches="tight"
-    )
+    assert_plot_is_valid_image(fig, tmp_path)
     plt.close()
 
-    print(
-        f"✓ Test 2 complete: Plot saved with custom axis and green line at score={new_score}"
-    )
-    return True
 
-
-def test_without_density_curves():
+def test_without_density_curves(tmp_path: Path) -> None:
     """
     Test 3: Without density curves and without new_score.
 
@@ -119,7 +121,6 @@ def test_without_density_curves():
     - No green vertical line (new_score=None)
     - Only showing histograms
     """
-    print("\nRunning Test 3: Without density curves...")
 
     # Generate test data
     scores, y = generate_test_data()
@@ -140,17 +141,11 @@ def test_without_density_curves():
     # Customize the axis
     ax.set_title("Test 3: Score histograms only (no KDE)")
 
-    # Save figure
-    plt.savefig(
-        "/mnt/user-data/outputs/test_3_no_density.png", dpi=300, bbox_inches="tight"
-    )
+    assert_plot_is_valid_image(fig, tmp_path)
     plt.close()
 
-    print("✓ Test 3 complete: Plot saved without KDE curves or vertical line")
-    return True
 
-
-def test_bonus_subplot_integration():
+def test_bonus_subplot_integration(tmp_path: Path) -> None:
     """
     Bonus Test: Multiple plots in subplots.
 
@@ -159,7 +154,6 @@ def test_bonus_subplot_integration():
     - Different configurations in each subplot
     - Integration with matplotlib's subplot system
     """
-    print("\nRunning Bonus Test: Subplot integration...")
 
     # Generate test data
     scores, y = generate_test_data()
@@ -189,53 +183,5 @@ def test_bonus_subplot_integration():
 
     plt.tight_layout()
 
-    # Save figure
-    plt.savefig(
-        "/mnt/user-data/outputs/test_bonus_subplots.png", dpi=300, bbox_inches="tight"
-    )
+    assert_plot_is_valid_image(fig, tmp_path)
     plt.close()
-
-    print("✓ Bonus test complete: 2x2 subplot layout saved")
-    return True
-
-
-def main():
-    """Run all tests."""
-    print("=" * 70)
-    print("PLOT_SCORE_HISTOGRAMS_KDE - TEST SUITE")
-    print("=" * 70)
-
-    # Run tests
-    test1_passed = test_default_plt_with_new_score()
-    test2_passed = test_custom_axis_with_new_score()
-    test3_passed = test_without_density_curves()
-    bonus_passed = test_bonus_subplot_integration()
-
-    # Summary
-    print("\n" + "=" * 70)
-    print("TEST SUMMARY")
-    print("=" * 70)
-    print(f"Test 1 (default plt):       {'PASSED ✓' if test1_passed else 'FAILED ✗'}")
-    print(f"Test 2 (custom axis):       {'PASSED ✓' if test2_passed else 'FAILED ✗'}")
-    print(f"Test 3 (no density):        {'PASSED ✓' if test3_passed else 'FAILED ✗'}")
-    print(f"Bonus Test (subplots):      {'PASSED ✓' if bonus_passed else 'FAILED ✗'}")
-    print("=" * 70)
-
-    all_passed = test1_passed and test2_passed and test3_passed and bonus_passed
-
-    if all_passed:
-        print("\n🎉 All tests passed successfully!")
-        print("\nGenerated files:")
-        print("  - test_1_default_plt.png      (default plt with new_score)")
-        print("  - test_2_custom_axis.png      (custom axis with new_score)")
-        print("  - test_3_no_density.png       (histograms only)")
-        print("  - test_bonus_subplots.png     (2x2 subplot layout)")
-    else:
-        print("\n❌ Some tests failed. Please check the output.")
-
-    return all_passed
-
-
-if __name__ == "__main__":
-    success = main()
-    exit(0 if success else 1)
