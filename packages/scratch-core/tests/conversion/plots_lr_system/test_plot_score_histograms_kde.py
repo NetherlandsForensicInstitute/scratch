@@ -11,11 +11,9 @@ def generate_test_data():
     """Generate example data for testing."""
     np.random.seed(42)
 
-    # KNM data (n=171991) - concentrated near 0
     n_knm = 171991
     knm_scores_data = np.random.gamma(0.5, 0.5, n_knm)
 
-    # KM data (n=1125) - more spread out
     n_km = 1125
     n_km_low = 787  # 70% of 1125
     n_km_high = 338  # 30% of 1125
@@ -27,15 +25,8 @@ def generate_test_data():
         ]
     )
 
-    # Combine into numpy arrays
     scores = np.concatenate([knm_scores_data, km_scores_data])
     y = np.concatenate([np.zeros(n_knm, dtype=int), np.ones(n_km, dtype=int)])
-
-    print(
-        f"  Generated {len(knm_scores_data)} KNM scores and {len(km_scores_data)} KM scores"
-    )
-    print(f"  Total: {len(scores)} scores, {len(y)} labels")
-    assert len(scores) == len(y), "Score and label arrays must have same length!"
 
     return scores, y
 
@@ -65,16 +56,12 @@ def test_default_plt_with_new_score(tmp_path: Path) -> None:
     - Including KDE density curves (show_density=True, default)
     """
 
-    # Generate test data
     scores, y = generate_test_data()
 
-    # Define a new score to highlight
     new_score = 5.0
 
-    # Create figure and plot using default settings
     fig, ax = plt.subplots()
 
-    # Plot using custom axis
     plot_score_histograms_kde(scores, y, new_score=new_score, bins=50, ax=ax)
     plt.title("Test 1: Score histograms with KDE (default plt)")
     assert_plot_is_valid_image(fig, tmp_path)
@@ -92,19 +79,14 @@ def test_custom_axis_with_new_score(tmp_path: Path) -> None:
     - Customizing the axis after plotting
     """
 
-    # Generate test data
     scores, y = generate_test_data()
 
-    # Define a new score to highlight
     new_score = 7.5
 
-    # Create figure with custom axis
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    # Plot using custom axis
     plot_score_histograms_kde(scores, y, new_score=new_score, bins=50, ax=ax)
 
-    # Customize the axis after plotting
     ax.set_title("Test 2: Score histograms with KDE (custom axis)")
 
     assert_plot_is_valid_image(fig, tmp_path)
@@ -122,10 +104,8 @@ def test_without_density_curves(tmp_path: Path) -> None:
     - Only showing histograms
     """
 
-    # Generate test data
     scores, y = generate_test_data()
 
-    # Create figure with custom axis
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Plot without density curves and without new_score
@@ -138,7 +118,6 @@ def test_without_density_curves(tmp_path: Path) -> None:
         show_density=False,  # No KDE curves
     )
 
-    # Customize the axis
     ax.set_title("Test 3: Score histograms only (no KDE)")
 
     assert_plot_is_valid_image(fig, tmp_path)
@@ -155,7 +134,6 @@ def test_bonus_subplot_integration(tmp_path: Path) -> None:
     - Integration with matplotlib's subplot system
     """
 
-    # Generate test data
     scores, y = generate_test_data()
 
     # Create a 2x2 subplot layout

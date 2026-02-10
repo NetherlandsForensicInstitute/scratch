@@ -1,21 +1,20 @@
 import numpy as np
 from scipy.stats import gaussian_kde
 from matplotlib.axes import Axes
-from typing import Optional
 from container_models.base import FloatArray1D
 
 
 def plot_score_histograms_kde(
     scores: FloatArray1D,
     y: FloatArray1D,
-    new_score: Optional[float] = None,
-    bins: Optional[int] = 20,
+    new_score: float | None = None,
     ax: Axes = None,
+    bins: int | None = 20,
     show_density: bool = True,
     bandwidth: float | str | None = "silverman",
 ) -> None:
     """
-    Create score histograms with kernel density estimates for KM and KNM datasets.
+    Create score histograms with optional new_score line and kernel density estimates for KM and KNM datasets.
 
     Parameters:
     -----------
@@ -25,19 +24,19 @@ def plot_score_histograms_kde(
         Array of labels (0 for KNM, 1 for KM)
     new_score : float, optional
         A new score value to plot as a vertical line
+    ax : matplotlib.axes.Axes
+        The axis to plot on
     bins : int, optional
         Number of bins for histogram. If None, uses 'auto' binning.
-    ax : matplotlib.axes.Axes
-        The axis to plot on (REQUIRED)
     show_density : bool, optional
         Whether to show the kernel density estimate curves
     bandwidth : float | {'silverman', 'scott'} | None
-        KDE bandwidth method or value
+        KDE bandwidth method or value, None defaults to 'scott'
     """
 
     if ax is None:
         raise ValueError(
-            "ax must be a matplotlib.axes.Axes object (no default plt allowed)"
+            "ax must be a matplotlib.axes.Axes object, created by e.g. 'fig, axes = plt.subplots()'"
         )
 
     if isinstance(bandwidth, str) and bandwidth not in {"silverman", "scott"}:
@@ -88,7 +87,7 @@ def plot_score_histograms_kde(
             kde_km = gaussian_kde(km_scores, bw_method=bandwidth)
             ax.plot(x, kde_km(x), color="orange", linestyle="--", linewidth=2)
 
-    # Vertical line
+    # Vertical line for new_score
     if new_score is not None:
         ax.axvline(
             x=new_score,
