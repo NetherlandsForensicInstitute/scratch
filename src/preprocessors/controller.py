@@ -2,7 +2,6 @@ from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
-from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.leveling.solver.utils import compute_image_center
 from loguru import logger
@@ -31,11 +30,11 @@ def process_prepare_mark(
     return files
 
 
-def apply_changes_on_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: BinaryMask):
+def apply_changes_on_scan_image(scan_image: ScanImage, edit_image_params: EditImage):
     """From a scan_image file to an edited image file."""
     resampled_mask = np.asarray(
         resize(
-            image=mask,
+            image=edit_image_params.mask_array,
             output_shape=(
                 1 / edit_image_params.resampling_factor * scan_image.height,
                 1 / edit_image_params.resampling_factor * scan_image.width,
@@ -61,5 +60,4 @@ def apply_changes_on_scan_image(scan_image: ScanImage, edit_image_params: EditIm
     for mutation in pipeline:
         logger.debug(f"Mutating the image with: {mutation.__class__.__name__}")
         scan_image = mutation(scan_image).unwrap()
-        logger.debug(f"new scan image data is : {scan_image.data}")
     return scan_image

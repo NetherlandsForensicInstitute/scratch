@@ -1,7 +1,6 @@
 from functools import partial
 from http import HTTPStatus
 
-import numpy as np
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from loguru import logger
@@ -155,16 +154,14 @@ async def edit_scan(edit_image: EditImage) -> GeneratedImages:
     """
     vault = create_vault(edit_image.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
-    scan_image = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
-    mask_array = np.array(edit_image.mask, dtype=np.bool_)
+    parsed_image = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
     files = GeneratedImages.get_files(vault.resource_path)
 
     edited_scan_image = apply_changes_on_scan_image(
-        scan_image=scan_image,
+        scan_image=parsed_image,
         edit_image_params=edit_image,
-        mask=mask_array,
     )
-    preview_pipeline(parsed_scan=edited_scan_image, output_path=files["scan_image"])
+    preview_pipeline(parsed_scan=edited_scan_image, output_path=files["preview"])
     surface_map_pipeline(
         parsed_scan=edited_scan_image,
         output_path=files["surface_map"],
