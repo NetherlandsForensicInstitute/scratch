@@ -1,5 +1,3 @@
-from collections import namedtuple
-from itertools import product
 from typing import NamedTuple
 
 import numpy as np
@@ -182,29 +180,9 @@ class LevelMap(ImageMutation):
 
 
 class GausianRegressionFilter(ImageMutation):
-    # Constants based on ISO 16610 surface texture standards
-    # Standard Gaussian alpha for 50% transmission
-    ALPHA_GAUSSIAN = np.sqrt(np.log(2) / np.pi)
-    # Adjusted alpha often used for higher-order regression filters to maintain properties
-    # alpha = Sqrt((-1 - LambertW(-1, -1 / (2 * exp(1)))) / Pi)
-    ALPHA_REGRESSION = 0.7309134280946760
-    _Exponent = namedtuple("Exponent", ["y", "x"])
-
     def __init__(self, cutoff_length: float, regression_order: RegressionOrder) -> None:
         self.cutoff_length = cutoff_length
         self.regression_order = regression_order
-
-    def generate_polynomial_exponents(self, order: int) -> list[_Exponent]:
-        """
-        Generate polynomial exponent pairs for 2D polynomial terms up to a given order.
-        :param order: Maximum total degree (py + px) for the polynomial terms.
-        :returns: List of (power_y, power_x) tuples representing polynomial terms.
-        """
-        return [
-            self._Exponent(x, y)
-            for y, x in product(range(order + 1), repeat=2)
-            if y + x <= order
-        ]
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
