@@ -1,4 +1,3 @@
-from functools import partial
 from http import HTTPStatus
 
 from fastapi import APIRouter
@@ -9,16 +8,8 @@ from constants import PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
 from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault
-from preprocessors.controller import process_prepare_mark
+from preprocessors.controller import process_prepare_mark, process_scan_controller
 
-from .pipelines import (
-    impression_mark_pipeline,
-    parse_scan_pipeline,
-    preview_pipeline,
-    striation_mark_pipeline,
-    surface_map_pipeline,
-    x3p_pipeline,
-)
 from .schemas import EditImage, PrepareMarkImpression, PrepareMarkStriation, UploadScan
 
 preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[RoutePrefix.PREPROCESSOR])
@@ -66,14 +57,14 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     :return: Access URLs for the generated files.
     """
     vault = create_vault(upload_scan.tag)
-    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size_x, upload_scan.step_size_y)
-    files = ProcessedDataAccess.get_files(vault.resource_path)
-    x3p_pipeline(parsed_scan, files["scan"])
-    surface_map_pipeline(parsed_scan, files["surface_map"], upload_scan.light_sources, upload_scan.observer)
-    preview_pipeline(parsed_scan, files["preview"])
-
+    process_scan_controller(
+        scan_file=upload_scan.scan_file,
+        output_path=vault.resource_path,
+        light_sources=upload_scan.light_vectors,
+        observer=upload_scan.observer.unit_vector,
+    )
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess.model_validate(ProcessedDataAccess.generate_urls(vault.access_url))
+    return ProcessedDataAccess.generate_urls(vault.access_url)
 
 
 @preprocessor_route.post(
@@ -94,9 +85,8 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
     process_prepare_mark(
-        files=PrepareMarkResponseImpression.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
-        marking_method=partial(impression_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+        files=PrepareMarkResponseImpression.get_files(vault.resource_path),
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseImpression.generate_urls(vault.access_url)
@@ -122,7 +112,6 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     process_prepare_mark(
         files=PrepareMarkResponseStriation.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
-        marking_method=partial(striation_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseStriation.generate_urls(vault.access_url)
@@ -152,7 +141,6 @@ async def edit_scan(edit_image: EditImage) -> ProcessedDataAccess:
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
-    _ = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
     vault = create_vault(edit_image.tag)
 
     logger.info(f"Generated files saved to {vault}")
