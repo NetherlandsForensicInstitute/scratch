@@ -1,10 +1,10 @@
 from collections.abc import Callable
 from pathlib import Path
-from typing import cast
 
 import numpy as np
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
+from conversion.leveling.solver.utils import compute_image_center
 from loguru import logger
 from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resample
 from skimage.transform import resize
@@ -33,8 +33,7 @@ def process_prepare_mark(
 
 def apply_changes_on_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: BinaryMask):
     """From a scan_image file to an edited image file."""
-    resampled_mask = cast(
-        BinaryMask,
+    resampled_mask = np.asarray(
         resize(
             image=mask,
             output_shape=(
@@ -44,12 +43,16 @@ def apply_changes_on_scan_image(scan_image: ScanImage, edit_image_params: EditIm
             mode="edge",
             anti_aliasing=False,
         ),
-    ).astype(np.bool_)
+        dtype=np.bool_,
+    )
+    reference_point_x, reference_point_y = compute_image_center(scan_image)
     pipeline = [
         Resample(x_factor=edit_image_params.resampling_factor, y_factor=edit_image_params.resampling_factor),
         Mask(mask=resampled_mask),
         *([CropToMask(mask=resampled_mask)] if edit_image_params.crop else []),
-        LevelMap(x_reference_point=1, y_reference_point=1, terms=edit_image_params.terms),
+        LevelMap(
+            x_reference_point=reference_point_x, y_reference_point=reference_point_y, terms=edit_image_params.terms
+        ),
         GausianRegressionFilter(
             regression_order=edit_image_params.regression_order, cutoff_length=edit_image_params.cutoff_length
         ),
