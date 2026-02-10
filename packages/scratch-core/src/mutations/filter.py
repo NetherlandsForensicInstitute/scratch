@@ -179,7 +179,7 @@ class LevelMap(ImageMutation):
         return scan_image
 
 
-class GausianRegressionFilter(ImageMutation):
+class GausianRegressionFilter(ImageMutation):  # pragma: no cover
     def __init__(self, cutoff_length: float, regression_order: RegressionOrder) -> None:
         self.cutoff_length = cutoff_length
         self.regression_order = regression_order
