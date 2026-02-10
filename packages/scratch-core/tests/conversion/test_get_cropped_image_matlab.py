@@ -11,13 +11,8 @@ import pytest
 
 from container_models.base import FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
+from conversion.get_cropped_image import get_cropped_image
 from conversion.leveling import SurfaceTerms
-from conversion.resample import get_scaling_factors
-from parsers import save_x3p, parse_to_x3p
-from preprocessors.controller import apply_changes_on_scan_image
-
-from preprocessors.schemas import EditImage
-from utils.constants import RegressionOrder
 from .helper_functions import (
     _compute_correlation,
     _crop_to_common_shape,
@@ -173,15 +168,7 @@ def test_case(
     pytest.skip(f"Test case {test_case_name} not found")
 
 
-@pytest.fixture
-def tmp_path(tmp_path: Path):
-    return tmp_path
-
-
-def run_python_preprocessing(
-    test_case: MatlabTestCase,
-    tmp_path: Path,
-) -> FloatArray2D:
+def run_python_preprocessing(test_case: MatlabTestCase) -> FloatArray2D:
     """Run Python get_cropped_image and return the result."""
     scan_image = ScanImage(
         data=test_case.input_data,
@@ -192,33 +179,17 @@ def run_python_preprocessing(
     resampling_factors = (
         (test_case.resampling_factor, test_case.resampling_factor)
         if test_case.resampling_factor
-        else get_scaling_factors(
-            scales=(scan_image.scale_x, scan_image.scale_y), target_scale=4e-6
-        )
+        else None
     )
-    scan_file = tmp_path / "scan.x3p"
-    save_x3p(output_path=scan_file, x3p=parse_to_x3p(scan_image).unwrap())
-    mask_tuple = tuple(
-        tuple(bool(x) for x in row) for row in test_case.input_mask.astype(bool)
-    )
-    params = EditImage(
-        project_name="test",
-        scan_file=tmp_path / "scan.x3p",
-        mask=mask_tuple,
-        cutoff_length=test_case.cutoff_length * 1e-6,
-        resampling_factor=resampling_factors[0],
-        terms=test_case.terms,
-        regression_order=RegressionOrder(test_case.regression_order),
-        crop=False,
-        step_size_x=1,
-        step_size_y=1,
-    )
-
-    return apply_changes_on_scan_image(
+    return get_cropped_image(
         scan_image=scan_image,
-        edit_image_params=params,
-        mask=np.zeros(scan_image.data.shape, dtype=np.bool_),
-    ).data
+        mask=test_case.input_mask.astype(bool),
+        terms=test_case.terms,
+        cutoff_length=test_case.cutoff_length * 1e-6,
+        regression_order=test_case.regression_order,
+        resampling_factors=resampling_factors,
+        crop=False,
+    )
 
 
 class TestGetCroppedImageMatlabComparison:
@@ -238,9 +209,9 @@ class TestGetCroppedImageMatlabComparison:
             return self.THRESHOLDS["resampled"]
         return self.THRESHOLDS["default"]
 
-    def test_matlab_comparison(self, test_case: MatlabTestCase, tmp_path: Path):
+    def test_matlab_comparison(self, test_case: MatlabTestCase):
         """Test that Python output matches MATLAB reference."""
-        python_result = run_python_preprocessing(test_case, tmp_path)
+        python_result = run_python_preprocessing(test_case)
         matlab_result = test_case.output_data
 
         # Empty mask case
