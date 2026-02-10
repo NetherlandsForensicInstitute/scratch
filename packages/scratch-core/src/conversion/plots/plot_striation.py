@@ -7,7 +7,10 @@ from matplotlib.axes import Axes
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import Mark
-from conversion.plots.data_formats import CorrelationMetrics, StriationComparisonPlots
+from conversion.plots.data_formats import (
+    StriationComparisonMetrics,
+    StriationComparisonPlots,
+)
 from conversion.plots.utils import (
     draw_metadata_box,
     figure_to_array,
@@ -28,7 +31,7 @@ def plot_striation_comparison_results(
     mark_compared_aligned: Mark,
     mark_profile_reference_aligned: Mark,
     mark_profile_compared_aligned: Mark,
-    metrics: CorrelationMetrics,
+    metrics: StriationComparisonMetrics,
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
 ) -> StriationComparisonPlots:
@@ -239,7 +242,7 @@ def plot_comparison_overview(
     mark_compared_aligned: Mark,
     mark_profile_reference: Mark,
     mark_profile_compared: Mark,
-    metrics: CorrelationMetrics,
+    metrics: StriationComparisonMetrics,
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
     wrap_width: int = 25,
@@ -251,9 +254,9 @@ def plot_comparison_overview(
         "Date report": datetime.now().strftime("%Y-%m-%d"),
         "Mark type": mark_reference.mark_type.value,
         "Correlation Coefficient": f"{metrics.score:.4f}",
-        "Sq(A)": f"{metrics.sq_a:.4f} µm",
-        "Sq(B)": f"{metrics.sq_b:.4f} µm",
-        "Sq(B-A)": f"{metrics.sq_b_minus_a:.4f} µm",
+        "Sq(A)": f"{metrics.sq_ref:.4f} µm",
+        "Sq(B)": f"{metrics.sq_comp:.4f} µm",
+        "Sq(B-A)": f"{metrics.sq_diff:.4f} µm",
         "Sq(B) / Sq(A)": f"{metrics.sq_ratio:.4f} %",
         "Sign. Diff. DsAB": f"{metrics.sign_diff_dsab:.2f} %",
         "Overlap": f"{metrics.overlap:.2f} %",

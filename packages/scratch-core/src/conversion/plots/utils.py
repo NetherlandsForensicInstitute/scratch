@@ -2,6 +2,7 @@ import textwrap
 from typing import cast
 
 import numpy as np
+import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -66,10 +67,10 @@ def plot_profiles_on_axes(
     :param score: Pre-computed correlation coefficient.
     :param title: Prefix for the title before the correlation value.
     """
-    x1 = np.arange(len(profile_reference)) * scale * 1e6  # µm
+    x1 = np.arange(len(profile_reference)) * scale * 1e6
     x2 = np.arange(len(profile_compared)) * scale * 1e6
 
-    y1 = profile_reference * 1e6  # µm
+    y1 = profile_reference * 1e6
     y2 = profile_compared * 1e6
 
     ax.plot(x1, y1, "b-", label="Reference Profile A", linewidth=1.5)
@@ -90,7 +91,7 @@ def plot_side_by_side_on_axes(
     data_comp: FloatArray2D,
     scale: float,
     title: str = "Reference Surface A / Moved Compared Surface B",
-    colorbar_width: str = "2.5%",  # Smaller since plot is wider
+    colorbar_width: str = "2.5%",
     colorbar_pad: float = 0.05,
 ) -> None:
     """
@@ -331,15 +332,13 @@ def plot_depth_map_with_axes(
     title: str,
 ) -> ImageRGB:
     """
-    Plot a depth map with axes and colorbar.
+    Plot a depth map rendering of a mark.
 
-    :param data: Depth data in meters.
-    :param scale: Pixel scale in meters.
+    :param data: data to plot in meters.
+    :param scale: scale of the data in meters.
     :param title: Title for the plot.
-    :returns: RGB image as uint8 array.
+    :returns: RGB image as uint8 array with shape (H, W, 3).
     """
-    import matplotlib.pyplot as plt
-
     height, width = data.shape
     fig_height, fig_width = get_figure_dimensions(height, width)
 
@@ -359,12 +358,8 @@ def draw_metadata_box(
     draw_border: bool = True,
     wrap_width: int = 25,
     side_margin: float = 0.06,
-    bold_value_keys: set[str] | None = None,
 ) -> None:
-    """Draw a metadata box with key-value pairs.
-
-    :param bold_value_keys: Keys whose values should also be rendered bold.
-    """
+    """Draw a metadata box with key-value pairs."""
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_xticks([])
@@ -378,22 +373,9 @@ def draw_metadata_box(
     if title:
         ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
 
-    table_data, key_row_indices = metadata_to_table_data(
-        metadata, wrap_width=wrap_width
-    )
+    table_data, _ = metadata_to_table_data(metadata, wrap_width=wrap_width)
     col_widths = get_col_widths(side_margin, table_data)
     bounding_box = get_bounding_box(side_margin, table_data)
-
-    # Build set of row indices whose values should be bold
-    bold_value_rows: set[int] = set()
-    if bold_value_keys:
-        row_idx = 0
-        for k, v in metadata.items():
-            wrapped_lines = textwrap.wrap(str(v), width=wrap_width) or [""]
-            if k in bold_value_keys:
-                for offset in range(len(wrapped_lines)):
-                    bold_value_rows.add(row_idx + offset)
-            row_idx += len(wrapped_lines)
 
     table = ax.table(
         cellText=table_data,
@@ -410,6 +392,5 @@ def draw_metadata_box(
     for i in range(len(table_data)):
         table[i, 0].set_text_props(fontweight="bold", ha="right")
         table[i, 0].PAD = 0.02
-        value_weight = "bold" if i in bold_value_rows else "normal"
-        table[i, 1].set_text_props(ha="left", fontweight=value_weight)
+        table[i, 1].set_text_props(ha="left")
         table[i, 1].PAD = 0.02

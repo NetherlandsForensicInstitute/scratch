@@ -1,5 +1,3 @@
-"""Tests for impression mark comparison visualization."""
-
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -24,9 +22,9 @@ from .helper_functions import assert_valid_rgb_image
 class TestPlotDepthMapWithAxes:
     """Tests for plot_depth_map_with_axes function."""
 
-    def test_returns_rgb_image(self, sample_depth_data: np.ndarray):
+    def test_returns_rgb_image(self, impression_sample_depth_data: np.ndarray):
         result = plot_depth_map_with_axes(
-            data=sample_depth_data,
+            data=impression_sample_depth_data,
             scale=1.5e-6,
             title="Test Surface",
         )
@@ -43,22 +41,26 @@ class TestPlotCellGridOverlay:
     """Tests for plot_cell_grid_overlay function."""
 
     def test_returns_rgb_image(
-        self, sample_depth_data: np.ndarray, sample_cell_correlations: np.ndarray
+        self,
+        impression_sample_depth_data: np.ndarray,
+        impression_sample_cell_correlations: np.ndarray,
     ):
         result = plot_cell_grid_overlay(
-            data=sample_depth_data,
+            data=impression_sample_depth_data,
             scale=1.5e-6,
-            cell_correlations=sample_cell_correlations,
+            cell_correlations=impression_sample_cell_correlations,
         )
         assert_valid_rgb_image(result)
 
     def test_with_custom_positions_and_rotations(
-        self, sample_depth_data: np.ndarray, sample_cell_correlations: np.ndarray
+        self,
+        impression_sample_depth_data: np.ndarray,
+        impression_sample_cell_correlations: np.ndarray,
     ):
-        n_rows, n_cols = sample_cell_correlations.shape
+        n_rows, n_cols = impression_sample_cell_correlations.shape
         n_cells = n_rows * n_cols
         scale = 1.5e-6
-        h, w = sample_depth_data.shape
+        h, w = impression_sample_depth_data.shape
 
         cell_w_um = w * scale * 1e6 / n_cols
         cell_h_um = h * scale * 1e6 / n_rows
@@ -72,9 +74,9 @@ class TestPlotCellGridOverlay:
         rotations = np.deg2rad(np.random.default_rng(0).uniform(-5, 5, n_cells))
 
         result = plot_cell_grid_overlay(
-            data=sample_depth_data,
+            data=impression_sample_depth_data,
             scale=scale,
-            cell_correlations=sample_cell_correlations,
+            cell_correlations=impression_sample_cell_correlations,
             cell_positions=positions,
             cell_rotations=rotations,
             cell_size_um=(cell_w_um, cell_h_um),
@@ -82,28 +84,34 @@ class TestPlotCellGridOverlay:
         assert_valid_rgb_image(result)
 
     def test_show_only_cmc_cells(
-        self, sample_depth_data: np.ndarray, sample_cell_correlations: np.ndarray
+        self,
+        impression_sample_depth_data: np.ndarray,
+        impression_sample_cell_correlations: np.ndarray,
     ):
         result = plot_cell_grid_overlay(
-            data=sample_depth_data,
+            data=impression_sample_depth_data,
             scale=1.5e-6,
-            cell_correlations=sample_cell_correlations,
+            cell_correlations=impression_sample_cell_correlations,
             show_all_cells=False,
         )
         assert_valid_rgb_image(result)
 
     def test_custom_threshold(
-        self, sample_depth_data: np.ndarray, sample_cell_correlations: np.ndarray
+        self,
+        impression_sample_depth_data: np.ndarray,
+        impression_sample_cell_correlations: np.ndarray,
     ):
         result = plot_cell_grid_overlay(
-            data=sample_depth_data,
+            data=impression_sample_depth_data,
             scale=1.5e-6,
-            cell_correlations=sample_cell_correlations,
+            cell_correlations=impression_sample_cell_correlations,
             cell_similarity_threshold=0.80,
         )
         assert_valid_rgb_image(result)
 
-    def test_with_nan_positions_skips_cells(self, sample_depth_data: np.ndarray):
+    def test_with_nan_positions_skips_cells(
+        self, impression_sample_depth_data: np.ndarray
+    ):
         correlations = np.array([[0.9, 0.1], [0.8, 0.3]])
         n_cells = 4
         positions = np.full((n_cells, 2), np.nan, dtype=np.float64)
@@ -112,7 +120,7 @@ class TestPlotCellGridOverlay:
         rotations = np.zeros(n_cells, dtype=np.float64)
 
         result = plot_cell_grid_overlay(
-            data=sample_depth_data,
+            data=impression_sample_depth_data,
             scale=1.5e-6,
             cell_correlations=correlations,
             cell_positions=positions,
@@ -126,9 +134,9 @@ class TestPlotCellGridOverlay:
 class TestPlotCellCorrelationHeatmap:
     """Tests for plot_cell_correlation_heatmap function."""
 
-    def test_returns_rgb_image(self, sample_cell_correlations: np.ndarray):
+    def test_returns_rgb_image(self, impression_sample_cell_correlations: np.ndarray):
         result = plot_cell_correlation_heatmap(
-            cell_correlations=sample_cell_correlations
+            cell_correlations=impression_sample_cell_correlations
         )
         assert_valid_rgb_image(result)
 
@@ -149,17 +157,17 @@ class TestPlotComparisonOverview:
 
     def test_returns_rgb_image(
         self,
-        sample_mark: Mark,
-        sample_metrics: ImpressionComparisonMetrics,
+        impression_sample_mark: Mark,
+        impression_sample_metrics: ImpressionComparisonMetrics,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
         result = plot_comparison_overview(
-            mark_reference_leveled=sample_mark,
-            mark_compared_leveled=sample_mark,
-            mark_reference_filtered=sample_mark,
-            mark_compared_filtered=sample_mark,
-            metrics=sample_metrics,
+            mark_reference_leveled=impression_sample_mark,
+            mark_compared_leveled=impression_sample_mark,
+            mark_reference_filtered=impression_sample_mark,
+            mark_compared_filtered=impression_sample_mark,
+            metrics=impression_sample_metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
         )
@@ -167,23 +175,23 @@ class TestPlotComparisonOverview:
 
     def test_with_custom_cell_positions(
         self,
-        sample_mark: Mark,
-        sample_cell_correlations: np.ndarray,
+        impression_sample_mark: Mark,
+        impression_sample_cell_correlations: np.ndarray,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
-        n_rows, n_cols = sample_cell_correlations.shape
+        n_rows, n_cols = impression_sample_cell_correlations.shape
         n_cells = n_rows * n_cols
         positions = np.full((n_cells, 2), np.nan, dtype=np.float64)
         rotations = np.zeros(n_cells, dtype=np.float64)
 
-        scale = sample_mark.scan_image.scale_x
-        h, w = sample_mark.scan_image.data.shape
+        scale = impression_sample_mark.scan_image.scale_x
+        h, w = impression_sample_mark.scan_image.data.shape
         cell_w_um = w * scale * 1e6 / n_cols
         cell_h_um = h * scale * 1e6 / n_rows
         for i in range(n_rows):
             for j in range(n_cols):
-                if sample_cell_correlations[i, j] >= 0.25:
+                if impression_sample_cell_correlations[i, j] >= 0.25:
                     flat = i * n_cols + j
                     positions[flat, 0] = (j + 0.5) * cell_w_um + 10
                     positions[flat, 1] = (n_rows - 1 - i + 0.5) * cell_h_um - 5
@@ -191,7 +199,7 @@ class TestPlotComparisonOverview:
 
         metrics = ImpressionComparisonMetrics(
             area_correlation=0.85,
-            cell_correlations=sample_cell_correlations,
+            cell_correlations=impression_sample_cell_correlations,
             cmc_score=75.0,
             sq_ref=1.5,
             sq_comp=1.6,
@@ -200,13 +208,19 @@ class TestPlotComparisonOverview:
             has_cell_results=True,
             cell_positions_compared=positions,
             cell_rotations_compared=rotations,
+            cmc_area_fraction=16.04,
+            cutoff_low_pass=5.0,
+            cutoff_high_pass=250.0,
+            cell_size_um=125.0,
+            max_error_cell_position=75.0,
+            max_error_cell_angle=6.0,
             cell_similarity_threshold=0.25,
         )
         result = plot_comparison_overview(
-            mark_reference_leveled=sample_mark,
-            mark_compared_leveled=sample_mark,
-            mark_reference_filtered=sample_mark,
-            mark_compared_filtered=sample_mark,
+            mark_reference_leveled=impression_sample_mark,
+            mark_compared_leveled=impression_sample_mark,
+            mark_reference_filtered=impression_sample_mark,
+            mark_compared_filtered=impression_sample_mark,
             metrics=metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
@@ -215,26 +229,35 @@ class TestPlotComparisonOverview:
 
     def test_handles_area_only_metrics(
         self,
-        sample_mark: Mark,
-        sample_cell_correlations: np.ndarray,
+        impression_sample_mark: Mark,
+        impression_sample_cell_correlations: np.ndarray,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
+        n_cells = impression_sample_cell_correlations.size
         metrics = ImpressionComparisonMetrics(
             area_correlation=0.85,
-            cell_correlations=sample_cell_correlations,
+            cell_correlations=impression_sample_cell_correlations,
             cmc_score=0.0,
             sq_ref=1.5,
             sq_comp=1.6,
             sq_diff=0.4,
             has_area_results=True,
             has_cell_results=False,
+            cell_positions_compared=np.full((n_cells, 2), np.nan),
+            cell_rotations_compared=np.full(n_cells, np.nan),
+            cmc_area_fraction=0.0,
+            cutoff_low_pass=5.0,
+            cutoff_high_pass=250.0,
+            cell_size_um=125.0,
+            max_error_cell_position=75.0,
+            max_error_cell_angle=6.0,
         )
         result = plot_comparison_overview(
-            mark_reference_leveled=sample_mark,
-            mark_compared_leveled=sample_mark,
-            mark_reference_filtered=sample_mark,
-            mark_compared_filtered=sample_mark,
+            mark_reference_leveled=impression_sample_mark,
+            mark_compared_leveled=impression_sample_mark,
+            mark_reference_filtered=impression_sample_mark,
+            mark_compared_filtered=impression_sample_mark,
             metrics=metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
@@ -243,20 +266,23 @@ class TestPlotComparisonOverview:
 
     def test_with_all_optional_metrics(
         self,
-        sample_mark: Mark,
-        sample_cell_correlations: np.ndarray,
+        impression_sample_mark: Mark,
+        impression_sample_cell_correlations: np.ndarray,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
+        n_cells = impression_sample_cell_correlations.size
         metrics = ImpressionComparisonMetrics(
             area_correlation=0.85,
-            cell_correlations=sample_cell_correlations,
+            cell_correlations=impression_sample_cell_correlations,
             cmc_score=75.0,
             sq_ref=1.5,
             sq_comp=1.6,
             sq_diff=0.4,
             has_area_results=True,
             has_cell_results=True,
+            cell_positions_compared=np.full((n_cells, 2), np.nan),
+            cell_rotations_compared=np.full(n_cells, np.nan),
             cmc_area_fraction=16.04,
             cutoff_low_pass=5.0,
             cutoff_high_pass=250.0,
@@ -265,10 +291,10 @@ class TestPlotComparisonOverview:
             max_error_cell_angle=6.0,
         )
         result = plot_comparison_overview(
-            mark_reference_leveled=sample_mark,
-            mark_compared_leveled=sample_mark,
-            mark_reference_filtered=sample_mark,
-            mark_compared_filtered=sample_mark,
+            mark_reference_leveled=impression_sample_mark,
+            mark_compared_leveled=impression_sample_mark,
+            mark_reference_filtered=impression_sample_mark,
+            mark_compared_filtered=impression_sample_mark,
             metrics=metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
@@ -281,17 +307,17 @@ class TestPlotImpressionComparisonResults:
 
     def test_generates_all_plots_when_both_flags_true(
         self,
-        sample_mark: Mark,
-        sample_metrics: ImpressionComparisonMetrics,
+        impression_sample_mark: Mark,
+        impression_sample_metrics: ImpressionComparisonMetrics,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
         result = plot_impression_comparison_results(
-            mark_reference_leveled=sample_mark,
-            mark_compared_leveled=sample_mark,
-            mark_reference_filtered=sample_mark,
-            mark_compared_filtered=sample_mark,
-            metrics=sample_metrics,
+            mark_reference_leveled=impression_sample_mark,
+            mark_compared_leveled=impression_sample_mark,
+            mark_reference_filtered=impression_sample_mark,
+            mark_compared_filtered=impression_sample_mark,
+            metrics=impression_sample_metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
         )
@@ -309,27 +335,36 @@ class TestPlotImpressionComparisonResults:
 
     def test_only_area_plots_when_cell_flag_false(
         self,
-        sample_mark: Mark,
-        sample_cell_correlations: np.ndarray,
+        impression_sample_mark: Mark,
+        impression_sample_cell_correlations: np.ndarray,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
+        n_cells = impression_sample_cell_correlations.size
         metrics = ImpressionComparisonMetrics(
             area_correlation=0.85,
-            cell_correlations=sample_cell_correlations,
+            cell_correlations=impression_sample_cell_correlations,
             cmc_score=75.0,
             sq_ref=1.5,
             sq_comp=1.6,
             sq_diff=0.4,
             has_area_results=True,
             has_cell_results=False,
+            cell_positions_compared=np.full((n_cells, 2), np.nan),
+            cell_rotations_compared=np.full(n_cells, np.nan),
+            cmc_area_fraction=0.0,
+            cutoff_low_pass=5.0,
+            cutoff_high_pass=250.0,
+            cell_size_um=125.0,
+            max_error_cell_position=75.0,
+            max_error_cell_angle=6.0,
         )
 
         result = plot_impression_comparison_results(
-            mark_reference_leveled=sample_mark,
-            mark_compared_leveled=sample_mark,
-            mark_reference_filtered=sample_mark,
-            mark_compared_filtered=sample_mark,
+            mark_reference_leveled=impression_sample_mark,
+            mark_compared_leveled=impression_sample_mark,
+            mark_reference_filtered=impression_sample_mark,
+            mark_compared_filtered=impression_sample_mark,
             metrics=metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
@@ -342,27 +377,36 @@ class TestPlotImpressionComparisonResults:
 
     def test_only_cell_plots_when_area_flag_false(
         self,
-        sample_mark: Mark,
-        sample_cell_correlations: np.ndarray,
+        impression_sample_mark: Mark,
+        impression_sample_cell_correlations: np.ndarray,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
+        n_cells = impression_sample_cell_correlations.size
         metrics = ImpressionComparisonMetrics(
             area_correlation=0.85,
-            cell_correlations=sample_cell_correlations,
+            cell_correlations=impression_sample_cell_correlations,
             cmc_score=75.0,
             sq_ref=1.5,
             sq_comp=1.6,
             sq_diff=0.4,
             has_area_results=False,
             has_cell_results=True,
+            cell_positions_compared=np.full((n_cells, 2), np.nan),
+            cell_rotations_compared=np.full(n_cells, np.nan),
+            cmc_area_fraction=16.04,
+            cutoff_low_pass=5.0,
+            cutoff_high_pass=250.0,
+            cell_size_um=125.0,
+            max_error_cell_position=75.0,
+            max_error_cell_angle=6.0,
         )
 
         result = plot_impression_comparison_results(
-            mark_reference_leveled=sample_mark,
-            mark_compared_leveled=sample_mark,
-            mark_reference_filtered=sample_mark,
-            mark_compared_filtered=sample_mark,
+            mark_reference_leveled=impression_sample_mark,
+            mark_compared_leveled=impression_sample_mark,
+            mark_reference_filtered=impression_sample_mark,
+            mark_compared_filtered=impression_sample_mark,
             metrics=metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
@@ -375,17 +419,17 @@ class TestPlotImpressionComparisonResults:
 
     def test_all_outputs_are_valid_images(
         self,
-        sample_mark: Mark,
-        sample_metrics: ImpressionComparisonMetrics,
+        impression_sample_mark: Mark,
+        impression_sample_metrics: ImpressionComparisonMetrics,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
         result = plot_impression_comparison_results(
-            mark_reference_leveled=sample_mark,
-            mark_compared_leveled=sample_mark,
-            mark_reference_filtered=sample_mark,
-            mark_compared_filtered=sample_mark,
-            metrics=sample_metrics,
+            mark_reference_leveled=impression_sample_mark,
+            mark_compared_leveled=impression_sample_mark,
+            mark_reference_filtered=impression_sample_mark,
+            mark_compared_filtered=impression_sample_mark,
+            metrics=impression_sample_metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
         )
@@ -409,21 +453,23 @@ class TestPlotImpressionComparisonResults:
 class TestPlotCellHeatmapOnAxes:
     """Tests for _plot_cell_heatmap_on_axes helper."""
 
-    def test_with_surface_extent(self, sample_cell_correlations: np.ndarray):
+    def test_with_surface_extent(self, impression_sample_cell_correlations: np.ndarray):
         fig, ax = plt.subplots()
         _plot_cell_heatmap_on_axes(
             ax,
             fig,
-            sample_cell_correlations,
+            impression_sample_cell_correlations,
             surface_extent_um=(300.0, 200.0),
         )
         assert ax.get_title() == "Cell ACCF Distribution"
         assert "µm" in ax.get_xlabel()
         plt.close(fig)
 
-    def test_without_surface_extent(self, sample_cell_correlations: np.ndarray):
+    def test_without_surface_extent(
+        self, impression_sample_cell_correlations: np.ndarray
+    ):
         fig, ax = plt.subplots()
-        _plot_cell_heatmap_on_axes(ax, fig, sample_cell_correlations)
+        _plot_cell_heatmap_on_axes(ax, fig, impression_sample_cell_correlations)
         assert "Column" in ax.get_xlabel()
         plt.close(fig)
 
@@ -443,20 +489,22 @@ class TestPlotCellHeatmapOnAxes:
 class TestPlotCellOverlayOnAxes:
     """Tests for _plot_cell_overlay_on_axes helper."""
 
-    def test_returns_axes_image(self, sample_depth_data: np.ndarray):
+    def test_returns_axes_image(self, impression_sample_depth_data: np.ndarray):
         correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
         fig, ax = plt.subplots()
-        im = _plot_cell_overlay_on_axes(ax, sample_depth_data, 1.5e-6, correlations)
+        im = _plot_cell_overlay_on_axes(
+            ax, impression_sample_depth_data, 1.5e-6, correlations
+        )
         assert im is not None
         assert len(ax.images) == 1
         plt.close(fig)
 
-    def test_custom_label_prefix(self, sample_depth_data: np.ndarray):
+    def test_custom_label_prefix(self, impression_sample_depth_data: np.ndarray):
         correlations = np.array([[0.5, 0.5]])
         fig, ax = plt.subplots()
         _plot_cell_overlay_on_axes(
             ax,
-            sample_depth_data,
+            impression_sample_depth_data,
             1.5e-6,
             correlations,
             cell_label_prefix="B",
@@ -466,18 +514,22 @@ class TestPlotCellOverlayOnAxes:
         assert all("B" in t for t in texts)
         plt.close(fig)
 
-    def test_grid_mode_draws_rectangles(self, sample_depth_data: np.ndarray):
+    def test_grid_mode_draws_rectangles(self, impression_sample_depth_data: np.ndarray):
         correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
         fig, ax = plt.subplots()
-        _plot_cell_overlay_on_axes(ax, sample_depth_data, 1.5e-6, correlations)
+        _plot_cell_overlay_on_axes(
+            ax, impression_sample_depth_data, 1.5e-6, correlations
+        )
         # Should have lines for cell borders + labels
         assert len(ax.lines) > 0
         assert len(ax.texts) > 0
         plt.close(fig)
 
-    def test_rotated_mode_draws_polygons(self, sample_depth_data: np.ndarray):
+    def test_rotated_mode_draws_polygons(
+        self, impression_sample_depth_data: np.ndarray
+    ):
         correlations = np.array([[0.9, 0.1]])
-        h, w = sample_depth_data.shape
+        h, w = impression_sample_depth_data.shape
         scale = 1.5e-6
         cell_w = w * scale * 1e6 / 2
         cell_h = h * scale * 1e6 / 1
@@ -487,7 +539,7 @@ class TestPlotCellOverlayOnAxes:
         fig, ax = plt.subplots()
         _plot_cell_overlay_on_axes(
             ax,
-            sample_depth_data,
+            impression_sample_depth_data,
             scale,
             correlations,
             cell_positions=positions,

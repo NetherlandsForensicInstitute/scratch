@@ -1,5 +1,5 @@
 """
-This Class is to generate an realistic overview image with synthetic data, so no unit test and will be removed before
+This Class is to generate a realistic overview image with synthetic data, so no unit test and will be removed before
 merging.
 """
 
@@ -10,11 +10,17 @@ from PIL import Image
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
-from conversion.plots.data_formats import ImpressionComparisonMetrics
+from conversion.plots.data_formats import (
+    StriationComparisonMetrics,
+    ImpressionComparisonMetrics,
+)
 from conversion.plots.plot_impression import plot_impression_comparison_results
+from conversion.plots.plot_striation import plot_striation_comparison_results
 
-
-# --- Synthetic surface helpers ---
+from .helper_functions import (
+    create_synthetic_profile_mark,
+    create_synthetic_striation_mark,
+)
 
 
 def _make_base_pattern(rows: int, cols: int, seed: int = 0) -> np.ndarray:
@@ -51,9 +57,6 @@ def _make_surface_pair(
         ((base + noise_a) * 1e-6).astype(np.float64),
         ((base + noise_b) * 1e-6).astype(np.float64),
     )
-
-
-# --- Test ---
 
 
 class TestGenerateOverview:
@@ -170,4 +173,66 @@ class TestGenerateOverview:
 
         # Save to project root so the image can be inspected after the test run
         out = Path(__file__).resolve().parents[5] / "plot_results_overview.png"
+        Image.fromarray(overview).save(out)
+
+    def test_generates_striation_overview_png(
+        self,
+        sample_metadata_reference: dict[str, str],
+        sample_metadata_compared: dict[str, str],
+    ) -> None:
+        """Produce plot_striation_overview.png and verify it is a valid RGB image."""
+        scale = 1.5625e-6
+
+        mark_reference = create_synthetic_striation_mark(height=256, width=200, seed=42)
+        mark_compared = create_synthetic_striation_mark(height=256, width=220, seed=43)
+        mark_reference_aligned = create_synthetic_striation_mark(
+            height=200, width=200, seed=44
+        )
+        mark_compared_aligned = create_synthetic_striation_mark(
+            height=200, width=200, seed=45
+        )
+        mark_profile_reference = create_synthetic_profile_mark(length=200, seed=46)
+        mark_profile_compared = create_synthetic_profile_mark(length=200, seed=47)
+
+        quality_passbands: dict[tuple[float, float], float] = {
+            (5, 250): 0.85,
+            (100, 250): 0.78,
+            (50, 100): 0.65,
+            (25, 50): 0.45,
+            (10, 25): 0.30,
+            (5, 10): 0.15,
+        }
+
+        metrics = StriationComparisonMetrics(
+            score=0.85,
+            shift=12.5,
+            overlap=80.4,
+            sq_ref=0.2395,
+            sq_comp=0.7121,
+            sq_diff=0.6138,
+            sq_ratio=297.3765,
+            sign_diff_dsab=220.94,
+            data_spacing=scale * 1e6,
+            quality_passbands=quality_passbands,
+        )
+
+        results = plot_striation_comparison_results(
+            mark_reference=mark_reference,
+            mark_compared=mark_compared,
+            mark_reference_aligned=mark_reference_aligned,
+            mark_compared_aligned=mark_compared_aligned,
+            mark_profile_reference_aligned=mark_profile_reference,
+            mark_profile_compared_aligned=mark_profile_compared,
+            metrics=metrics,
+            metadata_reference=sample_metadata_reference,
+            metadata_compared=sample_metadata_compared,
+        )
+
+        overview = results.comparison_overview
+        assert overview.ndim == 3
+        assert overview.shape[2] == 3
+        assert overview.dtype == np.uint8
+
+        # Save to project root so the image can be inspected after the test run
+        out = Path(__file__).resolve().parents[5] / "plot_striation_overview.png"
         Image.fromarray(overview).save(out)

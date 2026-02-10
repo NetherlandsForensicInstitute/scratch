@@ -1,5 +1,3 @@
-"""Tests for utils functions introduced or extended for impression plotting."""
-
 import pytest
 from matplotlib import pyplot as plt
 from matplotlib.transforms import Bbox
@@ -130,13 +128,6 @@ class TestDrawMetadataBox:
         draw_metadata_box(ax, {"K": "V"}, draw_border=False)
         for spine in ax.spines.values():
             assert not spine.get_visible()
-        plt.close(fig)
-
-    def test_bold_value_keys(self):
-        fig, ax = plt.subplots()
-        metadata = {"Bold": "yes", "Normal": "no"}
-        draw_metadata_box(ax, metadata, bold_value_keys={"Bold"})
-        # Verify the table exists (the function doesn't raise)
         plt.close(fig)
 
     def test_no_title(self):

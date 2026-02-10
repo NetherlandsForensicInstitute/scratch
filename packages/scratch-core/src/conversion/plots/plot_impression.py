@@ -250,7 +250,6 @@ def plot_comparison_overview(
     }
     if metrics.cmc_area_fraction is not None:
         results_items["CMC area fraction"] = f"{metrics.cmc_area_fraction:.2f} %"
-    results_items[""] = ""  # blank separator line
     results_items["Data spacing (X)"] = f"{scale_x_um:.4f} µm"
     results_items["Data spacing (Y)"] = f"{scale_y_um:.4f} µm"
     if metrics.cutoff_low_pass is not None:
@@ -341,20 +340,11 @@ def plot_comparison_overview(
     )
 
     ax_results = fig.add_subplot(gs[1, 2])
-    bold_value_keys = {
-        "Date report",
-        "Mark type",
-        "Number of Cells",
-        "Number of CMCs",
-        "CMC fraction",
-        "CMC area fraction",
-    }
     draw_metadata_box(
         ax_results,
         results_items,
         draw_border=False,
         wrap_width=wrap_width,
-        bold_value_keys=bold_value_keys,
     )
 
     # Row 2: Filtered surfaces (with cell grid overlay if available) + Cell ACCF Distribution
@@ -450,9 +440,6 @@ def plot_comparison_overview(
     arr = figure_to_array(fig)
     plt.close(fig)
     return arr
-
-
-# --- Helper functions for axes-level plotting ---
 
 
 def _plot_cell_overlay_on_axes(

@@ -50,25 +50,25 @@ from .helper_functions import assert_valid_rgb_image, create_synthetic_striation
     ],
 )
 def test_plot_comparison_overview_metadata_variants(
-    mark_reference,
-    mark_compared,
-    mark_reference_aligned,
-    mark_compared_aligned,
-    mark_profile_reference,
-    mark_profile_compared,
-    metrics,
+    striation_mark_reference,
+    striation_mark_compared,
+    striation_mark_reference_aligned,
+    striation_mark_compared_aligned,
+    striation_mark_profile_reference,
+    striation_mark_profile_compared,
+    striation_metrics,
     metadata_reference,
     metadata_compared,
     suffix,
 ):
     result = plot_comparison_overview(
-        mark_reference=mark_reference,
-        mark_compared=mark_compared,
-        mark_reference_aligned=mark_reference_aligned,
-        mark_compared_aligned=mark_compared_aligned,
-        mark_profile_reference=mark_profile_reference,
-        mark_profile_compared=mark_profile_compared,
-        metrics=metrics,
+        mark_reference=striation_mark_reference,
+        mark_compared=striation_mark_compared,
+        mark_reference_aligned=striation_mark_reference_aligned,
+        mark_compared_aligned=striation_mark_compared_aligned,
+        mark_profile_reference=striation_mark_profile_reference,
+        mark_profile_compared=striation_mark_profile_compared,
+        metrics=striation_metrics,
         metadata_reference=metadata_reference,
         metadata_compared=metadata_compared,
     )
@@ -151,18 +151,32 @@ class TestMetadataToTableData:
 
 
 class TestPlotProfilesOnAxes:
-    def test_creates_two_lines(self, profile_reference, profile_compared):
+    def test_creates_two_lines(
+        self, striation_profile_reference, striation_profile_compared
+    ):
         fig, ax = plt.subplots()
         plot_profiles_on_axes(
-            ax, profile_reference, profile_compared, 1.5625e-6, 0.85, "Test"
+            ax,
+            striation_profile_reference,
+            striation_profile_compared,
+            1.5625e-6,
+            0.85,
+            "Test",
         )
         assert len(ax.lines) == 2
         plt.close(fig)
 
-    def test_sets_labels_and_title(self, profile_reference, profile_compared):
+    def test_sets_labels_and_title(
+        self, striation_profile_reference, striation_profile_compared
+    ):
         fig, ax = plt.subplots()
         plot_profiles_on_axes(
-            ax, profile_reference, profile_compared, 1.5625e-6, 0.85, "Test"
+            ax,
+            striation_profile_reference,
+            striation_profile_compared,
+            1.5625e-6,
+            0.85,
+            "Test",
         )
         assert "Test" in ax.get_title()
         assert "0.85" in ax.get_title()
@@ -172,60 +186,68 @@ class TestPlotProfilesOnAxes:
 
 
 class TestPlotDepthmapOnAxes:
-    def test_creates_image(self, surface_reference):
+    def test_creates_image(self, striation_surface_reference):
         fig, ax = plt.subplots()
-        plot_depth_map_on_axes(ax, fig, surface_reference, 1.5625e-6, "Test")
+        plot_depth_map_on_axes(ax, fig, striation_surface_reference, 1.5625e-6, "Test")
         assert len(ax.images) == 1
         plt.close(fig)
 
-    def test_sets_title(self, surface_reference):
+    def test_sets_title(self, striation_surface_reference):
         fig, ax = plt.subplots()
-        plot_depth_map_on_axes(ax, fig, surface_reference, 1.5625e-6, "My Title")
+        plot_depth_map_on_axes(
+            ax, fig, striation_surface_reference, 1.5625e-6, "My Title"
+        )
         assert ax.get_title() == "My Title"
         plt.close(fig)
 
 
 class TestPlotSideBySideOnAxes:
-    def test_creates_combined_image(self, surface_reference, surface_compared):
+    def test_creates_combined_image(
+        self, striation_surface_reference, striation_surface_compared
+    ):
         fig, ax = plt.subplots()
         plot_side_by_side_on_axes(
-            ax, fig, surface_reference, surface_compared, 1.5625e-6
+            ax, fig, striation_surface_reference, striation_surface_compared, 1.5625e-6
         )
         assert len(ax.images) == 1
         plt.close(fig)
 
-    def test_combined_width_includes_gap(self, surface_reference, surface_compared):
+    def test_combined_width_includes_gap(
+        self, striation_surface_reference, striation_surface_compared
+    ):
         fig, ax = plt.subplots()
         plot_side_by_side_on_axes(
-            ax, fig, surface_reference, surface_compared, 1.5625e-6
+            ax, fig, striation_surface_reference, striation_surface_compared, 1.5625e-6
         )
         image_data = ax.images[0].get_array()
         assert image_data is not None
-        expected_min_width = surface_reference.shape[1] + surface_compared.shape[1]
+        expected_min_width = (
+            striation_surface_reference.shape[1] + striation_surface_compared.shape[1]
+        )
         assert image_data.shape[1] > expected_min_width
         plt.close(fig)
 
 
 class TestGetWavelengthCorrelationPlot:
-    def test_creates_line_plot(self, quality_passbands):
+    def test_creates_line_plot(self, striation_quality_passbands):
         fig, ax = plt.subplots()
-        get_wavelength_correlation_plot(ax, quality_passbands)
+        get_wavelength_correlation_plot(ax, striation_quality_passbands)
         assert len(ax.lines) == 1
         plt.close(fig)
 
-    def test_y_axis_scaled_to_percentage(self, quality_passbands):
+    def test_y_axis_scaled_to_percentage(self, striation_quality_passbands):
         fig, ax = plt.subplots()
-        get_wavelength_correlation_plot(ax, quality_passbands)
+        get_wavelength_correlation_plot(ax, striation_quality_passbands)
         ymin, ymax = ax.get_ylim()
         assert ymin == -0.05
         assert ymax == 1.05
         plt.close(fig)
 
-    def test_x_ticks_match_passbands(self, quality_passbands):
+    def test_x_ticks_match_passbands(self, striation_quality_passbands):
         fig, ax = plt.subplots()
-        get_wavelength_correlation_plot(ax, quality_passbands)
+        get_wavelength_correlation_plot(ax, striation_quality_passbands)
         tick_labels = [t.get_text() for t in ax.get_xticklabels()]
-        assert len(tick_labels) == len(quality_passbands)
+        assert len(tick_labels) == len(striation_quality_passbands)
         plt.close(fig)
 
     def test_empty_passbands(self):
@@ -280,26 +302,26 @@ class TestEdgeCases:
 class TestStriationComparisonPlotsIntegration:
     def test_all_outputs_are_valid_images(
         self,
-        mark_reference,
-        mark_compared,
-        mark_reference_aligned,
-        mark_compared_aligned,
-        mark_profile_reference,
-        mark_profile_compared,
-        metrics,
-        metadata_reference,
-        metadata_compared,
+        striation_mark_reference,
+        striation_mark_compared,
+        striation_mark_reference_aligned,
+        striation_mark_compared_aligned,
+        striation_mark_profile_reference,
+        striation_mark_profile_compared,
+        striation_metrics,
+        sample_metadata_reference,
+        sample_metadata_compared,
     ):
         result = plot_striation_comparison_results(
-            mark_reference=mark_reference,
-            mark_compared=mark_compared,
-            mark_reference_aligned=mark_reference_aligned,
-            mark_compared_aligned=mark_compared_aligned,
-            mark_profile_reference_aligned=mark_profile_reference,
-            mark_profile_compared_aligned=mark_profile_compared,
-            metrics=metrics,
-            metadata_reference=metadata_reference,
-            metadata_compared=metadata_compared,
+            mark_reference=striation_mark_reference,
+            mark_compared=striation_mark_compared,
+            mark_reference_aligned=striation_mark_reference_aligned,
+            mark_compared_aligned=striation_mark_compared_aligned,
+            mark_profile_reference_aligned=striation_mark_profile_reference,
+            mark_profile_compared_aligned=striation_mark_profile_compared,
+            metrics=striation_metrics,
+            metadata_reference=sample_metadata_reference,
+            metadata_compared=sample_metadata_compared,
         )
 
         assert_valid_rgb_image(result.similarity_plot)

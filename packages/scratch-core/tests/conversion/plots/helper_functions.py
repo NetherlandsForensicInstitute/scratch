@@ -5,16 +5,10 @@ from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 
 
-# --- Shared ---
-
-
 def assert_valid_rgb_image(result: UInt8Array3D) -> None:
     assert result.ndim == 3, f"Expected 3D array, got {result.ndim}D"
     assert result.shape[2] == 3, f"Expected RGB, got {result.shape[2]} channels"
     assert result.dtype == np.uint8, f"Expected uint8, got {result.dtype}"
-
-
-# --- Striation ---
 
 
 def create_synthetic_striation_data(
@@ -85,9 +79,6 @@ def create_synthetic_profile_mark(
         ),
         mark_type=MarkType.CHAMBER_STRIATION,
     )
-
-
-# --- Impression ---
 
 
 def create_synthetic_impression_data(
