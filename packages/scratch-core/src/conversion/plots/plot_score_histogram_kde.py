@@ -1,9 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
-from container_models.base import (
-    FloatArray1D,
-)
+from typing import Any
+from container_models.base import FloatArray1D
 
 
 def plot_score_histograms_kde(
@@ -11,99 +10,118 @@ def plot_score_histograms_kde(
     y: FloatArray1D,
     new_score: float | None = None,
     bins: int | None = 20,
-    figsize: tuple[int, int] = (10, 6),
-):
+    ax: Any = plt,
+    show_density: bool = True,
+) -> None:
     """
     Create score histograms with kernel density estimates for KM and KNM datasets.
 
     Parameters:
     -----------
-    scores : numpy array
+    scores : FloatArray1D
         Array of score values
-    y : numpy array
+    y : FloatArray1D
         Array of labels (0 for KNM, 1 for KM)
     new_score : float, optional
         A new score value to plot as a green vertical line
-    bins : int
-        Number of bins for histogram
-    figsize : tuple
-        Figure size (width, height)
+    bins : int, optional
+        Number of bins for histogram. If None, uses 'auto' binning.
+    ax : matplotlib axis, optional
+        The matplotlib axis to plot on (default: plt)
+    show_density : bool, optional
+        Whether to show the kernel density estimate curves (default: True)
     """
 
     # Separate data by label
     knm_scores = scores[y == 0]  # KNM (label 0)
     km_scores = scores[y == 1]  # KM (label 1)
 
+    # Set up bin edges
+    max_score = scores.max() * 1.05
     if bins:
-        # Set up bin edges
-        max_score = max(scores.max() * 1.05)
         bin_edges = np.linspace(0, max_score, bins + 1)
     else:
         bin_edges = np.histogram_bin_edges(scores, bins="auto")
 
-    # KDEs
-    kde_km = gaussian_kde(km_scores)
-    kde_knm = gaussian_kde(knm_scores)
-
-    # Plot histograms and KDEs
-    plt.figure(figsize=figsize)
-    x = np.linspace(bin_edges[0], bin_edges[-1], 500)
-    hist_km = plt.hist(
-        km_scores,
-        bins=bin_edges,
-        density=True,
-        alpha=0.4,
-        color="blue",
-        label=f"KM ({len(km_scores)}",
-    )
-    plt.plot(x, kde_km(x), color="blue", linestyle="--")
-    hist_knm = plt.hist(
+    # Plot histograms
+    ax.hist(
         knm_scores,
         bins=bin_edges,
         density=True,
         alpha=0.4,
-        color="orange",
-        label=f"KNM ({len(knm_scores)}",
+        color="blue",
+        label=f"KNM (n={len(knm_scores)})",
     )
-    plt.plot(x, kde_knm(x), color="orange", linestyle="--")
+
+    ax.hist(
+        km_scores,
+        bins=bin_edges,
+        density=True,
+        alpha=0.4,
+        color="orange",
+        label=f"KM (n={len(km_scores)})",
+    )
+
+    # Plot KDE curves if requested
+    if show_density:
+        x = np.linspace(bin_edges[0], bin_edges[-1], 500)
+
+        if len(knm_scores) > 1:
+            kde_knm = gaussian_kde(knm_scores)
+            ax.plot(x, kde_knm(x), color="blue", linestyle="--", linewidth=2)
+
+        if len(km_scores) > 1:
+            kde_km = gaussian_kde(km_scores)
+            ax.plot(x, kde_km(x), color="orange", linestyle="--", linewidth=2)
 
     # Add vertical line for new score if provided
     if new_score is not None:
-        plt.axvline(x=new_score, color="green", linestyle="-", linewidth=2.5, zorder=10)
+        ax.axvline(
+            x=new_score,
+            color="green",
+            linestyle="-",
+            linewidth=2.5,
+            zorder=10,
+            label=f"new score ({new_score:.2f})",
+        )
 
-    # Set axis limits
-    max_hist = max(hist_km[0].max(), hist_knm[0].max())  # bin heights
-    max_kde = max(kde_km(x).max(), kde_knm(x).max())  # KDE peaks
+    # Set labels and formatting
+    # Handle both plt module and Axes object
+    if hasattr(ax, "set_xlabel"):
+        # ax is an Axes object
+        ax.set_xlabel("Score")
+        ax.set_ylabel("Normalized density")
+        ax.set_xlim(0, max_score)
+        ax.set_ylim(0, None)
+    else:
+        # ax is plt module
+        ax.xlabel("Score")
+        ax.ylabel("Normalized density")
+        ax.xlim(0, max_score)
+        ax.ylim(0, None)
 
-    max_y = max(max_hist, max_kde) * 1.05
-
-    plt.ylim(0, max_y)
-    plt.xlim(0, max_score)
-    plt.xlabel("Score")
-    plt.ylabel("Normalized density")
-    plt.title("Score histograms and kde lines")
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-    return
+    ax.legend()
+    ax.grid(True, linestyle=":")
 
 
 # Example usage
 if __name__ == "__main__":
-    # Generate example data similar to the image
+    # Generate example data
     np.random.seed(42)
 
     # KNM data (n=171991) - concentrated near 0
     n_knm = 171991
-    knm_scores_data = np.random.gamma(0.5, 0.5, n_knm)  # Highly skewed towards 0
+    knm_scores_data = np.random.gamma(0.5, 0.5, n_knm)
 
     # KM data (n=1125) - more spread out
     n_km = 1125
+    n_km_low = 787  # 70% of 1125
+    n_km_high = 338  # 30% of 1125
+
     km_scores_data = np.concatenate(
         [
-            np.random.gamma(1.5, 2, int(n_km * 0.7)),  # Most concentrated at low scores
-            np.random.uniform(10, 50, int(n_km * 0.3)),  # Some spread across range
+            np.random.gamma(1.5, 2, n_km_low),
+            np.random.uniform(10, 50, n_km_high),
         ]
     )
 
@@ -114,14 +132,42 @@ if __name__ == "__main__":
     # Define a new score to highlight
     new_score = 5.0
 
-    # Create plot
-    fig, ax, ax2 = plot_score_histograms_kde(scores, y, new_score=new_score, bins=50)
-
-    # Save figure
+    # Example 1: Using default plt (creates new figure)
+    plt.figure(figsize=(10, 6))
+    plot_score_histograms_kde(scores, y, new_score=new_score, bins=50)
+    plt.title("Score histograms with KDE")
     plt.savefig(
-        "/mnt/user-data/outputs/score_histograms.png", dpi=300, bbox_inches="tight"
+        "/mnt/user-data/outputs/score_histograms_example1.png",
+        dpi=300,
+        bbox_inches="tight",
     )
-    print("Plot saved to score_histograms.png")
+    plt.close()
+    print("✓ Example 1 saved: score_histograms_example1.png")
 
-    # Show plot
-    plt.show()
+    # Example 2: Using custom axis
+    fig, ax = plt.subplots(figsize=(10, 6))
+    plot_score_histograms_kde(scores, y, new_score=new_score, bins=50, ax=ax)
+    ax.set_title("Score histograms with KDE (custom axis)")
+    plt.savefig(
+        "/mnt/user-data/outputs/score_histograms_example2.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close()
+    print("✓ Example 2 saved: score_histograms_example2.png")
+
+    # Example 3: Without density curves
+    fig, ax = plt.subplots(figsize=(10, 6))
+    plot_score_histograms_kde(
+        scores, y, new_score=None, bins=50, ax=ax, show_density=False
+    )
+    ax.set_title("Score histograms without KDE")
+    plt.savefig(
+        "/mnt/user-data/outputs/score_histograms_example3.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close()
+    print("✓ Example 3 saved: score_histograms_example3.png")
+
+    print("\nAll examples completed successfully!")
