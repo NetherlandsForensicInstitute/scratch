@@ -180,6 +180,9 @@ class LevelMap(ImageMutation):
 
 
 class GausianRegressionFilter(ImageMutation):  # pragma: no cover
+    NAN_OUT = True
+    IS_HIGHT_PASS = False
+
     def __init__(self, cutoff_length: float, regression_order: RegressionOrder) -> None:
         self.cutoff_length = cutoff_length
         self.regression_order = regression_order
@@ -208,14 +211,12 @@ class GausianRegressionFilter(ImageMutation):  # pragma: no cover
         """
 
         pixel_size = (scan_image.scale_y, scan_image.scale_x)
-        nan_out = True
-        is_high_pass = False
         scan_image.data = apply_gaussian_regression_filter(
             data=scan_image.data,
             cutoff_length=self.cutoff_length,
             pixel_size=pixel_size,
             regression_order=self.regression_order.value,
-            nan_out=nan_out,
-            is_high_pass=is_high_pass,
+            nan_out=self.NAN_OUT,
+            is_high_pass=self.IS_HIGHT_PASS,
         )
         return scan_image
