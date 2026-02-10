@@ -1,11 +1,10 @@
-"""Impression mark comparison visualization."""
-
 from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.image import AxesImage
 
 from container_models.base import FloatArray2D, ImageRGB
 from conversion.data_formats import Mark
@@ -233,16 +232,46 @@ def plot_comparison_overview(
     :param wrap_width: Maximum characters per line before wrapping.
     :returns: RGB image as uint8 array.
     """
-    # Build results metadata
-    results_items = {
+    # Build results metadata matching MATLAB nfi_nist_plot_cmc style
+    n_cell_rows, n_cell_cols = metrics.cell_correlations.shape
+    n_cells = n_cell_rows * n_cell_cols
+    n_cmc = int(np.sum(metrics.cell_correlations >= metrics.cell_similarity_threshold))
+    cmc_fraction = n_cmc / n_cells * 100 if n_cells > 0 else 0.0
+
+    scale_x_um = mark_reference_filtered.scan_image.scale_x * 1e6
+    scale_y_um = mark_reference_filtered.scan_image.scale_y * 1e6
+
+    results_items: dict[str, str] = {
         "Date report": datetime.now().strftime("%Y-%m-%d"),
         "Mark type": mark_reference_leveled.mark_type.value,
-        "Area Correlation": f"{metrics.area_correlation:.4f}",
-        "CMC Score": f"{metrics.cmc_score:.1f}%",
-        "Sq(Ref)": f"{metrics.sq_ref:.4f} µm",
-        "Sq(Comp)": f"{metrics.sq_comp:.4f} µm",
-        "Sq(Diff)": f"{metrics.sq_diff:.4f} µm",
+        "Number of Cells": str(n_cells),
+        "Number of CMCs": str(n_cmc),
+        "CMC fraction": f"{cmc_fraction:.2f} %",
     }
+    if metrics.cmc_area_fraction is not None:
+        results_items["CMC area fraction"] = f"{metrics.cmc_area_fraction:.2f} %"
+    results_items[""] = ""  # blank separator line
+    results_items["Data spacing (X)"] = f"{scale_x_um:.4f} µm"
+    results_items["Data spacing (Y)"] = f"{scale_y_um:.4f} µm"
+    if metrics.cutoff_low_pass is not None:
+        results_items["Cutoff length low-pass filter"] = (
+            f"{metrics.cutoff_low_pass:.0f} µm"
+        )
+    if metrics.cutoff_high_pass is not None:
+        results_items["Cutoff length high-pass filter"] = (
+            f"{metrics.cutoff_high_pass:.0f} µm"
+        )
+    if metrics.cell_size_um is not None:
+        results_items["Cell Size"] = f"{metrics.cell_size_um:.0f} µm"
+    results_items["Minimum cell similarity"] = f"{metrics.cell_similarity_threshold}"
+    if metrics.max_error_cell_position is not None:
+        results_items["Max error cell position"] = (
+            f"{metrics.max_error_cell_position:.0f} µm"
+        )
+    if metrics.max_error_cell_angle is not None:
+        results_items["Max error cell angle"] = (
+            f"{metrics.max_error_cell_angle:.0f} degree"
+        )
 
     max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
         metadata_compared, metadata_reference, wrap_width
@@ -262,7 +291,7 @@ def plot_comparison_overview(
     fig_height = 12 + (max_metadata_rows * 0.12)
     fig_height = max(10.0, min(15.0, fig_height))
 
-    fig = plt.figure(figsize=(14, fig_height))
+    fig = plt.figure(figsize=(16, fig_height))
 
     gs = fig.add_gridspec(
         3,
@@ -270,11 +299,13 @@ def plot_comparison_overview(
         height_ratios=height_ratios,
         width_ratios=[0.35, 0.35, 0.30],
         hspace=0.35,
-        wspace=0.25,
+        wspace=0.45,
     )
 
-    # Row 0: Metadata tables
-    ax_meta_reference = fig.add_subplot(gs[0, 0])
+    # Row 0: Metadata tables — span full width as two equal columns
+    gs_meta = gs[0, :].subgridspec(1, 2, wspace=0.15)
+
+    ax_meta_reference = fig.add_subplot(gs_meta[0, 0])
     draw_metadata_box(
         ax_meta_reference,
         metadata_reference,
@@ -282,7 +313,7 @@ def plot_comparison_overview(
         wrap_width=wrap_width,
     )
 
-    ax_meta_compared = fig.add_subplot(gs[0, 1])
+    ax_meta_compared = fig.add_subplot(gs_meta[0, 1])
     draw_metadata_box(
         ax_meta_compared,
         metadata_compared,
@@ -310,14 +341,28 @@ def plot_comparison_overview(
     )
 
     ax_results = fig.add_subplot(gs[1, 2])
+    bold_value_keys = {
+        "Date report",
+        "Mark type",
+        "Number of Cells",
+        "Number of CMCs",
+        "CMC fraction",
+        "CMC area fraction",
+    }
     draw_metadata_box(
-        ax_results, results_items, draw_border=False, wrap_width=wrap_width
+        ax_results,
+        results_items,
+        draw_border=False,
+        wrap_width=wrap_width,
+        bold_value_keys=bold_value_keys,
     )
 
     # Row 2: Filtered surfaces (with cell grid overlay if available) + Cell ACCF Distribution
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
     ax_filtered_ref = fig.add_subplot(gs[2, 0])
     if metrics.has_cell_results:
-        _plot_cell_overlay_on_axes(
+        im_ref = _plot_cell_overlay_on_axes(
             ax_filtered_ref,
             mark_reference_filtered.scan_image.data,
             mark_reference_filtered.scan_image.scale_x,
@@ -329,6 +374,10 @@ def plot_comparison_overview(
         ax_filtered_ref.set_title(
             "Filtered Reference Surface A", fontsize=12, fontweight="bold"
         )
+        divider_ref = make_axes_locatable(ax_filtered_ref)
+        cax_ref = divider_ref.append_axes("right", size="5%", pad=0.05)
+        cbar_ref = fig.colorbar(im_ref, cax=cax_ref, label="Scan Depth [µm]")
+        cbar_ref.ax.tick_params(labelsize=9)
     else:
         plot_depth_map_on_axes(
             ax_filtered_ref,
@@ -349,7 +398,7 @@ def plot_comparison_overview(
             ref_h * ref_scale * 1e6 / n_rows,
         )
 
-        _plot_cell_overlay_on_axes(
+        im_comp = _plot_cell_overlay_on_axes(
             ax_filtered_comp,
             mark_compared_filtered.scan_image.data,
             mark_compared_filtered.scan_image.scale_x,
@@ -366,6 +415,10 @@ def plot_comparison_overview(
         ax_filtered_comp.set_title(
             "Filtered Compared Surface B", fontsize=12, fontweight="bold"
         )
+        divider_comp = make_axes_locatable(ax_filtered_comp)
+        cax_comp = divider_comp.append_axes("right", size="5%", pad=0.05)
+        cbar_comp = fig.colorbar(im_comp, cax=cax_comp, label="Scan Depth [µm]")
+        cbar_comp.ax.tick_params(labelsize=9)
     else:
         plot_depth_map_on_axes(
             ax_filtered_comp,
@@ -377,10 +430,23 @@ def plot_comparison_overview(
 
     if metrics.has_cell_results:
         ax_heatmap = fig.add_subplot(gs[2, 2])
-        _plot_cell_heatmap_on_axes(ax_heatmap, fig, metrics.cell_correlations)
+        ref_data = mark_reference_filtered.scan_image.data
+        ref_sc = mark_reference_filtered.scan_image.scale_x
+        heatmap_extent_um = (
+            ref_data.shape[1] * ref_sc * 1e6,
+            ref_data.shape[0] * ref_sc * 1e6,
+        )
+        _plot_cell_heatmap_on_axes(
+            ax_heatmap,
+            fig,
+            metrics.cell_correlations,
+            surface_extent_um=heatmap_extent_um,
+            cell_label_prefix="A",
+            cell_similarity_threshold=metrics.cell_similarity_threshold,
+        )
 
     fig.tight_layout(pad=0.8, h_pad=1.2, w_pad=0.8)
-    fig.subplots_adjust(left=0.06, right=0.98, top=0.96, bottom=0.06)
+    fig.subplots_adjust(left=0.06, right=0.93, top=0.96, bottom=0.06)
     arr = figure_to_array(fig)
     plt.close(fig)
     return arr
@@ -400,7 +466,7 @@ def _plot_cell_overlay_on_axes(
     cell_positions: np.ndarray | None = None,
     cell_rotations: np.ndarray | None = None,
     cell_size_um: tuple[float, float] | None = None,
-) -> None:
+) -> AxesImage:
     """
     Plot surface with cell grid overlay on given axes.
 
@@ -430,7 +496,7 @@ def _plot_cell_overlay_on_axes(
 
     # Plot the surface
     extent = (0, width * scale * 1e6, 0, height * scale * 1e6)
-    ax.imshow(
+    im = ax.imshow(
         data * 1e6,
         cmap=DEFAULT_COLORMAP,
         aspect="equal",
@@ -558,53 +624,101 @@ def _plot_cell_overlay_on_axes(
     ax.set_ylabel("Y - Position [µm]", fontsize=11)
     ax.tick_params(labelsize=10)
 
+    return im
+
 
 def _plot_cell_heatmap_on_axes(
     ax: Axes,
     fig: Figure,
     cell_correlations: FloatArray2D,
+    surface_extent_um: tuple[float, float] | None = None,
+    cell_label_prefix: str = "A",
+    cell_similarity_threshold: float = 0.25,
 ) -> None:
-    """Plot cell correlation heatmap on given axes."""
+    """
+    Plot cell correlation heatmap on given axes.
+
+    When ``surface_extent_um`` is provided the heatmap uses spatial µm axes
+    and shows cell labels (A1, A2, …) coloured by CMC status, matching the
+    MATLAB ``nfi_nist_plot_cmc`` style.
+
+    :param ax: Matplotlib axes to plot on.
+    :param fig: Figure (needed for colorbar).
+    :param cell_correlations: Grid of per-cell correlation values.
+    :param surface_extent_um: (width, height) of the surface in µm.
+    :param cell_label_prefix: Prefix for cell labels.
+    :param cell_similarity_threshold: Minimum correlation for CMC.
+    """
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     n_rows, n_cols = cell_correlations.shape
+
+    if surface_extent_um is not None:
+        w_um, h_um = surface_extent_um
+        extent = (0, w_um, 0, h_um)
+        origin = "lower"
+    else:
+        extent = None
+        origin = "upper"
 
     im = ax.imshow(
         cell_correlations,
         cmap=DEFAULT_COLORMAP,
         aspect="equal",
-        origin="upper",
+        origin=origin,
+        extent=extent,
         vmin=0,
         vmax=1,
     )
 
-    # Add cell value annotations
+    # Add cell labels
+    cell_w = (surface_extent_um[0] / n_cols) if surface_extent_um else 1.0
+    cell_h = (surface_extent_um[1] / n_rows) if surface_extent_um else 1.0
+
+    cell_index = 0
     for i in range(n_rows):
         for j in range(n_cols):
+            cell_index += 1
             val = cell_correlations[i, j]
-            if not np.isnan(val):
-                text_color = "white" if val < 0.5 else "black"
-                ax.text(
-                    j,
-                    i,
-                    f"{val:.2f}",
-                    ha="center",
-                    va="center",
-                    fontsize=9,
-                    color=text_color,
-                    fontweight="bold",
-                )
+            if np.isnan(val):
+                continue
 
-    ax.set_xlabel("Column", fontsize=11)
-    ax.set_ylabel("Row", fontsize=11)
+            if surface_extent_um is not None:
+                cx = (j + 0.5) * cell_w
+                cy = (n_rows - 1 - i + 0.5) * cell_h
+                is_cmc = val >= cell_similarity_threshold
+                color = "blue" if is_cmc else "red"
+                label = f"{cell_label_prefix}{cell_index}"
+            else:
+                cx = j
+                cy = i
+                color = "white" if val < 0.5 else "black"
+                label = f"{val:.2f}"
+
+            ax.text(
+                cx,
+                cy,
+                label,
+                ha="center",
+                va="center",
+                fontsize=9,
+                color=color,
+                fontweight="bold",
+            )
+
     ax.set_title("Cell ACCF Distribution", fontsize=12, fontweight="bold")
     ax.tick_params(labelsize=10)
 
-    # Set tick positions
-    ax.set_xticks(range(n_cols))
-    ax.set_yticks(range(n_rows))
+    if surface_extent_um is not None:
+        ax.set_xlabel("X - Position [µm]", fontsize=11)
+        ax.set_ylabel("Y - Position [µm]", fontsize=11)
+    else:
+        ax.set_xlabel("Column", fontsize=11)
+        ax.set_ylabel("Row", fontsize=11)
+        ax.set_xticks(range(n_cols))
+        ax.set_yticks(range(n_rows))
 
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.1)
-    cbar = fig.colorbar(im, cax=cax, label="Correlation")
+    cbar = fig.colorbar(im, cax=cax)
     cbar.ax.tick_params(labelsize=10)

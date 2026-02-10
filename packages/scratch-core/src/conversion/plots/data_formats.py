@@ -69,6 +69,12 @@ class ImpressionComparisonMetrics:
     :param cell_positions_compared: (n_cells, 2) matched positions on compared surface in µm, row-major order.
     :param cell_rotations_compared: (n_cells,) rotation angles in radians, row-major order.
     :param cell_similarity_threshold: Minimum correlation for a cell to be CMC (default 0.25).
+    :param cmc_area_fraction: CMC area fraction percentage.
+    :param cutoff_low_pass: Cutoff length low-pass filter in µm.
+    :param cutoff_high_pass: Cutoff length high-pass filter in µm.
+    :param cell_size_um: Cell size in µm.
+    :param max_error_cell_position: Max error cell position in µm.
+    :param max_error_cell_angle: Max error cell angle in degrees.
     """
 
     area_correlation: float
@@ -82,6 +88,12 @@ class ImpressionComparisonMetrics:
     cell_positions_compared: FloatArray2D | None = None
     cell_rotations_compared: FloatArray1D | None = None
     cell_similarity_threshold: float = 0.25
+    cmc_area_fraction: float | None = None
+    cutoff_low_pass: float | None = None
+    cutoff_high_pass: float | None = None
+    cell_size_um: float | None = None
+    max_error_cell_position: float | None = None
+    max_error_cell_angle: float | None = None
 
 
 @dataclass

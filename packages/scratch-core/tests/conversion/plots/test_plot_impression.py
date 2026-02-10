@@ -1,15 +1,16 @@
 """Tests for impression mark comparison visualization."""
 
 import numpy as np
-import pytest
+from matplotlib import pyplot as plt
 
-from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark
 from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
     ImpressionComparisonPlots,
 )
 from conversion.plots.plot_impression import (
+    _plot_cell_heatmap_on_axes,
+    _plot_cell_overlay_on_axes,
     plot_cell_correlation_heatmap,
     plot_cell_grid_overlay,
     plot_comparison_overview,
@@ -17,90 +18,25 @@ from conversion.plots.plot_impression import (
     plot_impression_comparison_results,
 )
 
-
-@pytest.fixture
-def sample_depth_data() -> np.ndarray:
-    """Create synthetic depth data for testing."""
-    np.random.seed(42)
-    return np.random.randn(100, 120) * 1e-6  # Random surface in meters
-
-
-@pytest.fixture
-def sample_mark(sample_depth_data: np.ndarray) -> Mark:
-    """Create a sample Mark for testing."""
-    scan_image = ScanImage(
-        data=sample_depth_data,
-        scale_x=1.5e-6,  # 1.5 µm pixel size
-        scale_y=1.5e-6,
-    )
-    return Mark(
-        scan_image=scan_image,
-        mark_type=MarkType.FIRING_PIN_IMPRESSION,
-    )
-
-
-@pytest.fixture
-def sample_cell_correlations() -> np.ndarray:
-    """Create synthetic cell correlation grid."""
-    np.random.seed(42)
-    return np.random.rand(4, 5)  # 4x5 grid of correlations
-
-
-@pytest.fixture
-def sample_metrics(sample_cell_correlations: np.ndarray) -> ImpressionComparisonMetrics:
-    """Create sample metrics for testing."""
-    return ImpressionComparisonMetrics(
-        area_correlation=0.85,
-        cell_correlations=sample_cell_correlations,
-        cmc_score=75.0,
-        sq_ref=1.5,
-        sq_comp=1.6,
-        sq_diff=0.4,
-        has_area_results=True,
-        has_cell_results=True,
-    )
-
-
-@pytest.fixture
-def sample_metadata_reference() -> dict[str, str]:
-    """Create sample metadata for reference mark."""
-    return {
-        "Collection": "firearms",
-        "Firearm ID": "firearm_1",
-        "Specimen ID": "cartridge_1",
-    }
-
-
-@pytest.fixture
-def sample_metadata_compared() -> dict[str, str]:
-    """Create sample metadata for compared mark."""
-    return {
-        "Collection": "firearms",
-        "Firearm ID": "firearm_1",
-        "Specimen ID": "cartridge_2",
-    }
+from .helper_functions import assert_valid_rgb_image
 
 
 class TestPlotDepthMapWithAxes:
     """Tests for plot_depth_map_with_axes function."""
 
     def test_returns_rgb_image(self, sample_depth_data: np.ndarray):
-        """Output should be RGB uint8 array."""
         result = plot_depth_map_with_axes(
             data=sample_depth_data,
             scale=1.5e-6,
             title="Test Surface",
         )
-        assert result.ndim == 3
-        assert result.shape[2] == 3
-        assert result.dtype == np.uint8
+        assert_valid_rgb_image(result)
 
     def test_handles_nan_values(self):
-        """Should handle NaN values in data."""
         data = np.random.randn(50, 60) * 1e-6
         data[10:20, 10:20] = np.nan
         result = plot_depth_map_with_axes(data=data, scale=1.5e-6, title="With NaN")
-        assert result.shape[2] == 3
+        assert_valid_rgb_image(result)
 
 
 class TestPlotCellGridOverlay:
@@ -109,26 +45,21 @@ class TestPlotCellGridOverlay:
     def test_returns_rgb_image(
         self, sample_depth_data: np.ndarray, sample_cell_correlations: np.ndarray
     ):
-        """Output should be RGB uint8 array."""
         result = plot_cell_grid_overlay(
             data=sample_depth_data,
             scale=1.5e-6,
             cell_correlations=sample_cell_correlations,
         )
-        assert result.ndim == 3
-        assert result.shape[2] == 3
-        assert result.dtype == np.uint8
+        assert_valid_rgb_image(result)
 
     def test_with_custom_positions_and_rotations(
         self, sample_depth_data: np.ndarray, sample_cell_correlations: np.ndarray
     ):
-        """Should render cells at custom positions with rotations."""
         n_rows, n_cols = sample_cell_correlations.shape
         n_cells = n_rows * n_cols
         scale = 1.5e-6
         h, w = sample_depth_data.shape
 
-        # Build positions at grid centers
         cell_w_um = w * scale * 1e6 / n_cols
         cell_h_um = h * scale * 1e6 / n_rows
         positions = np.zeros((n_cells, 2), dtype=np.float64)
@@ -148,29 +79,69 @@ class TestPlotCellGridOverlay:
             cell_rotations=rotations,
             cell_size_um=(cell_w_um, cell_h_um),
         )
-        assert result.ndim == 3
-        assert result.shape[2] == 3
-        assert result.dtype == np.uint8
+        assert_valid_rgb_image(result)
+
+    def test_show_only_cmc_cells(
+        self, sample_depth_data: np.ndarray, sample_cell_correlations: np.ndarray
+    ):
+        result = plot_cell_grid_overlay(
+            data=sample_depth_data,
+            scale=1.5e-6,
+            cell_correlations=sample_cell_correlations,
+            show_all_cells=False,
+        )
+        assert_valid_rgb_image(result)
+
+    def test_custom_threshold(
+        self, sample_depth_data: np.ndarray, sample_cell_correlations: np.ndarray
+    ):
+        result = plot_cell_grid_overlay(
+            data=sample_depth_data,
+            scale=1.5e-6,
+            cell_correlations=sample_cell_correlations,
+            cell_similarity_threshold=0.80,
+        )
+        assert_valid_rgb_image(result)
+
+    def test_with_nan_positions_skips_cells(self, sample_depth_data: np.ndarray):
+        correlations = np.array([[0.9, 0.1], [0.8, 0.3]])
+        n_cells = 4
+        positions = np.full((n_cells, 2), np.nan, dtype=np.float64)
+        # Only place one CMC cell
+        positions[0, :] = [50.0, 100.0]
+        rotations = np.zeros(n_cells, dtype=np.float64)
+
+        result = plot_cell_grid_overlay(
+            data=sample_depth_data,
+            scale=1.5e-6,
+            cell_correlations=correlations,
+            cell_positions=positions,
+            cell_rotations=rotations,
+            cell_size_um=(40.0, 40.0),
+            show_all_cells=False,
+        )
+        assert_valid_rgb_image(result)
 
 
 class TestPlotCellCorrelationHeatmap:
     """Tests for plot_cell_correlation_heatmap function."""
 
     def test_returns_rgb_image(self, sample_cell_correlations: np.ndarray):
-        """Output should be RGB uint8 array."""
         result = plot_cell_correlation_heatmap(
             cell_correlations=sample_cell_correlations
         )
-        assert result.ndim == 3
-        assert result.shape[2] == 3
-        assert result.dtype == np.uint8
+        assert_valid_rgb_image(result)
 
     def test_handles_different_grid_sizes(self):
-        """Should handle various grid sizes."""
         for rows, cols in [(2, 3), (5, 5), (3, 8)]:
             correlations = np.random.rand(rows, cols)
             result = plot_cell_correlation_heatmap(cell_correlations=correlations)
-            assert result.shape[2] == 3
+            assert_valid_rgb_image(result)
+
+    def test_with_nan_cells(self):
+        correlations = np.array([[0.5, np.nan], [0.3, 0.7]])
+        result = plot_cell_correlation_heatmap(cell_correlations=correlations)
+        assert_valid_rgb_image(result)
 
 
 class TestPlotComparisonOverview:
@@ -183,7 +154,6 @@ class TestPlotComparisonOverview:
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
-        """Should return valid RGB image."""
         result = plot_comparison_overview(
             mark_reference_leveled=sample_mark,
             mark_compared_leveled=sample_mark,
@@ -193,9 +163,7 @@ class TestPlotComparisonOverview:
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
         )
-        assert result.ndim == 3
-        assert result.shape[2] == 3
-        assert result.dtype == np.uint8
+        assert_valid_rgb_image(result)
 
     def test_with_custom_cell_positions(
         self,
@@ -204,13 +172,11 @@ class TestPlotComparisonOverview:
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
-        """Should render compared surface cells at custom positions."""
         n_rows, n_cols = sample_cell_correlations.shape
         n_cells = n_rows * n_cols
         positions = np.full((n_cells, 2), np.nan, dtype=np.float64)
         rotations = np.zeros(n_cells, dtype=np.float64)
 
-        # Place only CMC cells (those >= 0.25)
         scale = sample_mark.scan_image.scale_x
         h, w = sample_mark.scan_image.data.shape
         cell_w_um = w * scale * 1e6 / n_cols
@@ -245,9 +211,7 @@ class TestPlotComparisonOverview:
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
         )
-        assert result.ndim == 3
-        assert result.shape[2] == 3
-        assert result.dtype == np.uint8
+        assert_valid_rgb_image(result)
 
     def test_handles_area_only_metrics(
         self,
@@ -256,7 +220,6 @@ class TestPlotComparisonOverview:
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
-        """Should work when only area results are available."""
         metrics = ImpressionComparisonMetrics(
             area_correlation=0.85,
             cell_correlations=sample_cell_correlations,
@@ -276,7 +239,41 @@ class TestPlotComparisonOverview:
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
         )
-        assert result.shape[2] == 3
+        assert_valid_rgb_image(result)
+
+    def test_with_all_optional_metrics(
+        self,
+        sample_mark: Mark,
+        sample_cell_correlations: np.ndarray,
+        sample_metadata_reference: dict[str, str],
+        sample_metadata_compared: dict[str, str],
+    ):
+        metrics = ImpressionComparisonMetrics(
+            area_correlation=0.85,
+            cell_correlations=sample_cell_correlations,
+            cmc_score=75.0,
+            sq_ref=1.5,
+            sq_comp=1.6,
+            sq_diff=0.4,
+            has_area_results=True,
+            has_cell_results=True,
+            cmc_area_fraction=16.04,
+            cutoff_low_pass=5.0,
+            cutoff_high_pass=250.0,
+            cell_size_um=125.0,
+            max_error_cell_position=75.0,
+            max_error_cell_angle=6.0,
+        )
+        result = plot_comparison_overview(
+            mark_reference_leveled=sample_mark,
+            mark_compared_leveled=sample_mark,
+            mark_reference_filtered=sample_mark,
+            mark_compared_filtered=sample_mark,
+            metrics=metrics,
+            metadata_reference=sample_metadata_reference,
+            metadata_compared=sample_metadata_compared,
+        )
+        assert_valid_rgb_image(result)
 
 
 class TestPlotImpressionComparisonResults:
@@ -289,7 +286,6 @@ class TestPlotImpressionComparisonResults:
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
-        """Should generate all plots when both area and cell results are available."""
         result = plot_impression_comparison_results(
             mark_reference_leveled=sample_mark,
             mark_compared_leveled=sample_mark,
@@ -301,17 +297,11 @@ class TestPlotImpressionComparisonResults:
         )
 
         assert isinstance(result, ImpressionComparisonPlots)
-
-        # Comparison overview should always be present
         assert result.comparison_overview is not None
-
-        # Area-based plots should be present
         assert result.leveled_reference is not None
         assert result.leveled_compared is not None
         assert result.filtered_reference is not None
         assert result.filtered_compared is not None
-
-        # Cell/CMC-based plots should be present
         assert result.cell_reference is not None
         assert result.cell_compared is not None
         assert result.cell_overlay is not None
@@ -324,7 +314,6 @@ class TestPlotImpressionComparisonResults:
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
-        """Should only generate area plots when has_cell_results is False."""
         metrics = ImpressionComparisonMetrics(
             area_correlation=0.85,
             cell_correlations=sample_cell_correlations,
@@ -346,13 +335,8 @@ class TestPlotImpressionComparisonResults:
             metadata_compared=sample_metadata_compared,
         )
 
-        # Comparison overview always present
         assert result.comparison_overview is not None
-
-        # Area-based plots should be present
         assert result.leveled_reference is not None
-
-        # Cell/CMC-based plots should be None
         assert result.cell_reference is None
         assert result.cell_cross_correlation is None
 
@@ -363,7 +347,6 @@ class TestPlotImpressionComparisonResults:
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
-        """Should only generate cell plots when has_area_results is False."""
         metrics = ImpressionComparisonMetrics(
             area_correlation=0.85,
             cell_correlations=sample_cell_correlations,
@@ -385,13 +368,8 @@ class TestPlotImpressionComparisonResults:
             metadata_compared=sample_metadata_compared,
         )
 
-        # Comparison overview always present
         assert result.comparison_overview is not None
-
-        # Area-based plots should be None
         assert result.leveled_reference is None
-
-        # Cell/CMC-based plots should be present
         assert result.cell_reference is not None
         assert result.cell_cross_correlation is not None
 
@@ -402,7 +380,6 @@ class TestPlotImpressionComparisonResults:
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
-        """All non-None outputs should be valid RGB images."""
         result = plot_impression_comparison_results(
             mark_reference_leveled=sample_mark,
             mark_compared_leveled=sample_mark,
@@ -426,6 +403,98 @@ class TestPlotImpressionComparisonResults:
         ]:
             img = getattr(result, field_name)
             if img is not None:
-                assert img.ndim == 3, f"{field_name} should be 3D"
-                assert img.shape[2] == 3, f"{field_name} should have 3 channels"
-                assert img.dtype == np.uint8, f"{field_name} should be uint8"
+                assert_valid_rgb_image(img)
+
+
+class TestPlotCellHeatmapOnAxes:
+    """Tests for _plot_cell_heatmap_on_axes helper."""
+
+    def test_with_surface_extent(self, sample_cell_correlations: np.ndarray):
+        fig, ax = plt.subplots()
+        _plot_cell_heatmap_on_axes(
+            ax,
+            fig,
+            sample_cell_correlations,
+            surface_extent_um=(300.0, 200.0),
+        )
+        assert ax.get_title() == "Cell ACCF Distribution"
+        assert "µm" in ax.get_xlabel()
+        plt.close(fig)
+
+    def test_without_surface_extent(self, sample_cell_correlations: np.ndarray):
+        fig, ax = plt.subplots()
+        _plot_cell_heatmap_on_axes(ax, fig, sample_cell_correlations)
+        assert "Column" in ax.get_xlabel()
+        plt.close(fig)
+
+    def test_custom_threshold_colors(self):
+        correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
+        fig, ax = plt.subplots()
+        _plot_cell_heatmap_on_axes(
+            ax,
+            fig,
+            correlations,
+            surface_extent_um=(100.0, 100.0),
+            cell_similarity_threshold=0.5,
+        )
+        plt.close(fig)
+
+
+class TestPlotCellOverlayOnAxes:
+    """Tests for _plot_cell_overlay_on_axes helper."""
+
+    def test_returns_axes_image(self, sample_depth_data: np.ndarray):
+        correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
+        fig, ax = plt.subplots()
+        im = _plot_cell_overlay_on_axes(ax, sample_depth_data, 1.5e-6, correlations)
+        assert im is not None
+        assert len(ax.images) == 1
+        plt.close(fig)
+
+    def test_custom_label_prefix(self, sample_depth_data: np.ndarray):
+        correlations = np.array([[0.5, 0.5]])
+        fig, ax = plt.subplots()
+        _plot_cell_overlay_on_axes(
+            ax,
+            sample_depth_data,
+            1.5e-6,
+            correlations,
+            cell_label_prefix="B",
+        )
+        # Check that text labels contain "B"
+        texts = [t.get_text() for t in ax.texts]
+        assert all("B" in t for t in texts)
+        plt.close(fig)
+
+    def test_grid_mode_draws_rectangles(self, sample_depth_data: np.ndarray):
+        correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
+        fig, ax = plt.subplots()
+        _plot_cell_overlay_on_axes(ax, sample_depth_data, 1.5e-6, correlations)
+        # Should have lines for cell borders + labels
+        assert len(ax.lines) > 0
+        assert len(ax.texts) > 0
+        plt.close(fig)
+
+    def test_rotated_mode_draws_polygons(self, sample_depth_data: np.ndarray):
+        correlations = np.array([[0.9, 0.1]])
+        h, w = sample_depth_data.shape
+        scale = 1.5e-6
+        cell_w = w * scale * 1e6 / 2
+        cell_h = h * scale * 1e6 / 1
+        positions = np.array([[cell_w / 2, cell_h / 2], [float("nan"), float("nan")]])
+        rotations = np.array([np.deg2rad(10), 0.0])
+
+        fig, ax = plt.subplots()
+        _plot_cell_overlay_on_axes(
+            ax,
+            sample_depth_data,
+            scale,
+            correlations,
+            cell_positions=positions,
+            cell_rotations=rotations,
+            cell_size_um=(cell_w, cell_h),
+            show_all_cells=False,
+        )
+        # Only 1 CMC cell placed (the other has NaN position)
+        assert len(ax.texts) == 1
+        plt.close(fig)

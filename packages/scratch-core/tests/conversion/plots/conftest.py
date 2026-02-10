@@ -1,13 +1,23 @@
+import numpy as np
 import pytest
 
 from container_models.base import FloatArray2D
 from conversion.data_formats import Mark
-from conversion.plots.data_formats import CorrelationMetrics
-from .helper_functions import (
-    create_synthetic_striation_data,
-    create_synthetic_mark,
-    create_synthetic_profile_mark,
+from conversion.plots.data_formats import (
+    CorrelationMetrics,
+    ImpressionComparisonMetrics,
 )
+
+from .helper_functions import (
+    create_synthetic_impression_data,
+    create_synthetic_impression_mark,
+    create_synthetic_profile_mark,
+    create_synthetic_striation_data,
+    create_synthetic_striation_mark,
+)
+
+
+# --- Striation fixtures ---
 
 
 @pytest.fixture
@@ -32,22 +42,22 @@ def surface_compared() -> FloatArray2D:
 
 @pytest.fixture
 def mark_reference() -> Mark:
-    return create_synthetic_mark(height=256, width=200, seed=42)
+    return create_synthetic_striation_mark(height=256, width=200, seed=42)
 
 
 @pytest.fixture
 def mark_compared() -> Mark:
-    return create_synthetic_mark(height=256, width=220, seed=43)
+    return create_synthetic_striation_mark(height=256, width=220, seed=43)
 
 
 @pytest.fixture
 def mark_reference_aligned() -> Mark:
-    return create_synthetic_mark(height=200, width=200, seed=44)
+    return create_synthetic_striation_mark(height=200, width=200, seed=44)
 
 
 @pytest.fixture
 def mark_compared_aligned() -> Mark:
-    return create_synthetic_mark(height=200, width=200, seed=45)
+    return create_synthetic_striation_mark(height=200, width=200, seed=45)
 
 
 @pytest.fixture
@@ -105,4 +115,55 @@ def metadata_compared() -> dict[str, str]:
         "Firearm ID": "firearm_1_-_known_match",
         "Specimen ID": "bullet_2",
         "Measurement ID": "striated_mark",
+    }
+
+
+# --- Impression fixtures ---
+
+
+@pytest.fixture
+def sample_depth_data() -> FloatArray2D:
+    return create_synthetic_impression_data(height=100, width=120, seed=42)
+
+
+@pytest.fixture
+def sample_mark() -> Mark:
+    return create_synthetic_impression_mark(height=100, width=120, seed=42)
+
+
+@pytest.fixture
+def sample_cell_correlations() -> np.ndarray:
+    """4x5 grid of cell correlation values."""
+    return np.random.default_rng(42).random((4, 5))
+
+
+@pytest.fixture
+def sample_metrics(sample_cell_correlations: np.ndarray) -> ImpressionComparisonMetrics:
+    return ImpressionComparisonMetrics(
+        area_correlation=0.85,
+        cell_correlations=sample_cell_correlations,
+        cmc_score=75.0,
+        sq_ref=1.5,
+        sq_comp=1.6,
+        sq_diff=0.4,
+        has_area_results=True,
+        has_cell_results=True,
+    )
+
+
+@pytest.fixture
+def sample_metadata_reference() -> dict[str, str]:
+    return {
+        "Collection": "firearms",
+        "Firearm ID": "firearm_1",
+        "Specimen ID": "cartridge_1",
+    }
+
+
+@pytest.fixture
+def sample_metadata_compared() -> dict[str, str]:
+    return {
+        "Collection": "firearms",
+        "Firearm ID": "firearm_1",
+        "Specimen ID": "cartridge_2",
     }

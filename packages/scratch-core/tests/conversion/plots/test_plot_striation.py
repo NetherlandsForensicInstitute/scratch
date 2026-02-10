@@ -113,32 +113,41 @@ class TestGetFigDimensions:
 class TestMetadataToTableData:
     def test_simple_metadata(self):
         metadata = {"Key": "Value"}
-        result = metadata_to_table_data(metadata, wrap_width=40)
-        assert result == [["Key:", "Value"]]
+        table_data, key_row_indices = metadata_to_table_data(metadata, wrap_width=40)
+        assert table_data == [["Key:", "Value"]]
+        assert key_row_indices == {0}
 
     def test_wrapping_long_values(self):
         metadata = {"Key": "A" * 100}
-        result = metadata_to_table_data(metadata, wrap_width=40)
-        assert len(result) > 1
-        assert result[0][0] == "Key:"
-        assert result[1][0] == ""  # Continuation has empty key
+        table_data, key_row_indices = metadata_to_table_data(metadata, wrap_width=40)
+        assert len(table_data) > 1
+        assert table_data[0][0] == "Key:"
+        assert table_data[1][0] == ""  # Continuation has empty key
+        assert key_row_indices == {0}
 
     def test_empty_value(self):
         metadata = {"Key": ""}
-        result = metadata_to_table_data(metadata, wrap_width=40)
-        assert result == [["Key:", ""]]
+        table_data, key_row_indices = metadata_to_table_data(metadata, wrap_width=40)
+        assert table_data == [["Key:", ""]]
+        assert key_row_indices == {0}
 
     def test_preserves_order(self):
         metadata = {"First": "1", "Second": "2", "Third": "3"}
-        result = metadata_to_table_data(metadata, wrap_width=40)
-        keys = [row[0] for row in result]
+        table_data, key_row_indices = metadata_to_table_data(metadata, wrap_width=40)
+        keys = [row[0] for row in table_data]
         assert keys == ["First:", "Second:", "Third:"]
+        assert key_row_indices == {0, 1, 2}
 
     def test_non_string_values_converted(self):
         metadata = {"Number": 42, "Float": 3.14}
-        result = metadata_to_table_data(metadata, wrap_width=40)
-        assert result[0] == ["Number:", "42"]
-        assert result[1] == ["Float:", "3.14"]
+        table_data, _ = metadata_to_table_data(metadata, wrap_width=40)
+        assert table_data[0] == ["Number:", "42"]
+        assert table_data[1] == ["Float:", "3.14"]
+
+    def test_empty_key_skips_colon(self):
+        metadata = {"Key": "Value", "": ""}
+        table_data, _ = metadata_to_table_data(metadata, wrap_width=40)
+        assert table_data[1][0] == ""  # No colon for empty key
 
 
 class TestPlotProfilesOnAxes:

@@ -5,6 +5,18 @@ from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 
 
+# --- Shared ---
+
+
+def assert_valid_rgb_image(result: UInt8Array3D) -> None:
+    assert result.ndim == 3, f"Expected 3D array, got {result.ndim}D"
+    assert result.shape[2] == 3, f"Expected RGB, got {result.shape[2]} channels"
+    assert result.dtype == np.uint8, f"Expected uint8, got {result.dtype}"
+
+
+# --- Striation ---
+
+
 def create_synthetic_striation_data(
     height: int = 256,
     width: int = 200,
@@ -41,13 +53,13 @@ def create_synthetic_striation_data(
     return data * 1e-6
 
 
-def create_synthetic_mark(
+def create_synthetic_striation_mark(
     height: int = 256,
     width: int = 200,
     scale: float = 1.5625e-6,
     seed: int = 42,
 ) -> Mark:
-    """Create a MockMark with synthetic surface data."""
+    """Create a Mark with synthetic striation surface data."""
     return Mark(
         scan_image=ScanImage(
             data=create_synthetic_striation_data(height, width, seed),
@@ -64,7 +76,7 @@ def create_synthetic_profile_mark(
     scale: float = 1.5625e-6,
     seed: int = 42,
 ) -> Mark:
-    """Create a MockMark with synthetic profile data."""
+    """Create a Mark with synthetic profile data."""
     return Mark(
         scan_image=ScanImage(
             data=create_synthetic_striation_data(height=1, width=length, seed=seed),
@@ -75,7 +87,51 @@ def create_synthetic_profile_mark(
     )
 
 
-def assert_valid_rgb_image(result: UInt8Array3D) -> None:
-    assert result.ndim == 3, f"Expected 3D array, got {result.ndim}D"
-    assert result.shape[2] == 3, f"Expected RGB, got {result.shape[2]} channels"
-    assert result.dtype == np.uint8, f"Expected uint8, got {result.dtype}"
+# --- Impression ---
+
+
+def create_synthetic_impression_data(
+    height: int = 100,
+    width: int = 120,
+    seed: int = 42,
+) -> FloatArray2D:
+    """
+    Create synthetic impression data with horizontal banding.
+
+    :param height: Number of rows.
+    :param width: Number of columns.
+    :param seed: Random seed for reproducibility.
+    :returns: Data in meters with shape (height, width).
+    """
+    rng = np.random.default_rng(seed)
+    y, x = np.mgrid[0:height, 0:width]
+    xn = x / width
+    yn = y / height
+
+    surface = (
+        2.0 * np.sin(2 * np.pi * yn * 8)
+        + 1.2 * np.sin(2 * np.pi * yn * 14 + 1.0)
+        + 0.7 * np.cos(2 * np.pi * yn * 22)
+    )
+    surface *= 1.0 + 0.15 * np.sin(2 * np.pi * xn * 2 + 0.7)
+    surface += 0.10 * rng.standard_normal((height, width))
+
+    return (surface * 1e-6).astype(np.float64)
+
+
+def create_synthetic_impression_mark(
+    height: int = 100,
+    width: int = 120,
+    scale: float = 1.5e-6,
+    seed: int = 42,
+    mark_type: MarkType = MarkType.FIRING_PIN_IMPRESSION,
+) -> Mark:
+    """Create a Mark with synthetic impression surface data."""
+    return Mark(
+        scan_image=ScanImage(
+            data=create_synthetic_impression_data(height, width, seed),
+            scale_x=scale,
+            scale_y=scale,
+        ),
+        mark_type=mark_type,
+    )

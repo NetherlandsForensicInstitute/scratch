@@ -163,7 +163,7 @@ def plot_depth_map_on_axes(
 
 def metadata_to_table_data(
     metadata: dict[str, str], wrap_width: int
-) -> list[list[str]]:
+) -> tuple[list[list[str]], set[int]]:
     """
     Convert metadata dictionary to table rows with text wrapping.
 
@@ -172,21 +172,23 @@ def metadata_to_table_data(
 
     :param metadata: Dictionary of metadata key-value pairs.
     :param wrap_width: Maximum character width before wrapping values.
-    :returns: List of [key, value] pairs suitable for table rendering.
+    :returns: Tuple of (table rows, set of row indices that have a key).
     """
-    table_data = []
+    table_data: list[list[str]] = []
+    key_row_indices: set[int] = set()
     for k, v in metadata.items():
         wrapped_lines = textwrap.wrap(str(v), width=wrap_width)
         if not wrapped_lines:
             wrapped_lines = [""]
 
         # First line has the key
-        table_data.append([f"{k}:", wrapped_lines[0]])
+        key_row_indices.add(len(table_data))
+        table_data.append([f"{k}:" if k else "", wrapped_lines[0]])
 
         # Continuation lines have empty key
         for line in wrapped_lines[1:]:
             table_data.append(["", line])
-    return table_data
+    return table_data, key_row_indices
 
 
 def _calculate_text_height(
@@ -357,8 +359,12 @@ def draw_metadata_box(
     draw_border: bool = True,
     wrap_width: int = 25,
     side_margin: float = 0.06,
+    bold_value_keys: set[str] | None = None,
 ) -> None:
-    """Draw a metadata box with key-value pairs."""
+    """Draw a metadata box with key-value pairs.
+
+    :param bold_value_keys: Keys whose values should also be rendered bold.
+    """
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_xticks([])
@@ -372,9 +378,22 @@ def draw_metadata_box(
     if title:
         ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
 
-    table_data = metadata_to_table_data(metadata, wrap_width=wrap_width)
+    table_data, key_row_indices = metadata_to_table_data(
+        metadata, wrap_width=wrap_width
+    )
     col_widths = get_col_widths(side_margin, table_data)
     bounding_box = get_bounding_box(side_margin, table_data)
+
+    # Build set of row indices whose values should be bold
+    bold_value_rows: set[int] = set()
+    if bold_value_keys:
+        row_idx = 0
+        for k, v in metadata.items():
+            wrapped_lines = textwrap.wrap(str(v), width=wrap_width) or [""]
+            if k in bold_value_keys:
+                for offset in range(len(wrapped_lines)):
+                    bold_value_rows.add(row_idx + offset)
+            row_idx += len(wrapped_lines)
 
     table = ax.table(
         cellText=table_data,
@@ -391,5 +410,6 @@ def draw_metadata_box(
     for i in range(len(table_data)):
         table[i, 0].set_text_props(fontweight="bold", ha="right")
         table[i, 0].PAD = 0.02
-        table[i, 1].set_text_props(ha="left")
+        value_weight = "bold" if i in bold_value_rows else "normal"
+        table[i, 1].set_text_props(ha="left", fontweight=value_weight)
         table[i, 1].PAD = 0.02
