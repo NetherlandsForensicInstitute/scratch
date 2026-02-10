@@ -8,7 +8,7 @@ from parsers import parse_to_x3p, save_x3p
 from scipy.constants import micro
 from utils.constants import RegressionOrder
 
-from preprocessors.controller import apply_changes_on_scan_image
+from preprocessors.controller import edit_scan_image
 from preprocessors.schemas import EditImage
 
 
@@ -131,6 +131,6 @@ def test_apply_change_on_scan_image(fixture_name: str, request: pytest.FixtureRe
     params, assertions = request.getfixturevalue(fixture_name)
 
     # Act
-    result = apply_changes_on_scan_image(scan_image=scan_image, edit_image_params=params)
+    result = edit_scan_image(scan_image=scan_image, edit_image_params=params)
     # Assert
     assertions(result)

@@ -30,7 +30,7 @@ def process_prepare_mark(
     return files
 
 
-def apply_changes_on_scan_image(scan_image: ScanImage, edit_image_params: EditImage):
+def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage):
     """From a scan_image file to an edited image file."""
     resampled_mask = np.asarray(
         resize(

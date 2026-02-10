@@ -9,7 +9,7 @@ from constants import LIGHT_SOURCES, OBSERVER, PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
 from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault
-from preprocessors.controller import apply_changes_on_scan_image, process_prepare_mark
+from preprocessors.controller import edit_scan_image, process_prepare_mark
 
 from .pipelines import (
     impression_mark_pipeline,
@@ -157,7 +157,7 @@ async def edit_scan(edit_image: EditImage) -> GeneratedImages:
     parsed_image = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
     files = GeneratedImages.get_files(vault.resource_path)
 
-    edited_scan_image = apply_changes_on_scan_image(
+    edited_scan_image = edit_scan_image(
         scan_image=parsed_image,
         edit_image_params=edit_image,
     )
