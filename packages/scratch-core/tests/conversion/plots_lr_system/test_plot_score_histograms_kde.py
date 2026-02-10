@@ -32,10 +32,8 @@ def generate_test_data():
 
 
 def assert_plot_is_valid_image(fig: Figure, tmp_path: Path) -> None:
-    # Create file path inside pytest temp dir
     img_path = tmp_path / "plot.png"
 
-    # Save figure
     fig.savefig(img_path, format="png")
 
     assert img_path.exists()
