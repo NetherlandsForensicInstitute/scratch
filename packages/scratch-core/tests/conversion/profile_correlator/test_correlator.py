@@ -212,7 +212,7 @@ class TestPartialProfiles:
         ref, comp = create_partial_profiles(base, length_pct / 100.0)
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result is not None
-        assert result.correlation_coefficient == np.isclose(1.0, 0.0, atol=1e-09)
+        assert result.correlation_coefficient > 0.99
         assert result.overlap_ratio == pytest.approx(expected_overlap, rel=1e-6)
 
     @pytest.mark.parametrize(
@@ -228,7 +228,7 @@ class TestPartialProfiles:
         long, short = create_partial_profiles(base, length_pct / 100.0)
         result = correlate_profiles(short, long, AlignmentParameters())
         assert result is not None
-        assert result.correlation_coefficient == np.isclose(1.0, 0.0, atol=1e-09)
+        assert result.correlation_coefficient > 0.99
         assert result.overlap_ratio == pytest.approx(expected_overlap, rel=1e-6)
 
 
