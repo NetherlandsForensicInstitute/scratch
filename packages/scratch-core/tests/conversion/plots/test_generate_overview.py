@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from container_models.scan_image import ScanImage
@@ -55,6 +56,7 @@ def _make_surface_pair(
     )
 
 
+@pytest.mark.integration
 class TestGenerateOverview:
     """Generate the full comparison overview with realistic synthetic data."""
 

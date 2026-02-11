@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from matplotlib import pyplot as plt
 
 from conversion.data_formats import Mark
@@ -152,6 +153,7 @@ class TestPlotCellCorrelationHeatmap:
         assert_valid_rgb_image(result)
 
 
+@pytest.mark.integration
 class TestPlotComparisonOverview:
     """Tests for plot_comparison_overview function."""
 
@@ -302,6 +304,7 @@ class TestPlotComparisonOverview:
         assert_valid_rgb_image(result)
 
 
+@pytest.mark.integration
 class TestPlotImpressionComparisonResults:
     """Integration tests for the main orchestrator function."""
 
