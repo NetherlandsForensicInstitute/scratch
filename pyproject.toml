@@ -108,7 +108,6 @@ addopts = [
   "--import-mode=importlib",
   "--cov-config=pyproject.toml",
   "--cov-report=term",
-  "-m", "not integration",
 ]
 markers = [
   "integration: Tests related to more than one unit (examples: modules, interfaces)",

@@ -51,9 +51,9 @@ check-static:
 test $report="":
     uv run pytest -m 'not contract_testing and not lfs and not integration' ${report:+--cov --cov-report $report}
 
-# Run integration tests
-test-integration:
-    uv run pytest -m 'integration'
+# Run integration tests with optional coverage (appends to existing coverage data)
+test-integration $report="":
+    uv run pytest -m 'integration' ${report:+--cov --cov-append --cov-report $report}
 
 # test-contract REST API
 test-contract: (log "Running contract tests...")

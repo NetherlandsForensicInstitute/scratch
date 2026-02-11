@@ -36,7 +36,7 @@ jobs:
         run: devenv shell just test xml
 
       - name: Run integration tests
-        run: devenv shell just test-integration
+        run: devenv shell just test-integration xml
 
       - name: Compute diff coverage for PR
         if: github.event_name == 'pull_request'
