@@ -324,12 +324,12 @@ class TestPlotImpressionComparisonResults:
 
         assert isinstance(result, ImpressionComparisonPlots)
         assert result.comparison_overview is not None
-        assert result.leveled_reference is not None
-        assert result.leveled_compared is not None
-        assert result.filtered_reference is not None
-        assert result.filtered_compared is not None
-        assert result.cell_reference is not None
-        assert result.cell_compared is not None
+        assert result.leveled_reference_surface_map is not None
+        assert result.leveled_compared_surface_map is not None
+        assert result.filtered_reference_surface_map is not None
+        assert result.filtered_compared_surface_map is not None
+        assert result.cell_reference_surface_map is not None
+        assert result.cell_compared_surface_map is not None
         assert result.cell_overlay is not None
         assert result.cell_cross_correlation is not None
 
@@ -371,8 +371,8 @@ class TestPlotImpressionComparisonResults:
         )
 
         assert result.comparison_overview is not None
-        assert result.leveled_reference is not None
-        assert result.cell_reference is None
+        assert result.leveled_reference_surface_map is not None
+        assert result.cell_reference_surface_map is None
         assert result.cell_cross_correlation is None
 
     def test_only_cell_plots_when_area_flag_false(
@@ -413,8 +413,8 @@ class TestPlotImpressionComparisonResults:
         )
 
         assert result.comparison_overview is not None
-        assert result.leveled_reference is None
-        assert result.cell_reference is not None
+        assert result.leveled_reference_surface_map is None
+        assert result.cell_reference_surface_map is not None
         assert result.cell_cross_correlation is not None
 
     def test_all_outputs_are_valid_images(
@@ -436,12 +436,12 @@ class TestPlotImpressionComparisonResults:
 
         for field_name in [
             "comparison_overview",
-            "leveled_reference",
-            "leveled_compared",
-            "filtered_reference",
-            "filtered_compared",
-            "cell_reference",
-            "cell_compared",
+            "leveled_reference_surface_map",
+            "leveled_compared_surface_map",
+            "filtered_reference_surface_map",
+            "filtered_compared_surface_map",
+            "cell_reference_surface_map",
+            "cell_compared_surface_map",
             "cell_overlay",
             "cell_cross_correlation",
         ]:

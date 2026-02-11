@@ -49,14 +49,13 @@ def plot_striation_comparison_results(
     :param metadata_compared: Metadata dict for compared profile display.
     :returns: StriationComparisonPlots with all rendered images as arrays.
     """
-    # Filtered mark images (with axes and colorbar)
-    mark1_filtered_preview_image = plot_depth_map_with_axes(
+    filtered_reference_surface_map = plot_depth_map_with_axes(
         data=mark_reference.scan_image.data,
         scale=mark_reference.scan_image.scale_x,
         title="Filtered Reference Surface A",
     )
 
-    mark2_filtered_preview_image = plot_depth_map_with_axes(
+    filtered_compared_surface_map = plot_depth_map_with_axes(
         data=mark_compared.scan_image.data,
         scale=mark_compared.scan_image.scale_x,
         title="Filtered Compared Surface B",
@@ -75,8 +74,7 @@ def plot_striation_comparison_results(
         metadata_compared=metadata_compared,
     )
 
-    # Side by side
-    mark1_vs_moved_mark2 = plot_side_by_side_surfaces(
+    side_by_side_surface_map = plot_side_by_side_surfaces(
         data_reference=mark_reference_aligned.scan_image.data,
         data_compared=mark_compared_aligned.scan_image.data,
         scale=mark_reference_aligned.scan_image.scale_x,
@@ -101,9 +99,9 @@ def plot_striation_comparison_results(
     return StriationComparisonPlots(
         similarity_plot=similarity_plot,
         comparison_overview=comparison_overview,
-        mark1_filtered_preview_image=mark1_filtered_preview_image,
-        mark2_filtered_preview_image=mark2_filtered_preview_image,
-        mark1_vs_moved_mark2=mark1_vs_moved_mark2,
+        filtered_reference_surface_map=filtered_reference_surface_map,
+        filtered_compared_surface_map=filtered_compared_surface_map,
+        side_by_side_surface_map=side_by_side_surface_map,
         wavelength_plot=wavelength_correlation_plot,
     )
 

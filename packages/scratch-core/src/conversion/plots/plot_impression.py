@@ -12,6 +12,8 @@ from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
     ImpressionComparisonPlots,
 )
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 from conversion.plots.utils import (
     DEFAULT_COLORMAP,
     draw_metadata_box,
@@ -45,62 +47,49 @@ def plot_impression_comparison_results(
     :returns: ImpressionComparisonPlots with all rendered images.
     """
     # Area-based plots (leveled + filtered surfaces)
-    leveled_ref = None
-    leveled_comp = None
-    filtered_ref = None
-    filtered_comp = None
-
-    if metrics.has_area_results:
-        leveled_ref = plot_depth_map_with_axes(
-            data=mark_reference_leveled.scan_image.data,
-            scale=mark_reference_leveled.scan_image.scale_x,
-            title="Leveled Reference Surface",
-        )
-        leveled_comp = plot_depth_map_with_axes(
-            data=mark_compared_leveled.scan_image.data,
-            scale=mark_compared_leveled.scan_image.scale_x,
-            title="Leveled Compared Surface",
-        )
-        filtered_ref = plot_depth_map_with_axes(
-            data=mark_reference_filtered.scan_image.data,
-            scale=mark_reference_leveled.scan_image.scale_x,
-            title="Filtered Reference Surface",
-        )
-        filtered_comp = plot_depth_map_with_axes(
-            data=mark_compared_filtered.scan_image.data,
-            scale=mark_compared_leveled.scan_image.scale_x,
-            title="Filtered Compared Surface",
-        )
+    leveled_ref = plot_depth_map_with_axes(
+        data=mark_reference_leveled.scan_image.data,
+        scale=mark_reference_leveled.scan_image.scale_x,
+        title="Leveled Reference Surface",
+    )
+    leveled_comp = plot_depth_map_with_axes(
+        data=mark_compared_leveled.scan_image.data,
+        scale=mark_compared_leveled.scan_image.scale_x,
+        title="Leveled Compared Surface",
+    )
+    filtered_ref = plot_depth_map_with_axes(
+        data=mark_reference_filtered.scan_image.data,
+        scale=mark_reference_leveled.scan_image.scale_x,
+        title="Filtered Reference Surface",
+    )
+    filtered_comp = plot_depth_map_with_axes(
+        data=mark_compared_filtered.scan_image.data,
+        scale=mark_compared_leveled.scan_image.scale_x,
+        title="Filtered Compared Surface",
+    )
 
     # Cell/CMC-based plots
-    cell_ref = None
-    cell_comp = None
-    cell_overlay = None
-    cell_xcorr = None
+    scale = mark_reference_filtered.scan_image.scale_x
+    cell_ref = plot_depth_map_with_axes(
+        data=mark_reference_filtered.scan_image.data,
+        scale=scale,
+        title="Cell-Preprocessed Reference",
+    )
+    cell_comp = plot_depth_map_with_axes(
+        data=mark_compared_filtered.scan_image.data,
+        scale=scale,
+        title="Cell-Preprocessed Compared",
+    )
+    cell_overlay = plot_cell_grid_overlay(
+        data=mark_reference_filtered.scan_image.data,
+        scale=scale,
+        cell_correlations=metrics.cell_correlations,
+        cell_similarity_threshold=metrics.cell_similarity_threshold,
+    )
+    cell_xcorr = plot_cell_correlation_heatmap(
+        cell_correlations=metrics.cell_correlations,
+    )
 
-    if metrics.has_cell_results:
-        scale = mark_reference_filtered.scan_image.scale_x
-        cell_ref = plot_depth_map_with_axes(
-            data=mark_reference_filtered.scan_image.data,
-            scale=scale,
-            title="Cell-Preprocessed Reference",
-        )
-        cell_comp = plot_depth_map_with_axes(
-            data=mark_compared_filtered.scan_image.data,
-            scale=scale,
-            title="Cell-Preprocessed Compared",
-        )
-        cell_overlay = plot_cell_grid_overlay(
-            data=mark_reference_filtered.scan_image.data,
-            scale=scale,
-            cell_correlations=metrics.cell_correlations,
-            cell_similarity_threshold=metrics.cell_similarity_threshold,
-        )
-        cell_xcorr = plot_cell_correlation_heatmap(
-            cell_correlations=metrics.cell_correlations,
-        )
-
-    # Comparison overview
     comparison_overview = plot_comparison_overview(
         mark_reference_leveled=mark_reference_leveled,
         mark_compared_leveled=mark_compared_leveled,
@@ -113,12 +102,12 @@ def plot_impression_comparison_results(
 
     return ImpressionComparisonPlots(
         comparison_overview=comparison_overview,
-        leveled_reference=leveled_ref,
-        leveled_compared=leveled_comp,
-        filtered_reference=filtered_ref,
-        filtered_compared=filtered_comp,
-        cell_reference=cell_ref,
-        cell_compared=cell_comp,
+        leveled_reference_surface_map=leveled_ref,
+        leveled_compared_surface_map=leveled_comp,
+        filtered_reference_surface_map=filtered_ref,
+        filtered_compared_surface_map=filtered_comp,
+        cell_reference_surface_map=cell_ref,
+        cell_compared_surface_map=cell_comp,
         cell_overlay=cell_overlay,
         cell_cross_correlation=cell_xcorr,
     )
@@ -248,29 +237,19 @@ def plot_comparison_overview(
         "Number of CMCs": str(n_cmc),
         "CMC fraction": f"{cmc_fraction:.2f} %",
     }
-    if metrics.cmc_area_fraction is not None:
-        results_items["CMC area fraction"] = f"{metrics.cmc_area_fraction:.2f} %"
+    results_items["CMC area fraction"] = f"{metrics.cmc_area_fraction:.2f} %"
     results_items["Data spacing (X)"] = f"{scale_x_um:.4f} µm"
     results_items["Data spacing (Y)"] = f"{scale_y_um:.4f} µm"
-    if metrics.cutoff_low_pass is not None:
-        results_items["Cutoff length low-pass filter"] = (
-            f"{metrics.cutoff_low_pass:.0f} µm"
-        )
-    if metrics.cutoff_high_pass is not None:
-        results_items["Cutoff length high-pass filter"] = (
-            f"{metrics.cutoff_high_pass:.0f} µm"
-        )
-    if metrics.cell_size_um is not None:
-        results_items["Cell Size"] = f"{metrics.cell_size_um:.0f} µm"
+    results_items["Cutoff length low-pass filter"] = f"{metrics.cutoff_low_pass:.0f} µm"
+    results_items["Cutoff length high-pass filter"] = (
+        f"{metrics.cutoff_high_pass:.0f} µm"
+    )
+    results_items["Cell Size"] = f"{metrics.cell_size_um:.0f} µm"
     results_items["Minimum cell similarity"] = f"{metrics.cell_similarity_threshold}"
-    if metrics.max_error_cell_position is not None:
-        results_items["Max error cell position"] = (
-            f"{metrics.max_error_cell_position:.0f} µm"
-        )
-    if metrics.max_error_cell_angle is not None:
-        results_items["Max error cell angle"] = (
-            f"{metrics.max_error_cell_angle:.0f} degree"
-        )
+    results_items["Max error cell position"] = (
+        f"{metrics.max_error_cell_position:.0f} µm"
+    )
+    results_items["Max error cell angle"] = f"{metrics.max_error_cell_angle:.0f} degree"
 
     max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
         metadata_compared, metadata_reference, wrap_width
@@ -348,8 +327,6 @@ def plot_comparison_overview(
     )
 
     # Row 2: Filtered surfaces (with cell grid overlay if available) + Cell ACCF Distribution
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-
     ax_filtered_ref = fig.add_subplot(gs[2, 0])
     if metrics.has_cell_results:
         im_ref = _plot_cell_overlay_on_axes(
@@ -636,8 +613,6 @@ def _plot_cell_heatmap_on_axes(
     :param cell_label_prefix: Prefix for cell labels.
     :param cell_similarity_threshold: Minimum correlation for CMC.
     """
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-
     n_rows, n_cols = cell_correlations.shape
 
     if surface_extent_um is not None:
