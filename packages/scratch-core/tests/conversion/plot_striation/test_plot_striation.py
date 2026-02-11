@@ -22,6 +22,7 @@ from conversion.plots.utils import (
 from .helper_functions import assert_valid_rgb_image, create_synthetic_striation_data
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "metadata_reference,metadata_compared,suffix",
     [
@@ -227,6 +228,7 @@ class TestGetWavelengthCorrelationPlot:
         plt.close(fig)
 
 
+@pytest.mark.integration
 class TestEdgeCases:
     def test_plot_similarity_identical_profiles(self):
         profile = create_synthetic_striation_data(height=1, width=200, seed=42)
