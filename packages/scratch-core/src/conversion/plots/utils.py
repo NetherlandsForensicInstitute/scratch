@@ -164,7 +164,7 @@ def plot_depth_map_on_axes(
 
 def metadata_to_table_data(
     metadata: dict[str, str], wrap_width: int
-) -> tuple[list[list[str]], set[int]]:
+) -> list[list[str]]:
     """
     Convert metadata dictionary to table rows with text wrapping.
 
@@ -173,23 +173,19 @@ def metadata_to_table_data(
 
     :param metadata: Dictionary of metadata key-value pairs.
     :param wrap_width: Maximum character width before wrapping values.
-    :returns: Tuple of (table rows, set of row indices that have a key).
+    :returns: Table rows as list of [key, value] string pairs.
     """
     table_data: list[list[str]] = []
-    key_row_indices: set[int] = set()
     for k, v in metadata.items():
         wrapped_lines = textwrap.wrap(str(v), width=wrap_width)
         if not wrapped_lines:
             wrapped_lines = [""]
 
-        # First line has the key
-        key_row_indices.add(len(table_data))
         table_data.append([f"{k}:" if k else "", wrapped_lines[0]])
 
-        # Continuation lines have empty key
         for line in wrapped_lines[1:]:
             table_data.append(["", line])
-    return table_data, key_row_indices
+    return table_data
 
 
 def _calculate_text_height(
@@ -373,7 +369,7 @@ def draw_metadata_box(
     if title:
         ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
 
-    table_data, _ = metadata_to_table_data(metadata, wrap_width=wrap_width)
+    table_data = metadata_to_table_data(metadata, wrap_width=wrap_width)
     col_widths = get_col_widths(side_margin, table_data)
     bounding_box = get_bounding_box(side_margin, table_data)
 

@@ -144,21 +144,19 @@ class TestDrawMetadataBox:
 
 
 class TestMetadataToTableDataExtended:
-    """Additional tests for metadata_to_table_data changes."""
+    """Additional tests for metadata_to_table_data."""
 
-    def test_key_row_indices_with_wrapping(self):
+    def test_wrapping_produces_continuation_rows(self):
         metadata = {"Short": "v", "Long": "A" * 80}
-        table_data, key_row_indices = metadata_to_table_data(metadata, wrap_width=25)
-        # "Short" is row 0, "Long" is row 1 (with continuation rows after)
-        assert 0 in key_row_indices
-        assert 1 in key_row_indices
-        # Continuation rows should NOT be in key_row_indices
-        for i in range(2, len(table_data)):
-            assert i not in key_row_indices
+        result = metadata_to_table_data(metadata, wrap_width=25)
+        assert result[0][0] == "Short:"
+        assert result[1][0] == "Long:"
+        # Continuation rows have empty key
+        for row in result[2:]:
+            assert row[0] == ""
 
     def test_multiple_keys_with_wrapping(self):
         metadata = {"A": "x" * 60, "B": "y" * 60}
-        table_data, key_row_indices = metadata_to_table_data(metadata, wrap_width=25)
-        assert len(key_row_indices) == 2
+        result = metadata_to_table_data(metadata, wrap_width=25)
         # Total rows should be more than 2 due to wrapping
-        assert len(table_data) > 2
+        assert len(result) > 2

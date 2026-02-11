@@ -68,7 +68,7 @@ class ImpressionComparisonMetrics:
     :param has_cell_results: Whether cell/CMC-based results were computed.
     :param cell_positions_compared: (n_cells, 2) matched positions on compared surface in µm, row-major order.
     :param cell_rotations_compared: (n_cells,) rotation angles in radians, row-major order.
-    :param cmc_area_fraction: CMC area fraction percentage.
+    :param cmc_area_fraction: Percentage of total surface area covered by CMC cells.
     :param cutoff_low_pass: Cutoff length low-pass filter in µm.
     :param cutoff_high_pass: Cutoff length high-pass filter in µm.
     :param cell_size_um: Cell size in µm.

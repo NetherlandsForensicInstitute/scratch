@@ -1,8 +1,3 @@
-"""
-This Class is to generate a realistic overview image with synthetic data, so no unit test and will be removed before
-merging.
-"""
-
 from pathlib import Path
 
 import numpy as np
@@ -18,6 +13,7 @@ from conversion.plots.plot_impression import plot_impression_comparison_results
 from conversion.plots.plot_striation import plot_striation_comparison_results
 
 from .helper_functions import (
+    assert_valid_rgb_image,
     create_synthetic_profile_mark,
     create_synthetic_striation_mark,
 )
@@ -167,9 +163,7 @@ class TestGenerateOverview:
         )
 
         overview = results.comparison_overview
-        assert overview.ndim == 3
-        assert overview.shape[2] == 3
-        assert overview.dtype == np.uint8
+        assert_valid_rgb_image(overview)
 
         # Save to project root so the image can be inspected after the test run
         out = Path(__file__).resolve().parents[5] / "plot_results_overview.png"
@@ -229,10 +223,4 @@ class TestGenerateOverview:
         )
 
         overview = results.comparison_overview
-        assert overview.ndim == 3
-        assert overview.shape[2] == 3
-        assert overview.dtype == np.uint8
-
-        # Save to project root so the image can be inspected after the test run
-        out = Path(__file__).resolve().parents[5] / "plot_striation_overview.png"
-        Image.fromarray(overview).save(out)
+        assert_valid_rgb_image(overview)

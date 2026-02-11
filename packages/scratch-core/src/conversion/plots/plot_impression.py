@@ -326,91 +326,71 @@ def plot_comparison_overview(
         wrap_width=wrap_width,
     )
 
-    # Row 2: Filtered surfaces (with cell grid overlay if available) + Cell ACCF Distribution
+    # Row 2: Filtered surfaces with cell grid overlay + Cell ACCF Distribution
     ax_filtered_ref = fig.add_subplot(gs[2, 0])
-    if metrics.has_cell_results:
-        im_ref = _plot_cell_overlay_on_axes(
-            ax_filtered_ref,
-            mark_reference_filtered.scan_image.data,
-            mark_reference_filtered.scan_image.scale_x,
-            metrics.cell_correlations,
-            cell_label_prefix="A",
-            cell_similarity_threshold=metrics.cell_similarity_threshold,
-            show_all_cells=True,
-        )
-        ax_filtered_ref.set_title(
-            "Filtered Reference Surface A", fontsize=12, fontweight="bold"
-        )
-        divider_ref = make_axes_locatable(ax_filtered_ref)
-        cax_ref = divider_ref.append_axes("right", size="5%", pad=0.05)
-        cbar_ref = fig.colorbar(im_ref, cax=cax_ref, label="Scan Depth [µm]")
-        cbar_ref.ax.tick_params(labelsize=9)
-    else:
-        plot_depth_map_on_axes(
-            ax_filtered_ref,
-            fig,
-            mark_reference_filtered.scan_image.data,
-            mark_reference_filtered.scan_image.scale_x,
-            title="Filtered Reference Surface A",
-        )
+    im_ref = _plot_cell_overlay_on_axes(
+        ax_filtered_ref,
+        mark_reference_filtered.scan_image.data,
+        mark_reference_filtered.scan_image.scale_x,
+        metrics.cell_correlations,
+        cell_label_prefix="A",
+        cell_similarity_threshold=metrics.cell_similarity_threshold,
+        show_all_cells=True,
+    )
+    ax_filtered_ref.set_title(
+        "Filtered Reference Surface A", fontsize=12, fontweight="bold"
+    )
+    divider_ref = make_axes_locatable(ax_filtered_ref)
+    cax_ref = divider_ref.append_axes("right", size="5%", pad=0.05)
+    cbar_ref = fig.colorbar(im_ref, cax=cax_ref, label="Scan Depth [µm]")
+    cbar_ref.ax.tick_params(labelsize=9)
 
     ax_filtered_comp = fig.add_subplot(gs[2, 1])
-    if metrics.has_cell_results:
-        # Compute cell size from the reference surface grid
-        ref_h, ref_w = mark_reference_filtered.scan_image.data.shape
-        ref_scale = mark_reference_filtered.scan_image.scale_x
-        n_rows, n_cols = metrics.cell_correlations.shape
-        cell_size_um = (
-            ref_w * ref_scale * 1e6 / n_cols,
-            ref_h * ref_scale * 1e6 / n_rows,
-        )
+    ref_h, ref_w = mark_reference_filtered.scan_image.data.shape
+    ref_scale = mark_reference_filtered.scan_image.scale_x
+    n_rows, n_cols = metrics.cell_correlations.shape
+    cell_size_um = (
+        ref_w * ref_scale * 1e6 / n_cols,
+        ref_h * ref_scale * 1e6 / n_rows,
+    )
 
-        im_comp = _plot_cell_overlay_on_axes(
-            ax_filtered_comp,
-            mark_compared_filtered.scan_image.data,
-            mark_compared_filtered.scan_image.scale_x,
-            metrics.cell_correlations,
-            cell_label_prefix="B",
-            cell_similarity_threshold=metrics.cell_similarity_threshold,
-            show_all_cells=False,
-            cell_positions=metrics.cell_positions_compared,
-            cell_rotations=metrics.cell_rotations_compared,
-            cell_size_um=cell_size_um
-            if metrics.cell_positions_compared is not None
-            else None,
-        )
-        ax_filtered_comp.set_title(
-            "Filtered Compared Surface B", fontsize=12, fontweight="bold"
-        )
-        divider_comp = make_axes_locatable(ax_filtered_comp)
-        cax_comp = divider_comp.append_axes("right", size="5%", pad=0.05)
-        cbar_comp = fig.colorbar(im_comp, cax=cax_comp, label="Scan Depth [µm]")
-        cbar_comp.ax.tick_params(labelsize=9)
-    else:
-        plot_depth_map_on_axes(
-            ax_filtered_comp,
-            fig,
-            mark_compared_filtered.scan_image.data,
-            mark_compared_filtered.scan_image.scale_x,
-            title="Filtered Compared Surface B",
-        )
+    im_comp = _plot_cell_overlay_on_axes(
+        ax_filtered_comp,
+        mark_compared_filtered.scan_image.data,
+        mark_compared_filtered.scan_image.scale_x,
+        metrics.cell_correlations,
+        cell_label_prefix="B",
+        cell_similarity_threshold=metrics.cell_similarity_threshold,
+        show_all_cells=False,
+        cell_positions=metrics.cell_positions_compared,
+        cell_rotations=metrics.cell_rotations_compared,
+        cell_size_um=cell_size_um
+        if metrics.cell_positions_compared is not None
+        else None,
+    )
+    ax_filtered_comp.set_title(
+        "Filtered Compared Surface B", fontsize=12, fontweight="bold"
+    )
+    divider_comp = make_axes_locatable(ax_filtered_comp)
+    cax_comp = divider_comp.append_axes("right", size="5%", pad=0.05)
+    cbar_comp = fig.colorbar(im_comp, cax=cax_comp, label="Scan Depth [µm]")
+    cbar_comp.ax.tick_params(labelsize=9)
 
-    if metrics.has_cell_results:
-        ax_heatmap = fig.add_subplot(gs[2, 2])
-        ref_data = mark_reference_filtered.scan_image.data
-        ref_sc = mark_reference_filtered.scan_image.scale_x
-        heatmap_extent_um = (
-            ref_data.shape[1] * ref_sc * 1e6,
-            ref_data.shape[0] * ref_sc * 1e6,
-        )
-        _plot_cell_heatmap_on_axes(
-            ax_heatmap,
-            fig,
-            metrics.cell_correlations,
-            surface_extent_um=heatmap_extent_um,
-            cell_label_prefix="A",
-            cell_similarity_threshold=metrics.cell_similarity_threshold,
-        )
+    ax_heatmap = fig.add_subplot(gs[2, 2])
+    ref_data = mark_reference_filtered.scan_image.data
+    ref_sc = mark_reference_filtered.scan_image.scale_x
+    heatmap_extent_um = (
+        ref_data.shape[1] * ref_sc * 1e6,
+        ref_data.shape[0] * ref_sc * 1e6,
+    )
+    _plot_cell_heatmap_on_axes(
+        ax_heatmap,
+        fig,
+        metrics.cell_correlations,
+        surface_extent_um=heatmap_extent_um,
+        cell_label_prefix="A",
+        cell_similarity_threshold=metrics.cell_similarity_threshold,
+    )
 
     fig.tight_layout(pad=0.8, h_pad=1.2, w_pad=0.8)
     fig.subplots_adjust(left=0.06, right=0.93, top=0.96, bottom=0.06)
