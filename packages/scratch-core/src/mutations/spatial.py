@@ -83,7 +83,7 @@ class Resample(ImageMutation):
         """
         anti_aliasing = (
             self.target_shape_height < scan_image.height
-            or self.target_shape_width < scan_image.width
+            and self.target_shape_width < scan_image.width
         )
         resampled_data = resize(
             image=scan_image.data,
