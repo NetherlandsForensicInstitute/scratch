@@ -1,7 +1,7 @@
 import numpy as np
 from unittest.mock import patch, MagicMock
 
-from container_models.scan_image import ScanImage
+from conversion.container_models import ScanImage
 from conversion.data_formats import Mark
 from conversion.resample import (
     resample_scan_image_and_mask,

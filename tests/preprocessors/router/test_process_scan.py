@@ -5,16 +5,16 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from container_models.light_source import LightSource
 from fastapi.testclient import TestClient
 from httpx import Response
+from mutations.base import ImageContainer
 from PIL import Image
 from pydantic import HttpUrl
 
 from constants import PreprocessorEndpoint, RoutePrefix
 from extractors.schemas import ProcessedDataAccess
 from models import DirectoryAccess
-from preprocessors.schemas import UploadScan
+from preprocessors.schemas import SphericalOrientation, UploadScan
 from settings import get_settings
 
 PROCESS_SCAN_ROUTE = f"/{RoutePrefix.PREPROCESSOR}/{PreprocessorEndpoint.PROCESS_SCAN}"
@@ -44,6 +44,11 @@ def post_process_scan(client: TestClient, upload_scan: UploadScan) -> Callable[[
 class TestProcessScanEndpoint:
     """End-to-end tests for the /process-scan endpoint."""
 
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        """Clear the load_scan_image cache before each test."""
+        ImageContainer.from_scan_file.cache_clear()
+
     def test_process_scan_success_with_al3d_file(self, upload_scan: UploadScan, client: TestClient) -> None:
         """Test successful scan processing with AL3D input file."""
         # Act I
@@ -64,8 +69,8 @@ class TestProcessScanEndpoint:
     ) -> None:
         """Test that custom light sources produce different surface maps with varying brightness."""
         # Arrange
-        single_light = LightSource(azimuth=90, elevation=45)
-        observer = LightSource(azimuth=0, elevation=90)
+        single_light = SphericalOrientation(azimuth=90, elevation=45)
+        observer = SphericalOrientation(azimuth=0, elevation=90)
 
         # Control: one light source
         control_data = UploadScan(  # type:ignore
@@ -77,7 +82,7 @@ class TestProcessScanEndpoint:
         # Result: same light source doubled
         request_data = UploadScan(  # type: ignore
             scan_file=upload_scan.scan_file,
-            light_sources=(single_light, LightSource(azimuth=180, elevation=45)),
+            light_sources=(single_light, SphericalOrientation(azimuth=180, elevation=45)),
             observer=observer,
         )
 

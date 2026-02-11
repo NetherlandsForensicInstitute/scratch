@@ -14,24 +14,11 @@ Notes
 - Output images use RGBA format with transparency for invalid (NaN) regions
 """
 
-from .shading import apply_multiple_lights
-from .normalizations import compute_surface_normals, normalize_2d_array
-from .image_io import (
-    save_image,
-    scan_to_image,
-    grayscale_to_image,
-    grayscale_to_rgba,
-    get_scan_image_for_display,
-)
-
+from .normalizations import normalize_2d_array, normalize_to_surface_normals
+from .shading import combine_light_components
 
 __all__ = (
-    "apply_multiple_lights",
-    "compute_surface_normals",
-    "get_scan_image_for_display",
+    "combine_light_components",
     "normalize_2d_array",
-    "save_image",
-    "grayscale_to_rgba",
-    "grayscale_to_image",
-    "scan_to_image",
+    "normalize_to_surface_normals",
 )

@@ -1,4 +1,4 @@
-from container_models.base import FloatArray1D
+from conversion.container_models.base import FloatArray1D
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.solver import fit_surface
 import numpy as np

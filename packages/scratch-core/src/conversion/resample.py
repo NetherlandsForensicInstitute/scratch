@@ -3,10 +3,9 @@ from typing import Optional, TypeVar
 import numpy as np
 from scipy.signal import resample as signal_resample
 from skimage.transform import resize
-
-from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
-from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
+from conversion.container_models import ScanImage
+from conversion.container_models.base import BinaryMask, FloatArray1D, FloatArray2D
 
 
 T = TypeVar("T", FloatArray2D, BinaryMask)

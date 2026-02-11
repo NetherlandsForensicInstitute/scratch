@@ -4,34 +4,30 @@ Image Modifications Architecture
 
 This module defines how image modifications are structured and applied.
 
-- `ScanImage` represents the scanned image as a complete data package
-  (image data + metadata).
-- `ImageMutation` is an abstract interface for modifying a `ScanImage`.
-- Concrete mutations (e.g. Resample, Crop, Mask, Scale) live in the
-  `mutations` folder, each in its own file.
+- :class:`~container_models.image.ImageContainer` holds depth data with scale metadata.
+- :class:`ImageMutation` is an abstract interface for modifying an ImageContainer.
+- Concrete mutations live in the ``mutations`` folder, each in its own file.
 - Loosely coupled or stateless functionality (such as solvers or pure
   computations) should live in the `computations` folder.
 
 High-level Design
 -----------------
 
-                 +------------------------------------------------+
-                 |                  ScanImage                     |
-                 |------------------------------------------------|
-                 | data     : np.ndarray                          |
-                 | scale_x  : float                               |
-                 | scale_y  : float                               |
-                 |------------------------------------------------|
-                 | modification : Modification                    |
-                 +-----------------------+------------------------+
-                                         |
-                                         v
-                     +-------------------+---------------------+
-                     |               <<abstract>>              |
-                     |               Modification              |
-                     |-----------------------------------------|
-                     | + apply_on_image(ScanImage) -> ScanImage|
-                     +-------------------+---------------------+
+                        +---------------------------------+
+                        |           ImageContainer        |
+                        |---------------------------------|
+                        | data     : DepthData            |
+                        | metadata : MetaData             |
+                        +---------------+-----------------+
+                                        |
+                                        v
+                    +-------------------+----------------------+
+                    |              <<abstract>>                |
+                    |              ImageMutation               |
+                    |------------------------------------------|
+                    | + apply_on_image(T) -> T                 |
+                    | + skip_predicate: bool                   |
+                    +--------------------+---------------------+
                                          ^
                                          |
         +---------------------+----------+------------+-------------------+
@@ -52,6 +48,8 @@ High-level Design
 Example
 -------
 
+    from container_models.image import ImageContainer, MetaData
+    from container_models.base import Pair
     from returns.pipeline import pipe
     from numpy import ones, float64
     from mutations import (
@@ -61,10 +59,9 @@ Example
         GaussianFilter,
     )
 
-    scan_image = ScanImage(
+    image = ScanImage(
         data=ones((10, 10), float64),
-        scale_x=1,
-        scale_y=1,
+        metadata=MetaData(scale=Pair(1, 1))
     )
 
     edit_image_pipeline = pipe(
@@ -81,19 +78,21 @@ Example
         ),
     )
 
-    result = edit_image_pipeline(scan_image)
+    result = edit_image_pipeline(image)
 """
 
 from abc import ABC, abstractmethod
-from container_models.scan_image import ScanImage
+
 from returns.result import safe
+
+from container_models import ImageContainer
 
 
 class ImageMutation(ABC):
     """
-    Represents a single mutation applied to a `ScanImage`.
+    Represents a single mutation applied to an :class:`~container_models.image.ImageContainer`.
 
-    After one `ImageMutation`, the resulting `ScanImage` must be valid
+    After one `ImageMutation`, the resulting `ImageContainer` must be valid
     input for another mutation. This enables safe chaining in pipelines.
 
     Validation or skipping logic (for example: skipping resampling when
@@ -118,33 +117,33 @@ class ImageMutation(ABC):
         return False
 
     @safe
-    def __call__(self, scan_image: ScanImage) -> ScanImage:
+    def __call__(self, image: ImageContainer) -> ImageContainer:
         """
         Callable interface used by pipelines (e.g. `pipe(...)` from
         the `returns` library).
 
-        If `skip_predicate` is `True`, the input `ScanImage` is returned
+        If `skip_predicate` is `True`, the input `ImageContainer` is returned
         unchanged. Otherwise, `apply_on_image` is executed.
 
-        :param scan_image:
-            The `ScanImage` to be modified.
-        :return ScanImage:
-            The resulting `ScanImage`.
+        :param image:
+            The `ImageContainer` to be modified.
+        :return ImageContainer:
+            The same image object passed as input.
         """
         if self.skip_predicate:
-            return scan_image
-        return self.apply_on_image(scan_image=scan_image)
+            return image
+        return self.apply_on_image(image)
 
     @abstractmethod
-    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+    def apply_on_image(self, image: ImageContainer) -> ImageContainer:
         """
-        Applies the mutation to the given `ScanImage`.
+        Applies the mutation to the given `ImageContainer`.
 
         This method must be implemented by concrete mutations and is
         called internally by `__call__` to support pipeline composition.
 
-        :param scan_image:
-            The input `ScanImage` to be modified.
-        :return ScanImage:
-            A new or modified `ScanImage`.
+        :param image:
+            The input `ImageContainer` to be modified.
+        :return ImageContainer:
+            A new or modified `ImageContainer`.
         """

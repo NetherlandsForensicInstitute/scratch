@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.ndimage import binary_dilation, rotate
-from container_models.base import BinaryMask
+from conversion.container_models.base import BinaryMask
 from conversion.utils import update_scan_image_data
-from container_models.scan_image import ScanImage
+from conversion.container_models import ScanImage
 from conversion.remove_needles import mask_and_remove_needles
 from conversion.data_formats import BoundingBox
 from conversion.mask import crop_to_mask

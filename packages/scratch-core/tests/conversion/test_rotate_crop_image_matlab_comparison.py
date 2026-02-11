@@ -10,8 +10,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from container_models.base import FloatArray2D, BinaryMask
-from container_models.scan_image import ScanImage
+from conversion.container_models.base import FloatArray2D, BinaryMask
+from conversion.container_models import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import get_rotation_angle, rotate_crop_and_mask_image_by_crop
 from .helper_functions import (

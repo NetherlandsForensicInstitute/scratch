@@ -1,49 +1,20 @@
-"""
-File parsing and serialization utilities for scan image data.
+"""File parsing and serialization.
 
-This module provides functions for loading, parsing, and saving scan image data
-in various file formats, with automatic conversion to and from the internal
-ScanImage container model. All parsers are designed to work within railway-oriented
-programming pipelines, returning Result/IOResult containers for safe error handling.
-
-The module handles two primary workflows:
-1. **Loading**: Parse external file formats into ScanImage containers
-2. **Saving**: Convert ScanImage containers to external file formats
+This module provides functions for parsing scan image data in x3p.
 
 File Format Support
 -------------------
-**Input Formats** (via load_scan_image):
-- AL3D: Alicona 3D surface files (with custom patch)
-- X3P: ISO 25178-72 XML format for surface texture data
+**Input Formats**:
 
-- Optional subsampling via step_size parameters
+- AL3D: Alicona 3D surface files (via :meth:`~container_models.image.ImageContainer.from_scan_file`)
+- X3P: ISO 25178-72 XML format for surface texture data
 
 **Output Formats**:
-- X3P: ISO 25178-72 XML format for surface texture data
-    - Unit converted to meters (SI base unit)
-- Configurable metadata via X3PMetaData
 
-Railway Integration
--------------------
-All parser functions return Result or IOResult containers and are decorated
-with logging functionality. This enables seamless integration into functional
-pipelines with automatic error propagation:
+- X3P: ISO 25178-72 XML format (unit converted to meters)
 
-Notes
------
-- All spatial measurements are standardized to meters (m) for consistency
-- Parsers use railway-oriented programming patterns for robust error handling
-- Custom file format support can be added via surfalize FileHandler registration
+.. note::
+
+    All spatial measurements are standardized to meters (m).
+    Custom formats can be added via surfalize FileHandler registration.
 """
-
-from .loaders import load_scan_image, subsample_scan_image, make_isotropic
-from .x3p import X3PMetaData, save_x3p, parse_to_x3p
-
-__all__ = (
-    "load_scan_image",
-    "parse_to_x3p",
-    "save_x3p",
-    "subsample_scan_image",
-    "make_isotropic",
-    "X3PMetaData",
-)

@@ -1,6 +1,6 @@
 import numpy as np
 
-from container_models.base import FloatArray1D, FloatArray2D
+from conversion.container_models.base import FloatArray1D, FloatArray2D
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.data_types import TERM_FUNCTIONS
 

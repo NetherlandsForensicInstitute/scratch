@@ -1,16 +1,29 @@
+"""X3P file format support.
+
+This module provides utilities for converting an :class:`~container_models.image.ImageContainer`
+to ISO 25178-72 X3P format for surface texture data exchange.
+
+.. seealso::
+
+    :func:`parse_to_x3p`
+        Convert an ImageContainer to an X3P file object.
+"""
+
+from __future__ import annotations
 import datetime as dt
-from functools import partial
-from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, TYPE_CHECKING
 
 import numpy as np
-from returns.pipeline import flow
-from x3p import X3Pfile
+from returns.curry import partial
+from returns.pipeline import pipe
 from returns.result import safe
-from returns.io import impure_safe
-from container_models.scan_image import ScanImage
-from utils.logger import log_railway_function
+from x3p import X3Pfile
 from x3p._x3pfileclasses import Ax
+
+from utils.logger import log_railway_function
+
+if TYPE_CHECKING:
+    from container_models import ImageContainer
 
 
 class X3PMetaData(NamedTuple):
@@ -34,38 +47,38 @@ def _set_incremental_axis(axis: Ax, scale: float):
     axis.set_offset(0.0)
 
 
-def _set_record1_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
+def _set_record1_entries(x3p: X3Pfile, image: ImageContainer) -> X3Pfile:
     """Set Record1 entries (axes configuration)."""
     x3p.record1.set_featuretype("SUR")
-    _set_incremental_axis(x3p.record1.axes.CX, image.scale_x)
-    _set_incremental_axis(x3p.record1.axes.CY, image.scale_y)
+    _set_incremental_axis(x3p.record1.axes.CX, image.metadata.scale.x)
+    _set_incremental_axis(x3p.record1.axes.CY, image.metadata.scale.y)
     x3p.record1.axes.CZ.set_datatype("D")
     return x3p
 
 
-def _set_record2_entries(x3p: X3Pfile, meta_data: X3PMetaData) -> X3Pfile:
+def _set_record2_entries(x3p: X3Pfile, metadata: X3PMetaData) -> X3Pfile:
     """Set Record2 entries (metadata)."""
     x3p.record2.set_date(dt.datetime.now(tz=dt.UTC).strftime("%Y-%m-%dT%H:%M:%S"))  # type: ignore
-    x3p.record2.set_calibrationdate(meta_data.calibration_date)  # type: ignore
-    if meta_data.author:
-        x3p.record2.set_creator(meta_data.author)  # type: ignore
-    if meta_data.comment:
-        x3p.record2.set_comment(meta_data.comment)  # type: ignore
-    x3p.record2.instrument.set_model(meta_data.model)  # type: ignore
-    x3p.record2.instrument.set_manufacturer(meta_data.manufacturer)  # type: ignore
-    x3p.record2.instrument.set_version(meta_data.instrument_version)  # type: ignore
-    x3p.record2.probingsystem.set_identification(meta_data.identificaton)  # type: ignore
-    x3p.record2.probingsystem.set_type(meta_data.measurement_type)  # type: ignore
+    x3p.record2.set_calibrationdate(metadata.calibration_date)  # type: ignore
+    if metadata.author:
+        x3p.record2.set_creator(metadata.author)  # type: ignore
+    if metadata.comment:
+        x3p.record2.set_comment(metadata.comment)  # type: ignore
+    x3p.record2.instrument.set_model(metadata.model)  # type: ignore
+    x3p.record2.instrument.set_manufacturer(metadata.manufacturer)  # type: ignore
+    x3p.record2.instrument.set_version(metadata.instrument_version)  # type: ignore
+    x3p.record2.probingsystem.set_identification(metadata.identificaton)  # type: ignore
+    x3p.record2.probingsystem.set_type(metadata.measurement_type)  # type: ignore
     return x3p
 
 
-def _set_binary_data(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
+def _set_binary_data(x3p: X3Pfile, image: ImageContainer) -> X3Pfile:
     """Set the binary data."""
     x3p.set_data(np.ascontiguousarray(image.data))
     return x3p
 
 
-def _set_record3_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
+def _set_record3_entries(x3p: X3Pfile, image: ImageContainer) -> X3Pfile:
     """Set Record3 entries (matrix dimensions)."""
     # manually set the Record3 entries since these are set incorrectly in package
     x3p.record3.matrixdimension.sizeX = image.data.shape[1]  # type: ignore
@@ -78,31 +91,11 @@ def _set_record3_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
     "Successfully parse array to x3p",
 )
 @safe
-def parse_to_x3p(image: ScanImage) -> X3Pfile:
-    """Convert ScanImage to X3Pfile using a functional approach."""
-    return flow(
-        X3Pfile(),
+def parse_to_x3p(image: ImageContainer) -> X3Pfile:
+    """Convert an ImageContainer to X3Pfile using a functional approach."""
+    return pipe(
         partial(_set_record1_entries, image=image),
-        partial(_set_record2_entries, meta_data=X3PMetaData()),
+        partial(_set_record2_entries, metadata=X3PMetaData()),
         partial(_set_binary_data, image=image),
         partial(_set_record3_entries, image=image),
-    )
-
-
-@log_railway_function(
-    "Failed to write X3P file",
-    "Successfully written X3P",
-)
-@impure_safe
-def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
-    """
-    Save an X3P file to disk.
-
-    :param x3p: The X3P file to save.
-    :param output_path: The path where the file should be written.
-    :returns: An ``IOResult[Path, Exception]`` — ``IOSuccess(Path)`` on success,
-              or ``IOFailure(Exception)`` if an error occurs.
-    """
-
-    x3p.write(str(output_path))
-    return output_path
+    )(X3Pfile())

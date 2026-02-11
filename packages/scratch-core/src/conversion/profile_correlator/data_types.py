@@ -14,7 +14,7 @@ All length and height measurements are in meters (SI units).
 
 from dataclasses import dataclass
 
-from container_models.base import FloatArray1D
+from conversion.container_models.base import FloatArray1D
 
 
 @dataclass(frozen=True)

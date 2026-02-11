@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from enum import StrEnum, auto
 from functools import cached_property
 from typing import Annotated, Self
 
 import numpy as np
-from container_models.light_source import LightSource
+from container_models.base import UnitVector
 from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
@@ -47,24 +48,62 @@ class BaseParameters(BaseModelConfig):
         return self.project_name or self.scan_file.stem
 
 
+class SphericalOrientation(BaseModelConfig):
+    azimuth: float = Field(
+        ...,
+        description="Horizontal angle in degrees measured from the –x axis in the x–y plane. "
+        "0° is –x direction, 90° is +y direction, 180° is +x direction.",
+        examples=[90, 45, 180],
+        ge=0,
+        le=360,
+    )
+    elevation: float = Field(
+        ...,
+        description="Vertical angle in degrees measured from the x–y plane. "
+        "0° is horizontal, +90° is upward (+z), –90° is downward (–z).",
+        examples=[90, 45, 180],
+        ge=-90,
+        le=90,
+    )
+
+    @cached_property
+    def unit_vector(self) -> UnitVector:
+        """
+        Returns the unit direction vector [x, y, z].
+
+        The conversion follows a spherical-coordinate convention:
+        azimuth defines the horizontal direction, and elevation defines the vertical
+        tilt relative to the x–y plane.
+        """
+        azimuth = np.deg2rad(self.azimuth)
+        elevation = np.deg2rad(self.elevation)
+        vec = np.array([
+            -np.cos(azimuth) * np.cos(elevation),
+            np.sin(azimuth) * np.cos(elevation),
+            np.sin(elevation),
+        ])
+        vec.setflags(write=False)
+        return vec
+
+
 class UploadScan(BaseParameters):
-    light_sources: tuple[LightSource, ...] = Field(
+    light_sources: tuple[SphericalOrientation, ...] = Field(
         (
-            LightSource(azimuth=90, elevation=45),
-            LightSource(azimuth=180, elevation=45),
+            SphericalOrientation(azimuth=90, elevation=45),
+            SphericalOrientation(azimuth=180, elevation=45),
         ),
         description="Light sources for surface illumination rendering.",
         examples=[
             (
-                LightSource(azimuth=90, elevation=45),
-                LightSource(azimuth=180, elevation=45),
+                SphericalOrientation(azimuth=90, elevation=45),
+                SphericalOrientation(azimuth=180, elevation=45),
             ),
         ],
     )
-    observer: LightSource = Field(
-        LightSource(azimuth=90, elevation=45),
+    observer: SphericalOrientation = Field(
+        SphericalOrientation(azimuth=90, elevation=45),
         description="Observer viewpoint vector for surface rendering.",
-        examples=[LightSource(azimuth=90, elevation=45)],
+        examples=[SphericalOrientation(azimuth=90, elevation=45)],
     )
     scale_x: PositiveFloat = Field(
         1.0,
@@ -87,6 +126,10 @@ class UploadScan(BaseParameters):
         description="Subsampling step in y-direction. Values > 1 reduce resolution by skipping pixels.",
         examples=[1, 2, 4],
     )
+
+    @property
+    def light_vectors(self) -> Iterator[UnitVector]:
+        return (light.unit_vector for light in self.light_sources)
 
 
 class CropInfo(BaseModelConfig):
