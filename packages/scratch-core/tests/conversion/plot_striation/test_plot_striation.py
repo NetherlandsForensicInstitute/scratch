@@ -268,6 +268,7 @@ class TestEdgeCases:
         assert_valid_rgb_image(result)
 
 
+@pytest.mark.integration
 class TestStriationComparisonPlotsIntegration:
     def test_all_outputs_are_valid_images(
         self,

@@ -154,6 +154,7 @@ class TestCorrelateProfilesBasic:
 # --- Synthetic profile alignment tests ---
 
 
+@pytest.mark.integration
 class TestIdenticalProfiles:
     """Tests for identical profiles."""
 
@@ -168,6 +169,7 @@ class TestIdenticalProfiles:
         assert result.overlap_ratio > 0.99
 
 
+@pytest.mark.integration
 class TestShiftedProfiles:
     """Tests for profiles with translation shifts."""
 
@@ -196,6 +198,7 @@ class TestShiftedProfiles:
         assert result.correlation_coefficient >= min_corr
 
 
+@pytest.mark.integration
 class TestPartialProfiles:
     """Tests for partial profile matching."""
 
@@ -232,6 +235,7 @@ class TestPartialProfiles:
         assert result.overlap_ratio == pytest.approx(expected_overlap, rel=1e-6)
 
 
+@pytest.mark.integration
 class TestScaledProfiles:
     """Tests for profiles with scaling differences."""
 
