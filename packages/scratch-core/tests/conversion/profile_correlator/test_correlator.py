@@ -16,9 +16,6 @@ from .conftest import make_synthetic_striation_profile, make_shifted_profile
 PIXEL_SIZE_M = 1.5e-6  # 1.5 μm
 
 
-# --- Synthetic profile helpers ---
-
-
 def create_base_profile(n_samples: int = 1000, seed: int = 42) -> np.ndarray:
     """Generate a striation-like profile with multiple sine frequencies."""
     np.random.seed(seed)
@@ -152,9 +149,6 @@ class TestCorrelateProfilesBasic:
         assert not np.isnan(result.correlation_coefficient)
 
 
-# --- Synthetic profile alignment tests ---
-
-
 @pytest.mark.integration
 class TestIdenticalProfiles:
     """Tests for identical profiles."""
@@ -216,7 +210,7 @@ class TestPartialProfiles:
         ref, comp = create_partial_profiles(base, length_pct / 100.0)
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result is not None
-        assert result.correlation_coefficient > 0.99
+        assert np.isclose(result.correlation_coefficient, 1.0, atol=0.01)
         assert result.overlap_ratio == pytest.approx(expected_overlap, rel=1e-6)
 
     @pytest.mark.parametrize(
@@ -232,7 +226,7 @@ class TestPartialProfiles:
         long, short = create_partial_profiles(base, length_pct / 100.0)
         result = correlate_profiles(short, long, AlignmentParameters())
         assert result is not None
-        assert result.correlation_coefficient > 0.99
+        assert np.isclose(result.correlation_coefficient, 1.0, atol=0.01)
         assert result.overlap_ratio == pytest.approx(expected_overlap, rel=1e-6)
 
 
@@ -263,9 +257,6 @@ class TestScaledProfiles:
         assert result is not None
         assert result.correlation_coefficient >= 0.999
         assert abs(result.scale_factor - 1 / scale) == 0
-
-
-# --- Edge case tests ---
 
 
 class TestEdgeCases:

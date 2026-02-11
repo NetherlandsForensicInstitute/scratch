@@ -110,6 +110,55 @@ def create_synthetic_impression_data(
     return (surface * 1e-6).astype(np.float64)
 
 
+def create_synthetic_impression_surface_pair(
+    rows: int,
+    cols: int,
+    base_seed: int,
+    noise_seed_a: int,
+    noise_seed_b: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Create a pair of correlated impression surfaces with independent noise.
+
+    Both surfaces share the same base pattern (sinusoidal + Gaussian blobs)
+    but receive different noise realisations, simulating two measurements
+    of the same surface.
+
+    :param rows: Number of rows.
+    :param cols: Number of columns.
+    :param base_seed: Seed for the base pattern (Gaussian blob placement).
+    :param noise_seed_a: Seed for the first surface's noise.
+    :param noise_seed_b: Seed for the second surface's noise.
+    :returns: Tuple of two float64 arrays in meters, shape (rows, cols).
+    """
+    rng = np.random.default_rng(base_seed)
+    y, x = np.mgrid[0:rows, 0:cols]
+    xn = x / cols
+    yn = y / rows
+
+    surface = (
+        2.0 * np.sin(2 * np.pi * yn * 8)
+        + 1.2 * np.sin(2 * np.pi * yn * 14 + 1.0)
+        + 0.7 * np.cos(2 * np.pi * yn * 22)
+        + 0.4 * np.sin(2 * np.pi * yn * 35 + 0.3)
+    )
+    surface *= 1.0 + 0.15 * np.sin(2 * np.pi * xn * 2 + 0.7)
+    surface += 1.0 * (yn - 0.5) + 0.5 * ((xn - 0.5) ** 2)
+
+    for _ in range(6):
+        cx, cy = rng.uniform(0.1, 0.9), rng.uniform(0.1, 0.9)
+        amp = rng.uniform(-1.5, 1.5)
+        sigma = rng.uniform(0.03, 0.08)
+        surface += amp * np.exp(-((xn - cx) ** 2 + (yn - cy) ** 2) / (2 * sigma**2))
+
+    noise_a = np.random.default_rng(noise_seed_a).normal(0, 0.25, (rows, cols))
+    noise_b = np.random.default_rng(noise_seed_b).normal(0, 0.25, (rows, cols))
+    return (
+        ((surface + noise_a) * 1e-6).astype(np.float64),
+        ((surface + noise_b) * 1e-6).astype(np.float64),
+    )
+
+
 def create_synthetic_impression_mark(
     height: int = 100,
     width: int = 120,

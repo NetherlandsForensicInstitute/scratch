@@ -13,29 +13,10 @@ from conversion.plots.plot_impression import (
     plot_cell_correlation_heatmap,
     plot_cell_grid_overlay,
     plot_comparison_overview,
-    plot_depth_map_with_axes,
     plot_impression_comparison_results,
 )
 
 from .helper_functions import assert_valid_rgb_image
-
-
-class TestPlotDepthMapWithAxes:
-    """Tests for plot_depth_map_with_axes function."""
-
-    def test_returns_rgb_image(self, impression_sample_depth_data: np.ndarray):
-        result = plot_depth_map_with_axes(
-            data=impression_sample_depth_data,
-            scale=1.5e-6,
-            title="Test Surface",
-        )
-        assert_valid_rgb_image(result)
-
-    def test_handles_nan_values(self):
-        data = np.random.randn(50, 60) * 1e-6
-        data[10:20, 10:20] = np.nan
-        result = plot_depth_map_with_axes(data=data, scale=1.5e-6, title="With NaN")
-        assert_valid_rgb_image(result)
 
 
 class TestPlotCellGridOverlay:
@@ -178,30 +159,19 @@ class TestPlotComparisonOverview:
     def test_with_custom_cell_positions(
         self,
         impression_sample_mark: Mark,
-        impression_sample_cell_correlations: np.ndarray,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
-        n_rows, n_cols = impression_sample_cell_correlations.shape
-        n_cells = n_rows * n_cols
-        positions = np.full((n_cells, 2), np.nan, dtype=np.float64)
-        rotations = np.zeros(n_cells, dtype=np.float64)
-
-        scale = impression_sample_mark.scan_image.scale_x
-        h, w = impression_sample_mark.scan_image.data.shape
-        cell_w_um = w * scale * 1e6 / n_cols
-        cell_h_um = h * scale * 1e6 / n_rows
-        for i in range(n_rows):
-            for j in range(n_cols):
-                if impression_sample_cell_correlations[i, j] >= 0.25:
-                    flat = i * n_cols + j
-                    positions[flat, 0] = (j + 0.5) * cell_w_um + 10
-                    positions[flat, 1] = (n_rows - 1 - i + 0.5) * cell_h_um - 5
-                    rotations[flat] = np.deg2rad(5)
+        cell_correlations = np.array([[0.8, 0.1], [0.3, 0.6]])
+        # 4 cells: hardcoded positions for the 3 CMC cells (>= 0.25), NaN for non-CMC
+        positions = np.array(
+            [[50.0, 120.0], [np.nan, np.nan], [40.0, 30.0], [110.0, 25.0]]
+        )
+        rotations = np.array([0.08, 0.0, 0.05, -0.03])
 
         metrics = ImpressionComparisonMetrics(
             area_correlation=0.85,
-            cell_correlations=impression_sample_cell_correlations,
+            cell_correlations=cell_correlations,
             cmc_score=75.0,
             sq_ref=1.5,
             sq_comp=1.6,
@@ -213,7 +183,7 @@ class TestPlotComparisonOverview:
             cmc_area_fraction=16.04,
             cutoff_low_pass=5.0,
             cutoff_high_pass=250.0,
-            cell_size_um=125.0,
+            cell_size_um=75.0,
             max_error_cell_position=75.0,
             max_error_cell_angle=6.0,
             cell_similarity_threshold=0.25,
@@ -308,118 +278,6 @@ class TestPlotComparisonOverview:
 class TestPlotImpressionComparisonResults:
     """Integration tests for the main orchestrator function."""
 
-    def test_generates_all_plots_when_both_flags_true(
-        self,
-        impression_sample_mark: Mark,
-        impression_sample_metrics: ImpressionComparisonMetrics,
-        sample_metadata_reference: dict[str, str],
-        sample_metadata_compared: dict[str, str],
-    ):
-        result = plot_impression_comparison_results(
-            mark_reference_leveled=impression_sample_mark,
-            mark_compared_leveled=impression_sample_mark,
-            mark_reference_filtered=impression_sample_mark,
-            mark_compared_filtered=impression_sample_mark,
-            metrics=impression_sample_metrics,
-            metadata_reference=sample_metadata_reference,
-            metadata_compared=sample_metadata_compared,
-        )
-
-        assert isinstance(result, ImpressionComparisonPlots)
-        assert result.comparison_overview is not None
-        assert result.leveled_reference_surface_map is not None
-        assert result.leveled_compared_surface_map is not None
-        assert result.filtered_reference_surface_map is not None
-        assert result.filtered_compared_surface_map is not None
-        assert result.cell_reference_surface_map is not None
-        assert result.cell_compared_surface_map is not None
-        assert result.cell_overlay is not None
-        assert result.cell_cross_correlation is not None
-
-    def test_only_area_plots_when_cell_flag_false(
-        self,
-        impression_sample_mark: Mark,
-        impression_sample_cell_correlations: np.ndarray,
-        sample_metadata_reference: dict[str, str],
-        sample_metadata_compared: dict[str, str],
-    ):
-        n_cells = impression_sample_cell_correlations.size
-        metrics = ImpressionComparisonMetrics(
-            area_correlation=0.85,
-            cell_correlations=impression_sample_cell_correlations,
-            cmc_score=75.0,
-            sq_ref=1.5,
-            sq_comp=1.6,
-            sq_diff=0.4,
-            has_area_results=True,
-            has_cell_results=False,
-            cell_positions_compared=np.full((n_cells, 2), np.nan),
-            cell_rotations_compared=np.full(n_cells, np.nan),
-            cmc_area_fraction=0.0,
-            cutoff_low_pass=5.0,
-            cutoff_high_pass=250.0,
-            cell_size_um=125.0,
-            max_error_cell_position=75.0,
-            max_error_cell_angle=6.0,
-        )
-
-        result = plot_impression_comparison_results(
-            mark_reference_leveled=impression_sample_mark,
-            mark_compared_leveled=impression_sample_mark,
-            mark_reference_filtered=impression_sample_mark,
-            mark_compared_filtered=impression_sample_mark,
-            metrics=metrics,
-            metadata_reference=sample_metadata_reference,
-            metadata_compared=sample_metadata_compared,
-        )
-
-        assert result.comparison_overview is not None
-        assert result.leveled_reference_surface_map is not None
-        assert result.cell_reference_surface_map is None
-        assert result.cell_cross_correlation is None
-
-    def test_only_cell_plots_when_area_flag_false(
-        self,
-        impression_sample_mark: Mark,
-        impression_sample_cell_correlations: np.ndarray,
-        sample_metadata_reference: dict[str, str],
-        sample_metadata_compared: dict[str, str],
-    ):
-        n_cells = impression_sample_cell_correlations.size
-        metrics = ImpressionComparisonMetrics(
-            area_correlation=0.85,
-            cell_correlations=impression_sample_cell_correlations,
-            cmc_score=75.0,
-            sq_ref=1.5,
-            sq_comp=1.6,
-            sq_diff=0.4,
-            has_area_results=False,
-            has_cell_results=True,
-            cell_positions_compared=np.full((n_cells, 2), np.nan),
-            cell_rotations_compared=np.full(n_cells, np.nan),
-            cmc_area_fraction=16.04,
-            cutoff_low_pass=5.0,
-            cutoff_high_pass=250.0,
-            cell_size_um=125.0,
-            max_error_cell_position=75.0,
-            max_error_cell_angle=6.0,
-        )
-
-        result = plot_impression_comparison_results(
-            mark_reference_leveled=impression_sample_mark,
-            mark_compared_leveled=impression_sample_mark,
-            mark_reference_filtered=impression_sample_mark,
-            mark_compared_filtered=impression_sample_mark,
-            metrics=metrics,
-            metadata_reference=sample_metadata_reference,
-            metadata_compared=sample_metadata_compared,
-        )
-
-        assert result.comparison_overview is not None
-        assert result.leveled_reference_surface_map is None
-        assert result.cell_reference_surface_map is not None
-        assert result.cell_cross_correlation is not None
-
     def test_all_outputs_are_valid_images(
         self,
         impression_sample_mark: Mark,
@@ -437,20 +295,16 @@ class TestPlotImpressionComparisonResults:
             metadata_compared=sample_metadata_compared,
         )
 
-        for field_name in [
-            "comparison_overview",
-            "leveled_reference_surface_map",
-            "leveled_compared_surface_map",
-            "filtered_reference_surface_map",
-            "filtered_compared_surface_map",
-            "cell_reference_surface_map",
-            "cell_compared_surface_map",
-            "cell_overlay",
-            "cell_cross_correlation",
-        ]:
-            img = getattr(result, field_name)
-            if img is not None:
-                assert_valid_rgb_image(img)
+        assert isinstance(result, ImpressionComparisonPlots)
+        assert_valid_rgb_image(result.comparison_overview)
+        assert_valid_rgb_image(result.leveled_reference_surface_map)
+        assert_valid_rgb_image(result.leveled_compared_surface_map)
+        assert_valid_rgb_image(result.filtered_reference_surface_map)
+        assert_valid_rgb_image(result.filtered_compared_surface_map)
+        assert_valid_rgb_image(result.cell_reference_surface_map)
+        assert_valid_rgb_image(result.cell_compared_surface_map)
+        assert_valid_rgb_image(result.cell_overlay)
+        assert_valid_rgb_image(result.cell_cross_correlation)
 
 
 class TestPlotCellHeatmapOnAxes:

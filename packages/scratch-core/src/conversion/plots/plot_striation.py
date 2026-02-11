@@ -287,8 +287,10 @@ def plot_comparison_overview(
         wspace=0.25,
     )
 
-    # Row 0: Metadata tables
-    ax_meta_reference = fig.add_subplot(gs[0, 0])
+    # Row 0: Metadata tables — span full width as two equal columns
+    gs_meta = gs[0, :].subgridspec(1, 2, wspace=0.15)
+
+    ax_meta_reference = fig.add_subplot(gs_meta[0, 0])
     draw_metadata_box(
         ax_meta_reference,
         metadata_reference,
@@ -296,7 +298,7 @@ def plot_comparison_overview(
         wrap_width=wrap_width,
     )
 
-    ax_meta_compared = fig.add_subplot(gs[0, 1])
+    ax_meta_compared = fig.add_subplot(gs_meta[0, 1])
     draw_metadata_box(
         ax_meta_compared,
         metadata_compared,

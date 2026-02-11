@@ -448,9 +448,30 @@ def _plot_cell_overlay_on_axes(
         extent=extent,
     )
 
-    # Calculate cell dimensions in pixels (for grid-based drawing)
-    cell_height = height / n_rows
-    cell_width = width / n_cols
+    # Cell size in µm
+    cell_w_um = width * scale * 1e6 / n_cols
+    cell_h_um = height * scale * 1e6 / n_rows
+
+    # Default to grid-based positions and zero rotations when not provided
+    if cell_positions is None:
+        positions = np.empty((n_rows * n_cols, 2), dtype=np.float64)
+        for i in range(n_rows):
+            for j in range(n_cols):
+                flat = i * n_cols + j
+                positions[flat, 0] = (j + 0.5) * cell_w_um
+                positions[flat, 1] = (n_rows - 1 - i + 0.5) * cell_h_um
+    else:
+        positions = cell_positions
+
+    if cell_rotations is None:
+        rotations = np.zeros(n_rows * n_cols, dtype=np.float64)
+    else:
+        rotations = cell_rotations
+
+    if cell_size_um is None:
+        cell_size = (cell_w_um, cell_h_um)
+    else:
+        cell_size = cell_size_um
 
     # Collect cells into CMC (black) and non-CMC (red) groups.
     # Draw CMC cells first, then non-CMC on top so red outlines are not
@@ -477,92 +498,48 @@ def _plot_cell_overlay_on_axes(
             else:
                 non_cmc_cells.append((i, j, cell_index))
 
-    use_custom_positions = cell_positions is not None and cell_size_um is not None
+    w, h = cell_size
+    half_w, half_h = w / 2, h / 2
+    base_corners = np.array(
+        [[-half_w, -half_h], [half_w, -half_h], [half_w, half_h], [-half_w, half_h]]
+    )
 
     for color, cells in [("black", cmc_cells), ("red", non_cmc_cells)]:
         for i, j, idx in cells:
-            flat_index = i * n_cols + j  # row-major flat index
+            flat_index = i * n_cols + j
 
-            if use_custom_positions:
-                assert cell_positions is not None
-                assert cell_size_um is not None
-                cx = float(cell_positions[flat_index, 0])
-                cy = float(cell_positions[flat_index, 1])
-                w, h = cell_size_um
+            cx = float(positions[flat_index, 0])
+            cy = float(positions[flat_index, 1])
 
-                if np.isnan(cx) or np.isnan(cy):
-                    continue
+            if np.isnan(cx) or np.isnan(cy):
+                continue
 
-                # Build rectangle corners centered at origin
-                half_w, half_h = w / 2, h / 2
-                corners = np.array(
-                    [
-                        [-half_w, -half_h],
-                        [half_w, -half_h],
-                        [half_w, half_h],
-                        [-half_w, half_h],
-                    ]
-                )
+            # Rotate corners
+            angle = float(rotations[flat_index])
+            cos_a, sin_a = np.cos(angle), np.sin(angle)
+            rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+            corners = base_corners @ rot.T
 
-                # Rotate
-                angle = (
-                    float(cell_rotations[flat_index])
-                    if cell_rotations is not None
-                    else 0.0
-                )
-                cos_a, sin_a = np.cos(angle), np.sin(angle)
-                rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-                corners = corners @ rot.T
+            # Translate to position
+            corners[:, 0] += cx
+            corners[:, 1] += cy
 
-                # Translate to position
-                corners[:, 0] += cx
-                corners[:, 1] += cy
+            # Draw closed polygon
+            xs = np.append(corners[:, 0], corners[0, 0])
+            ys = np.append(corners[:, 1], corners[0, 1])
+            ax.plot(xs, ys, color=color, linestyle="-", linewidth=1.0)
 
-                # Draw closed polygon
-                xs = np.append(corners[:, 0], corners[0, 0])
-                ys = np.append(corners[:, 1], corners[0, 1])
-                ax.plot(xs, ys, color=color, linestyle="-", linewidth=1.0)
-
-                # Label at center
-                ax.text(
-                    cx,
-                    cy,
-                    f"{cell_label_prefix}{idx}",
-                    ha="center",
-                    va="center",
-                    fontsize=8,
-                    color=color,
-                    fontweight="bold",
-                )
-            else:
-                # Grid-based cell boundaries in µm
-                x_left = j * cell_width * scale * 1e6
-                x_right = (j + 1) * cell_width * scale * 1e6
-                y_bottom = (n_rows - 1 - i) * cell_height * scale * 1e6
-                y_top = (n_rows - i) * cell_height * scale * 1e6
-
-                # Draw cell border
-                ax.plot(
-                    [x_left, x_right, x_right, x_left, x_left],
-                    [y_bottom, y_bottom, y_top, y_top, y_bottom],
-                    color=color,
-                    linestyle="-",
-                    linewidth=1.0,
-                )
-
-                # Add cell name label
-                x_center = (x_left + x_right) / 2
-                y_center = (y_bottom + y_top) / 2
-                ax.text(
-                    x_center,
-                    y_center,
-                    f"{cell_label_prefix}{idx}",
-                    ha="center",
-                    va="center",
-                    fontsize=8,
-                    color=color,
-                    fontweight="bold",
-                )
+            # Label at center
+            ax.text(
+                cx,
+                cy,
+                f"{cell_label_prefix}{idx}",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color=color,
+                fontweight="bold",
+            )
 
     ax.set_xlabel("X - Position [µm]", fontsize=11)
     ax.set_ylabel("Y - Position [µm]", fontsize=11)
