@@ -56,6 +56,7 @@ def discover_profile_pairs() -> list[tuple[str, Path, Path]]:
 PROFILE_PAIRS = discover_profile_pairs()
 
 
+@pytest.mark.integration
 class TestProfilePairs:
     """Tests for real profile pairs."""
 
