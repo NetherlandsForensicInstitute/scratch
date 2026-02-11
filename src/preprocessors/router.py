@@ -5,11 +5,11 @@ from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from loguru import logger
 
-from constants import PreprocessorEndpoint, RoutePrefix
+from constants import LIGHT_SOURCES, OBSERVER, PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
-from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation
+from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault
-from preprocessors.controller import process_prepare_mark
+from preprocessors.controller import edit_scan_image, process_prepare_mark
 
 from .pipelines import (
     impression_mark_pipeline,
@@ -144,7 +144,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
         },
     },
 )
-async def edit_scan(edit_image: EditImage) -> ProcessedDataAccess:
+async def edit_scan(edit_image: EditImage) -> GeneratedImages:
     """
     Validate and parse a scan file with edit parameters.
 
@@ -152,8 +152,21 @@ async def edit_scan(edit_image: EditImage) -> ProcessedDataAccess:
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
-    _ = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
     vault = create_vault(edit_image.tag)
+    logger.debug(f"Working directory created on: {vault.resource_path}")
+    parsed_image = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
+    files = GeneratedImages.get_files(vault.resource_path)
 
+    edited_scan_image = edit_scan_image(
+        scan_image=parsed_image,
+        edit_image_params=edit_image,
+    )
+    preview_pipeline(parsed_scan=edited_scan_image, output_path=files["preview"])
+    surface_map_pipeline(
+        parsed_scan=edited_scan_image,
+        output_path=files["surface_map"],
+        light_sources=LIGHT_SOURCES,
+        observer=OBSERVER,
+    )
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess.generate_urls(vault.access_url)
+    return GeneratedImages.generate_urls(vault.access_url)

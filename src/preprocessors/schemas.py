@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from enum import StrEnum, auto
 from functools import cached_property
 from typing import Annotated, Self
 
 import numpy as np
 from container_models.light_source import LightSource
+from conversion.leveling.data_types import SurfaceTerms
 from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
@@ -15,8 +15,9 @@ from pydantic import (
     model_validator,
 )
 from scipy.constants import micro
+from utils.constants import RegressionOrder
 
-from constants import ImpressionMarks, MaskTypes, StriationMarks
+from constants import LIGHT_SOURCES, OBSERVER, ImpressionMarks, MaskTypes, StriationMarks
 from models import (
     BaseModelConfig,
     ProjectTag,
@@ -49,10 +50,7 @@ class BaseParameters(BaseModelConfig):
 
 class UploadScan(BaseParameters):
     light_sources: tuple[LightSource, ...] = Field(
-        (
-            LightSource(azimuth=90, elevation=45),
-            LightSource(azimuth=180, elevation=45),
-        ),
+        LIGHT_SOURCES,
         description="Light sources for surface illumination rendering.",
         examples=[
             (
@@ -62,7 +60,7 @@ class UploadScan(BaseParameters):
         ],
     )
     observer: LightSource = Field(
-        LightSource(azimuth=90, elevation=45),
+        OBSERVER,
         description="Observer viewpoint vector for surface rendering.",
         examples=[LightSource(azimuth=90, elevation=45)],
     )
@@ -129,21 +127,6 @@ class PrepareMarkImpression(BaseParameters):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
 
 
-class Terms(StrEnum):
-    """Surface fitting terms for leveling operations."""
-
-    PLANE = auto()
-    SPHERE = auto()
-
-
-class RegressionOrder(StrEnum):
-    """Polynomial regression order for surface leveling."""
-
-    RO = auto()
-    R1 = auto()
-    R2 = auto()
-
-
 type Mask = tuple[tuple[bool, ...], ...]
 
 
@@ -171,14 +154,14 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: Terms = Field(
-        default=Terms.PLANE,
+    terms: SurfaceTerms = Field(
+        default=SurfaceTerms.PLANE,
         description=(
             "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
         ),
     )
     regression_order: RegressionOrder = Field(
-        default=RegressionOrder.RO,
+        default=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         description="Polynomial regression order for surface fitting. R0 (constant), R1 (linear), or R2 (quadratic).",
     )
     crop: bool = Field(
