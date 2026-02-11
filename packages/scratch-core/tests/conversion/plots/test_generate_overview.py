@@ -76,5 +76,3 @@ class TestGenerateOverview:
 
         overview = results.comparison_overview
         assert_valid_rgb_image(overview)
-        out = Path(__file__).resolve().parents[5] / "plot_striation_overview.png"
-        Image.fromarray(overview).save(out)
