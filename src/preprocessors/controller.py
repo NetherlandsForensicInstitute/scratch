@@ -32,14 +32,14 @@ def process_prepare_mark(
 
 def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage):
     """From a scan_image file to an edited image file."""
-    expected_resampled_output_shape = (
+    output_shape = (
         1 / edit_image_params.resampling_factor * scan_image.height,
         1 / edit_image_params.resampling_factor * scan_image.width,
     )
     resampled_mask = np.asarray(
         resize(
             image=edit_image_params.mask_array,
-            output_shape=expected_resampled_output_shape,
+            output_shape=output_shape,
             mode="edge",
             anti_aliasing=False,
         ),
@@ -47,7 +47,7 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage):
     )
     reference_point_x, reference_point_y = compute_image_center(scan_image)
     pipeline = [
-        Resample(expected_output_shape=expected_resampled_output_shape),
+        Resample(target_shape=output_shape),
         Mask(mask=resampled_mask),
         *([CropToMask(mask=resampled_mask)] if edit_image_params.crop else []),
         LevelMap(

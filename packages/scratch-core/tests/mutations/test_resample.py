@@ -73,7 +73,7 @@ class TestResampleScanImage:
             1 / y_factor * simple_scan_image.height,
             1 / x_factor * simple_scan_image.width,
         )
-        resampling = Resample(expected_output_shape=expected_resampled_output_shape)
+        resampling = Resample(target_shape=expected_resampled_output_shape)
         # Act
         result = resampling(simple_scan_image).unwrap()
         # Assert
@@ -105,7 +105,7 @@ class TestResampleScanImage:
         )
         original_scale_x = simple_scan_image.scale_x
         original_scale_y = simple_scan_image.scale_y
-        resampling = Resample(expected_output_shape=expected_resampled_output_shape)
+        resampling = Resample(target_shape=expected_resampled_output_shape)
 
         # Act
         result = resampling(simple_scan_image).unwrap()
@@ -123,7 +123,7 @@ class TestResampleScanImage:
         )
         original_dtype = simple_scan_image.data.dtype
         original_ndim = simple_scan_image.data.ndim
-        resampling = Resample(expected_output_shape=expected_resampled_output_shape)
+        resampling = Resample(target_shape=expected_resampled_output_shape)
 
         # Act
         result = resampling(simple_scan_image).unwrap()
@@ -147,7 +147,7 @@ class TestResampleScanImage:
             1 / factor * data.shape[0],
             1 / factor * data.shape[1],
         )
-        resampling = Resample(expected_output_shape=expected_resampled_output_shape)
+        resampling = Resample(target_shape=expected_resampled_output_shape)
         # Act
         result = resampling(scan_image).unwrap()
 

@@ -65,14 +65,14 @@ class CropToMask(ImageMutation):
 
 
 class Resample(ImageMutation):
-    def __init__(self, expected_output_shape: tuple[float, float]) -> None:
+    def __init__(self, target_shape: tuple[float, float]) -> None:
         """
         Constructor for initiating the Resampling.
 
-        :param expected_output_shape: The multipliers for the scale of the X- and Y-axis(y first).
+        :param target_shape: The multipliers for the scale of the X- and Y-axis(y first).
         """
-        self.expected_output_shape_height = expected_output_shape[0]
-        self.expected_output_shape_width = expected_output_shape[1]
+        self.target_shape_height = target_shape[0]
+        self.target_shape_width = target_shape[1]
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
@@ -82,23 +82,23 @@ class Resample(ImageMutation):
         :returns: The resampled ScanImage.
         """
         anti_aliasing = (
-            self.expected_output_shape_height < scan_image.height
-            or self.expected_output_shape_width < scan_image.width
+            self.target_shape_height < scan_image.height
+            or self.target_shape_width < scan_image.width
         )
         resampled_data = resize(
             image=scan_image.data,
             output_shape=(
-                self.expected_output_shape_height,
-                self.expected_output_shape_width,
+                self.target_shape_height,
+                self.target_shape_width,
             ),
             mode="edge",
             anti_aliasing=anti_aliasing,
         )
-        scale_x_factor = scan_image.width / self.expected_output_shape_width
-        scale_y_factor = scan_image.height / self.expected_output_shape_height
+        scale_x_factor = scan_image.width / self.target_shape_width
+        scale_y_factor = scan_image.height / self.target_shape_height
 
         logger.debug(
-            f"Resampling image array to new size: {round(self.expected_output_shape_height, 1)}/{round(self.expected_output_shape_width, 1)} with scale: x:{round(scale_x_factor, 1)}, y:{round(scale_y_factor, 1)}"
+            f"Resampling image array to new size: {round(self.target_shape_height, 1)}/{round(self.target_shape_width, 1)} with scale: x:{round(scale_x_factor, 1)}, y:{round(scale_y_factor, 1)}"
         )
 
         return ScanImage(
