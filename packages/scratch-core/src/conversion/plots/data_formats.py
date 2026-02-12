@@ -39,17 +39,17 @@ class StriationComparisonPlots:
 
     :param similarity_plot: Aligned profiles overlaid.
     :param comparison_overview: Main results overview figure.
-    :param filtered_reference_surface_map: Filtered reference depth map render.
-    :param filtered_compared_surface_map: Filtered compared depth map render.
-    :param side_by_side_surface_map: Both marks side by side depth map render.
+    :param filtered_reference_preview: Filtered reference preview image.
+    :param filtered_compared_preview: Filtered compared preview image.
+    :param side_by_side_preview: Both marks side by side preview image.
     :param wavelength_plot: Profiles + wavelength-dependent cross-correlation.
     """
 
     similarity_plot: ImageRGB
     comparison_overview: ImageRGB
-    filtered_reference_surface_map: ImageRGB
-    filtered_compared_surface_map: ImageRGB
-    side_by_side_surface_map: ImageRGB
+    filtered_reference_preview: ImageRGB
+    filtered_compared_preview: ImageRGB
+    side_by_side_preview: ImageRGB
     wavelength_plot: ImageRGB
 
 
@@ -105,22 +105,22 @@ class ImpressionComparisonPlots:
     Fields are None when the corresponding analysis was not performed.
 
     :param comparison_overview: Combined overview figure with all results.
-    :param leveled_reference_surface_map: Leveled reference depth map render.
-    :param leveled_compared_surface_map: Leveled compared depth map render.
-    :param filtered_reference_surface_map: Filtered reference depth map render.
-    :param filtered_compared_surface_map: Filtered compared depth map render.
-    :param cell_reference_surface_map: Cell-preprocessed reference depth map render.
-    :param cell_compared_surface_map: Cell-preprocessed compared depth map render.
+    :param leveled_reference_preview: Leveled reference preview image.
+    :param leveled_compared_preview: Leveled compared preview image.
+    :param filtered_reference_preview: Filtered reference preview image.
+    :param filtered_compared_preview: Filtered compared preview image.
+    :param cell_reference_preview: Cell-preprocessed reference preview image.
+    :param cell_compared_preview: Cell-preprocessed compared preview image.
     :param cell_overlay: All cells overlay visualization.
     :param cell_cross_correlation: Cell-based cross-correlation heatmap.
     """
 
     comparison_overview: ImageRGB
-    leveled_reference_surface_map: ImageRGB
-    leveled_compared_surface_map: ImageRGB
-    filtered_reference_surface_map: ImageRGB
-    filtered_compared_surface_map: ImageRGB
-    cell_reference_surface_map: ImageRGB
-    cell_compared_surface_map: ImageRGB
+    leveled_reference_preview: ImageRGB
+    leveled_compared_preview: ImageRGB
+    filtered_reference_preview: ImageRGB
+    filtered_compared_preview: ImageRGB
+    cell_reference_preview: ImageRGB
+    cell_compared_preview: ImageRGB
     cell_overlay: ImageRGB
     cell_cross_correlation: ImageRGB

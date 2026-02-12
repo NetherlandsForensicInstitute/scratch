@@ -73,9 +73,6 @@ def create_scaled_profiles(
     )
 
 
-# --- Basic functionality tests ---
-
-
 @pytest.mark.integration
 class TestCorrelateProfilesBasic:
     """Basic functionality tests for correlate_profiles."""

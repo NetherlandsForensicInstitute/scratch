@@ -160,9 +160,6 @@ def impression_sample_metrics(
     )
 
 
-# --- Impression overview fixtures ---
-
-
 @pytest.fixture
 def impression_overview_marks() -> dict[str, Mark]:
     """Four impression marks: leveled and filtered for reference and compared."""

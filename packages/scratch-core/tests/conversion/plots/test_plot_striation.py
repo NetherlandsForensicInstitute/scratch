@@ -139,7 +139,7 @@ class TestStriationComparisonPlotsIntegration:
 
         assert_valid_rgb_image(result.similarity_plot)
         assert_valid_rgb_image(result.comparison_overview)
-        assert_valid_rgb_image(result.filtered_reference_surface_map)
-        assert_valid_rgb_image(result.filtered_compared_surface_map)
-        assert_valid_rgb_image(result.side_by_side_surface_map)
+        assert_valid_rgb_image(result.filtered_reference_preview)
+        assert_valid_rgb_image(result.filtered_compared_preview)
+        assert_valid_rgb_image(result.side_by_side_preview)
         assert_valid_rgb_image(result.wavelength_plot)

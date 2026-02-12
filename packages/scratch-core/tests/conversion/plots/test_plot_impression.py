@@ -118,19 +118,26 @@ class TestPlotCellCorrelationHeatmap:
 
     def test_returns_rgb_image(self, impression_sample_cell_correlations: np.ndarray):
         result = plot_cell_correlation_heatmap(
-            cell_correlations=impression_sample_cell_correlations
+            cell_correlations=impression_sample_cell_correlations,
+            surface_extent_um=(300.0, 200.0),
         )
         assert_valid_rgb_image(result)
 
     def test_handles_different_grid_sizes(self):
         for rows, cols in [(2, 3), (5, 5), (3, 8)]:
             correlations = np.random.rand(rows, cols)
-            result = plot_cell_correlation_heatmap(cell_correlations=correlations)
+            result = plot_cell_correlation_heatmap(
+                cell_correlations=correlations,
+                surface_extent_um=(300.0, 200.0),
+            )
             assert_valid_rgb_image(result)
 
     def test_with_nan_cells(self):
         correlations = np.array([[0.5, np.nan], [0.3, 0.7]])
-        result = plot_cell_correlation_heatmap(cell_correlations=correlations)
+        result = plot_cell_correlation_heatmap(
+            cell_correlations=correlations,
+            surface_extent_um=(200.0, 200.0),
+        )
         assert_valid_rgb_image(result)
 
 
@@ -297,12 +304,12 @@ class TestPlotImpressionComparisonResults:
 
         assert isinstance(result, ImpressionComparisonPlots)
         assert_valid_rgb_image(result.comparison_overview)
-        assert_valid_rgb_image(result.leveled_reference_surface_map)
-        assert_valid_rgb_image(result.leveled_compared_surface_map)
-        assert_valid_rgb_image(result.filtered_reference_surface_map)
-        assert_valid_rgb_image(result.filtered_compared_surface_map)
-        assert_valid_rgb_image(result.cell_reference_surface_map)
-        assert_valid_rgb_image(result.cell_compared_surface_map)
+        assert_valid_rgb_image(result.leveled_reference_preview)
+        assert_valid_rgb_image(result.leveled_compared_preview)
+        assert_valid_rgb_image(result.filtered_reference_preview)
+        assert_valid_rgb_image(result.filtered_compared_preview)
+        assert_valid_rgb_image(result.cell_reference_preview)
+        assert_valid_rgb_image(result.cell_compared_preview)
         assert_valid_rgb_image(result.cell_overlay)
         assert_valid_rgb_image(result.cell_cross_correlation)
 
@@ -320,14 +327,6 @@ class TestPlotCellHeatmapOnAxes:
         )
         assert ax.get_title() == "Cell ACCF Distribution"
         assert "µm" in ax.get_xlabel()
-        plt.close(fig)
-
-    def test_without_surface_extent(
-        self, impression_sample_cell_correlations: np.ndarray
-    ):
-        fig, ax = plt.subplots()
-        _plot_cell_heatmap_on_axes(ax, fig, impression_sample_cell_correlations)
-        assert "Column" in ax.get_xlabel()
         plt.close(fig)
 
     def test_custom_threshold_colors(self):

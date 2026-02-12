@@ -266,31 +266,17 @@ def get_bounding_box(side_margin: float, table_data: list[list[str]]) -> Bbox:
     return Bbox.from_bounds(side_margin, bottom, available_width, table_height)
 
 
-def get_height_ratios(row0_height: float) -> list[float]:
+def get_height_ratios(metadata_height: float, *row_heights: float) -> list[float]:
     """
-    Calculate normalized height ratios for a 4-row grid layout.
+    Calculate normalized height ratios for a grid layout.
 
-    Rows 1-3 have fixed relative heights (0.32, 0.22, 0.20) for depth maps,
-    side-by-side view, and profile plot respectively. Row 0 (metadata) is
-    variable. All values are normalized to sum to 1.0.
-
-    :param row0_height: Relative height for row 0 (metadata section).
-    :returns: List of 4 normalized height ratios for use with GridSpec.
+    :param metadata_height: Relative height for the metadata row.
+    :param row_heights: Relative heights for the remaining rows.
+    :returns: List of normalized height ratios for use with GridSpec.
     """
-    # Fixed heights for other rows
-    row1_height = 0.32
-    row2_height = 0.22
-    row3_height = 0.20
-
-    # Normalize
-    total = row0_height + row1_height + row2_height + row3_height
-    height_ratios = [
-        row0_height / total,
-        row1_height / total,
-        row2_height / total,
-        row3_height / total,
-    ]
-    return height_ratios
+    heights = [metadata_height, *row_heights]
+    total = sum(heights)
+    return [h / total for h in heights]
 
 
 def get_metadata_dimensions(

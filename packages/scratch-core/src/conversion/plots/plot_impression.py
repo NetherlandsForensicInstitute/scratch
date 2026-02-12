@@ -19,6 +19,7 @@ from conversion.plots.utils import (
     draw_metadata_box,
     figure_to_array,
     get_figure_dimensions,
+    get_height_ratios,
     get_metadata_dimensions,
     plot_depth_map_on_axes,
     plot_depth_map_with_axes,
@@ -86,8 +87,14 @@ def plot_impression_comparison_results(
         cell_correlations=metrics.cell_correlations,
         cell_similarity_threshold=metrics.cell_similarity_threshold,
     )
-    cell_xcorr = plot_cell_correlation_heatmap(
+    ref_data = mark_reference_filtered.scan_image.data
+    surface_extent_um = (
+        ref_data.shape[1] * scale * 1e6,
+        ref_data.shape[0] * scale * 1e6,
+    )
+    cell_correlation = plot_cell_correlation_heatmap(
         cell_correlations=metrics.cell_correlations,
+        surface_extent_um=surface_extent_um,
     )
 
     comparison_overview = plot_comparison_overview(
@@ -102,14 +109,14 @@ def plot_impression_comparison_results(
 
     return ImpressionComparisonPlots(
         comparison_overview=comparison_overview,
-        leveled_reference_surface_map=leveled_ref,
-        leveled_compared_surface_map=leveled_comp,
-        filtered_reference_surface_map=filtered_ref,
-        filtered_compared_surface_map=filtered_comp,
-        cell_reference_surface_map=cell_ref,
-        cell_compared_surface_map=cell_comp,
+        leveled_reference_preview=leveled_ref,
+        leveled_compared_preview=leveled_comp,
+        filtered_reference_preview=filtered_ref,
+        filtered_compared_preview=filtered_comp,
+        cell_reference_preview=cell_ref,
+        cell_compared_preview=cell_comp,
         cell_overlay=cell_overlay,
-        cell_cross_correlation=cell_xcorr,
+        cell_cross_correlation=cell_correlation,
     )
 
 
@@ -145,7 +152,7 @@ def plot_cell_grid_overlay(
     fig_height, fig_width = get_figure_dimensions(height, width)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
-    _plot_cell_overlay_on_axes(
+    im = _plot_cell_overlay_on_axes(
         ax,
         data,
         scale,
@@ -157,6 +164,8 @@ def plot_cell_grid_overlay(
         cell_rotations=cell_rotations,
         cell_size_um=cell_size_um,
     )
+    ax.set_title("Cell Grid Overlay", fontsize=12, fontweight="bold")
+    fig.colorbar(im, ax=ax, label="Scan Depth [µm]")
 
     fig.tight_layout()
     arr = figure_to_array(fig)
@@ -166,11 +175,13 @@ def plot_cell_grid_overlay(
 
 def plot_cell_correlation_heatmap(
     cell_correlations: FloatArray2D,
+    surface_extent_um: tuple[float, float],
 ) -> ImageRGB:
     """
     Plot heatmap of per-cell correlation values.
 
     :param cell_correlations: Grid of per-cell correlation values.
+    :param surface_extent_um: (width, height) of the surface in µm.
     :returns: RGB image as uint8 array.
     """
     n_rows, n_cols = cell_correlations.shape
@@ -187,7 +198,7 @@ def plot_cell_correlation_heatmap(
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
-    _plot_cell_heatmap_on_axes(ax, fig, cell_correlations)
+    _plot_cell_heatmap_on_axes(ax, fig, cell_correlations, surface_extent_um)
 
     fig.tight_layout()
     arr = figure_to_array(fig)
@@ -255,15 +266,7 @@ def plot_comparison_overview(
         metadata_compared, metadata_reference, wrap_width
     )
 
-    # 3-row layout: metadata, leveled surfaces + results, filtered surfaces + heatmap
-    row1_height = 0.40
-    row2_height = 0.40
-    total = metadata_height_ratio + row1_height + row2_height
-    height_ratios = [
-        metadata_height_ratio / total,
-        row1_height / total,
-        row2_height / total,
-    ]
+    height_ratios = get_height_ratios(metadata_height_ratio, 0.40, 0.40)
 
     # Adjust figure height based on content
     fig_height = 12 + (max_metadata_rows * 0.12)
@@ -399,6 +402,108 @@ def plot_comparison_overview(
     return arr
 
 
+def _get_grid_positions(
+    n_rows: int, n_cols: int, cell_w_um: float, cell_h_um: float
+) -> np.ndarray:
+    """Return (n_rows * n_cols, 2) array of cell center positions in µm."""
+    positions = np.empty((n_rows * n_cols, 2), dtype=np.float64)
+    for i in range(n_rows):
+        for j in range(n_cols):
+            flat = i * n_cols + j
+            positions[flat, 0] = (j + 0.5) * cell_w_um
+            positions[flat, 1] = (n_rows - 1 - i + 0.5) * cell_h_um
+    return positions
+
+
+def _draw_cell_labels(
+    ax: Axes,
+    cell_correlations: FloatArray2D,
+    positions: np.ndarray,
+    rotations: np.ndarray,
+    cell_size: tuple[float, float],
+    cell_label_prefix: str,
+    cell_similarity_threshold: float,
+    show_all_cells: bool,
+) -> None:
+    """
+    Draw labeled cell rectangles on axes, colored by CMC status.
+
+    CMC cells (above threshold) are drawn in black, non-CMC cells in red.
+    CMC cells are drawn first so red outlines are not hidden by adjacent borders.
+
+    :param ax: Matplotlib axes to draw on.
+    :param cell_correlations: Grid of per-cell correlation values.
+    :param positions: (n_cells, 2) array of (x, y) center positions in µm.
+    :param rotations: (n_cells,) array of rotation angles in radians.
+    :param cell_size: (width, height) of a cell in µm.
+    :param cell_label_prefix: Label prefix for cells ("A" or "B").
+    :param cell_similarity_threshold: Minimum correlation for CMC.
+    :param show_all_cells: If True, show all cells. If False, only show CMC cells.
+    """
+    n_rows, n_cols = cell_correlations.shape
+
+    cmc_cells: list[tuple[int, int, int]] = []
+    non_cmc_cells: list[tuple[int, int, int]] = []
+
+    cell_index = 0
+    for i in range(n_rows):
+        for j in range(n_cols):
+            cell_index += 1
+            corr_val = cell_correlations[i, j]
+
+            if np.isnan(corr_val):
+                continue
+
+            is_cmc = corr_val >= cell_similarity_threshold
+
+            if not is_cmc and not show_all_cells:
+                continue
+
+            if is_cmc:
+                cmc_cells.append((i, j, cell_index))
+            else:
+                non_cmc_cells.append((i, j, cell_index))
+
+    w, h = cell_size
+    half_w, half_h = w / 2, h / 2
+    base_corners = np.array(
+        [[-half_w, -half_h], [half_w, -half_h], [half_w, half_h], [-half_w, half_h]]
+    )
+
+    for color, cells in [("black", cmc_cells), ("red", non_cmc_cells)]:
+        for i, j, idx in cells:
+            flat_index = i * n_cols + j
+
+            cx = float(positions[flat_index, 0])
+            cy = float(positions[flat_index, 1])
+
+            if np.isnan(cx) or np.isnan(cy):
+                continue
+
+            angle = float(rotations[flat_index])
+            cos_a, sin_a = np.cos(angle), np.sin(angle)
+            rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+            corners = base_corners @ rot.T
+
+            corners[:, 0] += cx
+            corners[:, 1] += cy
+
+            xs = np.append(corners[:, 0], corners[0, 0])
+            ys = np.append(corners[:, 1], corners[0, 1])
+            ax.plot(xs, ys, color=color, linestyle="-", linewidth=1.0)
+
+            ax.text(
+                cx,
+                cy,
+                f"{cell_label_prefix}{idx}",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color=color,
+                fontweight="bold",
+            )
+
+
 def _plot_cell_overlay_on_axes(
     ax: Axes,
     data: FloatArray2D,
@@ -452,94 +557,28 @@ def _plot_cell_overlay_on_axes(
     cell_w_um = width * scale * 1e6 / n_cols
     cell_h_um = height * scale * 1e6 / n_rows
 
-    # Default to grid-based positions and zero rotations when not provided
-    if cell_positions is None:
-        positions = np.empty((n_rows * n_cols, 2), dtype=np.float64)
-        for i in range(n_rows):
-            for j in range(n_cols):
-                flat = i * n_cols + j
-                positions[flat, 0] = (j + 0.5) * cell_w_um
-                positions[flat, 1] = (n_rows - 1 - i + 0.5) * cell_h_um
-    else:
-        positions = cell_positions
-
-    if cell_rotations is None:
-        rotations = np.zeros(n_rows * n_cols, dtype=np.float64)
-    else:
-        rotations = cell_rotations
-
-    if cell_size_um is None:
-        cell_size = (cell_w_um, cell_h_um)
-    else:
-        cell_size = cell_size_um
-
-    # Collect cells into CMC (black) and non-CMC (red) groups.
-    # Draw CMC cells first, then non-CMC on top so red outlines are not
-    # hidden by adjacent black cell borders.
-    cmc_cells: list[tuple[int, int, int]] = []
-    non_cmc_cells: list[tuple[int, int, int]] = []
-
-    cell_index = 0
-    for i in range(n_rows):
-        for j in range(n_cols):
-            cell_index += 1
-            corr_val = cell_correlations[i, j]
-
-            if np.isnan(corr_val):
-                continue
-
-            is_cmc = corr_val >= cell_similarity_threshold
-
-            if not is_cmc and not show_all_cells:
-                continue
-
-            if is_cmc:
-                cmc_cells.append((i, j, cell_index))
-            else:
-                non_cmc_cells.append((i, j, cell_index))
-
-    w, h = cell_size
-    half_w, half_h = w / 2, h / 2
-    base_corners = np.array(
-        [[-half_w, -half_h], [half_w, -half_h], [half_w, half_h], [-half_w, half_h]]
+    positions = (
+        cell_positions
+        if cell_positions is not None
+        else _get_grid_positions(n_rows, n_cols, cell_w_um, cell_h_um)
     )
+    rotations = (
+        cell_rotations
+        if cell_rotations is not None
+        else np.zeros(n_rows * n_cols, dtype=np.float64)
+    )
+    cell_size = cell_size_um or (cell_w_um, cell_h_um)
 
-    for color, cells in [("black", cmc_cells), ("red", non_cmc_cells)]:
-        for i, j, idx in cells:
-            flat_index = i * n_cols + j
-
-            cx = float(positions[flat_index, 0])
-            cy = float(positions[flat_index, 1])
-
-            if np.isnan(cx) or np.isnan(cy):
-                continue
-
-            # Rotate corners
-            angle = float(rotations[flat_index])
-            cos_a, sin_a = np.cos(angle), np.sin(angle)
-            rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-            corners = base_corners @ rot.T
-
-            # Translate to position
-            corners[:, 0] += cx
-            corners[:, 1] += cy
-
-            # Draw closed polygon
-            xs = np.append(corners[:, 0], corners[0, 0])
-            ys = np.append(corners[:, 1], corners[0, 1])
-            ax.plot(xs, ys, color=color, linestyle="-", linewidth=1.0)
-
-            # Label at center
-            ax.text(
-                cx,
-                cy,
-                f"{cell_label_prefix}{idx}",
-                ha="center",
-                va="center",
-                fontsize=8,
-                color=color,
-                fontweight="bold",
-            )
+    _draw_cell_labels(
+        ax,
+        cell_correlations=cell_correlations,
+        positions=positions,
+        rotations=rotations,
+        cell_size=cell_size,
+        cell_label_prefix=cell_label_prefix,
+        cell_similarity_threshold=cell_similarity_threshold,
+        show_all_cells=show_all_cells,
+    )
 
     ax.set_xlabel("X - Position [µm]", fontsize=11)
     ax.set_ylabel("Y - Position [µm]", fontsize=11)
@@ -552,16 +591,12 @@ def _plot_cell_heatmap_on_axes(
     ax: Axes,
     fig: Figure,
     cell_correlations: FloatArray2D,
-    surface_extent_um: tuple[float, float] | None = None,
+    surface_extent_um: tuple[float, float],
     cell_label_prefix: str = "A",
     cell_similarity_threshold: float = 0.25,
 ) -> None:
     """
     Plot cell correlation heatmap on given axes.
-
-    When ``surface_extent_um`` is provided the heatmap uses spatial µm axes
-    and shows cell labels (A1, A2, …) coloured by CMC status, matching the
-    MATLAB ``nfi_nist_plot_cmc`` style.
 
     :param ax: Matplotlib axes to plot on.
     :param fig: Figure (needed for colorbar).
@@ -571,28 +606,20 @@ def _plot_cell_heatmap_on_axes(
     :param cell_similarity_threshold: Minimum correlation for CMC.
     """
     n_rows, n_cols = cell_correlations.shape
-
-    if surface_extent_um is not None:
-        w_um, h_um = surface_extent_um
-        extent = (0, w_um, 0, h_um)
-        origin = "lower"
-    else:
-        extent = None
-        origin = "upper"
+    w_um, h_um = surface_extent_um
 
     im = ax.imshow(
         cell_correlations,
         cmap=DEFAULT_COLORMAP,
         aspect="equal",
-        origin=origin,
-        extent=extent,
+        origin="lower",
+        extent=(0, w_um, 0, h_um),
         vmin=0,
         vmax=1,
     )
 
-    # Add cell labels
-    cell_w = (surface_extent_um[0] / n_cols) if surface_extent_um else 1.0
-    cell_h = (surface_extent_um[1] / n_rows) if surface_extent_um else 1.0
+    cell_w = w_um / n_cols
+    cell_h = h_um / n_rows
 
     cell_index = 0
     for i in range(n_rows):
@@ -602,22 +629,15 @@ def _plot_cell_heatmap_on_axes(
             if np.isnan(val):
                 continue
 
-            if surface_extent_um is not None:
-                cx = (j + 0.5) * cell_w
-                cy = (n_rows - 1 - i + 0.5) * cell_h
-                is_cmc = val >= cell_similarity_threshold
-                color = "blue" if is_cmc else "red"
-                label = f"{cell_label_prefix}{cell_index}"
-            else:
-                cx = j
-                cy = i
-                color = "white" if val < 0.5 else "black"
-                label = f"{val:.2f}"
+            cx = (j + 0.5) * cell_w
+            cy = (n_rows - 1 - i + 0.5) * cell_h
+            is_cmc = val >= cell_similarity_threshold
+            color = "blue" if is_cmc else "red"
 
             ax.text(
                 cx,
                 cy,
-                label,
+                f"{cell_label_prefix}{cell_index}",
                 ha="center",
                 va="center",
                 fontsize=9,
@@ -627,15 +647,8 @@ def _plot_cell_heatmap_on_axes(
 
     ax.set_title("Cell ACCF Distribution", fontsize=12, fontweight="bold")
     ax.tick_params(labelsize=10)
-
-    if surface_extent_um is not None:
-        ax.set_xlabel("X - Position [µm]", fontsize=11)
-        ax.set_ylabel("Y - Position [µm]", fontsize=11)
-    else:
-        ax.set_xlabel("Column", fontsize=11)
-        ax.set_ylabel("Row", fontsize=11)
-        ax.set_xticks(range(n_cols))
-        ax.set_yticks(range(n_rows))
+    ax.set_xlabel("X - Position [µm]", fontsize=11)
+    ax.set_ylabel("Y - Position [µm]", fontsize=11)
 
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.1)
