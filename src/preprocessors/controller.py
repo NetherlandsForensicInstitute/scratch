@@ -4,20 +4,24 @@ from pathlib import Path
 import numpy as np
 from container_models.scan_image import ScanImage
 from conversion.leveling.solver.utils import compute_image_center
+from conversion.rotate import rotate_crop_and_mask_image_by_crop
 from loguru import logger
 from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resample
 from skimage.transform import resize
 
 from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline
-from preprocessors.schemas import EditImage
+from preprocessors.schemas import EditImage, PrepareMarkImpression, PrepareMarkStriation
 
 
 def process_prepare_mark(
-    scan_file: Path, marking_method: Callable[..., Path], files: dict[str, Path]
+    scan_file: Path,
+    marking_method: Callable[..., Path],
+    params: PrepareMarkImpression | PrepareMarkStriation,
+    files: dict[str, Path],
 ) -> dict[str, Path]:
     """Prepare striation mark data."""
     parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
-    # rotate and crop function()
+    rotate_crop_and_mask_image_by_crop(scan_image=parsed_scan, mask=params.mask_array, bounding_box=None)
     # resample()
     logger.info("Preparing mark")
     marking_method()

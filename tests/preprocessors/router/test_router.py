@@ -99,7 +99,7 @@ class TestPrepareMarkEndpoint:
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
             scan_file=self.scan_file_path,
-            mask_array=[[0, 1], [1, 0]],
+            mask=[[0, 1], [1, 0]],
             crop_info=CropInfo(type=MaskTypes.CIRCLE, data={}, is_foreground=False),
             rotation_angle=15,
             mark_parameters=mark_parameters(),  # type: ignore

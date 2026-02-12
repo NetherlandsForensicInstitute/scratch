@@ -72,7 +72,7 @@ class TestContracts:
         return PrepareMarkImpression(
             scan_file=scan_directory / "circle.x3p",
             mark_type="breach face impression mark",
-            mask_array=[[0, 1], [1, 0]],
+            mask=[[0, 1], [1, 0]],
             rotation_angle=15,
             crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
             mark_parameters=PreprocessingImpressionParams(),
@@ -87,7 +87,7 @@ class TestContracts:
         return PrepareMarkStriation(
             scan_file=scan_directory / "circle.x3p",
             mark_type="aperture shear striation mark",
-            mask_array=[[0, 1], [1, 0]],
+            mask=[[0, 1], [1, 0]],
             rotation_angle=15,
             crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
             mark_parameters=PreprocessingStriationParams(),

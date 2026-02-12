@@ -97,6 +97,7 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
         files=PrepareMarkResponseImpression.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
         marking_method=partial(impression_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+        params=prepare_mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseImpression.generate_urls(vault.access_url)
@@ -123,6 +124,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
         files=PrepareMarkResponseStriation.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
         marking_method=partial(striation_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+        params=prepare_mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseStriation.generate_urls(vault.access_url)
