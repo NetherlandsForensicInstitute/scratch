@@ -1,6 +1,11 @@
 """Helper functions for conversion tests."""
 
+from pathlib import Path
+
 import numpy as np
+from PIL import Image
+from matplotlib.figure import Figure
+
 from container_models.base import FloatArray
 
 from numpy.typing import NDArray
@@ -64,3 +69,16 @@ def _compute_difference_stats(arr1: FloatArray, arr2: FloatArray) -> dict[str, f
         "mean": float(np.nanmean(diff)),
         "std": float(np.nanstd(diff)),
     }
+
+
+def assert_plot_is_valid_image(fig: Figure, tmp_path: Path) -> None:
+    img_path = tmp_path / "plot.png"
+
+    fig.savefig(img_path, format="png")
+
+    assert img_path.exists()
+    assert img_path.stat().st_size > 0
+
+    # Validate it's a real image
+    img = Image.open(img_path)
+    img.verify()

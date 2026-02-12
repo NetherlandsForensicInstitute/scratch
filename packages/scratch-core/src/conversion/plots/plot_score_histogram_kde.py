@@ -6,56 +6,49 @@ from container_models.base import FloatArray1D
 
 def plot_score_histograms_kde(
     scores: FloatArray1D,
-    y: FloatArray1D,
+    labels: FloatArray1D,
     ax: Axes,
-    new_score: float | None = None,
-    bins: int | None = 20,
+    bins: int | None,
     show_density: bool = True,
     bandwidth: float | str | None = "silverman",
+    new_score: float | None = None,
 ) -> None:
     """
     Create score histograms with optional new_score line and kernel density estimates for KM and KNM datasets.
 
-    Parameters:
-    -----------
     :param scores: FloatArray1D
         Array of score values
-    :param y: FloatArray1D
+    :param labels: FloatArray1D
         Array of labels (0 for KNM, 1 for KM)
     :param ax : matplotlib.axes.Axes
         The axis to plot on
-    :param new_score : float, optional
-        A new score value to plot as a vertical line
     :param bins : int, optional
         Number of bins for histogram. If None, uses 'auto' binning.
     :param show_density : bool, optional
         Whether to show the kernel density estimate curves
     :param bandwidth : float | {'silverman', 'scott'} | None
         KDE bandwidth method or value, None defaults to 'scott'
+    :param new_score : float, optional
+        A new score value to plot as a vertical line
     """
 
-    if ax is None:
-        raise ValueError(
-            "ax must be a matplotlib.axes.Axes object, created by e.g. 'fig, axes = plt.subplots()'"
-        )
-
     if isinstance(bandwidth, str) and bandwidth not in {"silverman", "scott"}:
-        raise TypeError("bandwidth must be a float, 'silverman', 'scott', or None")
+        raise ValueError("bandwidth must be a float, 'silverman', 'scott', or None")
 
     # Separate data by label
-    knm_scores = scores[y == 0]
-    km_scores = scores[y == 1]
+    knm_scores = scores[labels == 0]
+    km_scores = scores[labels == 1]
 
     # Bin edges
     max_score = scores.max() * 1.05
     if bins is not None:
         bin_edges = np.linspace(0, max_score, bins + 1)
     else:
-        bin_edges = np.histogram_bin_edges(scores, bins="auto")
+        bin_edges = np.histogram_bin_edges(scores, range=(0, max_score), bins="auto")
     bin_edges = list(bin_edges)
 
     # Histograms
-    hist_knm = ax.hist(
+    barheights_knm, _, _ = ax.hist(
         knm_scores,
         bins=bin_edges,
         density=True,
@@ -64,7 +57,7 @@ def plot_score_histograms_kde(
         label=f"KNM (n={len(knm_scores)})",
     )
 
-    hist_km = ax.hist(
+    barheights_km, _, _ = ax.hist(
         km_scores,
         bins=bin_edges,
         density=True,
@@ -74,7 +67,7 @@ def plot_score_histograms_kde(
     )
 
     # Y-limit scaling
-    max_y = np.max(np.concatenate([hist_knm[0], hist_km[0]])) * 1.1
+    max_y = np.max(np.concatenate([barheights_knm, barheights_km])) * 1.1
 
     # KDE
     if show_density:
