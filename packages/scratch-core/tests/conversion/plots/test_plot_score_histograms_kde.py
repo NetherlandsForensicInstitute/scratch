@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 import pytest
 
 from conversion.plots.plot_score_histogram_kde import plot_score_histograms_kde
-
-from tests.conversion.helper_functions import assert_plot_is_valid_image
+from ..helper_functions import assert_plot_is_valid_image
 
 
 def generate_test_data():
