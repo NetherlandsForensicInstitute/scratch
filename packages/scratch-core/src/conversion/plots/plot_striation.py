@@ -49,13 +49,13 @@ def plot_striation_comparison_results(
     :param metadata_compared: Metadata dict for compared profile display.
     :returns: StriationComparisonPlots with all rendered images as arrays.
     """
-    filtered_reference_preview = plot_depth_map_with_axes(
+    filtered_reference_heatmap = plot_depth_map_with_axes(
         data=mark_reference.scan_image.data,
         scale=mark_reference.scan_image.scale_x,
         title="Filtered Reference Surface A",
     )
 
-    filtered_compared_preview = plot_depth_map_with_axes(
+    filtered_compared_heatmap = plot_depth_map_with_axes(
         data=mark_compared.scan_image.data,
         scale=mark_compared.scan_image.scale_x,
         title="Filtered Compared Surface B",
@@ -74,7 +74,7 @@ def plot_striation_comparison_results(
         metadata_compared=metadata_compared,
     )
 
-    side_by_side_preview = plot_side_by_side_surfaces(
+    side_by_side_heatmap = plot_side_by_side_surfaces(
         data_reference=mark_reference_aligned.scan_image.data,
         data_compared=mark_compared_aligned.scan_image.data,
         scale=mark_reference_aligned.scan_image.scale_x,
@@ -99,9 +99,9 @@ def plot_striation_comparison_results(
     return StriationComparisonPlots(
         similarity_plot=similarity_plot,
         comparison_overview=comparison_overview,
-        filtered_reference_preview=filtered_reference_preview,
-        filtered_compared_preview=filtered_compared_preview,
-        side_by_side_preview=side_by_side_preview,
+        filtered_reference_heatmap=filtered_reference_heatmap,
+        filtered_compared_heatmap=filtered_compared_heatmap,
+        side_by_side_heatmap=side_by_side_heatmap,
         wavelength_plot=wavelength_correlation_plot,
     )
 

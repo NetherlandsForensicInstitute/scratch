@@ -39,17 +39,17 @@ class StriationComparisonPlots:
 
     :param similarity_plot: Aligned profiles overlaid.
     :param comparison_overview: Main results overview figure.
-    :param filtered_reference_preview: Filtered reference preview image.
-    :param filtered_compared_preview: Filtered compared preview image.
-    :param side_by_side_preview: Both marks side by side preview image.
+    :param filtered_reference_heatmap: Filtered reference preview image.
+    :param filtered_compared_heatmap: Filtered compared preview image.
+    :param side_by_side_heatmap: Both marks side by side preview image.
     :param wavelength_plot: Profiles + wavelength-dependent cross-correlation.
     """
 
     similarity_plot: ImageRGB
     comparison_overview: ImageRGB
-    filtered_reference_preview: ImageRGB
-    filtered_compared_preview: ImageRGB
-    side_by_side_preview: ImageRGB
+    filtered_reference_heatmap: ImageRGB
+    filtered_compared_heatmap: ImageRGB
+    side_by_side_heatmap: ImageRGB
     wavelength_plot: ImageRGB
 
 
@@ -105,22 +105,22 @@ class ImpressionComparisonPlots:
     Fields are None when the corresponding analysis was not performed.
 
     :param comparison_overview: Combined overview figure with all results.
-    :param leveled_reference_preview: Leveled reference preview image.
-    :param leveled_compared_preview: Leveled compared preview image.
-    :param filtered_reference_preview: Filtered reference preview image.
-    :param filtered_compared_preview: Filtered compared preview image.
-    :param cell_reference_preview: Cell-preprocessed reference preview image.
-    :param cell_compared_preview: Cell-preprocessed compared preview image.
+    :param leveled_reference_heatmap: Leveled reference preview image.
+    :param leveled_compared_heatmap: Leveled compared preview image.
+    :param filtered_reference_heatmap: Filtered reference preview image.
+    :param filtered_compared_heatmap: Filtered compared preview image.
+    :param cell_reference_heatmap: Cell-preprocessed reference preview image.
+    :param cell_compared_heatmap: Cell-preprocessed compared preview image.
     :param cell_overlay: All cells overlay visualization.
     :param cell_cross_correlation: Cell-based cross-correlation heatmap.
     """
 
     comparison_overview: ImageRGB
-    leveled_reference_preview: ImageRGB
-    leveled_compared_preview: ImageRGB
-    filtered_reference_preview: ImageRGB
-    filtered_compared_preview: ImageRGB
-    cell_reference_preview: ImageRGB
-    cell_compared_preview: ImageRGB
+    leveled_reference_heatmap: ImageRGB
+    leveled_compared_heatmap: ImageRGB
+    filtered_reference_heatmap: ImageRGB
+    filtered_compared_heatmap: ImageRGB
+    cell_reference_heatmap: ImageRGB
+    cell_compared_heatmap: ImageRGB
     cell_overlay: ImageRGB
     cell_cross_correlation: ImageRGB

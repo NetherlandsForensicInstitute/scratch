@@ -287,16 +287,18 @@ class TestPlotImpressionComparisonResults:
 
     def test_all_outputs_are_valid_images(
         self,
-        impression_sample_mark: Mark,
+        impression_sample_mark_reference: Mark,
+        impression_sample_mark_compared: Mark,
+        impression_sample_mark_compared_filtered: Mark,
         impression_sample_metrics: ImpressionComparisonMetrics,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ):
         result = plot_impression_comparison_results(
-            mark_reference_leveled=impression_sample_mark,
-            mark_compared_leveled=impression_sample_mark,
-            mark_reference_filtered=impression_sample_mark,
-            mark_compared_filtered=impression_sample_mark,
+            mark_reference_leveled=impression_sample_mark_reference,
+            mark_compared_leveled=impression_sample_mark_compared,
+            mark_reference_filtered=impression_sample_mark_reference,
+            mark_compared_filtered=impression_sample_mark_compared_filtered,
             metrics=impression_sample_metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
@@ -304,12 +306,12 @@ class TestPlotImpressionComparisonResults:
 
         assert isinstance(result, ImpressionComparisonPlots)
         assert_valid_rgb_image(result.comparison_overview)
-        assert_valid_rgb_image(result.leveled_reference_preview)
-        assert_valid_rgb_image(result.leveled_compared_preview)
-        assert_valid_rgb_image(result.filtered_reference_preview)
-        assert_valid_rgb_image(result.filtered_compared_preview)
-        assert_valid_rgb_image(result.cell_reference_preview)
-        assert_valid_rgb_image(result.cell_compared_preview)
+        assert_valid_rgb_image(result.leveled_reference_heatmap)
+        assert_valid_rgb_image(result.leveled_compared_heatmap)
+        assert_valid_rgb_image(result.filtered_reference_heatmap)
+        assert_valid_rgb_image(result.filtered_compared_heatmap)
+        assert_valid_rgb_image(result.cell_reference_heatmap)
+        assert_valid_rgb_image(result.cell_compared_heatmap)
         assert_valid_rgb_image(result.cell_overlay)
         assert_valid_rgb_image(result.cell_cross_correlation)
 

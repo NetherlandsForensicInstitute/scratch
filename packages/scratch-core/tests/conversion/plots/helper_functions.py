@@ -85,13 +85,20 @@ def create_synthetic_impression_data(
     height: int = 100,
     width: int = 120,
     seed: int = 42,
+    rotation_deg: float = 0.0,
+    rotation_mask_deg: float = 0.0,
 ) -> FloatArray2D:
     """
-    Create synthetic impression data with horizontal banding.
+    Create synthetic impression data with banding.
 
     :param height: Number of rows.
     :param width: Number of columns.
     :param seed: Random seed for reproducibility.
+    :param rotation_deg: Rotate the band pattern. Simulates a surface that
+        has not yet been aligned to the reference.
+    :param rotation_mask_deg: Apply a rotated rectangular NaN mask. Simulates
+        a surface that was rotated to align with the reference, leaving NaN
+        corners where data is missing.
     :returns: Data in meters with shape (height, width).
     """
     rng = np.random.default_rng(seed)
@@ -99,15 +106,30 @@ def create_synthetic_impression_data(
     xn = x / width
     yn = y / height
 
+    angle = np.deg2rad(rotation_deg)
+    yn_rot = yn * np.cos(angle) + xn * np.sin(angle)
+
     surface = (
-        2.0 * np.sin(2 * np.pi * yn * 8)
-        + 1.2 * np.sin(2 * np.pi * yn * 14 + 1.0)
-        + 0.7 * np.cos(2 * np.pi * yn * 22)
+        2.0 * np.sin(2 * np.pi * yn_rot * 8)
+        + 1.2 * np.sin(2 * np.pi * yn_rot * 14 + 1.0)
+        + 0.7 * np.cos(2 * np.pi * yn_rot * 22)
     )
     surface *= 1.0 + 0.15 * np.sin(2 * np.pi * xn * 2 + 0.7)
     surface += 0.10 * rng.standard_normal((height, width))
 
-    return (surface * 1e-6).astype(np.float64)
+    result = (surface * 1e-6).astype(np.float64)
+
+    if rotation_mask_deg != 0.0:
+        mask_angle = np.deg2rad(rotation_mask_deg)
+        cx, cy = width / 2, height / 2
+        dx = x - cx
+        dy = y - cy
+        cos_a, sin_a = np.cos(mask_angle), np.sin(mask_angle)
+        rx = cos_a * dx + sin_a * dy
+        ry = -sin_a * dx + cos_a * dy
+        result[(np.abs(rx) > cx) | (np.abs(ry) > cy)] = np.nan
+
+    return result
 
 
 def create_synthetic_impression_surface_pair(
@@ -165,11 +187,15 @@ def create_synthetic_impression_mark(
     scale: float = 1.5e-6,
     seed: int = 42,
     mark_type: MarkType = MarkType.FIRING_PIN_IMPRESSION,
+    rotation_deg: float = 0.0,
+    rotation_mask_deg: float = 0.0,
 ) -> Mark:
     """Create a Mark with synthetic impression surface data."""
     return Mark(
         scan_image=ScanImage(
-            data=create_synthetic_impression_data(height, width, seed),
+            data=create_synthetic_impression_data(
+                height, width, seed, rotation_deg, rotation_mask_deg
+            ),
             scale_x=scale,
             scale_y=scale,
         ),

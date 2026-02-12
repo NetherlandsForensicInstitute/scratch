@@ -166,23 +166,23 @@ class TestGetBoundingBox:
 
 
 class TestGetHeightRatios:
-    def test_returns_four_ratios(self):
-        ratios = get_height_ratios(0.15)
-        assert len(ratios) == 4
+    def test_returns_correct_number_of_ratios(self):
+        assert len(get_height_ratios(0.15, 0.30, 0.25)) == 3
+        assert len(get_height_ratios(0.15, 0.32, 0.22, 0.20)) == 4
 
     def test_ratios_sum_to_one(self):
-        ratios = get_height_ratios(0.15)
+        ratios = get_height_ratios(0.15, 0.40, 0.40)
         assert sum(ratios) == pytest.approx(1.0)
 
     def test_larger_row0_increases_first_ratio(self):
-        small = get_height_ratios(0.10)
-        large = get_height_ratios(0.30)
+        small = get_height_ratios(0.10, 0.40, 0.40)
+        large = get_height_ratios(0.30, 0.40, 0.40)
         assert large[0] > small[0]
 
     def test_fixed_rows_decrease_with_larger_row0(self):
-        small = get_height_ratios(0.10)
-        large = get_height_ratios(0.30)
-        # Rows 1-3 should get smaller fraction as row0 grows
+        small = get_height_ratios(0.10, 0.40, 0.40)
+        large = get_height_ratios(0.30, 0.40, 0.40)
+        # Fixed rows should get smaller fraction as row0 grows
         assert large[1] < small[1]
 
 

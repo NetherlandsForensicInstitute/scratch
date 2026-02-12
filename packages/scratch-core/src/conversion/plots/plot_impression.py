@@ -71,15 +71,31 @@ def plot_impression_comparison_results(
 
     # Cell/CMC-based plots
     scale = mark_reference_filtered.scan_image.scale_x
-    cell_ref = plot_depth_map_with_axes(
+    ref_h, ref_w = mark_reference_filtered.scan_image.data.shape
+    n_cell_rows, n_cell_cols = metrics.cell_correlations.shape
+    cell_size_um = (
+        ref_w * scale * 1e6 / n_cell_cols,
+        ref_h * scale * 1e6 / n_cell_rows,
+    )
+    cell_ref = plot_cell_grid_overlay(
         data=mark_reference_filtered.scan_image.data,
         scale=scale,
-        title="Cell-Preprocessed Reference",
+        cell_correlations=metrics.cell_correlations,
+        cell_label_prefix="A",
+        cell_similarity_threshold=metrics.cell_similarity_threshold,
     )
-    cell_comp = plot_depth_map_with_axes(
+    cell_comp = plot_cell_grid_overlay(
         data=mark_compared_filtered.scan_image.data,
-        scale=scale,
-        title="Cell-Preprocessed Compared",
+        scale=mark_compared_filtered.scan_image.scale_x,
+        cell_correlations=metrics.cell_correlations,
+        cell_label_prefix="B",
+        cell_similarity_threshold=metrics.cell_similarity_threshold,
+        show_all_cells=False,
+        cell_positions=metrics.cell_positions_compared,
+        cell_rotations=metrics.cell_rotations_compared,
+        cell_size_um=cell_size_um
+        if metrics.cell_positions_compared is not None
+        else None,
     )
     cell_overlay = plot_cell_grid_overlay(
         data=mark_reference_filtered.scan_image.data,
@@ -109,12 +125,12 @@ def plot_impression_comparison_results(
 
     return ImpressionComparisonPlots(
         comparison_overview=comparison_overview,
-        leveled_reference_preview=leveled_ref,
-        leveled_compared_preview=leveled_comp,
-        filtered_reference_preview=filtered_ref,
-        filtered_compared_preview=filtered_comp,
-        cell_reference_preview=cell_ref,
-        cell_compared_preview=cell_comp,
+        leveled_reference_heatmap=leveled_ref,
+        leveled_compared_heatmap=leveled_comp,
+        filtered_reference_heatmap=filtered_ref,
+        filtered_compared_heatmap=filtered_comp,
+        cell_reference_heatmap=cell_ref,
+        cell_compared_heatmap=cell_comp,
         cell_overlay=cell_overlay,
         cell_cross_correlation=cell_correlation,
     )
@@ -165,7 +181,10 @@ def plot_cell_grid_overlay(
         cell_size_um=cell_size_um,
     )
     ax.set_title("Cell Grid Overlay", fontsize=12, fontweight="bold")
-    fig.colorbar(im, ax=ax, label="Scan Depth [µm]")
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    cbar = fig.colorbar(im, cax=cax, label="Scan Depth [µm]")
+    cbar.ax.tick_params(labelsize=10)
 
     fig.tight_layout()
     arr = figure_to_array(fig)
