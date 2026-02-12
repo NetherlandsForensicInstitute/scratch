@@ -1,7 +1,8 @@
+import numpy as np
+import pytest
+
 from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask
-import pytest
-import numpy as np
 
 
 class TestMaskBoundingBox:
