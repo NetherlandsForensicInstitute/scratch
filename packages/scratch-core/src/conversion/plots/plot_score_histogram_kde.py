@@ -7,8 +7,8 @@ from container_models.base import FloatArray1D
 def plot_score_histograms_kde(
     scores: FloatArray1D,
     y: FloatArray1D,
+    ax: Axes,
     new_score: float | None = None,
-    ax: Axes = None,
     bins: int | None = 20,
     show_density: bool = True,
     bandwidth: float | str | None = "silverman",
@@ -18,19 +18,19 @@ def plot_score_histograms_kde(
 
     Parameters:
     -----------
-    scores : FloatArray1D
+    :param scores: FloatArray1D
         Array of score values
-    y : FloatArray1D
+    :param y: FloatArray1D
         Array of labels (0 for KNM, 1 for KM)
-    new_score : float, optional
-        A new score value to plot as a vertical line
-    ax : matplotlib.axes.Axes
+    :param ax : matplotlib.axes.Axes
         The axis to plot on
-    bins : int, optional
+    :param new_score : float, optional
+        A new score value to plot as a vertical line
+    :param bins : int, optional
         Number of bins for histogram. If None, uses 'auto' binning.
-    show_density : bool, optional
+    :param show_density : bool, optional
         Whether to show the kernel density estimate curves
-    bandwidth : float | {'silverman', 'scott'} | None
+    :param bandwidth : float | {'silverman', 'scott'} | None
         KDE bandwidth method or value, None defaults to 'scott'
     """
 
@@ -52,6 +52,7 @@ def plot_score_histograms_kde(
         bin_edges = np.linspace(0, max_score, bins + 1)
     else:
         bin_edges = np.histogram_bin_edges(scores, bins="auto")
+    bin_edges = list(bin_edges)
 
     # Histograms
     hist_knm = ax.hist(
