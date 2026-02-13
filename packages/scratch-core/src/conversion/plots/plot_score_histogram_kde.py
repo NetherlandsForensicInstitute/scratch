@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.stats import gaussian_kde
 from matplotlib.axes import Axes
 from container_models.base import FloatArray1D
 
@@ -9,7 +8,7 @@ def plot_score_histograms_kde(
     labels: FloatArray1D,
     ax: Axes,
     bins: int | None,
-    show_density: bool = True,
+    densities: dict[str : np.ndarray] | None,
     bandwidth: float | str | None = "silverman",
     new_score: float | None = None,
 ) -> None:
@@ -24,8 +23,8 @@ def plot_score_histograms_kde(
         The axis to plot on
     :param bins : int, optional
         Number of bins for histogram. If None, uses 'auto' binning.
-    :param show_density : bool, optional
-        Whether to show the kernel density estimate curves
+    :param densities : mapping with three keys: ('km', 'knm', 'score'), each item connects the key to a numpy array.
+        This gives plot coordinates score -> density(score| H), optional
     :param bandwidth : float | {'silverman', 'scott'} | None
         KDE bandwidth method or value, None defaults to 'scott'
     :param new_score : float, optional
@@ -34,6 +33,9 @@ def plot_score_histograms_kde(
 
     if isinstance(bandwidth, str) and bandwidth not in {"silverman", "scott"}:
         raise ValueError("bandwidth must be a float, 'silverman', 'scott', or None")
+
+    if densities and any(key not in {"x", "km", "knm"} for key in densities.keys()):
+        raise ValueError("Keys of 'densities' parameter must be {'x', 'km', 'knm'}")
 
     # Separate data by label
     knm_scores = scores[labels == 0]
@@ -47,7 +49,8 @@ def plot_score_histograms_kde(
         bin_edges = np.histogram_bin_edges(scores, range=(0, max_score), bins="auto")
     bin_edges = list(bin_edges)
 
-    # Histograms
+    # Plot things in right order for getting legend items in the right order
+    # Histograms and optional densities
     barheights_knm, _, _ = ax.hist(
         knm_scores,
         bins=bin_edges,
@@ -56,6 +59,16 @@ def plot_score_histograms_kde(
         color="blue",
         label=f"KNM (n={len(knm_scores)})",
     )
+
+    if densities:
+        ax.plot(
+            densities["x"],
+            densities["knm"],
+            color="blue",
+            linestyle="--",
+            linewidth=2,
+            label="knm density",
+        )
 
     barheights_km, _, _ = ax.hist(
         km_scores,
@@ -66,20 +79,15 @@ def plot_score_histograms_kde(
         label=f"KM (n={len(km_scores)})",
     )
 
-    # Y-limit scaling
-    max_y = np.max(np.concatenate([barheights_knm, barheights_km])) * 1.1
-
-    # KDE
-    if show_density:
-        x = np.linspace(0, bin_edges[-1], 500)
-
-        if len(knm_scores) > 1:
-            kde_knm = gaussian_kde(knm_scores, bw_method=bandwidth)
-            ax.plot(x, kde_knm(x), color="blue", linestyle="--", linewidth=2)
-
-        if len(km_scores) > 1:
-            kde_km = gaussian_kde(km_scores, bw_method=bandwidth)
-            ax.plot(x, kde_km(x), color="orange", linestyle="--", linewidth=2)
+    if densities:
+        ax.plot(
+            densities["x"],
+            densities["km"],
+            color="orange",
+            linestyle="--",
+            linewidth=2,
+            label="km density",
+        )
 
     # Vertical line for new_score
     if new_score is not None:
@@ -91,6 +99,9 @@ def plot_score_histograms_kde(
             zorder=10,
             label=f"new score ({new_score:.2f})",
         )
+
+    # Y-limit scaling
+    max_y = np.max(np.concatenate([barheights_knm, barheights_km])) * 1.1
 
     # Labels & formatting
     ax.set_xlabel("Score")

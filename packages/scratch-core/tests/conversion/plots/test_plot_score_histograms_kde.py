@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import pytest
 
 from conversion.plots.plot_score_histogram_kde import plot_score_histograms_kde
+from matplotlib.figure import Figure
+from scipy.stats import gaussian_kde
+
 from ..helper_functions import assert_plot_is_valid_image
 
 
@@ -32,6 +35,26 @@ def generate_test_data():
     return scores, labels
 
 
+def assert_valid_score_histogram(fig: Figure):
+    ax = fig.axes[0]
+    assert ax.get_xlabel() == "Score"
+    assert ax.get_ylabel() == "Normalized density"
+    assert len(ax.get_legend().get_texts()) > 0
+
+
+@pytest.fixture
+def densities():
+    x = np.linspace(0, 50, 500)
+
+    scores, labels = generate_test_data()
+    knm_scores = scores[labels == 0]
+    km_scores = scores[labels == 1]
+    kde_knm = gaussian_kde(knm_scores)
+    kde_km = gaussian_kde(km_scores)
+
+    return {"x": x, "km": kde_km(x), "knm": kde_knm(x)}
+
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "new_score, bins, show_density",
@@ -43,13 +66,24 @@ def generate_test_data():
     ],
 )
 def test_plot_score_histograms_kde(
-    tmp_path: Path, new_score: float | None, bins: int, show_density: bool
+    tmp_path: Path,
+    densities: dict[str : np.ndarray],
+    new_score: float | None,
+    bins: int,
+    show_density: bool,
 ) -> None:
     scores, labels = generate_test_data()
     fig, ax = plt.subplots()
 
     plot_score_histograms_kde(
-        scores, labels, new_score=new_score, bins=bins, ax=ax, show_density=show_density
+        scores,
+        labels,
+        new_score=new_score,
+        bins=bins,
+        ax=ax,
+        densities=densities if show_density else None,
     )
     assert_plot_is_valid_image(fig, tmp_path)
+    assert_valid_score_histogram(fig)
+    plt.show()
     plt.close()
