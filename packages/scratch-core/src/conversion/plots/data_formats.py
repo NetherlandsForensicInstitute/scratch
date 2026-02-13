@@ -8,27 +8,27 @@ class StriationComparisonMetrics:
     """
     Metrics from profile correlation comparison for display.
 
-    :param score: Correlation coefficient.
-    :param shift: Shift in µm.
-    :param overlap: Overlap percentage.
-    :param sq_ref: Sq (RMS roughness) of reference surface in µm.
-    :param sq_comp: Sq (RMS roughness) of compared surface in µm.
-    :param sq_diff: Sq of difference (comp - ref) in µm.
-    :param sq_ratio: Sq(comp) / Sq(ref) percentage.
-    :param sign_diff_dsab: Signed difference DsAB percentage.
-    :param data_spacing: Data spacing in µm.
+    :param correlation_coefficient: Pearson cross-correlation coefficient.
+    :param position_shift: Shift in µm.
+    :param overlap_ratio: Overlap percentage.
+    :param mean_square_ref: Mean square roughness (Sq) of reference surface in µm.
+    :param mean_square_comp: Mean square roughness (Sq) of compared surface in µm.
+    :param mean_square_of_difference: Mean square roughness (Sq) of difference (comp - ref) in µm.
+    :param mean_square_ratio: Sq(comp) / Sq(ref) percentage.
+    :param signed_roughness_difference: Signed roughness difference percentage.
+    :param pixel_size: Data spacing in µm.
     :param quality_passbands: Mapping of (low, high) µm cutoffs to correlation values.
     """
 
-    score: float
-    shift: float
-    overlap: float
-    sq_ref: float
-    sq_comp: float
-    sq_diff: float
-    sq_ratio: float
-    sign_diff_dsab: float
-    data_spacing: float
+    correlation_coefficient: float
+    position_shift: float
+    overlap_ratio: float
+    mean_square_ref: float
+    mean_square_comp: float
+    mean_square_of_difference: float
+    mean_square_ratio: float
+    signed_roughness_difference: float
+    pixel_size: float
     quality_passbands: dict[tuple[float, float], float]
 
 
@@ -61,9 +61,9 @@ class ImpressionComparisonMetrics:
     :param area_correlation: Areal correlation coefficient (from area-based comparison).
     :param cell_correlations: Grid of per-cell correlation values (shape: n_rows x n_cols).
     :param cmc_score: Congruent Matching Cells score (percentage of cells above threshold).
-    :param sq_ref: Sq (RMS roughness) of reference surface in µm.
-    :param sq_comp: Sq (RMS roughness) of compared surface in µm.
-    :param sq_diff: Sq of difference (comp - ref) in µm.
+    :param mean_square_ref: Mean square roughness (Sq) of reference surface in µm.
+    :param mean_square_comp: Mean square roughness (Sq) of compared surface in µm.
+    :param mean_square_of_difference: Mean square roughness (Sq) of difference (comp - ref) in µm.
     :param has_area_results: Whether area-based results were computed.
     :param has_cell_results: Whether cell/CMC-based results were computed.
     :param cell_positions_compared: (n_cells, 2) matched positions on compared surface in µm, row-major order.
@@ -80,9 +80,9 @@ class ImpressionComparisonMetrics:
     area_correlation: float
     cell_correlations: FloatArray2D
     cmc_score: float
-    sq_ref: float
-    sq_comp: float
-    sq_diff: float
+    mean_square_ref: float
+    mean_square_comp: float
+    mean_square_of_difference: float
     has_area_results: bool
     has_cell_results: bool
     cell_positions_compared: FloatArray2D

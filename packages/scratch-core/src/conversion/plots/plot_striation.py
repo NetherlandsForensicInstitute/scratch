@@ -85,14 +85,14 @@ def plot_striation_comparison_results(
         profile_reference=mark_profile_reference_aligned.scan_image.data,
         profile_compared=mark_profile_compared_aligned.scan_image.data,
         scale=mark_profile_reference_aligned.scan_image.scale_x,
-        score=metrics.score,
+        score=metrics.correlation_coefficient,
     )
 
     wavelength_correlation_plot = plot_wavelength_correlation(
         profile_reference=mark_profile_reference_aligned.scan_image.data,
         profile_compared=mark_profile_compared_aligned.scan_image.data,
         scale=mark_profile_reference_aligned.scan_image.scale_x,
-        score=metrics.score,
+        score=metrics.correlation_coefficient,
         quality_passbands=metrics.quality_passbands,
     )
 
@@ -251,14 +251,14 @@ def plot_comparison_overview(
     results_items = {
         "Date report": datetime.now().strftime("%Y-%m-%d"),
         "Mark type": mark_reference.mark_type.value,
-        "Correlation Coefficient": f"{metrics.score:.4f}",
-        "Sq(A)": f"{metrics.sq_ref:.4f} µm",
-        "Sq(B)": f"{metrics.sq_comp:.4f} µm",
-        "Sq(B-A)": f"{metrics.sq_diff:.4f} µm",
-        "Sq(B) / Sq(A)": f"{metrics.sq_ratio:.4f} %",
-        "Sign. Diff. DsAB": f"{metrics.sign_diff_dsab:.2f} %",
-        "Overlap": f"{metrics.overlap:.2f} %",
-        "Data spacing": f"{metrics.data_spacing:.4f} µm",
+        "Correlation Coefficient": f"{metrics.correlation_coefficient:.4f}",
+        "Sq(A)": f"{metrics.mean_square_ref:.4f} µm",
+        "Sq(B)": f"{metrics.mean_square_comp:.4f} µm",
+        "Sq(B-A)": f"{metrics.mean_square_of_difference:.4f} µm",
+        "Sq(B) / Sq(A)": f"{metrics.mean_square_ratio:.4f} %",
+        "Sign. Diff. DsAB": f"{metrics.signed_roughness_difference:.2f} %",
+        "Overlap": f"{metrics.overlap_ratio:.2f} %",
+        "Data spacing": f"{metrics.pixel_size:.4f} µm",
         "Cutoff length low-pass filter": f"{val:.0f} µm"
         if (val := mark_reference.meta_data.get("lowpass_cutoff")) is not None
         else "N/A",
@@ -347,7 +347,7 @@ def plot_comparison_overview(
         mark_profile_reference.scan_image.data,
         mark_profile_compared.scan_image.data,
         mark_profile_reference.scan_image.scale_x,
-        metrics.score,
+        metrics.correlation_coefficient,
         title="Reference Profile A / Moved Compared Profile B. Correlation Coefficient",
     )
 
