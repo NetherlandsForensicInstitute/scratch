@@ -3,8 +3,9 @@ from pathlib import Path
 
 import numpy as np
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkType
 from conversion.leveling.solver.utils import compute_image_center
+from conversion.resample import resample_mark
 from conversion.rotate import rotate_crop_and_mask_image_by_crop
 from loguru import logger
 from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resample
@@ -27,26 +28,15 @@ def process_prepare_mark(
 ) -> dict[str, Path]:
     """Prepare striation mark data."""
     parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
-    # factor = 1.5e-6
-    # if params.mark_type == ImpressionMarks.BREACH_FACE:
-    #     factor = 3.5e-6
-    # output_shape = (
-    #     1 / factor * parsed_scan.height,
-    #     1 / factor * parsed_scan.width,
-    # )
-    #
-    # resampled_image = Resample(target_shape=output_shape).apply_on_image(parsed_scan)
-    # TODO: seems somthing is wrong with the memory of container.
-
+    mask = np.ones(parsed_scan.data.shape)  # fix
     rotated_image = rotate_crop_and_mask_image_by_crop(
-        scan_image=parsed_scan, mask=params.mask_array, bounding_box=params.bounding_box
+        scan_image=parsed_scan, mask=mask, bounding_box=params.bounding_box
     )
-
     mark = Mark(
         scan_image=rotated_image,
-        mark_type=params.mark_type,
+        mark_type=MarkType.BREECH_FACE_IMPRESSION,  # fix
     )
-
+    mark = resample_mark(mark)
     logger.info("Preparing mark")
     processed_mark, _ = marking_method(mark)
     logger.info("saving x3p, surface_map.png and preview.png")
