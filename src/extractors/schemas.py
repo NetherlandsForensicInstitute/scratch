@@ -94,7 +94,7 @@ class ProcessedDataAccess(GeneratedImages):
     )
 
 
-class PrepareMarkResponse(GeneratedImages):
+class PrepareMarkResponse(ProcessedDataAccess):
     """Response model for prepared mark data access."""
 
     mark_data: HttpUrl = Field(
