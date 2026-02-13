@@ -85,5 +85,4 @@ def test_plot_score_histograms_kde(
     )
     assert_plot_is_valid_image(fig, tmp_path)
     assert_valid_score_histogram(fig)
-    plt.show()
     plt.close()

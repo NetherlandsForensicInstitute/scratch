@@ -34,8 +34,16 @@ def plot_score_histograms_kde(
     if isinstance(bandwidth, str) and bandwidth not in {"silverman", "scott"}:
         raise ValueError("bandwidth must be a float, 'silverman', 'scott', or None")
 
-    if densities and any(key not in {"x", "km", "knm"} for key in densities.keys()):
-        raise ValueError("Keys of 'densities' parameter must be {'x', 'km', 'knm'}")
+    if densities:
+        # Validate required keys
+        required_keys = {"x", "km", "knm"}
+        missing_keys = required_keys - set(densities.keys())
+
+        if missing_keys:
+            raise ValueError(
+                f"Missing required keys in data dict: {missing_keys}. "
+                f"Required keys are: {required_keys}"
+            )
 
     # Separate data by label
     knm_scores = scores[labels == 0]
@@ -67,7 +75,7 @@ def plot_score_histograms_kde(
             color="blue",
             linestyle="--",
             linewidth=2,
-            label="knm density",
+            label="KNM density",
         )
 
     barheights_km, _, _ = ax.hist(
@@ -86,7 +94,7 @@ def plot_score_histograms_kde(
             color="orange",
             linestyle="--",
             linewidth=2,
-            label="km density",
+            label="KM density",
         )
 
     # Vertical line for new_score
