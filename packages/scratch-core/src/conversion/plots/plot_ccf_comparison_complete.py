@@ -46,9 +46,9 @@ def plot_ccf_comparison_complete(
     Create complete CCF comparison analysis figure.
 
     The figure layout (3 rows):
-    - Row 0: Metadata tables (Reference Profile A | Compared Profile B | empty)
-    - Row 1: Filtered Reference Surface A | Filtered Compared Surface B | Side-by-side + Results
-    - Row 2: Score analysis (Score histograms | Transformed histograms | LogLR plot)
+    - Row 0: Metadata tables (Reference Profile A | Compared Profile B) - 2 columns
+    - Row 1: Filtered Reference | Filtered Compared | Side-by-side | Results - 4 columns
+    - Row 2: Score histograms | Transformed histograms | LogLR plot (wide) - 3 plots across 4 columns
 
     :param metadata_reference: Metadata dictionary for reference profile
     :param metadata_compared: Metadata dictionary for compared profile
@@ -104,36 +104,33 @@ def plot_ccf_comparison_complete(
         )
 
     # Create figure with appropriate size
-    fig = plt.figure(figsize=(16, 15))
+    fig = plt.figure(figsize=(18, 15))
 
     # Define grid: 3 rows with varying heights
-    # Row 0: Metadata (smaller)
-    # Row 1: Heatmaps + Side-by-side + Results (medium)
-    # Row 2: Score distributions (larger)
+    # Row 0: Metadata (2 columns spanning 4-column grid)
+    # Row 1: Heatmaps + Side-by-side + Results (4 columns)
+    # Row 2: Score distributions (3 plots across 4 columns)
     gs = gridspec.GridSpec(
         3,
-        3,
+        4,
         figure=fig,
         height_ratios=[0.12, 0.38, 0.50],
+        width_ratios=[0.25, 0.25, 0.25, 0.25],
         hspace=0.35,
         wspace=0.25,
     )
 
-    # ========== ROW 0: METADATA TABLES ==========
-    # Reference Profile (A)
-    ax_meta_ref = fig.add_subplot(gs[0, 0])
+    # ========== ROW 0: METADATA TABLES (2 COLUMNS) ==========
+    # Reference Profile (A) - spans columns 0-1
+    ax_meta_ref = fig.add_subplot(gs[0, 0:2])
     _draw_metadata_table(ax_meta_ref, metadata_reference, "Reference Profile (A)")
 
-    # Compared Profile (B)
-    ax_meta_comp = fig.add_subplot(gs[0, 1])
+    # Compared Profile (B) - spans columns 2-3
+    ax_meta_comp = fig.add_subplot(gs[0, 2:4])
     _draw_metadata_table(ax_meta_comp, metadata_compared, "Compared Profile (B)")
 
-    # Empty space (or could add summary info)
-    ax_meta_empty = fig.add_subplot(gs[0, 2])
-    ax_meta_empty.axis("off")
-
-    # ========== ROW 1: HEATMAPS + SIDE-BY-SIDE + RESULTS ==========
-    # Filtered Reference Surface A
+    # ========== ROW 1: HEATMAPS + SIDE-BY-SIDE + RESULTS (4 COLUMNS) ==========
+    # Filtered Reference Surface A (column 0)
     ax_heatmap_ref = fig.add_subplot(gs[1, 0])
     _plot_simple_heatmap(
         ax_heatmap_ref,
@@ -142,7 +139,7 @@ def plot_ccf_comparison_complete(
         "Filtered Reference Surface A",
     )
 
-    # Filtered Compared Surface B
+    # Filtered Compared Surface B (column 1)
     ax_heatmap_comp = fig.add_subplot(gs[1, 1])
     _plot_simple_heatmap(
         ax_heatmap_comp,
@@ -151,16 +148,14 @@ def plot_ccf_comparison_complete(
         "Filtered Compared Surface B",
     )
 
-    # Side-by-side + Results combined
-    # Split the third column into top (side-by-side) and bottom (results)
-    gs_col3 = gs[1, 2].subgridspec(2, 1, hspace=0.3, height_ratios=[0.65, 0.35])
-
-    ax_side = fig.add_subplot(gs_col3[0])
+    # Side-by-side comparison (column 2)
+    ax_side = fig.add_subplot(gs[1, 2])
     _plot_side_by_side(
         ax_side, data_reference_aligned, data_compared_aligned, scale_heatmap
     )
 
-    ax_results = fig.add_subplot(gs_col3[1])
+    # Results metadata (column 3)
+    ax_results = fig.add_subplot(gs[1, 3])
     _draw_metadata_table(ax_results, metadata_results, None, draw_border=False)
 
     # ========== ROW 2: SCORE DISTRIBUTIONS ==========
@@ -198,8 +193,8 @@ def plot_ccf_comparison_complete(
         "Transformed score histograms", fontsize=12, fontweight="bold"
     )
 
-    # Right: LogLR plot
-    ax_llr = fig.add_subplot(gs[2, 2])
+    # Right: LogLR plot (columns 2-3, spanning both for wider display)
+    ax_llr = fig.add_subplot(gs[2, 2:4])
     plot_score_llr_transformation(
         ax=ax_llr,
         scores=score_grid,
@@ -332,9 +327,26 @@ def _plot_side_by_side(
     :param data_compared: Compared data (2D array)
     :param scale: Scale in meters
     """
+    # Ensure both surfaces have the same height by padding with NaN
+    max_height = max(data_reference.shape[0], data_compared.shape[0])
+
+    # Pad reference if needed
+    if data_reference.shape[0] < max_height:
+        pad_height = max_height - data_reference.shape[0]
+        data_reference = np.vstack(
+            [data_reference, np.full((pad_height, data_reference.shape[1]), np.nan)]
+        )
+
+    # Pad compared if needed
+    if data_compared.shape[0] < max_height:
+        pad_height = max_height - data_compared.shape[0]
+        data_compared = np.vstack(
+            [data_compared, np.full((pad_height, data_compared.shape[1]), np.nan)]
+        )
+
     # Create gap
     gap_width = int(np.ceil(min(data_reference.shape[1], data_compared.shape[1]) / 100))
-    gap = np.full((data_reference.shape[0], gap_width), np.nan)
+    gap = np.full((max_height, gap_width), np.nan)
 
     # Combine data
     combined = np.concatenate([data_reference, gap, data_compared], axis=1)

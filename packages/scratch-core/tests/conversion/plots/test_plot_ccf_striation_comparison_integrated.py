@@ -133,6 +133,7 @@ class TestPlotCCFComparisonComplete:
         )
 
         assert isinstance(fig, plt.Figure)
+        plt.show()
         plt.close(fig)
 
     def test_with_density_estimates(
