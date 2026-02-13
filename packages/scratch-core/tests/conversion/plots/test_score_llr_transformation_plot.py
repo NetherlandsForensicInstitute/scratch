@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.figure import Axes
+from matplotlib.axes import Axes
 from pathlib import Path
 import pytest
 from conversion.plots.score_llr_transformation_plot import plot_loglr_with_confidence
