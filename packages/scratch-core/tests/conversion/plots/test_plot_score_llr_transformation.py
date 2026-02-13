@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from container_models.base import FloatArray1D
+from conversion.plots.data_formats import LlrTransformationData
 from conversion.plots.plot_score_llr_transformation import plot_score_llr_transformation
 
 from ..helper_functions import assert_plot_is_valid_image
@@ -67,10 +68,14 @@ class TestPlotLoglrWithConfidence:
         """Test plotting with and without score_llr_point."""
         fig, ax = plt.subplots()
 
-        # Should not raise any exceptions
-        plot_score_llr_transformation(
-            ax, scores, llrs, llrs_at5, llrs_at95, score_llr_point
+        data = LlrTransformationData(
+            scores=scores,
+            llrs=llrs,
+            llrs_at5=llrs_at5,
+            llrs_at95=llrs_at95,
+            score_llr_point=score_llr_point,
         )
+        plot_score_llr_transformation(ax, data)
 
         verify_plot_properties(
             ax, expected_num_lines, should_have_llr_label

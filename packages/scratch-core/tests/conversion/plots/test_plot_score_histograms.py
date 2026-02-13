@@ -4,7 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 
-from conversion.plots.plot_score_histograms import plot_score_histograms, DensityDict
+from conversion.plots.data_formats import DensityDict, HistogramData
+from conversion.plots.plot_score_histograms import plot_score_histograms
 from matplotlib.figure import Figure
 from scipy.stats import gaussian_kde
 
@@ -82,14 +83,14 @@ def test_plot_score_histograms(
     scores, labels = generate_test_data()
     fig, ax = plt.subplots()
 
-    plot_score_histograms(
-        scores,
-        labels,
-        new_score=new_score,
+    data = HistogramData(
+        scores=scores,
+        labels=labels,
         bins=bins,
-        ax=ax,
         densities=densities if show_density else None,
+        new_score=new_score,
     )
+    plot_score_histograms(ax, data)
     assert_plot_is_valid_image(fig, tmp_path)
     assert_valid_score_histogram(fig)
     plt.close()

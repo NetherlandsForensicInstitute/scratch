@@ -1,6 +1,59 @@
 from dataclasses import dataclass
+from typing import TypedDict
 
 from container_models.base import FloatArray1D, FloatArray2D, ImageRGB
+
+
+class DensityDict(TypedDict):
+    """
+    Hold x, and km densities and knm densities at x
+
+    :param x: x values
+    :param km_density_at_x: km densities at x
+    :param knm_density_at_x: knm densities at x
+    """
+
+    x: FloatArray1D
+    km_density_at_x: FloatArray1D
+    knm_density_at_x: FloatArray1D
+
+
+@dataclass
+class HistogramData:
+    """
+    Input data for score histogram plots.
+
+    :param scores: Array of score values.
+    :param labels: Array of labels (0 for KNM, 1 for KM).
+    :param bins: Number of bins for histogram. If None, uses 'auto' binning.
+    :param densities: Optional density curves for histogram overlay.
+    :param new_score: Optional score value to mark as a vertical line.
+    """
+
+    scores: FloatArray1D
+    labels: FloatArray1D
+    bins: int | None
+    densities: DensityDict | None
+    new_score: float | None
+
+
+@dataclass
+class LlrTransformationData:
+    """
+    Input data for LogLR transformation plots.
+
+    :param scores: Score axis values.
+    :param llrs: LogLR values.
+    :param llrs_at5: LogLR values at 5% confidence.
+    :param llrs_at95: LogLR values at 95% confidence.
+    :param score_llr_point: Optional (score, llr) coordinate to mark on the plot.
+    """
+
+    scores: FloatArray1D
+    llrs: FloatArray1D
+    llrs_at5: FloatArray1D
+    llrs_at95: FloatArray1D
+    score_llr_point: tuple[float, float] | None
 
 
 @dataclass
