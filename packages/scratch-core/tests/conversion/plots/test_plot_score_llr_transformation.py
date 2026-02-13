@@ -26,10 +26,10 @@ def verify_plot_properties(
         assert "LogLR all 5%" in legend_labels
         assert "LogLR all 95%" in legend_labels
 
-    if should_have_llr_label:
-        assert "LogLR" in legend_labels
-    else:
-        assert "LogLR" not in legend_labels
+        if should_have_llr_label:
+            assert "LogLR" in legend_labels
+        else:
+            assert "LogLR" not in legend_labels
 
 
 class TestPlotLoglrWithConfidence:
