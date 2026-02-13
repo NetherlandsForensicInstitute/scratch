@@ -8,8 +8,7 @@ def plot_score_histograms_kde(
     labels: FloatArray1D,
     ax: Axes,
     bins: int | None,
-    densities: dict[str : np.ndarray] | None,
-    bandwidth: float | str | None = "silverman",
+    densities: dict[str, np.ndarray] | None,
     new_score: float | None = None,
 ) -> None:
     """
@@ -25,14 +24,9 @@ def plot_score_histograms_kde(
         Number of bins for histogram. If None, uses 'auto' binning.
     :param densities : mapping with three keys: ('km', 'knm', 'score'), each item connects the key to a numpy array.
         This gives plot coordinates score -> density(score| H), optional
-    :param bandwidth : float | {'silverman', 'scott'} | None
-        KDE bandwidth method or value, None defaults to 'scott'
     :param new_score : float, optional
         A new score value to plot as a vertical line
     """
-
-    if isinstance(bandwidth, str) and bandwidth not in {"silverman", "scott"}:
-        raise ValueError("bandwidth must be a float, 'silverman', 'scott', or None")
 
     if densities:
         # Validate required keys
