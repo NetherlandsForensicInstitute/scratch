@@ -5,6 +5,7 @@ from typing import Annotated, Self
 
 import numpy as np
 from container_models.light_source import LightSource
+from conversion.data_formats import BoundingBox
 from conversion.leveling.data_types import SurfaceTerms
 from numpy.typing import NDArray
 from pydantic import (
@@ -94,27 +95,60 @@ class CropInfo(BaseModelConfig):
 
 
 class PreprocessingImpressionParams(BaseModelConfig):
-    """dummy till #84 is merged."""
+    pixel_size: float | None = Field(None, description="Physical size of one pixel in meters.")
+    adjust_pixel_spacing: bool = Field(
+        True, description="Whether to adjust spacing between pixels during preprocessing."
+    )
+    level_offset: bool = Field(True, description="Apply offset leveling to remove constant height bias.")
+    level_tilt: bool = Field(True, description="Apply tilt correction in X and Y directions.")
+    level_2nd: bool = Field(
+        True, description="Apply second-order leveling including astigmatism and defocus corrections."
+    )
+    interp_method: str = Field(
+        "cubic", description="Interpolation method for resampling ('nearest', 'linear', 'cubic', etc.)."
+    )
+    highpass_cutoff: float | None = Field(250.0e-6, description="High-pass filter cutoff frequency in meters.")
+    lowpass_cutoff: float | None = Field(5.0e-6, description="Low-pass filter cutoff frequency in meters.")
+    highpass_regression_order: int = Field(2, description="Polynomial order used for high-pass surface fitting.")
+    lowpass_regression_order: int = Field(0, description="Polynomial order used for low-pass surface fitting.")
 
-    pass  # TODO: not yet merged dataclass from PR #84
+    @property
+    def surface_terms(self) -> SurfaceTerms:
+        """Convert leveling flags to SurfaceTerms."""
+        terms = SurfaceTerms.NONE
+        if self.level_offset:
+            terms |= SurfaceTerms.OFFSET
+        if self.level_tilt:
+            terms |= SurfaceTerms.TILT_X | SurfaceTerms.TILT_Y
+        if self.level_2nd:
+            terms |= SurfaceTerms.ASTIG_45 | SurfaceTerms.DEFOCUS | SurfaceTerms.ASTIG_0
+        return terms
 
 
 class PreprocessingStriationParams(BaseModelConfig):
-    """dummy till #84 is merged."""
-
-    pass  # TODO: not yet merged dataclass from PR #84
+    highpass_cutoff: float = Field(
+        2e-3, description="High-pass filter cutoff frequency for striation preprocessing in meters."
+    )
+    lowpass_cutoff: float = Field(
+        2.5e-4, description="Low-pass filter cutoff frequency for striation preprocessing in meters."
+    )
+    cut_borders_after_smoothing: bool = Field(
+        True, description="Whether to trim edges after smoothing to avoid border artifacts."
+    )
+    use_mean: bool = Field(True, description="Use mean value when calculating striation parameters.")
+    angle_accuracy: float = Field(0.1, description="Accuracy threshold for determining striation angles in degrees.")
+    max_iter: int = Field(25, description="Maximum number of iterations for angle fitting algorithm.")
+    subsampling_factor: int = Field(1, description="Factor to reduce resolution for faster preprocessing.")
 
 
 class PrepareMarkStriation(BaseParameters):
     mark_type: StriationMarks = Field(..., description="Type of mark to prepare.")
     mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
-    rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
+    bounding_box: BoundingBox | None = Field(None, description="Rotation angle for the mark preparation.")
     crop_info: CropInfo | None = Field(
         None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
     )
-    mark_parameters: PreprocessingStriationParams = Field(
-        ..., description="Preprocessor parameters."
-    )  # TODO: not yet merged dataclass from PR #84
+    mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
 
     @cached_property
     def mask_array(self) -> NDArray:
@@ -129,7 +163,7 @@ class PrepareMarkStriation(BaseParameters):
 class PrepareMarkImpression(BaseParameters):
     mark_type: ImpressionMarks = Field(..., description="Type of mark to prepare.")
     mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
-    rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
+    bounding_box: BoundingBox | None = Field(None, description="Rotation angle for the mark preparation.")
     crop_info: CropInfo | None = Field(
         None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
     )
