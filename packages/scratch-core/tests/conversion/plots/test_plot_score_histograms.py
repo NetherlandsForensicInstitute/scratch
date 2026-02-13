@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 
-from conversion.plots.plot_score_histograms import plot_score_histograms
+from conversion.plots.plot_score_histograms import plot_score_histograms, DensityDict
 from matplotlib.figure import Figure
 from scipy.stats import gaussian_kde
 
@@ -46,7 +46,7 @@ def assert_valid_score_histogram(fig: Figure):
 
 
 @pytest.fixture
-def densities():
+def densities() -> DensityDict:
     x = np.linspace(0, 50, 500)
 
     scores, labels = generate_test_data()
@@ -74,7 +74,7 @@ def densities():
 )
 def test_plot_score_histograms(
     tmp_path: Path,
-    densities: dict[str, np.ndarray],
+    densities: DensityDict,
     new_score: float | None,
     bins: int,
     show_density: bool,
