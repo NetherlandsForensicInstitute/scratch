@@ -1,5 +1,6 @@
-from container_models.base import BinaryMask
 import numpy as np
+
+from container_models.base import BinaryMask
 
 
 def get_bounding_box(mask: BinaryMask) -> tuple[slice, slice]:
