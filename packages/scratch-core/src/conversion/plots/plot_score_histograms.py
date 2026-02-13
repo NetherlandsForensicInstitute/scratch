@@ -6,6 +6,14 @@ from container_models.base import FloatArray1D
 
 
 class DensityDict(TypedDict):
+    """
+    Hold x, and km densities and knm densities at x
+
+    :param x: x values
+    :param km_density_at_x: km densities at x
+    :param knm_density_at_x: knm densities at x
+    """
+
     x: FloatArray1D
     km_density_at_x: FloatArray1D
     knm_density_at_x: FloatArray1D
