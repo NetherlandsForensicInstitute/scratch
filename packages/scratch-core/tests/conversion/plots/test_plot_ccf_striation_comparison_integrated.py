@@ -46,7 +46,7 @@ def sample_score_data():
 
 class TestPlotCCFComparisonComplete:
     """Test suite for plot_ccf_comparison_complete function."""
-    
+
     def test_returns_figure(
         self,
         sample_metadata_reference,
@@ -67,10 +67,10 @@ class TestPlotCCFComparisonComplete:
             data_compared_aligned=sample_surface_data,
             **sample_score_data,
         )
-        
+
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
-    
+
     def test_creates_expected_number_of_axes(
         self,
         sample_metadata_reference,
@@ -91,11 +91,12 @@ class TestPlotCCFComparisonComplete:
             data_compared_aligned=sample_surface_data,
             **sample_score_data,
         )
-        
+
         # Should have multiple axes for different subplots
         assert len(fig.axes) >= 8
+        plt.show()
         plt.close(fig)
-    
+
     @pytest.mark.parametrize(
         "new_score,score_llr_point",
         [
@@ -130,10 +131,10 @@ class TestPlotCCFComparisonComplete:
             score_llr_point=score_llr_point,
             **sample_score_data,
         )
-        
+
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
-    
+
     def test_with_density_estimates(
         self,
         sample_metadata_reference,
@@ -149,7 +150,7 @@ class TestPlotCCFComparisonComplete:
             "km_density_at_x": 2 * x,
             "knm_density_at_x": 2 * (1 - x),
         }
-        
+
         fig = plot_ccf_comparison_complete(
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
@@ -163,14 +164,14 @@ class TestPlotCCFComparisonComplete:
             densities_transformed=densities,
             **sample_score_data,
         )
-        
+
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
 
 
 class TestInputValidation:
     """Test input validation and error handling."""
-    
+
     def test_length_mismatch_scores_labels(
         self,
         sample_metadata_reference,
@@ -181,7 +182,7 @@ class TestInputValidation:
         """Test that mismatched scores and labels raises ValueError."""
         scores = np.random.rand(100)
         labels = np.random.randint(0, 2, 90)  # Wrong length
-        
+
         with pytest.raises(ValueError, match="Length mismatch.*scores.*labels"):
             plot_ccf_comparison_complete(
                 metadata_reference=sample_metadata_reference,
@@ -199,7 +200,7 @@ class TestInputValidation:
                 llrs_at5=np.random.rand(50),
                 llrs_at95=np.random.rand(50),
             )
-    
+
     def test_length_mismatch_llr_arrays(
         self,
         sample_metadata_reference,
@@ -210,7 +211,7 @@ class TestInputValidation:
         """Test that mismatched LLR arrays raise ValueError."""
         scores = np.random.rand(100)
         labels = np.random.randint(0, 2, 100)
-        
+
         with pytest.raises(ValueError, match="LLR array length mismatch"):
             plot_ccf_comparison_complete(
                 metadata_reference=sample_metadata_reference,
@@ -257,7 +258,7 @@ class TestInputValidation:
 )
 class TestMetadataVariants:
     """Test with different metadata lengths and content."""
-    
+
     def test_handles_various_metadata_lengths(
         self,
         metadata_reference,
@@ -279,7 +280,7 @@ class TestMetadataVariants:
             data_compared_aligned=sample_surface_data,
             **sample_score_data,
         )
-        
+
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
 
@@ -287,7 +288,7 @@ class TestMetadataVariants:
 @pytest.mark.integration
 class TestEdgeCases:
     """Integration tests for edge cases."""
-    
+
     def test_uniform_surface_data(
         self,
         sample_metadata_reference,
@@ -297,7 +298,7 @@ class TestEdgeCases:
     ):
         """Test with uniform (constant) surface data."""
         uniform_data = np.ones((100, 50)) * 1e-6
-        
+
         fig = plot_ccf_comparison_complete(
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
@@ -309,10 +310,10 @@ class TestEdgeCases:
             data_compared_aligned=uniform_data,
             **sample_score_data,
         )
-        
+
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
-    
+
     def test_surface_with_nan_values(
         self,
         sample_metadata_reference,
@@ -323,7 +324,7 @@ class TestEdgeCases:
         """Test with NaN values in surface data."""
         data = create_synthetic_striation_data(100, 50, seed=42)
         data[10:20, 10:20] = np.nan
-        
+
         fig = plot_ccf_comparison_complete(
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
@@ -335,10 +336,10 @@ class TestEdgeCases:
             data_compared_aligned=data,
             **sample_score_data,
         )
-        
+
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
-    
+
     def test_different_surface_sizes(
         self,
         sample_metadata_reference,
@@ -349,7 +350,7 @@ class TestEdgeCases:
         """Test with different sized surfaces."""
         data_small = create_synthetic_striation_data(50, 25, seed=42)
         data_large = create_synthetic_striation_data(200, 100, seed=43)
-        
+
         fig = plot_ccf_comparison_complete(
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
@@ -361,6 +362,6 @@ class TestEdgeCases:
             data_compared_aligned=data_large,
             **sample_score_data,
         )
-        
+
         assert isinstance(fig, plt.Figure)
         plt.close(fig)

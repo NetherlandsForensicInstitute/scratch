@@ -12,8 +12,8 @@ import numpy as np
 from matplotlib.figure import Figure
 
 from container_models.base import FloatArray1D, FloatArray2D
-from plot_score_histograms import DensityDict, plot_score_histograms
-from plot_score_llr_transformation import plot_score_llr_transformation
+from conversion.plots.plot_score_histograms import DensityDict, plot_score_histograms
+from conversion.plots.plot_score_llr_transformation import plot_score_llr_transformation
 
 
 def plot_ccf_comparison_complete(
@@ -111,7 +111,8 @@ def plot_ccf_comparison_complete(
     # Row 1: Heatmaps + Side-by-side + Results (medium)
     # Row 2: Score distributions (larger)
     gs = gridspec.GridSpec(
-        3, 3,
+        3,
+        3,
         figure=fig,
         height_ratios=[0.12, 0.38, 0.50],
         hspace=0.35,
@@ -135,21 +136,25 @@ def plot_ccf_comparison_complete(
     # Filtered Reference Surface A
     ax_heatmap_ref = fig.add_subplot(gs[1, 0])
     _plot_simple_heatmap(
-        ax_heatmap_ref, data_reference_filtered, scale_heatmap,
-        "Filtered Reference Surface A"
+        ax_heatmap_ref,
+        data_reference_filtered,
+        scale_heatmap,
+        "Filtered Reference Surface A",
     )
 
     # Filtered Compared Surface B
     ax_heatmap_comp = fig.add_subplot(gs[1, 1])
     _plot_simple_heatmap(
-        ax_heatmap_comp, data_compared_filtered, scale_heatmap,
-        "Filtered Compared Surface B"
+        ax_heatmap_comp,
+        data_compared_filtered,
+        scale_heatmap,
+        "Filtered Compared Surface B",
     )
 
     # Side-by-side + Results combined
     # Split the third column into top (side-by-side) and bottom (results)
     gs_col3 = gs[1, 2].subgridspec(2, 1, hspace=0.3, height_ratios=[0.65, 0.35])
-    
+
     ax_side = fig.add_subplot(gs_col3[0])
     _plot_side_by_side(
         ax_side, data_reference_aligned, data_compared_aligned, scale_heatmap
@@ -189,7 +194,9 @@ def plot_ccf_comparison_complete(
         densities=densities_transformed,
         new_score=None,
     )
-    ax_hist_trans.set_title("Transformed score histograms", fontsize=12, fontweight="bold")
+    ax_hist_trans.set_title(
+        "Transformed score histograms", fontsize=12, fontweight="bold"
+    )
 
     # Right: LogLR plot
     ax_llr = fig.add_subplot(gs[2, 2])
@@ -221,8 +228,14 @@ def _draw_metadata_table(
 
     if title:
         ax.text(
-            0.5, 0.95, title, ha="center", va="top",
-            fontsize=11, fontweight="bold", transform=ax.transAxes
+            0.5,
+            0.95,
+            title,
+            ha="center",
+            va="top",
+            fontsize=11,
+            fontweight="bold",
+            transform=ax.transAxes,
         )
         y_start = 0.85
     else:
@@ -234,24 +247,37 @@ def _draw_metadata_table(
 
     for key, value in metadata.items():
         ax.text(
-            0.05, y_pos, f"{key}:", ha="left", va="top",
-            fontsize=9, transform=ax.transAxes
+            0.05,
+            y_pos,
+            f"{key}:",
+            ha="left",
+            va="top",
+            fontsize=9,
+            transform=ax.transAxes,
         )
         ax.text(
-            0.98, y_pos, str(value), ha="right", va="top",
-            fontsize=9, transform=ax.transAxes
+            0.98,
+            y_pos,
+            str(value),
+            ha="right",
+            va="top",
+            fontsize=9,
+            transform=ax.transAxes,
         )
         y_pos -= y_step
 
     if draw_border:
         # Draw border
         from matplotlib.patches import Rectangle
+
         border = Rectangle(
-            (0.02, 0.02), 0.96, 0.96,
+            (0.02, 0.02),
+            0.96,
+            0.96,
             transform=ax.transAxes,
             fill=False,
             edgecolor="black",
-            linewidth=1.5
+            linewidth=1.5,
         )
         ax.add_patch(border)
 
@@ -335,9 +361,7 @@ def _plot_side_by_side(
     ax.set_xlabel("X - Position [μm]", fontsize=10)
     ax.set_ylabel("Y - Position [μm]", fontsize=10)
     ax.set_title(
-        "Reference Surface A / Moved Compared Surface B",
-        fontsize=11,
-        fontweight="bold"
+        "Reference Surface A / Moved Compared Surface B", fontsize=11, fontweight="bold"
     )
 
     # Add colorbar
