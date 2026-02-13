@@ -6,9 +6,9 @@ from container_models.base import FloatArray1D
 
 
 class DensityDict(TypedDict):
-    x: np.ndarray
-    km: np.ndarray
-    knm: np.ndarray
+    x: FloatArray1D
+    km: FloatArray1D
+    knm: FloatArray1D
 
 
 def plot_score_histograms(
@@ -30,7 +30,7 @@ def plot_score_histograms(
         The axis to plot on
     :param bins : int, optional
         Number of bins for histogram. If None, uses 'auto' binning.
-    :param densities : mapping with three keys: ('km', 'knm', 'score'), each item connects the key to a numpy array.
+    :param densities : DensityDict, a TypeDict with three keys: ('km', 'knm', 'score'), each item connects the key to a numpy array.
         This gives plot coordinates score -> density(score| H), optional
     :param new_score : float, optional
         A new score value to plot as a vertical line
