@@ -74,7 +74,7 @@ def densities() -> DensityDict:
 )
 def test_plot_score_histograms(
     tmp_path: Path,
-    densities: dict[str, np.ndarray],
+    densities: DensityDict,
     new_score: float | None,
     bins: int,
     show_density: bool,
