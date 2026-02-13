@@ -15,9 +15,11 @@ def plot_score_llr_transformation(
     Plot LogLR curve with confidence intervals.
 
     :param ax: Matplotlib axes object to plot on.
-    :param data: Dictionary containing score and LogLR arrays. Must have keys:
-        'score', 'llr', '5% llr', and '95% llr'. All arrays must be 1D
-        and of the same length.
+    :param scores: scores
+    :param llrs: llrs
+    :param llrs_at5: llrs at 5% confidence
+    :param llrs_at95: llrs at 95% confidence
+        All FloatArray1D objects should be of the same length.
     :param score_llr_point: Optional (score, llr) coordinate to mark on the plot
         with a horizontal green line. If None, no line is drawn.
     :raises ValueError: If data dict does not contain all required keys.
