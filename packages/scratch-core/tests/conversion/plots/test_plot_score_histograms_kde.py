@@ -39,8 +39,10 @@ def assert_valid_score_histogram(fig: Figure):
     ax = fig.axes[0]
     assert ax.get_xlabel() == "Score"
     assert ax.get_ylabel() == "Normalized density"
-    if ax.get_legend():
-        assert len(ax.get_legend().get_texts()) > 0
+
+    legend = ax.get_legend()
+    if legend:
+        assert len(legend.get_texts()) > 0
 
 
 @pytest.fixture
