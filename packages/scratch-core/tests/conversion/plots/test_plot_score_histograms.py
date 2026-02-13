@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 
-from conversion.plots.plot_score_histogram_kde import plot_score_histograms_kde
+from conversion.plots.plot_score_histograms import plot_score_histograms
 from matplotlib.figure import Figure
 from scipy.stats import gaussian_kde
 
@@ -55,7 +55,11 @@ def densities():
     kde_knm = gaussian_kde(knm_scores)
     kde_km = gaussian_kde(km_scores)
 
-    return {"x": x, "km": kde_km(x), "knm": kde_knm(x)}
+    return {
+        "x": x,
+        "km": kde_km(x),
+        "knm": kde_knm(x),
+    }
 
 
 @pytest.mark.integration
@@ -68,7 +72,7 @@ def densities():
         (None, 50, False),
     ],
 )
-def test_plot_score_histograms_kde(
+def test_plot_score_histograms(
     tmp_path: Path,
     densities: dict[str, np.ndarray],
     new_score: float | None,
@@ -78,7 +82,7 @@ def test_plot_score_histograms_kde(
     scores, labels = generate_test_data()
     fig, ax = plt.subplots()
 
-    plot_score_histograms_kde(
+    plot_score_histograms(
         scores,
         labels,
         new_score=new_score,

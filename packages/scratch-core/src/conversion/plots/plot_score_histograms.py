@@ -1,14 +1,22 @@
+from typing import TypedDict
+
 import numpy as np
 from matplotlib.axes import Axes
 from container_models.base import FloatArray1D
 
 
-def plot_score_histograms_kde(
+class DensityDict(TypedDict):
+    x: np.ndarray
+    km: np.ndarray
+    knm: np.ndarray
+
+
+def plot_score_histograms(
     scores: FloatArray1D,
     labels: FloatArray1D,
     ax: Axes,
     bins: int | None,
-    densities: dict[str, np.ndarray] | None,
+    densities: DensityDict | None,
     new_score: float | None = None,
 ) -> None:
     """
@@ -27,17 +35,6 @@ def plot_score_histograms_kde(
     :param new_score : float, optional
         A new score value to plot as a vertical line
     """
-
-    if densities:
-        # Validate required keys
-        required_keys = {"x", "km", "knm"}
-        missing_keys = required_keys - set(densities.keys())
-
-        if missing_keys:
-            raise ValueError(
-                f"Missing required keys in data dict: {missing_keys}. "
-                f"Required keys are: {required_keys}"
-            )
 
     # Separate data by label
     knm_scores = scores[labels == 0]
