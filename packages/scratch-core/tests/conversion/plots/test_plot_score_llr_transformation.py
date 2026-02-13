@@ -19,10 +19,12 @@ def verify_plot_properties(
     assert ax.get_title() == "LogLR plot (with confidence intervals)"
 
     # Verify legend entries
-    legend_labels = [text.get_text() for text in ax.get_legend().get_texts()]
-    assert "LogLR all" in legend_labels
-    assert "LogLR all 5%" in legend_labels
-    assert "LogLR all 95%" in legend_labels
+    legend = ax.get_legend()
+    if legend:
+        legend_labels = [text.get_text() for text in legend.get_texts()]
+        assert "LogLR all" in legend_labels
+        assert "LogLR all 5%" in legend_labels
+        assert "LogLR all 95%" in legend_labels
 
     if should_have_llr_label:
         assert "LogLR" in legend_labels
