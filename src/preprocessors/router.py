@@ -1,6 +1,8 @@
 from functools import partial
 from http import HTTPStatus
 
+from conversion.preprocess_impression.preprocess_impression import preprocess_impression_mark
+from conversion.preprocess_striation import preprocess_striation_mark
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from loguru import logger
@@ -12,10 +14,8 @@ from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_mark
 
 from .pipelines import (
-    impression_mark_pipeline,
     parse_scan_pipeline,
     preview_pipeline,
-    striation_mark_pipeline,
     surface_map_pipeline,
     x3p_pipeline,
 )
@@ -96,7 +96,7 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
     process_prepare_mark(
         files=PrepareMarkResponseImpression.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
-        marking_method=partial(impression_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+        marking_method=partial(preprocess_impression_mark, params=prepare_mark_parameters.mark_parameters),
         params=prepare_mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
@@ -123,7 +123,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     process_prepare_mark(
         files=PrepareMarkResponseStriation.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
-        marking_method=partial(striation_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+        marking_method=partial(preprocess_striation_mark, params=prepare_mark_parameters.mark_parameters),
         params=prepare_mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")

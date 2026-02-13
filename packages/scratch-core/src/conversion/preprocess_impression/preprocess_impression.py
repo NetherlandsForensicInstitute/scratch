@@ -15,7 +15,6 @@ from conversion.filter import (
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import crop_to_mask
 from conversion.preprocess_impression.center import compute_center_local
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.resample import (
     resample,
     needs_resampling,
@@ -23,11 +22,12 @@ from conversion.preprocess_impression.resample import (
 from conversion.preprocess_impression.tilt import apply_tilt_correction
 from conversion.preprocess_impression.utils import update_mark_data, Point2D
 from conversion.resample import get_scaling_factors, resample_array_2d
+from preprocessors.schemas import PreprocessingImpressionParams
 
 
 def preprocess_impression_mark(
     mark: Mark,
-    params: PreprocessingImpressionParams = PreprocessingImpressionParams(),
+    params: PreprocessingImpressionParams,
 ) -> tuple[Mark, Mark]:
     """
     Preprocess trimmed impression image data.

@@ -17,14 +17,14 @@ from conversion.filter import (
     cutoff_to_gaussian_sigma,
     apply_striation_preserving_filter_1d,
 )
-from conversion.preprocess_striation.parameters import PreprocessingStriationParams
 from conversion.preprocess_striation.alignment import fine_align_bullet_marks
 from conversion.preprocess_striation.shear import propagate_nan
+from preprocessors.schemas import PreprocessingStriationParams
 
 
 def preprocess_striation_mark(
     mark: Mark,
-    params: PreprocessingStriationParams = PreprocessingStriationParams(),
+    params: PreprocessingStriationParams,
 ) -> tuple[Mark, Mark]:
     """
     Complete the preprocessing pipeline for striated marks.

@@ -3,34 +3,61 @@ from pathlib import Path
 
 import numpy as np
 from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark
 from conversion.leveling.solver.utils import compute_image_center
 from conversion.rotate import rotate_crop_and_mask_image_by_crop
 from loguru import logger
 from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resample
 from skimage.transform import resize
 
-from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline
-from preprocessors.schemas import EditImage, PrepareMarkImpression, PrepareMarkStriation
+from constants import LIGHT_SOURCES, OBSERVER
+from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
+from preprocessors.schemas import (
+    EditImage,
+    PrepareMarkImpression,
+    PrepareMarkStriation,
+)
 
 
 def process_prepare_mark(
     scan_file: Path,
-    marking_method: Callable[..., Path],
+    marking_method: Callable[[Mark], tuple[Mark, Mark]],
     params: PrepareMarkImpression | PrepareMarkStriation,
     files: dict[str, Path],
 ) -> dict[str, Path]:
     """Prepare striation mark data."""
     parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
-    rotate_crop_and_mask_image_by_crop(scan_image=parsed_scan, mask=params.mask_array, bounding_box=params.bounding_box)
-    # resample()
-    logger.info("Preparing mark")
-    marking_method()
-    # surface_map_pipeline(
-    #     parsed_scan=parsed_scan,
-    #     output_path=files["surface_map"],
-    #     # TODO: make parameters needed explicit so we supply needed arguments.
+    # factor = 1.5e-6
+    # if params.mark_type == ImpressionMarks.BREACH_FACE:
+    #     factor = 3.5e-6
+    # output_shape = (
+    #     1 / factor * parsed_scan.height,
+    #     1 / factor * parsed_scan.width,
     # )
-    preview_pipeline(parsed_scan=parsed_scan, output_path=files["preview"])
+    #
+    # resampled_image = Resample(target_shape=output_shape).apply_on_image(parsed_scan)
+    # TODO: seems somthing is wrong with the memory of container.
+
+    rotated_image = rotate_crop_and_mask_image_by_crop(
+        scan_image=parsed_scan, mask=params.mask_array, bounding_box=params.bounding_box
+    )
+
+    mark = Mark(
+        scan_image=rotated_image,
+        mark_type=params.mark_type,
+    )
+
+    logger.info("Preparing mark")
+    processed_mark, _ = marking_method(mark)
+    logger.info("saving x3p, surface_map.png and preview.png")
+    surface_map_pipeline(
+        parsed_scan=processed_mark.scan_image,
+        output_path=files["surface_map"],
+        observer=OBSERVER,
+        light_sources=LIGHT_SOURCES,
+    )
+    preview_pipeline(parsed_scan=processed_mark.scan_image, output_path=files["preview"])
+    x3p_pipeline(parsed_scan=processed_mark.scan_image, output_path=files["scan"])
     return files
 
 

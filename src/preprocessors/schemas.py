@@ -144,7 +144,7 @@ class PreprocessingStriationParams(BaseModelConfig):
 class PrepareMarkStriation(BaseParameters):
     mark_type: StriationMarks = Field(..., description="Type of mark to prepare.")
     mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
-    bounding_box: BoundingBox | None = Field(None, description="Rotation angle for the mark preparation.")
+    bounding_box_list: list[list[float]] | None = Field(None, description="Rotation angle for the mark preparation.")
     crop_info: CropInfo | None = Field(
         None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
     )
@@ -159,11 +159,20 @@ class PrepareMarkStriation(BaseParameters):
         """
         return np.array(self.mask, np.bool_)
 
+    @cached_property
+    def bounding_box(self) -> BoundingBox:
+        """
+        Convert the bounding_box tuple to a numpy array.
+
+        :return: 2D numpy array of boolean values representing the bounding box
+        """
+        return np.array(self.bounding_box_list)
+
 
 class PrepareMarkImpression(BaseParameters):
     mark_type: ImpressionMarks = Field(..., description="Type of mark to prepare.")
     mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
-    bounding_box: BoundingBox | None = Field(None, description="Rotation angle for the mark preparation.")
+    bounding_box_list: list[list[float]] | None = Field(None, description="Rotation angle for the mark preparation.")
     crop_info: CropInfo | None = Field(
         None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
     )
@@ -177,6 +186,15 @@ class PrepareMarkImpression(BaseParameters):
         :return: 2D numpy array of boolean values representing the mask
         """
         return np.array(self.mask, np.bool_)
+
+    @cached_property
+    def bounding_box(self) -> BoundingBox:
+        """
+        Convert the bounding_box tuple to a numpy array.
+
+        :return: 2D numpy array of boolean values representing the bounding box
+        """
+        return np.array(self.bounding_box_list)
 
 
 type Mask = tuple[tuple[bool, ...], ...]
