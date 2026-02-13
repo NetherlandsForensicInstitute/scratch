@@ -21,7 +21,7 @@ def process_prepare_mark(
 ) -> dict[str, Path]:
     """Prepare striation mark data."""
     parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
-    rotate_crop_and_mask_image_by_crop(scan_image=parsed_scan, mask=params.mask_array, bounding_box=None)
+    rotate_crop_and_mask_image_by_crop(scan_image=parsed_scan, mask=params.mask_array, bounding_box=params.bounding_box)
     # resample()
     logger.info("Preparing mark")
     marking_method()
