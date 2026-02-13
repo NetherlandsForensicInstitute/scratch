@@ -1,10 +1,11 @@
-import numpy as np
 from matplotlib.axes import Axes
+
+from container_models.base import FloatArray1D
 
 
 def plot_loglr_with_confidence(
     ax: Axes,
-    data: dict[str, np.ndarray],
+    data: dict[str, FloatArray1D],
     score_llr_point: tuple[float, float] | None,
 ) -> None:
     """
@@ -17,7 +18,6 @@ def plot_loglr_with_confidence(
     :param score_llr_point: Optional (score, llr) coordinate to mark on the plot
         with a horizontal green line. If None, no line is drawn.
     :raises ValueError: If data dict does not contain all required keys.
-    :return: None
 
     """
     # Validate required keys

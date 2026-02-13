@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from pathlib import Path
 import pytest
-from conversion.plots.score_llr_transformation_plot import plot_loglr_with_confidence
+from conversion.plots.plot_score_llr_transformation import plot_loglr_with_confidence
 
 from ..helper_functions import assert_plot_is_valid_image
 
@@ -42,6 +42,7 @@ class TestPlotLoglrWithConfidence:
 
         return {"score": score, "llr": llr, "5% llr": llr_5, "95% llr": llr_95}
 
+    @pytest.mark.integration
     @pytest.mark.parametrize(
         "score_llr_point, expected_num_lines, should_have_llr_label",
         [
@@ -96,3 +97,5 @@ class TestPlotLoglrWithConfidence:
 
         with pytest.raises(ValueError):
             plot_loglr_with_confidence(ax, {}, None)
+
+        plt.close()
