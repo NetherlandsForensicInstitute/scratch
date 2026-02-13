@@ -7,8 +7,8 @@ from container_models.base import FloatArray1D
 
 class DensityDict(TypedDict):
     x: FloatArray1D
-    km: FloatArray1D
-    knm: FloatArray1D
+    km_density_at_x: FloatArray1D
+    knm_density_at_x: FloatArray1D
 
 
 def plot_score_histograms(
@@ -50,25 +50,6 @@ def plot_score_histograms(
 
     # Plot things in right order for getting legend items in the right order
     # Histograms and optional densities
-    barheights_knm, _, _ = ax.hist(
-        knm_scores,
-        bins=bin_edges,
-        density=True,
-        alpha=0.4,
-        color="blue",
-        label=f"KNM (n={len(knm_scores)})",
-    )
-
-    if densities:
-        ax.plot(
-            densities["x"],
-            densities["knm"],
-            color="blue",
-            linestyle="--",
-            linewidth=2,
-            label="KNM density",
-        )
-
     barheights_km, _, _ = ax.hist(
         km_scores,
         bins=bin_edges,
@@ -81,11 +62,30 @@ def plot_score_histograms(
     if densities:
         ax.plot(
             densities["x"],
-            densities["km"],
+            densities["km_density_at_x"],
             color="orange",
             linestyle="--",
             linewidth=2,
             label="KM density",
+        )
+
+    barheights_knm, _, _ = ax.hist(
+        knm_scores,
+        bins=bin_edges,
+        density=True,
+        alpha=0.4,
+        color="blue",
+        label=f"KNM (n={len(knm_scores)})",
+    )
+
+    if densities:
+        ax.plot(
+            densities["x"],
+            densities["knm_density_at_x"],
+            color="blue",
+            linestyle="--",
+            linewidth=2,
+            label="KNM density",
         )
 
     # Vertical line for new_score

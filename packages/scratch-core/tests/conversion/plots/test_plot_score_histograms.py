@@ -57,8 +57,8 @@ def densities() -> DensityDict:
 
     return {
         "x": x,
-        "km": kde_km(x),
-        "knm": kde_knm(x),
+        "km_density_at_x": kde_km(x),
+        "knm_density_at_x": kde_knm(x),
     }
 
 
