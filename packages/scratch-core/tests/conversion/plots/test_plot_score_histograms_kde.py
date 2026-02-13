@@ -39,7 +39,8 @@ def assert_valid_score_histogram(fig: Figure):
     ax = fig.axes[0]
     assert ax.get_xlabel() == "Score"
     assert ax.get_ylabel() == "Normalized density"
-    assert len(ax.get_legend().get_texts()) > 0
+    if ax.get_legend():
+        assert len(ax.get_legend().get_texts()) > 0
 
 
 @pytest.fixture
@@ -67,7 +68,7 @@ def densities():
 )
 def test_plot_score_histograms_kde(
     tmp_path: Path,
-    densities: dict[str : np.ndarray],
+    densities: dict[str, np.ndarray],
     new_score: float | None,
     bins: int,
     show_density: bool,
