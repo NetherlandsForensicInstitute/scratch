@@ -1,8 +1,15 @@
-from fastapi import APIRouter
+from http import HTTPStatus
+
+from conversion.export.mark import load_mark_from_path
+from conversion.export.profile import load_profile_from_path
+from conversion.plots.plot_striation import plot_striation_comparison_results
+from conversion.profile_correlator import correlate_profiles, correlate_striation_marks
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 
 from constants import ProcessorEndpoint, RoutePrefix
 from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation, LRResponse, LRResponseURL
+from file_services import create_vault
 from models import DirectoryAccess
 from processors.schemas import (
     CalculateLRImpression,
@@ -60,9 +67,35 @@ async def calculate_score_impression(impression: CalculateScoreImpression) -> Co
     The score, together with plots, are saved and made available via URLs.
     """,
 )
-async def calculate_score_striation(striation: CalculateScoreStriation) -> ComparisonResponseStriation:
+async def calculate_score_striation(striation_params: CalculateScoreStriation) -> ComparisonResponseStriation:
     """Compare two striation profiles."""
-    vault = DirectoryAccess()  # type: ignore
+    vault = create_vault(striation_params.tag)
+
+    mark_ref = load_mark_from_path(path=striation_params.mark_ref, stem="processed")
+    mark_ref_profile = load_profile_from_path(path=striation_params.mark_ref, stem="profile")
+
+    mark_comp = load_mark_from_path(path=striation_params.mark_comp, stem="processed")
+    mark_comp_profile = load_profile_from_path(path=striation_params.mark_comp, stem="profile")
+
+    mark_correlations = correlate_striation_marks(
+        mark_reference=mark_ref,
+        mark_compared=mark_comp,
+        profile_reference=mark_ref_profile,
+        profile_compared=mark_comp_profile,
+    )
+    if not mark_correlations:
+        raise HTTPException(HTTPStatus.INTERNAL_SERVER_ERROR, "we have found no correlations, weird i know..")
+    plot_striation_comparison_results(
+        mark_reference=mark_ref,
+        mark_compared=mark_comp,
+        mark_reference_aligned=mark_correlations.mark_reference_aligned,
+        mark_compared_aligned=mark_correlations.mark_compared_aligned,
+        profile_reference_aligned=mark_correlations.profile_reference_aligned,
+        profile_compared_aligned=mark_correlations.profile_compared_aligned,
+        metrics=mark_correlations.comparison_results,
+        metadata_reference=striation_params.param.metadata_reference,
+        metadata_compared=striation_params.param.metadata_compared,
+    )
     return ComparisonResponseStriation.generate_urls(vault.access_url)
 
 
