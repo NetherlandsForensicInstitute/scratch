@@ -8,6 +8,8 @@ from pydantic import BaseModel
 
 from constants import PROJECT_ROOT
 from extractors.schemas import (
+    ComparisonResponseImpression,
+    ComparisonResponseStriation,
     PrepareMarkResponseImpression,
     PrepareMarkResponseStriation,
     ProcessedDataAccess,
@@ -20,6 +22,12 @@ from preprocessors.schemas import (
     PreprocessingImpressionParams,
     PreprocessingStriationParams,
     UploadScan,
+)
+from processors.schemas import (
+    CalculateScoreImpression,
+    CalculateScoreStriation,
+    ImpressionParameters,
+    StriationParamaters,
 )
 from settings import get_settings
 
@@ -106,6 +114,30 @@ class TestContracts:
         )
         return data, ProcessedDataAccess
 
+    @pytest.fixture(scope="class")
+    def calculate_score_impression(self, directory_access: DirectoryAccess) -> Interface:
+        """Create test data for calculate-score-impression endpoint.
+
+        Returns the post request data and expected response type.
+        """
+        return CalculateScoreImpression(
+            mark_dir_ref=directory_access.access_url,
+            mark_dir_comp=directory_access.access_url,
+            param=ImpressionParameters(),
+        ), ComparisonResponseImpression
+
+    @pytest.fixture(scope="class")
+    def calculate_score_striation(self, directory_access: DirectoryAccess) -> Interface:
+        """Create test data for calculate-score-striation endpoint.
+
+        Returns the post request data and expected response type.
+        """
+        return CalculateScoreStriation(
+            mark_dir_ref=directory_access.access_url,
+            mark_dir_comp=directory_access.access_url,
+            param=StriationParamaters(),
+        ), ComparisonResponseStriation
+
     @pytest.mark.parametrize(
         "route",
         (pytest.param(f"/{route}", id=route) for route in RoutePrefix),
@@ -138,6 +170,35 @@ class TestContracts:
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{sub_route}",
+            json=data.model_dump(mode="json"),
+            timeout=5,
+        )
+        # Assert
+        assert response.status_code == HTTPStatus.OK
+        expected_response.model_validate(response.json())
+
+    @pytest.mark.xfail
+    @pytest.mark.parametrize(
+        ("fixture_name", "sub_route"),
+        [
+            pytest.param(
+                "calculate_score_impression",
+                "calculate-score-impression",
+                id="calculate_score_impression",
+            ),
+            pytest.param(
+                "calculate_score_striation",
+                "calculate-score-striation",
+                id="calculate_score_striation",
+            ),
+        ],
+    )
+    def test_processor_post_requests(self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest) -> None:
+        """Test if processor POST endpoints return expected models."""
+        data, expected_response = request.getfixturevalue(fixture_name)
+        # Act
+        response = requests.post(
+            f"{get_settings().base_url}/{RoutePrefix.PROCESSOR}/{sub_route}",
             json=data.model_dump(mode="json"),
             timeout=5,
         )
