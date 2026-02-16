@@ -84,7 +84,8 @@ build: (log "\nBuilding the REST API to an executable" "blue")
     --hidden-import=numpy \
     --hidden-import=numpy.core \
     --hidden-import=numpy.core._methods \
-    --hidden-import=numpy.core._dtype_ctypes
+    --hidden-import=numpy.core._dtype_ctypes \
+    --collect-submodules=surfalize
 
 # Start API development server
 api: (log "Starting FastAPI development server")
