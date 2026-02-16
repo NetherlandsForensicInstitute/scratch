@@ -39,8 +39,8 @@ def plot_score_histograms(ax: Axes, data: HistogramData) -> None:
 
     if data.densities:
         ax.plot(
-            data.densities["x"],
-            data.densities["km_density_at_x"],
+            data.densities.x,
+            data.densities.km_density_at_x,
             color="orange",
             linestyle="--",
             linewidth=2,
@@ -58,8 +58,8 @@ def plot_score_histograms(ax: Axes, data: HistogramData) -> None:
 
     if data.densities:
         ax.plot(
-            data.densities["x"],
-            data.densities["knm_density_at_x"],
+            data.densities.x,
+            data.densities.knm_density_at_x,
             color="blue",
             linestyle="--",
             linewidth=2,
