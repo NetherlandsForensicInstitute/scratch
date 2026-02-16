@@ -3,10 +3,6 @@ This Class is to generate a realistic overview image with synthetic data, so no 
 merging.
 """
 
-from pathlib import Path
-
-from PIL import Image
-
 import pytest
 
 from conversion.data_formats import Mark
@@ -44,10 +40,6 @@ class TestGenerateOverview:
 
         overview = results.comparison_overview
         assert_valid_rgb_image(overview)
-
-        # Save to project root so the image can be inspected after the test run
-        out = Path(__file__).resolve().parents[5] / "plot_results_overview.png"
-        Image.fromarray(overview).save(out)
 
     def test_generates_striation_overview_png(
         self,
