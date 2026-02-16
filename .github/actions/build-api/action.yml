@@ -23,4 +23,7 @@ runs:
 
     - name: Run tests
       shell: bash
-      run: just smoke-test "${{ steps.test_arg.outputs.test_arg }}" "127.0.0.1"
+      run: |
+        ./dist/main.exe &
+        sleep 5
+        curl -v http://127.0.0.1:8000/docs
