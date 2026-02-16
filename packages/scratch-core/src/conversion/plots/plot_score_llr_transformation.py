@@ -36,7 +36,9 @@ def plot_score_llr_transformation(ax: Axes, data: LlrTransformationData) -> None
     # Set labels and title
     ax.set_xlabel("Score")
     ax.set_ylabel("LogLR")
-    ax.set_title("LogLR plot (with confidence intervals)")
+    ax.set_title(
+        "LogLR plot (with confidence intervals)", fontsize=12, fontweight="bold"
+    )
 
     # Set grid
     ax.grid(True, alpha=0.3)

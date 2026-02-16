@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from conversion.plots.data_formats import (
-    DensityDict,
+    DensityData,
     HistogramData,
     LlrTransformationData,
 )
@@ -10,55 +10,8 @@ from conversion.plots.plot_ccf_comparison_overview import plot_ccf_comparison_ov
 
 from .helper_functions import (
     assert_valid_rgb_image,
-    create_sample_metadata_results,
     create_synthetic_striation_mark,
 )
-
-
-@pytest.fixture
-def sample_results_metadata():
-    return create_sample_metadata_results()
-
-
-@pytest.fixture
-def sample_histogram_data():
-    rng = np.random.default_rng(42)
-    knm_scores = rng.beta(2, 5, 1000)
-    km_scores = rng.beta(8, 2, 100)
-    scores = np.concatenate([knm_scores, km_scores])
-    labels = np.concatenate([np.zeros(1000), np.ones(100)])
-    return HistogramData(
-        scores=scores,
-        labels=labels,
-        bins=None,
-        densities=None,
-        new_score=None,
-    )
-
-
-@pytest.fixture
-def sample_histogram_data_transformed(sample_histogram_data):
-    return HistogramData(
-        scores=0.52 + sample_histogram_data.scores * 0.47,
-        labels=sample_histogram_data.labels,
-        bins=None,
-        densities=None,
-        new_score=None,
-    )
-
-
-@pytest.fixture
-def sample_llr_data(sample_histogram_data_transformed):
-    scores_t = sample_histogram_data_transformed.scores
-    score_grid = np.linspace(scores_t.min(), scores_t.max(), 100)
-    llrs = 5 * (score_grid - 0.75) ** 2 - 2
-    return LlrTransformationData(
-        scores=score_grid,
-        llrs=llrs,
-        llrs_at5=llrs - 0.5,
-        llrs_at95=llrs + 0.5,
-        score_llr_point=None,
-    )
 
 
 class TestPlotCCFComparisonOverview:
@@ -72,10 +25,10 @@ class TestPlotCCFComparisonOverview:
         striation_mark_compared_aligned,
         sample_metadata_reference,
         sample_metadata_compared,
-        sample_results_metadata,
-        sample_histogram_data,
-        sample_histogram_data_transformed,
-        sample_llr_data,
+        ccf_results_metadata,
+        ccf_histogram_data,
+        ccf_histogram_data_transformed,
+        ccf_llr_data,
     ):
         result = plot_ccf_comparison_overview(
             mark_reference_filtered=striation_mark_reference,
@@ -84,10 +37,10 @@ class TestPlotCCFComparisonOverview:
             mark_compared_aligned=striation_mark_compared_aligned,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
-            results_metadata=sample_results_metadata,
-            histogram_data=sample_histogram_data,
-            histogram_data_transformed=sample_histogram_data_transformed,
-            llr_data=sample_llr_data,
+            results_metadata=ccf_results_metadata,
+            histogram_data=ccf_histogram_data,
+            histogram_data_transformed=ccf_histogram_data_transformed,
+            llr_data=ccf_llr_data,
         )
         assert_valid_rgb_image(result)
 
@@ -109,25 +62,25 @@ class TestPlotCCFComparisonOverview:
         striation_mark_compared_aligned,
         sample_metadata_reference,
         sample_metadata_compared,
-        sample_results_metadata,
-        sample_histogram_data,
-        sample_histogram_data_transformed,
-        sample_llr_data,
+        ccf_results_metadata,
+        ccf_histogram_data,
+        ccf_histogram_data_transformed,
+        ccf_llr_data,
         new_score,
         score_llr_point,
     ):
         histogram_data = HistogramData(
-            scores=sample_histogram_data.scores,
-            labels=sample_histogram_data.labels,
-            bins=sample_histogram_data.bins,
-            densities=sample_histogram_data.densities,
+            scores=ccf_histogram_data.scores,
+            labels=ccf_histogram_data.labels,
+            bins=ccf_histogram_data.bins,
+            densities=ccf_histogram_data.densities,
             new_score=new_score,
         )
         llr_data = LlrTransformationData(
-            scores=sample_llr_data.scores,
-            llrs=sample_llr_data.llrs,
-            llrs_at5=sample_llr_data.llrs_at5,
-            llrs_at95=sample_llr_data.llrs_at95,
+            scores=ccf_llr_data.scores,
+            llrs=ccf_llr_data.llrs,
+            llrs_at5=ccf_llr_data.llrs_at5,
+            llrs_at95=ccf_llr_data.llrs_at95,
             score_llr_point=score_llr_point,
         )
         result = plot_ccf_comparison_overview(
@@ -137,9 +90,9 @@ class TestPlotCCFComparisonOverview:
             mark_compared_aligned=striation_mark_compared_aligned,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
-            results_metadata=sample_results_metadata,
+            results_metadata=ccf_results_metadata,
             histogram_data=histogram_data,
-            histogram_data_transformed=sample_histogram_data_transformed,
+            histogram_data_transformed=ccf_histogram_data_transformed,
             llr_data=llr_data,
         )
         assert_valid_rgb_image(result)
@@ -152,28 +105,28 @@ class TestPlotCCFComparisonOverview:
         striation_mark_compared_aligned,
         sample_metadata_reference,
         sample_metadata_compared,
-        sample_results_metadata,
-        sample_histogram_data,
-        sample_histogram_data_transformed,
-        sample_llr_data,
+        ccf_results_metadata,
+        ccf_histogram_data,
+        ccf_histogram_data_transformed,
+        ccf_llr_data,
     ):
         x = np.linspace(0, 1, 50)
-        densities: DensityDict = {
-            "x": x,
-            "km_density_at_x": 2 * x,
-            "knm_density_at_x": 2 * (1 - x),
-        }
+        densities = DensityData(
+            x=x,
+            km_density_at_x=2 * x,
+            knm_density_at_x=2 * (1 - x),
+        )
         histogram_data = HistogramData(
-            scores=sample_histogram_data.scores,
-            labels=sample_histogram_data.labels,
-            bins=sample_histogram_data.bins,
+            scores=ccf_histogram_data.scores,
+            labels=ccf_histogram_data.labels,
+            bins=ccf_histogram_data.bins,
             densities=densities,
             new_score=None,
         )
         histogram_data_transformed = HistogramData(
-            scores=sample_histogram_data_transformed.scores,
-            labels=sample_histogram_data_transformed.labels,
-            bins=sample_histogram_data_transformed.bins,
+            scores=ccf_histogram_data_transformed.scores,
+            labels=ccf_histogram_data_transformed.labels,
+            bins=ccf_histogram_data_transformed.bins,
             densities=densities,
             new_score=None,
         )
@@ -184,10 +137,10 @@ class TestPlotCCFComparisonOverview:
             mark_compared_aligned=striation_mark_compared_aligned,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
-            results_metadata=sample_results_metadata,
+            results_metadata=ccf_results_metadata,
             histogram_data=histogram_data,
             histogram_data_transformed=histogram_data_transformed,
-            llr_data=sample_llr_data,
+            llr_data=ccf_llr_data,
         )
         assert_valid_rgb_image(result)
 
@@ -229,10 +182,10 @@ class TestMetadataVariants:
         striation_mark_compared,
         striation_mark_reference_aligned,
         striation_mark_compared_aligned,
-        sample_results_metadata,
-        sample_histogram_data,
-        sample_histogram_data_transformed,
-        sample_llr_data,
+        ccf_results_metadata,
+        ccf_histogram_data,
+        ccf_histogram_data_transformed,
+        ccf_llr_data,
     ):
         result = plot_ccf_comparison_overview(
             mark_reference_filtered=striation_mark_reference,
@@ -241,10 +194,10 @@ class TestMetadataVariants:
             mark_compared_aligned=striation_mark_compared_aligned,
             metadata_reference=metadata_reference,
             metadata_compared=metadata_compared,
-            results_metadata=sample_results_metadata,
-            histogram_data=sample_histogram_data,
-            histogram_data_transformed=sample_histogram_data_transformed,
-            llr_data=sample_llr_data,
+            results_metadata=ccf_results_metadata,
+            histogram_data=ccf_histogram_data,
+            histogram_data_transformed=ccf_histogram_data_transformed,
+            llr_data=ccf_llr_data,
         )
         assert_valid_rgb_image(result)
 
@@ -257,10 +210,10 @@ class TestEdgeCases:
         self,
         sample_metadata_reference,
         sample_metadata_compared,
-        sample_results_metadata,
-        sample_histogram_data,
-        sample_histogram_data_transformed,
-        sample_llr_data,
+        ccf_results_metadata,
+        ccf_histogram_data,
+        ccf_histogram_data_transformed,
+        ccf_llr_data,
     ):
         uniform_mark = create_synthetic_striation_mark(height=100, width=50, seed=42)
         result = plot_ccf_comparison_overview(
@@ -270,10 +223,10 @@ class TestEdgeCases:
             mark_compared_aligned=uniform_mark,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
-            results_metadata=sample_results_metadata,
-            histogram_data=sample_histogram_data,
-            histogram_data_transformed=sample_histogram_data_transformed,
-            llr_data=sample_llr_data,
+            results_metadata=ccf_results_metadata,
+            histogram_data=ccf_histogram_data,
+            histogram_data_transformed=ccf_histogram_data_transformed,
+            llr_data=ccf_llr_data,
         )
         assert_valid_rgb_image(result)
 
@@ -281,10 +234,10 @@ class TestEdgeCases:
         self,
         sample_metadata_reference,
         sample_metadata_compared,
-        sample_results_metadata,
-        sample_histogram_data,
-        sample_histogram_data_transformed,
-        sample_llr_data,
+        ccf_results_metadata,
+        ccf_histogram_data,
+        ccf_histogram_data_transformed,
+        ccf_llr_data,
     ):
         mark = create_synthetic_striation_mark(height=100, width=50, seed=42)
         mark.scan_image.data[10:20, 10:20] = np.nan
@@ -295,10 +248,10 @@ class TestEdgeCases:
             mark_compared_aligned=mark,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
-            results_metadata=sample_results_metadata,
-            histogram_data=sample_histogram_data,
-            histogram_data_transformed=sample_histogram_data_transformed,
-            llr_data=sample_llr_data,
+            results_metadata=ccf_results_metadata,
+            histogram_data=ccf_histogram_data,
+            histogram_data_transformed=ccf_histogram_data_transformed,
+            llr_data=ccf_llr_data,
         )
         assert_valid_rgb_image(result)
 
@@ -306,10 +259,10 @@ class TestEdgeCases:
         self,
         sample_metadata_reference,
         sample_metadata_compared,
-        sample_results_metadata,
-        sample_histogram_data,
-        sample_histogram_data_transformed,
-        sample_llr_data,
+        ccf_results_metadata,
+        ccf_histogram_data,
+        ccf_histogram_data_transformed,
+        ccf_llr_data,
     ):
         mark_narrow = create_synthetic_striation_mark(height=100, width=25, seed=42)
         mark_wide = create_synthetic_striation_mark(height=100, width=100, seed=43)
@@ -320,9 +273,9 @@ class TestEdgeCases:
             mark_compared_aligned=mark_wide,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
-            results_metadata=sample_results_metadata,
-            histogram_data=sample_histogram_data,
-            histogram_data_transformed=sample_histogram_data_transformed,
-            llr_data=sample_llr_data,
+            results_metadata=ccf_results_metadata,
+            histogram_data=ccf_histogram_data,
+            histogram_data_transformed=ccf_histogram_data_transformed,
+            llr_data=ccf_llr_data,
         )
         assert_valid_rgb_image(result)
