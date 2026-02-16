@@ -283,6 +283,8 @@ class TestMetadataVariants:
         )
 
         assert isinstance(fig, plt.Figure)
+        plt.savefig("ccf_overview.png")
+        plt.show()
         plt.close(fig)
 
 

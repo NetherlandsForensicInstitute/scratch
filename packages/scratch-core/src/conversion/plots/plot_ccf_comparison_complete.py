@@ -71,25 +71,6 @@ def plot_ccf_comparison_complete(
     :param score_llr_point: (score, llr) coordinate for crosshairs (optional)
     :return: Matplotlib Figure object
     :raises ValueError: If array dimensions don't match
-
-    Example::
-
-        >>> import numpy as np
-        >>> # Create sample data
-        >>> metadata_ref = {"Case ID": "2022_07_21_126", "Firearm ID": "unknown_firearm_4"}
-        >>> metadata_comp = {"Case ID": "2022_07_21_126", "Firearm ID": "unknown_firearm_7"}
-        >>> metadata_results = {"Date report": "2023-02-16", "Score": "0.97 (1.86)"}
-        >>> data_ref = np.random.randn(100, 100)
-        >>> data_comp = np.random.randn(100, 100)
-        >>> scores = np.random.beta(2, 5, 1000)
-        >>> labels = np.random.randint(0, 2, 1000)
-        >>> fig = plot_ccf_comparison_complete(
-        ...     metadata_ref, metadata_comp, metadata_results,
-        ...     data_ref, data_comp, 1e-6,
-        ...     data_ref, data_comp,
-        ...     scores, labels, scores*0.5+0.5,
-        ...     np.random.randn(100), np.random.randn(100), np.random.randn(100)
-        ... )
     """
     # Validate inputs
     if len(scores) != len(labels):
