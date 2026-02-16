@@ -15,7 +15,7 @@ jobs:
       - uses: extractions/setup-just@v3
 
       - name: Install dependencies
-        run: just install
+        run: uv sync --all-packages --frozen
         shell: bash
 
       - name: Build and test
