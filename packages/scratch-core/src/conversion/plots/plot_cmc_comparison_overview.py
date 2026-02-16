@@ -1,4 +1,7 @@
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.image import AxesImage
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from container_models.base import ImageRGB
@@ -20,6 +23,20 @@ from conversion.plots.utils import (
     get_height_ratios,
     get_metadata_dimensions,
 )
+
+
+def _plot_surface_with_colorbar(
+    fig: Figure,
+    ax: Axes,
+    im: AxesImage,
+    title: str,
+) -> None:
+    """Plot a cell overlay on axes and add a colorbar."""
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    cbar = fig.colorbar(im, cax=cax, label="Scan Depth [µm]")
+    cbar.ax.tick_params(labelsize=9)
 
 
 def plot_cmc_comparison_overview(
@@ -85,13 +102,9 @@ def plot_cmc_comparison_overview(
         cell_similarity_threshold=metrics.cell_similarity_threshold,
         show_all_cells=True,
     )
-    ax_filtered_ref.set_title(
-        "Filtered Reference Surface A", fontsize=12, fontweight="bold"
+    _plot_surface_with_colorbar(
+        fig, ax_filtered_ref, im_ref, "Filtered Reference Surface A"
     )
-    divider_ref = make_axes_locatable(ax_filtered_ref)
-    cax_ref = divider_ref.append_axes("right", size="5%", pad=0.05)
-    cbar_ref = fig.colorbar(im_ref, cax=cax_ref, label="Scan Depth [µm]")
-    cbar_ref.ax.tick_params(labelsize=9)
 
     ax_filtered_comp = fig.add_subplot(gs[1, 2:4])
     cell_size_um = compute_cell_size_um(
@@ -113,13 +126,9 @@ def plot_cmc_comparison_overview(
         if metrics.cell_positions_compared is not None
         else None,
     )
-    ax_filtered_comp.set_title(
-        "Filtered, Moved Compared Surface B", fontsize=12, fontweight="bold"
+    _plot_surface_with_colorbar(
+        fig, ax_filtered_comp, im_comp, "Filtered, Moved Compared Surface B"
     )
-    divider_comp = make_axes_locatable(ax_filtered_comp)
-    cax_comp = divider_comp.append_axes("right", size="5%", pad=0.05)
-    cbar_comp = fig.colorbar(im_comp, cax=cax_comp, label="Scan Depth [µm]")
-    cbar_comp.ax.tick_params(labelsize=9)
 
     ax_results = fig.add_subplot(gs[1, 4:6])
     draw_metadata_box(
