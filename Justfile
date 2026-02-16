@@ -1,4 +1,5 @@
 set shell := ["bash", "-c"]
+set windows-shell := ["C:/Program Files/Git/bin/bash.exe", "-c"]
 timeout_seconds := "20"
 
 # Helper function to style echo messages
