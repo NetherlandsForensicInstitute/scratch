@@ -7,11 +7,11 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import Json
 
-from constants import PreprocessorEndpoint, RoutePrefix
+from constants import LIGHT_SOURCES, OBSERVER, PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
-from extractors.schemas import PrepareMarkResponseImpression, PrepareMarkResponseStriation
+from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault
-from preprocessors.controller import process_prepare_mark
+from preprocessors.controller import edit_scan_image, process_prepare_mark
 
 from .pipelines import (
     impression_mark_pipeline,
@@ -100,6 +100,7 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
         files=PrepareMarkResponseImpression.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
         marking_method=partial(impression_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+        params=prepare_mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseImpression.generate_urls(vault.access_url)
@@ -126,6 +127,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
         files=PrepareMarkResponseStriation.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
         marking_method=partial(striation_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
+        params=prepare_mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseStriation.generate_urls(vault.access_url)
@@ -172,7 +174,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
 )
 async def edit_scan(
     params: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)] | None = None
-) -> ProcessedDataAccess:
+) -> GeneratedImages:
     """
     Validate and parse a scan file with edit parameters and optional mask.
 
@@ -180,6 +182,11 @@ async def edit_scan(
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
+    vault = create_vault(params.tag)
+    logger.debug(f"Working directory created on: {vault.resource_path}")
+    parsed_image = parse_scan_pipeline(params.scan_file, params.step_size_x, params.step_size_y)
+    files = GeneratedImages.get_files(vault.resource_path)
+
     if mask_data is not None:
         if params.mask_parameters is None:
             raise HTTPException(HTTPStatus.UNPROCESSABLE_CONTENT, "Invalid request: missing mask parameters.")
@@ -190,8 +197,16 @@ async def edit_scan(
             is_bitpacked=params.mask_parameters.is_bitpacked,
         )
 
-    _ = parse_scan_pipeline(params.scan_file, params.step_size_x, params.step_size_y)
-    vault = create_vault(params.tag)
-
+    edited_scan_image = edit_scan_image(
+        scan_image=parsed_image,
+        edit_image_params=params,
+    )
+    preview_pipeline(parsed_scan=edited_scan_image, output_path=files["preview"])
+    surface_map_pipeline(
+        parsed_scan=edited_scan_image,
+        output_path=files["surface_map"],
+        light_sources=LIGHT_SOURCES,
+        observer=OBSERVER,
+    )
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess.generate_urls(vault.access_url)
+    return GeneratedImages.generate_urls(vault.access_url)

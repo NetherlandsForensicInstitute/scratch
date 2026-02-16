@@ -1,6 +1,8 @@
 from enum import StrEnum
 from pathlib import Path
 
+from container_models.light_source import LightSource
+
 PROJECT_ROOT = Path(__file__).parent.parent
 
 
@@ -56,3 +58,10 @@ class ProcessorEndpoint(StrEnum):
 
 class ComparatorEndpoint(StrEnum):
     ROOT = ""
+
+
+LIGHT_SOURCES = (
+    LightSource(azimuth=90, elevation=45),
+    LightSource(azimuth=180, elevation=45),
+)
+OBSERVER = LightSource(azimuth=90, elevation=45)

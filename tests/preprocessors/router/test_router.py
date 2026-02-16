@@ -3,18 +3,25 @@ from http import HTTPStatus
 from pathlib import Path
 
 import pytest
+from conversion.leveling import SurfaceTerms
 from fastapi.testclient import TestClient
 from loguru import logger
+from pydantic import HttpUrl
+from scipy.constants import micro
+from utils.constants import RegressionOrder
 
 from constants import ImpressionMarks, MaskTypes, PreprocessorEndpoint, RoutePrefix, StriationMarks
+from extractors.schemas import GeneratedImages
 from models import DirectoryAccess
 from preprocessors.schemas import (
     CropInfo,
+    EditImage,
     PrepareMarkImpression,
     PrepareMarkStriation,
     PreprocessingImpressionParams,
     PreprocessingStriationParams,
 )
+from settings import get_settings
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
@@ -92,7 +99,7 @@ class TestPrepareMarkEndpoint:
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
             scan_file=self.scan_file_path,
-            mask_array=[[0, 1], [1, 0]],
+            mask=[[0, 1], [1, 0]],
             crop_info=CropInfo(type=MaskTypes.CIRCLE, data={}, is_foreground=False),
             rotation_angle=15,
             mark_parameters=mark_parameters(),  # type: ignore
@@ -183,3 +190,46 @@ class TestPrepareMarkEndpoint:
             expected_url_start = base_url
             assert url.startswith(directory_access.access_url), f"URL for {key} should start with {expected_url_start}"
             # TODO: retrieve tag and token from url and find file in vault to ensure correctness
+
+
+@pytest.mark.usefixtures("tmp_dir_api")
+def test_edit_image_returns_valid_images(
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tests if the endpoint gives back the expected outcome."""
+    # Arrange
+    base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
+    directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
+
+    params = EditImage(
+        project_name="test",
+        scan_file=scan_directory / "circle.x3p",
+        mask=((False, False, False), (False, True, False), (False, False, False)),
+        cutoff_length=2 * micro,
+        resampling_factor=0.5,
+        terms=SurfaceTerms.PLANE,
+        regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
+        crop=True,
+        step_size_x=1,
+        step_size_y=1,
+    )
+    # Act
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        response = client.post(
+            f"{RoutePrefix.PREPROCESSOR}/{PreprocessorEndpoint.EDIT_SCAN}", json=params.model_dump(mode="json")
+        )
+
+    # Assert
+    expected_response = GeneratedImages(
+        preview=HttpUrl(f"{base_url}/preview.png"),
+        surface_map=HttpUrl(f"{base_url}/surface_map.png"),
+    )
+    assert response.status_code == HTTPStatus.OK, "endpoint is alive"
+    response_model = GeneratedImages.model_validate(response.json())
+    assert response_model == expected_response
+    assert (directory / "preview.png").exists()
+    assert (directory / "surface_map.png").exists()
