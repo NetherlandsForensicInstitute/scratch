@@ -1,16 +1,16 @@
 from dataclasses import dataclass
-from typing import TypedDict
 
 from container_models.base import FloatArray1D, FloatArray2D, ImageRGB
 
 
-class DensityDict(TypedDict):
+@dataclass
+class DensityData:
     """
-    Hold x, and km densities and knm densities at x
+    Kernel density estimates for KM and KNM score distributions.
 
-    :param x: x values
-    :param km_density_at_x: km densities at x
-    :param knm_density_at_x: knm densities at x
+    :param x: x values at which densities are evaluated.
+    :param km_density_at_x: KM density values at x.
+    :param knm_density_at_x: KNM density values at x.
     """
 
     x: FloatArray1D
@@ -33,7 +33,7 @@ class HistogramData:
     scores: FloatArray1D
     labels: FloatArray1D
     bins: int | None
-    densities: DensityDict | None
+    densities: DensityData | None
     new_score: float | None
 
 
