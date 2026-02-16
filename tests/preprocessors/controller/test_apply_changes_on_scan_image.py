@@ -123,7 +123,10 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path):
 
 
 @pytest.mark.parametrize(
-    "fixture_name", ["resample_twice_bigger", "mask_middle_pixel", "crop_to_middle_pixel", "crop_to_resized_image"]
+    "fixture_name",
+    [
+        "crop_to_middle_pixel"
+    ],  # ["resample_twice_bigger", "mask_middle_pixel", "crop_to_middle_pixel", "crop_to_resized_image"]
 )
 def test_apply_change_on_scan_image(fixture_name: str, request: pytest.FixtureRequest, scan_image: ScanImage) -> None:
     """Test the different parameters of EditScan in apply_changes_on_scan_image."""

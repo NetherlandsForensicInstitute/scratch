@@ -3,7 +3,6 @@ from pathlib import Path
 
 import numpy as np
 from container_models.scan_image import ScanImage
-from conversion.leveling.solver.utils import compute_image_center
 from conversion.rotate import rotate_crop_and_mask_image_by_crop
 from loguru import logger
 from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resample
@@ -49,14 +48,11 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage):
         ),
         dtype=np.bool_,
     )
-    reference_point_x, reference_point_y = compute_image_center(scan_image)
     pipeline = [
         Resample(target_shape=output_shape),
         Mask(mask=resampled_mask),
         *([CropToMask(mask=resampled_mask)] if edit_image_params.crop else []),
-        LevelMap(
-            x_reference_point=reference_point_x, y_reference_point=reference_point_y, terms=edit_image_params.terms
-        ),
+        LevelMap(terms=edit_image_params.terms),
         GausianRegressionFilter(
             regression_order=edit_image_params.regression_order, cutoff_length=edit_image_params.cutoff_length
         ),
