@@ -135,3 +135,6 @@ directory = "htmlcov"
 
 [tool.coverage.xml]
 output = "coverage.xml"
+
+[tool.deptry]
+ignore = ["DEP003"]   # transitive depedency check is broken
