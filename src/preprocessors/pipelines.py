@@ -59,7 +59,7 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
     # Note: this follows the Java convention for bitpacking
     packed = np.frombuffer(raw_data, dtype=np.uint8) & 0xFF
     unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)
-    reshaped = unpacked.reshape(shape[0], shape[1] + int(shape[1] % 8 > 0))
+    reshaped = unpacked.reshape(shape[0], shape[1] + int(bool(shape[1] & 7)))
     return reshaped[: shape[0], : shape[1]]
 
 
