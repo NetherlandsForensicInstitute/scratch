@@ -36,11 +36,3 @@ class TestParseMaskPipeline:
         incorrect_shape = (100, 150)
         with pytest.raises(ValueError, match="cannot reshape array"):
             _ = parse_mask_pipeline(raw_data, incorrect_shape)
-
-    def test_pipeline_not_implemented(self, mask_array: BinaryMask) -> None:
-        """Test that the pipeline will raise an error for not implemented operations."""
-        # TODO: Remove test when bit unpacking is implemented.
-        raw_data = mask_array.tobytes(order="C")
-        shape = mask_array.shape
-        with pytest.raises(NotImplementedError):
-            _ = parse_mask_pipeline(raw_data, shape, is_bitpacked=True)
