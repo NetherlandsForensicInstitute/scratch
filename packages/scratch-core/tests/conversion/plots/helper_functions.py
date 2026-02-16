@@ -229,11 +229,6 @@ def create_synthetic_impression_mark(
     )
 
 
-# ============================================================================
-# CCF Comparison Test Helpers (new additions)
-# ============================================================================
-
-
 def create_sample_score_data(
     n_knm: int = 1000, n_km: int = 100, seed: int = 42
 ) -> dict:
