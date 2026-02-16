@@ -176,7 +176,7 @@ async def edit_scan(
     params: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)]
 ) -> GeneratedImages:
     """
-    Validate and parse a scan file with edit parameters and optional mask.
+    Validate and parse a scan file with edit parameters and mask.
 
     Accepts an X3P scan file and edit parameters (mask, zoom, step sizes),
     validates the file format, parses it according to the parameters, and
