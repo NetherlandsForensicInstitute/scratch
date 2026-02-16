@@ -66,21 +66,21 @@ def plot_ccf_comparison_overview(
     fig_height = max(10.0, min(15.0, fig_height))
 
     fig = plt.figure(figsize=(18, fig_height))
-    gs = fig.add_gridspec(3, 6, height_ratios=height_ratios, hspace=0.35, wspace=0.45)
+    gs = fig.add_gridspec(3, 12, height_ratios=height_ratios, hspace=0.35, wspace=0.45)
 
-    ax_meta_ref = fig.add_subplot(gs[0, 0:3])
+    ax_meta_ref = fig.add_subplot(gs[0, 0:6])
     draw_metadata_box(
         ax_meta_ref, metadata_reference, "Reference Profile (A)", wrap_width=wrap_width
     )
 
-    ax_meta_comp = fig.add_subplot(gs[0, 3:6])
+    ax_meta_comp = fig.add_subplot(gs[0, 6:])
     draw_metadata_box(
         ax_meta_comp, metadata_compared, "Compared Profile (B)", wrap_width=wrap_width
     )
 
     scale = mark_reference_filtered.scan_image.scale_x
 
-    ax_heatmap_ref = fig.add_subplot(gs[1, 0:1])
+    ax_heatmap_ref = fig.add_subplot(gs[1, 0:3])
     plot_depth_map_on_axes(
         ax_heatmap_ref,
         fig,
@@ -89,7 +89,7 @@ def plot_ccf_comparison_overview(
         "Filtered Reference Surface A",
     )
 
-    ax_heatmap_comp = fig.add_subplot(gs[1, 1:2])
+    ax_heatmap_comp = fig.add_subplot(gs[1, 3:6])
     plot_depth_map_on_axes(
         ax_heatmap_comp,
         fig,
@@ -98,7 +98,7 @@ def plot_ccf_comparison_overview(
         "Filtered Compared Surface B",
     )
 
-    ax_side = fig.add_subplot(gs[1, 2:4])
+    ax_side = fig.add_subplot(gs[1, 6:9])
     plot_side_by_side_on_axes(
         ax_side,
         fig,
@@ -107,22 +107,22 @@ def plot_ccf_comparison_overview(
         scale,
     )
 
-    ax_results = fig.add_subplot(gs[1, 4:6])
+    ax_results = fig.add_subplot(gs[1, 9:])
     draw_metadata_box(
         ax_results, results_metadata, draw_border=False, wrap_width=wrap_width
     )
 
-    ax_hist = fig.add_subplot(gs[2, 0:2])
+    ax_hist = fig.add_subplot(gs[2, 0:4])
     plot_score_histograms(ax_hist, histogram_data)
     ax_hist.set_title("Score histograms", fontsize=12, fontweight="bold")
 
-    ax_hist_trans = fig.add_subplot(gs[2, 2:4])
+    ax_hist_trans = fig.add_subplot(gs[2, 4:8])
     plot_score_histograms(ax_hist_trans, histogram_data_transformed)
     ax_hist_trans.set_title(
         "Transformed score histograms", fontsize=12, fontweight="bold"
     )
 
-    ax_llr = fig.add_subplot(gs[2, 4:6])
+    ax_llr = fig.add_subplot(gs[2, 8:])
     plot_score_llr_transformation(ax_llr, llr_data)
 
     fig.tight_layout(pad=0.8, h_pad=1.2, w_pad=0.8)

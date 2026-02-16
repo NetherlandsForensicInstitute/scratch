@@ -80,17 +80,6 @@ def create_synthetic_striation_mark(
     )
 
 
-def create_synthetic_profile_data(length: int, seed: int = 42) -> FloatArray2D:
-    """
-    Create synthetic 1D profile data for testing.
-
-    :param length: Length of the profile
-    :param seed: Random seed for reproducibility
-    :return: 1D array (as 2D with height=1) of profile data in meters
-    """
-    return create_synthetic_striation_data(height=1, width=length, seed=seed)
-
-
 def create_synthetic_profile_mark(
     length: int = 200,
     scale: float = 1.5625e-6,
