@@ -68,9 +68,9 @@ smoke-test artifact="" host="127.0.0.1" port="8000": (api-bg artifact) (log "Wai
     done
     @just test-contract
     @if [ "{{ os_family() }}" = "unix" ]; then \
-        kill $(cat api.pid); \
+        kill $(cat api.pid) || true; \
     else \
-        taskkill //PID $(cat api.pid) //F 2>nul; \
+        taskkill //PID $(cat api.pid) //F 2>nul || true; \
     fi
     @rm -f api.pid
 

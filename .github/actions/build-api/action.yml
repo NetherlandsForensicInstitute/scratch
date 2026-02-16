@@ -20,16 +20,7 @@ runs:
     - name: Build artifact
       shell: bash
       run: just build
-    - name: Run tests1
-      shell: bash
-      run: |
-        ./dist/main.exe > server.log 2>&1 &
-        for i in $(seq 1 30); do
-          curl -fs http://127.0.0.1:8000/docs > /dev/null && break
-          sleep 1
-        done
-        just test-contract || true
-        cat server.log
+
     - name: Run tests
       shell: bash
       run: just smoke-test "${{ steps.test_arg.outputs.test_arg }}"
