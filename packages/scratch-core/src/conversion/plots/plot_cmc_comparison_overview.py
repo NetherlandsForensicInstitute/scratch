@@ -9,8 +9,8 @@ from conversion.plots.data_formats import (
     LlrTransformationData,
 )
 from conversion.plots.plot_impression import (
-    _compute_cell_size_um,
-    _plot_cell_overlay_on_axes,
+    compute_cell_size_um,
+    plot_cell_overlay_on_axes,
 )
 from conversion.plots.plot_score_histograms import plot_score_histograms
 from conversion.plots.plot_score_llr_transformation import plot_score_llr_transformation
@@ -45,10 +45,10 @@ def plot_cmc_comparison_overview(
     :param metrics: Comparison metrics including correlation values.
     :param metadata_reference: Metadata dict for reference mark display.
     :param metadata_compared: Metadata dict for compared mark display.
-    :param results_metadata: Pre-built results metadata dict for display.
+    :param results_metadata: Results metadata dict for display.
     :param histogram_data: Input data for score histogram plot.
     :param llr_data: Input data for LogLR transformation plot.
-    :param wrap_width: Maximum characters per line before wrapping.
+    :param wrap_width: Maximum characters per line before wrapping metadata table values.
     :returns: RGB image as uint8 array.
     """
     max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
@@ -61,31 +61,22 @@ def plot_cmc_comparison_overview(
 
     fig = plt.figure(figsize=(16, fig_height))
 
-    gs = fig.add_gridspec(
-        3,
-        3,
-        height_ratios=height_ratios,
-        width_ratios=[0.35, 0.35, 0.30],
-        hspace=0.35,
-        wspace=0.45,
-    )
+    gs = fig.add_gridspec(3, 6, height_ratios=height_ratios, hspace=0.35, wspace=0.45)
 
-    # Row 0: Metadata tables
-    gs_meta = gs[0, :].subgridspec(1, 2, wspace=0.15)
-
-    ax_meta_ref = fig.add_subplot(gs_meta[0, 0])
+    # Row 0: Metadata tables (2 equal halves)
+    ax_meta_ref = fig.add_subplot(gs[0, 0:3])
     draw_metadata_box(
         ax_meta_ref, metadata_reference, "Reference Surface (A)", wrap_width=wrap_width
     )
 
-    ax_meta_comp = fig.add_subplot(gs_meta[0, 1])
+    ax_meta_comp = fig.add_subplot(gs[0, 3:6])
     draw_metadata_box(
         ax_meta_comp, metadata_compared, "Compared Surface (B)", wrap_width=wrap_width
     )
 
-    # Row 1: Filtered surfaces with cell overlay + results metadata
-    ax_filtered_ref = fig.add_subplot(gs[1, 0])
-    im_ref = _plot_cell_overlay_on_axes(
+    # Row 1: Filtered surfaces with cell overlay + results metadata (3 equal thirds)
+    ax_filtered_ref = fig.add_subplot(gs[1, 0:2])
+    im_ref = plot_cell_overlay_on_axes(
         ax_filtered_ref,
         mark_reference_filtered.scan_image.data,
         mark_reference_filtered.scan_image.scale_x,
@@ -102,13 +93,13 @@ def plot_cmc_comparison_overview(
     cbar_ref = fig.colorbar(im_ref, cax=cax_ref, label="Scan Depth [µm]")
     cbar_ref.ax.tick_params(labelsize=9)
 
-    ax_filtered_comp = fig.add_subplot(gs[1, 1])
-    cell_size_um = _compute_cell_size_um(
+    ax_filtered_comp = fig.add_subplot(gs[1, 2:4])
+    cell_size_um = compute_cell_size_um(
         mark_reference_filtered.scan_image.data.shape,
         mark_reference_filtered.scan_image.scale_x,
         metrics.cell_correlations.shape,
     )
-    im_comp = _plot_cell_overlay_on_axes(
+    im_comp = plot_cell_overlay_on_axes(
         ax_filtered_comp,
         mark_compared_filtered.scan_image.data,
         mark_compared_filtered.scan_image.scale_x,
@@ -130,19 +121,17 @@ def plot_cmc_comparison_overview(
     cbar_comp = fig.colorbar(im_comp, cax=cax_comp, label="Scan Depth [µm]")
     cbar_comp.ax.tick_params(labelsize=9)
 
-    ax_results = fig.add_subplot(gs[1, 2])
+    ax_results = fig.add_subplot(gs[1, 4:6])
     draw_metadata_box(
         ax_results, results_metadata, draw_border=False, wrap_width=wrap_width
     )
 
-    # Row 2: Score histograms + LogLR plot
-    gs_bottom = gs[2, :].subgridspec(1, 2, wspace=0.30)
-
-    ax_hist = fig.add_subplot(gs_bottom[0, 0])
+    # Row 2: Score histograms + LogLR plot (2 equal halves)
+    ax_hist = fig.add_subplot(gs[2, 0:3])
     plot_score_histograms(ax_hist, histogram_data)
     ax_hist.set_title("Score histograms", fontsize=12, fontweight="bold")
 
-    ax_llr = fig.add_subplot(gs_bottom[0, 1])
+    ax_llr = fig.add_subplot(gs[2, 3:6])
     plot_score_llr_transformation(ax_llr, llr_data)
 
     fig.tight_layout(pad=0.8, h_pad=1.2, w_pad=0.8)

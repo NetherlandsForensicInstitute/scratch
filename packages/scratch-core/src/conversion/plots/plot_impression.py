@@ -26,7 +26,7 @@ from conversion.plots.utils import (
 )
 
 
-def _compute_cell_size_um(
+def compute_cell_size_um(
     data_shape: tuple[int, ...],
     scale: float,
     cell_grid_shape: tuple[int, ...],
@@ -85,7 +85,7 @@ def plot_impression_comparison_results(
 
     # Cell/CMC-based plots
     scale = mark_reference_filtered.scan_image.scale_x
-    cell_size_um = _compute_cell_size_um(
+    cell_size_um = compute_cell_size_um(
         mark_reference_filtered.scan_image.data.shape,
         scale,
         metrics.cell_correlations.shape,
@@ -181,7 +181,7 @@ def plot_cell_grid_overlay(
     fig_height, fig_width = get_figure_dimensions(height, width)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
-    im = _plot_cell_overlay_on_axes(
+    im = plot_cell_overlay_on_axes(
         ax,
         data,
         scale,
@@ -363,7 +363,7 @@ def plot_comparison_overview(
 
     # Row 2: Filtered surfaces with cell grid overlay + Cell ACCF Distribution
     ax_filtered_ref = fig.add_subplot(gs[2, 0])
-    im_ref = _plot_cell_overlay_on_axes(
+    im_ref = plot_cell_overlay_on_axes(
         ax_filtered_ref,
         mark_reference_filtered.scan_image.data,
         mark_reference_filtered.scan_image.scale_x,
@@ -381,13 +381,13 @@ def plot_comparison_overview(
     cbar_ref.ax.tick_params(labelsize=9)
 
     ax_filtered_comp = fig.add_subplot(gs[2, 1])
-    cell_size_um = _compute_cell_size_um(
+    cell_size_um = compute_cell_size_um(
         mark_reference_filtered.scan_image.data.shape,
         mark_reference_filtered.scan_image.scale_x,
         metrics.cell_correlations.shape,
     )
 
-    im_comp = _plot_cell_overlay_on_axes(
+    im_comp = plot_cell_overlay_on_axes(
         ax_filtered_comp,
         mark_compared_filtered.scan_image.data,
         mark_compared_filtered.scan_image.scale_x,
@@ -534,7 +534,7 @@ def _draw_cell_labels(
             )
 
 
-def _plot_cell_overlay_on_axes(
+def plot_cell_overlay_on_axes(
     ax: Axes,
     data: FloatArray2D,
     scale: float,

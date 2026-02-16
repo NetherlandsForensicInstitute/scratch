@@ -117,26 +117,3 @@ class TestPlotCmcComparisonOverview:
         assert_valid_rgb_image(result)
         assert result.shape[0] > 500, "Figure height too small"
         assert result.shape[1] > 500, "Figure width too small"
-
-    def test_without_optional_markers(
-        self,
-        impression_overview_marks: dict[str, Mark],
-        impression_overview_metrics: ImpressionComparisonMetrics,
-        impression_overview_metadata_reference: dict[str, str],
-        impression_overview_metadata_compared: dict[str, str],
-        sample_results_metadata: dict[str, str],
-        sample_histogram_data: HistogramData,
-        sample_llr_data: LlrTransformationData,
-    ) -> None:
-        result = plot_cmc_comparison_overview(
-            mark_reference_filtered=impression_overview_marks["reference_filtered"],
-            mark_compared_filtered=impression_overview_marks["compared_filtered"],
-            metrics=impression_overview_metrics,
-            metadata_reference=impression_overview_metadata_reference,
-            metadata_compared=impression_overview_metadata_compared,
-            results_metadata=sample_results_metadata,
-            histogram_data=sample_histogram_data,
-            llr_data=sample_llr_data,
-        )
-
-        assert_valid_rgb_image(result)

@@ -27,7 +27,7 @@ class HistogramData:
     :param labels: Array of labels (0 for KNM, 1 for KM).
     :param bins: Number of bins for histogram. If None, uses 'auto' binning.
     :param densities: Optional density curves for histogram overlay.
-    :param new_score: Optional score value to mark as a vertical line.
+    :param new_score: Optional score value to display as a vertical line on the histogram.
     """
 
     scores: FloatArray1D
@@ -40,13 +40,13 @@ class HistogramData:
 @dataclass
 class LlrTransformationData:
     """
-    Input data for LogLR transformation plots.
+    Input data for Log10LR transformation plots.
 
     :param scores: Score axis values.
-    :param llrs: LogLR values.
-    :param llrs_at5: LogLR values at 5% confidence.
-    :param llrs_at95: LogLR values at 95% confidence.
-    :param score_llr_point: Optional (score, llr) coordinate to mark on the plot.
+    :param llrs: Log10LR values.
+    :param llrs_at5: Log10LR values at 5% confidence.
+    :param llrs_at95: Log10LR values at 95% confidence.
+    :param score_llr_point: Optional (score, llr) coordinate to mark the score on the LLR transformation plot.
     """
 
     scores: FloatArray1D
