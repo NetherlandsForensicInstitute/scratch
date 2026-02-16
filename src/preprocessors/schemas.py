@@ -149,9 +149,7 @@ class MaskParameters(BaseModelConfig):
     shape: tuple[PositiveInt, PositiveInt] = Field(
         ..., examples=[[100, 100], [250, 150]], description="Defines the shape of the 2D mask array."
     )
-    is_bitpacked: bool = Field(
-        default=False, examples=[False, True], description="Whether the mask is bit-packed."
-    )  # TODO: create enum/flags for compression types
+    is_bitpacked: bool = Field(default=False, examples=[False, True], description="Whether the mask is bit-packed.")
 
 
 class EditImage(BaseParameters):
