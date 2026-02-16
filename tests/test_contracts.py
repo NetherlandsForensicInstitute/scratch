@@ -143,6 +143,7 @@ class TestContracts:
         )
         # Assert
         assert response.status_code == HTTPStatus.OK
+        assert response.status_code == HTTPStatus.OK, response.text
         expected_response.model_validate(response.json())
 
     def test_extractor_get_file_endpoint(self, directory_access: DirectoryAccess) -> None:
