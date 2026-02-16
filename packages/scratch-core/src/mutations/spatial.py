@@ -22,15 +22,14 @@ All mutations in this module must preserve the semantic content of
 the image while adjusting its spatial representation.
 """
 
+import numpy as np
+
 from container_models.base import BinaryMask
 from computations.spatial import get_bounding_box
 from container_models.scan_image import ScanImage
 from exceptions import ImageShapeMismatchError
-from mutations.base import ImageMutation
-
-import numpy as np
 from loguru import logger
-from pydantic import PositiveFloat
+from mutations.base import ImageMutation
 from skimage.transform import resize
 
 
@@ -66,14 +65,14 @@ class CropToMask(ImageMutation):
 
 
 class Resample(ImageMutation):
-    def __init__(self, x_factor: PositiveFloat, y_factor: PositiveFloat) -> None:
+    def __init__(self, target_shape: tuple[float, float]) -> None:
         """
         Constructor for initiating the Resampling.
 
-        :param factors: The multipliers for the scale of the X- and Y-axis.
+        :param target_shape: The multipliers for the scale of the X- and Y-axis(y first).
         """
-        self.x_factor = x_factor
-        self.y_factor = y_factor
+        self.target_shape_height = target_shape[0]
+        self.target_shape_width = target_shape[1]
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
@@ -82,21 +81,28 @@ class Resample(ImageMutation):
         :param image: Input ScanImage to resample.
         :returns: The resampled ScanImage.
         """
-        output_shape = (
-            1 / self.y_factor * scan_image.height,
-            1 / self.x_factor * scan_image.width,
+        anti_aliasing = (
+            self.target_shape_height < scan_image.height
+            and self.target_shape_width < scan_image.width
         )
         resampled_data = resize(
             image=scan_image.data,
-            output_shape=output_shape,
+            output_shape=(
+                self.target_shape_height,
+                self.target_shape_width,
+            ),
             mode="edge",
-            anti_aliasing=self.x_factor > 1 and self.y_factor > 1,
+            anti_aliasing=anti_aliasing,
         )
+        scale_x_factor = scan_image.width / self.target_shape_width
+        scale_y_factor = scan_image.height / self.target_shape_height
+
         logger.debug(
-            f"Resampling image array to new size: {round(output_shape[0], 1)}/{round(output_shape[1], 1)}"
+            f"Resampling image array to new size: {round(self.target_shape_height, 1)}/{round(self.target_shape_width, 1)} with scale: x:{round(scale_x_factor, 1)}, y:{round(scale_y_factor, 1)}"
         )
+
         return ScanImage(
             data=np.asarray(resampled_data, dtype=scan_image.data.dtype),
-            scale_x=scan_image.scale_x * self.x_factor,
-            scale_y=scan_image.scale_y * self.y_factor,
+            scale_x=scan_image.scale_x * scale_x_factor,
+            scale_y=scan_image.scale_y * scale_y_factor,
         )

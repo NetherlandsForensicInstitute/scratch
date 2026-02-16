@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from enum import StrEnum, auto
 from functools import cached_property
 from typing import Annotated, Self
 
 import numpy as np
 from container_models.light_source import LightSource
+from conversion.leveling.data_types import SurfaceTerms
 from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
@@ -15,8 +15,9 @@ from pydantic import (
     model_validator,
 )
 from scipy.constants import micro
+from utils.constants import RegressionOrder
 
-from constants import ImpressionMarks, MaskTypes, StriationMarks
+from constants import LIGHT_SOURCES, OBSERVER, ImpressionMarks, MaskTypes, StriationMarks
 from models import (
     BaseModelConfig,
     ProjectTag,
@@ -49,10 +50,7 @@ class BaseParameters(BaseModelConfig):
 
 class UploadScan(BaseParameters):
     light_sources: tuple[LightSource, ...] = Field(
-        (
-            LightSource(azimuth=90, elevation=45),
-            LightSource(azimuth=180, elevation=45),
-        ),
+        LIGHT_SOURCES,
         description="Light sources for surface illumination rendering.",
         examples=[
             (
@@ -62,7 +60,7 @@ class UploadScan(BaseParameters):
         ],
     )
     observer: LightSource = Field(
-        LightSource(azimuth=90, elevation=45),
+        OBSERVER,
         description="Observer viewpoint vector for surface rendering.",
         examples=[LightSource(azimuth=90, elevation=45)],
     )
@@ -109,7 +107,7 @@ class PreprocessingStriationParams(BaseModelConfig):
 
 class PrepareMarkStriation(BaseParameters):
     mark_type: StriationMarks = Field(..., description="Type of mark to prepare.")
-    mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
+    mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
     rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
     crop_info: CropInfo | None = Field(
         None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
@@ -118,30 +116,33 @@ class PrepareMarkStriation(BaseParameters):
         ..., description="Preprocessor parameters."
     )  # TODO: not yet merged dataclass from PR #84
 
+    @cached_property
+    def mask_array(self) -> NDArray:
+        """
+        Convert the mask tuple to a numpy boolean array.
+
+        :return: 2D numpy array of boolean values representing the mask
+        """
+        return np.array(self.mask, np.bool_)
+
 
 class PrepareMarkImpression(BaseParameters):
     mark_type: ImpressionMarks = Field(..., description="Type of mark to prepare.")
-    mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
+    mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
     rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
     crop_info: CropInfo | None = Field(
         None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
     )
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
 
+    @cached_property
+    def mask_array(self) -> NDArray:
+        """
+        Convert the mask tuple to a numpy boolean array.
 
-class Terms(StrEnum):
-    """Surface fitting terms for leveling operations."""
-
-    PLANE = auto()
-    SPHERE = auto()
-
-
-class RegressionOrder(StrEnum):
-    """Polynomial regression order for surface leveling."""
-
-    RO = auto()
-    R1 = auto()
-    R2 = auto()
+        :return: 2D numpy array of boolean values representing the mask
+        """
+        return np.array(self.mask, np.bool_)
 
 
 type Mask = tuple[tuple[bool, ...], ...]
@@ -171,14 +172,14 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: Terms = Field(
-        default=Terms.PLANE,
+    terms: SurfaceTerms = Field(
+        default=SurfaceTerms.PLANE,
         description=(
             "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
         ),
     )
     regression_order: RegressionOrder = Field(
-        default=RegressionOrder.RO,
+        default=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         description="Polynomial regression order for surface fitting. R0 (constant), R1 (linear), or R2 (quadratic).",
     )
     crop: bool = Field(

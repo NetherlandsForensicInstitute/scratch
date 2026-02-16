@@ -87,6 +87,7 @@ class TestExportedMarkData:
         assert data.meta_data == {}
 
 
+@pytest.mark.integration
 class TestSaveAndLoadMark:
     """Tests for `save_mark` and `load_mark_from_path` functions."""
 
