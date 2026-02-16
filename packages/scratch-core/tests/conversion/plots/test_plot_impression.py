@@ -9,7 +9,7 @@ from conversion.plots.data_formats import (
 )
 from conversion.plots.plot_impression import (
     _plot_cell_heatmap_on_axes,
-    _plot_cell_overlay_on_axes,
+    plot_cell_overlay_on_axes,
     plot_cell_correlation_heatmap,
     plot_cell_grid_overlay,
     plot_comparison_overview,
@@ -345,12 +345,12 @@ class TestPlotCellHeatmapOnAxes:
 
 
 class TestPlotCellOverlayOnAxes:
-    """Tests for _plot_cell_overlay_on_axes helper."""
+    """Tests for plot_cell_overlay_on_axes helper."""
 
     def test_returns_axes_image(self, impression_sample_depth_data: np.ndarray):
         correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
         fig, ax = plt.subplots()
-        im = _plot_cell_overlay_on_axes(
+        im = plot_cell_overlay_on_axes(
             ax, impression_sample_depth_data, 1.5e-6, correlations
         )
         assert im is not None
@@ -360,7 +360,7 @@ class TestPlotCellOverlayOnAxes:
     def test_custom_label_prefix(self, impression_sample_depth_data: np.ndarray):
         correlations = np.array([[0.5, 0.5]])
         fig, ax = plt.subplots()
-        _plot_cell_overlay_on_axes(
+        plot_cell_overlay_on_axes(
             ax,
             impression_sample_depth_data,
             1.5e-6,
@@ -375,7 +375,7 @@ class TestPlotCellOverlayOnAxes:
     def test_grid_mode_draws_rectangles(self, impression_sample_depth_data: np.ndarray):
         correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
         fig, ax = plt.subplots()
-        _plot_cell_overlay_on_axes(
+        plot_cell_overlay_on_axes(
             ax, impression_sample_depth_data, 1.5e-6, correlations
         )
         # Should have lines for cell borders + labels
@@ -395,7 +395,7 @@ class TestPlotCellOverlayOnAxes:
         rotations = np.array([np.deg2rad(10), 0.0])
 
         fig, ax = plt.subplots()
-        _plot_cell_overlay_on_axes(
+        plot_cell_overlay_on_axes(
             ax,
             impression_sample_depth_data,
             scale,

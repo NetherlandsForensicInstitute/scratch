@@ -26,6 +26,20 @@ from conversion.plots.utils import (
 )
 
 
+def compute_cell_size_um(
+    data_shape: tuple[int, ...],
+    scale: float,
+    cell_grid_shape: tuple[int, ...],
+) -> tuple[float, float]:
+    """Derive (width, height) cell size in µm from reference surface dimensions."""
+    height, width = data_shape
+    n_rows, n_cols = cell_grid_shape
+    return (
+        width * scale * 1e6 / n_cols,
+        height * scale * 1e6 / n_rows,
+    )
+
+
 def plot_impression_comparison_results(
     mark_reference_leveled: Mark,
     mark_compared_leveled: Mark,
@@ -71,11 +85,10 @@ def plot_impression_comparison_results(
 
     # Cell/CMC-based plots
     scale = mark_reference_filtered.scan_image.scale_x
-    ref_h, ref_w = mark_reference_filtered.scan_image.data.shape
-    n_cell_rows, n_cell_cols = metrics.cell_correlations.shape
-    cell_size_um = (
-        ref_w * scale * 1e6 / n_cell_cols,
-        ref_h * scale * 1e6 / n_cell_rows,
+    cell_size_um = compute_cell_size_um(
+        mark_reference_filtered.scan_image.data.shape,
+        scale,
+        metrics.cell_correlations.shape,
     )
     cell_ref = plot_cell_grid_overlay(
         data=mark_reference_filtered.scan_image.data,
@@ -168,7 +181,7 @@ def plot_cell_grid_overlay(
     fig_height, fig_width = get_figure_dimensions(height, width)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
-    im = _plot_cell_overlay_on_axes(
+    im = plot_cell_overlay_on_axes(
         ax,
         data,
         scale,
@@ -350,7 +363,7 @@ def plot_comparison_overview(
 
     # Row 2: Filtered surfaces with cell grid overlay + Cell ACCF Distribution
     ax_filtered_ref = fig.add_subplot(gs[2, 0])
-    im_ref = _plot_cell_overlay_on_axes(
+    im_ref = plot_cell_overlay_on_axes(
         ax_filtered_ref,
         mark_reference_filtered.scan_image.data,
         mark_reference_filtered.scan_image.scale_x,
@@ -368,15 +381,13 @@ def plot_comparison_overview(
     cbar_ref.ax.tick_params(labelsize=9)
 
     ax_filtered_comp = fig.add_subplot(gs[2, 1])
-    ref_h, ref_w = mark_reference_filtered.scan_image.data.shape
-    ref_scale = mark_reference_filtered.scan_image.scale_x
-    n_rows, n_cols = metrics.cell_correlations.shape
-    cell_size_um = (
-        ref_w * ref_scale * 1e6 / n_cols,
-        ref_h * ref_scale * 1e6 / n_rows,
+    cell_size_um = compute_cell_size_um(
+        mark_reference_filtered.scan_image.data.shape,
+        mark_reference_filtered.scan_image.scale_x,
+        metrics.cell_correlations.shape,
     )
 
-    im_comp = _plot_cell_overlay_on_axes(
+    im_comp = plot_cell_overlay_on_axes(
         ax_filtered_comp,
         mark_compared_filtered.scan_image.data,
         mark_compared_filtered.scan_image.scale_x,
@@ -523,7 +534,7 @@ def _draw_cell_labels(
             )
 
 
-def _plot_cell_overlay_on_axes(
+def plot_cell_overlay_on_axes(
     ax: Axes,
     data: FloatArray2D,
     scale: float,

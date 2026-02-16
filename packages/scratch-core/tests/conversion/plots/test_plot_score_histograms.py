@@ -4,7 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 
-from conversion.plots.plot_score_histograms import plot_score_histograms, DensityDict
+from conversion.plots.data_formats import DensityData, HistogramData
+from conversion.plots.plot_score_histograms import plot_score_histograms
 from matplotlib.figure import Figure
 from scipy.stats import gaussian_kde
 
@@ -46,7 +47,7 @@ def assert_valid_score_histogram(fig: Figure):
 
 
 @pytest.fixture
-def densities() -> DensityDict:
+def densities() -> DensityData:
     x = np.linspace(0, 50, 500)
 
     scores, labels = generate_test_data()
@@ -55,11 +56,11 @@ def densities() -> DensityDict:
     kde_knm = gaussian_kde(knm_scores)
     kde_km = gaussian_kde(km_scores)
 
-    return {
-        "x": x,
-        "km_density_at_x": kde_km(x),
-        "knm_density_at_x": kde_knm(x),
-    }
+    return DensityData(
+        x=x,
+        km_density_at_x=kde_km(x),
+        knm_density_at_x=kde_knm(x),
+    )
 
 
 @pytest.mark.integration
@@ -74,7 +75,7 @@ def densities() -> DensityDict:
 )
 def test_plot_score_histograms(
     tmp_path: Path,
-    densities: DensityDict,
+    densities: DensityData,
     new_score: float | None,
     bins: int,
     show_density: bool,
@@ -82,14 +83,14 @@ def test_plot_score_histograms(
     scores, labels = generate_test_data()
     fig, ax = plt.subplots()
 
-    plot_score_histograms(
-        scores,
-        labels,
-        new_score=new_score,
+    data = HistogramData(
+        scores=scores,
+        labels=labels,
         bins=bins,
-        ax=ax,
         densities=densities if show_density else None,
+        new_score=new_score,
     )
+    plot_score_histograms(ax, data)
     assert_plot_is_valid_image(fig, tmp_path)
     assert_valid_score_histogram(fig)
     plt.close()
