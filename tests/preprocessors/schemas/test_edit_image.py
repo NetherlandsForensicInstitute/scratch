@@ -173,4 +173,4 @@ class TestEditImage:
             EditImage()  # type: ignore
 
         # Assert
-        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length")
+        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "mask_parameters")

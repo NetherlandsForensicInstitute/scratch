@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from constants import PROJECT_ROOT
 from extractors.schemas import (
+    GeneratedImages,
     PrepareMarkResponseImpression,
     PrepareMarkResponseStriation,
     ProcessedDataAccess,
@@ -109,7 +110,7 @@ class TestContracts:
             cutoff_length=CUTOFF_LENGTH,
             mask_parameters=MaskParameters(shape=MASK_SHAPE),
         )
-        return data, ProcessedDataAccess
+        return data, GeneratedImages
 
     @pytest.mark.parametrize(
         "route",

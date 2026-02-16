@@ -173,7 +173,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     },
 )
 async def edit_scan(
-    params: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)] | None = None
+    params: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)]
 ) -> GeneratedImages:
     """
     Validate and parse a scan file with edit parameters and optional mask.
@@ -182,25 +182,20 @@ async def edit_scan(
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
+    if params.mask_parameters is None:
+        raise HTTPException(HTTPStatus.UNPROCESSABLE_CONTENT, "Invalid request: missing mask parameters.")
+
     vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
     parsed_image = parse_scan_pipeline(params.scan_file, params.step_size_x, params.step_size_y)
     files = GeneratedImages.get_files(vault.resource_path)
-
-    if mask_data is not None:
-        if params.mask_parameters is None:
-            raise HTTPException(HTTPStatus.UNPROCESSABLE_CONTENT, "Invalid request: missing mask parameters.")
-
-        _ = parse_mask_pipeline(
-            raw_data=await mask_data.read(),
-            shape=params.mask_parameters.shape,
-            is_bitpacked=params.mask_parameters.is_bitpacked,
-        )
-
-    edited_scan_image = edit_scan_image(
-        scan_image=parsed_image,
-        edit_image_params=params,
+    parsed_mask = parse_mask_pipeline(
+        raw_data=await mask_data.read(),
+        shape=params.mask_parameters.shape,
+        is_bitpacked=params.mask_parameters.is_bitpacked,
     )
+
+    edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
     preview_pipeline(parsed_scan=edited_scan_image, output_path=files["preview"])
     surface_map_pipeline(
         parsed_scan=edited_scan_image,

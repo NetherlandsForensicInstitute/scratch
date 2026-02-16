@@ -191,7 +191,7 @@ class EditImage(BaseParameters):
         description="Subsampling step size in y-direction. Values > 1 reduce resolution by skipping pixels.",
         examples=[1, 2, 4],
     )
-    mask_parameters: MaskParameters | None = Field(default=None, description="Mask parameters.")
+    mask_parameters: MaskParameters = Field(..., description="Mask parameters.")
 
     @model_validator(mode="after")
     def check_file_is_x3p(self):
@@ -210,7 +210,7 @@ class EditImage(BaseParameters):
         attr_to_class = (
             ("scan_file", "ScanFile"),
             ("regression_order", "RegressionOrder"),
-            ("terms", "Terms"),
+            ("terms", "SurfaceTerms"),
             ("project_name", "ProjectTag"),
         )
         for attribute, class_name in attr_to_class:
