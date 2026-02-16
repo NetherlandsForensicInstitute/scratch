@@ -23,4 +23,4 @@ runs:
 
     - name: Run tests
       shell: bash
-      run: just smoke-test "${{ steps.test_arg.outputs.test_arg }}"
+      run: just smoke-test "${{ steps.test_arg.outputs.test_arg }}" "127.0.0.1"
