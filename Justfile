@@ -61,8 +61,11 @@ test-contract: (log "Running contract tests...")
     uv run pytest -m 'contract_testing'
 
 # Run all endpoints health checks
-smoke-test artifact="" host="0.0.0.0" port="8000": (api-bg artifact) (log "Waiting for API to be ready...")
-    timeout {{timeout_seconds}} bash -c 'until curl -fs http://{{ host }}:{{ port }}/docs > /dev/null; do sleep 1; done'
+smoke-test artifact="" host="127.0.0.1" port="8000": (api-bg artifact) (log "Waiting for API to be ready...")
+    for i in $(seq 1 {{timeout_seconds}}); do \
+        curl -fs http://{{ host }}:{{ port }}/docs > /dev/null && break; \
+        sleep 1; \
+    done
     @just test-contract
     @if [ "{{ os_family() }}" = "unix" ]; then \
         kill $(cat api.pid); \
