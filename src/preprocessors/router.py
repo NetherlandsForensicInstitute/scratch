@@ -2,7 +2,7 @@ from functools import partial
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import Json
@@ -182,18 +182,15 @@ async def edit_scan(
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
-    if params.mask_parameters is None:
-        raise HTTPException(HTTPStatus.UNPROCESSABLE_CONTENT, "Invalid request: missing mask parameters.")
-
     vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
     parsed_image = parse_scan_pipeline(params.scan_file, params.step_size_x, params.step_size_y)
-    files = GeneratedImages.get_files(vault.resource_path)
     parsed_mask = parse_mask_pipeline(
         raw_data=await mask_data.read(),
         shape=params.mask_parameters.shape,
         is_bitpacked=params.mask_parameters.is_bitpacked,
     )
+    files = GeneratedImages.get_files(vault.resource_path)
 
     edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
     preview_pipeline(parsed_scan=edited_scan_image, output_path=files["preview"])
