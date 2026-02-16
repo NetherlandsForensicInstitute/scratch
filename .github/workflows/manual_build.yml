@@ -16,6 +16,7 @@ jobs:
 
       - name: Install dependencies
         run: just install
+        shell: bash
 
       - name: Build and test
         uses: ./.github/actions/build-api
