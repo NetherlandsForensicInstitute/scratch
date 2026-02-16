@@ -54,12 +54,13 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
     :returns: The 2D mask array.
     """
     if not is_bitpacked:
-        # TODO: rewrite logic to use `run_pipeline()`
-        array = np.frombuffer(raw_data, dtype=np.bool).reshape(*shape)
-        return array
-    else:
-        # TODO: implement unpacking of bits
-        raise NotImplementedError
+        return np.frombuffer(raw_data, dtype=np.bool).reshape(*shape)
+
+    # Note: this follows the Java convention for bitpacking
+    packed = np.frombuffer(raw_data, dtype=np.uint8) & 0xFF
+    unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)
+    reshaped = unpacked.reshape(shape[0], shape[1] + int(shape[1] % 8 > 0))
+    return reshaped[: shape[0], : shape[1]]
 
 
 def x3p_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:

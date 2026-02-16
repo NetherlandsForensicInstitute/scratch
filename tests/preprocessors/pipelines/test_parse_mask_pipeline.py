@@ -22,6 +22,14 @@ class TestParseMaskPipeline:
         # Assert
         assert np.array_equal(parsed_mask, mask_array)
 
+    def test_pipeline_can_parse_bitpacked_mask(self, mask_bitpacked: bytes, mask_original: BinaryMask) -> None:
+        """Test that the pipeline can parse a 2D mask from binary data."""
+        # Act
+        parsed_mask = parse_mask_pipeline(mask_bitpacked, shape=mask_original.shape, is_bitpacked=True)
+        # Assert
+        assert parsed_mask.shape == mask_original.shape
+        assert np.array_equal(parsed_mask, mask_original)
+
     def test_pipeline_raises_on_incorrect_shape(self, mask_array: BinaryMask) -> None:
         """Test that the pipeline will raise an error if the shape is incorrect."""
         raw_data = mask_array.tobytes(order="C")
