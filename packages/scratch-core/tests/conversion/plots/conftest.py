@@ -2,14 +2,14 @@ import numpy as np
 import pytest
 
 from container_models.base import FloatArray2D
-from conversion.data_formats import Mark
-from conversion.plots.data_formats import (
-    StriationComparisonMetrics,
-    ImpressionComparisonMetrics,
-)
-
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType
+from conversion.data_formats import Mark, MarkType
+from conversion.plots.data_formats import (
+    HistogramData,
+    ImpressionComparisonMetrics,
+    LlrTransformationData,
+    StriationComparisonMetrics,
+)
 
 from .helper_functions import (
     create_synthetic_impression_data,
@@ -310,3 +310,118 @@ def impression_overview_metadata_compared() -> dict[str, str]:
         "Specimen ID": "kras_2_r01",
         "Measurement ID": "afsloeting_2",
     }
+
+
+@pytest.fixture
+def ccf_results_metadata() -> dict[str, str]:
+    return {
+        "Date report": "2023-02-16",
+        "User ID": "RUHES (apc_abal)",
+        "Mark type": "Aperture shear striation",
+        "Score type": "CCF",
+        "Score (transform)": "0.97 (1.86)",
+        "LogLR (5%, 95%)": "5.19 (5.17, 5.24)",
+        "# of KM scores": "1144",
+        "# of KNM scores": "296462",
+    }
+
+
+@pytest.fixture
+def ccf_histogram_data() -> HistogramData:
+    rng = np.random.default_rng(42)
+    knm_scores = rng.beta(2, 5, 1000)
+    km_scores = rng.beta(8, 2, 100)
+    scores = np.concatenate([knm_scores, km_scores])
+    labels = np.concatenate([np.zeros(1000), np.ones(100)])
+    return HistogramData(
+        scores=scores,
+        labels=labels,
+        bins=None,
+        densities=None,
+        new_score=None,
+    )
+
+
+@pytest.fixture
+def ccf_histogram_data_transformed(ccf_histogram_data: HistogramData) -> HistogramData:
+    return HistogramData(
+        scores=0.52 + ccf_histogram_data.scores * 0.47,
+        labels=ccf_histogram_data.labels,
+        bins=None,
+        densities=None,
+        new_score=None,
+    )
+
+
+@pytest.fixture
+def ccf_llr_data(
+    ccf_histogram_data_transformed: HistogramData,
+) -> LlrTransformationData:
+    scores_t = ccf_histogram_data_transformed.scores
+    score_grid = np.linspace(scores_t.min(), scores_t.max(), 100)
+    llrs = 5 * (score_grid - 0.75) ** 2 - 2
+    return LlrTransformationData(
+        scores=score_grid,
+        llrs=llrs,
+        llrs_at5=llrs - 0.5,
+        llrs_at95=llrs + 0.5,
+        score_llr_point=None,
+    )
+
+
+@pytest.fixture
+def cmc_results_metadata(
+    impression_overview_metrics: ImpressionComparisonMetrics,
+) -> dict[str, str]:
+    metrics = impression_overview_metrics
+    n_cell_rows, n_cell_cols = metrics.cell_correlations.shape
+    n_cells = n_cell_rows * n_cell_cols
+    n_cmc = int(np.sum(metrics.cell_correlations >= metrics.cell_similarity_threshold))
+    return {
+        "Date report": "2023-02-16",
+        "User ID": "test_user",
+        "Mark type": "Breech face impression",
+        "Collection name": "test_collection",
+        "KM model": "Beta-binomial",
+        "KNM model": "Binomial",
+        "Score type": "CMC",
+        "Score (transform)": f"{n_cmc} of {n_cells}",
+        "LogLR (5%, 95%)": "4.87 (4.87, 4.87)",
+        "LR (5%, 95%)": "7.41e+04 (7.41e+04, 7.41e+04)",
+        "# of KM scores": "500",
+        "# of KNM scores": "5000",
+    }
+
+
+@pytest.fixture
+def cmc_histogram_data() -> HistogramData:
+    rng = np.random.default_rng(42)
+    n_knm, n_km = 5000, 500
+    knm_scores = rng.exponential(scale=2.0, size=n_knm)
+    km_scores = np.clip(rng.normal(loc=28, scale=5, size=n_km), 0, None)
+    scores = np.concatenate([knm_scores, km_scores])
+    labels = np.concatenate([np.zeros(n_knm), np.ones(n_km)])
+    return HistogramData(
+        scores=scores,
+        labels=labels,
+        bins=20,
+        densities=None,
+        new_score=None,
+    )
+
+
+@pytest.fixture
+def cmc_llr_data() -> LlrTransformationData:
+    llr_scores = np.linspace(0, 55, 200)
+    llrs = np.piecewise(
+        llr_scores,
+        [llr_scores < 20, llr_scores >= 20],
+        [lambda s: -2 + 0.1 * s, lambda s: -2 + 0.35 * (s - 10)],
+    )
+    return LlrTransformationData(
+        scores=llr_scores,
+        llrs=llrs,
+        llrs_at5=llrs - 0.3,
+        llrs_at95=llrs + 0.3,
+        score_llr_point=None,
+    )

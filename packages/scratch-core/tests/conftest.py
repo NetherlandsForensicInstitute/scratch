@@ -9,6 +9,7 @@ from loguru import logger
 from container_models.base import DepthData, BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType, Mark
+from conversion.profile_correlator import Profile
 from parsers.loaders import load_scan_image
 from .helper_function import unwrap_result
 
@@ -108,3 +109,31 @@ def mark(scan_image: ScanImage) -> Mark:
         scan_image=scan_image,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
     )
+
+
+@pytest.fixture
+def profile_with_nans(pixel_size_05um: float) -> Profile:
+    """Create a profile with some NaN values for NaN handling tests."""
+    np.random.seed(45)
+    x = np.linspace(0, 10 * np.pi, 1000)
+    data = np.sin(x) * 1e-6
+    data += np.random.normal(0, 0.01e-6, len(data))
+
+    # Insert some NaN values
+    data[100:110] = np.nan  # Block of NaNs
+    data[500] = np.nan  # Single NaN
+    data[700:750] = np.nan  # Larger block
+
+    return Profile(heights=data, pixel_size=pixel_size_05um)
+
+
+@pytest.fixture
+def pixel_size_05um() -> float:
+    """Standard pixel size of 0.5 micrometers in meters."""
+    return 0.5e-6
+
+
+@pytest.fixture
+def pixel_size_1um() -> float:
+    """Standard pixel size of 1.0 micrometer in meters."""
+    return 1.0e-6
