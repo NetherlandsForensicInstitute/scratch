@@ -1,10 +1,15 @@
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
+from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import BoundingBox, Mark, MarkType
+from conversion.export.mark import save_mark
 from conversion.leveling.solver.utils import compute_image_center
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+from conversion.preprocess_impression.preprocess_impression import preprocess_impression_mark
+from conversion.preprocess_striation import PreprocessingStriationParams
+from conversion.preprocess_striation.pipeline import preprocess_striation_mark
 from conversion.resample import resample_mark
 from conversion.rotate import rotate_crop_and_mask_image_by_crop
 from loguru import logger
@@ -12,34 +17,33 @@ from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resam
 from skimage.transform import resize
 
 from constants import LIGHT_SOURCES, OBSERVER
-from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline, x3p_pipeline
-from preprocessors.schemas import (
-    EditImage,
-    PrepareMarkImpression,
-    PrepareMarkStriation,
-)
+from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline
+from preprocessors.schemas import EditImage
 
 
-def process_prepare_mark(
+def process_prepare_impression_mark(  # noqa: PLR0913
     scan_file: Path,
-    marking_method: Callable[[Mark], tuple[Mark, Mark]],
-    params: PrepareMarkImpression | PrepareMarkStriation,
+    mark_type: MarkType,
+    mask: BinaryMask,
+    bounding_box: BoundingBox,
+    preprocess_parameters: PreprocessingImpressionParams,
     files: dict[str, Path],
 ) -> dict[str, Path]:
-    """Prepare striation and impression mark data."""
+    """Prepare impression mark data."""
+    logger.info("Parsing scan image")
     parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
-    mask = np.ones(parsed_scan.data.shape)  # fix
-    rotated_image = rotate_crop_and_mask_image_by_crop(
-        scan_image=parsed_scan, mask=mask, bounding_box=params.bounding_box
-    )
+    logger.info("Rotating and cropping scan image")
+    rotated_image = rotate_crop_and_mask_image_by_crop(scan_image=parsed_scan, mask=mask, bounding_box=bounding_box)
+    logger.info("Transforming scan image to mark")
     mark = Mark(
         scan_image=rotated_image,
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,  # fix
+        mark_type=mark_type,
     )
     mark = resample_mark(mark)
     logger.info("Preparing mark")
-    processed_mark, _ = marking_method(mark)
-    logger.info("saving x3p, surface_map.png and preview.png")
+    print(mark.scan_image.valid_mask)
+    processed_mark, levelled_mark = preprocess_impression_mark(mark, params=preprocess_parameters)
+    logger.info("saving marks, surface_map.png and preview.png")
     surface_map_pipeline(
         parsed_scan=processed_mark.scan_image,
         output_path=files["surface_map"],
@@ -47,7 +51,44 @@ def process_prepare_mark(
         light_sources=LIGHT_SOURCES,
     )
     preview_pipeline(parsed_scan=processed_mark.scan_image, output_path=files["preview"])
-    x3p_pipeline(parsed_scan=processed_mark.scan_image, output_path=files["scan"])
+    save_mark(mark, path=files["mark_data"])
+    save_mark(processed_mark, path=files["processed_data"])
+    save_mark(levelled_mark, path=files["leveled_data"])
+    return files
+
+
+def process_prepare_striation_mark(  # noqa: PLR0913
+    scan_file: Path,
+    mark_type: MarkType,
+    mask: BinaryMask,
+    bounding_box: BoundingBox,
+    preprocess_parameters: PreprocessingStriationParams,
+    files: dict[str, Path],
+) -> dict[str, Path]:
+    """Prepare striation mark data."""
+    logger.info("Parsing scan image")
+    parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
+    logger.info("Rotating and cropping scan image")
+    rotated_image = rotate_crop_and_mask_image_by_crop(scan_image=parsed_scan, mask=mask, bounding_box=bounding_box)
+    logger.info("Transforming scan image to mark")
+    mark = Mark(
+        scan_image=rotated_image,
+        mark_type=mark_type,
+    )
+    mark = resample_mark(mark)
+    logger.info("Preparing mark")
+    processed_mark, profile = preprocess_striation_mark(mark, params=preprocess_parameters)
+    logger.info("saving marks, surface_map.png and preview.png")
+    surface_map_pipeline(
+        parsed_scan=processed_mark.scan_image,
+        output_path=files["surface_map"],
+        observer=OBSERVER,
+        light_sources=LIGHT_SOURCES,
+    )
+    preview_pipeline(parsed_scan=processed_mark.scan_image, output_path=files["preview"])
+    save_mark(mark, path=files["mark_data"])
+    save_mark(processed_mark, path=files["processed_data"])
+    save_mark(profile, path=files["profile_data"])  # todo make save_profile
     return files
 
 

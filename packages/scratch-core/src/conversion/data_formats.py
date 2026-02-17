@@ -2,7 +2,6 @@ from typing import Annotated
 from enum import StrEnum, auto
 import json
 
-from constants import StriationMarks, ImpressionMarks
 from container_models.base import (
     FloatArray2D,
 )
@@ -77,7 +76,7 @@ class Mark(ConfigBaseModel):
     """
 
     scan_image: ScanImage
-    mark_type: MarkType | ImpressionMarks | StriationMarks
+    mark_type: MarkType
     meta_data: dict = Field(default_factory=dict)
     center_: tuple[float, float] | None = Field(default=None, alias="center")
 

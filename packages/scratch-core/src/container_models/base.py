@@ -99,6 +99,7 @@ class ConfigBaseModel(BaseModel):
         arbitrary_types_allowed=True,
         regex_engine="rust-regex",
         revalidate_instances="always",
+        ignored_types=(cached_property,),
     )
 
     def model_copy(self, *, update=None, deep=False):

@@ -99,7 +99,7 @@ class TestSaveAndLoadMark:
             meta_data={"test": "data"},
         )
 
-        save_mark(mark, tmp_path, "test_mark")
+        save_mark(mark, tmp_path / "test_mark")
 
         assert (tmp_path / "test_mark.json").is_file()
         assert (tmp_path / "test_mark.npz").is_file()
@@ -112,7 +112,7 @@ class TestSaveAndLoadMark:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
 
-        save_mark(mark, nested_path, "test_mark")
+        save_mark(mark, nested_path / "test_mark")
 
         assert nested_path.exists()
         assert (nested_path / "test_mark.json").is_file()
@@ -126,7 +126,7 @@ class TestSaveAndLoadMark:
             meta_data={"key": "value"},
         )
 
-        save_mark(mark, tmp_path, "test_mark")
+        save_mark(mark, tmp_path / "test_mark")
 
         with open(tmp_path / "test_mark.json", "r") as f:
             data = json.load(f)
@@ -150,7 +150,7 @@ class TestSaveAndLoadMark:
             center=(123.4, 567.8),
         )
 
-        save_mark(original_mark, tmp_path, "test_mark")
+        save_mark(original_mark, tmp_path / "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
         assert loaded_mark.mark_type == original_mark.mark_type
@@ -168,7 +168,7 @@ class TestSaveAndLoadMark:
             mark_type=MarkType.BULLET_GEA_STRIATION,
         )
 
-        save_mark(original_mark, tmp_path, "test_mark")
+        save_mark(original_mark, tmp_path / "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
         np.testing.assert_array_equal(
@@ -185,7 +185,7 @@ class TestSaveAndLoadMark:
         )
         # Don't set explicit center - should compute from image dimensions
 
-        save_mark(original_mark, tmp_path, "test_mark")
+        save_mark(original_mark, tmp_path / "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
         expected_center = (scan_image.height / 2, scan_image.width / 2)
@@ -232,7 +232,7 @@ class TestSaveAndLoadMark:
             meta_data=complex_meta,
         )
 
-        save_mark(original_mark, tmp_path, "test_mark")
+        save_mark(original_mark, tmp_path / "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
         assert loaded_mark.meta_data == complex_meta
@@ -253,8 +253,8 @@ class TestSaveAndLoadMark:
             meta_data={"id": 2},
         )
 
-        save_mark(mark1, tmp_path, "mark1")
-        save_mark(mark2, tmp_path, "mark2")
+        save_mark(mark1, tmp_path / "mark1")
+        save_mark(mark2, tmp_path / "mark2")
 
         loaded_mark1 = load_mark_from_path(tmp_path, "mark1")
         loaded_mark2 = load_mark_from_path(tmp_path, "mark2")

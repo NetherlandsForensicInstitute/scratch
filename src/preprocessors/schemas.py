@@ -7,6 +7,8 @@ import numpy as np
 from container_models.light_source import LightSource
 from conversion.data_formats import BoundingBox
 from conversion.leveling.data_types import SurfaceTerms
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+from conversion.preprocess_striation import PreprocessingStriationParams
 from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
@@ -92,57 +94,6 @@ class CropInfo(BaseModelConfig):
     type: MaskTypes
     data: dict
     is_foreground: bool
-
-
-class PreprocessingImpressionParams(BaseModelConfig):
-    pixel_size: float | None = Field(default=None, description="Physical target size of one pixel in meters.")
-    adjust_pixel_spacing: bool = Field(
-        default=True, description="Whether to adjust spacing between pixels during preprocessing."
-    )
-    level_offset: bool = Field(default=True, description="Apply offset leveling to remove constant height bias.")
-    level_tilt: bool = Field(default=True, description="Apply tilt correction in X and Y directions.")
-    level_2nd: bool = Field(
-        default=True, description="Apply second-order leveling including astigmatism and defocus corrections."
-    )
-    interp_method: str = Field(
-        default="cubic", description="Interpolation method for resampling ('nearest', 'linear', 'cubic', etc.)."
-    )
-    highpass_cutoff: float | None = Field(default=250.0e-6, description="High-pass filter cutoff frequency in meters.")
-    lowpass_cutoff: float | None = Field(default=5.0e-6, description="Low-pass filter cutoff frequency in meters.")
-    highpass_regression_order: int = Field(
-        default=2, description="Polynomial order used for high-pass surface fitting."
-    )
-    lowpass_regression_order: int = Field(default=0, description="Polynomial order used for low-pass surface fitting.")
-
-    @property
-    def surface_terms(self) -> SurfaceTerms:
-        """Convert leveling flags to SurfaceTerms."""
-        terms = SurfaceTerms.NONE
-        if self.level_offset:
-            terms |= SurfaceTerms.OFFSET
-        if self.level_tilt:
-            terms |= SurfaceTerms.TILT_X | SurfaceTerms.TILT_Y
-        if self.level_2nd:
-            terms |= SurfaceTerms.ASTIG_45 | SurfaceTerms.DEFOCUS | SurfaceTerms.ASTIG_0
-        return terms
-
-
-class PreprocessingStriationParams(BaseModelConfig):
-    highpass_cutoff: float = Field(
-        default=2e-3, description="High-pass filter cutoff frequency for striation preprocessing in meters."
-    )
-    lowpass_cutoff: float = Field(
-        default=2.5e-4, description="Low-pass filter cutoff frequency for striation preprocessing in meters."
-    )
-    cut_borders_after_smoothing: bool = Field(
-        default=True, description="Whether to trim edges after smoothing to avoid border artifacts."
-    )
-    use_mean: bool = Field(default=True, description="Use mean value when calculating striation parameters.")
-    angle_accuracy: float = Field(
-        default=0.1, description="Accuracy threshold for determining striation angles in degrees."
-    )
-    max_iter: int = Field(default=25, description="Maximum number of iterations for angle fitting algorithm.")
-    subsampling_factor: int = Field(default=1, description="Factor to reduce resolution for faster preprocessing.")
 
 
 class PrepareMarkStriation(BaseParameters):
