@@ -92,8 +92,8 @@ class LevelMap(ImageMutation):
         :param scan_image: The scan image containing the image data to level.
         :returns: scan_image with the array containing the leveled scan data (original data minus fitted surface).
         """
-        if scan_image.valid_mask.sum() < 2:
-            # We need at least 2 terms for the least squares solver
+        if scan_image.valid_mask.sum() < 3:
+            # We need at least 3 terms for the least squares solver
             return scan_image
 
         surface = Surface(
