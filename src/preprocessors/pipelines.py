@@ -54,6 +54,7 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
     :returns: The 2D mask array.
     """
     if not is_bitpacked:
+        # TODO: remove this option entirely and only allow bitpacked arrays
         return np.frombuffer(raw_data, dtype=np.bool).reshape(*shape)
 
     # Note: this follows the Java implementation for bitpacking

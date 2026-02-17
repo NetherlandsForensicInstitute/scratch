@@ -189,7 +189,11 @@ class EditImage(BaseParameters):
         description="Subsampling step size in y-direction. Values > 1 reduce resolution by skipping pixels.",
         examples=[1, 2, 4],
     )
-    mask_parameters: MaskParameters = Field(..., description="Mask parameters.")
+    mask_parameters: MaskParameters = Field(
+        ...,
+        description="Mask parameters.",
+        # TODO: change this field to `mask_shape: tuple[PositiveInt, PositiveInt]`
+    )
 
     @model_validator(mode="after")
     def check_file_is_x3p(self):
