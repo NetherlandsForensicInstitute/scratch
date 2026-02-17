@@ -45,8 +45,8 @@ from conversion.resample import resample_array_1d
 
 
 def correlate_profiles(
-    profile_ref: Profile,
-    profile_comp: Profile,
+    profile_reference: Profile,
+    profile_compared: Profile,
     params: AlignmentParameters = AlignmentParameters(),
 ) -> StriationComparisonResults | None:
     """
@@ -73,8 +73,8 @@ def correlate_profiles(
 
     All measurements are in meters (SI units).
 
-    :param profile_ref: Reference profile to compare against.
-    :param profile_comp: Compared profile to align to the reference.
+    :param profile_reference: Reference profile to compare against.
+    :param profile_compared: Compared profile to align to the reference.
     :param params: Alignment parameters. Key parameters:
         - max_scaling: Maximum scaling deviation (e.g., 0.05 for ±5%)
         - min_overlap_distance: Minimum overlap distance in meters (default 200 μm)
@@ -82,7 +82,7 @@ def correlate_profiles(
         valid alignment could be found.
     """
     # Step 1: Prepare alignment inputs
-    inputs = _prepare_alignment_inputs(profile_ref, profile_comp, params)
+    inputs = _prepare_alignment_inputs(profile_reference, profile_compared, params)
     if inputs is None:
         return None
 
@@ -103,8 +103,8 @@ def correlate_profiles(
 
 
 def _prepare_alignment_inputs(
-    profile_ref: Profile,
-    profile_comp: Profile,
+    profile_reference: Profile,
+    profile_compared: Profile,
     params: AlignmentParameters,
 ) -> AlignmentInputs | None:
     """
@@ -112,21 +112,23 @@ def _prepare_alignment_inputs(
 
     Returns None if either profile is too short for the minimum overlap requirement.
 
-    :param profile_ref: Reference profile.
-    :param profile_comp: Compared profile.
+    :param profile_reference: Reference profile.
+    :param profile_compared: Compared profile.
     :param params: Alignment parameters.
     :returns: Prepared alignment inputs, or None if profiles are too short.
     """
-    profile_ref_eq, profile_comp_eq = equalize_pixel_scale(profile_ref, profile_comp)
-    pixel_size = profile_ref_eq.pixel_size
+    profile_reference_eq, profile_compared_eq = equalize_pixel_scale(
+        profile_reference, profile_compared
+    )
+    pixel_size = profile_reference_eq.pixel_size
 
     # Minimum overlap in samples
     min_overlap_samples = int(np.ceil(params.min_overlap_distance / pixel_size))
 
     # Early exit if either profile is too short
     if (
-        len(profile_ref_eq.heights) < min_overlap_samples
-        or len(profile_comp_eq.heights) < min_overlap_samples
+        len(profile_reference_eq.heights) < min_overlap_samples
+        or len(profile_compared_eq.heights) < min_overlap_samples
     ):
         return None
 
@@ -135,12 +137,12 @@ def _prepare_alignment_inputs(
         1.0 - params.max_scaling, 1.0 + params.max_scaling, params.n_scale_steps
     )
 
-    # Make scaling symmetric to what you choose as ref or comp
+    # Make scaling symmetric to what you choose as reference or compared
     scale_factors = np.unique(np.concatenate((scale_factors, 1 / scale_factors)))
 
     return AlignmentInputs(
-        heights_ref=profile_ref_eq.heights,
-        heights_comp=profile_comp_eq.heights,
+        heights_ref=profile_reference_eq.heights,
+        heights_comp=profile_compared_eq.heights,
         pixel_size=pixel_size,
         scale_factors=scale_factors,
         min_overlap_samples=min_overlap_samples,
@@ -167,8 +169,8 @@ def _calculate_idx_parameters(
 
 
 def _find_best_alignment(
-    heights_ref: FloatArray1D,
-    heights_comp: FloatArray1D,
+    heights_reference: FloatArray1D,
+    heights_compared: FloatArray1D,
     scale_factors: FloatArray1D,
     min_overlap_samples: int,
 ) -> AlignmentResult | None:
@@ -178,39 +180,41 @@ def _find_best_alignment(
     Tries all combinations of scale factors and shifts, returning the one
     with maximum correlation.
 
-    :param heights_ref: Reference profile heights.
-    :param heights_comp: Comparison profile heights.
+    :param heights_reference: Reference profile heights.
+    :param heights_compared: Comparison profile heights.
     :param scale_factors: Array of scale factors to try.
     :param min_overlap_samples: Minimum required overlap in samples.
     :returns: Best alignment result, or None if no valid alignment found.
     """
-    len_ref = len(heights_ref)
+    len_reference = len(heights_reference)
 
     best_correlation = -np.inf
     best_shift = None
     best_scale = None
 
     for scale in scale_factors:
-        heights_comp_scaled = resample_array_1d(heights_comp, scale)
-        len_comp = len(heights_comp_scaled)
+        heights_compared_scaled = resample_array_1d(heights_compared, scale)
+        len_compared = len(heights_compared_scaled)
         # Calculate shift range (ensure minimum overlap)
-        min_shift = -(len_comp - min_overlap_samples)
-        max_shift = len_ref - min_overlap_samples
+        min_shift = -(len_compared - min_overlap_samples)
+        max_shift = len_reference - min_overlap_samples
 
         for shift in range(min_shift, max_shift + 1):
-            idx_comp_start, idx_ref_start, overlap_length = _calculate_idx_parameters(
-                shift, len_comp, len_ref
+            idx_compared_start, idx_reference_start, overlap_length = (
+                _calculate_idx_parameters(shift, len_compared, len_reference)
             )  # Calculate overlap region for this shift
 
             if overlap_length < min_overlap_samples:
                 continue
 
-            partial_ref = heights_ref[idx_ref_start : idx_ref_start + overlap_length]
-            partial_comp = heights_comp_scaled[
-                idx_comp_start : idx_comp_start + overlap_length
+            partial_reference = heights_reference[
+                idx_reference_start : idx_reference_start + overlap_length
+            ]
+            partial_compared = heights_compared_scaled[
+                idx_compared_start : idx_compared_start + overlap_length
             ]
 
-            correlation = compute_cross_correlation(partial_ref, partial_comp)
+            correlation = compute_cross_correlation(partial_reference, partial_compared)
 
             if correlation and correlation > best_correlation:
                 best_correlation = correlation
@@ -220,67 +224,71 @@ def _find_best_alignment(
     if best_shift is None or best_scale is None:
         return None
 
-    # Redo computations for best_scale and best_shift (instead of copying partial_ref and partial_comp above multiple times. This saves time.)
-    heights_comp_scaled = resample_array_1d(heights_comp, best_scale)
-    idx_comp_start, idx_ref_start, overlap_length = _calculate_idx_parameters(
-        best_shift, len(heights_comp_scaled), len_ref
+    # Redo computations for best_scale and best_shift (instead of copying partial_reference and partial_compared above multiple times. This saves time.)
+    heights_compared_scaled = resample_array_1d(heights_compared, best_scale)
+    idx_compared_start, idx_reference_start, overlap_length = _calculate_idx_parameters(
+        best_shift, len(heights_compared_scaled), len_reference
     )
 
-    best_ref_overlap = heights_ref[idx_ref_start : idx_ref_start + overlap_length]
-    best_comp_overlap = heights_comp_scaled[
-        idx_comp_start : idx_comp_start + overlap_length
+    best_reference_overlap = heights_reference[
+        idx_reference_start : idx_reference_start + overlap_length
+    ]
+    best_compared_overlap = heights_compared_scaled[
+        idx_compared_start : idx_compared_start + overlap_length
     ]
 
     return AlignmentResult(
         correlation=best_correlation,
         shift=best_shift,
         scale=best_scale,
-        ref_overlap=best_ref_overlap,
-        comp_overlap=best_comp_overlap,
+        ref_overlap=best_reference_overlap,
+        comp_overlap=best_compared_overlap,
     )
 
 
 def _compute_metrics(
     alignment: AlignmentResult,
     pixel_size: float,
-    len_ref: int,
-    len_comp: int,
+    len_reference: int,
+    len_compared: int,
 ) -> StriationComparisonResults:
     """
     Compute comparison metrics from an alignment result.
 
     :param alignment: The best alignment found.
     :param pixel_size: Pixel size in meters.
-    :param len_ref: Length of reference profile in samples.
-    :param len_comp: Length of comparison profile in samples.
+    :param len_reference: Length of reference profile in samples.
+    :param len_compared: Length of comparison profile in samples.
     :returns: Full comparison results.
     """
-    ref_overlap = alignment.ref_overlap
-    comp_overlap = alignment.comp_overlap
+    reference_overlap = alignment.ref_overlap
+    compared_overlap = alignment.comp_overlap
 
     # Convert to meters
     position_shift = alignment.shift * pixel_size
-    overlap_length = len(ref_overlap) * pixel_size
-    ref_length = len_ref * pixel_size
-    comp_length = len_comp * pixel_size
+    overlap_length = len(reference_overlap) * pixel_size
+    reference_length = len_reference * pixel_size
+    compared_length = len_compared * pixel_size
 
-    overlap_ratio = compute_overlap_ratio(overlap_length, ref_length, comp_length)
+    overlap_ratio = compute_overlap_ratio(
+        overlap_length, reference_length, compared_length
+    )
 
     # Roughness metrics
-    sa_ref = compute_roughness_sa(ref_overlap)
-    mean_square_ref = compute_roughness_sq(ref_overlap)
-    sa_comp = compute_roughness_sa(comp_overlap)
-    mean_square_comp = compute_roughness_sq(comp_overlap)
+    sa_reference = compute_roughness_sa(reference_overlap)
+    mean_square_reference = compute_roughness_sq(reference_overlap)
+    sa_compared = compute_roughness_sa(compared_overlap)
+    mean_square_compared = compute_roughness_sq(compared_overlap)
 
     # Difference profile roughness
-    diff_profile = comp_overlap - ref_overlap
+    diff_profile = compared_overlap - reference_overlap
     sa_diff = compute_roughness_sa(diff_profile)
     mean_square_of_difference = compute_roughness_sq(diff_profile)
 
     # Signature differences
     roughness = RoughnessMetrics(
-        mean_square_ref=mean_square_ref,
-        mean_square_comp=mean_square_comp,
+        mean_square_ref=mean_square_reference,
+        mean_square_comp=mean_square_compared,
         mean_square_of_difference=mean_square_of_difference,
     )
     signature_diff = compute_normalized_square_based_roughness_differences(roughness)
@@ -293,10 +301,10 @@ def _compute_metrics(
         overlap_length=overlap_length,
         overlap_ratio=overlap_ratio,
         correlation_coefficient=alignment.correlation,
-        sa_ref=sa_ref,
-        mean_square_ref=mean_square_ref,
-        sa_comp=sa_comp,
-        mean_square_comp=mean_square_comp,
+        sa_ref=sa_reference,
+        mean_square_ref=mean_square_reference,
+        sa_comp=sa_compared,
+        mean_square_comp=mean_square_compared,
         sa_diff=sa_diff,
         mean_square_of_difference=mean_square_of_difference,
         ds_roughness_normalized_to_reference=signature_diff.roughness_normalized_to_reference,
