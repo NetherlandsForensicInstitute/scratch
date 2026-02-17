@@ -10,7 +10,7 @@ class TestParseMaskPipeline:
     @pytest.fixture(scope="class")
     def mask_array(self) -> BinaryMask:
         """Fixture for a 2D mask array."""
-        return np.array([[True, False, True], [False, False, True]], dtype=np.bool)
+        return np.array([[1, 0, 1], [0, 0, 1]], dtype=np.bool)
 
     def test_pipeline_can_parse_mask(self, mask_array: BinaryMask) -> None:
         """Test that the pipeline can parse a 2D mask from binary data."""

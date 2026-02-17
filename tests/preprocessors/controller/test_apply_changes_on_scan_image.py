@@ -30,7 +30,7 @@ def scan_image():
 @pytest.fixture
 def resample_twice_bigger(
     scan_image: ScanImage, tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> tuple[EditImage, BinaryMask, Callable]:
+) -> tuple[EditImage, BinaryMask, Callable[[ScanImage], None]]:
     scan_file = tmp_path / "scan.x3p"
     save_x3p(output_path=scan_file, x3p=parse_to_x3p(scan_image).unwrap())
 
@@ -61,7 +61,14 @@ def mask_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage,
     scan_file = tmp_path / "scan.x3p"
     save_x3p(output_path=scan_file, x3p=parse_to_x3p(scan_image).unwrap())
 
-    mask = np.array([[True] * 3, [True, False, True], [True] * 3], dtype=np.bool)
+    mask = np.array(
+        [
+            [1, 1, 1],
+            [1, 0, 1],
+            [1, 1, 1],
+        ],
+        dtype=np.bool,
+    )
 
     params = EditImage(
         project_name="test",
@@ -87,7 +94,14 @@ def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIma
     scan_file = tmp_path / "scan.x3p"
     save_x3p(output_path=scan_file, x3p=parse_to_x3p(scan_image).unwrap())
 
-    mask = np.array([[False] * 3, [False, True, False], [False] * 3], dtype=np.bool)
+    mask = np.array(
+        [
+            [0, 0, 0],
+            [0, 1, 0],
+            [0, 0, 0],
+        ],
+        dtype=np.bool,
+    )
 
     params = EditImage(
         project_name="test",
@@ -113,7 +127,14 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
     scan_file = tmp_path / "scan.x3p"
     save_x3p(output_path=scan_file, x3p=parse_to_x3p(scan_image).unwrap())
 
-    mask = np.array([[False] * 3, [False, True, False], [False] * 3], dtype=np.bool)
+    mask = np.array(
+        [
+            [0, 0, 0],
+            [0, 1, 0],
+            [0, 0, 0],
+        ],
+        dtype=np.bool,
+    )
 
     params = EditImage(
         project_name="test",
