@@ -2,6 +2,7 @@ import os
 from http import HTTPStatus
 from pathlib import Path
 
+import numpy as np
 import pytest
 from conversion.leveling import SurfaceTerms
 from fastapi.testclient import TestClient
@@ -10,11 +11,10 @@ from pydantic import HttpUrl
 from scipy.constants import micro
 from utils.constants import RegressionOrder
 
-from constants import ImpressionMarks, MaskTypes, PreprocessorEndpoint, RoutePrefix, StriationMarks
+from constants import ImpressionMarks, PreprocessorEndpoint, RoutePrefix, StriationMarks
 from extractors.schemas import GeneratedImages
 from models import DirectoryAccess
 from preprocessors.schemas import (
-    CropInfo,
     EditImage,
     PrepareMarkImpression,
     PrepareMarkStriation,
@@ -100,8 +100,7 @@ class TestPrepareMarkEndpoint:
             mark_type=mark_type,  # type: ignore
             scan_file=self.scan_file_path,
             mask=[[0, 1], [1, 0]],
-            crop_info=CropInfo(type=MaskTypes.CIRCLE, data={}, is_foreground=False),
-            rotation_angle=15,
+            bounding_box=np.array([[30.0, 23.0], [169.0, 23.0], [169.0, 126.0], [30.0, 126.0]]),
             mark_parameters=mark_parameters(),  # type: ignore
         ).model_dump(mode="json")
 

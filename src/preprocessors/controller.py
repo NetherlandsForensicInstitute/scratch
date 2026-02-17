@@ -26,7 +26,7 @@ def process_prepare_mark(
     params: PrepareMarkImpression | PrepareMarkStriation,
     files: dict[str, Path],
 ) -> dict[str, Path]:
-    """Prepare striation mark data."""
+    """Prepare striation and impression mark data."""
     parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
     mask = np.ones(parsed_scan.data.shape)  # fix
     rotated_image = rotate_crop_and_mask_image_by_crop(
