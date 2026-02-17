@@ -150,22 +150,22 @@ def _prepare_alignment_inputs(
 
 
 def _calculate_idx_parameters(
-    shift: int, len_small: int, len_large: int
+    shift: int, len_compared: int, len_reference: int
 ) -> tuple[int, int, int]:
     """
     Find starting index for both striations, and compute overlap length
     """
 
     if shift >= 0:
-        idx_large_start = shift
-        idx_small_start = 0
-        overlap_length = min(len_large - shift, len_small)
+        idx_reference_start = shift
+        idx_compared_start = 0
+        overlap_length = min(len_reference - shift, len_compared)
     else:
-        idx_large_start = 0
-        idx_small_start = -shift
-        overlap_length = min(len_large, len_small + shift)
+        idx_reference_start = 0
+        idx_compared_start = -shift
+        overlap_length = min(len_reference, len_compared + shift)
 
-    return idx_small_start, idx_large_start, overlap_length
+    return idx_compared_start, idx_reference_start, overlap_length
 
 
 def _find_best_alignment(

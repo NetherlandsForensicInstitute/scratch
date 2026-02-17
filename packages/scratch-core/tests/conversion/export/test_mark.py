@@ -93,13 +93,13 @@ class TestSaveAndLoadMark:
 
     def test_save_mark_creates_files(self, tmp_path: PosixPath, scan_image: ScanImage):
         """Test that `save_mark` creates both JSON and NPZ files."""
-        mark = Mark(
+        impression_mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
             meta_data={"test": "data"},
         )
 
-        save_mark(mark, tmp_path, "test_mark")
+        save_mark(impression_mark, tmp_path, "test_mark")
 
         assert (tmp_path / "test_mark.json").is_file()
         assert (tmp_path / "test_mark.npz").is_file()
@@ -107,12 +107,12 @@ class TestSaveAndLoadMark:
     def test_save_creates_directory(self, tmp_path: PosixPath, scan_image: ScanImage):
         """Test that `save_mark` creates parent directories if they don't exist."""
         nested_path = tmp_path / "nested" / "directory"
-        mark = Mark(
+        impression_mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
 
-        save_mark(mark, nested_path, "test_mark")
+        save_mark(impression_mark, nested_path, "test_mark")
 
         assert nested_path.exists()
         assert (nested_path / "test_mark.json").is_file()
@@ -120,13 +120,13 @@ class TestSaveAndLoadMark:
 
     def test_json_content_structure(self, tmp_path: PosixPath, scan_image: ScanImage):
         """Test that saved JSON has correct structure."""
-        mark = Mark(
+        impression_mark = Mark(
             scan_image=scan_image,
             mark_type=MarkType.CHAMBER_STRIATION,
             meta_data={"key": "value"},
         )
 
-        save_mark(mark, tmp_path, "test_mark")
+        save_mark(impression_mark, tmp_path, "test_mark")
 
         with open(tmp_path / "test_mark.json", "r") as f:
             data = json.load(f)

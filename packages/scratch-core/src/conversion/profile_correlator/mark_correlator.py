@@ -6,8 +6,8 @@ returns both comparison statistics and the aligned mark regions (2D and 1D) so
 callers can visualise or further process the overlapping portion of each mark pair.
 """
 
-from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
+from conversion.preprocess_impression.utils import update_mark_data
 from conversion.profile_correlator.profile_correlator import (
     _calculate_idx_parameters,
     correlate_profiles,
@@ -18,7 +18,7 @@ from conversion.profile_correlator.data_types import (
     MarkCorrelationResult,
     Profile,
 )
-from conversion.resample import resample_array_1d, resample_array_2d
+from conversion.resample import resample_array_1d, resample_scan_image_and_mask
 
 
 def _resample_mark_rows(mark: Mark, factor: float) -> Mark:
@@ -30,23 +30,12 @@ def _resample_mark_rows(mark: Mark, factor: float) -> Mark:
 
     :param mark: Input mark.
     :param factor: Scale factor for row pixel size.
-    :returns: Resampled mark with updated scale_x.
+    :returns: Resampled mark with updated scale_y.
     """
-    n_in = mark.scan_image.data.shape[0]
-    n_out = max(1, round(n_in / factor))
-
-    if n_out == n_in:
-        return mark
-
-    return Mark(
-        scan_image=ScanImage(
-            data=resample_array_2d(mark.scan_image.data, factors=(1.0, factor)),
-            scale_x=mark.scan_image.scale_x * factor,
-            scale_y=mark.scan_image.scale_y,
-        ),
-        mark_type=mark.mark_type,
-        meta_data=mark.meta_data,
+    resampled_scan, _ = resample_scan_image_and_mask(
+        mark.scan_image, factors=(1.0, factor), only_downsample=False
     )
+    return mark.model_copy(update={"scan_image": resampled_scan})
 
 
 def _trim_mark(mark: Mark, start: int, length: int) -> Mark:
@@ -58,15 +47,7 @@ def _trim_mark(mark: Mark, start: int, length: int) -> Mark:
     :param length: Number of rows to keep.
     :returns: Mark containing only the specified rows.
     """
-    return Mark(
-        scan_image=ScanImage(
-            data=mark.scan_image.data[start : start + length, :],
-            scale_x=mark.scan_image.scale_x,
-            scale_y=mark.scan_image.scale_y,
-        ),
-        mark_type=mark.mark_type,
-        meta_data=mark.meta_data,
-    )
+    return update_mark_data(mark, mark.scan_image.data[start : start + length, :])
 
 
 def correlate_striation_marks(
@@ -78,16 +59,6 @@ def correlate_striation_marks(
 ) -> MarkCorrelationResult | None:
     """
     Compare two striation marks and return aligned mark regions alongside metrics.
-
-    Designed to consume the output of preprocess_striation_mark directly:
-
-        aligned_reference, profile_reference_mark = preprocess_striation_mark(mark_reference)
-        aligned_compared, profile_compared_mark = preprocess_striation_mark(mark_compared)
-        profile_reference = Profile(heights=profile_reference_mark.scan_image.data[:, 0],
-                              pixel_size=profile_reference_mark.scan_image.scale_x)
-        profile_compared = Profile(heights=profile_compared_mark.scan_image.data[:, 0],
-                               pixel_size=profile_compared_mark.scan_image.scale_x)
-        result = correlate_striation_marks(aligned_reference, aligned_compared, profile_reference, profile_compared)
 
     :param mark_reference: Aligned 2D scan of the reference mark.
     :param mark_compared: Aligned 2D scan of the comparison mark.
@@ -112,8 +83,8 @@ def correlate_striation_marks(
     # 4. Trim both marks to the overlap region
     idx_compared, idx_reference, overlap_len = _calculate_idx_parameters(
         shift_samples,
-        mark_compared_scaled.scan_image.data.shape[0],
-        mark_reference.scan_image.data.shape[0],
+        mark_compared_scaled.scan_image.height,
+        mark_reference.scan_image.height,
     )
     mark_reference_aligned = _trim_mark(mark_reference, idx_reference, overlap_len)
     mark_compared_aligned = _trim_mark(mark_compared_scaled, idx_compared, overlap_len)
