@@ -2,6 +2,7 @@ from enum import StrEnum
 from http import HTTPStatus
 from pathlib import Path
 
+import numpy as np
 import pytest
 import requests
 from pydantic import BaseModel
@@ -73,8 +74,7 @@ class TestContracts:
             scan_file=scan_directory / "circle.x3p",
             mark_type="breach face impression mark",
             mask=[[0, 1], [1, 0]],
-            rotation_angle=15,
-            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            bounding_box=np.array([[30.0, 23.0], [169.0, 23.0], [169.0, 126.0], [30.0, 126.0]]),
             mark_parameters=PreprocessingImpressionParams(),
         ), PrepareMarkResponseImpression  # type: ignore
 
@@ -88,8 +88,7 @@ class TestContracts:
             scan_file=scan_directory / "circle.x3p",
             mark_type="aperture shear striation mark",
             mask=[[0, 1], [1, 0]],
-            rotation_angle=15,
-            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            bounding_box=np.array([[30.0, 23.0], [169.0, 23.0], [169.0, 126.0], [30.0, 126.0]]),
             mark_parameters=PreprocessingStriationParams(),
         ), PrepareMarkResponseStriation  # type: ignore
 
