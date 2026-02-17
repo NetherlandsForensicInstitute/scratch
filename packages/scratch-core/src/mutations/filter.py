@@ -72,15 +72,8 @@ class LevelMap(ImageMutation):
     to this data using a least-squares approach.
     The fitted surface is then subtracted from the original height data.
 
-    Coordinates are translated such that the given reference point becomes
-    the origin and are normalized for numerical stability.
-
     Parameters
     ----------
-    x_reference_point : float
-        X-coordinate used as the origin for surface fitting.
-    y_reference_point : float
-        Y-coordinate used as the origin for surface fitting.
     terms : SurfaceTerms
         Polynomial surface terms defining the fitted surface.
     """
