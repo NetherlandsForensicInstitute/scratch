@@ -24,6 +24,7 @@ Submodules
 # Core data types
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
+    MarkCorrelationResult,
     StriationComparisonResults,
     Profile,
 )
@@ -32,10 +33,7 @@ from conversion.profile_correlator.data_types import (
 from conversion.profile_correlator.profile_correlator import correlate_profiles
 
 # Mark-level wrapper
-from conversion.profile_correlator.mark_correlator import (
-    correlate_striation_marks,
-    MarkCorrelationResult,
-)
+from conversion.profile_correlator.mark_correlator import correlate_striation_marks
 
 # Transform functions
 from conversion.profile_correlator.transforms import equalize_pixel_scale

@@ -6,8 +6,6 @@ returns both comparison statistics and the aligned mark regions (2D and 1D) so
 callers can visualise or further process the overlapping portion of each mark pair.
 """
 
-from dataclasses import dataclass
-
 import numpy as np
 from scipy.signal import resample as signal_resample
 
@@ -20,29 +18,10 @@ from conversion.profile_correlator.profile_correlator import (
 from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
+    MarkCorrelationResult,
     Profile,
-    StriationComparisonResults,
 )
 from conversion.resample import resample_array_1d
-
-
-@dataclass(frozen=True)
-class MarkCorrelationResult:
-    """
-    Result of correlating two striation marks, including aligned mark regions.
-
-    :param comparison_results: Statistical comparison metrics.
-    :param mark_reference_aligned: Rows of the equalized reference mark that overlap with comp.
-    :param mark_compared_aligned: Rows of the equalized, scaled comparison mark that overlap with ref.
-    :param profile_reference_aligned: Reference overlap as a Profile, pixel_size = equalized pixel size.
-    :param profile_compared_aligned: Comparison overlap as a Profile, pixel_size = equalized pixel size.
-    """
-
-    comparison_results: StriationComparisonResults
-    mark_reference_aligned: Mark
-    mark_compared_aligned: Mark
-    profile_reference_aligned: Profile
-    profile_compared_aligned: Profile
 
 
 def _equalize_mark_pixel_scale(
