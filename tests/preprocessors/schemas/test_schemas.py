@@ -1,9 +1,11 @@
 import pytest
+from conversion.leveling import SurfaceTerms
 from pydantic import HttpUrl
 
 from constants import RoutePrefix
 from extractors.schemas import ProcessedDataAccess
 from models import DirectoryAccess
+from preprocessors.schemas import PreprocessingImpressionParams
 from settings import get_settings
 
 
@@ -39,3 +41,24 @@ def test_get_output_urls(directory_access: DirectoryAccess) -> None:
 
     # Assert
     assert urls == expected_urls
+
+
+class TestPreprocessingImpressionParams:
+    """Tests for PreprocessingImpressionParams."""
+
+    def test_surface_terms_all_disabled(self):
+        """Test that disabling all flags returns NONE."""
+        params = PreprocessingImpressionParams(level_offset=False, level_tilt=False, level_2nd=False)
+        assert params.surface_terms == SurfaceTerms.NONE
+
+    def test_surface_terms_all_enabled(self):
+        """Test that enabling all flags combines all terms."""
+        params = PreprocessingImpressionParams()
+        assert params.surface_terms == (
+            SurfaceTerms.OFFSET
+            | SurfaceTerms.TILT_X
+            | SurfaceTerms.TILT_Y
+            | SurfaceTerms.ASTIG_45
+            | SurfaceTerms.DEFOCUS
+            | SurfaceTerms.ASTIG_0
+        )
