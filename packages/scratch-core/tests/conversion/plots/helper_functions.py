@@ -1,3 +1,11 @@
+"""
+Helper functions for testing plot functions.
+
+Includes helpers for:
+- Validating outputs (RGB images)
+- Creating synthetic test data (impressions, striations, profiles, marks)
+"""
+
 import numpy as np
 
 from container_models.base import FloatArray2D, UInt8Array3D
@@ -6,6 +14,12 @@ from conversion.data_formats import Mark, MarkType
 
 
 def assert_valid_rgb_image(result: UInt8Array3D) -> None:
+    """
+    Assert that an array is a valid RGB image.
+
+    :param result: Array to check
+    :raises AssertionError: If array is not a valid RGB uint8 image
+    """
     assert result.ndim == 3, f"Expected 3D array, got {result.ndim}D"
     assert result.shape[2] == 3, f"Expected RGB, got {result.shape[2]} channels"
     assert result.dtype == np.uint8, f"Expected uint8, got {result.dtype}"
