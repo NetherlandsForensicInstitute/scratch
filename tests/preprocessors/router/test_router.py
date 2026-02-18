@@ -2,13 +2,14 @@ from http import HTTPStatus
 from pathlib import Path
 
 import pytest
+from conversion.data_formats import MarkType
 from conversion.leveling import SurfaceTerms
 from fastapi.testclient import TestClient
 from pydantic import HttpUrl
 from scipy.constants import micro
 from utils.constants import RegressionOrder
 
-from constants import ImpressionMarks, PreprocessorEndpoint, RoutePrefix, StriationMarks
+from constants import PreprocessorEndpoint, RoutePrefix
 from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from models import DirectoryAccess
 from preprocessors.schemas import (
@@ -41,7 +42,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkStriation,
             PrepareMarkResponseStriation,
             PreprocessingStriationParams,
-            StriationMarks.APERTURE_SHEAR,
+            MarkType.APERTURE_SHEAR_STRIATION,
             [
                 "preview",
                 "surface_map",
@@ -58,7 +59,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkImpression,
             PrepareMarkResponseImpression,
             PreprocessingImpressionParams,
-            ImpressionMarks.CHAMBER,
+            MarkType.CHAMBER_IMPRESSION,
             [
                 "preview",
                 "surface_map",
@@ -90,6 +91,7 @@ class TestPrepareMarkEndpoint:
         self,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         mark_type: str,
+        mask: list[list[float]],
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
     ):
         """Generate the schema payload for the prepare-mark endpoint."""
@@ -97,20 +99,7 @@ class TestPrepareMarkEndpoint:
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
             scan_file=self.scan_file_path,
-            mask=[
-                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            ],
+            mask=mask,
             bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
             mark_parameters=mark_parameters(),  # type: ignore
         ).model_dump(mode="json")
@@ -123,6 +112,7 @@ class TestPrepareMarkEndpoint:
         response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
         mark_type: str,
+        mask: list[list[float]],
         expected_keys: list[str],
     ) -> None:
         """Test that the prepare-mark endpoint processes the request and returns file URLs."""
@@ -130,6 +120,7 @@ class TestPrepareMarkEndpoint:
         payload = self.get_schema_for_endpoint(
             schema=schema,
             mark_type=mark_type,
+            mask=mask,
             mark_parameters=mark_parameters,
         )
 
@@ -152,6 +143,7 @@ class TestPrepareMarkEndpoint:
         endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
+        mask: list[list[float]],
         expected_keys: list[str],
     ) -> None:
         """Test that the prepare-mark endpoint creates files in the vault."""
@@ -159,6 +151,7 @@ class TestPrepareMarkEndpoint:
         payload = self.get_schema_for_endpoint(
             schema=schema,  # type: ignore
             mark_type=mark_type,
+            mask=mask,
             mark_parameters=mark_parameters,  # type: ignore
         )
         # Act
@@ -168,8 +161,8 @@ class TestPrepareMarkEndpoint:
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
         expected_filenames = response_schema.get_files(directory_access.resource_path)
 
-        for name, file_path in expected_filenames.items():
-            assert file_path.exists(), f"Expected {file_path.name} to be created in the vault"
+        missing = {path.name for path in expected_filenames.values() if not path.exists()}
+        assert not missing, f"Expected: {', '.join(missing)} to be created"
 
     def test_prepare_mark_endpoint_response_url_matches_folder_location(  # noqa: PLR0913
         self,
@@ -180,6 +173,7 @@ class TestPrepareMarkEndpoint:
         endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
+        mask: list[list[float]],
         expected_keys: list[str],
     ) -> None:
         """Test that the URLs in the prepare-mark endpoint response match the vault folder location."""
@@ -187,6 +181,7 @@ class TestPrepareMarkEndpoint:
         payload = self.get_schema_for_endpoint(
             schema=schema,  # type: ignore
             mark_type=mark_type,
+            mask=mask,
             mark_parameters=mark_parameters,  # type: ignore
         )
 

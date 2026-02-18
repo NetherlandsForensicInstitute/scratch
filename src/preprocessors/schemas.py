@@ -5,7 +5,7 @@ from typing import Annotated, Self
 
 import numpy as np
 from container_models.light_source import LightSource
-from conversion.data_formats import BoundingBox
+from conversion.data_formats import BoundingBox, MarkType
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
@@ -15,12 +15,13 @@ from pydantic import (
     Field,
     PositiveFloat,
     PositiveInt,
+    field_validator,
     model_validator,
 )
 from scipy.constants import micro
 from utils.constants import RegressionOrder
 
-from constants import LIGHT_SOURCES, OBSERVER, ImpressionMarks, MaskTypes, StriationMarks
+from constants import LIGHT_SOURCES, OBSERVER, MaskTypes
 from models import (
     BaseModelConfig,
     ProjectTag,
@@ -97,12 +98,20 @@ class CropInfo(BaseModelConfig):
 
 
 class PrepareMarkStriation(BaseParameters):
-    mark_type: StriationMarks = Field(..., description="Type of mark to prepare.")
+    mark_type: MarkType = Field(..., description="Type of mark to prepare.")
     mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
     bounding_box_list: list[list[float]] | None = Field(
         None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
     )
     mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
+
+    @field_validator("mark_type")
+    @classmethod
+    def must_be_striation(cls, v: MarkType) -> MarkType:
+        """Validate that the given mark type is a striation mark."""
+        if not v.is_striation():
+            raise ValueError(f"{v} is not a striation mark")
+        return v
 
     @cached_property
     def mask_array(self) -> NDArray:
@@ -124,12 +133,20 @@ class PrepareMarkStriation(BaseParameters):
 
 
 class PrepareMarkImpression(BaseParameters):
-    mark_type: ImpressionMarks = Field(..., description="Type of mark to prepare.")
+    mark_type: MarkType = Field(..., description="Type of mark to prepare.")
     mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
     bounding_box_list: list[list[float]] | None = Field(
         None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
     )
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
+
+    @field_validator("mark_type")
+    @classmethod
+    def must_be_impression(cls, v: MarkType) -> MarkType:
+        """Validate that the given mark type is an impression mark."""
+        if not v.is_impression():
+            raise ValueError(f"{v} is not an impression mark")
+        return v
 
     @cached_property
     def mask_array(self) -> NDArray:

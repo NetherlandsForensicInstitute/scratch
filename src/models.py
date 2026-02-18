@@ -14,7 +14,7 @@ from settings import get_settings
 
 
 class BaseModelConfig(BaseModel):
-    model_config = ConfigDict(frozen=True, regex_engine="rust-regex", extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(frozen=True, regex_engine="rust-regex", extra="forbid")
 
 
 class SupportedScanExtension(StrEnum):

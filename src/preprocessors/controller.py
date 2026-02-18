@@ -22,15 +22,8 @@ from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline, surfa
 from preprocessors.schemas import EditImage
 
 
-def process_prepare_impression_mark(  # noqa: PLR0913
-    scan_file: Path,
-    mark_type: MarkType,
-    mask: BinaryMask,
-    bounding_box: BoundingBox,
-    preprocess_parameters: PreprocessingImpressionParams,
-    files: dict[str, Path],
-) -> dict[str, Path]:
-    """Prepare impression mark data."""
+def _extract_mark_from_scan(scan_file: Path, mark_type: MarkType, mask: BinaryMask, bounding_box: BoundingBox) -> Mark:
+    """Parse a scan file and extract a mark by rotating, cropping, masking, and resampling."""
     logger.info("Parsing scan image")
     parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
     logger.info("Rotating and cropping scan image")
@@ -41,10 +34,12 @@ def process_prepare_impression_mark(  # noqa: PLR0913
         mark_type=mark_type,
     )
     mark = resample_mark(mark)
-    logger.info("Preparing mark")
-    print(mark.scan_image.valid_mask)
-    processed_mark, levelled_mark = preprocess_impression_mark(mark, params=preprocess_parameters)
-    logger.info("saving marks, surface_map.png and preview.png")
+    return mark
+
+
+def _save_outputs(mark: Mark, processed_mark: Mark, files: dict[str, Path]) -> None:
+    """Save surface map, preview, raw mark, and processed mark."""
+    logger.info("Saving marks, surface_map.png and preview.png")
     surface_map_pipeline(
         parsed_scan=processed_mark.scan_image,
         output_path=files["surface_map"],
@@ -54,7 +49,22 @@ def process_prepare_impression_mark(  # noqa: PLR0913
     preview_pipeline(parsed_scan=processed_mark.scan_image, output_path=files["preview"])
     save_mark(mark, path=files["mark_data"])
     save_mark(processed_mark, path=files["processed_data"])
-    save_mark(levelled_mark, path=files["leveled_data"])
+
+
+def process_prepare_impression_mark(  # noqa: PLR0913
+    scan_file: Path,
+    mark_type: MarkType,
+    mask: BinaryMask,
+    bounding_box: BoundingBox,
+    preprocess_parameters: PreprocessingImpressionParams,
+    files: dict[str, Path],
+) -> dict[str, Path]:
+    """Prepare impression mark data."""
+    mark = _extract_mark_from_scan(scan_file, mark_type, mask, bounding_box)
+    logger.info("Preparing mark")
+    processed_mark, leveled_mark = preprocess_impression_mark(mark, params=preprocess_parameters)
+    _save_outputs(mark, processed_mark, files)
+    save_mark(leveled_mark, path=files["leveled_data"])
     return files
 
 
@@ -67,29 +77,11 @@ def process_prepare_striation_mark(  # noqa: PLR0913
     files: dict[str, Path],
 ) -> dict[str, Path]:
     """Prepare striation mark data."""
-    logger.info("Parsing scan image")
-    parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
-    logger.info("Rotating and cropping scan image")
-    rotated_image = rotate_crop_and_mask_image_by_crop(scan_image=parsed_scan, mask=mask, bounding_box=bounding_box)
-    logger.info("Transforming scan image to mark")
-    mark = Mark(
-        scan_image=rotated_image,
-        mark_type=mark_type,
-    )
-    mark = resample_mark(mark)
+    mark = _extract_mark_from_scan(scan_file, mark_type, mask, bounding_box)
     logger.info("Preparing mark")
     processed_mark, profile = preprocess_striation_mark(mark, params=preprocess_parameters)
-    logger.info("saving marks, surface_map.png and preview.png")
-    surface_map_pipeline(
-        parsed_scan=processed_mark.scan_image,
-        output_path=files["surface_map"],
-        observer=OBSERVER,
-        light_sources=LIGHT_SOURCES,
-    )
-    preview_pipeline(parsed_scan=processed_mark.scan_image, output_path=files["preview"])
-    save_mark(mark, path=files["mark_data"])
-    save_mark(processed_mark, path=files["processed_data"])
-    save_profile(profile, path=files["profile_data"])  # todo make save_profile
+    _save_outputs(mark, processed_mark, files)
+    save_profile(profile, path=files["profile_data"])
     return files
 
 

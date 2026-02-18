@@ -5,10 +5,8 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 
 from constants import (
-    IMPRESSION_TO_MARK_TYPE,
     LIGHT_SOURCES,
     OBSERVER,
-    STRIATION_TO_MARK_TYPE,
     PreprocessorEndpoint,
     RoutePrefix,
 )
@@ -100,7 +98,7 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
     process_prepare_impression_mark(
         files=PrepareMarkResponseImpression.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
-        mark_type=IMPRESSION_TO_MARK_TYPE[prepare_mark_parameters.mark_type],
+        mark_type=prepare_mark_parameters.mark_type,
         mask=prepare_mark_parameters.mask_array,
         bounding_box=prepare_mark_parameters.bounding_box,
         preprocess_parameters=prepare_mark_parameters.mark_parameters,
@@ -129,7 +127,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     process_prepare_striation_mark(
         files=PrepareMarkResponseStriation.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
-        mark_type=STRIATION_TO_MARK_TYPE[prepare_mark_parameters.mark_type],
+        mark_type=prepare_mark_parameters.mark_type,
         mask=prepare_mark_parameters.mask_array,
         bounding_box=prepare_mark_parameters.bounding_box,
         preprocess_parameters=prepare_mark_parameters.mark_parameters,

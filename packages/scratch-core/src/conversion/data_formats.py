@@ -1,5 +1,5 @@
 from typing import Annotated
-from enum import StrEnum, auto
+from enum import StrEnum
 import json
 
 from container_models.base import (
@@ -25,21 +25,21 @@ from container_models.scan_image import ScanImage
 
 class MarkType(StrEnum):
     # Impression marks
-    BREECH_FACE_IMPRESSION = auto()
-    CHAMBER_IMPRESSION = auto()
-    EJECTOR_IMPRESSION = auto()
-    EXTRACTOR_IMPRESSION = auto()
-    FIRING_PIN_IMPRESSION = auto()
+    BREECH_FACE_IMPRESSION = "breech face impression mark"
+    CHAMBER_IMPRESSION = "chamber impression mark"
+    EJECTOR_IMPRESSION = "ejector impression mark"
+    EXTRACTOR_IMPRESSION = "extractor impression mark"
+    FIRING_PIN_IMPRESSION = "firing pin impression mark"
 
     # Striation marks
-    APERTURE_SHEAR_STRIATION = auto()
-    BULLET_GEA_STRIATION = auto()
-    BULLET_LEA_STRIATION = auto()
-    CHAMBER_STRIATION = auto()
-    EJECTOR_STRIATION = auto()
-    EJECTOR_PORT_STRIATION = auto()
-    EXTRACTOR_STRIATION = auto()
-    FIRING_PIN_DRAG_STRIATION = auto()
+    APERTURE_SHEAR_STRIATION = "aperture shear striation mark"
+    BULLET_GEA_STRIATION = "bullet gea striation mark"
+    BULLET_LEA_STRIATION = "bullet lea striation mark"
+    CHAMBER_STRIATION = "chamber striation mark"
+    EJECTOR_STRIATION = "ejector striation mark"
+    EJECTOR_PORT_STRIATION = "ejector port striation mark"
+    EXTRACTOR_STRIATION = "extractor striation mark"
+    FIRING_PIN_DRAG_STRIATION = "firing pin drag striation mark"
 
     def is_impression(self) -> bool:
         return "IMPRESSION" in self.name
