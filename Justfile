@@ -1,4 +1,5 @@
 set shell := ["bash", "-c"]
+set windows-shell := ["C:/Program Files/Git/bin/bash.exe", "-c"]
 timeout_seconds := "20"
 
 # Helper function to style echo messages
@@ -60,13 +61,16 @@ test-contract: (log "Running contract tests...")
     uv run pytest -m 'contract_testing'
 
 # Run all endpoints health checks
-smoke-test artifact="" host="0.0.0.0" port="8000": (api-bg artifact) (log "Waiting for API to be ready...")
-    timeout {{timeout_seconds}} bash -c 'until curl -fs http://{{ host }}:{{ port }}/docs > /dev/null; do sleep 1; done'
+smoke-test artifact="" host="127.0.0.1" port="8000": (api-bg artifact) (log "Waiting for API to be ready...")
+    for i in $(seq 1 {{timeout_seconds}}); do \
+        curl -fs http://{{ host }}:{{ port }}/docs > /dev/null && break; \
+        sleep 1; \
+    done
     @just test-contract
     @if [ "{{ os_family() }}" = "unix" ]; then \
-        kill $(cat api.pid); \
+        kill $(cat api.pid) || true; \
     else \
-        taskkill //PID $(cat api.pid) //F 2>nul; \
+        taskkill //IM main.exe //F 2>nul || true; \
     fi
     @rm -f api.pid
 
@@ -80,7 +84,8 @@ build: (log "\nBuilding the REST API to an executable" "blue")
     --hidden-import=numpy \
     --hidden-import=numpy.core \
     --hidden-import=numpy.core._methods \
-    --hidden-import=numpy.core._dtype_ctypes
+    --hidden-import=numpy.core._dtype_ctypes \
+    --collect-submodules=surfalize
 
 # Start API development server
 api: (log "Starting FastAPI development server")
