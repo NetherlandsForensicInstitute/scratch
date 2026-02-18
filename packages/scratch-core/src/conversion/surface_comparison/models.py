@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 import numpy as np
 
-from container_models.base import FloatArray1D
+from container_models.base import FloatArray1D, DepthData
 
 
 @dataclass
@@ -16,14 +16,14 @@ class SurfaceMap:
     :param unfiltered_height_map: leveled version of the height map, shape (rows, columns).
     """
 
-    height_map: np.ndarray
-    pixel_spacing: np.ndarray
-    global_center: np.ndarray
+    height_map: DepthData
+    pixel_spacing: FloatArray1D
+    global_center: FloatArray1D
     orientation_angle: float = 0.0
-    unfiltered_height_map: np.ndarray | None = None
+    unfiltered_height_map: DepthData | None = None
 
     @property
-    def physical_size(self) -> np.ndarray:
+    def physical_size(self) -> FloatArray1D:
         """
         Total width and height [x, y] in micrometers.
 
@@ -85,7 +85,9 @@ class ComparisonResult:
     cells: list[CellResult] = field(default_factory=list)
     congruent_matching_cells_count: int = 0
     consensus_rotation: float = 0.0
-    consensus_translation: np.ndarray = field(default_factory=lambda: np.zeros(2))
+    consensus_translation: FloatArray1D = field(
+        default_factory=lambda: np.zeros(2, dtype=np.float64)
+    )
     area_similarity: AreaSimilarityResult | None = None
 
     def update_summary(self) -> None:
@@ -110,7 +112,9 @@ class ComparisonParams:
     :param search_angle_step: increment for the rotation search (degrees).
     """
 
-    cell_size: np.ndarray = field(default_factory=lambda: np.array([1000.0, 1000.0]))
+    cell_size: FloatArray1D = field(
+        default_factory=lambda: np.array([1000.0, 1000.0], dtype=np.float64)
+    )
     minimum_fill_fraction: float = 0.5
     correlation_threshold: float = 0.4
     angle_threshold: float = 2.0
