@@ -5,6 +5,7 @@ from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox, Mark, MarkType
 from conversion.export.mark import save_mark
+from conversion.export.profile import save_profile
 from conversion.leveling.solver.utils import compute_image_center
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.preprocess_impression import preprocess_impression_mark
@@ -88,7 +89,7 @@ def process_prepare_striation_mark(  # noqa: PLR0913
     preview_pipeline(parsed_scan=processed_mark.scan_image, output_path=files["preview"])
     save_mark(mark, path=files["mark_data"])
     save_mark(processed_mark, path=files["processed_data"])
-    save_mark(profile, path=files["profile_data"])  # todo make save_profile
+    save_profile(profile, path=files["profile_data"])  # todo make save_profile
     return files
 
 

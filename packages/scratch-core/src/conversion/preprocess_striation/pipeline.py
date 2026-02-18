@@ -20,12 +20,13 @@ from conversion.filter import (
 from conversion.preprocess_striation import PreprocessingStriationParams
 from conversion.preprocess_striation.alignment import fine_align_bullet_marks
 from conversion.preprocess_striation.shear import propagate_nan
+from conversion.profile_correlator import Profile
 
 
 def preprocess_striation_mark(
     mark: Mark,
     params: PreprocessingStriationParams,
-) -> tuple[Mark, Mark]:
+) -> tuple[Mark, Profile]:
     """
     Complete the preprocessing pipeline for striated marks.
 
@@ -43,10 +44,9 @@ def preprocess_striation_mark(
     :param mark: Input Mark object containing scan_image and mark_type.
     :param params: Preprocessing parameters.
 
-    :returns: Tuple of (aligned_mark, profile_mark).
+    :returns: Tuple of (aligned_mark, profile).
         - aligned_mark: Mark with aligned striation data, mask and total_angle in meta_data.
-        - profile_mark: Mark with extracted 1D profile (as 2D array with shape (N, 1)),
-          mask and total_angle in meta_data.
+        - profile_mark: Profile with extracted 1D profile
     """
     scan_image = mark.scan_image
 
@@ -80,7 +80,7 @@ def preprocess_striation_mark(
     # Propagate NaN to adjacent pixels to match MATLAB's asymmetric NaN handling
     data_aligned = propagate_nan(data_aligned)
 
-    profile = (
+    profile_heights = (
         np.nanmean(data_aligned, axis=1)
         if params.use_mean
         else np.nanmedian(data_aligned, axis=1)
@@ -88,12 +88,6 @@ def preprocess_striation_mark(
 
     # Build meta_data with mask and total_angle
     aligned_meta_data = {
-        **mark.meta_data,
-        **asdict(params),
-        "total_angle": total_angle,
-    }
-
-    profile_meta_data = {
         **mark.meta_data,
         **asdict(params),
         "total_angle": total_angle,
@@ -110,18 +104,13 @@ def preprocess_striation_mark(
         meta_data=aligned_meta_data,
     )
 
-    # Create a profile mark (profile as 2D array with shape (N, 1))
-    profile_mark = Mark(
-        scan_image=ScanImage(
-            data=profile.reshape(-1, 1),
-            scale_x=scale_x,
-            scale_y=scale_y,
-        ),
-        mark_type=mark.mark_type,
-        meta_data=profile_meta_data,
+    # Create a profile
+    profile = Profile(
+        heights=profile_heights,
+        pixel_size=scale_x,
     )
 
-    return aligned_mark, profile_mark
+    return aligned_mark, profile
 
 
 def apply_shape_noise_removal(

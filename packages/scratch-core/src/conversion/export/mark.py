@@ -38,8 +38,8 @@ def save_mark(mark: Mark, path: Path) -> None:
     Save a Mark object to JSON and NPZ files.
 
     Creates two files:
-    - {path.stem}.json: Contains mark metadata
-    - {path.stem}.npz: Contains compressed binary image data
+    - {path}.json: Contains mark metadata
+    - {path}.npz: Contains compressed binary image data
 
     :param mark: Mark object to save
     :param path: File path (suffix is replaced for each output)

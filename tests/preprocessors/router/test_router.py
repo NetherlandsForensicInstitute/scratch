@@ -50,7 +50,6 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
                 "processed_data",
                 "processed_meta",
                 "profile_data",
-                "profile_meta",
             ],
             id="striation mark",
         ),

@@ -327,17 +327,14 @@ def test_preprocess_striation_mark():
         angle_accuracy=0.5,
         max_iter=10,
     )
-    aligned_mark, profile_mark = preprocess_striation_mark(
-        mark=input_mark, params=params
-    )
+    aligned_mark, profile = preprocess_striation_mark(mark=input_mark, params=params)
 
     aligned = aligned_mark.scan_image.data
-    profile = profile_mark.scan_image.data
     angle = aligned_mark.meta_data.get("total_angle", 0.0)
 
     assert aligned.shape[0] > 0
     assert aligned.shape[1] > 0
-    assert profile.shape[0] == aligned.shape[0]
+    assert profile.heights.shape[0] == aligned.shape[0]
     assert abs(angle) < 45
 
 

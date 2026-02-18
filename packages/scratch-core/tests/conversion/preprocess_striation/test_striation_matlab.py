@@ -185,16 +185,15 @@ def run_python_preprocessing(
         mark_type=mark_type,
     )
 
-    aligned_mark, profile_mark = preprocess_striation_mark(
+    aligned_mark, profile = preprocess_striation_mark(
         mark=input_mark,
         params=params,
     )
 
     aligned_data = aligned_mark.scan_image.data
-    profile = profile_mark.scan_image.data.flatten()
     total_angle = aligned_mark.meta_data.get("total_angle")
 
-    return aligned_data, profile, total_angle
+    return aligned_data, profile.heights, total_angle
 
 
 class TestPreprocessDataMatlabComparison:
