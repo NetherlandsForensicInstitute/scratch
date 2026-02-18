@@ -46,10 +46,12 @@ async def preprocessor_root() -> RedirectResponse:
     path=f"/{PreprocessorEndpoint.PROCESS_SCAN}",
     summary="Create surface_map and preview image from the scan file.",
     description="""
-    Processes the scan file from the given filepath and generates several derived outputs, including
-    an X3P file, a preview image, and a surface map, these files are saved to the output directory given as parameter.
+    Processes the scan file from the given filepath and generates several derived outputs:
+    an X3P file, a preview image, and a surface map. The files are saved to an
+    auto-generated vault and the response contains download URLs for each output.
     The endpoint parses and validates the file before running the processing pipeline.
 """,
+    response_description="Download URLs for the generated X3P scan, preview image, and surface map.",
     responses={
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },

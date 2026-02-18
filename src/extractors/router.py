@@ -35,11 +35,11 @@ async def extractor_root() -> RedirectResponse:
     path="/files/{token}/{filename}",
     summary="Retrieve a processed file from vault storage.",
     description="""
-    Fetch a file from a vault directory using its unique token, project tag, and filename.
+    Fetch a file from a vault directory using its unique token and filename.
 
-    Supported file types: PNG images (.png) and X3P scan files (.x3p).
     Files must exist within the vault's storage directory and cannot be accessed outside of it.
     """,
+    response_description="File content with the appropriate media type for the requested file.",
     responses={
         HTTPStatus.FORBIDDEN: {"description": "Access denied - path traversal detected"},
         HTTPStatus.NOT_FOUND: {"description": "File not found"},
@@ -54,7 +54,6 @@ async def get_file(token: UUID4, filename: RelativePath, settings: SettingsDep) 
     prevent path traversal attacks.
 
     :param token: Unique vault directory token (UUID4).
-    :param tag: Project tag identifier.
     :param filename: Relative filename (must be .png or .x3p).
     :param settings: Application settings dependency.
     :return: FileResponse with appropriate media type (image/png or application/octet-stream).
