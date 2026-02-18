@@ -9,11 +9,11 @@ class SurfaceMap:
     """
     Represents a 3D surface topography map with spatial metadata.
 
-    :param height_map: 2D array of height values in micrometers, shape (rows, columns).
+    :param height_map: The 'filtered' surface data used for correlation.
     :param pixel_spacing: spacing [dx, dy] in micrometers, shape (2,).
     :param global_center: center [x, y] in micrometers, shape (2,).
     :param orientation_angle: orientation in radians.
-    :param unfiltered_height_map: leveled version of the height map, shape (rows, columns).
+    :param unfiltered_height_map: The 'leveled' but unfiltered data used for global alignment and roughness metrics.
     """
 
     height_map: DepthData
@@ -22,13 +22,16 @@ class SurfaceMap:
     orientation_angle: float = 0.0
     unfiltered_height_map: DepthData | None = None
 
+    def get_alignment_data(self) -> DepthData:
+        """Returns unfiltered data if available, otherwise the primary height map."""
+        return (
+            self.unfiltered_height_map
+            if self.unfiltered_height_map is not None
+            else self.height_map
+        )
+
     @property
     def physical_size(self) -> FloatArray1D:
-        """
-        Total width and height [x, y] in micrometers.
-
-        :returns: physical size array, shape (2,).
-        """
         return np.flip(self.height_map.shape) * self.pixel_spacing
 
 
