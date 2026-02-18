@@ -159,7 +159,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
                             "params": EditImage.model_json_schema(),
                             "mask_data": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
                         },
-                        "required": ["params, mask_data"],
+                        "required": ["params", "mask_data"],
                     }
                 },
                 "application/json": {
