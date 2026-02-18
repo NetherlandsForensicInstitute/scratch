@@ -3,6 +3,8 @@ from skimage.registration import phase_cross_correlation
 from skimage.feature import match_template
 from skimage.transform import warp_polar, rotate
 from skimage.filters import window
+
+from container_models.base import DepthData, FloatArray1D
 from conversion.surface_comparison.models import AreaSimilarityResult, SurfaceMap
 
 """
@@ -15,7 +17,7 @@ UPSAMPLING_FACTOR = 10
 
 def run_area_comparison(
     reference_map: SurfaceMap, comparison_map: SurfaceMap
-) -> tuple[np.ndarray, float, AreaSimilarityResult]:
+) -> tuple[FloatArray1D, float, AreaSimilarityResult]:
     """
     Perform global automated registration of two surface maps using Fourier-Mellin transform.
 
@@ -128,7 +130,7 @@ def _estimate_rotation(ref_map: SurfaceMap, comp_map: SurfaceMap) -> float:
 
 
 def _estimate_translation(
-    ref_data: np.ndarray, comp_data: np.ndarray, spacing: np.ndarray
+    ref_data: DepthData, comp_data: DepthData, spacing: FloatArray1D
 ) -> np.ndarray:
     """
     Find the relative [dx, dy] translation between two height maps using Phase Cross-Correlation.
@@ -151,7 +153,7 @@ def _estimate_translation(
 
 
 def _evaluate_similarity_internal(
-    ref_map: SurfaceMap, comp_map: SurfaceMap, rot: float, trans: np.ndarray
+    ref_map: SurfaceMap, comp_map: SurfaceMap, rot: float, trans: FloatArray1D
 ) -> AreaSimilarityResult:
     """
     Evaluate similarity metrics between two surface maps at a specific alignment.

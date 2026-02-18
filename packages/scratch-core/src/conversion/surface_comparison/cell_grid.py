@@ -1,6 +1,5 @@
 import numpy as np
-from conversion.surface_comparison.models import SurfaceMap
-from conversion.surface_comparison.parameters import ComparisonParams
+from conversion.surface_comparison.models import SurfaceMap, ComparisonParams
 
 
 def find_optimal_cell_origin(

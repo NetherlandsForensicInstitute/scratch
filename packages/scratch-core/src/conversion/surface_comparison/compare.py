@@ -1,6 +1,9 @@
 import numpy as np
-from conversion.surface_comparison.models import SurfaceMap, ComparisonResult
-from conversion.surface_comparison.parameters import ComparisonParams
+from conversion.surface_comparison.models import (
+    SurfaceMap,
+    ComparisonResult,
+    ComparisonParams,
+)
 from conversion.surface_comparison.area_comparison import run_area_comparison
 from conversion.surface_comparison.cell_comparison import run_cell_comparison
 from conversion.surface_comparison.cmc import classify_cmc_cells

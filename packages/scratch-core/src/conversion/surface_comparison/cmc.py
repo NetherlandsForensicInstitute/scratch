@@ -1,6 +1,5 @@
 import numpy as np
-from conversion.surface_comparison.models import ComparisonResult
-from conversion.surface_comparison.parameters import ComparisonParams
+from conversion.surface_comparison.models import ComparisonResult, ComparisonParams
 
 
 def classify_cmc_cells(result: ComparisonResult, params: ComparisonParams) -> None:

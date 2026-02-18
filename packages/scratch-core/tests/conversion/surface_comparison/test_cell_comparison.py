@@ -1,6 +1,5 @@
 import numpy as np
-from conversion.surface_comparison.models import SurfaceMap
-from conversion.surface_comparison.parameters import ComparisonParams
+from conversion.surface_comparison.models import SurfaceMap, ComparisonParams
 from conversion.surface_comparison.cell_comparison import run_cell_comparison
 from skimage.transform import rotate
 

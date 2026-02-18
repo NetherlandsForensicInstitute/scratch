@@ -1,8 +1,13 @@
 import numpy as np
 from skimage.feature import match_template
 from skimage.transform import rotate
-from conversion.surface_comparison.models import SurfaceMap, CellResult
-from conversion.surface_comparison.parameters import ComparisonParams
+
+from container_models.base import FloatArray1D, FloatArray2D
+from conversion.surface_comparison.models import (
+    SurfaceMap,
+    CellResult,
+    ComparisonParams,
+)
 from conversion.surface_comparison.cell_grid import (
     find_optimal_cell_origin,
     generate_cell_centers,
@@ -38,7 +43,7 @@ def run_cell_comparison(
 
 
 def _process_single_cell(
-    center: np.ndarray,
+    center: FloatArray1D,
     reference_map: SurfaceMap,
     comparison_map: SurfaceMap,
     params: ComparisonParams,
@@ -84,8 +89,8 @@ def _process_single_cell(
 
 
 def _find_optimal_registration(
-    center: np.ndarray,
-    patch: np.ndarray,
+    center: FloatArray1D,
+    patch: FloatArray2D,
     comparison_map: SurfaceMap,
     params: ComparisonParams,
     fill_fraction: float,
