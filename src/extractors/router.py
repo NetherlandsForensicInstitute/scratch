@@ -37,10 +37,9 @@ async def extractor_root() -> RedirectResponse:
     description="""
     Fetch a file from a vault directory using its unique token and filename.
 
-    Supported file types: PNG images (.png) and X3P scan files (.x3p).
     Files must exist within the vault's storage directory and cannot be accessed outside of it.
     """,
-    response_description="File content with media type image/png (.png) or application/octet-stream (.x3p).",
+    response_description="File content with the appropriate media type for the requested file.",
     responses={
         HTTPStatus.FORBIDDEN: {"description": "Access denied - path traversal detected"},
         HTTPStatus.NOT_FOUND: {"description": "File not found"},
