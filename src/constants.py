@@ -35,6 +35,8 @@ class ExtractorEndpoint(StrEnum):
 
 class ProcessorEndpoint(StrEnum):
     ROOT = ""
+    CALCULATE_SCORE_IMPRESSION = "calculate-score-impression"
+    CALCULATE_SCORE_STRIATION = "calculate-score-striation"
 
 
 class ComparatorEndpoint(StrEnum):

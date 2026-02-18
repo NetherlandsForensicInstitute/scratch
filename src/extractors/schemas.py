@@ -149,3 +149,89 @@ class PrepareMarkResponseImpression(PrepareMarkResponse):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/leveled.json"],
         json_schema_extra={"file_name": "leveled.json"},
     )
+
+
+class ComparisonResponse(BaseResponseURLs):
+    """Response model for comparison data access."""
+
+    mark_ref_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
+        json_schema_extra={"file_name": "mark_ref_surfacemap.png"},
+    )
+    mark_comp_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
+        json_schema_extra={"file_name": "mark_comp_surfacemap.png"},
+    )
+    mark_ref_filtered_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
+        json_schema_extra={"file_name": "mark_ref_filtered_surfacemap.png"},
+    )
+    comparison_overview: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "comparison_overview.png"},
+    )
+
+
+class ComparisonResponseImpression(ComparisonResponse):
+    mark_ref_filtered_moved_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "mark_ref_filtered_moved_surfacemap.png"},
+    )
+    mark_ref_filtered_bb_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "mark_ref_filtered_bb_surfacemap.png"},
+    )
+    mark_comp_filtered_bb_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "mark_comp_filtered_bb_surfacemap.png"},
+    )
+    mark_comp_filtered_all_bb_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "mark_comp_filtered_all_bb_surfacemap.png"},
+    )
+    cell_accf_distribution: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "cell_accf_distribution.png"},
+    )
+
+
+class ComparisonResponseStriation(ComparisonResponse):
+    mark_ref_depthmap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "mark_ref_depthmap.png"},
+    )
+    mark_comp_depthmap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "mark_ref_depthmap.png"},
+    )
+    similarity_plot: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "similarity_plot.png"},
+    )
+    mark_comp_filtered_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "mark_comp_filtered_surfacemap.png"},
+    )
+    mark1_vs_moved_mark2: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "mark1_vs_moved_mark2.png"},
+    )
+    wavedlength_plot: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "mark1_vs_moved_mark2.png"},
+    )
