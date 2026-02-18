@@ -8,8 +8,8 @@ from container_models.base import DepthData, FloatArray1D
 from conversion.surface_comparison.models import AreaSimilarityResult, SurfaceMap
 
 """
-Using an upsampling factor of 10 provides a registration precision of roughly 0.15–0.6μm, 
-which is necessary to ensure that the initial global alignment is "close enough" for the 
+Using an upsampling factor of 10 provides a registration precision of roughly 0.15–0.6μm,
+which is necessary to ensure that the initial global alignment is "close enough" for the
 subsequent per-cell search to succeed.
 """
 UPSAMPLING_FACTOR = 10
