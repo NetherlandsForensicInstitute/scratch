@@ -193,10 +193,6 @@ class StriationComparisonResults:
     def mean_square_ratio(self) -> float:
         return (self.mean_square_comp / self.mean_square_ref) * 100
 
-    @property
-    def signed_roughness_difference(self) -> float:
-        return self.ds_roughness_normalized_to_reference_and_compared * 100
-
 
 @dataclass(frozen=True)
 class MarkCorrelationResult:

@@ -254,7 +254,7 @@ def plot_comparison_overview(
         "Sq(B)": f"{metrics.mean_square_comp * 1e6:.4f} µm",
         "Sq(B-A)": f"{metrics.mean_square_of_difference * 1e6:.4f} µm",
         "Sq(B) / Sq(A)": f"{metrics.mean_square_ratio:.4f} %",
-        "Sign. Diff. DsAB": f"{metrics.signed_roughness_difference:.2f} %",
+        "Sign. Diff. DsAB": f"{metrics.ds_roughness_normalized_to_reference_and_compared * 100:.2f} %",
         "Overlap": f"{metrics.overlap_ratio * 100:.2f} %",
         "Data spacing": f"{metrics.pixel_size * 1e6:.4f} µm",
         "Cutoff length low-pass filter": f"{val:.0f} µm"
