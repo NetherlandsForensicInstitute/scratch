@@ -9,13 +9,11 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 from scipy.constants import micro
-from utils.constants import RegressionOrder
 
-from preprocessors.schemas import EditImage, Mask
+from preprocessors.schemas import EditImage, RegressionOrder
 
 DEFAULT_RESAMPLING_FACTOR: Final[int] = 4
 DEFAULT_STEP_SIZE: Final[int] = 1
-MASK: Final[Mask] = ((1, 0, 1), (0, 1, 0))  # type: ignore
 CUTOFF_LENGTH: Final[float] = 250
 
 
@@ -175,4 +173,4 @@ class TestEditImage:
             EditImage()  # type: ignore
 
         # Assert
-        assert get_error_fields(exc_info, "missing") == ("scan_file", "mask", "cutoff_length")
+        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "mask_parameters")

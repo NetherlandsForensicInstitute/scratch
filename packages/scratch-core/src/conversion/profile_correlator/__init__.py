@@ -16,7 +16,7 @@ comparison workflow including:
 Submodules
 ----------
 - data_types: Core data structures (Profile, AlignmentParameters, StriationComparisonResults)
-- correlator: Main entry point function (global brute-force search)
+- profile_correlator: Main entry point function (global brute-force search)
 - transforms: Resampling operations for pixel scale equalization
 - statistics: Statistical metrics (correlation, roughness, overlap ratio)
 """
@@ -24,12 +24,16 @@ Submodules
 # Core data types
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
+    MarkCorrelationResult,
     StriationComparisonResults,
     Profile,
 )
 
 # Main entry point
-from conversion.profile_correlator.correlator import correlate_profiles
+from conversion.profile_correlator.profile_correlator import correlate_profiles
+
+# Mark-level wrapper
+from conversion.profile_correlator.mark_correlator import correlate_striation_marks
 
 # Transform functions
 from conversion.profile_correlator.transforms import equalize_pixel_scale
@@ -49,6 +53,9 @@ from conversion.filter.gaussian import cutoff_to_gaussian_sigma
 __all__ = [
     # Main entry point
     "correlate_profiles",
+    # Mark-level wrapper
+    "correlate_striation_marks",
+    "MarkCorrelationResult",
     # Data types
     "Profile",
     "AlignmentParameters",

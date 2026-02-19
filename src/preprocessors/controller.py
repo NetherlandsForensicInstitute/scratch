@@ -87,7 +87,7 @@ def process_prepare_striation_mark(  # noqa: PLR0913
     return files
 
 
-def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage):
+def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: BinaryMask) -> ScanImage:
     """From a scan_image file to an edited image file."""
     output_shape = (
         1 / edit_image_params.resampling_factor * scan_image.height,
@@ -95,7 +95,7 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage):
     )
     resampled_mask = np.asarray(
         resize(
-            image=edit_image_params.mask_array,
+            image=mask,
             output_shape=output_shape,
             mode="edge",
             anti_aliasing=False,

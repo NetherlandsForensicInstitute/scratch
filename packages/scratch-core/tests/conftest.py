@@ -104,10 +104,29 @@ def mask_array(scan_image_replica: ScanImage) -> BinaryMask:
 
 
 @pytest.fixture(scope="session")
-def mark(scan_image: ScanImage) -> Mark:
+def impression_mark(scan_image: ScanImage) -> Mark:
     return Mark(
         scan_image=scan_image,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
+    )
+
+
+def striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
+    """
+    Build a 2D striation Mark by tiling a profile across columns.
+
+    :param profile: Source profile whose heights become the row data.
+    :param n_cols: Number of columns in the resulting striation mark.
+    :returns: Mark with data shape (len(profile.heights), n_cols).
+    """
+    data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
+    return Mark(
+        scan_image=ScanImage(
+            data=data,
+            scale_x=profile.pixel_size,
+            scale_y=profile.pixel_size,
+        ),
+        mark_type=MarkType.BULLET_GEA_STRIATION,
     )
 
 

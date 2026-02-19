@@ -156,9 +156,9 @@ class TestResampleImageAndMask:
 
 
 class TestResampleMark:
-    def test_uses_mark_target_sampling(self, mark: Mark):
-        resampled = resample_mark(mark)
+    def test_uses_mark_target_sampling(self, impression_mark: Mark):
+        resampled = resample_mark(impression_mark)
 
-        scale = mark.mark_type.scale
+        scale = impression_mark.mark_type.scale
         assert resampled.scan_image.scale_x == scale
         assert resampled.scan_image.scale_y == scale

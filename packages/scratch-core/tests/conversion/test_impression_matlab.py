@@ -157,9 +157,9 @@ def run_python_preprocessing(
         if test_case.use_circle_center
         else MarkType.FIRING_PIN_IMPRESSION
     )
-    mark = Mark(scan_image=scan_image, mark_type=mark_type)
+    impression_mark = Mark(scan_image=scan_image, mark_type=mark_type)
 
-    processed, leveled = preprocess_impression_mark(mark, test_case.params)
+    processed, leveled = preprocess_impression_mark(impression_mark, test_case.params)
 
     return processed.scan_image.data, leveled.scan_image.data
 
