@@ -48,7 +48,7 @@ class BaseResponseURLs(BaseModelConfig):
         }
 
     @classmethod
-    def generate_urls(cls, access_url: str) -> Self:
+    def generate_urls(cls, access_url: str, **kwargs) -> Self:
         """
         Generate access URLs for files within this directory.
 
@@ -60,11 +60,14 @@ class BaseResponseURLs(BaseModelConfig):
         .. note::
         URLs are validated as proper HTTP URLs via Pydantic's HttpUrl type.
         """
-        return cls(**{
-            field.alias or name: HttpUrl(url=f"{access_url}/{cast(dict, field.json_schema_extra)['file_name']}")
-            for name, field in cls.model_fields.items()
-            if isinstance(field.json_schema_extra, dict)
-        })
+        return cls(
+            **{
+                field.alias or name: HttpUrl(url=f"{access_url}/{cast(dict, field.json_schema_extra)['file_name']}")
+                for name, field in cls.model_fields.items()
+                if isinstance(field.json_schema_extra, dict)
+            }
+            | kwargs
+        )
 
 
 class GeneratedImages(BaseResponseURLs):
@@ -235,3 +238,12 @@ class ComparisonResponseStriation(ComparisonResponse):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
         json_schema_extra={"file_name": "mark1_vs_moved_mark2.png"},
     )
+
+
+class LRResponse(BaseResponseURLs):
+    lr_overview_plot: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "lr_overview_plot.png"},
+    )
+    lr: float

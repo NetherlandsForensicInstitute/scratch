@@ -2,9 +2,14 @@ from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 
 from constants import ProcessorEndpoint, RoutePrefix
-from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation
+from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation, LRResponse
 from models import DirectoryAccess
-from processors.schemas import CalculateScoreImpression, CalculateScoreStriation
+from processors.schemas import (
+    CalculateLRImpression,
+    CalculateLRStriation,
+    CalculateScoreImpression,
+    CalculateScoreStriation,
+)
 
 processors = APIRouter(
     prefix=f"/{RoutePrefix.PROCESSOR}",
@@ -42,8 +47,8 @@ async def processor_root() -> RedirectResponse:
 )
 async def calculate_score_impression(impression: CalculateScoreImpression) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
-    impression.mark_dir_comp
-    impression.mark_dir_ref
+    impression.mark_comp
+    impression.mark_ref
     vault = DirectoryAccess()  # type: ignore
     return ComparisonResponseImpression.generate_urls(vault.access_url)
 
@@ -59,7 +64,70 @@ async def calculate_score_impression(impression: CalculateScoreImpression) -> Co
 )
 async def calculate_score_striation(striation: CalculateScoreStriation) -> ComparisonResponseStriation:
     """Compare two striation profiles."""
-    striation.mark_dir_comp
-    striation.mark_dir_ref
+    striation.mark_comp
+    striation.mark_ref
     vault = DirectoryAccess()  # type: ignore
     return ComparisonResponseStriation.generate_urls(vault.access_url)
+
+
+@processors.post(
+    path=f"/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}",
+    summary="",
+    description="""""",
+)
+async def calculate_lr_impression(striation: CalculateLRImpression) -> LRResponse:
+    """TODO."""
+    striation.mark_comp
+    striation.mark_ref
+    vault = DirectoryAccess()  # type: ignore
+    # TODO::
+    # - when, where, and how is the LRParams used?
+    # - create controllers module
+    # - This section below need to be moved to controllers.py
+    # - Does calculate_lr return a lr float value or do I need to get that from lr_system?
+    # - where am I importing the lr functions from? library? we need to write it?
+    #
+    # controllers.py
+    # def compute_n_plot_lr(ref: Mark, comp: Mark, score: int: lr_system: Path) -> float:
+    #     system=get_lr_system(lr_system)
+    #     lr = calculate_lr(  # NOTE: I am assuming this returns an LR value
+    #       score,
+    #       striation.n_cells,
+    #       use_intervals=bool,
+    #       lr_system=system,
+    #     )
+    #     plot_lr_result(system, *read_mark_file(mark_ref, mark_comp), striation.score)
+    #     return lr
+    #
+    # return LRResponse.generate_urls(
+    #     vault.access_url,
+    #     lr=controllers.comupute_lr(
+    #         impression.mark_ref,
+    #         impression.mark_comp,
+    #         impression.score,
+    #         impression.lr_system,
+    #     )
+    # )
+    return LRResponse.generate_urls(vault.access_url)
+
+
+@processors.post(
+    path=f"/{ProcessorEndpoint.CALCULATE_LR_STRIATION}",
+    summary="",
+    description="""""",
+)
+async def calculate_lr_striation(striation: CalculateLRStriation) -> LRResponse:
+    """TODO."""
+    striation.mark_comp
+    striation.mark_ref
+    vault = DirectoryAccess()  # type: ignore
+    # return LRResponse.generate_urls(
+    #     vault.access_url,
+    #     lr=controllers.compute_n_plot_lr(
+    #         striation.mark_ref,
+    #         striation.mark_comp,
+    #         striation.score,
+    #         striation.lr_system,
+    #     )
+    # )
+    return LRResponse.generate_urls(vault.access_url)

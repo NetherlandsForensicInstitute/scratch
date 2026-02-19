@@ -13,6 +13,7 @@ from extractors.schemas import (
     ComparisonResponseImpression,
     ComparisonResponseStriation,
     GeneratedImages,
+    LRResponse,
     PrepareMarkResponseImpression,
     PrepareMarkResponseStriation,
     ProcessedDataAccess,
@@ -28,9 +29,13 @@ from preprocessors.schemas import (
     UploadScan,
 )
 from processors.schemas import (
+    CalculateLRImpression,
+    CalculateLRStriation,
     CalculateScoreImpression,
     CalculateScoreStriation,
+    ImpressionLRParamaters,
     ImpressionParameters,
+    StriationLRParamaters,
     StriationParamaters,
 )
 from settings import get_settings
@@ -129,8 +134,8 @@ class TestContracts:
         Returns the post request data and expected response type.
         """
         return CalculateScoreImpression(
-            mark_dir_ref=directory_access.resource_path,
-            mark_dir_comp=directory_access.resource_path,
+            mark_ref=directory_access.resource_path,
+            mark_comp=directory_access.resource_path,
             param=ImpressionParameters(),
         ), ComparisonResponseImpression
 
@@ -142,9 +147,42 @@ class TestContracts:
         Returns the post request data and expected response type.
         """
         return CalculateScoreStriation(
-            mark_dir_ref=directory_access.resource_path,
-            mark_dir_comp=directory_access.resource_path,
+            mark_ref=directory_access.resource_path,
+            mark_comp=directory_access.resource_path,
             param=StriationParamaters(),
+        ), ComparisonResponseStriation
+
+    @pytest.fixture(scope="class")
+    def calculate_lr_impression(self, directory_access: DirectoryAccess, tmp_path: Path) -> Interface:
+        """
+        Create test data for calculate-score-impression endpoint.
+
+        Returns the post request data and expected response type.
+        """
+        (lr_system := tmp_path / "lr_system").touch()
+        return CalculateLRImpression(
+            mark_ref=directory_access.resource_path,
+            mark_comp=directory_access.resource_path,
+            score=1,
+            n_cells=5,
+            lr_system=lr_system,
+            param=ImpressionLRParamaters(),
+        ), LRResponse
+
+    @pytest.fixture(scope="class")
+    def calculate_lr_striation(self, directory_access: DirectoryAccess, tmp_path: Path) -> Interface:
+        """
+        Create test data for calculate-score-striation endpoint.
+
+        Returns the post request data and expected response type.
+        """
+        (lr_system := tmp_path / "lr_system").touch()
+        return CalculateLRStriation(
+            mark_ref=directory_access.resource_path,
+            mark_comp=directory_access.resource_path,
+            score=1,
+            lr_system=lr_system,
+            param=StriationLRParamaters(),
         ), ComparisonResponseStriation
 
     @pytest.mark.parametrize(
@@ -198,6 +236,16 @@ class TestContracts:
                 "calculate_score_striation",
                 "calculate-score-striation",
                 id="calculate_score_striation",
+            ),
+            pytest.param(
+                "calculate_lr_impression",
+                "calculate-lr-impression",
+                id="calculate_lr_impression",
+            ),
+            pytest.param(
+                "calculate_lr_striation",
+                "calculate-lr-striation",
+                id="calculate_lr_striation",
             ),
         ],
     )
