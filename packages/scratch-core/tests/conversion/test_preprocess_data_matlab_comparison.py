@@ -11,8 +11,8 @@ import numpy as np
 import pytest
 
 from container_models.base import DepthData, BinaryMask, StriationProfile
-from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import MarkType
+from .helper_functions import make_mark
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_striation_mark,
@@ -160,16 +160,12 @@ def run_python_preprocessing(
     test_case: MatlabTestCase,
 ) -> tuple[np.ndarray, np.ndarray | None, np.ndarray, float]:
     """Run Python preprocess_striation_mark and return the results."""
-    scan_image = ScanImage(
-        data=test_case.input_data,
-        scale_x=test_case.input_xdim,
-        scale_y=test_case.input_ydim,
-    )
-
     mark_type = _string_to_mark_type(test_case.mark_type)
 
-    input_mark = Mark(
-        scan_image=scan_image,
+    input_mark = make_mark(
+        test_case.input_data,
+        scale_x=test_case.input_xdim,
+        scale_y=test_case.input_ydim,
         mark_type=mark_type,
     )
 

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
 
-from container_models.base import FloatArray2D, DepthData
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_impression.preprocess_impression import (
@@ -25,6 +25,7 @@ from conversion.preprocess_impression.center import (
     compute_center_local,
 )
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+from .helper_functions import make_mark
 
 
 def make_circular_data(
@@ -60,23 +61,6 @@ def make_rectangular_data(
         )
     )
     return data
-
-
-def make_mark(
-    data: DepthData,
-    scale_x: float = 1.0,
-    scale_y: float = 1.0,
-    mark_type: MarkType = MarkType.EXTRACTOR_IMPRESSION,
-) -> Mark:
-    """Create a Mark instance for testing."""
-    return Mark(
-        scan_image=ScanImage(
-            data=data,
-            scale_x=scale_x,
-            scale_y=scale_y,
-        ),
-        mark_type=mark_type,
-    )
 
 
 class TestGetMaskEdgePoints:
@@ -377,20 +361,14 @@ class TestAdjustForPlaneTilt:
 class TestApplyAntiAliasing:
     def test_returns_original_when_below_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
-        impression_mark = Mark(
-            scan_image=ScanImage(data=data, scale_x=1.0, scale_y=1.0),
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
-        )
+        impression_mark = make_mark(data, mark_type=MarkType.BREECH_FACE_IMPRESSION)
         result, cutoff = _apply_anti_aliasing(impression_mark, target_scale=1.4)
         assert result is impression_mark
         assert cutoff is None
 
     def test_applies_filter_when_above_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
-        impression_mark = Mark(
-            scan_image=ScanImage(data=data, scale_x=1.0, scale_y=1.0),
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
-        )
+        impression_mark = make_mark(data, mark_type=MarkType.BREECH_FACE_IMPRESSION)
         _, cutoff = _apply_anti_aliasing(impression_mark, target_scale=2.0)
         assert cutoff == 2.0
 
@@ -860,11 +838,8 @@ class TestMarkCenter:
         """
         height, width = 100, 200
         data = np.zeros((height, width))
-        scan_image = ScanImage(data=data, scale_x=4e-6, scale_y=4e-6)
-
-        impression_mark = Mark(
-            scan_image=scan_image,
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        impression_mark = make_mark(
+            data, scale_x=4e-6, scale_y=4e-6, mark_type=MarkType.BREECH_FACE_IMPRESSION
         )
 
         center_x, center_y = impression_mark.center
@@ -876,10 +851,10 @@ class TestMarkCenter:
     def test_center_with_explicit_override(self):
         """Verify that _center override takes precedence."""
         data = np.zeros((100, 200))
-        scan_image = ScanImage(data=data, scale_x=4e-6, scale_y=4e-6)
-
-        mark = Mark(
-            scan_image=scan_image,
+        mark = make_mark(
+            data,
+            scale_x=4e-6,
+            scale_y=4e-6,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
             center=(42.0, 17.0),
         )
@@ -890,11 +865,8 @@ class TestMarkCenter:
         """Verify center calculation with odd dimensions."""
         height, width = 101, 203
         data = np.zeros((height, width))
-        scan_image = ScanImage(data=data, scale_x=4e-6, scale_y=4e-6)
-
-        impression_mark = Mark(
-            scan_image=scan_image,
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        impression_mark = make_mark(
+            data, scale_x=4e-6, scale_y=4e-6, mark_type=MarkType.BREECH_FACE_IMPRESSION
         )
 
         assert impression_mark.center == (101.5, 50.5)

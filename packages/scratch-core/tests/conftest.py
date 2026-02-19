@@ -12,6 +12,7 @@ from conversion.data_formats import MarkType, Mark
 from conversion.profile_correlator import Profile
 from parsers.loaders import load_scan_image
 from .helper_function import unwrap_result
+from .conversion.helper_functions import make_mark
 
 TEST_ROOT = Path(__file__).parent
 
@@ -105,28 +106,22 @@ def mask_array(scan_image_replica: ScanImage) -> BinaryMask:
 
 @pytest.fixture(scope="session")
 def impression_mark(scan_image: ScanImage) -> Mark:
-    return Mark(
-        scan_image=scan_image,
+    """Breech face impression mark built from the session-scoped scan_image fixture."""
+    return make_mark(
+        scan_image.data,
+        scale_x=scan_image.scale_x,
+        scale_y=scan_image.scale_y,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
     )
 
 
-def striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
-    """
-    Build a 2D striation Mark by tiling a profile across columns.
-
-    :param profile: Source profile whose heights become the row data.
-    :param n_cols: Number of columns in the resulting striation mark.
-    :returns: Mark with data shape (len(profile.heights), n_cols).
-    """
-    data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
-    return Mark(
-        scan_image=ScanImage(
-            data=data,
-            scale_x=profile.pixel_size,
-            scale_y=profile.pixel_size,
-        ),
-        mark_type=MarkType.BULLET_GEA_STRIATION,
+@pytest.fixture(scope="session")
+def striation_mark() -> Mark:
+    """Striation Mark built from a synthetic bullet GEA striation profile."""
+    heights = np.sin(np.linspace(0, 10 * np.pi, 1000)) * 1e-6
+    data = np.tile(heights[:, np.newaxis], (1, 50))
+    return make_mark(
+        data, scale_x=0.5e-6, scale_y=0.5e-6, mark_type=MarkType.BULLET_GEA_STRIATION
     )
 
 
