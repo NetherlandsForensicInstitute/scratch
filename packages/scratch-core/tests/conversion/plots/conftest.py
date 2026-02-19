@@ -8,8 +8,8 @@ from conversion.plots.data_formats import (
     HistogramData,
     ImpressionComparisonMetrics,
     LlrTransformationData,
-    StriationComparisonMetrics,
 )
+from conversion.profile_correlator import StriationComparisonResults
 
 from .helper_functions import (
     create_synthetic_impression_data,
@@ -84,17 +84,28 @@ def striation_quality_passbands() -> dict[tuple[float, float], float]:
 
 
 @pytest.fixture
-def striation_metrics(striation_quality_passbands) -> StriationComparisonMetrics:
-    return StriationComparisonMetrics(
+def striation_metrics(striation_quality_passbands) -> StriationComparisonResults:
+    sq_ref = 0.2395e-6
+    sq_comp = 0.7121e-6
+    sq_diff = 0.6138e-6
+    return StriationComparisonResults(
+        pixel_size=1.5625e-6,
+        position_shift=12.5e-6,
+        scale_factor=1.0,
+        similarity_value=0.85,
+        overlap_length=160e-6,
+        overlap_ratio=0.804,
         correlation_coefficient=0.85,
-        position_shift=12.5,
-        overlap_ratio=80.4,
-        mean_square_ref=0.2395,
-        mean_square_comp=0.7121,
-        mean_square_of_difference=0.6138,
-        mean_square_ratio=297.3765,
-        signed_roughness_difference=220.94,
-        pixel_size=1.5625,
+        sa_ref=0.19e-6,
+        mean_square_ref=sq_ref,
+        sa_comp=0.60e-6,
+        mean_square_comp=sq_comp,
+        sa_diff=0.50e-6,
+        mean_square_of_difference=sq_diff,
+        ds_roughness_normalized_to_reference=(sq_diff / sq_ref) ** 2,
+        ds_roughness_normalized_to_compared=(sq_diff / sq_comp) ** 2,
+        ds_roughness_normalized_to_reference_and_compared=sq_diff**2
+        / (sq_ref * sq_comp),
         quality_passbands=striation_quality_passbands,
     )
 
