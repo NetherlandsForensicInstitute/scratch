@@ -97,12 +97,33 @@ class CropInfo(BaseModelConfig):
     is_foreground: bool
 
 
-class PrepareMarkStriation(BaseParameters):
+class PrepareMarkBase(BaseParameters):
     mark_type: MarkType = Field(..., description="Type of mark to prepare.")
     mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
     bounding_box_list: list[list[float]] | None = Field(
         None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
     )
+
+    @cached_property
+    def mask_array(self) -> NDArray:
+        """
+        Convert the mask tuple to a numpy boolean array.
+
+        :return: 2D numpy array of boolean values representing the mask
+        """
+        return np.array(self.mask, np.bool_)
+
+    @cached_property
+    def bounding_box(self) -> BoundingBox | None:
+        """
+        Convert the bounding_box tuple to a numpy array.
+
+        :return: 2D numpy array of float values representing the bounding box
+        """
+        return np.array(self.bounding_box_list) if self.bounding_box_list is not None else None
+
+
+class PrepareMarkStriation(PrepareMarkBase):
     mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
 
     @field_validator("mark_type")
@@ -113,31 +134,8 @@ class PrepareMarkStriation(BaseParameters):
             raise ValueError(f"{v} is not a striation mark")
         return v
 
-    @cached_property
-    def mask_array(self) -> NDArray:
-        """
-        Convert the mask tuple to a numpy boolean array.
 
-        :return: 2D numpy array of boolean values representing the mask
-        """
-        return np.array(self.mask, np.bool_)
-
-    @cached_property
-    def bounding_box(self) -> BoundingBox:
-        """
-        Convert the bounding_box tuple to a numpy array.
-
-        :return: 2D numpy array of boolean values representing the bounding box
-        """
-        return np.array(self.bounding_box_list)
-
-
-class PrepareMarkImpression(BaseParameters):
-    mark_type: MarkType = Field(..., description="Type of mark to prepare.")
-    mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
-    bounding_box_list: list[list[float]] | None = Field(
-        None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
-    )
+class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
 
     @field_validator("mark_type")
@@ -147,24 +145,6 @@ class PrepareMarkImpression(BaseParameters):
         if not v.is_impression():
             raise ValueError(f"{v} is not an impression mark")
         return v
-
-    @cached_property
-    def mask_array(self) -> NDArray:
-        """
-        Convert the mask tuple to a numpy boolean array.
-
-        :return: 2D numpy array of boolean values representing the mask
-        """
-        return np.array(self.mask, np.bool_)
-
-    @cached_property
-    def bounding_box(self) -> BoundingBox:
-        """
-        Convert the bounding_box tuple to a numpy array.
-
-        :return: 2D numpy array of boolean values representing the bounding box
-        """
-        return np.array(self.bounding_box_list)
 
 
 type Mask = tuple[tuple[bool, ...], ...]

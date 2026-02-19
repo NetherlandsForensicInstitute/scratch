@@ -334,7 +334,7 @@ def test_preprocess_striation_mark():
 
     assert aligned.shape[0] > 0
     assert aligned.shape[1] > 0
-    assert profile.heights.shape[0] == aligned.shape[0]
+    assert len(profile.heights) == aligned.shape[0]
     assert abs(angle) < 45
 
 

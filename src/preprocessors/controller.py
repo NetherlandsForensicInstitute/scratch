@@ -22,7 +22,9 @@ from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline, surfa
 from preprocessors.schemas import EditImage
 
 
-def _extract_mark_from_scan(scan_file: Path, mark_type: MarkType, mask: BinaryMask, bounding_box: BoundingBox) -> Mark:
+def _extract_mark_from_scan(
+    scan_file: Path, mark_type: MarkType, mask: BinaryMask, bounding_box: BoundingBox | None
+) -> Mark:
     """Parse a scan file and extract a mark by rotating, cropping, masking, and resampling."""
     logger.info("Parsing scan image")
     parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
@@ -55,7 +57,7 @@ def process_prepare_impression_mark(  # noqa: PLR0913
     scan_file: Path,
     mark_type: MarkType,
     mask: BinaryMask,
-    bounding_box: BoundingBox,
+    bounding_box: BoundingBox | None,
     preprocess_parameters: PreprocessingImpressionParams,
     files: dict[str, Path],
 ) -> dict[str, Path]:
@@ -72,7 +74,7 @@ def process_prepare_striation_mark(  # noqa: PLR0913
     scan_file: Path,
     mark_type: MarkType,
     mask: BinaryMask,
-    bounding_box: BoundingBox,
+    bounding_box: BoundingBox | None,
     preprocess_parameters: PreprocessingStriationParams,
     files: dict[str, Path],
 ) -> dict[str, Path]:
