@@ -72,19 +72,7 @@ def striation_mark_profile_compared() -> Mark:
 
 
 @pytest.fixture
-def striation_quality_passbands() -> dict[tuple[float, float], float]:
-    return {
-        (5, 250): 0.85,
-        (100, 250): 0.78,
-        (50, 100): 0.65,
-        (25, 50): 0.45,
-        (10, 25): 0.30,
-        (5, 10): 0.15,
-    }
-
-
-@pytest.fixture
-def striation_metrics(striation_quality_passbands) -> StriationComparisonResults:
+def striation_metrics() -> StriationComparisonResults:
     sq_ref = 0.2395e-6
     sq_comp = 0.7121e-6
     sq_diff = 0.6138e-6
@@ -106,7 +94,6 @@ def striation_metrics(striation_quality_passbands) -> StriationComparisonResults
         ds_roughness_normalized_to_compared=(sq_diff / sq_comp) ** 2,
         ds_roughness_normalized_to_reference_and_compared=sq_diff**2
         / (sq_ref * sq_comp),
-        quality_passbands=striation_quality_passbands,
     )
 
 

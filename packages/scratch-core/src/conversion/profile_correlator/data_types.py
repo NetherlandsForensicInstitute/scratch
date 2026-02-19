@@ -12,7 +12,7 @@ The main types are:
 All length and height measurements are in meters (SI units).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from container_models.base import FloatArray1D
 from conversion.data_formats import Mark
@@ -187,15 +187,10 @@ class StriationComparisonResults:
     ds_roughness_normalized_to_reference: float
     ds_roughness_normalized_to_compared: float
     ds_roughness_normalized_to_reference_and_compared: float
-    quality_passbands: dict[tuple[float, float], float] = field(default_factory=dict)
 
     @property
     def mean_square_ratio(self) -> float:
         return (self.mean_square_comp / self.mean_square_ref) * 100
-
-    @property
-    def signed_roughness_difference(self) -> float:
-        return self.ds_roughness_normalized_to_reference_and_compared * 100
 
 
 @dataclass(frozen=True)
