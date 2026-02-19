@@ -493,18 +493,10 @@ class TestPreprocessImpressionMarkIntegration:
         filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         # After 2x downsampling, size should be roughly half
-        assert (
-            filtered.scan_image.data.shape[0] < impression_mark.scan_image.data.shape[0]
-        )
-        assert (
-            filtered.scan_image.data.shape[1] < impression_mark.scan_image.data.shape[1]
-        )
-        assert (
-            leveled.scan_image.data.shape[0] < impression_mark.scan_image.data.shape[0]
-        )
-        assert (
-            leveled.scan_image.data.shape[1] < impression_mark.scan_image.data.shape[1]
-        )
+        assert filtered.scan_image.height < impression_mark.scan_image.height
+        assert filtered.scan_image.width < impression_mark.scan_image.width
+        assert leveled.scan_image.height < impression_mark.scan_image.height
+        assert leveled.scan_image.width < impression_mark.scan_image.width
 
     @pytest.mark.integration
     def test_filtered_and_leveled_differ(self):
