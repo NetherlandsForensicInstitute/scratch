@@ -2,9 +2,14 @@ from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 
 from constants import ProcessorEndpoint, RoutePrefix
-from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation
+from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation, LRResponse, LRResponseURL
 from models import DirectoryAccess
-from processors.schemas import CalculateScoreImpression, CalculateScoreStriation
+from processors.schemas import (
+    CalculateLRImpression,
+    CalculateLRStriation,
+    CalculateScoreImpression,
+    CalculateScoreStriation,
+)
 
 processors = APIRouter(
     prefix=f"/{RoutePrefix.PROCESSOR}",
@@ -42,8 +47,6 @@ async def processor_root() -> RedirectResponse:
 )
 async def calculate_score_impression(impression: CalculateScoreImpression) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
-    impression.mark_dir_comp
-    impression.mark_dir_ref
     vault = DirectoryAccess()  # type: ignore
     return ComparisonResponseImpression.generate_urls(vault.access_url)
 
@@ -59,7 +62,69 @@ async def calculate_score_impression(impression: CalculateScoreImpression) -> Co
 )
 async def calculate_score_striation(striation: CalculateScoreStriation) -> ComparisonResponseStriation:
     """Compare two striation profiles."""
-    striation.mark_dir_comp
-    striation.mark_dir_ref
     vault = DirectoryAccess()  # type: ignore
     return ComparisonResponseStriation.generate_urls(vault.access_url)
+
+
+@processors.post(
+    path=f"/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}",
+    summary="Calculate likelihood ratio for impression mark comparison",
+    description="""
+    Calculates a likelihood ratio (LR) for a pair of impression marks
+    using the provided score and path to the LR system.
+    The LR value, together with plots, are saved and made available via URLs.
+    """,
+)
+async def calculate_lr_impression(impression: CalculateLRImpression) -> LRResponse:
+    """Calculate likelihood ratio for impression mark comparison."""
+    vault = DirectoryAccess()  # type: ignore
+    # TODO::
+    # - create controllers module
+    # - This section below need to be moved to controllers.py
+    #
+    # controllers.py
+    # def compute_n_plot_lr(ref: Mark, comp: Mark, score: int: lr_system: Path) -> float:
+    #     system=get_lr_system(lr_system)
+    #     lr = calculate_lr(
+    #       score,
+    #       striation.n_cells,
+    #       use_intervals=bool,
+    #       lr_system=system,
+    #     )
+    #     plot_lr_result(system, *read_mark_file(mark_ref, mark_comp), striation.score)
+    #     return lr
+    #
+    # return LRResponse.generate_urls(
+    #     vault.access_url,
+    #     lr=controllers.comupute_lr(
+    #         impression.mark_ref,
+    #         impression.mark_comp,
+    #         impression.score,
+    #         impression.lr_system,
+    #     )
+    # )
+    return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=42)
+
+
+@processors.post(
+    path=f"/{ProcessorEndpoint.CALCULATE_LR_STRIATION}",
+    summary="Calculate likelihood ratio for striation mark comparison",
+    description="""
+    Calculates a likelihood ratio (LR) for a pair of striation marks
+    using the provided score and path to the LR system.
+    The LR value, together with plots, are saved and made available via URLs.
+    """,
+)
+async def calculate_lr_striation(striation: CalculateLRStriation) -> LRResponse:
+    """TODO."""
+    vault = DirectoryAccess()  # type: ignore
+    # return LRResponse.generate_urls(
+    #     vault.access_url,
+    #     lr=controllers.compute_n_plot_lr(
+    #         striation.mark_ref,
+    #         striation.mark_comp,
+    #         striation.score,
+    #         striation.lr_system,
+    #     )
+    # )
+    return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=42)
