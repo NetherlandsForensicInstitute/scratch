@@ -79,7 +79,7 @@ class TestContracts:
         return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
 
     @pytest.fixture(scope="class")
-    def prepare_mark_impression(self, scan_directory: Path) -> Interface:
+    def prepare_mark_impression(self, scan_directory: Path, mask: list[list[float]]) -> Interface:
         """
         Create dummy files for the expected response.
 
@@ -87,15 +87,14 @@ class TestContracts:
         """
         return PrepareMarkImpression(
             scan_file=scan_directory / "circle.x3p",
-            mark_type="breach face impression mark",
-            mask=[[0, 1], [1, 0]],
-            rotation_angle=15,
-            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            mark_type="breech face impression mark",
+            mask=mask,
+            bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
             mark_parameters=PreprocessingImpressionParams(),
         ), PrepareMarkResponseImpression  # type: ignore
 
     @pytest.fixture(scope="class")
-    def prepare_mark_striation(self, scan_directory: Path) -> Interface:
+    def prepare_mark_striation(self, scan_directory: Path, mask: list[list[float]]) -> Interface:
         """
         Create dummy files for the expected response.
 
@@ -104,9 +103,8 @@ class TestContracts:
         return PrepareMarkStriation(
             scan_file=scan_directory / "circle.x3p",
             mark_type="aperture shear striation mark",
-            mask=[[0, 1], [1, 0]],
-            rotation_angle=15,
-            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            mask=mask,
+            bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
             mark_parameters=PreprocessingStriationParams(),
         ), PrepareMarkResponseStriation  # type: ignore
 
