@@ -57,35 +57,6 @@ class LlrTransformationData:
 
 
 @dataclass
-class StriationComparisonMetrics:
-    """
-    Metrics from profile correlation comparison for display.
-
-    :param correlation_coefficient: Pearson cross-correlation coefficient.
-    :param position_shift: Shift in µm.
-    :param overlap_ratio: Overlap percentage.
-    :param mean_square_ref: Mean square roughness (Sq) of reference surface in µm.
-    :param mean_square_comp: Mean square roughness (Sq) of compared surface in µm.
-    :param mean_square_of_difference: Mean square roughness (Sq) of difference (comp - ref) in µm.
-    :param mean_square_ratio: Sq(comp) / Sq(ref) percentage.
-    :param signed_roughness_difference: Signed roughness difference percentage.
-    :param pixel_size: Data spacing in µm.
-    :param quality_passbands: Mapping of (low, high) µm cutoffs to correlation values.
-    """
-
-    correlation_coefficient: float
-    position_shift: float
-    overlap_ratio: float
-    mean_square_ref: float
-    mean_square_comp: float
-    mean_square_of_difference: float
-    mean_square_ratio: float
-    signed_roughness_difference: float
-    pixel_size: float
-    quality_passbands: dict[tuple[float, float], float]
-
-
-@dataclass
 class StriationComparisonPlots:
     """
     Results from striation (profile) comparison visualization.
@@ -95,7 +66,6 @@ class StriationComparisonPlots:
     :param filtered_reference_heatmap: Filtered reference preview image.
     :param filtered_compared_heatmap: Filtered compared preview image.
     :param side_by_side_heatmap: Both marks side by side preview image.
-    :param wavelength_plot: Profiles + wavelength-dependent cross-correlation.
     """
 
     similarity_plot: ImageRGB
@@ -103,7 +73,6 @@ class StriationComparisonPlots:
     filtered_reference_heatmap: ImageRGB
     filtered_compared_heatmap: ImageRGB
     side_by_side_heatmap: ImageRGB
-    wavelength_plot: ImageRGB
 
 
 @dataclass

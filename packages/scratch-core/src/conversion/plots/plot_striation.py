@@ -1,16 +1,12 @@
-from collections.abc import Mapping
 from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.axes import Axes
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import Mark
-from conversion.plots.data_formats import (
-    StriationComparisonMetrics,
-    StriationComparisonPlots,
-)
+from conversion.plots.data_formats import StriationComparisonPlots
+from conversion.profile_correlator import StriationComparisonResults
 from conversion.plots.utils import (
     draw_metadata_box,
     figure_to_array,
@@ -31,7 +27,7 @@ def plot_striation_comparison_results(
     mark_compared_aligned: Mark,
     mark_profile_reference_aligned: Mark,
     mark_profile_compared_aligned: Mark,
-    metrics: StriationComparisonMetrics,
+    metrics: StriationComparisonResults,
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
 ) -> StriationComparisonPlots:
@@ -88,21 +84,12 @@ def plot_striation_comparison_results(
         score=metrics.correlation_coefficient,
     )
 
-    wavelength_correlation_plot = plot_wavelength_correlation(
-        profile_reference=mark_profile_reference_aligned.scan_image.data,
-        profile_compared=mark_profile_compared_aligned.scan_image.data,
-        scale=mark_profile_reference_aligned.scan_image.scale_x,
-        score=metrics.correlation_coefficient,
-        quality_passbands=metrics.quality_passbands,
-    )
-
     return StriationComparisonPlots(
         similarity_plot=similarity_plot,
         comparison_overview=comparison_overview,
         filtered_reference_heatmap=filtered_reference_heatmap,
         filtered_compared_heatmap=filtered_compared_heatmap,
         side_by_side_heatmap=side_by_side_heatmap,
-        wavelength_plot=wavelength_correlation_plot,
     )
 
 
@@ -135,73 +122,6 @@ def plot_similarity(
     arr = figure_to_array(fig)
     plt.close(fig)
     return arr
-
-
-def plot_wavelength_correlation(
-    profile_reference: FloatArray2D,
-    profile_compared: FloatArray2D,
-    scale: float,
-    score: float,
-    quality_passbands: Mapping[tuple[float, float], float],
-) -> ImageRGB:
-    """
-    Plot aligned profiles with wavelength-range dependent cross-correlation.
-
-    :param profile_reference: Reference profile (aligned).
-    :param profile_compared: Compared profile (aligned).
-    :param scale: Scale of the profiles in meters.
-    :param score: Correlation coefficient.
-    :param quality_passbands: Mapping from (low, high) wavelength band in µm to correlation coefficient.
-    :returns:rendered image.
-    """
-    fig, axes = plt.subplots(2, 1, figsize=(10, 8))
-
-    # Subplot 1: Aligned profiles
-    plot_profiles_on_axes(
-        axes[0],
-        profile_reference,
-        profile_compared,
-        scale,
-        score,
-        title="Similarity Score (Cross Coefficient), full range",
-    )
-
-    # Subplot 2: Wavelength-dependent correlation
-    get_wavelength_correlation_plot(axes[1], quality_passbands)
-
-    fig.tight_layout(h_pad=3.0)
-    arr = figure_to_array(fig)
-    plt.close(fig)
-
-    return arr
-
-
-def get_wavelength_correlation_plot(
-    ax: Axes, quality_passbands: Mapping[tuple[float, float], float]
-):
-    """
-    Plot correlation coefficients for different wavelength passbands.
-
-    :param ax: Matplotlib axes to plot on.
-    :param quality_passbands: Mapping from (low, high) wavelength bands in µm
-        to correlation coefficients (0-1 scale).
-    """
-    xs = np.arange(1, len(quality_passbands) + 1)
-
-    ax.plot(xs, list(quality_passbands.values()), "b-*", linewidth=2)
-
-    ax.set_ylim(-0.05, 1.05)
-    ax.set_xlim(xs[0] - xs[-1] * 0.01, xs[-1] + xs[-1] * 0.01)
-    ax.grid(True)
-    ax.tick_params(labelsize=14)
-
-    # X tick labels showing wavelength ranges
-    labels = [f"{int(lo)}-{int(hi)}" for lo, hi in quality_passbands]
-    ax.set_xticks(xs)
-    ax.set_xticklabels(labels)
-
-    ax.set_xlabel("Wavelength ranges of geometrical details [µm]", fontsize=14)
-    ax.set_ylabel("Correlation Coefficient", fontsize=14)
 
 
 def plot_side_by_side_surfaces(
@@ -240,7 +160,7 @@ def plot_comparison_overview(
     mark_compared_aligned: Mark,
     mark_profile_reference: Mark,
     mark_profile_compared: Mark,
-    metrics: StriationComparisonMetrics,
+    metrics: StriationComparisonResults,
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
     wrap_width: int = 25,
@@ -252,13 +172,13 @@ def plot_comparison_overview(
         "Date report": datetime.now().strftime("%Y-%m-%d"),
         "Mark type": mark_reference.mark_type.value,
         "Correlation Coefficient": f"{metrics.correlation_coefficient:.4f}",
-        "Sq(A)": f"{metrics.mean_square_ref:.4f} µm",
-        "Sq(B)": f"{metrics.mean_square_comp:.4f} µm",
-        "Sq(B-A)": f"{metrics.mean_square_of_difference:.4f} µm",
+        "Sq(A)": f"{metrics.mean_square_ref * 1e6:.4f} µm",
+        "Sq(B)": f"{metrics.mean_square_comp * 1e6:.4f} µm",
+        "Sq(B-A)": f"{metrics.mean_square_of_difference * 1e6:.4f} µm",
         "Sq(B) / Sq(A)": f"{metrics.mean_square_ratio:.4f} %",
-        "Sign. Diff. DsAB": f"{metrics.signed_roughness_difference:.2f} %",
-        "Overlap": f"{metrics.overlap_ratio:.2f} %",
-        "Data spacing": f"{metrics.pixel_size:.4f} µm",
+        "Sign. Diff. DsAB": f"{metrics.ds_roughness_normalized_to_reference_and_compared * 100:.2f} %",
+        "Overlap": f"{metrics.overlap_ratio * 100:.2f} %",
+        "Data spacing": f"{metrics.pixel_size * 1e6:.4f} µm",
         "Cutoff length low-pass filter": f"{val:.0f} µm"
         if (val := mark_reference.meta_data.get("lowpass_cutoff")) is not None
         else "N/A",
