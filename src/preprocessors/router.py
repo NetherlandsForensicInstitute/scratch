@@ -1,9 +1,11 @@
 from functools import partial
 from http import HTTPStatus
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import RedirectResponse
 from loguru import logger
+from pydantic import Json
 
 from constants import LIGHT_SOURCES, OBSERVER, PreprocessorEndpoint, RoutePrefix
 from extractors import ProcessedDataAccess
@@ -13,6 +15,7 @@ from preprocessors.controller import edit_scan_image, process_prepare_mark
 
 from .pipelines import (
     impression_mark_pipeline,
+    parse_mask_pipeline,
     parse_scan_pipeline,
     preview_pipeline,
     striation_mark_pipeline,
@@ -147,24 +150,51 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
             "description": "processing error",
         },
     },
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "properties": {
+                            "params": EditImage.model_json_schema(),
+                            "mask_data": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
+                        },
+                        "required": ["params", "mask_data"],
+                    }
+                },
+                "application/json": {
+                    "schema": {
+                        "properties": {
+                            "params": EditImage.model_json_schema(),
+                        },
+                        "required": ["params"],
+                    }
+                },
+            }
+        }
+    },
 )
-async def edit_scan(edit_image: EditImage) -> GeneratedImages:
+async def edit_scan(
+    params: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)]
+) -> GeneratedImages:
     """
-    Validate and parse a scan file with edit parameters.
+    Validate and parse a scan file with edit parameters and mask.
 
     Accepts an X3P scan file and edit parameters (mask, zoom, step sizes),
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
-    vault = create_vault(edit_image.tag)
+    vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
-    parsed_image = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
+    parsed_image = parse_scan_pipeline(params.scan_file, params.step_size_x, params.step_size_y)
+    parsed_mask = parse_mask_pipeline(
+        raw_data=await mask_data.read(),
+        shape=params.mask_parameters.shape,
+        is_bitpacked=params.mask_parameters.is_bitpacked,
+    )
     files = GeneratedImages.get_files(vault.resource_path)
 
-    edited_scan_image = edit_scan_image(
-        scan_image=parsed_image,
-        edit_image_params=edit_image,
-    )
+    edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
     preview_pipeline(parsed_scan=edited_scan_image, output_path=files["preview"])
     surface_map_pipeline(
         parsed_scan=edited_scan_image,

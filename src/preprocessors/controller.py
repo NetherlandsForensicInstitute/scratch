@@ -2,6 +2,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
+from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.leveling.solver.utils import compute_image_center
 from conversion.rotate import rotate_crop_and_mask_image_by_crop
@@ -34,7 +35,7 @@ def process_prepare_mark(
     return files
 
 
-def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage):
+def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: BinaryMask) -> ScanImage:
     """From a scan_image file to an edited image file."""
     output_shape = (
         1 / edit_image_params.resampling_factor * scan_image.height,
@@ -42,7 +43,7 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage):
     )
     resampled_mask = np.asarray(
         resize(
-            image=edit_image_params.mask_array,
+            image=mask,
             output_shape=output_shape,
             mode="edge",
             anti_aliasing=False,

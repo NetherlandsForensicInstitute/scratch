@@ -1,7 +1,9 @@
+import json
 import os
 from http import HTTPStatus
 from pathlib import Path
 
+import numpy as np
 import pytest
 from conversion.leveling import SurfaceTerms
 from fastapi.testclient import TestClient
@@ -16,6 +18,7 @@ from models import DirectoryAccess
 from preprocessors.schemas import (
     CropInfo,
     EditImage,
+    MaskParameters,
     PrepareMarkImpression,
     PrepareMarkStriation,
     PreprocessingImpressionParams,
@@ -204,10 +207,12 @@ def test_edit_image_returns_valid_images(
     base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
     directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
+    mask = np.array([[False] * 3, [False, True, False], [False] * 3], dtype=np.bool)
+
     params = EditImage(
         project_name="test",
         scan_file=scan_directory / "circle.x3p",
-        mask=((False, False, False), (False, True, False), (False, False, False)),
+        mask_parameters=MaskParameters(shape=mask.shape),
         cutoff_length=2 * micro,
         resampling_factor=0.5,
         terms=SurfaceTerms.PLANE,
@@ -216,11 +221,15 @@ def test_edit_image_returns_valid_images(
         step_size_x=1,
         step_size_y=1,
     )
+
     # Act
     with monkeypatch.context() as mp:
         mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
         response = client.post(
-            f"{RoutePrefix.PREPROCESSOR}/{PreprocessorEndpoint.EDIT_SCAN}", json=params.model_dump(mode="json")
+            f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scan",
+            data={"params": json.dumps(params.model_dump(mode="json"))},
+            files={"mask_data": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream")},
+            timeout=5,
         )
 
     # Assert
