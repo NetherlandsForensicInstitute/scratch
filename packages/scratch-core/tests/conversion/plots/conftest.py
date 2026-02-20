@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
@@ -85,22 +86,22 @@ def striation_quality_passbands() -> dict[tuple[float, float], float]:
 
 @pytest.fixture
 def striation_metrics(striation_quality_passbands) -> StriationComparisonResults:
-    sq_ref = 0.2395e-6
-    sq_comp = 0.7121e-6
-    sq_diff = 0.6138e-6
+    sq_ref = 0.2395 * micro
+    sq_comp = 0.7121 * micro
+    sq_diff = 0.6138 * micro
     return StriationComparisonResults(
-        pixel_size=1.5625e-6,
-        position_shift=12.5e-6,
+        pixel_size=1.5625 * micro,
+        position_shift=12.5 * micro,
         scale_factor=1.0,
         similarity_value=0.85,
-        overlap_length=160e-6,
+        overlap_length=160 * micro,
         overlap_ratio=0.804,
         correlation_coefficient=0.85,
-        sa_ref=0.19e-6,
+        sa_ref=0.19 * micro,
         mean_square_ref=sq_ref,
-        sa_comp=0.60e-6,
+        sa_comp=0.60 * micro,
         mean_square_comp=sq_comp,
-        sa_diff=0.50e-6,
+        sa_diff=0.50 * micro,
         mean_square_of_difference=sq_diff,
         ds_roughness_normalized_to_reference=(sq_diff / sq_ref) ** 2,
         ds_roughness_normalized_to_compared=(sq_diff / sq_comp) ** 2,
@@ -177,7 +178,7 @@ def impression_sample_metrics(
 ) -> ImpressionComparisonMetrics:
     n_rows, n_cols = impression_sample_cell_correlations.shape
     n_cells = impression_sample_cell_correlations.size
-    # Surface: 100x120 pixels at 1.5e-6 m/px = 150x180 µm
+    # Surface: 100x120 pixels at 1.5 * micro m/px = 150x180 µm
     height_um, width_um = 150.0, 180.0
     cell_w_um = width_um / n_cols
     cell_h_um = height_um / n_rows
@@ -213,8 +214,8 @@ def impression_sample_metrics(
 def impression_overview_marks() -> dict[str, Mark]:
     """Four impression marks: leveled and filtered for reference and compared."""
     rows, cols = 300, 200
-    scale_x = 1.5626e-6
-    scale_y = 1.5675e-6
+    scale_x = 1.5626 * micro
+    scale_y = 1.5675 * micro
 
     data_ref_lev, data_comp_lev = create_synthetic_impression_surface_pair(
         rows, cols, 0, 10, 11
@@ -251,8 +252,8 @@ def impression_overview_metrics() -> ImpressionComparisonMetrics:
     )
 
     rows, cols = 300, 200
-    scale_x = 1.5626e-6
-    scale_y = 1.5675e-6
+    scale_x = 1.5626 * micro
+    scale_y = 1.5675 * micro
 
     n_cell_rows, n_cell_cols = cell_correlations.shape
     n_cells = n_cell_rows * n_cell_cols
