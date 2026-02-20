@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from container_models.base import DepthData
 from conversion.data_formats import MarkType
@@ -57,8 +58,8 @@ class MatlabTestCase:
     input_data: DepthData
     output_data: DepthData
 
-    input_xdim: float = 1.5e-6
-    input_ydim: float = 1.5e-6
+    input_xdim: float = 1.5 * micro
+    input_ydim: float = 1.5 * micro
     mark_type: str = "Bullet LEA striation mark"
     angle_accuracy: float = 90.0
     cutoff_hi: float = 250.0
@@ -166,8 +167,8 @@ def run_python_preprocessing(
 ) -> tuple[np.ndarray, np.ndarray | None, float | None]:
     """Run Python preprocess_striation_mark and return the results."""
     params = PreprocessingStriationParams(
-        highpass_cutoff=test_case.cutoff_hi * 1e-6,
-        lowpass_cutoff=test_case.cutoff_lo * 1e-6,
+        highpass_cutoff=test_case.cutoff_hi * micro,
+        lowpass_cutoff=test_case.cutoff_lo * micro,
         use_mean=test_case.use_mean,
         angle_accuracy=test_case.angle_accuracy,
     )

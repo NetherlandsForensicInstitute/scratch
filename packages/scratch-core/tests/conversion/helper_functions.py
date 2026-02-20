@@ -1,6 +1,7 @@
 """Helper functions for conversion tests."""
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -79,12 +80,18 @@ def make_mark(
     scale_y: float = 1.0,
     mark_type: MarkType = MarkType.EXTRACTOR_IMPRESSION,
     center: tuple[float, float] | None = None,
+    meta_data: dict[str, Any] | None = None,
 ) -> Mark:
     """Create a Mark instance for testing."""
     scan_image = ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
-    if center is not None:
-        return Mark(scan_image=scan_image, mark_type=mark_type, center=center)
-    return Mark(scan_image=scan_image, mark_type=mark_type)
+    if meta_data is not None:
+        return Mark(
+            scan_image=scan_image,
+            mark_type=mark_type,
+            center=center,
+            meta_data=meta_data,
+        )
+    return Mark(scan_image=scan_image, mark_type=mark_type, center=center)
 
 
 def assert_plot_is_valid_image(fig: Figure, tmp_path: Path) -> None:

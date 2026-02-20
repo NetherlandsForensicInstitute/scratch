@@ -1,4 +1,5 @@
 import pytest
+from scipy.constants import micro
 
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
@@ -29,7 +30,7 @@ def test_get_cropped_image(
         mask=mask_array,
         terms=terms,
         regression_order=regression_order,
-        cutoff_length=250e-6,
+        cutoff_length=250 * micro,
         resampling_factors=(2, 2),
     )
     assert result.shape == (mask_array.shape[0] // 2, mask_array.shape[1] // 2)

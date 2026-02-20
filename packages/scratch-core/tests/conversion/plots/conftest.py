@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from scipy.constants import micro
+from scipy.constants import mega, micro
 
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
@@ -260,8 +260,8 @@ def impression_overview_metrics() -> ImpressionComparisonMetrics:
     n_cmc = int(np.sum(cell_correlations >= cell_similarity_threshold))
     cmc_score = n_cmc / n_cells * 100
 
-    surface_w_um = cols * scale_x * 1e6
-    surface_h_um = rows * scale_y * 1e6
+    surface_w_um = cols * scale_x * mega
+    surface_h_um = rows * scale_y * mega
     cell_w_um = surface_w_um / n_cell_cols
     cell_h_um = surface_h_um / n_cell_rows
 

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from container_models.base import FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
@@ -31,8 +32,8 @@ class MatlabTestCase:
     output_data: FloatArray2D
     output_mask: BinaryMask
 
-    input_xdim: float = 3.5e-6
-    input_ydim: float = 3.5e-6
+    input_xdim: float = 3.5 * micro
+    input_ydim: float = 3.5 * micro
     crop_type: str = "rectangle"
     rectangle: BoundingBox | None = None
     crop_foreground: bool = True

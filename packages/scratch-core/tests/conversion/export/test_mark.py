@@ -3,6 +3,7 @@ from pathlib import PosixPath
 
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
@@ -24,16 +25,16 @@ class TestExportedMarkData:
             dict(
                 mark_type="BREECH_FACE_IMPRESSION",
                 center=(100.0, 200.0),
-                scale_x=1.5e-6,
-                scale_y=1.5e-6,
+                scale_x=1.5 * micro,
+                scale_y=1.5 * micro,
                 meta_data={"key": "value"},
             )
         )
 
         assert data.mark_type == MarkType.BREECH_FACE_IMPRESSION
         assert data.center == (100.0, 200.0)
-        assert data.scale_x == 1.5e-6
-        assert data.scale_y == 1.5e-6
+        assert data.scale_x == 1.5 * micro
+        assert data.scale_y == 1.5 * micro
         assert data.meta_data == {"key": "value"}
 
     def test_lowercase_mark_type(self):
@@ -79,8 +80,8 @@ class TestExportedMarkData:
             dict(
                 mark_type="EJECTOR_IMPRESSION",
                 center=(50.0, 50.0),
-                scale_x=2.0e-6,
-                scale_y=2.0e-6,
+                scale_x=2 * micro,
+                scale_y=2 * micro,
             )
         )
 

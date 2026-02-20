@@ -1,6 +1,7 @@
 import numpy as np
 from unittest.mock import patch, MagicMock
 
+from scipy.constants import micro
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.resample import (
@@ -15,13 +16,13 @@ from conversion.resample import (
 
 class TestGetScalingFactors:
     def test_basic_calculation(self):
-        assert get_scaling_factors((2e-6, 2e-6), 4e-6) == (2.0, 2.0)
+        assert get_scaling_factors((2 * micro, 2 * micro), 4 * micro) == (2.0, 2.0)
 
     def test_different_axes(self):
-        assert get_scaling_factors((1e-6, 2e-6), 4e-6) == (4.0, 2.0)
+        assert get_scaling_factors((micro, 2 * micro), 4 * micro) == (4.0, 2.0)
 
     def test_upsampling(self):
-        assert get_scaling_factors((8e-6, 8e-6), 4e-6) == (0.5, 0.5)
+        assert get_scaling_factors((8 * micro, 8 * micro), 4 * micro) == (0.5, 0.5)
 
 
 class TestClipFactors:
@@ -105,7 +106,7 @@ class TestResampleImageAndMask:
         with patch("conversion.resample.get_scaling_factors") as mock:
             mock.return_value = (2.0, 2.0)
             resample_scan_image_and_mask(
-                scan_image_rectangular_with_nans, target_scale=4e-6
+                scan_image_rectangular_with_nans, target_scale=4 * micro
             )
             mock.assert_called_once()
 

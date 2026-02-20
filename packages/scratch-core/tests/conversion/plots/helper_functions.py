@@ -7,10 +7,12 @@ Includes helpers for:
 """
 
 import numpy as np
+from scipy.constants import micro
 
 from container_models.base import FloatArray2D, UInt8Array3D
-from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
+
+from ..helper_functions import make_mark
 
 
 def assert_valid_rgb_image(result: UInt8Array3D) -> None:
@@ -58,22 +60,20 @@ def create_synthetic_striation_data(
             + 0.10 * rng.standard_normal((height, width))
         )
 
-    return data * 1e-6
+    return data * micro
 
 
 def create_synthetic_striation_mark(
     height: int = 256,
     width: int = 200,
-    scale: float = 1.5625e-6,
+    scale: float = 1.5625 * micro,
     seed: int = 42,
 ) -> Mark:
     """Create a Mark with synthetic striation surface data."""
-    return Mark(
-        scan_image=ScanImage(
-            data=create_synthetic_striation_data(height, width, seed),
-            scale_x=scale,
-            scale_y=scale,
-        ),
+    return make_mark(
+        data=create_synthetic_striation_data(height, width, seed),
+        scale_x=scale,
+        scale_y=scale,
         mark_type=MarkType.CHAMBER_STRIATION,
         meta_data={"highpass_cutoff": 5, "lowpass_cutoff": 25},
     )
@@ -81,16 +81,14 @@ def create_synthetic_striation_mark(
 
 def create_synthetic_profile_mark(
     length: int = 200,
-    scale: float = 1.5625e-6,
+    scale: float = 1.5625 * micro,
     seed: int = 42,
 ) -> Mark:
     """Create a Mark with synthetic profile data."""
-    return Mark(
-        scan_image=ScanImage(
-            data=create_synthetic_striation_data(height=1, width=length, seed=seed),
-            scale_x=scale,
-            scale_y=scale,
-        ),
+    return make_mark(
+        data=create_synthetic_striation_data(height=1, width=length, seed=seed),
+        scale_x=scale,
+        scale_y=scale,
         mark_type=MarkType.CHAMBER_STRIATION,
     )
 
@@ -131,7 +129,7 @@ def create_synthetic_impression_data(
     surface *= 1.0 + 0.15 * np.sin(2 * np.pi * xn * 2 + 0.7)
     surface += 0.10 * rng.standard_normal((height, width))
 
-    result = (surface * 1e-6).astype(np.float64)
+    result = (surface * micro).astype(np.float64)
 
     if rotation_mask_deg != 0.0:
         mask_angle = np.deg2rad(rotation_mask_deg)
@@ -190,28 +188,26 @@ def create_synthetic_impression_surface_pair(
     noise_a = np.random.default_rng(noise_seed_a).normal(0, 0.25, (rows, cols))
     noise_b = np.random.default_rng(noise_seed_b).normal(0, 0.25, (rows, cols))
     return (
-        ((surface + noise_a) * 1e-6).astype(np.float64),
-        ((surface + noise_b) * 1e-6).astype(np.float64),
+        ((surface + noise_a) * micro).astype(np.float64),
+        ((surface + noise_b) * micro).astype(np.float64),
     )
 
 
 def create_synthetic_impression_mark(
     height: int = 100,
     width: int = 120,
-    scale: float = 1.5e-6,
+    scale: float = 1.5 * micro,
     seed: int = 42,
     mark_type: MarkType = MarkType.FIRING_PIN_IMPRESSION,
     rotation_deg: float = 0.0,
     rotation_mask_deg: float = 0.0,
 ) -> Mark:
     """Create a Mark with synthetic impression surface data."""
-    return Mark(
-        scan_image=ScanImage(
-            data=create_synthetic_impression_data(
-                height, width, seed, rotation_deg, rotation_mask_deg
-            ),
-            scale_x=scale,
-            scale_y=scale,
+    return make_mark(
+        data=create_synthetic_impression_data(
+            height, width, seed, rotation_deg, rotation_mask_deg
         ),
+        scale_x=scale,
+        scale_y=scale,
         mark_type=mark_type,
     )
