@@ -153,7 +153,6 @@ def register_cells(
             coarse_angle_deg=coarse_angle_deg,
             coarse_comp_center_um=coarse_comp_center,
             fill_fraction=fill,
-            params=params,
         )
         results.append(cell)
 
