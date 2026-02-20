@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from PIL import Image
 from loguru import logger
+from scipy.constants import micro
 
 from container_models.base import DepthData, BinaryMask
 from container_models.scan_image import ScanImage
@@ -59,7 +60,7 @@ def scan_image_array(baseline_images_dir: Path) -> DepthData:
 @pytest.fixture(scope="session")
 def scan_image(scan_image_array: DepthData) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return ScanImage(data=scan_image_array, scale_x=4e-6, scale_y=4e-6)
+    return ScanImage(data=scan_image_array, scale_x=4 * micro, scale_y=4 * micro)
 
 
 @pytest.fixture(scope="session")
@@ -118,10 +119,13 @@ def impression_mark(scan_image: ScanImage) -> Mark:
 @pytest.fixture(scope="session")
 def striation_mark() -> Mark:
     """Striation Mark built from a synthetic bullet GEA striation profile."""
-    heights = np.sin(np.linspace(0, 10 * np.pi, 1000)) * 1e-6
+    heights = np.sin(np.linspace(0, 10 * np.pi, 1000)) * micro
     data = np.tile(heights[:, np.newaxis], (1, 50))
     return make_mark(
-        data, scale_x=0.5e-6, scale_y=0.5e-6, mark_type=MarkType.BULLET_GEA_STRIATION
+        data,
+        scale_x=0.5 * micro,
+        scale_y=0.5 * micro,
+        mark_type=MarkType.BULLET_GEA_STRIATION,
     )
 
 
@@ -130,8 +134,8 @@ def profile_with_nans(pixel_size_05um: float) -> Profile:
     """Create a profile with some NaN values for NaN handling tests."""
     np.random.seed(45)
     x = np.linspace(0, 10 * np.pi, 1000)
-    data = np.sin(x) * 1e-6
-    data += np.random.normal(0, 0.01e-6, len(data))
+    data = np.sin(x) * micro
+    data += np.random.normal(0, 0.01 * micro, len(data))
 
     # Insert some NaN values
     data[100:110] = np.nan  # Block of NaNs
@@ -144,10 +148,10 @@ def profile_with_nans(pixel_size_05um: float) -> Profile:
 @pytest.fixture
 def pixel_size_05um() -> float:
     """Standard pixel size of 0.5 micrometers in meters."""
-    return 0.5e-6
+    return 0.5 * micro
 
 
 @pytest.fixture
 def pixel_size_1um() -> float:
     """Standard pixel size of 1.0 micrometer in meters."""
-    return 1.0e-6
+    return micro

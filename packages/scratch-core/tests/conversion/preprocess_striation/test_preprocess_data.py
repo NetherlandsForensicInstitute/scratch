@@ -5,6 +5,7 @@ Tests for preprocess_striation.py and related filter functions.
 import numpy as np
 import pytest
 from math import ceil
+from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
@@ -26,8 +27,8 @@ from conversion.preprocess_striation.alignment import _detect_striation_angle
 
 def test_cutoff_to_gaussian_sigma():
     """Test conversion from cutoff wavelength to Gaussian sigma."""
-    cutoff = 1000e-6  # 1000 µm
-    pixel_size = 10e-6  # 10 µm per pixel
+    cutoff = 1000 * micro  # 1000 µm
+    pixel_size = 10 * micro  # 10 µm per pixel
 
     sigma = cutoff_to_gaussian_sigma(cutoff, pixel_size)
 
@@ -62,7 +63,7 @@ def test_apply_striation_preserving_filter_1d_lowpass():
 
     surface = np.tile((low_freq + high_freq).reshape(-1, 1), (1, 20))
 
-    scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
+    scan_image = ScanImage(data=surface, scale_x=micro, scale_y=micro)
     smoothed = apply_striation_preserving_filter_1d(
         scan_image=scan_image,
         cutoff=2.5e-4,
@@ -108,7 +109,7 @@ def test_apply_shape_noise_removal():
 
     surface = np.tile((shape + striations + noise).reshape(-1, 1), (1, 50))
 
-    scan_image = ScanImage(data=surface, scale_x=1e-6, scale_y=1e-6)
+    scan_image = ScanImage(data=surface, scale_x=micro, scale_y=micro)
     result = apply_shape_noise_removal(
         scan_image=scan_image,
         highpass_cutoff=2e-3,
@@ -124,15 +125,17 @@ def test_shape_noise_removal_filter_sequence():
     np.random.seed(42)
 
     height, width = 200, 150
-    scale = 1e-6
+    scale = micro
 
     # Create test data with known components
     x = np.arange(height) * scale
     X, _ = np.meshgrid(x, np.arange(width), indexing="ij")
 
-    form = 5e-6 * (X / x.max()) ** 2  # Large wavelength
-    striations = 0.5e-6 * np.sin(2 * np.pi * X / 500e-6)  # Medium wavelength
-    noise = 0.1e-6 * np.random.randn(height, width)  # Small wavelength
+    form = 5 * micro * (X / x.max()) ** 2  # Large wavelength
+    striations = (
+        0.5 * micro * np.sin(2 * np.pi * X / (500 * micro))
+    )  # Medium wavelength
+    noise = 0.1 * micro * np.random.randn(height, width)  # Small wavelength
 
     depth_data = form + striations + noise
 
@@ -144,16 +147,16 @@ def test_shape_noise_removal_filter_sequence():
     )
 
     # Verify form removed (mean near zero)
-    assert np.abs(np.mean(result)) < 1e-6, "Form not removed"
+    assert np.abs(np.mean(result)) < micro, "Form not removed"
 
     # Verify striations preserved (signal remains)
-    assert np.std(result) > 0.05e-6, "Striations not preserved"
+    assert np.std(result) > 0.05 * micro, "Striations not preserved"
 
     # Verify noise reduced
     assert np.std(result) < np.std(depth_data), "Noise not reduced"
 
     # Test border cropping behavior
-    sigma = cutoff_to_gaussian_sigma(2000e-6, scale)
+    sigma = cutoff_to_gaussian_sigma(2000 * micro, scale)
     data_too_short = (2 * sigma) > (height * 0.2)
 
     if data_too_short:
@@ -172,17 +175,17 @@ def test_shape_noise_removal_short_data():
     """Test that short data is handled without border cropping."""
     np.random.seed(42)
 
-    scale = 1e-6
-    sigma = cutoff_to_gaussian_sigma(2000e-6, scale)
+    scale = micro
+    sigma = cutoff_to_gaussian_sigma(2000 * micro, scale)
     short_height = int(2 * sigma / 0.2) - 5
     width = 150
 
-    short_data = np.random.randn(short_height, width) * 1e-6
+    short_data = np.random.randn(short_height, width) * micro
 
     short_scan_image = ScanImage(data=short_data, scale_x=scale, scale_y=scale)
     result_short = apply_shape_noise_removal(
         scan_image=short_scan_image,
-        highpass_cutoff=2000e-6,
+        highpass_cutoff=2000 * micro,
     )
 
     # Short data should not have borders cut (automatic detection)
@@ -196,31 +199,31 @@ def test_shape_noise_removal_synthetic():
     np.random.seed(42)
 
     height, width = 200, 150
-    scale = 1e-6
+    scale = micro
 
     x = np.arange(height) * scale
     y = np.arange(width) * scale
     X, _ = np.meshgrid(x, y, indexing="ij")
 
-    form = 5e-6 * (X / x.max()) ** 2
-    striations = 0.5e-6 * np.sin(2 * np.pi * X / 500e-6)
-    noise = 0.1e-6 * np.random.randn(height, width)
+    form = 5 * micro * (X / x.max()) ** 2
+    striations = 0.5 * micro * np.sin(2 * np.pi * X / (500 * micro))
+    noise = 0.1 * micro * np.random.randn(height, width)
 
     depth_data = form + striations + noise
 
     scan_image = ScanImage(data=depth_data, scale_x=scale, scale_y=scale)
     result = apply_shape_noise_removal(
         scan_image=scan_image,
-        highpass_cutoff=2000e-6,
-        lowpass_cutoff=250e-6,
+        highpass_cutoff=2000 * micro,
+        lowpass_cutoff=250 * micro,
     )
 
     # Verify form removed (mean near zero)
-    assert np.abs(np.mean(result)) < 1e-6, "Form not removed"
+    assert np.abs(np.mean(result)) < micro, "Form not removed"
 
     # Verify striations preserved
     std_result = np.std(result)
-    assert std_result > 0.1e-6, "Striations lost"
+    assert std_result > 0.1 * micro, "Striations lost"
 
     # Verify noise reduced (result std should be less than original)
     std_original = np.std(depth_data)
@@ -257,7 +260,7 @@ def test_detect_striation_angle():
         2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 10
     )
 
-    scan_image = ScanImage(data=striations, scale_x=1e-6, scale_y=1e-6)
+    scan_image = ScanImage(data=striations, scale_x=micro, scale_y=micro)
     detected_angle = _detect_striation_angle(
         scan_image,
         subsampling_factor=1,
@@ -280,7 +283,10 @@ def test_fine_align_bullet_marks():
     striations = np.sin(2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 8)
 
     mark = make_mark(
-        striations, scale_x=1e-6, scale_y=1e-6, mark_type=MarkType.BULLET_GEA_STRIATION
+        striations,
+        scale_x=micro,
+        scale_y=micro,
+        mark_type=MarkType.BULLET_GEA_STRIATION,
     )
     aligned_mark, detected_angle = fine_align_bullet_marks(
         mark=mark,
@@ -315,7 +321,10 @@ def test_preprocess_striation_mark():
     depth_data = form + striations + noise
 
     input_mark = make_mark(
-        depth_data, scale_x=1e-6, scale_y=1e-6, mark_type=MarkType.BULLET_LEA_STRIATION
+        depth_data,
+        scale_x=micro,
+        scale_y=micro,
+        mark_type=MarkType.BULLET_LEA_STRIATION,
     )
     params = PreprocessingStriationParams(
         highpass_cutoff=2e-3,
@@ -347,19 +356,19 @@ def test_mark_type_scale():
     """Test MarkType.scale property returns correct sampling distance."""
     assert np.isclose(
         MarkType.BULLET_GEA_STRIATION.scale,
-        1.5e-6,
+        1.5 * micro,
         rtol=1e-09,
         atol=1e-09,
     )
     assert np.isclose(
         MarkType.BREECH_FACE_IMPRESSION.scale,
-        3.5e-6,
+        3.5 * micro,
         rtol=1e-09,
         atol=1e-09,
     )
     assert np.isclose(
         MarkType.FIRING_PIN_DRAG_STRIATION.scale,
-        1.5e-6,
+        1.5 * micro,
         rtol=1e-09,
         atol=1e-09,
     )
