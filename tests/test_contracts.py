@@ -1,13 +1,18 @@
+import json
 from enum import StrEnum
 from http import HTTPStatus
 from pathlib import Path
 
+import numpy as np
 import pytest
 import requests
 from pydantic import BaseModel
 
 from constants import PROJECT_ROOT
 from extractors.schemas import (
+    ComparisonResponseImpression,
+    ComparisonResponseStriation,
+    GeneratedImages,
     PrepareMarkResponseImpression,
     PrepareMarkResponseStriation,
     ProcessedDataAccess,
@@ -15,16 +20,25 @@ from extractors.schemas import (
 from models import DirectoryAccess
 from preprocessors.schemas import (
     EditImage,
+    MaskParameters,
     PrepareMarkImpression,
     PrepareMarkStriation,
     PreprocessingImpressionParams,
     PreprocessingStriationParams,
     UploadScan,
 )
+from processors.schemas import (
+    CalculateScoreImpression,
+    CalculateScoreStriation,
+    ImpressionParameters,
+    StriationParamaters,
+)
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
-MASK = ((1, 0), (0, 1))
+MASK = np.array([[True, False], [False, True]], dtype=np.bool)
+MASK_BYTES = MASK.tobytes(order="C")
+MASK_SHAPE = MASK.shape
 CUTOFF_LENGTH = 250  # 250 micrometers in meters
 
 
@@ -57,39 +71,40 @@ class TestContracts:
 
     @pytest.fixture(scope="class")
     def process_scan(self, scan_directory: Path) -> Interface:
-        """Create dummy files for the expected response.
+        """
+        Create dummy files for the expected response.
 
         Returns the post request data, sub_route & expected response.
         """
         return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
 
     @pytest.fixture(scope="class")
-    def prepare_mark_impression(self, scan_directory: Path) -> Interface:
-        """Create dummy files for the expected response.
+    def prepare_mark_impression(self, scan_directory: Path, mask: list[list[float]]) -> Interface:
+        """
+        Create dummy files for the expected response.
 
         Returns the post request data, sub_route & expected response.
         """
         return PrepareMarkImpression(
             scan_file=scan_directory / "circle.x3p",
-            mark_type="breach face impression mark",
-            mask_array=[[0, 1], [1, 0]],
-            rotation_angle=15,
-            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            mark_type="breech face impression mark",
+            mask=mask,
+            bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
             mark_parameters=PreprocessingImpressionParams(),
         ), PrepareMarkResponseImpression  # type: ignore
 
     @pytest.fixture(scope="class")
-    def prepare_mark_striation(self, scan_directory: Path) -> Interface:
-        """Create dummy files for the expected response.
+    def prepare_mark_striation(self, scan_directory: Path, mask: list[list[float]]) -> Interface:
+        """
+        Create dummy files for the expected response.
 
         Returns the post request data, sub_route & expected response.
         """
         return PrepareMarkStriation(
             scan_file=scan_directory / "circle.x3p",
             mark_type="aperture shear striation mark",
-            mask_array=[[0, 1], [1, 0]],
-            rotation_angle=15,
-            crop_info={"type": "rectangle", "data": {}, "is_foreground": False},
+            mask=mask,
+            bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
             mark_parameters=PreprocessingStriationParams(),
         ), PrepareMarkResponseStriation  # type: ignore
 
@@ -101,10 +116,36 @@ class TestContracts:
         """
         data = EditImage(  # type: ignore
             scan_file=scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p",
-            mask=MASK,
             cutoff_length=CUTOFF_LENGTH,
+            mask_parameters=MaskParameters(shape=MASK_SHAPE),
         )
-        return data, ProcessedDataAccess
+        return data, GeneratedImages
+
+    @pytest.fixture(scope="class")
+    def calculate_score_impression(self, directory_access: DirectoryAccess) -> Interface:
+        """
+        Create test data for calculate-score-impression endpoint.
+
+        Returns the post request data and expected response type.
+        """
+        return CalculateScoreImpression(
+            mark_dir_ref=directory_access.resource_path,
+            mark_dir_comp=directory_access.resource_path,
+            param=ImpressionParameters(),
+        ), ComparisonResponseImpression
+
+    @pytest.fixture(scope="class")
+    def calculate_score_striation(self, directory_access: DirectoryAccess) -> Interface:
+        """
+        Create test data for calculate-score-striation endpoint.
+
+        Returns the post request data and expected response type.
+        """
+        return CalculateScoreStriation(
+            mark_dir_ref=directory_access.resource_path,
+            mark_dir_comp=directory_access.resource_path,
+            param=StriationParamaters(),
+        ), ComparisonResponseStriation
 
     @pytest.mark.parametrize(
         "route",
@@ -127,7 +168,6 @@ class TestContracts:
             pytest.param("process_scan", "process-scan", id="process_scan"),
             pytest.param("prepare_mark_impression", "prepare-mark-impression", id="prepare_mark_impression"),
             pytest.param("prepare_mark_striation", "prepare-mark-striation", id="prepare_mark_striation"),
-            pytest.param("edit_scan", "edit-scan", marks=pytest.mark.xfail, id="edit_scan"),
         ],
     )
     def test_pre_processor_post_requests(
@@ -145,8 +185,52 @@ class TestContracts:
         assert response.status_code == HTTPStatus.OK
         expected_response.model_validate(response.json())
 
+    @pytest.mark.xfail
+    @pytest.mark.parametrize(
+        ("fixture_name", "sub_route"),
+        [
+            pytest.param(
+                "calculate_score_impression",
+                "calculate-score-impression",
+                id="calculate_score_impression",
+            ),
+            pytest.param(
+                "calculate_score_striation",
+                "calculate-score-striation",
+                id="calculate_score_striation",
+            ),
+        ],
+    )
+    def test_processor_post_requests(self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest) -> None:
+        """Test if processor POST endpoints return expected models."""
+        data, expected_response = request.getfixturevalue(fixture_name)
+        # Act
+        response = requests.post(
+            f"{get_settings().base_url}/{RoutePrefix.PROCESSOR}/{sub_route}",
+            json=data.model_dump(mode="json"),
+            timeout=5,
+        )
+        # Assert
+        assert response.status_code == HTTPStatus.OK
+        expected_response.model_validate(response.json())
+
+    def test_pre_processor_edit_image_post_requests(self, edit_scan: tuple[EditImage, ProcessedDataAccess]) -> None:
+        """Test if preprocessor EditImage POST endpoints return expected models."""
+        params, expected_response = edit_scan
+        # Act
+        response = requests.post(
+            f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scan",
+            data={"params": json.dumps(params.model_dump(mode="json"))},
+            files={"mask_data": ("mask.bin", MASK_BYTES, "application/octet-stream")},
+            timeout=5,
+        )
+        # Assert
+        assert response.status_code == HTTPStatus.OK
+        expected_response.model_validate(response.json())
+
     def test_extractor_get_file_endpoint(self, directory_access: DirectoryAccess) -> None:
-        """Test if extractor /files/{token}/{filename} endpoint retrieves processed files.
+        """
+        Test if extractor /files/{token}/{filename} endpoint retrieves processed files.
 
         First creates files via process-scan, then retrieves each file type and validates
         response status and content types.

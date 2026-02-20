@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
+from scipy.constants import micro
 
-from container_models.base import FloatArray2D, DepthData
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.preprocess_impression.preprocess_impression import (
@@ -25,6 +26,7 @@ from conversion.preprocess_impression.center import (
     compute_center_local,
 )
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+from .helper_functions import make_mark
 
 
 def make_circular_data(
@@ -40,7 +42,7 @@ def make_circular_data(
 
 
 def make_rectangular_data(
-    shape: tuple[int, int], margin: int = 10, scale: float = 1e-6
+    shape: tuple[int, int], margin: int = 10, scale: float = micro
 ) -> FloatArray2D:
     """Create rectangular height map data with NaN border.
 
@@ -60,23 +62,6 @@ def make_rectangular_data(
         )
     )
     return data
-
-
-def make_mark(
-    data: DepthData,
-    scale_x: float = 1.0,
-    scale_y: float = 1.0,
-    mark_type: MarkType = MarkType.EXTRACTOR_IMPRESSION,
-) -> Mark:
-    """Create a Mark instance for testing."""
-    return Mark(
-        scan_image=ScanImage(
-            data=data,
-            scale_x=scale_x,
-            scale_y=scale_y,
-        ),
-        mark_type=mark_type,
-    )
 
 
 class TestGetMaskEdgePoints:
@@ -377,21 +362,15 @@ class TestAdjustForPlaneTilt:
 class TestApplyAntiAliasing:
     def test_returns_original_when_below_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
-        mark = Mark(
-            scan_image=ScanImage(data=data, scale_x=1.0, scale_y=1.0),
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
-        )
-        result, cutoff = _apply_anti_aliasing(mark, target_scale=1.4)
-        assert result is mark
+        impression_mark = make_mark(data, mark_type=MarkType.BREECH_FACE_IMPRESSION)
+        result, cutoff = _apply_anti_aliasing(impression_mark, target_scale=1.4)
+        assert result is impression_mark
         assert cutoff is None
 
     def test_applies_filter_when_above_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
-        mark = Mark(
-            scan_image=ScanImage(data=data, scale_x=1.0, scale_y=1.0),
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
-        )
-        _, cutoff = _apply_anti_aliasing(mark, target_scale=2.0)
+        impression_mark = make_mark(data, mark_type=MarkType.BREECH_FACE_IMPRESSION)
+        _, cutoff = _apply_anti_aliasing(impression_mark, target_scale=2.0)
         assert cutoff == 2.0
 
 
@@ -400,12 +379,12 @@ class TestComputeCenterLocal:
         """Center should be converted to meters using scale."""
         data = np.full((10, 10), np.nan)
         data[2:8, 2:8] = 1.0
-        mark = make_mark(data, scale_x=1e-6, scale_y=2e-6)
+        mark = make_mark(data, scale_x=micro, scale_y=2 * micro)
         center_local = compute_center_local(mark)
 
-        # Pixel center is (5, 5), scaled: (5 * 1e-6, 5 * 2e-6)
-        assert center_local[0] == pytest.approx(5e-6)
-        assert center_local[1] == pytest.approx(10e-6)
+        # Pixel center is (5, 5), scaled: (5 * micro, 5 * 2 * micro)
+        assert center_local[0] == pytest.approx(5 * micro)
+        assert center_local[1] == pytest.approx(10 * micro)
 
     def test_breech_face_uses_circle_fitting(self):
         """Breech face impression should use circle fitting."""
@@ -416,14 +395,17 @@ class TestComputeCenterLocal:
         circle_mask = (x - center_true[0]) ** 2 + (y - center_true[1]) ** 2 <= radius**2
         data[circle_mask] = 1.0
         mark = make_mark(
-            data, scale_x=1e-6, scale_y=1e-6, mark_type=MarkType.BREECH_FACE_IMPRESSION
+            data,
+            scale_x=micro,
+            scale_y=micro,
+            mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
 
         center_local = compute_center_local(mark)
 
-        # Should be close to (20, 20) in pixels -> (20e-6, 20e-6) in meters
-        assert center_local[0] == pytest.approx(20e-6)
-        assert center_local[1] == pytest.approx(20e-6)
+        # Should be close to (20, 20) in pixels -> (20 * micro, 20 * micro) in meters
+        assert center_local[0] == pytest.approx(20 * micro)
+        assert center_local[1] == pytest.approx(20 * micro)
 
 
 class TestPreprocessImpressionMarkIntegration:
@@ -432,22 +414,22 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_basic_pipeline_runs(self):
         """Basic pipeline should run without errors."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=2e-6,
+            pixel_size=2 * micro,
             adjust_pixel_spacing=False,
             level_offset=True,
             level_tilt=True,
             level_2nd=False,
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         assert isinstance(filtered, Mark)
         assert isinstance(leveled, Mark)
@@ -455,20 +437,20 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_output_has_correct_scale(self):
         """Output should have the target pixel size."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        target_size = 2e-6
+        target_size = 2 * micro
         params = PreprocessingImpressionParams(
             pixel_size=target_size,
             adjust_pixel_spacing=False,
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         assert filtered.scan_image.scale_x == target_size
         assert filtered.scan_image.scale_y == target_size
@@ -478,42 +460,42 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_output_is_smaller_after_downsampling(self):
         """Downsampling should reduce array size."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=2e-6,  # 2x downsampling
+            pixel_size=2 * micro,  # 2x downsampling
             adjust_pixel_spacing=False,
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         # After 2x downsampling, size should be roughly half
-        assert filtered.scan_image.data.shape[0] < mark.scan_image.data.shape[0]
-        assert filtered.scan_image.data.shape[1] < mark.scan_image.data.shape[1]
-        assert leveled.scan_image.data.shape[0] < mark.scan_image.data.shape[0]
-        assert leveled.scan_image.data.shape[1] < mark.scan_image.data.shape[1]
+        assert filtered.scan_image.height < impression_mark.scan_image.height
+        assert filtered.scan_image.width < impression_mark.scan_image.width
+        assert leveled.scan_image.height < impression_mark.scan_image.height
+        assert leveled.scan_image.width < impression_mark.scan_image.width
 
     @pytest.mark.integration
     def test_filtered_and_leveled_differ(self):
         """Filtered and leveled outputs should be different."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             adjust_pixel_spacing=False,
-            highpass_cutoff=50e-6,  # Apply high-pass to create difference
+            highpass_cutoff=50 * micro,  # Apply high-pass to create difference
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         # Data should differ due to high-pass filtering
         assert not np.allclose(
@@ -525,18 +507,18 @@ class TestPreprocessImpressionMarkIntegration:
         """Breech face impression should use circle fitting for center."""
         center = (50, 50)
         data = make_circular_data((100, 100), center, radius=40)
-        mark = make_mark(
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=1e-6,  # No resampling
+            pixel_size=micro,  # No resampling
             adjust_pixel_spacing=False,
         )
 
-        filtered, _ = preprocess_impression_mark(mark, params)
+        filtered, _ = preprocess_impression_mark(impression_mark, params)
 
         center_x, center_y = filtered.center
         assert center_x == pytest.approx(40.5)
@@ -545,60 +527,60 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_no_resampling_when_pixel_size_matches(self):
         """No resampling should occur when pixel size already matches."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=1e-6,  # Same as input
+            pixel_size=micro,  # Same as input
             adjust_pixel_spacing=False,
         )
 
-        filtered, _ = preprocess_impression_mark(mark, params)
+        filtered, _ = preprocess_impression_mark(impression_mark, params)
 
-        assert filtered.scan_image.scale_x == mark.scan_image.scale_x
-        assert filtered.scan_image.scale_y == mark.scan_image.scale_y
+        assert filtered.scan_image.scale_x == impression_mark.scan_image.scale_x
+        assert filtered.scan_image.scale_y == impression_mark.scan_image.scale_y
 
     @pytest.mark.integration
     def test_is_resampled_flag_set_on_resampling(self):
         """is_resampled flag should be True after resampling."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=2e-6,  # Different from input
+            pixel_size=2 * micro,  # Different from input
             adjust_pixel_spacing=False,
         )
 
-        filtered, _ = preprocess_impression_mark(mark, params)
+        filtered, _ = preprocess_impression_mark(impression_mark, params)
 
-        assert filtered.scan_image.scale_x != mark.scan_image.scale_x
-        assert filtered.scan_image.scale_y != mark.scan_image.scale_y
+        assert filtered.scan_image.scale_x != impression_mark.scan_image.scale_x
+        assert filtered.scan_image.scale_y != impression_mark.scan_image.scale_y
 
     @pytest.mark.integration
     def test_without_lowpass_filter(self):
         """Pipeline should work without low-pass filter."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=2e-6,
+            pixel_size=2 * micro,
             adjust_pixel_spacing=False,
             lowpass_cutoff=None,
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         assert isinstance(filtered, Mark)
         assert isinstance(leveled, Mark)
@@ -606,20 +588,20 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_without_highpass_filter(self):
         """Pipeline should work without high-pass filter."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=2e-6,
+            pixel_size=2 * micro,
             adjust_pixel_spacing=False,
             highpass_cutoff=None,
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         assert isinstance(filtered, Mark)
         assert isinstance(leveled, Mark)
@@ -627,21 +609,21 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_without_any_filters(self):
         """Pipeline should work without any filters."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=2e-6,
+            pixel_size=2 * micro,
             adjust_pixel_spacing=False,
             lowpass_cutoff=None,
             highpass_cutoff=None,
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         assert isinstance(filtered, Mark)
         assert isinstance(leveled, Mark)
@@ -649,19 +631,19 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_with_tilt_adjustment(self):
         """Pipeline should work with tilt adjustment enabled."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=2e-6,
+            pixel_size=2 * micro,
             adjust_pixel_spacing=True,
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         assert isinstance(filtered, Mark)
         assert isinstance(leveled, Mark)
@@ -669,22 +651,22 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_with_second_order_leveling(self):
         """Pipeline should work with second order leveling."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=2e-6,
+            pixel_size=2 * micro,
             adjust_pixel_spacing=False,
             level_offset=True,
             level_tilt=True,
             level_2nd=True,
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         assert isinstance(filtered, Mark)
         assert isinstance(leveled, Mark)
@@ -692,19 +674,19 @@ class TestPreprocessImpressionMarkIntegration:
     @pytest.mark.integration
     def test_output_data_is_finite_where_valid(self):
         """Output data should be finite where input was valid."""
-        data = make_rectangular_data((100, 100), scale=1e-6)
-        mark = make_mark(
+        data = make_rectangular_data((100, 100), scale=micro)
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=2e-6,
+            pixel_size=2 * micro,
             adjust_pixel_spacing=False,
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         assert np.all(np.isfinite(filtered.scan_image.valid_data))
         assert np.all(np.isfinite(leveled.scan_image.valid_data))
@@ -726,14 +708,14 @@ class TestPreprocessImpressionMarkIntegration:
             + 0.1 * x[10:-10, 10:-10]
             + 0.05 * y[10:-10, 10:-10]
         )
-        mark = make_mark(
+        impression_mark = make_mark(
             data=data,
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=micro,
+            scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
-            pixel_size=1e-6,
+            pixel_size=micro,
             adjust_pixel_spacing=False,
             level_offset=True,
             level_tilt=True,
@@ -742,7 +724,7 @@ class TestPreprocessImpressionMarkIntegration:
             highpass_cutoff=None,
         )
 
-        filtered, leveled = preprocess_impression_mark(mark, params)
+        filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         # Leveled should have more variance (curvature preserved)
         # Filtered should have less variance (curvature removed)
@@ -759,51 +741,51 @@ class TestUpdateMarkData:
     def test_returns_new_mark_with_updated_data(self):
         """Should return a new Mark instance with updated data."""
         original_data = np.array([[1.0, 2.0], [3.0, 4.0]])
-        mark = make_mark(original_data, scale_x=1.0, scale_y=1.0)
+        impression_mark = make_mark(original_data, scale_x=1.0, scale_y=1.0)
 
         new_data = np.array([[5.0, 6.0], [7.0, 8.0]])
-        result = update_mark_data(mark, new_data)
+        result = update_mark_data(impression_mark, new_data)
 
         assert_array_equal(result.scan_image.data, new_data)
 
     def test_does_not_modify_original_mark(self):
         """Original mark should remain unchanged."""
         original_data = np.array([[1.0, 2.0], [3.0, 4.0]])
-        mark = make_mark(original_data, scale_x=1.0, scale_y=1.0)
+        impression_mark = make_mark(original_data, scale_x=1.0, scale_y=1.0)
 
         new_data = np.array([[5.0, 6.0], [7.0, 8.0]])
-        update_mark_data(mark, new_data)
+        update_mark_data(impression_mark, new_data)
 
-        assert_array_equal(mark.scan_image.data, original_data)
+        assert_array_equal(impression_mark.scan_image.data, original_data)
 
     def test_preserves_scale_factors(self):
         """Scale factors should be preserved."""
-        mark = make_mark(np.zeros((3, 3)), scale_x=0.5, scale_y=0.25)
+        impression_mark = make_mark(np.zeros((3, 3)), scale_x=0.5, scale_y=0.25)
 
-        result = update_mark_data(mark, np.ones((3, 3)))
+        result = update_mark_data(impression_mark, np.ones((3, 3)))
 
         assert result.scan_image.scale_x == 0.5
         assert result.scan_image.scale_y == 0.25
 
     def test_preserves_mark_type(self):
         """Mark type should be preserved."""
-        mark = make_mark(
+        impression_mark = make_mark(
             np.zeros((3, 3)),
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
 
-        result = update_mark_data(mark, np.ones((3, 3)))
+        result = update_mark_data(impression_mark, np.ones((3, 3)))
 
         assert result.mark_type == MarkType.BREECH_FACE_IMPRESSION
 
     def test_handles_nan_values(self):
         """Should handle NaN values in data."""
-        mark = make_mark(np.zeros((3, 3)))
+        impression_mark = make_mark(np.zeros((3, 3)))
         new_data = np.array(
             [[1.0, np.nan, 2.0], [np.nan, 3.0, np.nan], [4.0, 5.0, 6.0]]
         )
 
-        result = update_mark_data(mark, new_data)
+        result = update_mark_data(impression_mark, new_data)
 
         assert np.isnan(result.scan_image.data[0, 1])
         assert np.isnan(result.scan_image.data[1, 0])
@@ -815,40 +797,40 @@ class TestNeedsResampling:
 
     def test_returns_false_when_scales_match_exactly(self):
         """Should return False when scales match exactly."""
-        mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.0)
+        impression_mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.0)
 
-        assert needs_resampling(mark, target_scale=1.0) is False
+        assert needs_resampling(impression_mark, target_scale=1.0) is False
 
     def test_returns_false_when_scales_match_within_tolerance(self):
         """Should return False when scales match within relative tolerance."""
-        mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.0 + 1e-9)
+        impression_mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.0 + 1e-9)
 
-        assert needs_resampling(mark, target_scale=1.0) is False
+        assert needs_resampling(impression_mark, target_scale=1.0) is False
 
     def test_returns_true_when_scales_differ(self):
         """Should return True when scales differ significantly."""
-        mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.0)
+        impression_mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.0)
 
-        assert needs_resampling(mark, target_scale=2.0) is True
+        assert needs_resampling(impression_mark, target_scale=2.0) is True
 
     def test_returns_true_when_only_x_differs(self):
         """Should return True when only x scale differs."""
-        mark = make_mark(np.zeros((10, 10)), scale_x=1.5, scale_y=1.0)
+        impression_mark = make_mark(np.zeros((10, 10)), scale_x=1.5, scale_y=1.0)
 
-        assert needs_resampling(mark, target_scale=1.0) is True
+        assert needs_resampling(impression_mark, target_scale=1.0) is True
 
     def test_returns_true_when_only_y_differs(self):
         """Should return True when only y scale differs."""
-        mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.5)
+        impression_mark = make_mark(np.zeros((10, 10)), scale_x=1.0, scale_y=1.5)
 
-        assert needs_resampling(mark, target_scale=1.0) is True
+        assert needs_resampling(impression_mark, target_scale=1.0) is True
 
     def test_handles_small_scale_values(self):
         """Should handle small scale values correctly."""
-        mark = make_mark(np.zeros((10, 10)), scale_x=1e-6, scale_y=1e-6)
+        impression_mark = make_mark(np.zeros((10, 10)), scale_x=micro, scale_y=micro)
 
-        assert needs_resampling(mark, target_scale=1e-6) is False
-        assert needs_resampling(mark, target_scale=2e-6) is True
+        assert needs_resampling(impression_mark, target_scale=micro) is False
+        assert needs_resampling(impression_mark, target_scale=2 * micro) is True
 
 
 class TestMarkCenter:
@@ -860,26 +842,26 @@ class TestMarkCenter:
         """
         height, width = 100, 200
         data = np.zeros((height, width))
-        scan_image = ScanImage(data=data, scale_x=4e-6, scale_y=4e-6)
-
-        mark = Mark(
-            scan_image=scan_image,
+        impression_mark = make_mark(
+            data,
+            scale_x=4 * micro,
+            scale_y=4 * micro,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
 
-        center_x, center_y = mark.center
+        center_x, center_y = impression_mark.center
 
         assert center_x == width / 2
         assert center_y == height / 2
-        assert mark.center == (100.0, 50.0)
+        assert impression_mark.center == (100.0, 50.0)
 
     def test_center_with_explicit_override(self):
         """Verify that _center override takes precedence."""
         data = np.zeros((100, 200))
-        scan_image = ScanImage(data=data, scale_x=4e-6, scale_y=4e-6)
-
-        mark = Mark(
-            scan_image=scan_image,
+        mark = make_mark(
+            data,
+            scale_x=4 * micro,
+            scale_y=4 * micro,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
             center=(42.0, 17.0),
         )
@@ -890,11 +872,11 @@ class TestMarkCenter:
         """Verify center calculation with odd dimensions."""
         height, width = 101, 203
         data = np.zeros((height, width))
-        scan_image = ScanImage(data=data, scale_x=4e-6, scale_y=4e-6)
-
-        mark = Mark(
-            scan_image=scan_image,
+        impression_mark = make_mark(
+            data,
+            scale_x=4 * micro,
+            scale_y=4 * micro,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
 
-        assert mark.center == (101.5, 50.5)
+        assert impression_mark.center == (101.5, 50.5)

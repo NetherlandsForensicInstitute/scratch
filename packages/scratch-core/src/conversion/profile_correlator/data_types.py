@@ -12,9 +12,10 @@ The main types are:
 All length and height measurements are in meters (SI units).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from container_models.base import FloatArray1D
+from conversion.data_formats import Mark
 
 
 @dataclass(frozen=True)
@@ -186,3 +187,27 @@ class StriationComparisonResults:
     ds_roughness_normalized_to_reference: float
     ds_roughness_normalized_to_compared: float
     ds_roughness_normalized_to_reference_and_compared: float
+    quality_passbands: dict[tuple[float, float], float] = field(default_factory=dict)
+
+    @property
+    def mean_square_ratio(self) -> float:
+        return (self.mean_square_comp / self.mean_square_ref) * 100
+
+
+@dataclass(frozen=True)
+class MarkCorrelationResult:
+    """
+    Result of correlating two striation marks, including aligned mark regions.
+
+    :param comparison_results: Statistical comparison metrics.
+    :param mark_reference_aligned: Rows of the equalized reference mark that overlap with comp.
+    :param mark_compared_aligned: Rows of the equalized, scaled comparison mark that overlap with ref.
+    :param profile_reference_aligned: Reference overlap as a Profile, pixel_size = equalized pixel size.
+    :param profile_compared_aligned: Comparison overlap as a Profile, pixel_size = equalized pixel size.
+    """
+
+    comparison_results: StriationComparisonResults
+    mark_reference_aligned: Mark
+    mark_compared_aligned: Mark
+    profile_reference_aligned: Profile
+    profile_compared_aligned: Profile

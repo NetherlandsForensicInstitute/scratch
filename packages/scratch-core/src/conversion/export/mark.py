@@ -33,23 +33,21 @@ class ExportedMarkData(ConfigBaseModel):
     meta_data: dict[str, Any] = Field(default_factory=dict)
 
 
-def save_mark(mark: Mark, path: Path, stem: str) -> None:
+def save_mark(mark: Mark, path: Path) -> None:
     """
     Save a Mark object to JSON and NPZ files.
 
     Creates two files:
-    - {stem}.json: Contains mark metadata
-    - {stem}.npz: Contains compressed binary image data
+    - {path}.json: Contains mark metadata
+    - {path}.npz: Contains compressed binary image data
 
     :param mark: Mark object to save
-    :param path: Directory path where files will be saved
-    :param stem: Base filename
+    :param path: File path (suffix is replaced for each output)
     """
-    path.mkdir(parents=True, exist_ok=True)
-    file_path = path / stem
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    save_as_json(data=mark.export(), file_path=file_path)
-    save_as_compressed_binary(array=mark.scan_image.data, file_path=file_path)
+    save_as_json(data=mark.export(), file_path=path)
+    save_as_compressed_binary(array=mark.scan_image.data, file_path=path)
 
 
 def load_mark_from_path(path: Path, stem: str) -> Mark:

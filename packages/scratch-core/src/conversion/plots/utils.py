@@ -1,7 +1,8 @@
 import textwrap
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
+import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -66,10 +67,10 @@ def plot_profiles_on_axes(
     :param score: Pre-computed correlation coefficient.
     :param title: Prefix for the title before the correlation value.
     """
-    x1 = np.arange(len(profile_reference)) * scale * 1e6  # µm
+    x1 = np.arange(len(profile_reference)) * scale * 1e6
     x2 = np.arange(len(profile_compared)) * scale * 1e6
 
-    y1 = profile_reference * 1e6  # µm
+    y1 = profile_reference * 1e6
     y2 = profile_compared * 1e6
 
     ax.plot(x1, y1, "b-", label="Reference Profile A", linewidth=1.5)
@@ -90,8 +91,9 @@ def plot_side_by_side_on_axes(
     data_comp: FloatArray2D,
     scale: float,
     title: str = "Reference Surface A / Moved Compared Surface B",
-    colorbar_width: str = "2.5%",  # Smaller since plot is wider
+    colorbar_width: str = "2.5%",
     colorbar_pad: float = 0.05,
+    aspect: Literal["equal", "auto"] = "equal",
 ) -> None:
     """
     Plot two surfaces side by side on the given axes.
@@ -104,6 +106,7 @@ def plot_side_by_side_on_axes(
     :param title: Title for the plot.
     :param colorbar_width: Width of colorbar as percentage of axes.
     :param colorbar_pad: Padding between plot and colorbar.
+    :param aspect: Matplotlib aspect argument passed to imshow.
     """
     gap_width = int(np.ceil(min(data_ref.shape[1], data_comp.shape[1]) / 100))
     gap = np.full((data_ref.shape[0], gap_width), np.nan)
@@ -117,6 +120,7 @@ def plot_side_by_side_on_axes(
         title,
         colorbar_width=colorbar_width,
         colorbar_pad=colorbar_pad,
+        aspect=aspect,
     )
 
 
@@ -128,6 +132,7 @@ def plot_depth_map_on_axes(
     title: str,
     colorbar_width: str = "5%",
     colorbar_pad: float = 0.05,
+    aspect: Literal["equal", "auto"] = "equal",
 ) -> None:
     """
     Plot a depth map on the given axes.
@@ -139,6 +144,7 @@ def plot_depth_map_on_axes(
     :param title: Title for the plot.
     :param colorbar_width: Width of colorbar as percentage of axes.
     :param colorbar_pad: Padding between plot and colorbar.
+    :param aspect: Matplotlib aspect argument passed to imshow.
     """
     height, width = data.shape
     extent = (0, width * scale * 1e6, 0, height * scale * 1e6)
@@ -146,7 +152,7 @@ def plot_depth_map_on_axes(
     im = ax.imshow(
         data * 1e6,
         cmap=DEFAULT_COLORMAP,
-        aspect="equal",
+        aspect=aspect,
         origin="lower",
         extent=extent,
     )
@@ -172,18 +178,16 @@ def metadata_to_table_data(
 
     :param metadata: Dictionary of metadata key-value pairs.
     :param wrap_width: Maximum character width before wrapping values.
-    :returns: List of [key, value] pairs suitable for table rendering.
+    :returns: Table rows as list of [key, value] string pairs.
     """
-    table_data = []
+    table_data: list[list[str]] = []
     for k, v in metadata.items():
         wrapped_lines = textwrap.wrap(str(v), width=wrap_width)
         if not wrapped_lines:
             wrapped_lines = [""]
 
-        # First line has the key
-        table_data.append([f"{k}:", wrapped_lines[0]])
+        table_data.append([f"{k}:" if k else "", wrapped_lines[0]])
 
-        # Continuation lines have empty key
         for line in wrapped_lines[1:]:
             table_data.append(["", line])
     return table_data
@@ -267,31 +271,17 @@ def get_bounding_box(side_margin: float, table_data: list[list[str]]) -> Bbox:
     return Bbox.from_bounds(side_margin, bottom, available_width, table_height)
 
 
-def get_height_ratios(row0_height: float) -> list[float]:
+def get_height_ratios(metadata_height: float, *row_heights: float) -> list[float]:
     """
-    Calculate normalized height ratios for a 4-row grid layout.
+    Calculate normalized height ratios for a grid layout.
 
-    Rows 1-3 have fixed relative heights (0.32, 0.22, 0.20) for depth maps,
-    side-by-side view, and profile plot respectively. Row 0 (metadata) is
-    variable. All values are normalized to sum to 1.0.
-
-    :param row0_height: Relative height for row 0 (metadata section).
-    :returns: List of 4 normalized height ratios for use with GridSpec.
+    :param metadata_height: Relative height for the metadata row.
+    :param row_heights: Relative heights for the remaining rows.
+    :returns: List of normalized height ratios for use with GridSpec.
     """
-    # Fixed heights for other rows
-    row1_height = 0.32
-    row2_height = 0.22
-    row3_height = 0.20
-
-    # Normalize
-    total = row0_height + row1_height + row2_height + row3_height
-    height_ratios = [
-        row0_height / total,
-        row1_height / total,
-        row2_height / total,
-        row3_height / total,
-    ]
-    return height_ratios
+    heights = [metadata_height, *row_heights]
+    total = sum(heights)
+    return [h / total for h in heights]
 
 
 def get_metadata_dimensions(
@@ -321,3 +311,73 @@ def get_metadata_dimensions(
         0.12, max_metadata_rows * 0.022
     )  # Increased minimum and scale
     return max_metadata_rows, metadata_height_ratio
+
+
+def plot_depth_map_with_axes(
+    data: FloatArray2D,
+    scale: float,
+    title: str,
+) -> ImageRGB:
+    """
+    Plot a depth map rendering of a mark.
+
+    :param data: data to plot in meters.
+    :param scale: scale of the data in meters.
+    :param title: Title for the plot.
+    :returns: RGB image as uint8 array with shape (H, W, 3).
+    """
+    height, width = data.shape
+    fig_height, fig_width = get_figure_dimensions(height, width)
+
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    plot_depth_map_on_axes(ax, fig, data, scale, title)
+
+    fig.tight_layout()
+    arr = figure_to_array(fig)
+    plt.close(fig)
+    return arr
+
+
+def draw_metadata_box(
+    ax: Axes,
+    metadata: dict[str, str],
+    title: str | None = None,
+    draw_border: bool = True,
+    wrap_width: int = 25,
+    side_margin: float = 0.06,
+) -> None:
+    """Draw a metadata box with key-value pairs."""
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    for spine in ax.spines.values():
+        spine.set_visible(draw_border)
+        spine.set_linewidth(1.5)
+        spine.set_edgecolor("black")
+
+    if title:
+        ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
+
+    table_data = metadata_to_table_data(metadata, wrap_width=wrap_width)
+    col_widths = get_col_widths(side_margin, table_data)
+    bounding_box = get_bounding_box(side_margin, table_data)
+
+    table = ax.table(
+        cellText=table_data,
+        cellLoc="left",
+        colWidths=col_widths,
+        loc="upper center",
+        edges="open",
+        bbox=bounding_box,
+    )
+
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+
+    for i in range(len(table_data)):
+        table[i, 0].set_text_props(fontweight="bold", ha="right")
+        table[i, 0].PAD = 0.02
+        table[i, 1].set_text_props(ha="left")
+        table[i, 1].PAD = 0.02

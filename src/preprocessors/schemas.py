@@ -1,23 +1,27 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Annotated, Self
+from typing import Annotated, Any
 
 import numpy as np
 from container_models.light_source import LightSource
+from conversion.data_formats import BoundingBox, MarkType
 from conversion.leveling.data_types import SurfaceTerms
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+from conversion.preprocess_striation import PreprocessingStriationParams
 from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
     Field,
     PositiveFloat,
     PositiveInt,
+    field_validator,
     model_validator,
 )
 from scipy.constants import micro
 from utils.constants import RegressionOrder
 
-from constants import LIGHT_SOURCES, OBSERVER, ImpressionMarks, MaskTypes, StriationMarks
+from constants import LIGHT_SOURCES, OBSERVER, MaskTypes
 from models import (
     BaseModelConfig,
     ProjectTag,
@@ -93,57 +97,66 @@ class CropInfo(BaseModelConfig):
     is_foreground: bool
 
 
-class PreprocessingImpressionParams(BaseModelConfig):
-    """dummy till #84 is merged."""
-
-    pass  # TODO: not yet merged dataclass from PR #84
-
-
-class PreprocessingStriationParams(BaseModelConfig):
-    """dummy till #84 is merged."""
-
-    pass  # TODO: not yet merged dataclass from PR #84
-
-
-class PrepareMarkStriation(BaseParameters):
-    mark_type: StriationMarks = Field(..., description="Type of mark to prepare.")
-    mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
-    rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
-    crop_info: CropInfo | None = Field(
-        None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
+class PrepareMarkBase(BaseParameters):
+    mark_type: MarkType = Field(..., description="Type of mark to prepare.")
+    mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
+    bounding_box_list: list[list[float]] | None = Field(
+        None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
     )
-    mark_parameters: PreprocessingStriationParams = Field(
-        ..., description="Preprocessor parameters."
-    )  # TODO: not yet merged dataclass from PR #84
+
+    @cached_property
+    def mask_array(self) -> NDArray:
+        """
+        Convert the mask tuple to a numpy boolean array.
+
+        :return: 2D numpy array of boolean values representing the mask
+        """
+        return np.array(self.mask, np.bool_)
+
+    @cached_property
+    def bounding_box(self) -> BoundingBox | None:
+        """
+        Convert the bounding_box tuple to a numpy array.
+
+        :return: 2D numpy array of float values representing the bounding box
+        """
+        return np.array(self.bounding_box_list) if self.bounding_box_list is not None else None
 
 
-class PrepareMarkImpression(BaseParameters):
-    mark_type: ImpressionMarks = Field(..., description="Type of mark to prepare.")
-    mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
-    rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
-    crop_info: CropInfo | None = Field(
-        None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
-    )
+class PrepareMarkStriation(PrepareMarkBase):
+    mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
+
+    @field_validator("mark_type")
+    @classmethod
+    def must_be_striation(cls, v: MarkType) -> MarkType:
+        """Validate that the given mark type is a striation mark."""
+        if not v.is_striation():
+            raise ValueError(f"{v} is not a striation mark")
+        return v
+
+
+class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
 
+    @field_validator("mark_type")
+    @classmethod
+    def must_be_impression(cls, v: MarkType) -> MarkType:
+        """Validate that the given mark type is an impression mark."""
+        if not v.is_impression():
+            raise ValueError(f"{v} is not an impression mark")
+        return v
 
-type Mask = tuple[tuple[bool, ...], ...]
+
+class MaskParameters(BaseModelConfig):
+    shape: tuple[PositiveInt, PositiveInt] = Field(
+        ..., examples=[[100, 100], [250, 150]], description="Defines the shape of the 2D mask array."
+    )
+    is_bitpacked: bool = Field(default=False, examples=[False, True], description="Whether the mask is bit-packed.")
 
 
 class EditImage(BaseParameters):
     """Request model for editing and transforming processed scan images."""
 
-    mask: Mask = Field(
-        description=(
-            "Binary mask defining regions to include (True/1) or exclude (False/0) during processing. "
-            "Accepts both boolean (True/False) and integer (1/0) representations. "
-            "Must be a 2D tuple structure matching the scan dimensions."
-        ),
-        examples=[
-            ((1, 0), (0, 1)),  # Integer format
-            ((True, False), (False, True)),  # Boolean format
-        ],
-    )
     cutoff_length: Annotated[PositiveFloat, AfterValidator(lambda x: x * micro)] = Field(
         description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "
         "Defines the spatial frequency threshold for surface texture analysis.",
@@ -178,30 +191,37 @@ class EditImage(BaseParameters):
         description="Subsampling step size in y-direction. Values > 1 reduce resolution by skipping pixels.",
         examples=[1, 2, 4],
     )
+    mask_parameters: MaskParameters = Field(
+        ...,
+        description="Mask parameters.",
+        # TODO: change this field to `mask_shape: tuple[PositiveInt, PositiveInt]`
+    )
 
     @model_validator(mode="after")
-    def validate_mask_is_2d(self) -> Self:
-        """
-        Validate that the mask is a valid 2D array structure.
-
-        Ensures the mask can be converted to a numpy array and has exactly
-        2 dimensions, as required for image masking operations.
-        """
-        try:
-            self.mask_array
-        except (ValueError, TypeError) as e:
-            raise ValueError("Bad mask value: unable to capture mask") from e
-        if not self.mask_array.ndim == 2:  # noqa: PLR2004
-            raise ValueError(f"Mask is not a 2D image: D{self.mask_array.ndim}")
-        if self.scan_file.suffix != ".x3p":
+    def check_file_is_x3p(self):
+        """Check whether the scan file is an x3p file."""
+        if self.scan_file.suffix.lower() != ".x3p":
             raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
         return self
 
-    @cached_property
-    def mask_array(self) -> NDArray:
-        """
-        Convert the mask tuple to a numpy boolean array.
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        # Add schema for mask parameters to JSON model
+        schema["properties"]["mask_parameters"] = MaskParameters.model_json_schema(*args, **kwargs)
+        # Add schema for BaseParameters and EditImage to JSON model
+        attr_to_class = (
+            ("scan_file", "ScanFile"),
+            ("regression_order", "RegressionOrder"),
+            ("terms", "SurfaceTerms"),
+            ("project_name", "ProjectTag"),
+        )
+        for attribute, class_name in attr_to_class:
+            updated = schema["$defs"][class_name]
+            for key in ("examples", "description"):
+                if value := schema["properties"][attribute].get(key):
+                    updated[key] = value
+            schema["properties"][attribute] = updated
 
-        :return: 2D numpy array of boolean values representing the mask
-        """
-        return np.array(self.mask, np.bool_)
+        return schema
