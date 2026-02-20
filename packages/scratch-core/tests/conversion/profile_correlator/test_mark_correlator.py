@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from conversion.profile_correlator import (
     AlignmentParameters,
@@ -16,7 +17,7 @@ from .conftest import (
     make_shifted_profile,
 )
 
-PIXEL_SIZE_M = 1.5e-6  # 1.5 μm
+PIXEL_SIZE_M = 1.5 * micro  # 1.5 μm
 N_COLS = 50
 
 

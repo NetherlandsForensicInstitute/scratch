@@ -8,7 +8,8 @@ from math import ceil
 from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import MarkType
+from ..helper_functions import make_mark
 from conversion.filter import (
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
@@ -281,9 +282,10 @@ def test_fine_align_bullet_marks():
     angle_rad = np.radians(angle_input)
     striations = np.sin(2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 8)
 
-    scan_image = ScanImage(data=striations, scale_x=micro, scale_y=micro)
-    mark = Mark(
-        scan_image=scan_image,
+    mark = make_mark(
+        striations,
+        scale_x=micro,
+        scale_y=micro,
         mark_type=MarkType.BULLET_GEA_STRIATION,
     )
     aligned_mark, detected_angle = fine_align_bullet_marks(
@@ -318,9 +320,10 @@ def test_preprocess_striation_mark():
     noise = np.random.randn(height, width) * 0.001
     depth_data = form + striations + noise
 
-    scan_image = ScanImage(data=depth_data, scale_x=micro, scale_y=micro)
-    input_mark = Mark(
-        scan_image=scan_image,
+    input_mark = make_mark(
+        depth_data,
+        scale_x=micro,
+        scale_y=micro,
         mark_type=MarkType.BULLET_LEA_STRIATION,
     )
     params = PreprocessingStriationParams(

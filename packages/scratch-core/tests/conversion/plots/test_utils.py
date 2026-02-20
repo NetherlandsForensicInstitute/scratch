@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from matplotlib import pyplot as plt
+from scipy.constants import micro
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.transforms import Bbox
@@ -249,49 +250,53 @@ class TestPlotDepthMapWithAxes:
     def test_returns_rgb_image(self, impression_sample_depth_data: np.ndarray):
         result = plot_depth_map_with_axes(
             data=impression_sample_depth_data,
-            scale=1.5e-6,
+            scale=1.5 * micro,
             title="Test Surface",
         )
         assert_valid_rgb_image(result)
 
     def test_handles_nan_values(self):
-        data = np.random.randn(50, 60) * 1e-6
+        data = np.random.randn(50, 60) * micro
         data[10:20, 10:20] = np.nan
-        result = plot_depth_map_with_axes(data=data, scale=1.5e-6, title="With NaN")
+        result = plot_depth_map_with_axes(
+            data=data, scale=1.5 * micro, title="With NaN"
+        )
         assert_valid_rgb_image(result)
 
     def test_square_data(self):
         data = create_synthetic_striation_data(height=200, width=200, seed=42)
-        result = plot_depth_map_with_axes(data, scale=1.5625e-6, title="Square")
+        result = plot_depth_map_with_axes(data, scale=1.5625 * micro, title="Square")
         assert_valid_rgb_image(result)
 
     def test_wide_data(self):
         data = create_synthetic_striation_data(height=100, width=400, seed=42)
-        result = plot_depth_map_with_axes(data, scale=1.5625e-6, title="Wide")
+        result = plot_depth_map_with_axes(data, scale=1.5625 * micro, title="Wide")
         assert_valid_rgb_image(result)
 
     def test_tall_data(self):
         data = create_synthetic_striation_data(height=400, width=100, seed=42)
-        result = plot_depth_map_with_axes(data, scale=1.5625e-6, title="Tall")
+        result = plot_depth_map_with_axes(data, scale=1.5625 * micro, title="Tall")
         assert_valid_rgb_image(result)
 
     def test_uniform_data(self):
-        data = np.ones((100, 100)) * 1e-6
-        result = plot_depth_map_with_axes(data, scale=1.5625e-6, title="Uniform")
+        data = np.ones((100, 100)) * micro
+        result = plot_depth_map_with_axes(data, scale=1.5625 * micro, title="Uniform")
         assert_valid_rgb_image(result)
 
 
 class TestPlotDepthmapOnAxes:
     def test_creates_image(self, striation_surface_reference):
         fig, ax = plt.subplots()
-        plot_depth_map_on_axes(ax, fig, striation_surface_reference, 1.5625e-6, "Test")
+        plot_depth_map_on_axes(
+            ax, fig, striation_surface_reference, 1.5625 * micro, "Test"
+        )
         assert len(ax.images) == 1
         plt.close(fig)
 
     def test_sets_title(self, striation_surface_reference):
         fig, ax = plt.subplots()
         plot_depth_map_on_axes(
-            ax, fig, striation_surface_reference, 1.5625e-6, "My Title"
+            ax, fig, striation_surface_reference, 1.5625 * micro, "My Title"
         )
         assert ax.get_title() == "My Title"
         plt.close(fig)
@@ -306,7 +311,7 @@ class TestPlotProfilesOnAxes:
             ax,
             striation_profile_reference,
             striation_profile_compared,
-            1.5625e-6,
+            1.5625 * micro,
             0.85,
             "Test",
         )
@@ -321,7 +326,7 @@ class TestPlotProfilesOnAxes:
             ax,
             striation_profile_reference,
             striation_profile_compared,
-            1.5625e-6,
+            1.5625 * micro,
             0.85,
             "Test",
         )
@@ -338,7 +343,11 @@ class TestPlotSideBySideOnAxes:
     ):
         fig, ax = plt.subplots()
         plot_side_by_side_on_axes(
-            ax, fig, striation_surface_reference, striation_surface_compared, 1.5625e-6
+            ax,
+            fig,
+            striation_surface_reference,
+            striation_surface_compared,
+            1.5625 * micro,
         )
         assert len(ax.images) == 1
         plt.close(fig)
@@ -348,7 +357,11 @@ class TestPlotSideBySideOnAxes:
     ):
         fig, ax = plt.subplots()
         plot_side_by_side_on_axes(
-            ax, fig, striation_surface_reference, striation_surface_compared, 1.5625e-6
+            ax,
+            fig,
+            striation_surface_reference,
+            striation_surface_compared,
+            1.5625 * micro,
         )
         image_data = ax.images[0].get_array()
         assert image_data is not None

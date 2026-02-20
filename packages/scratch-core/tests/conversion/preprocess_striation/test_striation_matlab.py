@@ -8,10 +8,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from container_models.base import DepthData
-from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import MarkType
+from ..helper_functions import make_mark
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_striation_mark,
@@ -57,8 +58,8 @@ class MatlabTestCase:
     input_data: DepthData
     output_data: DepthData
 
-    input_xdim: float = 1.5e-6
-    input_ydim: float = 1.5e-6
+    input_xdim: float = 1.5 * micro
+    input_ydim: float = 1.5 * micro
     mark_type: str = "Bullet LEA striation mark"
     angle_accuracy: float = 90.0
     cutoff_hi: float = 250.0
@@ -165,23 +166,19 @@ def run_python_preprocessing(
     test_case: MatlabTestCase,
 ) -> tuple[np.ndarray, np.ndarray | None, float | None]:
     """Run Python preprocess_striation_mark and return the results."""
-    scan_image = ScanImage(
-        data=test_case.input_data,
-        scale_x=test_case.input_xdim,
-        scale_y=test_case.input_ydim,
-    )
-
     params = PreprocessingStriationParams(
-        highpass_cutoff=test_case.cutoff_hi * 1e-6,
-        lowpass_cutoff=test_case.cutoff_lo * 1e-6,
+        highpass_cutoff=test_case.cutoff_hi * micro,
+        lowpass_cutoff=test_case.cutoff_lo * micro,
         use_mean=test_case.use_mean,
         angle_accuracy=test_case.angle_accuracy,
     )
 
     mark_type = _string_to_mark_type(test_case.mark_type)
 
-    input_mark = Mark(
-        scan_image=scan_image,
+    input_mark = make_mark(
+        test_case.input_data,
+        scale_x=test_case.input_xdim,
+        scale_y=test_case.input_ydim,
         mark_type=mark_type,
     )
 

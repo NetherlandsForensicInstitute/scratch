@@ -1,12 +1,15 @@
 """Helper functions for conversion tests."""
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PIL import Image
 from matplotlib.figure import Figure
 
-from container_models.base import FloatArray
+from container_models.base import FloatArray, DepthData
+from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark, MarkType
 
 from numpy.typing import NDArray
 
@@ -69,6 +72,26 @@ def _compute_difference_stats(arr1: FloatArray, arr2: FloatArray) -> dict[str, f
         "mean": float(np.nanmean(diff)),
         "std": float(np.nanstd(diff)),
     }
+
+
+def make_mark(
+    data: DepthData,
+    scale_x: float = 1.0,
+    scale_y: float = 1.0,
+    mark_type: MarkType = MarkType.EXTRACTOR_IMPRESSION,
+    center: tuple[float, float] | None = None,
+    meta_data: dict[str, Any] | None = None,
+) -> Mark:
+    """Create a Mark instance for testing."""
+    scan_image = ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
+    if meta_data is not None:
+        return Mark(
+            scan_image=scan_image,
+            mark_type=mark_type,
+            center=center,
+            meta_data=meta_data,
+        )
+    return Mark(scan_image=scan_image, mark_type=mark_type, center=center)
 
 
 def assert_plot_is_valid_image(fig: Figure, tmp_path: Path) -> None:

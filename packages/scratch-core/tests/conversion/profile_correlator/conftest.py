@@ -11,9 +11,9 @@ import numpy as np
 import pytest
 from scipy.constants import micro
 
-from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.profile_correlator import Profile, AlignmentParameters
+from ..helper_functions import make_mark
 
 # Directory for test data files (MATLAB .mat files for validation)
 DATA_DIR = Path(__file__).parent / "data"
@@ -154,20 +154,12 @@ def make_synthetic_striation_profile(
 
 
 def striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
-    """
-    Build a 2D striation Mark by tiling a profile across columns.
-
-    :param profile: Source profile whose heights become the row data.
-    :param n_cols: Number of columns in the resulting mark.
-    :returns: Mark with data shape (len(profile.heights), n_cols).
-    """
+    """Build a striation Mark by tiling a profile across n_cols columns."""
     data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
-    return Mark(
-        scan_image=ScanImage(
-            data=data,
-            scale_x=profile.pixel_size,
-            scale_y=profile.pixel_size,
-        ),
+    return make_mark(
+        data,
+        scale_x=profile.pixel_size,
+        scale_y=profile.pixel_size,
         mark_type=MarkType.BULLET_GEA_STRIATION,
     )
 

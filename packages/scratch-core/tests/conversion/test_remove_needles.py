@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
 import unittest
+from scipy.constants import micro
 
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
@@ -20,13 +21,13 @@ class TestMaskAndRemoveNeedles:
     def simple_scan_image(self) -> ScanImage:
         """Create a simple 50x50 scan image for testing."""
         data = np.ones((50, 50)) * 100.0
-        return ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        return ScanImage(data=data, scale_x=micro, scale_y=micro)
 
     @pytest.fixture
     def small_scan_image(self) -> ScanImage:
         """Create a small scan image (<=20 columns) for testing."""
         data = np.ones((30, 15)) * 100.0
-        return ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        return ScanImage(data=data, scale_x=micro, scale_y=micro)
 
     @pytest.fixture
     def full_mask(self) -> BinaryMask:
@@ -77,7 +78,7 @@ class TestMaskAndRemoveNeedles:
         """Test handling of single-row data (1D case)."""
         data = np.ones((1, 50)) * 100.0
         data[0, 25] = 500.0  # Add a needle
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
         mask = np.ones((1, 50), dtype=bool)
 
         result = mask_and_remove_needles(scan_image, mask, median_factor=15)
@@ -89,7 +90,7 @@ class TestMaskAndRemoveNeedles:
     def test_all_nan_input(self):
         """Test handling of input data that is all NaN."""
         data = np.full((50, 50), np.nan)
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
         mask = np.ones((50, 50), dtype=bool)
 
         result = mask_and_remove_needles(scan_image, mask, median_factor=15)
@@ -175,7 +176,7 @@ class TestGetResidualImage(unittest.TestCase):
     def test_large_image_with_subsampling(self):
         """Test large image that requires subsampling will return same shape as input."""
         data = np.ones((100, 100)) * 10.0
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
         residual = get_residual_image(scan_image)
 
         assert residual.shape == scan_image.data.shape
@@ -184,7 +185,7 @@ class TestGetResidualImage(unittest.TestCase):
         """Test that residuals are large for spike outliers."""
         data = np.ones((20, 20)) * 10.0
         data[10, 10] = 1000.0  # Add spike
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
         residual = get_residual_image(scan_image)
 
@@ -195,7 +196,7 @@ class TestGetResidualImage(unittest.TestCase):
         """Test that residuals are large for spike outliers."""
         data = np.ones((20, 1)) * 10.0
         data[10, 0] = 1000.0  # Add spike
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
         residual = get_residual_image(scan_image)
 
@@ -207,7 +208,7 @@ class TestGetResidualImage(unittest.TestCase):
         """Test that residuals are large for spike outliers."""
         data = np.ones((1, 20)) * 10.0
         data[0, 10] = 1000.0  # Add spike
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
         residual = get_residual_image(scan_image)
 
@@ -219,7 +220,7 @@ class TestGetResidualImage(unittest.TestCase):
         """Test handling of NaN values in input."""
         data = np.ones((20, 20))
         data[5, 5] = np.nan
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
         residual = get_residual_image(scan_image)
 
@@ -235,7 +236,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         """Test case where no needles should be detected."""
         data = np.ones((10, 10)) * 5.0
         residuals = np.ones((10, 10)) * 0.1  # Small residuals
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
         result = get_and_remove_needles(scan_image, residuals, median_factor=15.0)
 
@@ -247,7 +248,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         data = np.ones((10, 10)) * 5.0
         residuals = np.zeros((10, 10))
         residuals[5, 5] = 100.0  # Large residual = needle
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
         result = get_and_remove_needles(scan_image, residuals, median_factor=1.0)
 
@@ -263,7 +264,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         residuals[2, 2] = 100.0
         residuals[7, 7] = 100.0
         residuals[5, 5] = 100.0
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
         result = get_and_remove_needles(scan_image, residuals, median_factor=1.0)
 
@@ -279,7 +280,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         data = np.ones((10, 10)) * 5.0
         residuals = np.ones((10, 10))
         residuals[5, 5] = 10.0  # Moderate residual
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
         # Low threshold - should detect needle
         result_low = get_and_remove_needles(scan_image, residuals, median_factor=1.0)
@@ -298,7 +299,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         residuals = np.ones((10, 10))
         residuals[3, 3] = np.nan
         residuals[7, 7] = 100.0  # This should still be detected
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
         result = get_and_remove_needles(scan_image, residuals, median_factor=1.0)
 
@@ -310,7 +311,7 @@ class TestDetermineAndRemoveNeedles(unittest.TestCase):
         data_copy = data.copy()
         residuals = np.zeros((10, 10))
         residuals[5, 5] = 100.0
-        scan_image = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
+        scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
         result = get_and_remove_needles(scan_image, residuals, median_factor=1.0)
 

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from container_models.base import FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
@@ -57,8 +58,8 @@ class MatlabTestCase:
     input_mask: BinaryMask
     output_data: FloatArray2D
 
-    input_xdim: float = 3.5e-6
-    input_ydim: float = 3.5e-6
+    input_xdim: float = 3.5 * micro
+    input_ydim: float = 3.5 * micro
     terms: SurfaceTerms = field(default_factory=lambda: to_surface_terms("Plane"))
     regression_order: int = field(default_factory=lambda: to_regression_order("R0"))
     cutoff_length: float = 250.0
@@ -185,7 +186,7 @@ def run_python_preprocessing(test_case: MatlabTestCase) -> FloatArray2D:
         scan_image=scan_image,
         mask=test_case.input_mask.astype(bool),
         terms=test_case.terms,
-        cutoff_length=test_case.cutoff_length * 1e-6,
+        cutoff_length=test_case.cutoff_length * micro,
         regression_order=test_case.regression_order,
         resampling_factors=resampling_factors,
         crop=False,
