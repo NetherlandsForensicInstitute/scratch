@@ -3,7 +3,6 @@ import pytest
 from scipy.constants import mega, micro
 
 from container_models.base import FloatArray2D
-from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.plots.data_formats import (
     HistogramData,
@@ -19,6 +18,7 @@ from .helper_functions import (
     create_synthetic_profile_mark,
     create_synthetic_striation_data,
     create_synthetic_striation_mark,
+    make_mark,
 )
 
 
@@ -224,17 +224,31 @@ def impression_overview_marks() -> dict[str, Mark]:
         rows, cols, 1, 12, 13
     )
 
-    def _mark(data: np.ndarray) -> Mark:
-        return Mark(
-            scan_image=ScanImage(data=data, scale_x=scale_x, scale_y=scale_y),
-            mark_type=MarkType.EJECTOR_IMPRESSION,
-        )
-
     return {
-        "reference_leveled": _mark(data_ref_lev),
-        "compared_leveled": _mark(data_comp_lev),
-        "reference_filtered": _mark(data_ref_flt),
-        "compared_filtered": _mark(data_comp_flt),
+        "reference_leveled": make_mark(
+            data_ref_lev,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
+        "compared_leveled": make_mark(
+            data_comp_lev,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
+        "reference_filtered": make_mark(
+            data_ref_flt,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
+        "compared_filtered": make_mark(
+            data_comp_flt,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
     }
 
 
