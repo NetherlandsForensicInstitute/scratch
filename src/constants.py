@@ -37,6 +37,8 @@ class ProcessorEndpoint(StrEnum):
     ROOT = ""
     CALCULATE_SCORE_IMPRESSION = "calculate-score-impression"
     CALCULATE_SCORE_STRIATION = "calculate-score-striation"
+    CALCULATE_LR_IMPRESSION = "calculate-lr-impression"
+    CALCULATE_LR_STRIATION = "calculate-lr-striation"
 
 
 class ComparatorEndpoint(StrEnum):
