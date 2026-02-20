@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
@@ -27,8 +28,8 @@ def simple_sine_profile(pixel_size_05um: float) -> Profile:
     """
     np.random.seed(42)
     x = np.linspace(0, 10 * np.pi, 1000)
-    data = np.sin(x) * 1e-6  # Heights in micrometers scale
-    data += np.random.normal(0, 0.01e-6, len(data))  # Add a small noise
+    data = np.sin(x) * micro  # Heights in micrometers scale
+    data += np.random.normal(0, 0.01 * micro, len(data))  # Add a small noise
 
     return Profile(heights=data, pixel_size=pixel_size_05um)
 
@@ -43,8 +44,8 @@ def shifted_sine_profile(pixel_size_05um: float) -> Profile:
     np.random.seed(43)  # Different seed for different noise
     x = np.linspace(0, 10 * np.pi, 1000)
     shift = 0.2  # radians, approximately 20 samples
-    data = np.sin(x + shift) * 1e-6
-    data += np.random.normal(0, 0.01e-6, len(data))
+    data = np.sin(x + shift) * micro
+    data += np.random.normal(0, 0.01 * micro, len(data))
 
     return Profile(heights=data, pixel_size=pixel_size_05um)
 
@@ -59,8 +60,8 @@ def scaled_sine_profile(pixel_size_05um: float) -> Profile:
     np.random.seed(44)
     # Create profile with 1.02x scale (fewer periods in same length)
     x = np.linspace(0, 10 * np.pi / 1.02, 1000)
-    data = np.sin(x) * 1e-6
-    data += np.random.normal(0, 0.01e-6, len(data))
+    data = np.sin(x) * micro
+    data += np.random.normal(0, 0.01 * micro, len(data))
 
     return Profile(heights=data, pixel_size=pixel_size_05um)
 
@@ -75,11 +76,11 @@ def partial_profile(pixel_size_05um: float) -> Profile:
     """
     np.random.seed(46)
     x = np.linspace(0, 10 * np.pi, 1000)
-    full_data = np.sin(x) * 1e-6
+    full_data = np.sin(x) * micro
 
     # Extract partial segment
     partial_data = full_data[300:700].copy()
-    partial_data += np.random.normal(0, 0.01e-6, len(partial_data))
+    partial_data += np.random.normal(0, 0.01 * micro, len(partial_data))
 
     return Profile(heights=partial_data, pixel_size=pixel_size_05um)
 
@@ -90,8 +91,8 @@ def different_resolution_profile(pixel_size_1um: float) -> Profile:
     np.random.seed(48)
     # Half the number of samples due to double pixel size
     x = np.linspace(0, 10 * np.pi, 500)
-    data = np.sin(x) * 1e-6
-    data += np.random.normal(0, 0.01e-6, len(data))
+    data = np.sin(x) * micro
+    data += np.random.normal(0, 0.01 * micro, len(data))
 
     return Profile(heights=data, pixel_size=pixel_size_1um)
 
@@ -115,7 +116,7 @@ def make_synthetic_striation_profile(
     n_striations: int = 20,
     amplitude_um: float = 0.5,
     noise_level: float = 0.05,
-    pixel_size_m: float = 0.5e-6,
+    pixel_size_m: float = 0.5 * micro,
     seed: int | None = None,
 ) -> Profile:
     """
@@ -139,14 +140,14 @@ def make_synthetic_striation_profile(
     x = np.linspace(0, n_striations * 2 * np.pi, n_samples)
 
     # Primary striation pattern
-    data = np.sin(x) * amplitude_um * 1e-6
+    data = np.sin(x) * amplitude_um * micro
 
     # Add some harmonics for realism
-    data += np.sin(2 * x) * amplitude_um * 0.3 * 1e-6
-    data += np.sin(0.5 * x) * amplitude_um * 0.5 * 1e-6
+    data += np.sin(2 * x) * amplitude_um * 0.3 * micro
+    data += np.sin(0.5 * x) * amplitude_um * 0.5 * micro
 
     # Add noise
-    noise = np.random.normal(0, amplitude_um * noise_level * 1e-6, n_samples)
+    noise = np.random.normal(0, amplitude_um * noise_level * micro, n_samples)
     data += noise
 
     return Profile(heights=data, pixel_size=pixel_size_m)

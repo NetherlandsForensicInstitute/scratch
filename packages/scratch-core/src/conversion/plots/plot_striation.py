@@ -4,13 +4,12 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
+from scipy.constants import mega
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import Mark
-from conversion.plots.data_formats import (
-    StriationComparisonMetrics,
-    StriationComparisonPlots,
-)
+from conversion.plots.data_formats import StriationComparisonPlots
+from conversion.profile_correlator import StriationComparisonResults
 from conversion.plots.utils import (
     draw_metadata_box,
     figure_to_array,
@@ -31,7 +30,7 @@ def plot_striation_comparison_results(
     mark_compared_aligned: Mark,
     mark_profile_reference_aligned: Mark,
     mark_profile_compared_aligned: Mark,
-    metrics: StriationComparisonMetrics,
+    metrics: StriationComparisonResults,
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
 ) -> StriationComparisonPlots:
@@ -240,7 +239,7 @@ def plot_comparison_overview(
     mark_compared_aligned: Mark,
     mark_profile_reference: Mark,
     mark_profile_compared: Mark,
-    metrics: StriationComparisonMetrics,
+    metrics: StriationComparisonResults,
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
     wrap_width: int = 25,
@@ -252,13 +251,13 @@ def plot_comparison_overview(
         "Date report": datetime.now().strftime("%Y-%m-%d"),
         "Mark type": mark_reference.mark_type.value,
         "Correlation Coefficient": f"{metrics.correlation_coefficient:.4f}",
-        "Sq(A)": f"{metrics.mean_square_ref:.4f} µm",
-        "Sq(B)": f"{metrics.mean_square_comp:.4f} µm",
-        "Sq(B-A)": f"{metrics.mean_square_of_difference:.4f} µm",
+        "Sq(A)": f"{metrics.mean_square_ref * mega:.4f} µm",
+        "Sq(B)": f"{metrics.mean_square_comp * mega:.4f} µm",
+        "Sq(B-A)": f"{metrics.mean_square_of_difference * mega:.4f} µm",
         "Sq(B) / Sq(A)": f"{metrics.mean_square_ratio:.4f} %",
-        "Sign. Diff. DsAB": f"{metrics.signed_roughness_difference:.2f} %",
-        "Overlap": f"{metrics.overlap_ratio:.2f} %",
-        "Data spacing": f"{metrics.pixel_size:.4f} µm",
+        "Sign. Diff. DsAB": f"{metrics.ds_roughness_normalized_to_reference_and_compared * 100:.2f} %",
+        "Overlap": f"{metrics.overlap_ratio * 100:.2f} %",
+        "Data spacing": f"{metrics.pixel_size * mega:.4f} µm",
         "Cutoff length low-pass filter": f"{val:.0f} µm"
         if (val := mark_reference.meta_data.get("lowpass_cutoff")) is not None
         else "N/A",
