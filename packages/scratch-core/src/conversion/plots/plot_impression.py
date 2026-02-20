@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import matplotlib.pyplot as plt
+from scipy.constants import mega
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -35,8 +36,8 @@ def compute_cell_size_um(
     height, width = data_shape
     n_rows, n_cols = cell_grid_shape
     return (
-        width * scale * 1e6 / n_cols,
-        height * scale * 1e6 / n_rows,
+        width * scale * mega / n_cols,
+        height * scale * mega / n_rows,
     )
 
 
@@ -118,8 +119,8 @@ def plot_impression_comparison_results(
     )
     ref_data = mark_reference_filtered.scan_image.data
     surface_extent_um = (
-        ref_data.shape[1] * scale * 1e6,
-        ref_data.shape[0] * scale * 1e6,
+        ref_data.shape[1] * scale * mega,
+        ref_data.shape[0] * scale * mega,
     )
     cell_correlation = plot_cell_correlation_heatmap(
         cell_correlations=metrics.cell_correlations,
@@ -270,8 +271,8 @@ def plot_comparison_overview(
     n_cmc = int(np.sum(metrics.cell_correlations >= metrics.cell_similarity_threshold))
     cmc_fraction = n_cmc / n_cells * 100 if n_cells > 0 else 0.0
 
-    scale_x_um = mark_reference_filtered.scan_image.scale_x * 1e6
-    scale_y_um = mark_reference_filtered.scan_image.scale_y * 1e6
+    scale_x_um = mark_reference_filtered.scan_image.scale_x * mega
+    scale_y_um = mark_reference_filtered.scan_image.scale_y * mega
 
     results_items: dict[str, str] = {
         "Date report": datetime.now().strftime("%Y-%m-%d"),
@@ -413,8 +414,8 @@ def plot_comparison_overview(
     ref_data = mark_reference_filtered.scan_image.data
     ref_sc = mark_reference_filtered.scan_image.scale_x
     heatmap_extent_um = (
-        ref_data.shape[1] * ref_sc * 1e6,
-        ref_data.shape[0] * ref_sc * 1e6,
+        ref_data.shape[1] * ref_sc * mega,
+        ref_data.shape[0] * ref_sc * mega,
     )
     _plot_cell_heatmap_on_axes(
         ax_heatmap,
@@ -574,9 +575,9 @@ def plot_cell_overlay_on_axes(
     n_rows, n_cols = cell_correlations.shape
 
     # Plot the surface
-    extent = (0, width * scale * 1e6, 0, height * scale * 1e6)
+    extent = (0, width * scale * mega, 0, height * scale * mega)
     im = ax.imshow(
-        data * 1e6,
+        data * mega,
         cmap=DEFAULT_COLORMAP,
         aspect="equal",
         origin="lower",
@@ -584,8 +585,8 @@ def plot_cell_overlay_on_axes(
     )
 
     # Cell size in µm
-    cell_w_um = width * scale * 1e6 / n_cols
-    cell_h_um = height * scale * 1e6 / n_rows
+    cell_w_um = width * scale * mega / n_cols
+    cell_h_um = height * scale * mega / n_rows
 
     positions = (
         cell_positions

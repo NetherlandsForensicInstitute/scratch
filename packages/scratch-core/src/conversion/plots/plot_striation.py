@@ -4,6 +4,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
+from scipy.constants import mega
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import Mark
@@ -250,13 +251,13 @@ def plot_comparison_overview(
         "Date report": datetime.now().strftime("%Y-%m-%d"),
         "Mark type": mark_reference.mark_type.value,
         "Correlation Coefficient": f"{metrics.correlation_coefficient:.4f}",
-        "Sq(A)": f"{metrics.mean_square_ref * 1e6:.4f} µm",
-        "Sq(B)": f"{metrics.mean_square_comp * 1e6:.4f} µm",
-        "Sq(B-A)": f"{metrics.mean_square_of_difference * 1e6:.4f} µm",
+        "Sq(A)": f"{metrics.mean_square_ref * mega:.4f} µm",
+        "Sq(B)": f"{metrics.mean_square_comp * mega:.4f} µm",
+        "Sq(B-A)": f"{metrics.mean_square_of_difference * mega:.4f} µm",
         "Sq(B) / Sq(A)": f"{metrics.mean_square_ratio:.4f} %",
         "Sign. Diff. DsAB": f"{metrics.ds_roughness_normalized_to_reference_and_compared * 100:.2f} %",
         "Overlap": f"{metrics.overlap_ratio * 100:.2f} %",
-        "Data spacing": f"{metrics.pixel_size * 1e6:.4f} µm",
+        "Data spacing": f"{metrics.pixel_size * mega:.4f} µm",
         "Cutoff length low-pass filter": f"{val:.0f} µm"
         if (val := mark_reference.meta_data.get("lowpass_cutoff")) is not None
         else "N/A",
