@@ -27,7 +27,7 @@ from conversion.resample import get_scaling_factors, resample_array_2d
 
 def preprocess_impression_mark(
     mark: Mark,
-    params: PreprocessingImpressionParams = PreprocessingImpressionParams(),
+    params: PreprocessingImpressionParams,
 ) -> tuple[Mark, Mark]:
     """
     Preprocess trimmed impression image data.

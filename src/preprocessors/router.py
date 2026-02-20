@@ -1,4 +1,3 @@
-from functools import partial
 from http import HTTPStatus
 from typing import Annotated
 
@@ -7,18 +6,21 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import Json
 
-from constants import LIGHT_SOURCES, OBSERVER, PreprocessorEndpoint, RoutePrefix
+from constants import (
+    LIGHT_SOURCES,
+    OBSERVER,
+    PreprocessorEndpoint,
+    RoutePrefix,
+)
 from extractors import ProcessedDataAccess
 from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault
-from preprocessors.controller import edit_scan_image, process_prepare_mark
+from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
 from .pipelines import (
-    impression_mark_pipeline,
     parse_mask_pipeline,
     parse_scan_pipeline,
     preview_pipeline,
-    striation_mark_pipeline,
     surface_map_pipeline,
     x3p_pipeline,
 )
@@ -98,11 +100,13 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression) -> PrepareMarkResponseImpression:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
-    process_prepare_mark(
+    process_prepare_impression_mark(
         files=PrepareMarkResponseImpression.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
-        marking_method=partial(impression_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
-        params=prepare_mark_parameters,
+        mark_type=prepare_mark_parameters.mark_type,
+        mask=prepare_mark_parameters.mask_array,
+        bounding_box=prepare_mark_parameters.bounding_box,
+        preprocess_parameters=prepare_mark_parameters.mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseImpression.generate_urls(vault.access_url)
@@ -125,11 +129,13 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
 async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) -> PrepareMarkResponseStriation:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
-    process_prepare_mark(
+    process_prepare_striation_mark(
         files=PrepareMarkResponseStriation.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
-        marking_method=partial(striation_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
-        params=prepare_mark_parameters,
+        mark_type=prepare_mark_parameters.mark_type,
+        mask=prepare_mark_parameters.mask_array,
+        bounding_box=prepare_mark_parameters.bounding_box,
+        preprocess_parameters=prepare_mark_parameters.mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseStriation.generate_urls(vault.access_url)

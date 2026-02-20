@@ -6,19 +6,18 @@ from conversion.export.utils import check_if_file_exists
 from conversion.profile_correlator import Profile
 
 
-def save_profile(profile: Profile, path: Path, stem: str) -> None:
+def save_profile(profile: Profile, path: Path) -> None:
     """
     Save a Profile object to a compressed NPZ file.
 
-    Creates one file: {stem}.npz containing heights and pixel_size.
+    Creates one file: {path}.npz containing heights and pixel_size.
 
     :param profile: Profile object to save
-    :param path: Directory path where the file will be saved
-    :param stem: Base filename
+    :param path: File path (suffix is replaced for .npz output)
     """
-    path.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
-        path / f"{stem}.npz",
+        path.with_suffix(".npz"),
         heights=profile.heights,
         pixel_size=np.array(profile.pixel_size),
     )
