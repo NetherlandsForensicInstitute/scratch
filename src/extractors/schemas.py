@@ -230,8 +230,3 @@ class ComparisonResponseStriation(ComparisonResponse):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
         json_schema_extra={"file_name": "mark1_vs_moved_mark2.png"},
     )
-    wavedlength_plot: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "mark1_vs_moved_mark2.png"},
-    )
