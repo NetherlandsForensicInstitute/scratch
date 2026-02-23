@@ -16,6 +16,8 @@ from models import (
 class SupportedExtension(StrEnum):
     X3P = auto()
     PNG = auto()
+    JSON = auto()
+    NPZ = auto()
 
 
 type RelativePath = Annotated[
