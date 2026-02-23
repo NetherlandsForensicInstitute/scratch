@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import Json
@@ -198,6 +198,11 @@ async def edit_scan(
         shape=params.mask_parameters.shape,
         is_bitpacked=params.mask_parameters.is_bitpacked,
     )
+    if parsed_mask.shape != parsed_image.data.shape:
+        raise HTTPException(
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            detail=f"Mask shape {parsed_mask.shape} does not match image shape {parsed_image.data.shape}",
+        )
     files = GeneratedImages.get_files(vault.resource_path)
 
     edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
