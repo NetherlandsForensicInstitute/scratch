@@ -132,12 +132,6 @@ class PrepareMarkResponseStriation(PrepareMarkResponse):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.npz"],
         json_schema_extra={"file_name": "profile.npz"},
     )
-    profile_meta: HttpUrl = Field(
-        ...,
-        description="meta data from the profile data.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
-        json_schema_extra={"file_name": "profile.json"},
-    )
 
 
 class PrepareMarkResponseImpression(PrepareMarkResponse):

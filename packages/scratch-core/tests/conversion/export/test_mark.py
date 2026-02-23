@@ -3,6 +3,7 @@ from pathlib import PosixPath
 
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
@@ -24,16 +25,16 @@ class TestExportedMarkData:
             dict(
                 mark_type="BREECH_FACE_IMPRESSION",
                 center=(100.0, 200.0),
-                scale_x=1.5e-6,
-                scale_y=1.5e-6,
+                scale_x=1.5 * micro,
+                scale_y=1.5 * micro,
                 meta_data={"key": "value"},
             )
         )
 
         assert data.mark_type == MarkType.BREECH_FACE_IMPRESSION
         assert data.center == (100.0, 200.0)
-        assert data.scale_x == 1.5e-6
-        assert data.scale_y == 1.5e-6
+        assert data.scale_x == 1.5 * micro
+        assert data.scale_y == 1.5 * micro
         assert data.meta_data == {"key": "value"}
 
     def test_lowercase_mark_type(self):
@@ -79,8 +80,8 @@ class TestExportedMarkData:
             dict(
                 mark_type="EJECTOR_IMPRESSION",
                 center=(50.0, 50.0),
-                scale_x=2.0e-6,
-                scale_y=2.0e-6,
+                scale_x=2 * micro,
+                scale_y=2 * micro,
             )
         )
 
@@ -99,7 +100,7 @@ class TestSaveAndLoadMark:
             meta_data={"test": "data"},
         )
 
-        save_mark(impression_mark, tmp_path, "test_mark")
+        save_mark(impression_mark, tmp_path / "test_mark")
 
         assert (tmp_path / "test_mark.json").is_file()
         assert (tmp_path / "test_mark.npz").is_file()
@@ -112,7 +113,7 @@ class TestSaveAndLoadMark:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
 
-        save_mark(impression_mark, nested_path, "test_mark")
+        save_mark(impression_mark, nested_path / "test_mark")
 
         assert nested_path.exists()
         assert (nested_path / "test_mark.json").is_file()
@@ -126,7 +127,7 @@ class TestSaveAndLoadMark:
             meta_data={"key": "value"},
         )
 
-        save_mark(impression_mark, tmp_path, "test_mark")
+        save_mark(impression_mark, tmp_path / "test_mark")
 
         with open(tmp_path / "test_mark.json", "r") as f:
             data = json.load(f)
@@ -150,7 +151,7 @@ class TestSaveAndLoadMark:
             center=(123.4, 567.8),
         )
 
-        save_mark(original_mark, tmp_path, "test_mark")
+        save_mark(original_mark, tmp_path / "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
         assert loaded_mark.mark_type == original_mark.mark_type
@@ -168,7 +169,7 @@ class TestSaveAndLoadMark:
             mark_type=MarkType.BULLET_GEA_STRIATION,
         )
 
-        save_mark(original_mark, tmp_path, "test_mark")
+        save_mark(original_mark, tmp_path / "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
         np.testing.assert_array_equal(
@@ -185,7 +186,7 @@ class TestSaveAndLoadMark:
         )
         # Don't set explicit center - should compute from image dimensions
 
-        save_mark(original_mark, tmp_path, "test_mark")
+        save_mark(original_mark, tmp_path / "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
         expected_center = (scan_image.height / 2, scan_image.width / 2)
@@ -232,7 +233,7 @@ class TestSaveAndLoadMark:
             meta_data=complex_meta,
         )
 
-        save_mark(original_mark, tmp_path, "test_mark")
+        save_mark(original_mark, tmp_path / "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
         assert loaded_mark.meta_data == complex_meta
@@ -253,8 +254,8 @@ class TestSaveAndLoadMark:
             meta_data={"id": 2},
         )
 
-        save_mark(mark1, tmp_path, "mark1")
-        save_mark(mark2, tmp_path, "mark2")
+        save_mark(mark1, tmp_path / "mark1")
+        save_mark(mark2, tmp_path / "mark2")
 
         loaded_mark1 = load_mark_from_path(tmp_path, "mark1")
         loaded_mark2 = load_mark_from_path(tmp_path, "mark2")

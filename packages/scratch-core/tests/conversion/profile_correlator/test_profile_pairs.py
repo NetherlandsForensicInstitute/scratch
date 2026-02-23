@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from conversion.profile_correlator import (
     AlignmentParameters,
@@ -16,7 +17,7 @@ PROFILES_DIR = (
     / "profiles"
 )
 
-PIXEL_SIZE_M = 1.5e-6  # Sample profiles use 1.5 μm pixel size
+PIXEL_SIZE_M = 1.5 * micro  # Sample profiles use 1.5 μm pixel size
 
 # Expected correlation coefficients per profile pair
 EXPECTED_CORRELATIONS = {

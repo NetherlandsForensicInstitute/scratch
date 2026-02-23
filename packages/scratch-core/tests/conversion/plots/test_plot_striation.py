@@ -1,4 +1,5 @@
 import pytest
+from scipy.constants import micro
 
 from conversion.plots.plot_striation import (
     plot_similarity,
@@ -66,14 +67,14 @@ def test_plot_comparison_overview_metadata_variants(
 class TestEdgeCases:
     def test_plot_similarity_identical_profiles(self):
         profile = create_synthetic_striation_data(height=1, width=200, seed=42)
-        result = plot_similarity(profile, profile, scale=1.5625e-6, score=1.0)
+        result = plot_similarity(profile, profile, scale=1.5625 * micro, score=1.0)
         assert_valid_rgb_image(result)
 
     def test_plot_similarity_different_lengths(self):
         profile_short = create_synthetic_striation_data(height=1, width=100, seed=42)
         profile_long = create_synthetic_striation_data(height=1, width=200, seed=43)
         result = plot_similarity(
-            profile_short, profile_long, scale=1.5625e-6, score=0.5
+            profile_short, profile_long, scale=1.5625 * micro, score=0.5
         )
         assert_valid_rgb_image(result)
 

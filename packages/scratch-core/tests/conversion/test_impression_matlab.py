@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 
 from container_models.base import FloatArray2D
-from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import MarkType
+from .helper_functions import make_mark
 from conversion.preprocess_impression.preprocess_impression import (
     preprocess_impression_mark,
 )
@@ -146,18 +146,17 @@ def run_python_preprocessing(
     test_case: MatlabTestCase,
 ) -> tuple[FloatArray2D, FloatArray2D | None]:
     """Run Python preprocessing and return (processed, leveled) arrays."""
-    scan_image = ScanImage(
-        data=test_case.input_data,
-        scale_x=test_case.pixel_spacing[0],
-        scale_y=test_case.pixel_spacing[1],
-    )
-
     mark_type = (
         MarkType.BREECH_FACE_IMPRESSION
         if test_case.use_circle_center
         else MarkType.FIRING_PIN_IMPRESSION
     )
-    impression_mark = Mark(scan_image=scan_image, mark_type=mark_type)
+    impression_mark = make_mark(
+        test_case.input_data,
+        scale_x=test_case.pixel_spacing[0],
+        scale_y=test_case.pixel_spacing[1],
+        mark_type=mark_type,
+    )
 
     processed, leveled = preprocess_impression_mark(impression_mark, test_case.params)
 

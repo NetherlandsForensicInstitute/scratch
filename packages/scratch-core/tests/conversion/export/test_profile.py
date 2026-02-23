@@ -13,7 +13,7 @@ class TestSaveAndLoadProfile:
 
     def test_roundtrip(self, tmp_path: PosixPath, profile_with_nans: Profile):
         """Test that save/load roundtrip preserves all data."""
-        save_profile(profile_with_nans, tmp_path, "test_profile")
+        save_profile(profile_with_nans, tmp_path / "test_profile")
         loaded = load_profile_from_path(tmp_path, "test_profile")
 
         assert np.isclose(loaded.pixel_size, profile_with_nans.pixel_size)

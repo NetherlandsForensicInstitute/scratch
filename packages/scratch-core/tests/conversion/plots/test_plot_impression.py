@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from matplotlib import pyplot as plt
+from scipy.constants import mega, micro
 
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import (
@@ -29,7 +30,7 @@ class TestPlotCellGridOverlay:
     ):
         result = plot_cell_grid_overlay(
             data=impression_sample_depth_data,
-            scale=1.5e-6,
+            scale=1.5 * micro,
             cell_correlations=impression_sample_cell_correlations,
         )
         assert_valid_rgb_image(result)
@@ -41,11 +42,11 @@ class TestPlotCellGridOverlay:
     ):
         n_rows, n_cols = impression_sample_cell_correlations.shape
         n_cells = n_rows * n_cols
-        scale = 1.5e-6
+        scale = 1.5 * micro
         h, w = impression_sample_depth_data.shape
 
-        cell_w_um = w * scale * 1e6 / n_cols
-        cell_h_um = h * scale * 1e6 / n_rows
+        cell_w_um = w * scale * mega / n_cols
+        cell_h_um = h * scale * mega / n_rows
         positions = np.zeros((n_cells, 2), dtype=np.float64)
         for i in range(n_rows):
             for j in range(n_cols):
@@ -72,7 +73,7 @@ class TestPlotCellGridOverlay:
     ):
         result = plot_cell_grid_overlay(
             data=impression_sample_depth_data,
-            scale=1.5e-6,
+            scale=1.5 * micro,
             cell_correlations=impression_sample_cell_correlations,
             show_all_cells=False,
         )
@@ -85,7 +86,7 @@ class TestPlotCellGridOverlay:
     ):
         result = plot_cell_grid_overlay(
             data=impression_sample_depth_data,
-            scale=1.5e-6,
+            scale=1.5 * micro,
             cell_correlations=impression_sample_cell_correlations,
             cell_similarity_threshold=0.80,
         )
@@ -103,7 +104,7 @@ class TestPlotCellGridOverlay:
 
         result = plot_cell_grid_overlay(
             data=impression_sample_depth_data,
-            scale=1.5e-6,
+            scale=1.5 * micro,
             cell_correlations=correlations,
             cell_positions=positions,
             cell_rotations=rotations,
@@ -351,7 +352,7 @@ class TestPlotCellOverlayOnAxes:
         correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
         fig, ax = plt.subplots()
         im = plot_cell_overlay_on_axes(
-            ax, impression_sample_depth_data, 1.5e-6, correlations
+            ax, impression_sample_depth_data, 1.5 * micro, correlations
         )
         assert im is not None
         assert len(ax.images) == 1
@@ -363,7 +364,7 @@ class TestPlotCellOverlayOnAxes:
         plot_cell_overlay_on_axes(
             ax,
             impression_sample_depth_data,
-            1.5e-6,
+            1.5 * micro,
             correlations,
             cell_label_prefix="B",
         )
@@ -376,7 +377,7 @@ class TestPlotCellOverlayOnAxes:
         correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
         fig, ax = plt.subplots()
         plot_cell_overlay_on_axes(
-            ax, impression_sample_depth_data, 1.5e-6, correlations
+            ax, impression_sample_depth_data, 1.5 * micro, correlations
         )
         # Should have lines for cell borders + labels
         assert len(ax.lines) > 0
@@ -388,9 +389,9 @@ class TestPlotCellOverlayOnAxes:
     ):
         correlations = np.array([[0.9, 0.1]])
         h, w = impression_sample_depth_data.shape
-        scale = 1.5e-6
-        cell_w = w * scale * 1e6 / 2
-        cell_h = h * scale * 1e6 / 1
+        scale = 1.5 * micro
+        cell_w = w * scale * mega / 2
+        cell_h = h * scale * mega / 1
         positions = np.array([[cell_w / 2, cell_h / 2], [float("nan"), float("nan")]])
         rotations = np.array([np.deg2rad(10), 0.0])
 
