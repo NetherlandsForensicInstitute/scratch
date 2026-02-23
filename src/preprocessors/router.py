@@ -16,6 +16,7 @@ from extractors import ProcessedDataAccess
 from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
+
 from .pipelines import (
     parse_mask_pipeline,
     parse_scan_pipeline,
@@ -191,7 +192,7 @@ async def edit_scan(
     """
     vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
-    parsed_image = parse_scan_pipeline(params.scan_file, params.step_size_x, params.step_size_y)
+    parsed_image = parse_scan_pipeline(params.scan_file, 1,1)
     parsed_mask = parse_mask_pipeline(
         raw_data=await mask_data.read(),
         shape=params.mask_parameters.shape,

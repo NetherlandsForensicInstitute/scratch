@@ -138,7 +138,7 @@ class EditImage(BaseParameters):
 
     cutoff_length: Annotated[PositiveFloat, AfterValidator(lambda x: x * micro)] = Field(
         description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "
-        "Defines the spatial frequency threshold for surface texture analysis.",
+                    "Defines the spatial frequency threshold for surface texture analysis.",
         examples=[250, 500, 1000],
     )
     resampling_factor: PositiveFloat = Field(
@@ -159,16 +159,6 @@ class EditImage(BaseParameters):
     crop: bool = Field(
         default=False,
         description="Whether to crop the image to the non-masked region.",
-    )
-    step_size_x: PositiveInt = Field(
-        1,
-        description="Subsampling step size in x-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
-    )
-    step_size_y: PositiveInt = Field(
-        1,
-        description="Subsampling step size in y-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
     )
     mask_parameters: MaskParameters = Field(
         ...,

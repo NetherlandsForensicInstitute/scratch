@@ -2,11 +2,11 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from container_models.light_source import LightSource
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from container_models.light_source import LightSource
 from models import SupportedScanExtension
 from preprocessors.schemas import UploadScan
 
