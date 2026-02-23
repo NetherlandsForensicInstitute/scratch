@@ -83,7 +83,7 @@ def register_cells(
     # Pre-extract valid reference patches (clip to image bounds, fill-check)
     patches = []  # (center, patch, fill_fraction)  or None per center
     spacing = reference_map.pixel_spacing
-    cell_px = (params.cell_size / spacing).astype(int)
+    cell_px = np.round(params.cell_size / spacing).astype(int)
     rows, cols = reference_map.height_map.shape
 
     for center in centers:
@@ -95,7 +95,12 @@ def register_cells(
             patches.append(None)
             continue
         patch = reference_map.height_map[y0:y1, x0:x1]
-        fill = np.count_nonzero(~np.isnan(patch)) / (cell_px[0] * cell_px[1])
+        # Fill fraction: clipped intersection area / full cell area.
+        # MATLAB computes fill as the fraction of the full cell area that
+        # overlaps the image (regardless of NaN holes within the image).
+        clipped_area = (y1 - y0) * (x1 - x0)
+        full_area = int(cell_px[0] * cell_px[1])
+        fill = clipped_area / full_area
         if fill < params.minimum_fill_fraction:
             patches.append(None)
         else:

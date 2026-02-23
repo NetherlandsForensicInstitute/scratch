@@ -115,7 +115,10 @@ def find_grid_origin(reference_map: SurfaceMap, params: ComparisonParams) -> np.
     candidates = sum_scores >= best_val  # tolerance = 0 by default
 
     # ---- Step 8: tie-breaker — maximise min cell score ----
-    min_scores = np.nanmin(scores, axis=2)  # (cell_py, cell_px)
+    # Replace NaN with -inf before taking min so that positions with no valid
+    # cells get -inf rather than triggering an all-NaN-slice warning.
+    scores_for_min = np.where(np.isnan(scores), -np.inf, scores)
+    min_scores = scores_for_min.min(axis=2)  # (cell_py, cell_px)
     min_scores[~candidates] = -np.inf
     best_min = np.nanmax(min_scores)
     final_mask = candidates & (min_scores >= best_min)
@@ -124,39 +127,24 @@ def find_grid_origin(reference_map: SurfaceMap, params: ComparisonParams) -> np.
     oy, ox = np.argwhere(final_mask)[0]
 
     # ---- Step 9: convert pixel offset to physical coordinates ----
-    # MATLAB: vCellPosition = trans_ind2sub(..., vi(1)) then
-    #         pix2pos(vCellPosition - vOffset, vCenterG, {}, vCenterL, vPixSep)
+    # (oy, ox) is the tiling offset: tiled[oy, ox, k] addresses the k-th cell's
+    # valid-pixel count when the grid starts at this offset.
     #
-    # The offset in the padded frame is (ox, oy).  Subtracting vOffset
-    # brings us back to the original map frame (0-indexed).  The even-size
-    # correction adds 0.5 for even cell dimensions.
-    pos_px = np.array([ox, oy], dtype=float)
-
-    # Even-size correction (MATLAB adds 0.5 for even cell dimensions)
-    for i in range(2):
-        if cell_px[i] % 2 == 0:
-            pos_px[i] += 0.5
+    # The first tile (k=0) has its centre at original-image pixel:
+    #   centre_row = oy - (cell_px[1] / 2 - 0.5)   (for even cell_px: oy - 42.5)
+    #   centre_col = ox - (cell_px[0] / 2 - 0.5)   (for even cell_px: ox - 42.5)
+    #
+    # This first-tile centre is used by generate_grid_centers as the origin from
+    # which the full grid is extended in both directions.
+    first_center_px = np.array(
+        [
+            ox - (cell_px[0] / 2 - 0.5),
+            oy - (cell_px[1] / 2 - 0.5),
+        ]
+    )
 
     # Convert to physical coordinates
-    # In MATLAB: pix2pos(pixel - offset, CenterG, {}, CenterL, PixSep)
-    # For the default case where CenterG and CenterL are the map center:
-    #   pos = CenterG + (pixel - CenterL) * PixSep
-    # But since cell_position_optim works with zero-based offsets relative
-    # to the map origin (pixel [0,0] = top-left of map), and the final
-    # conversion uses the reference map's coordinate system, we compute:
-    origin_physical = (
-        reference_map.global_center
-        + (pos_px - reference_map.global_center / pixel_spacing) * pixel_spacing
-    )
-    # Simplified: this is just pos_px * pixel_spacing when the global center
-    # aligns with the local center (which is the typical case for NFI data
-    # where vCenterG = vCenterL for the reference).
-    #
-    # For maximum fidelity, we use:
-    #   global_pos = vCenterG + (pix_pos - vCenterL/vPixSep) * vPixSep
-    # But vCenterL is in physical units and represents the center pixel's
-    # physical offset from the map origin, so:
-    origin_physical = pos_px * pixel_spacing
+    origin_physical = first_center_px * pixel_spacing
 
     return origin_physical
 
@@ -167,40 +155,39 @@ def generate_grid_centers(
     """
     Generate center coordinates for all cells in the grid.
 
-    When ``bCellGlobalCenter=1`` (the MATLAB default), the cell grid is centered
-    on the map's global center rather than starting from the top-left corner.
-    The number of cells per axis is ``ceil(physical_size / cell_size)``, which
-    may place some cells partially outside the image boundary — those cells are
-    handled by clipping during patch extraction.
-
-    The ``origin`` offset (from :func:`find_grid_origin`) is not applied here
-    because MATLAB's ``bCellGlobalCenter=1`` flag overrides the optimised origin
-    and locks the grid to the image center.
+    Uses the optimised ``origin`` (from :func:`find_grid_origin`) as the first
+    cell centre and extends the grid in each axis until cells would fall entirely
+    outside the image.  This matches MATLAB's ``cell_position_optim`` + grid
+    generation behaviour: the origin is the centre of the first tile found by
+    the tiling optimisation, and subsequent cells are spaced by ``cell_size``.
 
     :param reference_map: surface map.
-    :param origin: optimal starting point [x, y] in micrometers, shape (2,).
-        Currently unused when using the centered-grid convention.
+    :param origin: first cell centre [x, y] in micrometers from :func:`find_grid_origin`.
     :param params: algorithm parameters.
-    :returns: array of center coordinates, shape (N, 2).
+    :returns: array of centre coordinates, shape (N, 2).
     """
-    import math
-
     physical_size = reference_map.physical_size  # [width, height] in µm
     cell_size = params.cell_size  # [cell_w, cell_h] in µm
-    center = reference_map.global_center  # [cx, cy] in µm
 
-    # Number of cells per axis: enough to cover the full physical extent
-    n_cells_x = math.ceil(physical_size[0] / cell_size[0])
-    n_cells_y = math.ceil(physical_size[1] / cell_size[1])
+    def _axis_centers(
+        origin_coord: float, cell_sz: float, image_sz: float
+    ) -> np.ndarray:
+        """Extend grid from origin in both directions while cells overlap the image."""
+        centers = [origin_coord]
+        # Extend forward
+        c = origin_coord + cell_sz
+        while c - cell_sz / 2 < image_sz:  # cell left edge is still within image
+            centers.append(c)
+            c += cell_sz
+        # Extend backward
+        c = origin_coord - cell_sz
+        while c + cell_sz / 2 > 0:  # cell right edge is still within image
+            centers.insert(0, c)
+            c -= cell_sz
+        return np.array(centers)
 
-    # Cell centers are symmetric around global_center:
-    #   offset_i = (i - n/2 + 0.5) * cell_size  for i in 0..n-1
-    x_coordinates = np.array(
-        [center[0] + (i - n_cells_x / 2 + 0.5) * cell_size[0] for i in range(n_cells_x)]
-    )
-    y_coordinates = np.array(
-        [center[1] + (i - n_cells_y / 2 + 0.5) * cell_size[1] for i in range(n_cells_y)]
-    )
+    x_coordinates = _axis_centers(origin[0], cell_size[0], physical_size[0])
+    y_coordinates = _axis_centers(origin[1], cell_size[1], physical_size[1])
 
     x_grid, y_grid = np.meshgrid(x_coordinates, y_coordinates)
     return np.stack([x_grid.ravel(), y_grid.ravel()], axis=-1)

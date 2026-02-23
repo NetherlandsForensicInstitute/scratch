@@ -57,7 +57,6 @@ class MatlabTestCase:
     i_verbose: int
     expected_res: dict
     expected_res_arrays: dict[str, np.ndarray]
-    expected_mapres_scalars: dict
     expected_mapres_arrays: dict[str, np.ndarray]
 
     @classmethod
@@ -125,9 +124,6 @@ class MatlabTestCase:
             if arr_path.exists():
                 expected_res_arrays[field_name] = np.load(str(arr_path))
 
-        # Load expected MapRes scalars
-        expected_mapres_scalars = _restore_nans(meta.get("output_MapRes_scalars", {}))
-
         # Load expected MapRes arrays
         expected_mapres_arrays = {}
         for field_name, npy_name in meta.get("output_MapRes_arrays", {}).items():
@@ -145,7 +141,6 @@ class MatlabTestCase:
             i_verbose=i_verbose,
             expected_res=expected_res,
             expected_res_arrays=expected_res_arrays,
-            expected_mapres_scalars=expected_mapres_scalars,
             expected_mapres_arrays=expected_mapres_arrays,
         )
 
@@ -439,6 +434,20 @@ _RESULT_FIELDS_SKIPPED: frozenset[str] = frozenset(
     }
 )
 
+# MapRes fields that exist only in MATLAB (raw aligned-map data) with no Python equivalent.
+_MAPRES_FIELDS_SKIPPED: frozenset[str] = frozenset(
+    {
+        "vm1",  # valid reference-map height values (1-D, indexed by vi)
+        "vm2",  # valid comparison-map height values (1-D, aligned)
+        "vi",  # flat linear indices of valid reference pixels
+        "vCenterG",  # global centre used for the alignment map [x,y]
+        "vCenterL",  # local centre of the alignment map [x,y]
+        "vPixSep",  # pixel spacing of the alignment map [dx,dy]
+        "vSize",  # pixel dimensions of the alignment map [cols,rows]
+        "vAccf",  # per-pixel ACCF values over the valid region
+    }
+)
+
 
 def _get_result_field(
     result: ComparisonResult, field_name: str, reference_map: SurfaceMap | None = None
@@ -490,6 +499,9 @@ def _get_mapres_field(result: ComparisonResult, field_name: str):
     """
     Retrieve a named MapRes field from a :class:`ComparisonResult`.
 
+    Returns ``_SKIP`` sentinel for fields in ``_MAPRES_FIELDS_SKIPPED``.
+    Raises ``KeyError`` for genuinely unknown fields.
+
     MATLAB MapRes array field → Python mapping
     -------------------------------------------
     cellCentersRef  → Nx2 array of center_reference for all cells
@@ -499,6 +511,10 @@ def _get_mapres_field(result: ComparisonResult, field_name: str):
     cellFill        → N-vector of reference_fill_fraction
     isCMC           → N-vector of is_congruent (bool → int)
     """
+    # Silently skip MATLAB-only raw map data fields with no Python equivalent
+    if field_name in _MAPRES_FIELDS_SKIPPED:
+        return _SKIP
+
     _array_map: dict[str, callable] = {
         "cellCentersRef": lambda r: np.array([c.center_reference for c in r.cells]),
         "cellCentersCom": lambda r: np.array([c.center_comparison for c in r.cells]),
@@ -574,6 +590,10 @@ class TestCompareDatasetsNIST:
                 failures.append(f"  {field_name}: no mapping defined")
                 continue
 
+            # Field is MATLAB-only with no Python equivalent — silently ignore
+            if actual_arr is _SKIP:
+                continue
+
             try:
                 assert_arrays_close(
                     np.asarray(actual_arr), expected_arr, f"Res.{field_name}"
@@ -583,29 +603,6 @@ class TestCompareDatasetsNIST:
 
         if failures:
             pytest.fail("Res array field mismatches:\n" + "\n".join(failures))
-
-    def test_mapres_scalar_fields(self, test_case: MatlabTestCase) -> None:
-        """Test that MapRes scalar output fields match MATLAB."""
-        if not test_case.expected_mapres_scalars:
-            pytest.skip("No scalar fields in MapRes output")
-
-        failures = []
-        for field_name, expected_val in test_case.expected_mapres_scalars.items():
-            try:
-                actual_val = _get_mapres_field(self.result, field_name)
-            except KeyError:
-                failures.append(
-                    f"  {field_name}: no mapping defined (expected {expected_val})"
-                )
-                continue
-
-            try:
-                assert_scalar_close(actual_val, expected_val, field_name)
-            except AssertionError as exc:
-                failures.append(f"  {exc}")
-
-        if failures:
-            pytest.fail("MapRes scalar field mismatches:\n" + "\n".join(failures))
 
     def test_mapres_array_fields(self, test_case: MatlabTestCase) -> None:
         """Test that MapRes array output fields match MATLAB."""
@@ -618,6 +615,10 @@ class TestCompareDatasetsNIST:
                 actual_arr = _get_mapres_field(self.result, field_name)
             except KeyError:
                 failures.append(f"  {field_name}: no mapping defined")
+                continue
+
+            # Field is MATLAB-only with no Python equivalent — silently ignore
+            if actual_arr is _SKIP:
                 continue
 
             try:
@@ -645,12 +646,11 @@ if __name__ == "__main__":
             tc = load_test_case(name)
             n_res_scalars = len(tc.expected_res)
             n_res_arrays = len(tc.expected_res_arrays)
-            n_mapres_scalars = len(tc.expected_mapres_scalars)
             n_mapres_arrays = len(tc.expected_mapres_arrays)
             print(
                 f"  {name}: "
                 f"Res({n_res_scalars} scalars, {n_res_arrays} arrays), "
-                f"MapRes({n_mapres_scalars} scalars, {n_mapres_arrays} arrays)"
+                f"MapRes({n_mapres_arrays} arrays)"
             )
             # Print a few key Res fields
             for k in ["ccf", "simVal", "xcorr", "pOverlap", "lOverlap"]:

@@ -81,7 +81,7 @@ def detect_outliers_esd(
 
         removed_indices.append(removed_idx)
 
-        std = np.sqrt(running_ss / n_current) if n_current > 0 else 0.0
+        std = np.sqrt(running_ss / (n_current - 1)) if n_current > 1 else 0.0
         test_stat = max_dev / std if std > 1e-15 else 0.0
         crit = crit_values[n_current - i - 1]
         if test_stat > crit:
