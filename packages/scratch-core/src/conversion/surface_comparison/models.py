@@ -96,6 +96,6 @@ class ComparisonParams:
     correlation_threshold: float = 0.4
     angle_threshold: float = 2.0
     position_threshold: float = 100.0
-    search_angle_min: float = -5.0
-    search_angle_max: float = 5.0
-    search_angle_step: float = 0.5
+    search_angle_min: float = -180.0
+    search_angle_max: float = 180.0
+    search_angle_step: float = 1.0
