@@ -36,7 +36,7 @@ class TestEditImage:
         assert edit_image.project_name == edit_image.tag == project_name
 
     def test_should_reject_non_x3p_file(
-            self, scan_directory: Path, edit_image_parameter: Callable[..., EditImage]
+        self, scan_directory: Path, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
         """Test that EditImage rejects files that are not X3P format."""
         # Arrange
@@ -52,7 +52,7 @@ class TestEditImage:
         assert any("Unsupported extension" in msg for msg in error_messages)
 
     def test_should_reject_non_existent_file(
-            self, tmp_path: Path, edit_image_parameter: Callable[..., EditImage]
+        self, tmp_path: Path, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
         """Test that EditImage rejects non-existent files."""
         # Arrange
@@ -93,7 +93,7 @@ class TestEditImage:
         ],
     )
     def test_should_accept_valid_field_values(
-            self, kwargs: dict[str, Any], edit_image_parameter: Callable[..., EditImage]
+        self, kwargs: dict[str, Any], edit_image_parameter: Callable[..., EditImage]
     ) -> None:
         """Test that enum and mask field values are accepted."""
         # Act
@@ -104,7 +104,7 @@ class TestEditImage:
 
     @given(valid_value=st.floats(min_value=micro, max_value=3, allow_nan=False, allow_infinity=False))
     def test_should_accept_positive_cutoff_length(
-            self, valid_value: float, edit_image_parameter: Callable[..., EditImage]
+        self, valid_value: float, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
         """Test that positive step sizes are accepted."""
         # Act
@@ -115,7 +115,7 @@ class TestEditImage:
 
     @given(valid_value=st.floats(min_value=micro, max_value=3, allow_nan=False, allow_infinity=False))
     def test_should_accept_positive_resampling_factor(
-            self, valid_value: float, edit_image_parameter: Callable[..., EditImage]
+        self, valid_value: float, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
         """Test that positive step sizes are accepted."""
         # Act
@@ -127,7 +127,7 @@ class TestEditImage:
     @given(invalid_value=st.floats(max_value=0, allow_nan=False, allow_infinity=False))
     @pytest.mark.parametrize("field", ["cutoff_length", "resampling_factor"])
     def test_should_reject_non_positive_float_fields(
-            self, field: str, invalid_value: float, edit_image_parameter: Callable[..., EditImage]
+        self, field: str, invalid_value: float, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
         """Test that step_size_x must be greater than 0."""
         # Act & Assert

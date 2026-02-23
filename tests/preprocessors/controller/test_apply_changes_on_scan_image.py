@@ -108,7 +108,6 @@ def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIma
         terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
-
     )
 
     def assertions(result: ScanImage):

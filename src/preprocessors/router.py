@@ -192,7 +192,7 @@ async def edit_scan(
     """
     vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
-    parsed_image = parse_scan_pipeline(params.scan_file, 1,1)
+    parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
     parsed_mask = parse_mask_pipeline(
         raw_data=await mask_data.read(),
         shape=params.mask_parameters.shape,
