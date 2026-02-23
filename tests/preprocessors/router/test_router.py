@@ -202,6 +202,81 @@ class TestPrepareMarkEndpoint:
 
 
 @pytest.mark.usefixtures("tmp_dir_api")
+@pytest.mark.parametrize(
+    ("endpoint", "schema", "mark_parameters", "mark_type"),
+    [
+        pytest.param(
+            PreprocessorEndpoint.PREPARE_MARK_STRIATION,
+            PrepareMarkStriation,
+            PreprocessingStriationParams,
+            MarkType.APERTURE_SHEAR_STRIATION,
+            id="striation mark",
+        ),
+        pytest.param(
+            PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
+            PrepareMarkImpression,
+            PreprocessingImpressionParams,
+            MarkType.CHAMBER_IMPRESSION,
+            id="impression mark",
+        ),
+    ],
+)
+def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: PreprocessorEndpoint,
+    schema: type[PrepareMarkImpression | PrepareMarkStriation],
+    mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+    mark_type: MarkType,
+) -> None:
+    """Test that a 422 is returned when the mask shape does not match the scan image shape."""
+    wrong_mask = [[0.0, 0.0], [0.0, 0.0]]  # 2x2, won't match the scan shape
+    payload = schema(
+        project_name="test_project",
+        mark_type=mark_type,  # type: ignore
+        scan_file=scan_directory / "circle.x3p",
+        mask=wrong_mask,
+        mark_parameters=mark_parameters(),  # type: ignore
+    ).model_dump(mode="json")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.usefixtures("tmp_dir_api")
+def test_edit_scan_returns_422_on_mask_shape_mismatch(
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a 422 is returned when the mask shape does not match the scan image shape."""
+    wrong_shape = (2, 2)
+    mask_bytes = np.zeros(wrong_shape, dtype=np.bool_).tobytes(order="C")
+
+    params = EditImage(
+        scan_file=scan_directory / "circle.x3p",
+        cutoff_length=250,
+        mask_parameters=MaskParameters(shape=wrong_shape),
+    )
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        response = client.post(
+            f"/{RoutePrefix.PREPROCESSOR}/{PreprocessorEndpoint.EDIT_SCAN}",
+            data={"params": json.dumps(params.model_dump(mode="json"))},
+            files={"mask_data": ("mask.bin", mask_bytes, "application/octet-stream")},
+        )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.usefixtures("tmp_dir_api")
 def test_edit_image_returns_valid_images(
     client: TestClient,
     directory_access: DirectoryAccess,
@@ -213,7 +288,8 @@ def test_edit_image_returns_valid_images(
     base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
     directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
-    mask = np.array([[False] * 3, [False, True, False], [False] * 3], dtype=np.bool)
+    rows, cols = 259, 259
+    mask = np.array([[0 < r < rows - 1 and 0 < c < cols - 1 for c in range(cols)] for r in range(rows)], dtype=np.bool_)
 
     params = EditImage(
         project_name="test",
