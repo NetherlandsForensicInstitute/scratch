@@ -6,7 +6,6 @@ implements the median procedure (Procedure 6) with ESD outlier rejection.
 """
 
 import numpy as np
-from scikit_posthocs import outliers_gesd
 
 from conversion.surface_comparison.models import ComparisonResult, ComparisonParams
 
@@ -128,6 +127,7 @@ def _outliers_gesd(
     ``outliers_gesd(hypo=True)`` returns a boolean array where True marks
     outliers when H0 can be rejected; we re-expose that directly.
     """
+    from scikit_posthocs import outliers_gesd
 
     if outliers <= 0 or len(data) < 3:
         return np.zeros(len(data), dtype=bool)
@@ -150,14 +150,11 @@ def _circular_median(angles: np.ndarray) -> float:
     best_idx = 0
     best_cost = np.inf
     for i, candidate in enumerate(angles):
-        cost = np.sum(
-            np.abs(
-                np.arctan2(
-                    np.sin(angles - candidate),
-                    np.cos(angles - candidate),
-                )
-            )
-        )
+        raw_diff = angles - candidate
+        # Wrap into [-π, π): differences can reach ±2π since both angles
+        # and candidate live in (-π, π].
+        wrapped_diff = (raw_diff + np.pi) % (2 * np.pi) - np.pi
+        cost = np.sum(np.abs(wrapped_diff))
         if cost < best_cost:
             best_cost = cost
             best_idx = i
