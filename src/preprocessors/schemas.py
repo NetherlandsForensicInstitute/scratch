@@ -65,7 +65,8 @@ class UploadScan(BaseParameters):
     )
     step_size: PositiveInt = Field(
         1,
-        description="Sets the sampling interval for both axes. Values > 1 downscale the image by skipping intermediate pixels.",
+        description="Sets the sampling interval for both axes. "
+        "Values > 1 downscale the image by skipping intermediate pixels.",
         examples=[1, 2, 4],
     )
 
