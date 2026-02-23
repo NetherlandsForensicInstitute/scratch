@@ -65,7 +65,7 @@ class UploadScan(BaseParameters):
     )
     step_size: PositiveInt = Field(
         1,
-        description="Subsampling step in x-direction. Values > 1 reduce resolution by skipping pixels.",
+        description="Subsampling step in both the x&y direction values > 1 reduce resolution by skipping pixels.",
         examples=[1, 2, 4],
     )
 
