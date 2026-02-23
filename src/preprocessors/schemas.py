@@ -4,10 +4,6 @@ from functools import cached_property
 from typing import Annotated, Any
 
 import numpy as np
-from conversion.data_formats import BoundingBox, MarkType
-from conversion.leveling.data_types import SurfaceTerms
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
-from conversion.preprocess_striation import PreprocessingStriationParams
 from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
@@ -18,15 +14,19 @@ from pydantic import (
     model_validator,
 )
 from scipy.constants import micro
-from utils.constants import RegressionOrder
 
 from constants import MaskTypes
+from conversion.data_formats import BoundingBox, MarkType
+from conversion.leveling.data_types import SurfaceTerms
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+from conversion.preprocess_striation import PreprocessingStriationParams
 from models import (
     BaseModelConfig,
     ProjectTag,
     ScanFile,
     SupportedScanExtension,
 )
+from utils.constants import RegressionOrder
 
 
 class BaseParameters(BaseModelConfig):
@@ -63,14 +63,9 @@ class UploadScan(BaseParameters):
         description="Vertical pixel size in meters (m). Defines physical spacing between pixels in y-direction.",
         examples=[1.0, 0.5, 2.0],
     )
-    step_size_x: PositiveInt = Field(
+    step_size: PositiveInt = Field(
         1,
         description="Subsampling step in x-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
-    )
-    step_size_y: PositiveInt = Field(
-        1,
-        description="Subsampling step in y-direction. Values > 1 reduce resolution by skipping pixels.",
         examples=[1, 2, 4],
     )
 

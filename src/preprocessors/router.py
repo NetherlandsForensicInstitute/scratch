@@ -16,7 +16,6 @@ from extractors import ProcessedDataAccess
 from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
-
 from .pipelines import (
     parse_mask_pipeline,
     parse_scan_pipeline,
@@ -73,7 +72,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     :return: Access URLs for the generated files.
     """
     vault = create_vault(upload_scan.tag)
-    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size_x, upload_scan.step_size_y)
+    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
     files = ProcessedDataAccess.get_files(vault.resource_path)
     x3p_pipeline(parsed_scan, files["scan"])
     surface_map_pipeline(parsed_scan, files["surface_map"], LIGHT_SOURCES, OBSERVER)
