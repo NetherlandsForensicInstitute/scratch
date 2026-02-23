@@ -73,7 +73,7 @@ def striation_mark_profile_compared() -> Mark:
 
 
 @pytest.fixture
-def striation_metrics(striation_quality_passbands) -> StriationComparisonResults:
+def striation_metrics() -> StriationComparisonResults:
     sq_ref = 0.2395 * micro
     sq_comp = 0.7121 * micro
     sq_diff = 0.6138 * micro
