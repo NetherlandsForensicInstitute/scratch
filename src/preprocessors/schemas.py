@@ -4,6 +4,10 @@ from functools import cached_property
 from typing import Annotated, Any
 
 import numpy as np
+from conversion.data_formats import BoundingBox, MarkType
+from conversion.leveling.data_types import SurfaceTerms
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+from conversion.preprocess_striation import PreprocessingStriationParams
 from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
@@ -14,19 +18,15 @@ from pydantic import (
     model_validator,
 )
 from scipy.constants import micro
+from utils.constants import RegressionOrder
 
 from constants import MaskTypes
-from conversion.data_formats import BoundingBox, MarkType
-from conversion.leveling.data_types import SurfaceTerms
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
-from conversion.preprocess_striation import PreprocessingStriationParams
 from models import (
     BaseModelConfig,
     ProjectTag,
     ScanFile,
     SupportedScanExtension,
 )
-from utils.constants import RegressionOrder
 
 
 class BaseParameters(BaseModelConfig):
@@ -138,7 +138,7 @@ class EditImage(BaseParameters):
 
     cutoff_length: Annotated[PositiveFloat, AfterValidator(lambda x: x * micro)] = Field(
         description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "
-                    "Defines the spatial frequency threshold for surface texture analysis.",
+        "Defines the spatial frequency threshold for surface texture analysis.",
         examples=[250, 500, 1000],
     )
     resampling_factor: PositiveFloat = Field(
