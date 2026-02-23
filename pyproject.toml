@@ -30,7 +30,7 @@ dependencies = [
   "numpy>=2.3.5",
   "scipy>=1.16.3",
   "scikit-image>=0.25.2",
-
+  "opencv-python>=4.13.0.92",
 ]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/

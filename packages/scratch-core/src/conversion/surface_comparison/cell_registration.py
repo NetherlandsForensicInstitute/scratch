@@ -21,8 +21,9 @@ Stage 3  (Lucas-Kanade / ECC gradient refinement)
     updates, mirroring maps_register_fine with regAlgorithmFine='gradient'.
 """
 
+import cv2
 import numpy as np
-from scipy.ndimage import map_coordinates
+from scipy.ndimage import distance_transform_edt
 from skimage.feature import match_template
 from skimage.registration import phase_cross_correlation
 from skimage.transform import rotate
@@ -38,11 +39,9 @@ from conversion.surface_comparison.grid import (
     generate_grid_centers,
 )
 
-# ECC convergence tolerances (matching MATLAB maps_register_fine defaults)
+# ECC convergence tolerances (passed to cv2.findTransformECC)
 _ECC_MAX_ITER = 150
-_ECC_TOL_POS = 0.1  # pixels – maps to Par.convPosPix
-_ECC_TOL_ANGLE = 1e-3  # radians – maps to Par.convAngle
-_ECC_TOL_SIM = 1e-4  # ACCF change – maps to Par.convSim
+_ECC_TOL_SIM = 1e-4  # ECC value change threshold (maps to Par.convSim)
 
 
 # ---------------------------------------------------------------------------
@@ -240,7 +239,6 @@ def _refine_cell(
         init_cx_px=refined_cx / spacing[0],
         init_cy_px=refined_cy / spacing[1],
         init_angle_deg=refined_angle_deg,
-        spacing=spacing,
     )
 
     return CellResult(
@@ -263,173 +261,102 @@ def _ecc_refine(
     init_cx_px: float,
     init_cy_px: float,
     init_angle_deg: float,
-    spacing: FloatArray1D,
 ) -> tuple[FloatArray1D, float, float]:
     """
-    Refine cell registration using the ECC gradient algorithm.
+    Refine cell registration using OpenCV's ECC algorithm
+    (``cv2.findTransformECC`` with ``MOTION_EUCLIDEAN``).
 
-    Direct Python translation of the 'gradient' branch inside
-    maps_register_fine (Evangelidis & Psarakis 2008, equation 19).
+    NaN holes in both images are filled by nearest-neighbour interpolation
+    before being passed to OpenCV.  The filled pixels are also supplied as
+    an ``inputMask`` so that OpenCV excludes them from the gradient
+    computation — this preserves the original behaviour of the hand-rolled
+    ECC that operated only on ``np.isfinite`` pixels.
 
-    The warp model is affine-rotation + translation:
-      [x', y'] = R(angle) * [x - cx, y - cy]^T + [cx, cy]^T + [dx, dy]^T
+    The warp model is Euclidean (rotation + translation), identical to the
+    previous implementation:
+        [x', y'] = R(angle) * [x, y]^T + [tx, ty]^T
 
-    Parameters are updated by solving the linearised ECC system at each
-    iteration until convergence or the iteration limit is reached.
+    All inputs and outputs are in pixel units; the caller is responsible
+    for converting to physical coordinates (µm).
 
-    :param ref_patch: Reference cell patch (NaN-filled to zero), shape (H, W).
-    :param comp_image: Full comparison image (NaN-filled), shape (M, N).
-    :param init_cx_px: Initial comparison center column (pixels).
-    :param init_cy_px: Initial comparison center row (pixels).
+    :param ref_patch: Reference cell patch (may contain NaNs), shape (H, W).
+    :param comp_image: Full comparison image (may contain NaNs), shape (M, N).
+    :param init_cx_px: Initial comparison centre column (pixels).
+    :param init_cy_px: Initial comparison centre row (pixels).
     :param init_angle_deg: Initial rotation angle (degrees).
-    :param spacing: Pixel spacing [dx, dy] in µm (used only for output conversion).
     :returns: (center_pixels [cx, cy], angle_deg, accf_score).
               center_pixels is in *pixel* units; caller multiplies by spacing.
     """
     ph, pw = ref_patch.shape
-    # Reference pixel grid (row, col) relative to patch center
-    pr = np.arange(ph, dtype=np.float64) - (ph - 1) / 2.0
-    pc = np.arange(pw, dtype=np.float64) - (pw - 1) / 2.0
-    grid_c, grid_r = np.meshgrid(pc, pr)  # both (ph, pw)
 
-    # Flatten and mask to valid pixels only
-    ref_flat = ref_patch.ravel()
-    valid = np.isfinite(ref_flat)
-    if valid.sum() < 6:
+    if ph < 3 or pw < 3:
         return np.array([init_cx_px, init_cy_px]), init_angle_deg, 0.0
 
-    r_v = grid_r.ravel()[valid]
-    c_v = grid_c.ravel()[valid]
-    t1 = ref_flat[valid]
-    t1 = t1 - t1.mean()
+    # --- Crop comp_image to the same footprint as ref_patch ---
+    # findTransformECC requires both images to be the same size.
+    # We extract a window from comp_image centred on the Stage-2 estimate;
+    # the ECC warp then refines the sub-pixel offset within that window.
+    y0c = int(round(init_cy_px - (ph - 1) / 2.0))
+    x0c = int(round(init_cx_px - (pw - 1) / 2.0))
+    comp_crop_raw = _safe_crop(comp_image, y0c, x0c, ph, pw)
+    if comp_crop_raw is None:
+        return np.array([init_cx_px, init_cy_px]), init_angle_deg, 0.0
 
-    cx = float(init_cx_px)
-    cy = float(init_cy_px)
-    angle_deg = float(init_angle_deg)
+    # --- Fill NaN holes via nearest-neighbour ---
+    ref_filled, ref_nan_mask = _fill_nans_nearest(ref_patch)
+    comp_filled, _ = _fill_nans_nearest(comp_crop_raw)
 
-    comp_rows, comp_cols = comp_image.shape
-    prev_accf = -np.inf
+    # --- Normalise to [0, 1] float32 as required by findTransformECC ---
+    ref_f32 = _norm01_f32(ref_filled)
+    comp_f32 = _norm01_f32(comp_filled)
 
-    for _ in range(_ECC_MAX_ITER):
-        cos_a = np.cos(np.radians(angle_deg))
-        sin_a = np.sin(np.radians(angle_deg))
+    # --- Build inputMask: pixels that were originally valid in the ref patch ---
+    # (comp NaNs are not masked here — they are filled so OpenCV can sample
+    # anywhere during warping; only ref pixels drive the gradient update)
+    input_mask = (~ref_nan_mask).astype(np.uint8)
+    if input_mask.sum() < 6:
+        return np.array([init_cx_px, init_cy_px]), init_angle_deg, 0.0
 
-        # Sample comparison at warped positions
-        samp_c = cx + cos_a * c_v - sin_a * r_v
-        samp_r = cy + sin_a * c_v + cos_a * r_v
+    # --- Initial warp matrix ---
+    # MOTION_EUCLIDEAN warp: [[cos, -sin, tx], [sin, cos, ty]]
+    # Both images are the same size and comp_crop is already centred on the
+    # Stage-2 estimate, so the initial displacement within the crop is zero.
+    # The rotation is seeded from the Stage-1/2 angle.
+    cos_a = float(np.cos(np.radians(init_angle_deg)))
+    sin_a = float(np.sin(np.radians(init_angle_deg)))
+    warp_init = np.array(
+        [[cos_a, -sin_a, 0.0], [sin_a, cos_a, 0.0]],
+        dtype=np.float32,
+    )
 
-        t2 = map_coordinates(
-            comp_image,
-            [samp_r, samp_c],
-            order=1,
-            mode="nearest",
-            prefilter=False,
+    criteria = (
+        cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+        _ECC_MAX_ITER,
+        _ECC_TOL_SIM,
+    )
+
+    try:
+        # Note: gaussFiltSize and inputMask must be passed positionally in OpenCV 4.x
+        ecc_val, warp_out = cv2.findTransformECC(
+            ref_f32,
+            comp_f32,
+            warp_init,
+            cv2.MOTION_EUCLIDEAN,
+            criteria,
+            input_mask,
+            1,  # gaussFiltSize=1 (no smoothing — scan data is already smooth)
         )
-        t2 = t2 - t2.mean()
+    except cv2.error:
+        # ECC did not converge — return the Stage 2 estimate with zero score
+        return np.array([init_cx_px, init_cy_px]), init_angle_deg, 0.0
 
-        denom = np.sqrt(np.dot(t1, t1) * np.dot(t2, t2))
-        if denom < 1e-30:
-            break
-        accf = float(np.dot(t1, t2) / denom)
+    angle_out_deg = float(np.degrees(np.arctan2(warp_out[1, 0], warp_out[0, 0])))
+    # tx/ty is the displacement of the comp crop centre relative to ref patch centre.
+    # Add back the absolute position of the comp crop top-left to get pixel coords.
+    cx_out = x0c + (pw - 1) / 2.0 + float(warp_out[0, 2])
+    cy_out = y0c + (ph - 1) / 2.0 + float(warp_out[1, 2])
 
-        if abs(accf - prev_accf) < _ECC_TOL_SIM:
-            break
-        prev_accf = accf
-
-        # Gradient of t2 at sampled locations (central differences via
-        # map_coordinates so we stay sub-pixel)
-        eps = 0.5
-        g_c = (
-            map_coordinates(
-                comp_image,
-                [samp_r, samp_c + eps],
-                order=1,
-                mode="nearest",
-                prefilter=False,
-            )
-            - map_coordinates(
-                comp_image,
-                [samp_r, samp_c - eps],
-                order=1,
-                mode="nearest",
-                prefilter=False,
-            )
-        ) / (2 * eps)
-        g_r = (
-            map_coordinates(
-                comp_image,
-                [samp_r + eps, samp_c],
-                order=1,
-                mode="nearest",
-                prefilter=False,
-            )
-            - map_coordinates(
-                comp_image,
-                [samp_r - eps, samp_c],
-                order=1,
-                mode="nearest",
-                prefilter=False,
-            )
-        ) / (2 * eps)
-
-        # Steepest-descent images for [dx(col), dy(row), d_angle]
-        # Jacobian of the warp w.r.t. [dx_col, dy_row, d_angle_rad]
-        #   d(samp_c)/d(dx_col)   = 1,   d(samp_r)/d(dx_col) = 0
-        #   d(samp_c)/d(dy_row)   = 0,   d(samp_r)/d(dy_row) = 1
-        #   d(samp_c)/d(d_angle)  = -sin_a*c_v - cos_a*r_v
-        #   d(samp_r)/d(d_angle)  =  cos_a*c_v - sin_a*r_v
-        sd_dx = g_c * 1.0 + g_r * 0.0
-        sd_dy = g_c * 0.0 + g_r * 1.0
-        sd_angle = g_c * (-sin_a * c_v - cos_a * r_v) + g_r * (
-            cos_a * c_v - sin_a * r_v
-        )
-
-        # Build G = [sd_dx | sd_dy | sd_angle] (n_valid × 3)
-        G = np.column_stack([sd_dx, sd_dy, sd_angle])
-        # Zero-mean each column (projection operator normalisation)
-        G = G - G.mean(axis=0)
-
-        # ECC update (Evangelidis & Psarakis 2008, eq. 17-19).
-        # Direct translation of the MATLAB gradient branch in maps_register_fine:
-        #   vp1 = mG \ mm(:,1)
-        #   vp2 = mG \ mm(:,2)
-        #   ... compute lambda ...
-        #   vdPar = mG \ (lambda*mm(:,1) - mm(:,2))
-        # where mG is (n×3) and \ means least-squares.
-        vp1, _, _, _ = np.linalg.lstsq(G, t1, rcond=None)  # (3,)
-        vp2, _, _, _ = np.linalg.lstsq(G, t2, rcond=None)  # (3,)
-
-        # Projection terms: t'*mG*vp = t' * Pg * t2  where Pg projects onto col(G)
-        t1_t2 = float(np.dot(t1, t2))
-        t1_Pg_t2 = float(t1 @ (G @ vp2))  # t1' * mG * vp2
-        t1_Pg_t1 = float(t1 @ (G @ vp1))  # t1' * mG * vp1
-        t2_t2 = float(np.dot(t2, t2))
-        t2_Pg_t2 = float(t2 @ (G @ vp2))  # t2' * mG * vp2
-
-        if t1_t2 > t1_Pg_t2:
-            lam = (t2_t2 - t2_Pg_t2) / max(t1_t2 - t1_Pg_t2, 1e-30)
-        else:
-            lam_1 = np.sqrt(t2_Pg_t2 / max(t1_Pg_t1, 1e-30))
-            lam_2 = (t1_Pg_t2 - t1_t2) / max(t1_Pg_t1, 1e-30)
-            lam = max(float(lam_1), float(lam_2))
-
-        # vdPar = mG \ (lambda*t1 - t2)   — G is (n×3), rhs is (n,)
-        dp, _, _, _ = np.linalg.lstsq(G, lam * t1 - t2, rcond=None)  # (3,)
-
-        d_cx, d_cy, d_angle_rad = dp
-        cx += float(d_cx)
-        cy += float(d_cy)
-        angle_deg += float(np.degrees(d_angle_rad))
-
-        # Convergence check
-        if (
-            abs(d_cx) < _ECC_TOL_POS
-            and abs(d_cy) < _ECC_TOL_POS
-            and abs(d_angle_rad) < _ECC_TOL_ANGLE
-        ):
-            break
-
-    return np.array([cx, cy]), float(angle_deg), float(prev_accf)
+    return np.array([cx_out, cy_out]), angle_out_deg, float(ecc_val)
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +369,37 @@ def _rotate_image(image: FloatArray2D, angle_deg: float) -> FloatArray2D:
     if np.isclose(angle_deg, 0.0):
         return image
     return rotate(image, -float(angle_deg), preserve_range=True, cval=np.nan)
+
+
+def _fill_nans_nearest(image: FloatArray2D) -> tuple[FloatArray2D, np.ndarray]:
+    """
+    Replace NaN pixels with the value of the nearest valid pixel.
+
+    Uses ``scipy.ndimage.distance_transform_edt`` to find the nearest
+    non-NaN neighbour for every NaN pixel in O(N) time.
+
+    :param image: Input array, may contain NaNs.
+    :returns: ``(filled, nan_mask)`` where *filled* has no NaNs and
+              *nan_mask* is a boolean array that is True where the original
+              image was NaN.
+    """
+    nan_mask = np.isnan(image)
+    if not nan_mask.any():
+        return image.astype(np.float64), nan_mask
+    _, nearest_idx = distance_transform_edt(nan_mask, return_indices=True)
+    filled = image.astype(np.float64).copy()
+    filled[nan_mask] = image[tuple(nearest_idx[:, nan_mask])]
+    return filled, nan_mask
+
+
+def _norm01_f32(image: FloatArray2D) -> np.ndarray:
+    """
+    Linearly scale *image* to [0, 1] and return as float32.
+
+    ``cv2.findTransformECC`` requires single-channel float32 input.
+    """
+    mn, mx = float(image.min()), float(image.max())
+    return ((image - mn) / (mx - mn + 1e-30)).astype(np.float32)
 
 
 def _fill_nan(image: FloatArray2D) -> FloatArray2D:
