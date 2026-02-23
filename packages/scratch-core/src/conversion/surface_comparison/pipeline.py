@@ -23,15 +23,11 @@ def run_comparison_pipeline(
 
        - Stage 1 (coarse angular sweep): the full comparison image is rotated
          once per candidate angle and every cell is matched via normalised
-         cross-correlation (``match_template``), mirroring
-         ``cell_corr_angle``.
+         cross-correlation.
        - Stage 2 (sub-pixel FFT CC): ``phase_cross_correlation`` pins the
-         translation to sub-pixel precision at the best angle from Stage 1,
-         mirroring ``maps_register_corr``.
+         translation to sub-pixel precision at the best angle from Stage 1.
        - Stage 3 (ECC gradient): the Enhanced Correlation Coefficient
-         algorithm (Evangelidis & Psarakis 2008) refines ``[dx, dy, θ]``
-         iteratively, mirroring ``maps_register_fine`` with
-         ``regAlgorithmFine='gradient'``.
+         algorithm (Evangelidis & Psarakis 2008) refines the angle and translation iteratively.
 
     2. **CMC classification** — median procedure 6 with ESD outlier rejection
        identifies the subset of cells whose registration parameters share a
@@ -45,10 +41,6 @@ def run_comparison_pipeline(
     result = ComparisonResult()
 
     result.cells = register_cells(reference_map, comparison_map, params)
-
-    # classify_congruent_cells uses reference_map.global_center as the center
-    # of rotation when computing position residuals, matching Map1.vCenterG
-    # in the MATLAB implementation.
     classify_congruent_cells(result, params, reference_map.global_center)
 
     result.update_summary()

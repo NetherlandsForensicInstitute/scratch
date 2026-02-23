@@ -86,13 +86,12 @@ def register_cells(
     )
 
     # Pre-extract reference patches and compute fill fractions.
-    # Cells that do not overlap the image enough are discarded here so that
-    # the angle sweep only processes valid cells.
-    patches = []  # (center_um, patch, fill_fraction) or None per center
+    # Only cells that sufficiently overlap the image are kept.
     spacing = reference_map.pixel_spacing
     cell_size_px = np.round(params.cell_size / spacing).astype(int)
     rows, cols = reference_map.height_map.shape
 
+    valid_cells = []  # [center_um, patch, fill_fraction, best_score, best_angle_deg, best_comp_center_um]
     for center in centers:
         # upper/left corner of cell (y goes downwards, starting from zero), in pixels
         py = int(round(center[1] / spacing[1] - cell_size_px[1] / 2))
@@ -102,7 +101,6 @@ def register_cells(
         # lower/right corner of cell, in pixels
         y1, x1 = min(rows, py + cell_size_px[1]), min(cols, px + cell_size_px[0])
         if y1 <= y0 or x1 <= x0:
-            patches.append(None)
             continue
         patch = reference_map.height_map[y0:y1, x0:x1]
 
@@ -112,23 +110,17 @@ def register_cells(
         full_area = int(cell_size_px[0] * cell_size_px[1])
         fill_fraction = clipped_area / full_area
         if fill_fraction < params.minimum_fill_fraction:
-            patches.append(None)
-        else:
-            patches.append((center, patch, fill_fraction))
+            continue
+
+        valid_cells.append([center, patch, fill_fraction, -np.inf, 0.0, np.zeros(2)])
 
     # ---- Stage 1: Sweep over angles_deg and store parameters for best cross_correlation per cell
-    best_per_cell = [
-        (-np.inf, 0.0, np.zeros(2)) for _ in centers
-    ]  # (cross_correlation, angle_deg, comp_center_um)
-
     for angle_deg in angles_deg:
         rotated = _rotate_image(comparison_map.height_map, float(angle_deg))
         clean_rotated = _fill_nan(rotated)
 
-        for i, info in enumerate(patches):
-            if info is None:
-                continue
-            center, patch, _ = info
+        for cell in valid_cells:
+            center, patch = cell[0], cell[1]
             nan_filled_patch = _fill_nan(patch)
             clean_patch = nan_filled_patch - np.nanmean(nan_filled_patch)
 
@@ -145,24 +137,27 @@ def register_cells(
             iy, ix = np.unravel_index(np.argmax(cc_map), cc_map.shape)
             score = float(cc_map[iy, ix])
 
-            if score > best_per_cell[i][0]:
+            if score > cell[3]:
                 ph, pw = clean_patch.shape
-                comp_center_um = np.array(
+                cell[3] = score
+                cell[4] = angle_deg
+                cell[5] = np.array(
                     [
                         (ix + (pw - 1) / 2.0) * comparison_map.pixel_spacing[0],
                         (iy + (ph - 1) / 2.0) * comparison_map.pixel_spacing[1],
                     ]
                 )
-                best_per_cell[i] = (score, angle_deg, comp_center_um)
 
     # ---- Stages 2 + 3: sub-pixel refinement per cell ----
     results = []
-    for i, info in enumerate(patches):
-        if info is None:
-            continue
-        center, patch, fill = info
-        coarse_score, coarse_angle_deg, coarse_comp_center = best_per_cell[i]
-
+    for (
+        center,
+        patch,
+        fill,
+        coarse_score,
+        coarse_angle_deg,
+        coarse_comp_center,
+    ) in valid_cells:
         cell = _refine_cell(
             center_ref_um=center,
             ref_patch=patch,
@@ -174,11 +169,6 @@ def register_cells(
         results.append(cell)
 
     return results
-
-
-# ---------------------------------------------------------------------------
-# Stage 2 + 3: per-cell refinement
-# ---------------------------------------------------------------------------
 
 
 def _refine_cell(
@@ -193,7 +183,7 @@ def _refine_cell(
     Refine a single cell registration via phase cross-correlation (Stage 2)
     then ECC (Stage 3).
 
-    :param center_ref_um: Cell centre on the reference map in µm, shape (2,).
+    :param center_ref_um: Cell center on the reference map in µm, shape (2,).
     :param ref_patch: Clipped reference height patch (may be smaller than cell_size).
     :param comp_map: Moving surface map.
     :param coarse_angle_deg: Best angle from Stage 1 in degrees.
@@ -269,11 +259,6 @@ def _refine_cell(
     )
 
 
-# ---------------------------------------------------------------------------
-# Stage 3: ECC (Enhanced Correlation Coefficient)
-# ---------------------------------------------------------------------------
-
-
 def _ecc_refine(
     ref_patch: FloatArray2D,
     comp_image: FloatArray2D,
@@ -289,7 +274,7 @@ def _ecc_refine(
         [x', y'] = R(angle) * [x, y]^T + [tx, ty]^T
 
     NaN holes are filled by nearest-neighbour interpolation before being
-    passed to OpenCV.  The filled pixels are excluded from the gradient
+    passed to OpenCV. The filled pixels are excluded from the gradient
     computation via ``inputMask``, so only originally valid pixels contribute
     to the ECC update.
 
@@ -298,8 +283,8 @@ def _ecc_refine(
 
     :param ref_patch: Reference cell patch (may contain NaNs), shape (H, W).
     :param comp_image: Full comparison image (may contain NaNs), shape (M, N).
-    :param init_cx_px: Initial comparison centre column in pixels (from Stage 2).
-    :param init_cy_px: Initial comparison centre row in pixels (from Stage 2).
+    :param init_cx_px: Initial comparison center column in pixels (from Stage 2).
+    :param init_cy_px: Initial comparison center row in pixels (from Stage 2).
     :param init_angle_deg: Initial rotation angle in degrees (from Stage 1).
     :returns: (center_pixels [cx, cy], angle_deg, accf_score).
     """
