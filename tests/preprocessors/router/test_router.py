@@ -260,9 +260,12 @@ def test_edit_scan_returns_422_on_mask_shape_mismatch(
     mask_bytes = np.zeros(wrong_shape, dtype=np.bool_).tobytes(order="C")
 
     params = EditImage(
+        project_name=None,
         scan_file=scan_directory / "circle.x3p",
         cutoff_length=250,
         mask_parameters=MaskParameters(shape=wrong_shape),
+        step_size_x=1,
+        step_size_y=1,
     )
 
     with monkeypatch.context() as mp:

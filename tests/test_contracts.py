@@ -18,6 +18,7 @@ from extractors.schemas import (
     ProcessedDataAccess,
 )
 from models import DirectoryAccess
+from preprocessors.pipelines import parse_scan_pipeline
 from preprocessors.schemas import (
     EditImage,
     MaskParameters,
@@ -36,9 +37,6 @@ from processors.schemas import (
 from settings import get_settings
 
 SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
-MASK = np.array([[True, False], [False, True]], dtype=np.bool)
-MASK_BYTES = MASK.tobytes(order="C")
-MASK_SHAPE = MASK.shape
 CUTOFF_LENGTH = 250  # 250 micrometers in meters
 
 
@@ -109,17 +107,21 @@ class TestContracts:
         ), PrepareMarkResponseStriation  # type: ignore
 
     @pytest.fixture(scope="class")
-    def edit_scan(self, scan_directory: Path) -> Interface:
+    def edit_scan(self, scan_directory: Path) -> tuple[EditImage, type[GeneratedImages], bytes]:
         """Create test data for edit-scan endpoint.
 
-        Returns the post request data and expected response type.
+        Returns the post request data, expected response type, and mask bytes.
         """
+        scan_file = scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p"
+        parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
+        rows, cols = parsed_scan.data.shape
+        mask = np.ones((rows, cols), dtype=np.bool_)
         data = EditImage(  # type: ignore
-            scan_file=scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p",
+            scan_file=scan_file,
             cutoff_length=CUTOFF_LENGTH,
-            mask_parameters=MaskParameters(shape=MASK_SHAPE),
+            mask_parameters=MaskParameters(shape=(rows, cols)),
         )
-        return data, GeneratedImages
+        return data, GeneratedImages, mask.tobytes(order="C")
 
     @pytest.fixture(scope="class")
     def calculate_score_impression(self, directory_access: DirectoryAccess) -> Interface:
@@ -214,14 +216,16 @@ class TestContracts:
         assert response.status_code == HTTPStatus.OK
         expected_response.model_validate(response.json())
 
-    def test_pre_processor_edit_image_post_requests(self, edit_scan: tuple[EditImage, ProcessedDataAccess]) -> None:
+    def test_pre_processor_edit_image_post_requests(
+        self, edit_scan: tuple[EditImage, type[GeneratedImages], bytes]
+    ) -> None:
         """Test if preprocessor EditImage POST endpoints return expected models."""
-        params, expected_response = edit_scan
+        params, expected_response, mask_bytes = edit_scan
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scan",
             data={"params": json.dumps(params.model_dump(mode="json"))},
-            files={"mask_data": ("mask.bin", MASK_BYTES, "application/octet-stream")},
+            files={"mask_data": ("mask.bin", mask_bytes, "application/octet-stream")},
             timeout=5,
         )
         # Assert
