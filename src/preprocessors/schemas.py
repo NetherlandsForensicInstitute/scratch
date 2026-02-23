@@ -63,14 +63,10 @@ class UploadScan(BaseParameters):
         description="Vertical pixel size in meters (m). Defines physical spacing between pixels in y-direction.",
         examples=[1.0, 0.5, 2.0],
     )
-    step_size_x: PositiveInt = Field(
+    step_size: PositiveInt = Field(
         1,
-        description="Subsampling step in x-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
-    )
-    step_size_y: PositiveInt = Field(
-        1,
-        description="Subsampling step in y-direction. Values > 1 reduce resolution by skipping pixels.",
+        description="Sets the sampling interval for both axes. "
+        "Values > 1 downscale the image by skipping intermediate pixels.",
         examples=[1, 2, 4],
     )
 
@@ -164,16 +160,6 @@ class EditImage(BaseParameters):
     crop: bool = Field(
         default=False,
         description="Whether to crop the image to the non-masked region.",
-    )
-    step_size_x: PositiveInt = Field(
-        1,
-        description="Subsampling step size in x-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
-    )
-    step_size_y: PositiveInt = Field(
-        1,
-        description="Subsampling step size in y-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
     )
     mask_parameters: MaskParameters = Field(
         ...,

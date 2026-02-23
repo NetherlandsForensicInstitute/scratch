@@ -45,8 +45,6 @@ def resample_twice_bigger(
         terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=False,
-        step_size_x=1,
-        step_size_y=1,
     )
 
     def assertions(result: ScanImage) -> None:
@@ -79,8 +77,6 @@ def mask_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage,
         terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=False,
-        step_size_x=1,
-        step_size_y=1,
     )
 
     def assertions(result: ScanImage):
@@ -112,8 +108,6 @@ def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIma
         terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
-        step_size_x=1,
-        step_size_y=1,
     )
 
     def assertions(result: ScanImage):
@@ -145,8 +139,6 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
         terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
-        step_size_x=1,
-        step_size_y=1,
     )
 
     def assertions(result: ScanImage):
