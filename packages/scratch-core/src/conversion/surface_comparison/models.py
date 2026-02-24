@@ -66,6 +66,35 @@ class ComparisonResult:
         default_factory=lambda: np.zeros(2, dtype=np.float64)
     )
 
+    @property
+    def cell_count(self) -> int:
+        """Total number of cells."""
+        return len(self.cells)
+
+    @property
+    def cmc_fraction(self) -> float:
+        """Fraction of cells classified as CMC."""
+        return (
+            self.congruent_matching_cells_count / self.cell_count
+            if self.cells
+            else float("nan")
+        )
+
+    @property
+    def cmc_area_fraction(self) -> float:
+        """Fraction of valid surface area covered by CMC cells.
+
+        Computed as the sum of reference_fill_fraction over congruent cells
+        divided by the sum over all cells, weighted by actual non-NaN pixel counts.
+        """
+        total_area = sum(cell.reference_fill_fraction for cell in self.cells)
+        if total_area == 0:
+            return float("nan")
+        cmc_area = sum(
+            cell.reference_fill_fraction for cell in self.cells if cell.is_congruent
+        )
+        return cmc_area / total_area
+
     def update_summary(self) -> None:
         """Recount CMC cells from current cell statuses."""
         self.congruent_matching_cells_count = sum(

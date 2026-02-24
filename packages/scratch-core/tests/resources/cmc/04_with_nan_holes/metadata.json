@@ -1,22 +1,22 @@
 {
   "case_name": "04_with_nan_holes",
-  "DataConProRef_xdim": 3.5e-06,
-  "DataConProRef_ydim": 3.5e-06,
-  "DataConProCom_xdim": 3.5e-06,
-  "DataConProCom_ydim": 3.5e-06,
-  "param": {
-    "cellSimMin": 0.25,
-    "cellSizeX": 300,
-    "cellSizeY": 300,
-    "cellFillRefMin": 35,
-    "cellAngleMax": 3,
-    "cellAngleStep": 1,
-    "cellDistMax": 75
+  "reference_scale_x": 3.5e-06,
+  "reference_scale_y": 3.5e-06,
+  "comparison_scale_x": 3.5e-06,
+  "comparison_scale_y": 3.5e-06,
+  "params": {
+    "correlation_threshold": 0.25,
+    "cell_size_x": 300.0,
+    "cell_size_y": 300.0,
+    "minimum_fill_fraction": 0.35,
+    "angle_threshold": 3.0,
+    "search_angle_step": 1.0,
+    "position_threshold": 75.0
   },
-  "output_Res": {
-    "nCell": 4,
-    "nCmc": 0,
-    "pCmc": 0,
-    "pCmcArea": 0
+  "expected_results": {
+    "cell_count": 4,
+    "congruent_matching_cells_count": 0,
+    "cmc_fraction": 0,
+    "cmc_area_fraction": 0
   }
 }
