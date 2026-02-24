@@ -346,7 +346,7 @@ def convert_mark(mark_folder: Path, converted_x3p: Path, cfg: ConversionConfig) 
     body: dict[str, Any] = {
         "scan_file": str(converted_x3p),
         "mark_type": mark_type.value,
-        "mask": mask.astype(float).tolist() if mask else None,
+        "mask": mask.astype(float).tolist() if mask is not None else None,
         "mark_parameters": params,
     }
     if bounding_box is not None:
