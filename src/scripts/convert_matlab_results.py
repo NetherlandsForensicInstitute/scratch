@@ -198,7 +198,7 @@ def extract_mask_and_bounding_box(
     struct: np.ndarray,
     size_x: int,
     size_y: int,
-) -> tuple[np.ndarray, np.ndarray | None] | None:
+) -> tuple[np.ndarray, np.ndarray | None]:
     """Extract a boolean mask and optional bounding box from crop_info in a MATLAB struct.
 
     Uses the first crop item. For ellipse/circle crops the bounding_box is None.
@@ -207,20 +207,10 @@ def extract_mask_and_bounding_box(
     :returns: (mask, bounding_box) or None if no valid crop info found.
     """
     crop_raw = _scalar(struct["crop_info"])
-    if crop_raw is None:
-        return None
-
     while isinstance(crop_raw, np.ndarray) and crop_raw.dtype == object and crop_raw.size == 1:
         crop_raw = crop_raw.flat[0]
 
-    if not isinstance(crop_raw, np.ndarray) or crop_raw.dtype != object:
-        return None
-
-    crop_type = _scalar(crop_raw[0])
-    if not isinstance(crop_type, str):
-        return None
-
-    crop_type = str(crop_type)
+    crop_type = str(_scalar(crop_raw[0]))
     raw_params = _scalar(crop_raw[1])
 
     if crop_type in ("ellipse", "circle"):
@@ -356,7 +346,7 @@ def convert_mark(mark_folder: Path, converted_x3p: Path, cfg: ConversionConfig) 
     body: dict[str, Any] = {
         "scan_file": str(converted_x3p),
         "mark_type": mark_type.value,
-        "mask": mask.astype(float).tolist(),
+        "mask": mask.astype(float).tolist() if mask else None,
         "mark_parameters": params,
     }
     if bounding_box is not None:

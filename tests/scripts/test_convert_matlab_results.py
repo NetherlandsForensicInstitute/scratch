@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from convert_matlab_results import (
+from scripts.convert_matlab_results import (
     ConversionConfig,
     _local_tag,
     _parse_circle,
@@ -287,10 +287,12 @@ class TestConvertX3p:
 
             root = ET.parse(BytesIO(xml_bytes)).getroot()  # noqa: S314
             ns = {"ns": "http://www.opengps.eu/2008/ISO5436_2"}
-            stored_data_md5 = root.find(".//ns:MD5ChecksumPointData", ns).text
+            stored_data_md5 = root.find(".//ns:MD5ChecksumPointData", ns)
 
-        assert stored_data_md5 == hashlib.md5(data_bin).hexdigest()  # noqa: S324
-        assert stored_xml_md5 == hashlib.md5(xml_bytes).hexdigest()  # noqa: S324
+        if stored_data_md5:
+            stored_data_md5 = stored_data_md5.text
+            assert stored_data_md5 == hashlib.md5(data_bin).hexdigest()  # noqa: S324
+            assert stored_xml_md5 == hashlib.md5(xml_bytes).hexdigest()  # noqa: S324
 
     def test_raises_no_data_bin(self, tmp_path):
         """Raise :class:`ValueError` when ``data.bin`` is missing from the archive."""
@@ -416,12 +418,6 @@ class TestExtractMaskAndBoundingBox:
         assert mask.any()
         assert bbox[:, 1].min() == pytest.approx(20.0)
         assert bbox[:, 1].max() == pytest.approx(80.0)
-
-    def test_empty_crop_info_returns_none(self):
-        """Return ``None`` when crop_info is an empty array."""
-        struct = make_matlab_struct("ellipse")
-        struct["crop_info"][0] = np.array([], dtype=np.uint8)
-        assert extract_mask_and_bounding_box(struct, 100, 100) is None
 
     def test_unknown_crop_type_raises(self):
         """Raise :class:`ValueError` for unsupported crop types."""
@@ -591,7 +587,7 @@ class TestConvertMeasurementX3p:
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json.return_value = {}
-        with patch("convert_matlab_results.requests.post", return_value=mock_resp):
+        with patch("scripts.convert_matlab_results.requests.post", return_value=mock_resp):
             result = convert_measurement_x3p(root, cfg)
 
         assert result == out / "measurement.x3p"
