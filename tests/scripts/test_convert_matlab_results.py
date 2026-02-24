@@ -12,10 +12,12 @@ import pytest
 
 from scripts.convert_matlab_results import (
     ConversionConfig,
+    _data_param_field,
     _local_tag,
     _parse_circle,
     _parse_ellipse,
     _parse_rectangle,
+    _run_parallel,
     _scalar,
     _x3p_metadata,
     convert_mark,
@@ -28,6 +30,7 @@ from scripts.convert_matlab_results import (
     extract_striation_params,
     find_mark_folders,
     get_x3p_shape,
+    main,
 )
 
 
@@ -172,6 +175,20 @@ class TestScalar:
         """Return ``None`` for empty arrays."""
         assert _scalar(np.array([])) is None
         assert _scalar(np.array([], dtype=np.uint8)) is None
+
+
+class TestDataParamField:
+    """Tests for :func:`_data_param_field`."""
+
+    def test_missing_field_returns_default(self):
+        """Return the default when the requested field is not in the sub-struct."""
+        struct = make_matlab_struct()
+        assert _data_param_field(struct, "nonexistent_field", default="fallback") == "fallback"
+
+    def test_missing_field_returns_none_by_default(self):
+        """Return ``None`` when the field is absent and no default is given."""
+        struct = make_matlab_struct()
+        assert _data_param_field(struct, "nonexistent_field") is None
 
 
 class TestLocalTag:
@@ -548,6 +565,20 @@ class TestCopyDbScratchFiles:
         assert "ALREADY_HERE" not in content
 
 
+class TestConversionConfig:
+    """Tests for :class:`ConversionConfig`."""
+
+    def test_strips_trailing_slash(self):
+        """``__post_init__`` strips the trailing slash from ``api_url``."""
+        cfg = ConversionConfig(root=Path("/r"), output_dir=Path("/o"), api_url="http://localhost:8000/")
+        assert cfg.api_url == "http://localhost:8000"
+
+    def test_leaves_clean_url(self):
+        """URLs without a trailing slash are left unchanged."""
+        cfg = ConversionConfig(root=Path("/r"), output_dir=Path("/o"), api_url="http://localhost:8000")
+        assert cfg.api_url == "http://localhost:8000"
+
+
 class TestConvertMeasurementX3p:
     """Tests for :func:`convert_measurement_x3p`."""
 
@@ -593,9 +624,41 @@ class TestConvertMeasurementX3p:
         assert result == out / "measurement.x3p"
         assert (out / "measurement.x3p").read_bytes() != b"old"
 
+    def test_downloads_preview_and_surface_map(self, tmp_path):
+        """Download preview and surface_map images returned by the API."""
+        root = tmp_path / "root" / "meas"
+        root.mkdir(parents=True)
+        make_x3p(root, "measurement.x3p", nx=2, ny=2)
 
-class TestConvertMarkSkip:
-    """Tests for :func:`convert_mark` skip behaviour."""
+        cfg = ConversionConfig(
+            root=tmp_path / "root",
+            output_dir=tmp_path / "out",
+            api_url="http://api:8000",
+            force=True,
+        )
+
+        post_resp = MagicMock()
+        post_resp.json.return_value = {
+            "preview": "http://api:8000/files/preview.png",
+            "surface_map": "http://api:8000/files/surface_map.png",
+        }
+        get_resp = MagicMock()
+        get_resp.content = b"image_bytes"
+
+        with (
+            patch("scripts.convert_matlab_results.requests.post", return_value=post_resp),
+            patch("scripts.convert_matlab_results.requests.get", return_value=get_resp) as mock_get,
+        ):
+            result = convert_measurement_x3p(root, cfg)
+
+        assert mock_get.call_count == 2  # noqa: PLR2004
+        out_dir = result.parent
+        assert (out_dir / "preview.png").read_bytes() == b"image_bytes"
+        assert (out_dir / "surface_map.png").read_bytes() == b"image_bytes"
+
+
+class TestConvertMark:
+    """Tests for :func:`convert_mark`."""
 
     def test_skips_existing(self, tmp_path):
         """Skip mark conversion when ``mark.json`` already exists in output."""
@@ -608,6 +671,139 @@ class TestConvertMarkSkip:
         (out_mark / "mark.json").write_text("{}")
 
         cfg = ConversionConfig(root=tmp_path / "root", output_dir=tmp_path / "out", api_url="http://x")
-
-        # Should return without error (skipped)
         convert_mark(root, Path("dummy.x3p"), cfg)
+
+    def test_impression_mark_full_flow(self, tmp_path):
+        """Process an impression mark: extract params, call API, download files."""
+        root = tmp_path / "root"
+        mark_folder = root / "meas" / "mark1"
+        mark_folder.mkdir(parents=True)
+        (mark_folder / "mark.mat").touch()
+        make_x3p(mark_folder.parent, "measurement.x3p", nx=200, ny=160)
+
+        cfg = ConversionConfig(root=root, output_dir=tmp_path / "out", api_url="http://api:8000")
+        converted_x3p = tmp_path / "converted.x3p"
+
+        mock_mark_type = MagicMock()
+        mock_mark_type.is_impression.return_value = True
+        mock_mark_type.value = "breech_face"
+
+        post_resp = MagicMock()
+        post_resp.json.return_value = {
+            "mark_json": "http://api:8000/files/mark.json",
+            "mark_npz": "http://api:8000/files/mark.npz",
+            "processed": "http://api:8000/files/leveled.png",
+            "status_code": 200,
+        }
+        get_resp = MagicMock()
+        get_resp.content = b"file_data"
+
+        with (
+            patch("scripts.convert_matlab_results.load_mat_struct", return_value=MagicMock()),
+            patch("scripts.convert_matlab_results.extract_mark_type", return_value=mock_mark_type),
+            patch("scripts.convert_matlab_results.get_x3p_shape", return_value=(200, 160)),
+            patch(
+                "scripts.convert_matlab_results.extract_mask_and_bounding_box",
+                return_value=(np.ones((160, 200), dtype=bool), None),
+            ),
+            patch("scripts.convert_matlab_results.extract_impression_params", return_value={"pixel_size": 1.0}),
+            patch("scripts.convert_matlab_results.requests.post", return_value=post_resp) as mock_post,
+            patch("scripts.convert_matlab_results.requests.get", return_value=get_resp),
+        ):
+            convert_mark(mark_folder, converted_x3p, cfg)
+
+        assert "impression" in mock_post.call_args.args[0]
+        mark_dir = cfg.output_dir / "meas" / "mark1"
+        assert (mark_dir / "mark.json").read_bytes() == b"file_data"
+        assert (mark_dir / "mark.npz").read_bytes() == b"file_data"
+        assert (mark_dir / "processed" / "leveled.png").read_bytes() == b"file_data"
+
+    def test_striation_mark_with_bounding_box(self, tmp_path):
+        """Process a striation mark and include bounding_box_list in the request."""
+        root = tmp_path / "root"
+        mark_folder = root / "meas" / "mark1"
+        mark_folder.mkdir(parents=True)
+        (mark_folder / "mark.mat").touch()
+        make_x3p(mark_folder.parent, "measurement.x3p", nx=100, ny=100)
+
+        cfg = ConversionConfig(root=root, output_dir=tmp_path / "out", api_url="http://api:8000")
+
+        mock_mark_type = MagicMock()
+        mock_mark_type.is_impression.return_value = False
+        mock_mark_type.value = "striation"
+        bbox = np.array([[10, 10], [90, 10], [90, 90], [10, 90]], dtype=float)
+
+        post_resp = MagicMock()
+        post_resp.json.return_value = {}
+
+        with (
+            patch("scripts.convert_matlab_results.load_mat_struct", return_value=MagicMock()),
+            patch("scripts.convert_matlab_results.extract_mark_type", return_value=mock_mark_type),
+            patch("scripts.convert_matlab_results.get_x3p_shape", return_value=(100, 100)),
+            patch(
+                "scripts.convert_matlab_results.extract_mask_and_bounding_box",
+                return_value=(np.ones((100, 100), dtype=bool), bbox),
+            ),
+            patch("scripts.convert_matlab_results.extract_striation_params", return_value={"highpass_cutoff": 2e-3}),
+            patch("scripts.convert_matlab_results.requests.post", return_value=post_resp) as mock_post,
+        ):
+            convert_mark(mark_folder, tmp_path / "x.x3p", cfg)
+
+        body = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
+        assert "bounding_box_list" in body
+        assert "striation" in mock_post.call_args.args[0]
+
+
+class TestRunParallel:
+    """Tests for :func:`_run_parallel`."""
+
+    def test_runs_tasks_and_collects_results(self):
+        """Execute tasks in parallel and return a dict keyed by task key."""
+        tasks = [
+            ("a", lambda x, y: x + y, (1, 2)),
+            ("b", lambda x, y: x * y, (3, 4)),
+        ]
+        results = _run_parallel(tasks, workers=2, desc="test", unit=" items")
+        assert results == {"a": 3, "b": 12}
+
+    def test_empty_tasks(self):
+        """Return an empty dict when no tasks are given."""
+        assert _run_parallel([], workers=1, desc="empty", unit=" x") == {}
+
+
+class TestMain:
+    """Tests for :func:`main`."""
+
+    @patch("scripts.convert_matlab_results._run_parallel")
+    @patch("scripts.convert_matlab_results.copy_db_scratch_files", return_value=0)
+    @patch("scripts.convert_matlab_results.find_mark_folders", return_value=iter([]))
+    def test_no_marks(self, mock_find, mock_copy, mock_parallel, tmp_path):
+        """Run the pipeline with no marks found."""
+        root = tmp_path / "root"
+        root.mkdir()
+        output = tmp_path / "output"
+
+        with patch("sys.argv", ["prog", str(root), str(output)]):
+            main()
+
+        assert output.exists()
+        mock_copy.assert_called_once()
+
+    @patch("scripts.convert_matlab_results._run_parallel")
+    @patch("scripts.convert_matlab_results.copy_db_scratch_files", return_value=0)
+    @patch("scripts.convert_matlab_results.find_mark_folders")
+    def test_with_marks(self, mock_find, mock_copy, mock_parallel, tmp_path):
+        """Run the pipeline with marks, calling _run_parallel twice."""
+        root = tmp_path / "root"
+        root.mkdir()
+        output = tmp_path / "output"
+
+        meas = root / "case1"
+        mark = meas / "mark1"
+        mock_find.return_value = iter([(meas, mark)])
+        mock_parallel.side_effect = [{meas: Path("/out/measurement.x3p")}, {}]
+
+        with patch("sys.argv", ["prog", str(root), str(output), "--force", "--workers", "2"]):
+            main()
+
+        assert mock_parallel.call_count == 2  # noqa: PLR2004
