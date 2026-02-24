@@ -85,7 +85,7 @@ def create_synthetic_profile(
     scale: float = 1.5625 * micro,
     seed: int = 42,
 ) -> Profile:
-    """Create a Mark with synthetic profile data."""
+    """Create a Profile with synthetic data."""
     return Profile(
         heights=create_synthetic_striation_data(height=1, width=length, seed=seed),
         pixel_size=scale,
