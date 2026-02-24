@@ -17,6 +17,7 @@ the NIST integration tests (``test_compare_datasets_nist.py``).
 """
 
 import numpy as np
+from scipy.ndimage import shift as nd_shift
 
 from conversion.surface_comparison.models import (
     ComparisonParams,
@@ -42,6 +43,56 @@ def _make_surface_map(
     )
 
 
+def _identity_params() -> ComparisonParams:
+    return ComparisonParams(
+        cell_size=np.array([40.0, 40.0]),
+        search_angle_min=-2.0,
+        search_angle_max=2.0,
+        search_angle_step=1.0,
+    )
+
+
+def _identity_surface() -> SurfaceMap:
+    """100×100 surface used for identity tests.
+
+    Uses sin(x/5)·cos(y/5) because when the same image is presented as both
+    reference and comparison, ECC reliably converges to the identity warp and
+    returns translation = [0, 0] to numerical precision.  Periodicity is not
+    a concern here because no spatial shift is applied.
+    """
+    y, x = np.mgrid[0:100, 0:100]
+    return _make_surface_map(np.sin(x / 5.0) * np.cos(y / 5.0))
+
+
+def _make_translated_surface(
+    data: np.ndarray,
+    dy: int,
+    dx: int,
+    rng: np.random.Generator,
+    noise_sigma: float = 0.05,
+) -> np.ndarray:
+    """Shift ``data`` by ``(dy, dx)`` pixels and fill the vacated border with noise.
+
+    ``scipy.ndimage.shift`` with ``mode='constant', cval=NaN`` shifts the data
+    and marks the vacated border as NaN.  Those pixels are then replaced by
+    Gaussian noise scaled to ``noise_sigma × data.std()``.
+
+    This avoids two problems that arise with ``np.roll``:
+    - **Cyclic wrap**: ``np.roll`` copies content from the opposite edge into
+      the vacated border; cells that straddle the boundary see a discontinuity
+      and register to a spurious location.
+    - **Hard zero edge**: ``mode='constant', cval=0`` creates a sharp boundary
+      that ECC can lock onto instead of the true surface texture.
+
+    Filling with noise is realistic (a real shifted surface simply has no
+    overlap at the edges) and gives ECC nothing to lock onto in the border.
+    """
+    shifted = nd_shift(data.astype(float), shift=[dy, dx], mode="constant", cval=np.nan)
+    nan_mask = np.isnan(shifted)
+    shifted[nan_mask] = rng.standard_normal(nan_mask.sum()) * noise_sigma * data.std()
+    return shifted
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -49,17 +100,9 @@ def _make_surface_map(
 
 def test_pipeline_identity_returns_comparison_result():
     """run_comparison_pipeline returns a ComparisonResult with expected fields."""
-    y, x = np.mgrid[0:100, 0:100]
-    data = np.sin(x / 5.0) * np.cos(y / 5.0)
-    surface = _make_surface_map(data)
-    params = ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
-        search_angle_min=-2.0,
-        search_angle_max=2.0,
-        search_angle_step=1.0,
-    )
+    surface = _identity_surface()
 
-    result = run_comparison_pipeline(surface, surface, params)
+    result = run_comparison_pipeline(surface, surface, _identity_params())
 
     assert isinstance(result, ComparisonResult)
     assert isinstance(result.congruent_matching_cells_count, int)
@@ -68,17 +111,9 @@ def test_pipeline_identity_returns_comparison_result():
 
 def test_pipeline_identity_zero_rotation():
     """Identical surfaces yield consensus_rotation ≈ 0."""
-    y, x = np.mgrid[0:100, 0:100]
-    data = np.sin(x / 5.0) * np.cos(y / 5.0)
-    surface = _make_surface_map(data)
-    params = ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
-        search_angle_min=-2.0,
-        search_angle_max=2.0,
-        search_angle_step=1.0,
-    )
+    surface = _identity_surface()
 
-    result = run_comparison_pipeline(surface, surface, params)
+    result = run_comparison_pipeline(surface, surface, _identity_params())
 
     assert np.isclose(result.consensus_rotation, 0.0, atol=np.radians(0.01)), (
         f"Expected consensus_rotation ≈ 0°, "
@@ -88,17 +123,9 @@ def test_pipeline_identity_zero_rotation():
 
 def test_pipeline_identity_zero_translation():
     """Identical surfaces yield consensus_translation ≈ [0, 0]."""
-    y, x = np.mgrid[0:100, 0:100]
-    data = np.sin(x / 5.0) * np.cos(y / 5.0)
-    surface = _make_surface_map(data)
-    params = ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
-        search_angle_min=-2.0,
-        search_angle_max=2.0,
-        search_angle_step=1.0,
-    )
+    surface = _identity_surface()
 
-    result = run_comparison_pipeline(surface, surface, params)
+    result = run_comparison_pipeline(surface, surface, _identity_params())
 
     assert np.allclose(result.consensus_translation, [0.0, 0.0], atol=1e-5), (
         f"Expected consensus_translation ≈ [0, 0], got {result.consensus_translation}"
@@ -108,19 +135,33 @@ def test_pipeline_identity_zero_translation():
 def test_pipeline_recovers_known_translation():
     """Pipeline consensus_translation matches a known integer-pixel shift.
 
-    The comparison surface is produced by np.roll, which cyclically shifts
-    the data by 5 rows (y-axis) and 3 columns (x-axis), giving a translation
-    of [3, 5] µm at 1 µm/px.  The consensus must be within 0.5 µm of this.
+    The comparison surface is produced by shifting the reference data by 5
+    rows (y-axis) and 3 columns (x-axis), giving a translation of [3, 5] µm
+    at 1 µm/px.  The vacated border is filled with Gaussian noise so that
+    ECC finds no spurious feature to lock onto at the image edge.  The
+    consensus must be within 0.5 µm of [3, 5].
 
-    np.roll(shift=5, axis=0) moves rows downward → comparison is displaced
-    +5 µm in y relative to reference.
-    np.roll(shift=3, axis=1) moves columns rightward → comparison is displaced
-    +3 µm in x relative to reference.
+    **Surface design:**
+    A 200×200 aperiodic surface built from sines with incommensurate
+    frequencies (periods 31, 37, 17, 23 px — all much larger than the 5 px
+    shift but much smaller than the 40 px cell) is used for two reasons:
+
+    - **No period aliasing**: a purely periodic signal repeats within the
+      cell, so the NCC can match at [3, 5] *or* [3 + period, 5] with equal
+      score.  Incommensurate frequencies give a unique texture fingerprint
+      within each 40×40 µm cell.
+    - **Enough safe inner cells**: a 200×200 image with 40 µm cells gives
+      25 grid cells, of which the 9 inner cells sit well away from both the
+      image boundary and the noise-filled border strip.  These cells reliably
+      vote for [3, 5], providing a comfortable CMC majority.
     """
-    y, x = np.mgrid[0:100, 0:100]
-    data = np.sin(x / 5.0) * np.cos(y / 5.0)
+    rng = np.random.default_rng(42)
+    y, x = np.mgrid[0:200, 0:200]
+
+    # create som a-periodic data
+    data = (x - y) * np.tanh(x + y / 5) * np.sin(y / 5)
     ref = _make_surface_map(data)
-    comp = _make_surface_map(np.roll(data, (5, 3), axis=(0, 1)))
+    comp = _make_surface_map(_make_translated_surface(data, dy=5, dx=3, rng=rng))
     params = ComparisonParams(
         cell_size=np.array([40.0, 40.0]),
         search_angle_min=-2.0,
@@ -137,16 +178,8 @@ def test_pipeline_recovers_known_translation():
 
 def test_pipeline_produces_cells():
     """Pipeline produces at least one cell for a reasonably sized image."""
-    y, x = np.mgrid[0:100, 0:100]
-    data = np.sin(x / 5.0) * np.cos(y / 5.0)
-    surface = _make_surface_map(data)
-    params = ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
-        search_angle_min=-2.0,
-        search_angle_max=2.0,
-        search_angle_step=1.0,
-    )
+    surface = _identity_surface()
 
-    result = run_comparison_pipeline(surface, surface, params)
+    result = run_comparison_pipeline(surface, surface, _identity_params())
 
     assert len(result.cells) > 0
