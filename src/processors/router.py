@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from http import HTTPStatus
 
 from conversion.export.mark import load_mark_from_path
@@ -6,11 +7,14 @@ from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.profile_correlator import correlate_profiles, correlate_striation_marks
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
+from loguru import logger
+from PIL import Image
 
-from constants import ProcessorEndpoint, RoutePrefix
+from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
 from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation, LRResponse, LRResponseURL
 from file_services import create_vault
 from models import DirectoryAccess
+from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
 from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
@@ -69,13 +73,16 @@ async def calculate_score_impression(impression: CalculateScoreImpression) -> Co
 )
 async def calculate_score_striation(striation_params: CalculateScoreStriation) -> ComparisonResponseStriation:
     """Compare two striation profiles."""
+    logger.debug("starting calculate score striation")
     vault = create_vault(striation_params.tag)
-
+    vault.resource_path.exists()
+    logger.debug(f"working_dir made in:{vault.resource_path}")
     mark_ref = load_mark_from_path(path=striation_params.mark_ref, stem="processed")
     mark_ref_profile = load_profile_from_path(path=striation_params.mark_ref, stem="profile")
-
+    logger.debug("reference striation loaded")
     mark_comp = load_mark_from_path(path=striation_params.mark_comp, stem="processed")
     mark_comp_profile = load_profile_from_path(path=striation_params.mark_comp, stem="profile")
+    logger.debug("compute striation loaded")
 
     mark_correlations = correlate_striation_marks(
         mark_reference=mark_ref,
@@ -84,8 +91,9 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
         profile_compared=mark_comp_profile,
     )
     if not mark_correlations:
-        raise HTTPException(HTTPStatus.INTERNAL_SERVER_ERROR, "we have found no correlations, weird i know..")
-    plot_striation_comparison_results(
+        raise HTTPException(HTTPStatus.INTERNAL_SERVER_ERROR, "we have found no correlations, I know shouldn't happens")
+    logger.debug("correlations made")
+    plots = plot_striation_comparison_results(
         mark_reference=mark_ref,
         mark_compared=mark_comp,
         mark_reference_aligned=mark_correlations.mark_reference_aligned,
@@ -96,6 +104,24 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
         metadata_reference=striation_params.param.metadata_reference,
         metadata_compared=striation_params.param.metadata_compared,
     )
+    logger.debug("plots made")
+
+    expected_files = ComparisonResponseStriation.get_files(vault.resource_path)
+
+    Image.fromarray(plots.similarity_plot).save(expected_files["similarity_plot"])
+
+    Image.fromarray(plots.side_by_side_heatmap).save(expected_files["mark1_vs_moved_mark2"])
+    Image.fromarray(plots.comparison_overview).save(expected_files["comparison_overview"])
+
+    Image.fromarray(plots.filtered_compared_heatmap).save(expected_files["mark_comp_filtered_surfacemap"])
+    Image.fromarray(plots.filtered_reference_heatmap).save(expected_files["mark_ref_filtered_surfacemap"])
+
+    surface_map_pipeline(mark_ref.scan_image, expected_files["mark_ref_surfacemap"], LIGHT_SOURCES, OBSERVER)
+    preview_pipeline(mark_ref.scan_image, expected_files["mark_ref_depthmap"])
+    surface_map_pipeline(mark_comp.scan_image, expected_files["mark_comp_surfacemap"], LIGHT_SOURCES, OBSERVER)
+    preview_pipeline(mark_comp.scan_image, expected_files["mark_comp_depthmap"])
+    logger.debug(f"images saved in:{vault.resource_path}")
+
     return ComparisonResponseStriation.generate_urls(vault.access_url)
 
 

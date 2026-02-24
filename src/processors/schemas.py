@@ -10,7 +10,7 @@ class MarkDirectories(BaseModelConfig):
     @property
     def tag(self) -> str:
         """Get the tag to use for directory naming."""
-        return "TODO: think of somthing"
+        return "SomethingWithNoValue"
 
 
 class ImpressionParameters(BaseModelConfig): ...
