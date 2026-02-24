@@ -198,7 +198,7 @@ def extract_mask_and_bounding_box(
     struct: np.ndarray,
     size_x: int,
     size_y: int,
-) -> tuple[np.ndarray, np.ndarray | None]:
+) -> tuple[np.ndarray, list | None]:
     """Extract a boolean mask and optional bounding box from crop_info in a MATLAB struct.
 
     Uses the first crop item. For ellipse/circle crops the bounding_box is None.
@@ -230,7 +230,7 @@ def extract_mask_and_bounding_box(
         y0, y1 = int(corners[:, 1].min()), int(corners[:, 1].max())
         mask = np.zeros((size_y, size_x), dtype=bool)
         mask[y0:y1, x0:x1] = True
-        return mask, corners
+        return mask, corners.tolist()
 
     raise ValueError(f"Unknown crop type: {crop_type}")
 
@@ -334,10 +334,7 @@ def convert_mark(mark_folder: Path, converted_x3p: Path, cfg: ConversionConfig) 
     mark_type = extract_mark_type(struct)
 
     size_x, size_y = get_x3p_shape(measurement_folder / "measurement.x3p")
-    crop_result = extract_mask_and_bounding_box(struct, size_x, size_y)
-    if crop_result is None:
-        raise RuntimeError(f"No crop info in {mark_folder / 'mark.mat'}")
-    mask, bounding_box = crop_result
+    mask, bounding_box_list = extract_mask_and_bounding_box(struct, size_x, size_y)
 
     is_impression = mark_type.is_impression()
     endpoint = f"preprocessor/prepare-mark-{'impression' if is_impression else 'striation'}"
@@ -346,11 +343,10 @@ def convert_mark(mark_folder: Path, converted_x3p: Path, cfg: ConversionConfig) 
     body: dict[str, Any] = {
         "scan_file": str(converted_x3p),
         "mark_type": mark_type.value,
-        "mask": mask.astype(float).tolist() if mask is not None else None,
+        "mask": mask.astype(float).tolist(),
         "mark_parameters": params,
+        "bounding_box_list": bounding_box_list,
     }
-    if bounding_box is not None:
-        body["bounding_box_list"] = bounding_box.tolist()
 
     resp = requests.post(f"{cfg.api_url}/{endpoint}", json=body, timeout=300)
     resp.raise_for_status()

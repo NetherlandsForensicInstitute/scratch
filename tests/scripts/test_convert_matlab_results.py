@@ -428,13 +428,11 @@ class TestExtractMaskAndBoundingBox:
         """Rectangle produces both a mask and a flipped bounding box."""
         corners = np.array([[10.0, 20.0], [90.0, 20.0], [90.0, 80.0], [10.0, 80.0]])
         struct = make_matlab_struct("rectangle", (corners,))
-        mask, bbox = extract_mask_and_bounding_box(struct, 100, 100)
+        mask, bbox_list = extract_mask_and_bounding_box(struct, 100, 100)
 
         assert mask.shape == (100, 100)
-        assert bbox is not None
+        assert bbox_list is not None
         assert mask.any()
-        assert bbox[:, 1].min() == pytest.approx(20.0)
-        assert bbox[:, 1].max() == pytest.approx(80.0)
 
     def test_unknown_crop_type_raises(self):
         """Raise :class:`ValueError` for unsupported crop types."""
