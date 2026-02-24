@@ -9,27 +9,17 @@ from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
     LlrTransformationData,
 )
-from conversion.profile_correlator import StriationComparisonResults
+from conversion.profile_correlator import StriationComparisonResults, Profile
 
 from .helper_functions import (
     create_synthetic_impression_data,
     create_synthetic_impression_mark,
     create_synthetic_impression_surface_pair,
-    create_synthetic_profile_mark,
+    create_synthetic_profile,
     create_synthetic_striation_data,
     create_synthetic_striation_mark,
     make_mark,
 )
-
-
-@pytest.fixture
-def striation_profile_reference() -> FloatArray2D:
-    return create_synthetic_striation_data(height=1, width=200, seed=42)
-
-
-@pytest.fixture
-def striation_profile_compared() -> FloatArray2D:
-    return create_synthetic_striation_data(height=1, width=200, seed=43)
 
 
 @pytest.fixture
@@ -63,13 +53,13 @@ def striation_mark_compared_aligned() -> Mark:
 
 
 @pytest.fixture
-def striation_mark_profile_reference() -> Mark:
-    return create_synthetic_profile_mark(length=200, seed=46)
+def profile_reference() -> Profile:
+    return create_synthetic_profile(length=200, seed=46)
 
 
 @pytest.fixture
-def striation_mark_profile_compared() -> Mark:
-    return create_synthetic_profile_mark(length=200, seed=47)
+def profile_compared() -> Profile:
+    return create_synthetic_profile(length=200, seed=47)
 
 
 @pytest.fixture

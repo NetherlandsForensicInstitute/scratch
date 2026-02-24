@@ -7,7 +7,7 @@ from scipy.constants import mega
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import StriationComparisonPlots
-from conversion.profile_correlator import StriationComparisonResults
+from conversion.profile_correlator import StriationComparisonResults, Profile
 from conversion.plots.utils import (
     draw_metadata_box,
     figure_to_array,
@@ -26,8 +26,8 @@ def plot_striation_comparison_results(
     mark_compared: Mark,
     mark_reference_aligned: Mark,
     mark_compared_aligned: Mark,
-    mark_profile_reference_aligned: Mark,
-    mark_profile_compared_aligned: Mark,
+    profile_reference_aligned: Profile,
+    profile_compared_aligned: Profile,
     metrics: StriationComparisonResults,
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
@@ -39,8 +39,8 @@ def plot_striation_comparison_results(
     :param mark_compared: Compared mark after filtering/equalization.
     :param mark_reference_aligned: Reference mark after alignment (for side-by-side).
     :param mark_compared_aligned: Compared mark after alignment (for side-by-side).
-    :param mark_profile_reference_aligned: Reference profile after alignment.
-    :param mark_profile_compared_aligned: Compared profile after alignment.
+    :param profile_reference_aligned: Reference profile after alignment.
+    :param profile_compared_aligned: Compared profile after alignment.
     :param metrics: Correlation metrics to display in overview.
     :param metadata_reference: Metadata dict for reference profile display.
     :param metadata_compared: Metadata dict for compared profile display.
@@ -64,8 +64,8 @@ def plot_striation_comparison_results(
         mark_compared=mark_compared,
         mark_reference_aligned=mark_reference_aligned,
         mark_compared_aligned=mark_compared_aligned,
-        mark_profile_reference=mark_profile_reference_aligned,
-        mark_profile_compared=mark_profile_compared_aligned,
+        profile_reference=profile_reference_aligned,
+        profile_compared=profile_compared_aligned,
         metrics=metrics,
         metadata_reference=metadata_reference,
         metadata_compared=metadata_compared,
@@ -79,9 +79,9 @@ def plot_striation_comparison_results(
 
     # Profile plots
     similarity_plot = plot_similarity(
-        profile_reference=mark_profile_reference_aligned.scan_image.data,
-        profile_compared=mark_profile_compared_aligned.scan_image.data,
-        scale=mark_profile_reference_aligned.scan_image.scale_x,
+        profile_reference=profile_reference_aligned.heights,
+        profile_compared=profile_compared_aligned.heights,
+        scale=profile_reference_aligned.pixel_size,
         score=metrics.correlation_coefficient,
     )
 
@@ -159,8 +159,8 @@ def plot_comparison_overview(
     mark_compared: Mark,
     mark_reference_aligned: Mark,
     mark_compared_aligned: Mark,
-    mark_profile_reference: Mark,
-    mark_profile_compared: Mark,
+    profile_reference: Profile,
+    profile_compared: Profile,
     metrics: StriationComparisonResults,
     metadata_reference: dict[str, str],
     metadata_compared: dict[str, str],
@@ -265,9 +265,9 @@ def plot_comparison_overview(
     ax_profile = fig.add_subplot(gs[3, :])
     plot_profiles_on_axes(
         ax_profile,
-        mark_profile_reference.scan_image.data,
-        mark_profile_compared.scan_image.data,
-        mark_profile_reference.scan_image.scale_x,
+        profile_reference.heights,
+        profile_compared.heights,
+        profile_reference.pixel_size,
         metrics.correlation_coefficient,
         title="Reference Profile A / Moved Compared Profile B. Correlation Coefficient",
     )
