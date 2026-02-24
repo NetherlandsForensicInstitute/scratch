@@ -4,6 +4,7 @@ from fastapi.responses import RedirectResponse
 from constants import ProcessorEndpoint, RoutePrefix
 from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation, LRResponse, LRResponseURL
 from models import DirectoryAccess
+from processors.controller import calculate_lr, get_lr_system
 from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
@@ -78,32 +79,9 @@ async def calculate_score_striation(striation: CalculateScoreStriation) -> Compa
 async def calculate_lr_impression(impression: CalculateLRImpression) -> LRResponse:
     """Calculate likelihood ratio for impression mark comparison."""
     vault = DirectoryAccess()  # type: ignore
-    # TODO::
-    # - create controllers module
-    # - This section below need to be moved to controllers.py
-    #
-    # controllers.py
-    # def compute_n_plot_lr(ref: Mark, comp: Mark, score: int: lr_system: Path) -> float:
-    #     system=get_lr_system(lr_system)
-    #     lr = calculate_lr(
-    #       score,
-    #       striation.n_cells,
-    #       use_intervals=bool,
-    #       lr_system=system,
-    #     )
-    #     plot_lr_result(system, *read_mark_file(mark_ref, mark_comp), striation.score)
-    #     return lr
-    #
-    # return LRResponse.generate_urls(
-    #     vault.access_url,
-    #     lr=controllers.comupute_lr(
-    #         impression.mark_ref,
-    #         impression.mark_comp,
-    #         impression.score,
-    #         impression.lr_system,
-    #     )
-    # )
-    return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=42)
+    lr_system = get_lr_system(impression.lr_system)
+    lr = calculate_lr(impression.score, lr_system)
+    return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=lr)
 
 
 @processors.post(
@@ -116,15 +94,8 @@ async def calculate_lr_impression(impression: CalculateLRImpression) -> LRRespon
     """,
 )
 async def calculate_lr_striation(striation: CalculateLRStriation) -> LRResponse:
-    """TODO."""
+    """Calculate likelihood ratio for striation mark comparison."""
     vault = DirectoryAccess()  # type: ignore
-    # return LRResponse.generate_urls(
-    #     vault.access_url,
-    #     lr=controllers.compute_n_plot_lr(
-    #         striation.mark_ref,
-    #         striation.mark_comp,
-    #         striation.score,
-    #         striation.lr_system,
-    #     )
-    # )
-    return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=42)
+    lr_system = get_lr_system(striation.lr_system)
+    lr = calculate_lr(striation.score, lr_system)
+    return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=lr)
