@@ -9,7 +9,7 @@ Includes helpers for:
 import numpy as np
 from scipy.constants import micro
 
-from container_models.base import FloatArray2D, UInt8Array3D
+from container_models.base import FloatArray2D, UInt8Array3D, FloatArray
 from conversion.data_formats import Mark, MarkType
 from conversion.profile_correlator import Profile
 
@@ -32,7 +32,7 @@ def create_synthetic_striation_data(
     height: int = 256,
     width: int = 200,
     seed: int = 42,
-) -> FloatArray2D:
+) -> FloatArray:
     """
     Create synthetic striation data with horizontal grooves.
 
@@ -48,7 +48,7 @@ def create_synthetic_striation_data(
     pattern_1d = 0.50 * np.sin(2.5 * x) + 0.30 * np.sin(10 * x) + 0.10 * np.sin(33 * x)
 
     if height == 1:
-        data = np.expand_dims(pattern_1d + 0.05 * rng.standard_normal(width), axis=-1)
+        data = pattern_1d + 0.05 * rng.standard_normal(width)
     else:
         y = np.linspace(0, 2 * np.pi, height)
         y = y[:, np.newaxis]

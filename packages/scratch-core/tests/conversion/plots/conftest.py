@@ -23,16 +23,6 @@ from .helper_functions import (
 
 
 @pytest.fixture
-def striation_profile_reference() -> FloatArray2D:
-    return create_synthetic_striation_data(height=1, width=200, seed=42)
-
-
-@pytest.fixture
-def striation_profile_compared() -> FloatArray2D:
-    return create_synthetic_striation_data(height=1, width=200, seed=43)
-
-
-@pytest.fixture
 def striation_surface_reference() -> FloatArray2D:
     return create_synthetic_striation_data(height=256, width=200, seed=42)
 
