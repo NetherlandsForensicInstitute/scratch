@@ -1,8 +1,8 @@
 import textwrap
 from typing import Literal, cast
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -61,8 +61,8 @@ def plot_profiles_on_axes(
     Plot two aligned profiles on the given axes.
 
     :param ax: Matplotlib axes to plot on.
-    :param profile_reference: Reference profile (aligned, 2D).
-    :param profile_compared: Compared profile (aligned, 2D).
+    :param profile_reference: Reference profile (aligned, 1D).
+    :param profile_compared: Compared profile (aligned, 1D).
     :param scale: scale of the profiles in meters.
     :param score: Pre-computed correlation coefficient.
     :param title: Prefix for the title before the correlation value.

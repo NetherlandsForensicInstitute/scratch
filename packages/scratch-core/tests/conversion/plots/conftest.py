@@ -9,7 +9,7 @@ from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
     LlrTransformationData,
 )
-from conversion.profile_correlator import StriationComparisonResults
+from conversion.profile_correlator import Profile, StriationComparisonResults
 
 from .helper_functions import (
     create_synthetic_impression_data,
@@ -63,12 +63,12 @@ def striation_mark_compared_aligned() -> Mark:
 
 
 @pytest.fixture
-def striation_mark_profile_reference() -> Mark:
+def striation_mark_profile_reference() -> Profile:
     return create_synthetic_profile_mark(length=200, seed=46)
 
 
 @pytest.fixture
-def striation_mark_profile_compared() -> Mark:
+def striation_mark_profile_compared() -> Profile:
     return create_synthetic_profile_mark(length=200, seed=47)
 
 

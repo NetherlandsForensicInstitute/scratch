@@ -11,6 +11,7 @@ from scipy.constants import micro
 
 from container_models.base import FloatArray2D, UInt8Array3D
 from conversion.data_formats import Mark, MarkType
+from conversion.profile_correlator import Profile
 
 from ..helper_functions import make_mark
 
@@ -83,13 +84,11 @@ def create_synthetic_profile_mark(
     length: int = 200,
     scale: float = 1.5625 * micro,
     seed: int = 42,
-) -> Mark:
+) -> Profile:
     """Create a Mark with synthetic profile data."""
-    return make_mark(
-        data=create_synthetic_striation_data(height=1, width=length, seed=seed),
-        scale_x=scale,
-        scale_y=scale,
-        mark_type=MarkType.CHAMBER_STRIATION,
+    return Profile(
+        heights=create_synthetic_striation_data(height=1, width=length, seed=seed),
+        pixel_size=scale,
     )
 
 
