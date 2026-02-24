@@ -4,7 +4,6 @@ from functools import cached_property
 from typing import Annotated, Any
 
 import numpy as np
-from container_models.light_source import LightSource
 from conversion.data_formats import BoundingBox, MarkType
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
@@ -21,7 +20,7 @@ from pydantic import (
 from scipy.constants import micro
 from utils.constants import RegressionOrder
 
-from constants import LIGHT_SOURCES, OBSERVER, MaskTypes
+from constants import MaskTypes
 from models import (
     BaseModelConfig,
     ProjectTag,
@@ -53,21 +52,6 @@ class BaseParameters(BaseModelConfig):
 
 
 class UploadScan(BaseParameters):
-    light_sources: tuple[LightSource, ...] = Field(
-        LIGHT_SOURCES,
-        description="Light sources for surface illumination rendering.",
-        examples=[
-            (
-                LightSource(azimuth=90, elevation=45),
-                LightSource(azimuth=180, elevation=45),
-            ),
-        ],
-    )
-    observer: LightSource = Field(
-        OBSERVER,
-        description="Observer viewpoint vector for surface rendering.",
-        examples=[LightSource(azimuth=90, elevation=45)],
-    )
     scale_x: PositiveFloat = Field(
         1.0,
         gt=0.0,
@@ -79,14 +63,10 @@ class UploadScan(BaseParameters):
         description="Vertical pixel size in meters (m). Defines physical spacing between pixels in y-direction.",
         examples=[1.0, 0.5, 2.0],
     )
-    step_size_x: PositiveInt = Field(
+    step_size: PositiveInt = Field(
         1,
-        description="Subsampling step in x-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
-    )
-    step_size_y: PositiveInt = Field(
-        1,
-        description="Subsampling step in y-direction. Values > 1 reduce resolution by skipping pixels.",
+        description="Sets the sampling interval for both axes. "
+        "Values > 1 downscale the image by skipping intermediate pixels.",
         examples=[1, 2, 4],
     )
 
@@ -180,16 +160,6 @@ class EditImage(BaseParameters):
     crop: bool = Field(
         default=False,
         description="Whether to crop the image to the non-masked region.",
-    )
-    step_size_x: PositiveInt = Field(
-        1,
-        description="Subsampling step size in x-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
-    )
-    step_size_y: PositiveInt = Field(
-        1,
-        description="Subsampling step size in y-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
     )
     mask_parameters: MaskParameters = Field(
         ...,

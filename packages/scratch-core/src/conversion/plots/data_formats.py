@@ -66,7 +66,6 @@ class StriationComparisonPlots:
     :param filtered_reference_heatmap: Filtered reference preview image.
     :param filtered_compared_heatmap: Filtered compared preview image.
     :param side_by_side_heatmap: Both marks side by side preview image.
-    :param wavelength_plot: Profiles + wavelength-dependent cross-correlation.
     """
 
     similarity_plot: ImageRGB
@@ -74,7 +73,6 @@ class StriationComparisonPlots:
     filtered_reference_heatmap: ImageRGB
     filtered_compared_heatmap: ImageRGB
     side_by_side_heatmap: ImageRGB
-    wavelength_plot: ImageRGB
 
 
 @dataclass
