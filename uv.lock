@@ -2011,10 +2011,12 @@ dependencies = [
     { name = "numpy" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "requests" },
     { name = "returns" },
     { name = "scikit-image" },
     { name = "scipy" },
     { name = "scratch-core" },
+    { name = "tqdm" },
     { name = "uvicorn" },
 ]
 
@@ -2031,7 +2033,6 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-loguru" },
     { name = "pytest-watcher" },
-    { name = "requests" },
     { name = "ruff" },
     { name = "rust-just" },
 ]
@@ -2043,10 +2044,12 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.3.5" },
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
+    { name = "requests", specifier = ">=2.32.5" },
     { name = "returns", specifier = ">=0.26.0" },
     { name = "scikit-image", specifier = ">=0.25.2" },
     { name = "scipy", specifier = ">=1.16.3" },
     { name = "scratch-core", editable = "packages/scratch-core" },
+    { name = "tqdm", specifier = ">=4.67.1" },
     { name = "uvicorn", specifier = ">=0.38.0" },
 ]
 
@@ -2063,7 +2066,6 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "pytest-loguru", specifier = ">=0.4.0" },
     { name = "pytest-watcher", specifier = ">=0.4.3" },
-    { name = "requests", specifier = ">=2.32.5" },
     { name = "ruff", specifier = ">=0.14.0" },
     { name = "rust-just", specifier = ">=1.43.0" },
 ]
