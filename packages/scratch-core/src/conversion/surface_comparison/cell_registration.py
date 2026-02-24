@@ -42,8 +42,12 @@ from conversion.surface_comparison.models import (
     ComparisonParams,
 )
 from conversion.surface_comparison.grid import (
-    find_grid_origin,
+    _find_grid_origin,
     generate_grid_centers,
+)
+from conversion.surface_comparison.utils import (
+    um_to_pixels,
+    center_um_to_top_left_pixel,
 )
 
 # ECC convergence tolerances (passed to cv2.findTransformECC)
@@ -76,7 +80,7 @@ def register_cells(
         ``search_angle_step`` (all in degrees, centred on 0°).
     :returns: CellResult list for all cells that pass the fill-fraction check.
     """
-    origin = find_grid_origin(reference_map, params)
+    origin = _find_grid_origin(reference_map, params)
     centers = generate_grid_centers(reference_map, origin, params)
 
     angles_deg = np.arange(
@@ -87,26 +91,25 @@ def register_cells(
 
     # Pre-extract reference patches and compute fill fractions.
     # Only cells that sufficiently overlap the image are kept.
-    spacing = reference_map.pixel_spacing
-    cell_size_px = np.round(params.cell_size / spacing).astype(int)
+    pixel_spacing = reference_map.pixel_spacing
+    cell_size_px = um_to_pixels(params.cell_size, pixel_spacing)
     rows, cols = reference_map.height_map.shape
 
     valid_cells = []  # [center_um, patch, fill_fraction, best_score, best_angle_deg, best_comp_center_um]
     for center in centers:
-        # upper/left corner of cell (y goes downwards, starting from zero), in pixels
-        py = int(round(center[1] / spacing[1] - cell_size_px[1] / 2))
-        px = int(round(center[0] / spacing[0] - cell_size_px[0] / 2))
-        y0, x0 = max(0, py), max(0, px)
+        row, col = center_um_to_top_left_pixel(center, cell_size_px, pixel_spacing)
+        row0, col0 = max(0, row), max(0, col)
 
         # lower/right corner of cell, in pixels
-        y1, x1 = min(rows, py + cell_size_px[1]), min(cols, px + cell_size_px[0])
-        if y1 <= y0 or x1 <= x0:
+        row1 = min(rows, row + cell_size_px[1])
+        col1 = min(cols, col + cell_size_px[0])
+        if row1 <= row0 or col1 <= col0:
             continue
-        patch = reference_map.height_map[y0:y1, x0:x1]
+        patch = reference_map.height_map[row0:row1, col0:col1]
 
         # Fill fraction is the fraction of the full cell area that overlaps
         # the image, regardless of NaN holes within the image.
-        clipped_area = (y1 - y0) * (x1 - x0)
+        clipped_area = (row1 - row0) * (col1 - col0)
         full_area = int(cell_size_px[0] * cell_size_px[1])
         fill_fraction = clipped_area / full_area
         if fill_fraction < params.minimum_fill_fraction:
@@ -138,13 +141,15 @@ def register_cells(
             score = float(cc_map[iy, ix])
 
             if score > cell[3]:
-                ph, pw = clean_patch.shape
+                pixel_height, pixel_width = clean_patch.shape
                 cell[3] = score
                 cell[4] = angle_deg
                 cell[5] = np.array(
                     [
-                        (ix + (pw - 1) / 2.0) * comparison_map.pixel_spacing[0],
-                        (iy + (ph - 1) / 2.0) * comparison_map.pixel_spacing[1],
+                        (ix + (pixel_width - 1) / 2.0)
+                        * comparison_map.pixel_spacing[0],
+                        (iy + (pixel_height - 1) / 2.0)
+                        * comparison_map.pixel_spacing[1],
                     ]
                 )
 
@@ -191,16 +196,21 @@ def _refine_cell(
     :param fill_fraction: Reference cell fill fraction (pre-computed).
     :returns: CellResult.
     """
-    spacing = comp_map.pixel_spacing
+    pixel_spacing = comp_map.pixel_spacing
 
     # Rotate the comparison image to the Stage 1 angle so that Stages 2 and 3
     # only need to refine the translation (and a small residual angle).
     comp_rotated = _rotate_image(comp_map.height_map, coarse_angle_deg)
     comp_clean = _fill_nan(comp_rotated)
     patch_clean = _fill_nan(ref_patch)
-    ph, pw = patch_clean.shape
+    pixel_height, pixel_width = patch_clean.shape
 
-    if ph > comp_clean.shape[0] or pw > comp_clean.shape[1] or ph == 0 or pw == 0:
+    if (
+        pixel_height > comp_clean.shape[0]
+        or pixel_width > comp_clean.shape[1]
+        or pixel_height == 0
+        or pixel_width == 0
+    ):
         return CellResult(
             center_reference=center_ref_um,
             center_comparison=coarse_comp_center_um,
@@ -209,18 +219,17 @@ def _refine_cell(
             reference_fill_fraction=fill_fraction,
         )
 
-    # ---- Stage 2: phase cross-correlation ----
-    # Crop the comparison image to the same size as the reference patch,
-    # centred on the Stage 1 position estimate.  Phase cross-correlation then
-    # finds the sub-pixel shift between the two same-sized windows with high
-    # precision: by dividing out all frequency amplitudes it gives equal weight
-    # to every spatial frequency, producing a sharp spike rather than the broad
-    # peak that plain NCC would give.
-    cx_px = coarse_comp_center_um[0] / spacing[0]
-    cy_px = coarse_comp_center_um[1] / spacing[1]
-    y0c = int(round(cy_px - (ph - 1) / 2.0))
-    x0c = int(round(cx_px - (pw - 1) / 2.0))
-    comp_crop = _safe_crop(comp_clean, y0c, x0c, ph, pw)
+    # Crop the comparison image to the region around the Stage 1 estimate.
+    # The crop is the same size as the reference patch so that phase
+    # cross-correlation can be applied directly.
+    x0c = int(
+        round(coarse_comp_center_um[0] / pixel_spacing[0] - (pixel_width - 1) / 2.0)
+    )
+    y0c = int(
+        round(coarse_comp_center_um[1] / pixel_spacing[1] - (pixel_height - 1) / 2.0)
+    )
+    comp_crop = _safe_crop(comp_clean, y0c, x0c, pixel_height, pixel_width)
+
     if comp_crop is None:
         return CellResult(
             center_reference=center_ref_um,
@@ -237,22 +246,22 @@ def _refine_cell(
     )
     # shift = (row_shift, col_shift): the comp crop needs to move by -shift
     # to align with the reference patch.
-    refined_cx = (x0c + (pw - 1) / 2.0 - shift[1]) * spacing[0]
-    refined_cy = (y0c + (ph - 1) / 2.0 - shift[0]) * spacing[1]
+    refined_cx = (x0c + (pixel_width - 1) / 2.0 - shift[1]) * pixel_spacing[0]
+    refined_cy = (y0c + (pixel_height - 1) / 2.0 - shift[0]) * pixel_spacing[1]
     refined_angle_deg = coarse_angle_deg
 
     # ---- Stage 3: ECC gradient refinement ----
     ecc_center, ecc_angle_deg, ecc_score = _ecc_refine(
         ref_patch=patch_clean,
         comp_image=comp_clean,
-        init_cx_px=refined_cx / spacing[0],
-        init_cy_px=refined_cy / spacing[1],
+        init_cx_px=refined_cx / pixel_spacing[0],
+        init_cy_px=refined_cy / pixel_spacing[1],
         init_angle_deg=refined_angle_deg,
     )
 
     return CellResult(
         center_reference=center_ref_um,
-        center_comparison=ecc_center * spacing,
+        center_comparison=ecc_center * pixel_spacing,
         registration_angle=np.radians(ecc_angle_deg),
         area_cross_correlation_function_score=ecc_score,
         reference_fill_fraction=fill_fraction,
@@ -288,17 +297,17 @@ def _ecc_refine(
     :param init_angle_deg: Initial rotation angle in degrees (from Stage 1).
     :returns: (center_pixels [cx, cy], angle_deg, accf_score).
     """
-    ph, pw = ref_patch.shape
+    pixel_height, pixel_width = ref_patch.shape
 
-    if ph < 3 or pw < 3:
+    if pixel_height < 3 or pixel_width < 3:
         return np.array([init_cx_px, init_cy_px]), init_angle_deg, 0.0
 
     # Crop comp_image to the same size as ref_patch, centred on the Stage 2
     # estimate.  findTransformECC requires both images to have the same shape,
     # and working with a small crop is faster than operating on the full image.
-    y0c = int(round(init_cy_px - (ph - 1) / 2.0))
-    x0c = int(round(init_cx_px - (pw - 1) / 2.0))
-    comp_crop_raw = _safe_crop(comp_image, y0c, x0c, ph, pw)
+    y0c = int(round(init_cy_px - (pixel_height - 1) / 2.0))
+    x0c = int(round(init_cx_px - (pixel_width - 1) / 2.0))
+    comp_crop_raw = _safe_crop(comp_image, y0c, x0c, pixel_height, pixel_width)
     if comp_crop_raw is None:
         return np.array([init_cx_px, init_cy_px]), init_angle_deg, 0.0
 
@@ -349,8 +358,8 @@ def _ecc_refine(
     angle_out_deg = float(np.degrees(np.arctan2(warp_out[1, 0], warp_out[0, 0])))
     # warp_out[0, 2] and [1, 2] are the translation within the crop window.
     # Adding the crop origin recovers the absolute pixel position.
-    cx_out = x0c + (pw - 1) / 2.0 + float(warp_out[0, 2])
-    cy_out = y0c + (ph - 1) / 2.0 + float(warp_out[1, 2])
+    cx_out = x0c + (pixel_width - 1) / 2.0 + float(warp_out[0, 2])
+    cy_out = y0c + (pixel_height - 1) / 2.0 + float(warp_out[1, 2])
 
     return np.array([cx_out, cy_out]), angle_out_deg, float(ecc_val)
 

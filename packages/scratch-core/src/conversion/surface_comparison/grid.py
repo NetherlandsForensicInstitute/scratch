@@ -2,9 +2,35 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 from conversion.surface_comparison.models import SurfaceMap, ComparisonParams
+from conversion.surface_comparison.utils import um_to_pixels
 
 
-def find_grid_origin(reference_map: SurfaceMap, params: ComparisonParams) -> np.ndarray:
+def _axis_centers(origin_coord: float, cell_sz: float, image_sz: float) -> np.ndarray:
+    """
+    Extend a 1-D grid from an origin in both directions while cells overlap the image.
+
+    :param origin_coord: Center of the first cell in micrometers.
+    :param cell_sz: Cell size in micrometers.
+    :param image_sz: Image extent in micrometers.
+    :returns: Sorted array of cell center coordinates in micrometers.
+    """
+    centers = [origin_coord]
+    # Extend forward
+    c = origin_coord + cell_sz
+    while c - cell_sz / 2 < image_sz:  # cell left edge is still within image
+        centers.append(c)
+        c += cell_sz
+    # Extend backward
+    c = origin_coord - cell_sz
+    while c + cell_sz / 2 > 0:  # cell right edge is still within image
+        centers.insert(0, c)
+        c -= cell_sz
+    return np.array(centers)
+
+
+def _find_grid_origin(
+    reference_map: SurfaceMap, params: ComparisonParams
+) -> np.ndarray:
     """
     Find the grid seed [x, y] that maximises total valid-data coverage.
 
@@ -37,8 +63,10 @@ def find_grid_origin(reference_map: SurfaceMap, params: ComparisonParams) -> np.
     pixel_spacing = reference_map.pixel_spacing  # [dx, dy]
 
     # Cell size in pixels (integer)
-    cell_px = np.round(params.cell_size / pixel_spacing).astype(int)  # [cx, cy]
-    cell_area_px = int(np.prod(cell_px))
+    cell_size_px = um_to_pixels(
+        params.cell_size, pixel_spacing
+    )  # [pixel_width, pixel_height]
+    cell_area_px = int(np.prod(cell_size_px))
 
     # ---- Step 1: binary valid-pixel mask ----
     mask = (~np.isnan(height_map)).astype(np.float64)
@@ -46,13 +74,13 @@ def find_grid_origin(reference_map: SurfaceMap, params: ComparisonParams) -> np.
     # ---- Step 2: pad by (cell_size - 1) on each side ----
     # MATLAB: map_crop(map, [-vOffset(1),-vOffset(1),-vOffset(2),-vOffset(2)], 0)
     # vOffset = vSizeP - 1
-    pad_x = cell_px[0] - 1
-    pad_y = cell_px[1] - 1
+    pad_x = cell_size_px[0] - 1
+    pad_y = cell_size_px[1] - 1
     mask_padded = np.pad(mask, ((pad_y, pad_y), (pad_x, pad_x)), constant_values=0)
 
     # ---- Step 3: 2-D box-sum convolution ----
     # Equivalent to filter_nan(ones(cy,1), ones(1,cx), map, 0, 1) in MATLAB
-    kernel = np.ones((cell_px[1], cell_px[0]), dtype=np.float64)
+    kernel = np.ones((cell_size_px[1], cell_size_px[0]), dtype=np.float64)
     count_map = fftconvolve(mask_padded, kernel, mode="valid")
     # After 'valid' convolution the output has the same size as the
     # original (unpadded) mask + 1 in each dimension because we padded
@@ -68,25 +96,25 @@ def find_grid_origin(reference_map: SurfaceMap, params: ComparisonParams) -> np.
 
     # ---- Step 4: tile and stack ----
     # map_tile(map, vSizeP, [0,0], 0, NaN) tiles the count_map into
-    # cell_px-sized blocks.  Each (i, j) in the tile grid represents
+    # cell_size_px-sized blocks.  Each (i, j) in the tile grid represents
     # one possible grid offset, and the k-th layer is the k-th cell.
     rows_c, cols_c = count_map.shape
-    n_tiles_y = rows_c // cell_px[1]
-    n_tiles_x = cols_c // cell_px[0]
+    n_tiles_y = rows_c // cell_size_px[1]
+    n_tiles_x = cols_c // cell_size_px[0]
 
     if n_tiles_y == 0 or n_tiles_x == 0:
         # Surface too small for even one cell
         return np.zeros(2) * pixel_spacing
 
     # Trim to exact multiple of cell size
-    trimmed = count_map[: n_tiles_y * cell_px[1], : n_tiles_x * cell_px[0]]
+    trimmed = count_map[: n_tiles_y * cell_size_px[1], : n_tiles_x * cell_size_px[0]]
 
     # Reshape into (cell_py, n_tiles_y, cell_px, n_tiles_x) then
     # rearrange to (cell_py, cell_px, n_tiles_y * n_tiles_x)
     tiled = (
-        trimmed.reshape(n_tiles_y, cell_px[1], n_tiles_x, cell_px[0])
-        .transpose(1, 3, 0, 2)  # (cell_py, cell_px, n_tiles_y, n_tiles_x)
-        .reshape(cell_px[1], cell_px[0], -1)
+        trimmed.reshape(n_tiles_y, cell_size_px[1], n_tiles_x, cell_size_px[0])
+        .transpose(1, 3, 0, 2)  # (pixel_height, pixel_width, n_tiles_y, n_tiles_x)
+        .reshape(cell_size_px[1], cell_size_px[0], -1)
     )
     # tiled[oy, ox, k] = count of valid pixels for cell k when the grid
     # origin offset is (ox, oy) pixels.
@@ -110,15 +138,15 @@ def find_grid_origin(reference_map: SurfaceMap, params: ComparisonParams) -> np.
         return np.zeros(2, dtype=np.float64)
 
     # ---- Step 7: primary criterion — maximise sum of cell scores ----
-    sum_scores = np.nansum(scores, axis=2)  # (cell_py, cell_px)
-    best_val = np.nanmax(sum_scores)
-    candidates = sum_scores >= best_val  # tolerance = 0 by default
+    sum_scores = np.nansum(scores, axis=2)  # (pixel_height, pixel_width)
+    best_sum = np.nanmax(sum_scores)
+    candidates = sum_scores >= best_sum
 
     # ---- Step 8: tie-breaker — maximise min cell score ----
     # Replace NaN with -inf before taking min so that positions with no valid
     # cells get -inf rather than triggering an all-NaN-slice warning.
     scores_for_min = np.where(np.isnan(scores), -np.inf, scores)
-    min_scores = scores_for_min.min(axis=2)  # (cell_py, cell_px)
+    min_scores = scores_for_min.min(axis=2)  # (pixel_height, pixel_width)
     min_scores[~candidates] = -np.inf
     best_min = np.nanmax(min_scores)
     final_mask = candidates & (min_scores >= best_min)
@@ -131,15 +159,15 @@ def find_grid_origin(reference_map: SurfaceMap, params: ComparisonParams) -> np.
     # valid-pixel count when the grid starts at this offset.
     #
     # The first tile (k=0) has its centre at original-image pixel:
-    #   centre_row = oy - (cell_px[1] / 2 - 0.5)   (for even cell_px: oy - 42.5)
-    #   centre_col = ox - (cell_px[0] / 2 - 0.5)   (for even cell_px: ox - 42.5)
+    #   centre_row = oy - (cell_size_px[1] / 2 - 0.5)
+    #   centre_col = ox - (cell_size_px[0] / 2 - 0.5)
     #
     # This first-tile centre is used by generate_grid_centers as the origin from
     # which the full grid is extended in both directions.
     first_center_px = np.array(
         [
-            ox - (cell_px[0] / 2 - 0.5),
-            oy - (cell_px[1] / 2 - 0.5),
+            ox - (cell_size_px[0] / 2 - 0.5),
+            oy - (cell_size_px[1] / 2 - 0.5),
         ]
     )
 
@@ -155,36 +183,19 @@ def generate_grid_centers(
     """
     Generate center coordinates for all cells in the grid.
 
-    Uses the optimised ``origin`` (from :func:`find_grid_origin`) as the first
+    Uses the optimised ``origin`` (from :func:`_find_grid_origin`) as the first
     cell centre and extends the grid in each axis until cells would fall entirely
     outside the image.  This matches MATLAB's ``cell_position_optim`` + grid
     generation behaviour: the origin is the centre of the first tile found by
     the tiling optimisation, and subsequent cells are spaced by ``cell_size``.
 
     :param reference_map: surface map.
-    :param origin: first cell centre [x, y] in micrometers from :func:`find_grid_origin`.
+    :param origin: first cell centre [x, y] in micrometers from :func:`_find_grid_origin`.
     :param params: algorithm parameters.
     :returns: array of centre coordinates, shape (N, 2).
     """
     physical_size = reference_map.physical_size  # [width, height] in µm
-    cell_size = params.cell_size  # [cell_w, cell_h] in µm
-
-    def _axis_centers(
-        origin_coord: float, cell_sz: float, image_sz: float
-    ) -> np.ndarray:
-        """Extend grid from origin in both directions while cells overlap the image."""
-        centers = [origin_coord]
-        # Extend forward
-        c = origin_coord + cell_sz
-        while c - cell_sz / 2 < image_sz:  # cell left edge is still within image
-            centers.append(c)
-            c += cell_sz
-        # Extend backward
-        c = origin_coord - cell_sz
-        while c + cell_sz / 2 > 0:  # cell right edge is still within image
-            centers.insert(0, c)
-            c -= cell_sz
-        return np.array(centers)
+    cell_size = params.cell_size  # [cell_width, cell_height] in µm
 
     x_coordinates = _axis_centers(origin[0], cell_size[0], physical_size[0])
     y_coordinates = _axis_centers(origin[1], cell_size[1], physical_size[1])
