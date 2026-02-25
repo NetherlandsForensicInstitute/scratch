@@ -1,4 +1,5 @@
 import json
+from collections import namedtuple
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,8 @@ from conversion.export.mark import ExportedMarkData
 from conversion.profile_correlator import Profile
 from fastapi.testclient import TestClient
 from loguru import logger
+from pydantic import HttpUrl
+from pydantic_core import Url
 from scipy.constants import micro
 
 from constants import ProcessorEndpoint
@@ -32,31 +35,18 @@ class TestStriationMark:
     def make_mark(
         self,
         data: DepthData,
-        scale_x: float = 1.0,
-        scale_y: float = 1.0,
+        scale_x: float,
+        scale_y: float,
+        center: tuple[float, float] | None,
         mark_type: MarkType = MarkType.EXTRACTOR_IMPRESSION,
-        center: tuple[float, float] | None = None,
-        meta_data: dict[str, Any] | None = None,
     ) -> Mark:
         """Create a Mark instance for testing."""
         scan_image = ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
-        if meta_data is not None:
-            return Mark(
-                scan_image=scan_image,
-                mark_type=mark_type,
-                center=center,
-                meta_data=meta_data,
-            )
         return Mark(scan_image=scan_image, mark_type=mark_type, center=center)
 
-    def _make_synthetic_striation_profile(
+    def _create_dummy_profile(
         self,
-        n_samples: int = 1000,
-        n_striations: int = 20,
-        amplitude_um: float = 0.5,
-        noise_level: float = 0.05,
-        pixel_size_m: float = 0.5 * micro,
-        seed: int | None = None,
+        n_samples: int,
     ) -> Profile:
         """
         Create a synthetic striation profile for testing.
@@ -72,8 +62,11 @@ class TestStriationMark:
         :param seed: Random seed for reproducibility.
         :returns: Profile with synthetic striation data.
         """
-        if seed is not None:
-            np.random.seed(seed)
+        seed = 42
+        n_striations = 20
+        amplitude_um = 0.5
+        noise_level = 0.05
+        pixel_size_m = 0.5 * micro
 
         # Create base profile with multiple frequency components
         x = np.linspace(0, n_striations * 2 * np.pi, n_samples)
@@ -91,12 +84,10 @@ class TestStriationMark:
 
         return Profile(heights=data, pixel_size=pixel_size_m)
 
-    def _make_shifted_profile(
+    def _shift_profile(
         self,
         profile: Profile,
         shift_samples: float,
-        scale_factor: float = 1.0,
-        seed: int | None = None,
     ) -> Profile:
         """
         Create a shifted and optionally scaled version of a profile.
@@ -109,9 +100,8 @@ class TestStriationMark:
         """
         from scipy.interpolate import interp1d
 
-        if seed is not None:
-            np.random.seed(seed)
-
+        seed = 42
+        scale_factor = (1.0,)
         data = profile.heights
         n = len(data)
 
@@ -128,84 +118,101 @@ class TestStriationMark:
 
         return Profile(heights=new_data, pixel_size=profile.pixel_size)
 
-    def _striation_mark(self, profile: Profile, n_cols: int = 50) -> Mark:
+    def _striation_mark(self, profile: Profile) -> Mark:
         """Build a striation Mark by tiling a profile across n_cols columns."""
+        n_cols: int = 50
         data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
         return self.make_mark(
             data,
             scale_x=profile.pixel_size,
             scale_y=profile.pixel_size,
             mark_type=MarkType.BULLET_GEA_STRIATION,
+            center=None,
         )
 
-    def test_calculate_striation_mark(
-        self,
-        client: TestClient,
-        tmp_path: Path,
-    ) -> None:
-        # Arrange
+    def _save_profile(self, dir_path: Path, profile: Profile):
+        np.savez(
+            (dir_path / "profile").with_suffix(".npz"),
+            heights=profile.heights,
+            pixel_size=profile.pixel_size,
+        )
+
+    def _save_mark(self, dir_path: Path, profile: Profile, mark: Mark):
+        mark_stem = "processed"
+        mark_json = ExportedMarkData(
+            mark_type=MarkType.EXTRACTOR_STRIATION,
+            center=(mark.scan_image.height, mark.scan_image.width),
+            scale_x=mark.scan_image.scale_x,
+            scale_y=mark.scan_image.scale_y,
+        ).model_dump(mode="json")
+        mark_json["mark_type"] = "EXTRACTOR_STRIATION"  # quick fix, due to misfit in enum
+
+        np.savez(
+            (dir_path / mark_stem).with_suffix(".npz"),
+            data=mark.scan_image.data,
+        )
+        with open((dir_path / mark_stem).with_suffix(".json"), "w") as f:
+            json.dump(mark_json, f)
+
+    @pytest.fixture
+    def prepare_folder_for_calculation(self, tmp_path: Path) -> tuple[Path, Path]:
         comp_mark_path = tmp_path / "comp_mark"
         ref_mark_path = tmp_path / "ref_mark"
         comp_mark_path.mkdir(parents=True, exist_ok=True)
         ref_mark_path.mkdir(parents=True, exist_ok=True)
 
-        profile_reference = self._make_synthetic_striation_profile(n_samples=1000, seed=42)
-        profile_compared = self._make_shifted_profile(profile_reference, 10.0, seed=43)
-        # write to npz
-        profile_stem = "profile"
-        np.savez(
-            (ref_mark_path / profile_stem).with_suffix(".npz"),
-            heights=profile_reference.heights,
-            pixel_size=profile_reference.pixel_size,
-        )
-
-        np.savez(
-            (comp_mark_path / profile_stem).with_suffix(".npz"),
-            heights=profile_compared.heights,
-            pixel_size=profile_compared.pixel_size,
-        )
-        # mark
-        mark_stem = "processed"
+        profile_reference = self._create_dummy_profile(n_samples=1000)
+        profile_compared = self._shift_profile(profile_reference, 10.0)
         mark_reference = self._striation_mark(profile_reference)
         mark_compared = self._striation_mark(profile_compared)
-        np.savez(
-            (ref_mark_path / mark_stem).with_suffix(".npz"),
-            data=mark_reference.scan_image.data,
-        )
 
-        np.savez(
-            (comp_mark_path / mark_stem).with_suffix(".npz"),
-            data=mark_compared.scan_image.data,
-        )
+        self._save_profile(ref_mark_path, profile_reference)
+        self._save_profile(comp_mark_path, profile_compared)
+        self._save_mark(dir_path=ref_mark_path, profile=profile_reference, mark=mark_reference)
+        self._save_mark(dir_path=comp_mark_path, profile=profile_compared, mark=mark_compared)
 
-        # Save metadata JSON
-        ref_json = ExportedMarkData(
-            mark_type=MarkType.EXTRACTOR_STRIATION,
-            center=(mark_reference.scan_image.height, mark_reference.scan_image.width),
-            scale_x=mark_reference.scan_image.scale_x,
-            scale_y=mark_reference.scan_image.scale_y,
-        ).model_dump(mode="json")
-        ref_json["mark_type"] = "EXTRACTOR_STRIATION"  # quick fix, due to misfit in enum
+        return (comp_mark_path, ref_mark_path)
 
-        comp_json = ExportedMarkData(
-            mark_type=MarkType.EXTRACTOR_STRIATION,
-            center=(mark_compared.scan_image.height, mark_reference.scan_image.width),
-            scale_x=mark_compared.scan_image.scale_x,
-            scale_y=mark_compared.scan_image.scale_y,
-        ).model_dump(mode="json")
-        comp_json["mark_type"] = "EXTRACTOR_STRIATION"  # quick fix, due to misfit in enum
-        with open((ref_mark_path / mark_stem).with_suffix(".json"), "w") as f:
-            json.dump(ref_json, f)
+    @pytest.mark.integration
+    def test_calculate_striation_mark(
+        self, client: TestClient, prepare_folder_for_calculation: tuple[Path, Path]
+    ) -> None:
+        """
+        Test the whole chain of the endpoint.
 
-        with open((comp_mark_path / mark_stem).with_suffix(".json"), "w") as f:
-            json.dump(comp_json, f)
+        The test expects a folder with some json/npz files. Those files are containing information like the preprocces scan_image.
+        """
+        # Arrange
+        comp_mark_path, ref_mark_path = prepare_folder_for_calculation
+        expected_files = [
+            "similarity_plot",
+            "mark1_vs_moved_mark2",
+            "comparison_overview",
+            "mark_comp_filtered_surfacemap",
+            "mark_ref_filtered_surfacemap",
+            "mark_ref_surfacemap",
+            "mark_ref_depthmap",
+            "mark_comp_surfacemap",
+            "mark_comp_depthmap",
+        ]
 
         json_data = CalculateScoreStriation(
             mark_ref=ref_mark_path,
             mark_comp=comp_mark_path,
             param=StriationParamaters(metadata_compared={"somthing": "else"}, metadata_reference={"ding": "dong"}),
         ).model_dump(mode="json")
+
         # Act
         response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
+
         # Arrange
-        assert response.status_code == 200, response.json()
+        assert response.status_code == HTTPStatus.OK, response.json()
+        urls = response.json()
+        assert all(HttpUrl(url) for url in urls.values()), "All items in the response should be an url."
+        assert all(url in expected_files for url in urls.keys()), "All expected files are in the url response."
+        assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values()), (
+            "Urls point to an living endpoint."
+        )
+        assert all(client.get(url).headers["content-type"] == "image/png" for url in urls.values()), (
+            "Urls are returning an image."
+        )
