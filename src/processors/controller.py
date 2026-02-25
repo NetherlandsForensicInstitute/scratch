@@ -57,7 +57,7 @@ def save_plots(  # noqa: PLR0913
     # TODO: update this dict to a Pydantic class.
     #  so plots.attribute is linked to get_file_path(ComparisonResponse.attribute)
     Image.fromarray(plots.similarity_plot).save(files_to_save["similarity_plot"])
-    Image.fromarray(plots.side_by_side_heatmap).save(files_to_save["mark1_vs_moved_mark2"])
+    Image.fromarray(plots.side_by_side_heatmap).save(files_to_save["side_by_side_heatmap"])
     Image.fromarray(plots.comparison_overview).save(files_to_save["comparison_overview"])
-    Image.fromarray(plots.filtered_compared_heatmap).save(files_to_save["mark_comp_filtered_surfacemap"])
-    Image.fromarray(plots.filtered_reference_heatmap).save(files_to_save["mark_ref_filtered_surfacemap"])
+    Image.fromarray(plots.filtered_compared_heatmap).save(files_to_save["filtered_compared_heatmap"])
+    Image.fromarray(plots.filtered_reference_heatmap).save(files_to_save["filtered_reference_heatmap"])
