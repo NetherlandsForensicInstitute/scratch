@@ -1,18 +1,13 @@
 from http import HTTPStatus
 from pathlib import Path
-from typing import Type
 
 from conversion.data_formats import Mark
-from conversion.export.mark import load_mark_from_path
 from conversion.export.profile import load_profile_from_path
-from conversion.plots.data_formats import StriationComparisonPlots
 from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.profile_correlator import MarkCorrelationResult, correlate_striation_marks
 from fastapi import HTTPException
 from loguru import logger
 from PIL import Image
-
-from extractors.schemas import ComparisonResponse
 
 
 def calculate_striation_plots(
@@ -21,7 +16,7 @@ def calculate_striation_plots(
     compare_path: Path,
     ref_path: Path,
 ) -> MarkCorrelationResult:
-    """calculate striation plots."""
+    """Calculate striation plots."""
     mark_ref_profile = load_profile_from_path(path=ref_path, stem="profile")
     mark_comp_profile = load_profile_from_path(path=compare_path, stem="profile")
     logger.debug("Profile loaded")
@@ -38,7 +33,7 @@ def calculate_striation_plots(
     return mark_correlations
 
 
-def save_plots(
+def save_plots(  # noqa: PLR0913
     mark_ref: Mark,
     mark_comp: Mark,
     mark_correlations: MarkCorrelationResult,
@@ -59,7 +54,8 @@ def save_plots(
         metadata_compared=meta_data_compare,
     )
     logger.debug("plots made")
-    # TODO: update these dict to a Pydantic class. so plots.attribute is linked to get_file_path(ComparisonResponse.attribute)
+    # TODO: update this dict to a Pydantic class.
+    #  so plots.attribute is linked to get_file_path(ComparisonResponse.attribute)
     Image.fromarray(plots.similarity_plot).save(files_to_save["similarity_plot"])
     Image.fromarray(plots.side_by_side_heatmap).save(files_to_save["mark1_vs_moved_mark2"])
     Image.fromarray(plots.comparison_overview).save(files_to_save["comparison_overview"])

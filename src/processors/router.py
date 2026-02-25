@@ -1,14 +1,7 @@
-from dataclasses import asdict
-from http import HTTPStatus
-
 from conversion.export.mark import load_mark_from_path
-from conversion.export.profile import load_profile_from_path
-from conversion.plots.plot_striation import plot_striation_comparison_results
-from conversion.profile_correlator import correlate_profiles, correlate_striation_marks
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from loguru import logger
-from PIL import Image
 
 from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
 from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation, LRResponse, LRResponseURL

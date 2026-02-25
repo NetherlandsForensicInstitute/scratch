@@ -8,13 +8,9 @@ from processors.schemas import (
     CalculateLR,
     CalculateLRImpression,
     CalculateLRStriation,
-    CalculateScoreImpression,
-    CalculateScoreStriation,
     ImpressionLRParamaters,
-    ImpressionParameters,
     MarkDirectories,
     StriationLRParamaters,
-    StriationParamaters,
 )
 
 

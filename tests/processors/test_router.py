@@ -1,8 +1,6 @@
 import json
-from collections import namedtuple
 from http import HTTPStatus
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pytest
@@ -12,13 +10,11 @@ from conversion.data_formats import Mark, MarkType
 from conversion.export.mark import ExportedMarkData
 from conversion.profile_correlator import Profile
 from fastapi.testclient import TestClient
-from loguru import logger
 from pydantic import HttpUrl
-from pydantic_core import Url
 from scipy.constants import micro
+from scipy.interpolate import interp1d
 
 from constants import ProcessorEndpoint
-from models import DirectoryAccess
 from processors.schemas import CalculateScoreStriation, StriationParamaters
 
 
@@ -62,7 +58,6 @@ class TestStriationMark:
         :param seed: Random seed for reproducibility.
         :returns: Profile with synthetic striation data.
         """
-        seed = 42
         n_striations = 20
         amplitude_um = 0.5
         noise_level = 0.05
@@ -79,7 +74,8 @@ class TestStriationMark:
         data += np.sin(0.5 * x) * amplitude_um * 0.5 * micro
 
         # Add noise
-        noise = np.random.normal(0, amplitude_um * noise_level * micro, n_samples)
+        rng = np.random.default_rng()
+        noise = rng.normal(0, amplitude_um * noise_level * micro, n_samples)
         data += noise
 
         return Profile(heights=data, pixel_size=pixel_size_m)
@@ -98,9 +94,6 @@ class TestStriationMark:
         :param seed: Random seed for added noise.
         :returns: New Profile with shifted/scaled data.
         """
-        from scipy.interpolate import interp1d
-
-        seed = 42
         scale_factor = (1.0,)
         data = profile.heights
         n = len(data)
@@ -114,7 +107,8 @@ class TestStriationMark:
         new_data = interpolator(x_new)
 
         # Add a small amount of noise
-        new_data += np.random.normal(0, np.nanstd(data) * 0.01, n)
+        rng = np.random.default_rng()
+        new_data += rng.normal(0, np.nanstd(data) * 0.01, n)
 
         return Profile(heights=new_data, pixel_size=profile.pixel_size)
 
@@ -156,6 +150,7 @@ class TestStriationMark:
 
     @pytest.fixture
     def prepare_folder_for_calculation(self, tmp_path: Path) -> tuple[Path, Path]:
+        """Prepare folder with marking and profiles for testing."""
         comp_mark_path = tmp_path / "comp_mark"
         ref_mark_path = tmp_path / "ref_mark"
         comp_mark_path.mkdir(parents=True, exist_ok=True)
@@ -180,7 +175,8 @@ class TestStriationMark:
         """
         Test the whole chain of the endpoint.
 
-        The test expects a folder with some json/npz files. Those files are containing information like the preprocces scan_image.
+        The test expects a folder with some json/npz files.
+        Those files containing information like the preprocces scan_image.
         """
         # Arrange
         comp_mark_path, ref_mark_path = prepare_folder_for_calculation
