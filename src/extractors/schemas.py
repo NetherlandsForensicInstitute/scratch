@@ -164,10 +164,10 @@ class ComparisonResponse(BaseResponseURLs):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
         json_schema_extra={"file_name": "mark_comp_surfacemap.png"},
     )
-    mark_ref_filtered_surfacemap: HttpUrl = Field(
+    filtered_reference_heatmap: HttpUrl = Field(
         description="",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
-        json_schema_extra={"file_name": "mark_ref_filtered_surfacemap.png"},
+        json_schema_extra={"file_name": "filtered_reference_heatmap.png"},
     )
     comparison_overview: HttpUrl = Field(
         description="",
@@ -220,15 +220,15 @@ class ComparisonResponseStriation(ComparisonResponse):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
         json_schema_extra={"file_name": "similarity_plot.png"},
     )
-    mark_comp_filtered_surfacemap: HttpUrl = Field(
+    filtered_compared_heatmap: HttpUrl = Field(
         description="",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "mark_comp_filtered_surfacemap.png"},
+        json_schema_extra={"file_name": "filtered_compared_heatmap.png"},
     )
-    mark1_vs_moved_mark2: HttpUrl = Field(
+    side_by_side_heatmap: HttpUrl = Field(
         description="",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "mark1_vs_moved_mark2.png"},
+        json_schema_extra={"file_name": "side_by_side_heatmap.png"},
     )
 
 
