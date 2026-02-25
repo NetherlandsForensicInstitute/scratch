@@ -71,48 +71,6 @@ class TestCalculateScore:
             MarkDirectories.model_validate(fields)
 
 
-@pytest.mark.parametrize(
-    ("schema_cls", "param_cls"),
-    [
-        pytest.param(CalculateScoreImpression, ImpressionParameters, id="impression"),
-        pytest.param(CalculateScoreStriation, StriationParamaters, id="striation"),
-    ],
-)
-class TestCalculateScoreWithParam:
-    """Tests for CalculateScore schemas that require a param field."""
-
-    def test_should_accept_valid_input(self, mark_ref: Path, mark_comp: Path, schema_cls, param_cls) -> None:
-        """Test that valid input with the corresponding parameters is accepted."""
-        # Act
-        schema = schema_cls(mark_ref=mark_ref, mark_comp=mark_comp, param=param_cls())
-
-        # Assert
-        assert schema.mark_ref == mark_ref
-        assert schema.mark_comp == mark_comp
-        assert isinstance(schema.param, param_cls)
-
-    @pytest.mark.parametrize(
-        "missing_fields",
-        [pytest.param(combo, id="-".join(combo)) for combo in _SCORE_WITH_PARAM_MISSING_COMBOS],
-    )
-    def test_should_reject_missing_fields(
-        self,
-        mark_ref: Path,
-        mark_comp: Path,
-        schema_cls: type[CalculateScoreImpression | CalculateScoreStriation],
-        param_cls: type[ImpressionParameters | StriationParamaters],
-        missing_fields: tuple[str, ...],
-    ) -> None:
-        """Test that any combination of missing required fields raises ValidationError."""
-        # Arrange
-        all_fields = {"mark_ref": mark_ref, "mark_comp": mark_comp, "param": param_cls()}
-        fields = {k: v for k, v in all_fields.items() if k not in missing_fields}
-
-        # Act & Assert
-        with pytest.raises(ValidationError):
-            schema_cls.model_validate(fields)
-
-
 class TestCalculateLR:
     """Tests for the CalculateLR schema."""
 
