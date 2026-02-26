@@ -12,13 +12,11 @@ class SurfaceMap:
     :param height_map: The processed surface height data used for cell correlation.
     :param pixel_spacing: Pixel spacing [dx, dy] in micrometers, shape (2,).
     :param global_center: Image center [x, y] in micrometers, shape (2,).
-    :param orientation_angle: Image orientation in radians (default 0).
     """
 
     height_map: DepthData
     pixel_spacing: FloatArray1D
     global_center: FloatArray1D
-    orientation_angle: float = 0.0
 
     @property
     def physical_size(self) -> FloatArray1D:

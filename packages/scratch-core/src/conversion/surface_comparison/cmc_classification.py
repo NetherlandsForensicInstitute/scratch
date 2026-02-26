@@ -90,6 +90,8 @@ def classify_congruent_cells(
         angle_residuals[rejected] = np.nan
 
     # --- Step 3: Rotate reference positions and compute position residuals ---
+    # Since we rotate the reference image the natural center for ration is the mid of the reference image defined in
+    # reference center.
     expected_pos = _rotate_points(pos_ref, consensus_angle, reference_center)
     pos_residuals = pos_comp - expected_pos
     consensus_translation = np.nanmedian(pos_residuals, axis=0)
