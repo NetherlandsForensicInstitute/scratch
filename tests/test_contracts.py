@@ -11,35 +11,10 @@ from pydantic import BaseModel, HttpUrl
 from requests import Response
 
 from constants import PROJECT_ROOT
-from extractors.schemas import (
-    ComparisonResponseImpression,
-    ComparisonResponseStriation,
-    GeneratedImages,
-    LRResponse,
-    PrepareMarkResponseImpression,
-    PrepareMarkResponseStriation,
-    ProcessedDataAccess,
-)
 from models import DirectoryAccess
-from preprocessors.pipelines import parse_scan_pipeline
-from preprocessors.schemas import (
-    EditImage,
-    MaskParameters,
-    PrepareMarkImpression,
-    PrepareMarkStriation,
-    PreprocessingImpressionParams,
-    PreprocessingStriationParams,
-    UploadScan,
-)
 from processors.schemas import (
-    CalculateLRImpression,
-    CalculateLRStriation,
-    CalculateScoreImpression,
-    CalculateScoreStriation,
     ImpressionLRParamaters,
-    ImpressionParameters,
     StriationLRParamaters,
-    StriationParamaters,
 )
 from settings import get_settings
 
@@ -228,12 +203,17 @@ class TestContracts:
             response_json={
                 "mark_ref_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_ref_surfacemap.png",
                 "mark_comp_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_comp_surfacemap.png",
-                "filtered_reference_heatmap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/filtered_reference_heatmap.png",
+                "filtered_reference_heatmap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
+                f"/filtered_reference_heatmap.png",
                 "comparison_overview": f"{self.BASE_URL}/processor/files/GENERATED_KEY/comparison_overview.png",
-                "mark_ref_filtered_moved_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_ref_filtered_moved_surfacemap.png",
-                "mark_ref_filtered_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_ref_filtered_bb_surfacemap.png",
-                "mark_comp_filtered_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_comp_filtered_bb_surfacemap.png",
-                "mark_comp_filtered_all_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_comp_filtered_all_bb_surfacemap.png",
+                "mark_ref_filtered_moved_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
+                f"/mark_ref_filtered_moved_surfacemap.png",
+                "mark_ref_filtered_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
+                f"/mark_ref_filtered_bb_surfacemap.png",
+                "mark_comp_filtered_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
+                f"/mark_comp_filtered_bb_surfacemap.png",
+                "mark_comp_filtered_all_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
+                f"/mark_comp_filtered_all_bb_surfacemap.png",
                 "cell_accf_distribution": f"{self.BASE_URL}/processor/files/GENERATED_KEY/cell_accf_distribution.png",
             },
         )
@@ -280,12 +260,14 @@ class TestContracts:
             response_json={
                 "mark_ref_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_ref_surfacemap.png",
                 "mark_comp_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_comp_surfacemap.png",
-                "mark_ref_filtered_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_ref_filtered_surfacemap.png",
+                "mark_ref_filtered_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY"
+                f"/mark_ref_filtered_surfacemap.png",
                 "comparison_overview": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/comparison_overview.png",
                 "mark_ref_depthmap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_ref_depthmap.png",
                 "mark_comp_depthmap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_comp_depthmap.png",
                 "similarity_plot": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/similarity_plot.png",
-                "mark_comp_filtered_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_comp_filtered_surfacemap.png",
+                "mark_comp_filtered_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY"
+                f"/mark_comp_filtered_surfacemap.png",
                 "mark1_vs_moved_mark2": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark1_vs_moved_mark2.png",
             },
         )
