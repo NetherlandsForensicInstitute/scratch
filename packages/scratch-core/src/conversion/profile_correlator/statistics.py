@@ -6,7 +6,7 @@ This module provides functions for computing statistical metrics between
 
 - compute_cross_correlation: NaN-aware normalized cross-correlation
 - compute_roughness_sa: Arithmetic mean roughness
-- compute_roughness_sq: Root mean square roughness
+- compute_roughness_sqrt: Root mean square roughness
 - compute_overlap_ratio: Overlap ratio relative to shorter profile
 - compute_normalized_square_based_roughness_differences: Normalized signature difference metrics
 
@@ -56,34 +56,6 @@ def compute_cross_correlation(
         return None
 
     return float(np.corrcoef(profile_1[valid_mask], profile_2[valid_mask])[0, 1])
-
-
-def compute_roughness_sa(profile: FloatArray1D) -> float:
-    """
-    Compute arithmetic mean roughness (ISO 25178 Sa parameter) of a profile.
-
-    Sa is the arithmetic mean of the absolute values of the profile heights,
-    calculated as: mean(|z|). The 'S' denotes a surface/areal parameter and
-    'a' denotes arithmetical mean.
-
-    :param profile: 1D profile array. May contain NaN values which are ignored.
-    :returns: Arithmetic mean roughness (Sa) in the same units as the input profile.
-    """
-    return float(np.nanmean(np.abs(profile - np.nanmean(profile))))
-
-
-def compute_roughness_sq(profile: FloatArray1D) -> float:
-    """
-    Compute root-mean-square roughness (ISO 25178 Sq parameter) of a profile.
-
-    Sq is the root-mean-square of the profile heights, calculated as:
-    sqrt(mean(z^2)). The 'S' denotes a surface/areal parameter and 'q'
-    denotes quadratic mean (root-mean-square).
-
-    :param profile: 1D profile array. May contain NaN values which are ignored.
-    :returns: Root-mean-square roughness (Sq) in the same units as the input profile.
-    """
-    return float(np.sqrt(np.nanmean((profile - np.nanmean(profile)) ** 2)))
 
 
 def compute_overlap_ratio(

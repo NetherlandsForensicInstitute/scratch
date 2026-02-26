@@ -41,3 +41,18 @@ class ScanImage(ConfigBaseModel):
         valid_data = self.data[self.valid_mask]
         valid_data.setflags(write=False)
         return valid_data
+
+    @property
+    def pixel_spacing(self) -> FloatArray1D:
+        """Pixel spacing [dx, dy] in meters, shape (2,)."""
+        return np.array([self.scale_x, self.scale_y])
+
+    @property
+    def physical_size(self) -> FloatArray1D:
+        """Physical dimensions [width, height] of the image in meters."""
+        return np.array([self.width * self.scale_x, self.height * self.scale_y])
+
+    @property
+    def global_center(self) -> FloatArray1D:
+        """Image center [x, y] in meters, shape (2,)."""
+        return self.physical_size / 2.0

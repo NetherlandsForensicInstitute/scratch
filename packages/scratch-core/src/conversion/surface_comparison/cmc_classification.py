@@ -35,15 +35,15 @@ def classify_congruent_cells(
     :param result: ComparisonResult containing the list of cell results.
     :param params: Algorithm parameters with thresholds.
     :param reference_center: The global center [x, y] of the reference surface
-        in micrometers, used as the center of rotation.
+        in meters, used as the center of rotation.
     """
     cells = result.cells
     if not cells:
         return
 
     angles = np.array([c.registration_angle for c in cells])  # radians
-    pos_ref = np.array([c.center_reference for c in cells])  # (N, 2) in µm
-    pos_comp = np.array([c.center_comparison for c in cells])  # (N, 2) in µm
+    pos_ref = np.array([c.center_reference for c in cells])  # (N, 2) in m
+    pos_comp = np.array([c.center_comparison for c in cells])  # (N, 2) in m
     scores = np.array([c.area_cross_correlation_function_score for c in cells])
 
     valid = ~np.isnan(angles)

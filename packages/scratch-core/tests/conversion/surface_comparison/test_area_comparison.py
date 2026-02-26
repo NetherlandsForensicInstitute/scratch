@@ -8,7 +8,7 @@ Fourier-Mellin alignment step that is not part of the current codebase.
 The closest existing equivalent is ``run_comparison_pipeline``, which returns
 a ``ComparisonResult`` containing:
   - ``consensus_rotation``:            agreed rotation across CMC cells (radians)
-  - ``consensus_translation``:         agreed translation across CMC cells (µm)
+  - ``consensus_translation``:         agreed translation across CMC cells (m)
   - ``congruent_matching_cells_count``:number of CMC cells
 
 These tests verify those global outputs for the identity case and a known
@@ -19,10 +19,10 @@ the NIST integration tests (``test_compare_datasets_nist.py``).
 import numpy as np
 from scipy.ndimage import shift as nd_shift
 
+from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
     ComparisonParams,
     ComparisonResult,
-    SurfaceMap,
 )
 from conversion.surface_comparison.pipeline import run_comparison_pipeline
 
@@ -33,26 +33,22 @@ from conversion.surface_comparison.pipeline import run_comparison_pipeline
 
 
 def _make_surface_map(
-    height_map: np.ndarray, pixel_spacing_um: float = 1.0
-) -> SurfaceMap:
-    spacing = np.array([pixel_spacing_um, pixel_spacing_um])
-    rows, cols = height_map.shape
-    center = np.array([cols * spacing[0] / 2.0, rows * spacing[1] / 2.0])
-    return SurfaceMap(
-        height_map=height_map, pixel_spacing=spacing, global_center=center
-    )
+    height_map: np.ndarray, pixel_spacing_m: float = 1e-6
+) -> ScanImage:
+    scale = pixel_spacing_m
+    return ScanImage(data=height_map, scale_x=scale, scale_y=scale)
 
 
 def _identity_params() -> ComparisonParams:
     return ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
+        cell_size=np.array([40e-6, 40e-6]),
         search_angle_min=-2.0,
         search_angle_max=2.0,
         search_angle_step=1.0,
     )
 
 
-def _identity_surface() -> SurfaceMap:
+def _identity_surface() -> ScanImage:
     """100×100 surface used for identity tests.
 
     Uses sin(x/5)·cos(y/5) because when the same image is presented as both
@@ -127,7 +123,7 @@ def test_pipeline_identity_zero_translation():
 
     result = run_comparison_pipeline(surface, surface, _identity_params())
 
-    assert np.allclose(result.consensus_translation, [0.0, 0.0], atol=1e-5), (
+    assert np.allclose(result.consensus_translation, [0.0, 0.0], atol=1e-11), (
         f"Expected consensus_translation ≈ [0, 0], got {result.consensus_translation}"
     )
 
@@ -136,10 +132,10 @@ def test_pipeline_recovers_known_translation():
     """Pipeline consensus_translation matches a known integer-pixel shift.
 
     The comparison surface is produced by shifting the reference data by 5
-    rows (y-axis) and 3 columns (x-axis), giving a translation of [3, 5] µm
-    at 1 µm/px.  The vacated border is filled with Gaussian noise so that
+    rows (y-axis) and 3 columns (x-axis), giving a translation of [3, 5] m
+    at 1 m/px.  The vacated border is filled with Gaussian noise so that
     ECC finds no spurious feature to lock onto at the image edge.  The
-    consensus must be within 0.5 µm of [3, 5].
+    consensus must be within 0.5e-6 m of [3e-6, 5e-6].
 
     **Surface design:**
     A 200×200 aperiodic surface built from sines with incommensurate
@@ -149,8 +145,8 @@ def test_pipeline_recovers_known_translation():
     - **No period aliasing**: a purely periodic signal repeats within the
       cell, so the NCC can match at [3, 5] *or* [3 + period, 5] with equal
       score.  Incommensurate frequencies give a unique texture fingerprint
-      within each 40×40 µm cell.
-    - **Enough safe inner cells**: a 200×200 image with 40 µm cells gives
+      within each 40×40 m cell.
+    - **Enough safe inner cells**: a 200×200 image with 40 m cells gives
       25 grid cells, of which the 9 inner cells sit well away from both the
       image boundary and the noise-filled border strip.  These cells reliably
       vote for [3, 5], providing a comfortable CMC majority.
@@ -163,7 +159,7 @@ def test_pipeline_recovers_known_translation():
     ref = _make_surface_map(data)
     comp = _make_surface_map(_make_translated_surface(data, dy=5, dx=3, rng=rng))
     params = ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
+        cell_size=np.array([40e-6, 40e-6]),
         search_angle_min=-2.0,
         search_angle_max=2.0,
         search_angle_step=1.0,
@@ -171,8 +167,8 @@ def test_pipeline_recovers_known_translation():
 
     result = run_comparison_pipeline(ref, comp, params)
 
-    assert np.allclose(result.consensus_translation, [3.0, 5.0], atol=0.5), (
-        f"Expected consensus_translation ≈ [3, 5], got {result.consensus_translation}"
+    assert np.allclose(result.consensus_translation, [3e-6, 5e-6], atol=0.5e-6), (
+        f"Expected consensus_translation ≈ [3e-6, 5e-6], got {result.consensus_translation}"
     )
 
 

@@ -2,17 +2,17 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 from conversion.surface_comparison.models import SurfaceMap, ComparisonParams
-from conversion.surface_comparison.utils import um_to_pixels
+from conversion.surface_comparison.utils import m_to_pixels
 
 
 def _axis_centers(origin_coord: float, cell_sz: float, image_sz: float) -> np.ndarray:
     """
     Extend a 1-D grid from an origin in both directions while cells overlap the image.
 
-    :param origin_coord: Center of the first cell in micrometers.
-    :param cell_sz: Cell size in micrometers.
-    :param image_sz: Image extent in micrometers.
-    :returns: Sorted array of cell center coordinates in micrometers.
+    :param origin_coord: Center of the first cell in meters.
+    :param cell_sz: Cell size in meters.
+    :param image_sz: Image extent in meters.
+    :returns: Sorted array of cell center coordinates in meters.
     """
     centers = [origin_coord]
     # Extend forward
@@ -57,13 +57,13 @@ def _find_grid_origin(
     :param reference_map: The surface to divide into cells.
     :param params: Algorithm parameters (uses ``cell_size`` and
         ``minimum_fill_fraction``).
-    :returns: Optimal origin coordinates [x, y] in micrometers, shape (2,).
+    :returns: Optimal origin coordinates [x, y] in meters, shape (2,).
     """
-    height_map = reference_map.height_map
-    pixel_spacing = reference_map.pixel_spacing  # [dx, dy]
+    height_map = reference_map.data
+    pixel_spacing = reference_map.pixel_spacing  # [dx, dy] in meters
 
     # Cell size in pixels (integer)
-    cell_size_px = um_to_pixels(
+    cell_size_px = m_to_pixels(
         params.cell_size, pixel_spacing
     )  # [pixel_width, pixel_height]
     cell_area_px = int(np.prod(cell_size_px))
@@ -190,12 +190,12 @@ def generate_grid_centers(
     the tiling optimisation, and subsequent cells are spaced by ``cell_size``.
 
     :param reference_map: surface map.
-    :param origin: first cell centre [x, y] in micrometers from :func:`_find_grid_origin`.
+    :param origin: first cell centre [x, y] in meters from :func:`_find_grid_origin`.
     :param params: algorithm parameters.
     :returns: array of centre coordinates, shape (N, 2).
     """
-    physical_size = reference_map.physical_size  # [width, height] in µm
-    cell_size = params.cell_size  # [cell_width, cell_height] in µm
+    physical_size = reference_map.physical_size  # [width, height] in m
+    cell_size = params.cell_size  # [cell_width, cell_height] in m
 
     x_coordinates = _axis_centers(origin[0], cell_size[0], physical_size[0])
     y_coordinates = _axis_centers(origin[1], cell_size[1], physical_size[1])

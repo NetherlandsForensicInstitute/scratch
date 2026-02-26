@@ -6,10 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
+from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import ComparisonParams, SurfaceMap
-
-# Pixel dimension conversion: MATLAB stores values in metres, pipeline expects micrometres.
-_M_TO_UM = 1e6
 
 
 @dataclass
@@ -54,38 +52,33 @@ def _load_surface_map(
     case_dir: Path, height_data_name: str, scale_x: float, scale_y: float
 ) -> SurfaceMap:
     """Load a surface map from a .npy depth file and pixel scale dimensions."""
-    height_map = np.load(
-        str(case_dir / f"input_{height_data_name}_depth_data.npy")
-    ).astype(np.float64)
-    pixel_spacing = np.array([scale_x * _M_TO_UM, scale_y * _M_TO_UM], dtype=np.float64)
-    rows, cols = height_map.shape
-    global_center = np.array(
-        [cols * pixel_spacing[0] / 2.0, rows * pixel_spacing[1] / 2.0],
-        dtype=np.float64,
+    data = np.load(str(case_dir / f"input_{height_data_name}_depth_data.npy")).astype(
+        np.float64
     )
-    return SurfaceMap(
-        height_map=height_map, pixel_spacing=pixel_spacing, global_center=global_center
-    )
+    return ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
+
+
+# Fields in ComparisonParams whose MATLAB metadata values are in µm and must
+# be converted to meters before construction.
+_UM_FIELDS = {"position_threshold"}
 
 
 def _build_comparison_params(params: dict) -> ComparisonParams:
-    """Convert a params dict to ComparisonParams."""
-    # Assemble cell_size from the separate x/y keys before filtering against
-    # dataclass fields — cell_size_x/y are not fields themselves and would
-    # otherwise be silently dropped, leaving cell_size at its default [1000, 1000].
+    """Convert a params dict (MATLAB metadata, lengths in µm) to ComparisonParams (meters)."""
     kwargs: dict = {}
+
+    # cell_size_x/y arrive in µm from MATLAB metadata; convert to meters.
     if "cell_size_x" in params and "cell_size_y" in params:
         kwargs["cell_size"] = np.array(
-            [params["cell_size_x"], params["cell_size_y"]], dtype=np.float64
+            [params["cell_size_x"] * 1e-6, params["cell_size_y"] * 1e-6],
+            dtype=np.float64,
         )
 
-    kwargs.update(
-        {
-            k: float(v)
-            for k, v in params.items()
-            if k in ComparisonParams.__dataclass_fields__
-        }
-    )
+    valid_fields = ComparisonParams.model_fields
+    for k, v in params.items():
+        if k not in valid_fields:
+            continue
+        kwargs[k] = float(v) * 1e-6 if k in _UM_FIELDS else float(v)
 
     if "angle_threshold" in kwargs and "search_angle_max" not in kwargs:
         kwargs["search_angle_max"] = kwargs["angle_threshold"]

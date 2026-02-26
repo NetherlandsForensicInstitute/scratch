@@ -46,8 +46,8 @@ from conversion.surface_comparison.grid import (
     generate_grid_centers,
 )
 from conversion.surface_comparison.utils import (
-    um_to_pixels,
-    center_um_to_top_left_pixel,
+    m_to_pixels,
+    center_m_to_top_left_pixel,
 )
 
 # ECC convergence tolerances (passed to cv2.findTransformECC)
@@ -92,12 +92,12 @@ def register_cells(
     # Pre-extract reference patches and compute fill fractions.
     # Only cells that sufficiently overlap the image are kept.
     pixel_spacing = reference_map.pixel_spacing
-    cell_size_px = um_to_pixels(params.cell_size, pixel_spacing)
-    rows, cols = reference_map.height_map.shape
+    cell_size_px = m_to_pixels(params.cell_size, pixel_spacing)
+    rows, cols = reference_map.data.shape
 
     valid_cells = []  # [center_um, patch, fill_fraction, best_score, best_angle_deg, best_comp_center_um]
     for center in centers:
-        row, col = center_um_to_top_left_pixel(center, cell_size_px, pixel_spacing)
+        row, col = center_m_to_top_left_pixel(center, cell_size_px, pixel_spacing)
         row0, col0 = max(0, row), max(0, col)
 
         # lower/right corner of cell, in pixels
@@ -105,7 +105,7 @@ def register_cells(
         col1 = min(cols, col + cell_size_px[0])
         if row1 <= row0 or col1 <= col0:
             continue
-        patch = reference_map.height_map[row0:row1, col0:col1]
+        patch = reference_map.data[row0:row1, col0:col1]
 
         # Fill fraction is the fraction of the full cell area that overlaps
         # the image, regardless of NaN holes within the image.
@@ -119,7 +119,7 @@ def register_cells(
 
     # ---- Stage 1: Sweep over angles_deg and store parameters for best cross_correlation per cell
     for angle_deg in angles_deg:
-        rotated = _rotate_image(comparison_map.height_map, float(angle_deg))
+        rotated = _rotate_image(comparison_map.data, float(angle_deg))
         clean_rotated = _fill_nan(rotated)
 
         for cell in valid_cells:
@@ -188,11 +188,11 @@ def _refine_cell(
     Refine a single cell registration via phase cross-correlation (Stage 2)
     then ECC (Stage 3).
 
-    :param center_ref_um: Cell center on the reference map in µm, shape (2,).
+    :param center_ref_um: Cell center on the reference map in m, shape (2,).
     :param ref_patch: Clipped reference height patch (may be smaller than cell_size).
     :param comp_map: Moving surface map.
     :param coarse_angle_deg: Best angle from Stage 1 in degrees.
-    :param coarse_comp_center_um: Best translation from Stage 1 in µm.
+    :param coarse_comp_center_um: Best translation from Stage 1 in m.
     :param fill_fraction: Reference cell fill fraction (pre-computed).
     :returns: CellResult.
     """
@@ -200,7 +200,7 @@ def _refine_cell(
 
     # Rotate the comparison image to the Stage 1 angle so that Stages 2 and 3
     # only need to refine the translation (and a small residual angle).
-    comp_rotated = _rotate_image(comp_map.height_map, coarse_angle_deg)
+    comp_rotated = _rotate_image(comp_map.data, coarse_angle_deg)
     comp_clean = _fill_nan(comp_rotated)
     patch_clean = _fill_nan(ref_patch)
     pixel_height, pixel_width = patch_clean.shape
@@ -288,7 +288,7 @@ def _ecc_refine(
     to the ECC update.
 
     All inputs and outputs are in pixel units; the caller is responsible
-    for converting to physical coordinates (µm).
+    for converting to physical coordinates (m).
 
     :param ref_patch: Reference cell patch (may contain NaNs), shape (H, W).
     :param comp_image: Full comparison image (may contain NaNs), shape (M, N).

@@ -10,10 +10,10 @@ pipeline (coarse NCC sweep → phase cross-correlation → ECC refinement).
 import numpy as np
 
 from conversion.surface_comparison.cell_registration import register_cells
+from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
     CellResult,
     ComparisonParams,
-    SurfaceMap,
 )
 
 
@@ -23,14 +23,10 @@ from conversion.surface_comparison.models import (
 
 
 def _make_surface_map(
-    height_map: np.ndarray, pixel_spacing_um: float = 1.0
-) -> SurfaceMap:
-    spacing = np.array([pixel_spacing_um, pixel_spacing_um])
-    rows, cols = height_map.shape
-    center = np.array([cols * spacing[0] / 2.0, rows * spacing[1] / 2.0])
-    return SurfaceMap(
-        height_map=height_map, pixel_spacing=spacing, global_center=center
-    )
+    height_map: np.ndarray, pixel_spacing_m: float = 1e-6
+) -> ScanImage:
+    scale = pixel_spacing_m
+    return ScanImage(data=height_map, scale_x=scale, scale_y=scale)
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +45,7 @@ def test_register_cells_identity_scores():
     data = np.sin(x / 5.0) * np.cos(y / 5.0)
     surface = _make_surface_map(data)
     params = ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
+        cell_size=np.array([40e-6, 40e-6]),
         search_angle_min=-2.0,
         search_angle_max=2.0,
         search_angle_step=1.0,
@@ -70,7 +66,7 @@ def test_register_cells_identity_angles():
     data = np.sin(x / 5.0) * np.cos(y / 5.0)
     surface = _make_surface_map(data)
     params = ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
+        cell_size=np.array([40e-6, 40e-6]),
         search_angle_min=-2.0,
         search_angle_max=2.0,
         search_angle_step=1.0,
@@ -95,7 +91,7 @@ def test_register_cells_returns_valid_cell_results():
     data = np.sin(x / 5.0) * np.cos(y / 5.0)
     surface = _make_surface_map(data)
     params = ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
+        cell_size=np.array([40e-6, 40e-6]),
         search_angle_min=-2.0,
         search_angle_max=2.0,
         search_angle_step=1.0,
@@ -117,13 +113,13 @@ def test_register_cells_returns_valid_cell_results():
 def test_register_cells_no_cells_for_tiny_image():
     """An image much smaller than the cell yields no cells.
 
-    A 10×10 image with a 40×40 µm cell at 1 µm/px gives geometric overlap
+    A 10×10 image with a 40×40 m cell at 1 m/px gives geometric overlap
     of 100/1600 = 6.25 %, which is below any reasonable minimum_fill_fraction.
     """
     data = np.ones((10, 10))
     surface = _make_surface_map(data)
     params = ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
+        cell_size=np.array([40e-6, 40e-6]),
         minimum_fill_fraction=0.5,
     )
 
@@ -135,14 +131,14 @@ def test_register_cells_no_cells_for_tiny_image():
 def test_register_cells_high_fill_fraction_excludes_partial_cells():
     """Raising minimum_fill_fraction to 0.9 filters out edge cells.
 
-    A 30×30 image with a 40×40 µm cell has only partial geometric overlap
+    A 30×30 image with a 40×40 m cell has only partial geometric overlap
     (at most 30×30 / 40×40 = 56.25 %).  With minimum_fill_fraction=0.9
     no cell passes the threshold.
     """
     data = np.ones((30, 30))
     surface = _make_surface_map(data)
     params = ComparisonParams(
-        cell_size=np.array([40.0, 40.0]),
+        cell_size=np.array([40e-6, 40e-6]),
         minimum_fill_fraction=0.9,
     )
 
