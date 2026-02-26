@@ -194,63 +194,101 @@ class TestContracts:
         ),np.ones((rows, cols), dtype=np.bool_).tobytes(order="C")
 
     @pytest.fixture(scope="class")
-    def calculate_score_impression(self, directory_access: DirectoryAccess) -> Interface:
+    def calculate_score_impression(self, directory_access: DirectoryAccess) -> EndpointContractInterface:
         """
         Create test data for calculate-score-impression endpoint.
 
         Returns the post request data and expected response type.
         """
-        return CalculateScoreImpression(
-            mark_ref=directory_access.resource_path,
-            mark_comp=directory_access.resource_path,
-            param=ImpressionParameters(),
-        ), ComparisonResponseImpression
+        return EndpointContractInterface(
+            input_json={
+                "mark_ref": str(directory_access.resource_path),
+                "mark_comp": str(directory_access.resource_path),
+                "param": {},
+            },
+            response_json={
+                "urls": {"lr_overview_plot": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/profile.png"},
+                "lr": 0,
+            },
+        )
 
     @pytest.fixture(scope="class")
-    def calculate_score_striation(self, directory_access: DirectoryAccess) -> Interface:
+    def calculate_score_striation(self, directory_access: DirectoryAccess) -> EndpointContractInterface:
         """
         Create test data for calculate-score-striation endpoint.
 
         Returns the post request data and expected response type.
         """
-        return CalculateScoreStriation(
-            mark_ref=directory_access.resource_path,
-            mark_comp=directory_access.resource_path,
-            param=StriationParamaters(metadata_reference={}, metadata_compared={}),
-        ), ComparisonResponseStriation
+        return EndpointContractInterface(
+            input_json={
+                "mark_ref": str(directory_access.resource_path),
+                "mark_comp": str(directory_access.resource_path),
+                "param": {},
+            },
+            response_json={
+                "mark_ref_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_ref_surfacemap.png",
+                "mark_comp_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_comp_surfacemap.png",
+                "filtered_reference_heatmap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/filtered_reference_heatmap.png",
+                "comparison_overview": f"{self.BASE_URL}/processor/files/GENERATED_KEY/comparison_overview.png",
+                "mark_ref_filtered_moved_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_ref_filtered_moved_surfacemap.png",
+                "mark_ref_filtered_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_ref_filtered_bb_surfacemap.png",
+                "mark_comp_filtered_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_comp_filtered_bb_surfacemap.png",
+                "mark_comp_filtered_all_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_comp_filtered_all_bb_surfacemap.png",
+                "cell_accf_distribution": f"{self.BASE_URL}/processor/files/GENERATED_KEY/cell_accf_distribution.png",
+            },
+        )
 
     @pytest.fixture(scope="class")
-    def calculate_lr_impression(self, directory_access: DirectoryAccess, tmp_path: Path) -> Interface:
+    def calculate_lr_impression(self, directory_access: DirectoryAccess, tmp_path: Path) -> EndpointContractInterface:
         """
         Create test data for calculate-score-impression endpoint.
 
         Returns the post request data and expected response type.
         """
         (lr_system := tmp_path / "lr_system").touch()
-        return CalculateLRImpression(
-            mark_ref=directory_access.resource_path,
-            mark_comp=directory_access.resource_path,
-            score=1,
-            n_cells=5,
-            lr_system=lr_system,
-            param=ImpressionLRParamaters(),
-        ), LRResponse
+        return EndpointContractInterface(
+            input_json={
+                "mark_ref": directory_access.resource_path,
+                "mark_comp": directory_access.resource_path,
+                "score": 1,
+                "n_cells": 5,
+                "lr_system": lr_system,
+                "param": ImpressionLRParamaters(),
+            },
+            response_json={
+                "urls": {"lr_overview_plot": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/profile.png"},
+                "lr": 0,
+            },
+        )
 
     @pytest.fixture(scope="class")
-    def calculate_lr_striation(self, directory_access: DirectoryAccess, tmp_path: Path) -> Interface:
+    def calculate_lr_striation(self, directory_access: DirectoryAccess, tmp_path: Path) -> EndpointContractInterface:
         """
         Create test data for calculate-score-striation endpoint.
 
         Returns the post request data and expected response type.
         """
         (lr_system := tmp_path / "lr_system").touch()
-        return CalculateLRStriation(
-            mark_ref=directory_access.resource_path,
-            mark_comp=directory_access.resource_path,
-            score=1,
-            lr_system=lr_system,
-            param=StriationLRParamaters(),
-        ), ComparisonResponseStriation
+        return EndpointContractInterface(
+            input_json={
+                "mark_ref": directory_access.resource_path,
+                "mark_comp": directory_access.resource_path,
+                "score": 1,
+                "lr_system": lr_system,
+                "param": StriationLRParamaters(),
+            },
+            response_json={
+                "mark_ref_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_ref_surfacemap.png",
+                "mark_comp_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_comp_surfacemap.png",
+                "mark_ref_filtered_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_ref_filtered_surfacemap.png",
+                "comparison_overview": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/comparison_overview.png",
+                "mark_ref_depthmap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_ref_depthmap.png",
+                "mark_comp_depthmap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_comp_depthmap.png",
+                "similarity_plot": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/similarity_plot.png",
+                "mark_comp_filtered_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_comp_filtered_surfacemap.png",
+                "mark1_vs_moved_mark2": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark1_vs_moved_mark2.png",
+            },
+        )
 
     @pytest.mark.parametrize(
         "route",
