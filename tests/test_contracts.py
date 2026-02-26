@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import requests
 from container_models.base import BinaryMask
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 
 from constants import PROJECT_ROOT
 from extractors.schemas import (
@@ -59,6 +59,11 @@ class TemplateResponse(BaseModel):
     message: str
 
 
+class EndpointContractInterface(BaseModel):
+    input_json: dict
+    response_json: dict
+
+
 type Interface = tuple[BaseModel, type[BaseModel]]
 
 
@@ -73,44 +78,103 @@ class TestContracts:
       - checks if input and output are in correct format (schema definitions).
     """
 
+    BASE_URL = "http://127.0.0.1:8000"
+
     @pytest.fixture(scope="class")
-    def process_scan(self, scan_directory: Path) -> Interface:
+    def process_scan(self, scan_directory: Path) -> EndpointContractInterface:
         """
         Create dummy files for the expected response.
 
         Returns the post request data, sub_route & expected response.
         """
-        return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
+        return EndpointContractInterface(
+            input_json={
+                "project_name": "forensic_analysis_2026",
+                "scan_file": str((scan_directory / "circle.x3p").absolute()),
+                "scale_x": "1",
+                "scale_y": "1",
+                "step_size": "1",
+            },
+            response_json={
+                "preview": f"{self.BASE_URL}/extractor/files/GENERATED_KEY/preview.png",
+                "surface_map": f"{self.BASE_URL}/extractor/files/GENERATED_KEY/surface_map.png",
+                "scan": f"{self.BASE_URL}/extractor/files/GENERATED_KEY/scan.x3p",
+            },
+        )
 
     @pytest.fixture(scope="class")
-    def prepare_mark_impression(self, scan_directory: Path, mask: BinaryMask) -> Interface:
+    def prepare_mark_impression(self, scan_directory: Path, mask: BinaryMask) -> EndpointContractInterface:
         """
         Create dummy files for the expected response.
 
         Returns the post request data, sub_route & expected response.
         """
-        return PrepareMarkImpression(
-            scan_file=scan_directory / "circle.x3p",
-            mark_type="breech face impression mark",
-            mask=mask,
-            bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
-            mark_parameters=PreprocessingImpressionParams(),
-        ), PrepareMarkResponseImpression  # type: ignore
+        return EndpointContractInterface(
+            input_json={
+                "project_name": "forensic_analysis_2026",
+                "scan_file": str((scan_directory / "circle.x3p").absolute()),
+                "mark_type": "breech face impression mark",
+                "mask": mask,
+                "bounding_box_list": [[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
+                "mark_parameters": {
+                    "pixel_size": None,
+                    "adjust_pixel_spacing": True,
+                    "level_offset": True,
+                    "level_tilt": True,
+                    "level_2nd": True,
+                    "interp_method": "cubic",
+                    "highpass_cutoff": 250.0e-6,
+                    "lowpass_cutoff": 5.0e-6,
+                    "highpass_regression_order": 2,
+                    "lowpass_regression_order": 0,
+                },
+            },
+            response_json={
+                "preview": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/preview.png",
+                "surface_map": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/surface_map.png",
+                "mark_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark.npz",
+                "mark_meta": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark.json",
+                "processed_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/processed.npz",
+                "processed_meta": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/processed.json",
+                "leveled_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/leveled.npz",
+                "leveled_meta": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/leveled.json",
+            },
+        )
 
     @pytest.fixture(scope="class")
-    def prepare_mark_striation(self, scan_directory: Path, mask: BinaryMask) -> Interface:
+    def prepare_mark_striation(self, scan_directory: Path, mask: BinaryMask) -> EndpointContractInterface:
         """
         Create dummy files for the expected response.
 
         Returns the post request data, sub_route & expected response.
         """
-        return PrepareMarkStriation(
-            scan_file=scan_directory / "circle.x3p",
-            mark_type="aperture shear striation mark",
-            mask=mask,
-            bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
-            mark_parameters=PreprocessingStriationParams(),
-        ), PrepareMarkResponseStriation  # type: ignore
+        return EndpointContractInterface(
+            input_json={
+                "project_name": "forensic_analysis_2026",
+                "scan_file": str((scan_directory / "circle.x3p").absolute()),
+                "mark_type": "aperture shear striation mark",
+                "mask": mask,
+                "bounding_box_list": [[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
+                "mark_parameters": {
+                    "highpass_cutoff": 2e-3,
+                    "lowpass_cutoff": 2.5e-4,
+                    "cut_borders_after_smoothing": True,
+                    "use_mean": True,
+                    "angle_accuracy": 0.1,
+                    "max_iter": 25,
+                    "subsampling_factor": 1,
+                },
+            },
+            response_json={
+                "preview": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/preview.png",
+                "surface_map": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/surface_map.png",
+                "mark_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark.npz",
+                "mark_meta": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark.json",
+                "processed_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/processed.npz",
+                "processed_meta": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/processed.json",
+                "profile_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/profile.npz",
+            },
+        )
 
     @pytest.fixture(scope="class")
     def edit_scan(self, scan_directory: Path) -> tuple[EditImage, bytes, type[GeneratedImages]]:
@@ -215,16 +279,19 @@ class TestContracts:
         self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest
     ) -> None:
         """Test if preprocessor POST endpoints return expected models."""
-        data, expected_response = request.getfixturevalue(fixture_name)
+        data: EndpointContractInterface = request.getfixturevalue(fixture_name)
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{sub_route}",
-            json=data.model_dump(mode="json"),
-            timeout=5,
+            json=data.input_json,
+            timeout=20,
         )
         # Assert
-        assert response.status_code == HTTPStatus.OK
-        expected_response.model_validate(response.json())
+        assert response.status_code == HTTPStatus.OK, response.text
+        assert all(HttpUrl(url) for url in response.json().values())
+        for url in response.json().values():
+            assert requests.get(url, timeout=10).status_code == HTTPStatus.OK, response.text
+        assert data.response_json.keys() == response.json().keys()
 
     @pytest.mark.xfail
     @pytest.mark.parametrize(
