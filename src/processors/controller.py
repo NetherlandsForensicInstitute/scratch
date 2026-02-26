@@ -9,6 +9,8 @@ from fastapi import HTTPException
 from loguru import logger
 from PIL import Image
 
+from extractors.schemas import ComparisonStriationFiles
+
 
 def calculate_striation_plots(
     mark_ref: Mark,
@@ -37,7 +39,8 @@ def save_plots(  # noqa: PLR0913
     mark_ref: Mark,
     mark_comp: Mark,
     mark_correlations: MarkCorrelationResult,
-    files_to_save: dict[str, Path],
+    working_dir: Path,
+    files_to_save: type[ComparisonStriationFiles],
     meta_data_compare: dict[str, str],
     meta_data_ref: dict[str, str],
 ) -> None:
@@ -54,10 +57,12 @@ def save_plots(  # noqa: PLR0913
         metadata_compared=meta_data_compare,
     )
     logger.debug("plots made")
-    # TODO: update this dict to a Pydantic class.
-    #  so plots.attribute is linked to get_file_path(ComparisonResponse.attribute)
-    Image.fromarray(plots.similarity_plot).save(files_to_save["similarity_plot"])
-    Image.fromarray(plots.side_by_side_heatmap).save(files_to_save["side_by_side_heatmap"])
-    Image.fromarray(plots.comparison_overview).save(files_to_save["comparison_overview"])
-    Image.fromarray(plots.filtered_compared_heatmap).save(files_to_save["filtered_compared_heatmap"])
-    Image.fromarray(plots.filtered_reference_heatmap).save(files_to_save["filtered_reference_heatmap"])
+    Image.fromarray(plots.similarity_plot).save(files_to_save.similarity_plot.get_file_path(working_dir))
+    Image.fromarray(plots.side_by_side_heatmap).save(files_to_save.side_by_side_heatmap.get_file_path(working_dir))
+    Image.fromarray(plots.comparison_overview).save(files_to_save.comparison_overview.get_file_path(working_dir))
+    Image.fromarray(plots.filtered_compared_heatmap).save(
+        files_to_save.filtered_compared_heatmap.get_file_path(working_dir)
+    )
+    Image.fromarray(plots.filtered_reference_heatmap).save(
+        files_to_save.filtered_reference_heatmap.get_file_path(working_dir)
+    )

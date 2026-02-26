@@ -137,7 +137,7 @@ class TestContracts:
             mark_ref=directory_access.resource_path,
             mark_comp=directory_access.resource_path,
             param=ImpressionParameters(),
-        ), ComparisonResponseImpression
+        ), ComparisonResponseImpression  # type: ignore
 
     @pytest.fixture(scope="class")
     def calculate_score_striation(self, directory_access: DirectoryAccess) -> Interface:
@@ -150,7 +150,7 @@ class TestContracts:
             mark_ref=directory_access.resource_path,
             mark_comp=directory_access.resource_path,
             param=StriationParamaters(metadata_reference={}, metadata_compared={}),
-        ), ComparisonResponseStriation
+        ), ComparisonResponseStriation  # type: ignore
 
     @pytest.fixture(scope="class")
     def calculate_lr_impression(self, directory_access: DirectoryAccess, tmp_path: Path) -> Interface:
@@ -183,7 +183,7 @@ class TestContracts:
             score=1,
             lr_system=lr_system,
             param=StriationLRParamaters(),
-        ), ComparisonResponseStriation
+        ), ComparisonResponseStriation  # type: ignore
 
     @pytest.mark.parametrize(
         "route",

@@ -4,7 +4,15 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 
 from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
-from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation, LRResponse, LRResponseURL
+from extractors.schemas import (
+    ComparisonImpressionFiles,
+    ComparisonResponseImpression,
+    ComparisonResponseStriation,
+    ComparisonStriationFiles,
+    LRResponse,
+    LRResponseURL,
+    generate_model_with_urls,
+)
 from file_services import create_vault
 from models import DirectoryAccess
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
@@ -50,10 +58,10 @@ async def processor_root() -> RedirectResponse:
     """,
     include_in_schema=False,
 )
-async def calculate_score_impression(impression: CalculateScoreImpression) -> ComparisonResponseImpression:
+async def calculate_score_impression(impression: CalculateScoreImpression) -> ComparisonResponseImpression:  # type: ignore
     """Compare two impression profiles."""
     vault = DirectoryAccess()  # type: ignore
-    return ComparisonResponseImpression.generate_urls(vault.access_url)
+    return generate_model_with_urls(name="", files=ComparisonImpressionFiles, base_url=vault.access_url)
 
 
 @processors.post(
@@ -65,11 +73,10 @@ async def calculate_score_impression(impression: CalculateScoreImpression) -> Co
     The score, together with plots, are saved and made available via URLs.
     """,
 )
-async def calculate_score_striation(striation_params: CalculateScoreStriation) -> ComparisonResponseStriation:
+async def calculate_score_striation(striation_params: CalculateScoreStriation) -> ComparisonResponseStriation:  # type: ignore
     """Compare two striation profiles."""
     logger.debug("starting calculate score striation")
     vault = create_vault(striation_params.tag)
-    expected_files = ComparisonResponseStriation.get_files(vault.resource_path)
     mark_ref = load_mark_from_path(path=striation_params.mark_ref, stem="processed")
     mark_comp = load_mark_from_path(path=striation_params.mark_comp, stem="processed")
     logger.debug("Marking loaded")
@@ -83,27 +90,34 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
         mark_ref=mark_ref,
         mark_comp=mark_comp,
         mark_correlations=mark_comparison,
-        files_to_save=expected_files,
+        working_dir=vault.resource_path,
+        files_to_save=ComparisonStriationFiles,
         meta_data_ref=striation_params.param.metadata_reference,
         meta_data_compare=striation_params.param.metadata_compared,
     )
     surface_map_pipeline(
         mark_comparison.mark_reference_aligned.scan_image,
-        expected_files["mark_ref_surfacemap"],
+        ComparisonStriationFiles.mark_ref_surfacemap.get_file_path(vault.resource_path),
         LIGHT_SOURCES,
         OBSERVER,
     )
-    preview_pipeline(mark_comparison.mark_reference_aligned.scan_image, expected_files["mark_ref_depthmap"])
+    preview_pipeline(
+        mark_comparison.mark_reference_aligned.scan_image,
+        ComparisonStriationFiles.mark_ref_depthmap.get_file_path(vault.resource_path),
+    )
     surface_map_pipeline(
         mark_comparison.mark_compared_aligned.scan_image,
-        expected_files["mark_comp_surfacemap"],
+        ComparisonStriationFiles.mark_comp_surfacemap.get_file_path(vault.resource_path),
         LIGHT_SOURCES,
         OBSERVER,
     )
-    preview_pipeline(mark_comparison.mark_compared_aligned.scan_image, expected_files["mark_comp_depthmap"])
+    preview_pipeline(
+        mark_comparison.mark_compared_aligned.scan_image,
+        ComparisonStriationFiles.mark_comp_depthmap.get_file_path(vault.resource_path),
+    )
     logger.debug(f"images saved in:{vault.resource_path}")
 
-    return ComparisonResponseStriation.generate_urls(vault.access_url)
+    return generate_model_with_urls(name="", files=ComparisonStriationFiles, base_url=vault.access_url)
 
 
 @processors.post(

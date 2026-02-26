@@ -4,7 +4,7 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated, Self, cast
 
-from pydantic import AfterValidator, BaseModel, Field, HttpUrl, model_serializer
+from pydantic import AfterValidator, BaseModel, Field, HttpUrl, create_model, model_serializer
 
 from models import (
     BaseModelConfig,
@@ -151,85 +151,71 @@ class PrepareMarkResponseImpression(PrepareMarkResponse):
     )
 
 
-class ComparisonResponse(BaseResponseURLs):
-    """Response model for comparison data access."""
+class UrlFiles(StrEnum):
+    def get_file_path(self, working_dir: Path) -> Path:
+        """Return path to the file with the given working directory."""
+        return working_dir / self.value
 
-    mark_ref_surfacemap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
-        json_schema_extra={"file_name": "mark_ref_surfacemap.png"},
-    )
-    mark_comp_surfacemap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
-        json_schema_extra={"file_name": "mark_comp_surfacemap.png"},
-    )
-    filtered_reference_heatmap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
-        json_schema_extra={"file_name": "filtered_reference_heatmap.png"},
-    )
-    comparison_overview: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "comparison_overview.png"},
-    )
+    def generate_url(self, access_url: str) -> str:
+        """Generate the url to retrieve the file via the endpoint."""
+        return f"{access_url}/{self.value}"
 
 
-class ComparisonResponseImpression(ComparisonResponse):
-    mark_ref_filtered_moved_surfacemap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "mark_ref_filtered_moved_surfacemap.png"},
-    )
-    mark_ref_filtered_bb_surfacemap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "mark_ref_filtered_bb_surfacemap.png"},
-    )
-    mark_comp_filtered_bb_surfacemap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "mark_comp_filtered_bb_surfacemap.png"},
-    )
-    mark_comp_filtered_all_bb_surfacemap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "mark_comp_filtered_all_bb_surfacemap.png"},
-    )
-    cell_accf_distribution: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "cell_accf_distribution.png"},
-    )
+class ComparisonImpressionFiles(UrlFiles):
+    mark_ref_surfacemap = "mark_ref_surfacemap.png"
+    mark_comp_surfacemap = "mark_comp_surfacemap.png"
+    filtered_reference_heatmap = "filtered_reference_heatmap.png"
+    comparison_overview = "comparison_overview.png"
+    mark_ref_filtered_moved_surfacemap = "mark_ref_filtered_moved_surfacemap.png"
+    mark_ref_filtered_bb_surfacemap = "mark_ref_filtered_bb_surfacemap.png"
+    mark_comp_filtered_bb_surfacemap = "mark_comp_filtered_bb_surfacemap.png"
+    mark_comp_filtered_all_bb_surfacemap = "mark_comp_filtered_all_bb_surfacemap.png"
+    cell_accf_distribution = "cell_accf_distribution.png"
 
 
-class ComparisonResponseStriation(ComparisonResponse):
-    mark_ref_depthmap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "mark_ref_depthmap.png"},
+class ComparisonStriationFiles(UrlFiles):
+    mark_ref_surfacemap = "mark_ref_surfacemap.png"
+    mark_comp_surfacemap = "mark_comp_surfacemap.png"
+    filtered_reference_heatmap = "filtered_reference_heatmap.png"
+    comparison_overview = "comparison_overview.png"
+    mark_ref_depthmap = "mark_ref_depthmap.png"
+    mark_comp_depthmap = "mark_comp_depthmap.png"
+    similarity_plot = "similarity_plot.png"
+    filtered_compared_heatmap = "filtered_compared_heatmap.png"
+    side_by_side_heatmap = "side_by_side_heatmap.png"
+
+
+def response_model_from_enum(name: str, files: type[StrEnum]) -> type[BaseModel]:
+    """Generate a Response model for the FastAPI server."""
+    return create_model(name, **{file.name: (HttpUrl, None) for file in files})  # type: ignore
+
+
+def generate_model_with_urls(
+    name: str,
+    files: type[StrEnum],
+    base_url: str,
+) -> BaseResponseURLs:
+    """Generate pydantic response model with urls initiated."""
+    data = {file.name: f"{base_url}/{file.value}" for file in files}
+    model = create_model(
+        name,
+        **{file.name: (HttpUrl, None) for file in files},  # type: ignore
     )
-    mark_comp_depthmap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "mark_ref_depthmap.png"},
+    return model.model_validate(data)
+
+
+ComparisonResponseStriation = type(
+    response_model_from_enum(
+        "ComparisonResponseStriation",
+        ComparisonImpressionFiles,
     )
-    similarity_plot: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "similarity_plot.png"},
+)
+ComparisonResponseImpression = type(
+    response_model_from_enum(
+        "ComparisonResponseImpression",
+        ComparisonStriationFiles,
     )
-    filtered_compared_heatmap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "filtered_compared_heatmap.png"},
-    )
-    side_by_side_heatmap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
-        json_schema_extra={"file_name": "side_by_side_heatmap.png"},
-    )
+)
 
 
 class LRResponseURL(BaseResponseURLs):
