@@ -1,9 +1,9 @@
 """
 Convert MATLAB result folders to Python by calling the preprocessor API.
 
-Walks a nested folder structure, converts x3p files (layer swap + checksum fix),
-extracts crop and preprocessing parameters from .mat files, and calls the local
-preprocessor API to regenerate marks.
+Walks a nested folder structure, converts x3p files, extracts crop and
+preprocessing parameters from .mat files, and calls the local preprocessor
+API to regenerate marks.
 
 Usage:
     python convert_matlab_results.py /path/to/root output/
@@ -11,15 +11,11 @@ Usage:
 """
 
 import argparse
-import hashlib
 import logging
-import xml.etree.ElementTree as ET  # noqa: S405
-import zipfile
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
-from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -27,12 +23,11 @@ import numpy as np
 import requests
 import scipy.io as sio
 from conversion.data_formats import MarkType
+from surfalize import Surface
 from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
-
-_MIN_LAYERS_FOR_SWAP = 2
 
 
 @dataclass
@@ -76,97 +71,14 @@ def load_mat_struct(mat_path: Path) -> np.ndarray:
     return sio.loadmat(str(mat_path), squeeze_me=True)["data_struct"]
 
 
-def _local_tag(el: ET.Element) -> str:
-    """Strip XML namespace prefix from an element tag."""
-    return el.tag.split("}")[-1] if "}" in el.tag else el.tag
+def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
+    """Re-save a MATLAB x3p as a clean single-layer x3p.
 
-
-def _x3p_metadata(root: ET.Element) -> tuple[int, int, np.dtype]:
-    """Extract (SizeX, SizeY, z_dtype) from parsed x3p XML in a single pass."""
-    nx = ny = 0
-    z_dtype = np.dtype(np.float32)
-    dtype_map = {"F": np.dtype(np.float32), "D": np.dtype(np.float64), "I": np.dtype(np.int16), "L": np.dtype(np.int32)}
-    for el in root.iter():
-        tag = _local_tag(el)
-        if tag == "SizeX" and el.text:
-            nx = int(el.text.strip())
-        elif tag == "SizeY" and el.text:
-            ny = int(el.text.strip())
-        elif tag == "CZ":
-            for child in el:
-                if _local_tag(child) == "DataType" and child.text:
-                    dt = child.text.strip().upper()
-                    if dt in dtype_map:
-                        z_dtype = dtype_map[dt]
-    return nx, ny, z_dtype
-
-
-def convert_x3p(input_path: Path, output_path: Path) -> None:
+    :returns: (size_x, size_y) pixel dimensions.
     """
-    Convert a MATLAB x3p to Python format by swapping data layers and fixing checksums.
-
-    MATLAB x3p files store height in the second layer; Python expects it in the first.
-    Also recomputes MD5 checksums for data.bin and main.xml.
-    """
-    with zipfile.ZipFile(input_path, "r") as zf_in:
-        xml_bytes = zf_in.read("main.xml")
-        tree = ET.parse(BytesIO(xml_bytes))  # noqa: S314
-        root = tree.getroot()
-        if root is None:
-            raise ValueError(f"Could not parse main.xml in {input_path}")
-        nx, ny, z_dtype = _x3p_metadata(root)
-
-        if nx == 0 or ny == 0:
-            raise ValueError(f"Could not determine dimensions (nx={nx}, ny={ny}) in {input_path}")
-
-        data_path = next((dp for dp in ["bindata/data.bin", "data.bin"] if dp in zf_in.namelist()), None)
-        if data_path is None:
-            raise ValueError(f"No data.bin found in {input_path}")
-
-        data = np.frombuffer(zf_in.read(data_path), dtype=z_dtype).copy()
-        expected = nx * ny
-        n_layers = len(data) // expected
-
-        if n_layers < 1:
-            raise ValueError(f"Data size mismatch in {input_path}: {len(data)} vs expected multiple of {expected}")
-
-        layers = [data[i * expected : (i + 1) * expected] for i in range(n_layers)]
-        if n_layers >= _MIN_LAYERS_FOR_SWAP:
-            layers = layers[::-1]
-        new_raw = np.concatenate(layers).astype(z_dtype).tobytes()
-
-        data_md5 = hashlib.md5(new_raw).hexdigest()  # noqa: S324
-        for el in root.iter():
-            if _local_tag(el) == "MD5ChecksumPointData":
-                el.text = data_md5
-
-        xml_out = BytesIO()
-        ET.ElementTree(root).write(xml_out, xml_declaration=True, encoding="UTF-8")
-        xml_new = xml_out.getvalue()
-        xml_md5 = hashlib.md5(xml_new).hexdigest()  # noqa: S324
-
-        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf_out:
-            for item in zf_in.namelist():
-                if item == data_path:
-                    zf_out.writestr(item, new_raw)
-                elif item == "main.xml":
-                    zf_out.writestr(item, xml_new)
-                elif item == "md5checksum.hex":
-                    zf_out.writestr(item, xml_md5)
-                else:
-                    zf_out.writestr(item, zf_in.read(item))
-
-
-def get_x3p_shape(x3p_path: Path) -> tuple[int, int]:
-    """Read pixel dimensions (SizeX, SizeY) from an x3p file's XML header."""
-    with zipfile.ZipFile(x3p_path) as z:
-        tree = ET.parse(z.open("main.xml"))  # noqa: S314
-    root = tree.getroot()
-    if root is None:
-        raise ValueError(f"Could not parse main.xml in {x3p_path}")
-    nx, ny, _ = _x3p_metadata(root)
-    if nx == 0 or ny == 0:
-        raise ValueError(f"Missing SizeX/SizeY in {x3p_path}")
+    surface = Surface.load(input_path)
+    surface.save(output_path)
+    ny, nx = surface.data.shape
     return nx, ny
 
 
@@ -194,11 +106,7 @@ def _parse_rectangle(raw: Any) -> np.ndarray:
     return np.asarray(raw[0], dtype=float)
 
 
-def extract_mask_and_bounding_box(
-    struct: np.ndarray,
-    size_x: int,
-    size_y: int,
-) -> tuple[np.ndarray, list | None]:
+def extract_mask_and_bounding_box(struct: np.ndarray, scan_shape: tuple[int, int]) -> tuple[np.ndarray, list | None]:
     """Extract a boolean mask and optional bounding box from crop_info in a MATLAB struct.
 
     Uses the first crop item. For ellipse/circle crops the bounding_box is None.
@@ -206,6 +114,7 @@ def extract_mask_and_bounding_box(
 
     :returns: (mask, bounding_box) or None if no valid crop info found.
     """
+    size_x, size_y = scan_shape
     crop_raw = _scalar(struct["crop_info"])
     while isinstance(crop_raw, np.ndarray) and crop_raw.dtype == object and crop_raw.size == 1:
         crop_raw = crop_raw.flat[0]
@@ -286,20 +195,22 @@ def copy_db_scratch_files(root: Path, output_dir: Path) -> int:
     return len(db_files)
 
 
-def convert_measurement_x3p(measurement_folder: Path, cfg: ConversionConfig) -> Path:
+def convert_measurement_x3p(measurement_folder: Path, cfg: ConversionConfig) -> tuple[Path, tuple[int, int]]:
     """Convert a measurement.x3p and generate preview/surface_map images.
 
-    :returns: Path to the converted x3p in the output directory.
+    :returns: (path to converted x3p, (size_x, size_y) pixel dimensions).
     """
     original = measurement_folder / "measurement.x3p"
     output_x3p = cfg.output_dir / measurement_folder.relative_to(cfg.root) / "measurement.x3p"
 
     if output_x3p.exists() and not cfg.force:
-        return output_x3p
+        surface = Surface.load(output_x3p)
+        ny, nx = surface.data.shape
+        return output_x3p, (nx, ny)
 
     output_x3p.parent.mkdir(parents=True, exist_ok=True)
 
-    convert_x3p(original, output_x3p)
+    shape = convert_x3p(original, output_x3p)
 
     result = requests.post(
         f"{cfg.api_url}/preprocessor/process-scan",
@@ -315,16 +226,20 @@ def convert_measurement_x3p(measurement_folder: Path, cfg: ConversionConfig) -> 
             resp.raise_for_status()
             (output_x3p.parent / url.rsplit("/", 1)[-1]).write_bytes(resp.content)
 
-    return output_x3p
+    return output_x3p, shape
 
 
-def convert_mark(mark_folder: Path, converted_x3p: Path, cfg: ConversionConfig) -> None:
+def convert_mark(
+    mark_folder: Path,
+    converted_x3p: Path,
+    scan_shape: tuple[int, int],
+    cfg: ConversionConfig,
+) -> None:
     """Process a single mark: extract params, call API, download results.
 
     Reads crop info and preprocessing parameters from mark.mat, builds the
     API request, and downloads the resulting files into the output directory.
     """
-    measurement_folder = mark_folder.parent
     mark_dir = cfg.output_dir / mark_folder.relative_to(cfg.root)
 
     if (mark_dir / "mark.json").exists() and not cfg.force:
@@ -333,8 +248,7 @@ def convert_mark(mark_folder: Path, converted_x3p: Path, cfg: ConversionConfig) 
     struct = load_mat_struct(mark_folder / "mark.mat")
     mark_type = extract_mark_type(struct)
 
-    size_x, size_y = get_x3p_shape(measurement_folder / "measurement.x3p")
-    mask, bounding_box_list = extract_mask_and_bounding_box(struct, size_x, size_y)
+    mask, bounding_box_list = extract_mask_and_bounding_box(struct, scan_shape)
 
     is_impression = mark_type.is_impression()
     endpoint = f"preprocessor/prepare-mark-{'impression' if is_impression else 'striation'}"
@@ -413,7 +327,7 @@ def main() -> None:
     )
 
     _run_parallel(
-        ((mf, convert_mark, (mf, converted_x3ps[meas], cfg)) for meas, mf in marks),
+        ((mf, convert_mark, (mf, *converted_x3ps[meas], cfg)) for meas, mf in marks),
         args.workers,
         "Converting marks",
         " marks",
