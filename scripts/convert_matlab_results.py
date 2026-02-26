@@ -11,7 +11,10 @@ Usage:
 """
 
 import argparse
+import contextlib
 import logging
+import os
+import warnings
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -23,11 +26,12 @@ import numpy as np
 import requests
 import scipy.io as sio
 from conversion.data_formats import MarkType
-from surfalize import Surface
 from tqdm import tqdm
+from x3p import X3Pfile
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+warnings.filterwarnings("ignore", message="The date must be in the following format")
 
 
 @dataclass
@@ -76,10 +80,18 @@ def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
 
     :returns: (size_x, size_y) pixel dimensions.
     """
-    surface = Surface.load(input_path)
-    surface.save(output_path)
-    ny, nx = surface.data.shape
-    return nx, ny
+    with open(os.devnull, "w") as devnull, contextlib.redirect_stdout(devnull):
+        x3p = X3Pfile(str(input_path))
+    x3p.write(str(output_path))
+    size_x, size_y = x3p.data.shape
+    return size_x, size_y
+
+
+def _get_x3p_shape(x3p_path: Path) -> tuple[int, int]:
+    """Read pixel dimensions (SizeX, SizeY) from an x3p file."""
+    x3p = X3Pfile(str(x3p_path))
+    size_x, size_y = x3p.data.shape
+    return size_x, size_y
 
 
 def _parse_ellipse(raw: Any) -> dict[str, Any]:
@@ -106,7 +118,11 @@ def _parse_rectangle(raw: Any) -> np.ndarray:
     return np.asarray(raw[0], dtype=float)
 
 
-def extract_mask_and_bounding_box(struct: np.ndarray, scan_shape: tuple[int, int]) -> tuple[np.ndarray, list | None]:
+def extract_mask_and_bounding_box(
+    struct: np.ndarray,
+    size_x: int,
+    size_y: int,
+) -> tuple[np.ndarray, list | None]:
     """Extract a boolean mask and optional bounding box from crop_info in a MATLAB struct.
 
     Uses the first crop item. For ellipse/circle crops the bounding_box is None.
@@ -114,7 +130,6 @@ def extract_mask_and_bounding_box(struct: np.ndarray, scan_shape: tuple[int, int
 
     :returns: (mask, bounding_box) or None if no valid crop info found.
     """
-    size_x, size_y = scan_shape
     crop_raw = _scalar(struct["crop_info"])
     while isinstance(crop_raw, np.ndarray) and crop_raw.dtype == object and crop_raw.size == 1:
         crop_raw = crop_raw.flat[0]
@@ -204,9 +219,7 @@ def convert_measurement_x3p(measurement_folder: Path, cfg: ConversionConfig) -> 
     output_x3p = cfg.output_dir / measurement_folder.relative_to(cfg.root) / "measurement.x3p"
 
     if output_x3p.exists() and not cfg.force:
-        surface = Surface.load(output_x3p)
-        ny, nx = surface.data.shape
-        return output_x3p, (nx, ny)
+        return output_x3p, _get_x3p_shape(output_x3p)
 
     output_x3p.parent.mkdir(parents=True, exist_ok=True)
 
@@ -232,7 +245,7 @@ def convert_measurement_x3p(measurement_folder: Path, cfg: ConversionConfig) -> 
 def convert_mark(
     mark_folder: Path,
     converted_x3p: Path,
-    scan_shape: tuple[int, int],
+    shape: tuple[int, int],
     cfg: ConversionConfig,
 ) -> None:
     """Process a single mark: extract params, call API, download results.
@@ -248,7 +261,8 @@ def convert_mark(
     struct = load_mat_struct(mark_folder / "mark.mat")
     mark_type = extract_mark_type(struct)
 
-    mask, bounding_box_list = extract_mask_and_bounding_box(struct, scan_shape)
+    size_x, size_y = shape
+    mask, bounding_box_list = extract_mask_and_bounding_box(struct, size_x, size_y)
 
     is_impression = mark_type.is_impression()
     endpoint = f"preprocessor/prepare-mark-{'impression' if is_impression else 'striation'}"
