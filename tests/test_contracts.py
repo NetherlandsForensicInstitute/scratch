@@ -8,6 +8,7 @@ import pytest
 import requests
 from container_models.base import BinaryMask
 from pydantic import BaseModel, HttpUrl
+from requests import Response
 
 from constants import PROJECT_ROOT
 from extractors.schemas import (
@@ -41,10 +42,6 @@ from processors.schemas import (
     StriationParamaters,
 )
 from settings import get_settings
-
-SCANS_DIR = PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
-CUTOFF_LENGTH = 250  # 250 micrometers in meters
-
 
 class RoutePrefix(StrEnum):
     COMPARATOR = "comparator"
@@ -111,7 +108,6 @@ class TestContracts:
         """
         return EndpointContractInterface(
             input_json={
-                "project_name": "forensic_analysis_2026",
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
                 "mark_type": "breech face impression mark",
                 "mask": mask,
@@ -150,7 +146,6 @@ class TestContracts:
         """
         return EndpointContractInterface(
             input_json={
-                "project_name": "forensic_analysis_2026",
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
                 "mark_type": "aperture shear striation mark",
                 "mask": mask,
@@ -177,21 +172,26 @@ class TestContracts:
         )
 
     @pytest.fixture(scope="class")
-    def edit_scan(self, scan_directory: Path) -> tuple[EditImage, bytes, type[GeneratedImages]]:
+    def edit_scan(self, scan_directory: Path) -> tuple[EndpointContractInterface,bytes]:
         """Create test data for edit-scan endpoint.
 
         Returns the post request data, expected response type, and mask bytes.
         """
+        CUTOFF_LENGTH = 250
         scan_file = scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p"
         parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
         rows, cols = parsed_scan.data.shape
-        mask = np.ones((rows, cols), dtype=np.bool_)
-        data = EditImage(  # type: ignore
-            scan_file=scan_file,
-            cutoff_length=CUTOFF_LENGTH,
-            mask_parameters=MaskParameters(shape=(rows, cols)),
-        )
-        return data, mask.tobytes(order="C"), GeneratedImages
+        return EndpointContractInterface(
+            input_json={
+                "scan_file": scan_file,
+                "cutoff_length": CUTOFF_LENGTH,
+                "mask_parameters": {"shape": (rows, cols), "is_bitpacked": False},
+            },
+            response_json={
+                "preview": "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/preview.png",
+                "surface_map": "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/surface_map.png",
+            },
+        ),np.ones((rows, cols), dtype=np.bool_).tobytes(order="C")
 
     @pytest.fixture(scope="class")
     def calculate_score_impression(self, directory_access: DirectoryAccess) -> Interface:
@@ -267,6 +267,13 @@ class TestContracts:
         expected_location = f"/docs#operations-tag-{route.lstrip('/')}"
         assert response.headers["location"] == expected_location, f"should redirect to {expected_location}"
 
+    def _assert_response_urls(self, response: Response, data: EndpointContractInterface):
+        assert response.status_code == HTTPStatus.OK, response.text
+        assert all(HttpUrl(url) for url in response.json().values())
+        for url in response.json().values():
+            assert requests.get(url, timeout=10).status_code == HTTPStatus.OK, response.text
+        assert data.response_json.keys() == response.json().keys()
+
     @pytest.mark.parametrize(
         ("fixture_name", "sub_route"),
         [
@@ -287,11 +294,7 @@ class TestContracts:
             timeout=20,
         )
         # Assert
-        assert response.status_code == HTTPStatus.OK, response.text
-        assert all(HttpUrl(url) for url in response.json().values())
-        for url in response.json().values():
-            assert requests.get(url, timeout=10).status_code == HTTPStatus.OK, response.text
-        assert data.response_json.keys() == response.json().keys()
+        self._assert_response_urls(data=data, response=response)
 
     @pytest.mark.xfail
     @pytest.mark.parametrize(
@@ -332,21 +335,18 @@ class TestContracts:
         assert response.status_code == HTTPStatus.OK
         expected_response.model_validate(response.json())
 
-    def test_pre_processor_edit_image_post_requests(
-        self, edit_scan: tuple[EditImage, bytes, type[GeneratedImages]]
-    ) -> None:
+    def test_pre_processor_edit_image_post_requests(self, edit_scan: tuple[EndpointContractInterface,bytes]) -> None:
         """Test if preprocessor EditImage POST endpoints return expected models."""
-        params, mask_bytes, expected_response = edit_scan
+        edit_scan_params, mask_bytes =edit_scan
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scan",
-            data={"params": json.dumps(params.model_dump(mode="json"))},
+            data={"params": json.dumps(edit_scan_params.input_json, default=str)},
             files={"mask_data": ("mask.bin", mask_bytes, "application/octet-stream")},
             timeout=5,
         )
         # Assert
-        assert response.status_code == HTTPStatus.OK
-        expected_response.model_validate(response.json())
+        self._assert_response_urls(data=edit_scan_params, response=response)
 
     def test_extractor_get_file_endpoint(self, directory_access: DirectoryAccess) -> None:
         """
