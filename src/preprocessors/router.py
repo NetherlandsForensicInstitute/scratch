@@ -222,4 +222,4 @@ async def edit_scan(
         observer=OBSERVER,
     )
     logger.info(f"Generated files saved to {vault}")
-    return generate_model_with_urls("GeneratedImages", GeneratedImageFiles, vault.access_url)
+    return GeneratedImages.from_enum(enum=GeneratedImageFiles, base_url=vault.access_url)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Annotated, Protocol, Self, cast
+from typing import Annotated, ClassVar, Generic, Protocol, Self, Type, TypeVar, cast
 
 from pydantic import AfterValidator, BaseModel, Field, HttpUrl, create_model, model_serializer
 
@@ -14,6 +14,7 @@ from extractors.constants import (
     PrepareMarkImpressionFiles,
     PrepareMarkStriationFiles,
     ProcessFiles,
+    UrlFiles,
 )
 from models import (
     BaseModelConfig,
@@ -39,8 +40,18 @@ type RelativePath = Annotated[
 ]
 
 
-class URLContainer(BaseModel):
-    def __getitem__(self, key: str) -> HttpUrl: ...
+F = TypeVar("F", bound=StrEnum)
+C = TypeVar("C", bound="URLContainer")
+
+
+class URLContainer(BaseModel, Generic[F]):
+    @classmethod
+    def from_enum(
+        cls: type[C],
+        enum: type[F],
+        base_url: str,
+    ) -> C:
+        return cls(**{file.name: f"{base_url}/{file.value}" for file in cls._files})
 
 
 def response_model_from_enum(name: str, files: type[StrEnum]) -> type[URLContainer]:
@@ -66,35 +77,32 @@ ComparisonResponseStriation = response_model_from_enum(
     "ComparisonResponseStriation",
     ComparisonImpressionFiles,
 )
-
 ComparisonResponseImpression = response_model_from_enum(
     "ComparisonResponseImpression",
     ComparisonStriationFiles,
 )
-
-
 PrepareMarkResponseImpression = response_model_from_enum(
     "PrepareMarkResponseImpression",
     PrepareMarkImpressionFiles,
 )
-
 PrepareMarkResponseStriation = response_model_from_enum(
     "PrepareMarkResponseStriation",
     PrepareMarkStriationFiles,
 )
-
 ProcessedDataAccess = response_model_from_enum(
     "ProcessedDataAccess",
     ProcessFiles,
 )
-GeneratedImages = response_model_from_enum(
-    "GeneratedImages",
-    GeneratedImageFiles,
-)
+
 LRResponseURL = response_model_from_enum(
     "LRResponseURL",
     LRFiles,
 )
+
+
+class GeneratedImages(URLContainer[GeneratedImageFiles]):
+    preview_image: HttpUrl
+    surface_map_image: HttpUrl
 
 
 class LRResponse(BaseModel):
