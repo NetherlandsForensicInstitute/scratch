@@ -12,7 +12,6 @@ Usage:
 
 import argparse
 import logging
-import os
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -20,15 +19,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from returns.unsafe import unsafe_perform_io
-
-os.environ["LOGURU_LEVEL"] = "WARNING"
-import numpy as np
 import requests
-import scipy.io as sio
-from conversion.data_formats import MarkType
 from parsers import load_scan_image, parse_to_x3p
+from returns.unsafe import unsafe_perform_io
 from tqdm import tqdm
+
+from scripts.http_utils import _post_with_retry
+from scripts.matlab_utils import (
+    extract_impression_params,
+    extract_mark_type,
+    extract_mask_and_bounding_box,
+    extract_striation_params,
+    load_mat_struct,
+)
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -47,34 +50,6 @@ class ConversionConfig:
         self.api_url = self.api_url.rstrip("/")
 
 
-def _scalar(value: Any) -> Any:
-    """Unwrap numpy 0-d arrays, single-element arrays, and empty arrays (→ None)."""
-    while isinstance(value, np.ndarray):
-        if value.size == 0:
-            return None
-        if value.ndim == 0:
-            value = value.item()
-        elif value.size == 1:
-            value = value.flat[0]
-        else:
-            break
-    return value
-
-
-def _data_param_field(struct: np.ndarray, field: str, default: Any = None) -> Any:
-    """Extract a field from the nested data_param sub-struct."""
-    dp = struct["data_param"].item()
-    if field in dp.dtype.names:
-        val = _scalar(dp[field])
-        return default if val is None else val
-    return default
-
-
-def load_mat_struct(mat_path: Path) -> np.ndarray:
-    """Load a .mat file and return the data_struct."""
-    return sio.loadmat(str(mat_path), squeeze_me=True)["data_struct"]
-
-
 def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
     """Load an X3P from path and parse it with the pipelines and write the result."""
     scan = unsafe_perform_io(load_scan_image(input_path).unwrap())
@@ -83,107 +58,21 @@ def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
     return scan.width, scan.height
 
 
+def _save_shape(path: Path, shape: tuple[int, int]) -> None:
+    path.with_suffix(".shape").write_text(f"{shape[0]},{shape[1]}")
+
+
+def _load_shape(path: Path) -> tuple[int, int] | None:
+    shape_file = path.with_suffix(".shape")
+    if shape_file.exists():
+        x, y = shape_file.read_text().strip().split(",")
+        return int(x), int(y)
+    return None
+
+
 def _get_x3p_shape(x3p_path: Path) -> tuple[int, int]:
     scan = unsafe_perform_io(load_scan_image(x3p_path).unwrap())
     return scan.width, scan.height
-
-
-def _parse_ellipse(raw: Any) -> dict[str, Any]:
-    """Parse ellipse crop parameters from a MATLAB tuple."""
-    raw = _scalar(raw)
-    return {
-        "center": np.asarray(raw[0], dtype=float),
-        "minor": float(raw[1]),
-        "major": float(raw[2]),
-        "angle": float(raw[3]),
-    }
-
-
-def _parse_circle(raw: Any) -> dict[str, Any]:
-    """Parse circle crop parameters, returning ellipse-compatible dict."""
-    raw = _scalar(raw)
-    center, radius = np.asarray(raw[0], dtype=float), float(raw[1])
-    return {"center": center, "minor": radius, "major": radius, "angle": 0.0}
-
-
-def _parse_rectangle(raw: Any) -> np.ndarray:
-    """Parse rectangle crop parameters, returning (4, 2) corner array."""
-    raw = _scalar(raw)
-    return np.asarray(raw[0], dtype=float)
-
-
-def extract_mask_and_bounding_box(
-    struct: np.ndarray,
-    size_x: int,
-    size_y: int,
-) -> tuple[np.ndarray, list | None]:
-    """Extract a boolean mask and optional bounding box from crop_info in a MATLAB struct.
-
-    Uses the first crop item. For ellipse/circle crops the bounding_box is None.
-    For rectangle crops the bounding_box is a (4, 2) float corners array.
-
-    :returns: (mask, bounding_box) or None if no valid crop info found.
-    """
-    crop_raw = _scalar(struct["crop_info"])
-    while isinstance(crop_raw, np.ndarray) and crop_raw.dtype == object and crop_raw.size == 1:
-        crop_raw = crop_raw.flat[0]
-
-    crop_type = str(_scalar(crop_raw[0]))
-    raw_params = _scalar(crop_raw[1])
-
-    if crop_type in ("ellipse", "circle"):
-        p = _parse_circle(raw_params) if crop_type == "circle" else _parse_ellipse(raw_params)
-        row, col = np.ogrid[:size_y, :size_x]
-        cos_a, sin_a = np.cos(np.radians(p["angle"])), np.sin(np.radians(p["angle"]))
-        dx, dy = col - p["center"][0], row - p["center"][1]
-        xr = cos_a * dx + sin_a * dy
-        yr = -sin_a * dx + cos_a * dy
-        mask = (xr / p["major"]) ** 2 + (yr / p["minor"]) ** 2 <= 1.0
-        return np.ascontiguousarray(mask[::-1, :]), None
-
-    if crop_type == "rectangle":
-        corners = _parse_rectangle(raw_params)
-        corners[:, 1] = size_y - corners[:, 1]
-        x0, x1 = int(corners[:, 0].min()), int(corners[:, 0].max())
-        y0, y1 = int(corners[:, 1].min()), int(corners[:, 1].max())
-        mask = np.zeros((size_y, size_x), dtype=bool)
-        mask[y0:y1, x0:x1] = True
-        return mask, corners.tolist()
-
-    raise ValueError(f"Unknown crop type: {crop_type}")
-
-
-def extract_mark_type(struct: np.ndarray) -> MarkType:
-    """Extract and map the MATLAB mark type string to a MarkType enum."""
-    return MarkType(str(_scalar(struct["mark_type"])).lower())
-
-
-def extract_impression_params(struct: np.ndarray, mark_type: MarkType) -> dict[str, Any]:
-    """Extract preprocessing parameters for impression marks from a MATLAB struct."""
-    hi, lo = _scalar(struct["cutoff_hi"]), _scalar(struct["cutoff_lo"])
-    return {
-        "pixel_size": mark_type.scale,
-        "adjust_pixel_spacing": bool(_data_param_field(struct, "bAdjustPixelSpacing", 1)),
-        "level_offset": bool(_data_param_field(struct, "bLevelOffset", 1)),
-        "level_tilt": bool(_data_param_field(struct, "bLevelTilt", 1)),
-        "level_2nd": bool(_data_param_field(struct, "bLevel2nd", 1)),
-        "interp_method": _data_param_field(struct, "intMeth", "cubic"),
-        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else None,
-        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else None,
-    }
-
-
-def extract_striation_params(struct: np.ndarray) -> dict[str, Any]:
-    """Extract preprocessing parameters for striation marks from a MATLAB struct."""
-    hi, lo = _scalar(struct["cutoff_hi"]), _scalar(struct["cutoff_lo"])
-    return {
-        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 2e-3,
-        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 2.5e-4,
-        "cut_borders_after_smoothing": bool(_data_param_field(struct, "cut_borders_after_smoothing", 1)),
-        "use_mean": bool(_data_param_field(struct, "use_mean", 1)),
-        "angle_accuracy": float(_data_param_field(struct, "angle_accuracy", 0.1)),
-        "subsampling_factor": int(_scalar(struct["subsampling"]) or 1),
-    }
 
 
 def find_mark_folders(root: Path) -> Iterator[tuple[Path, Path]]:
@@ -213,19 +102,17 @@ def convert_measurement_x3p(measurement_folder: Path, cfg: ConversionConfig) -> 
     output_x3p = cfg.output_dir / measurement_folder.relative_to(cfg.root) / "measurement.x3p"
 
     if output_x3p.exists() and not cfg.force:
+        shape = _load_shape(output_x3p)
+        if shape is not None:
+            return output_x3p, shape
         return output_x3p, _get_x3p_shape(output_x3p)
 
     output_x3p.parent.mkdir(parents=True, exist_ok=True)
 
     shape = convert_x3p(original, output_x3p)
+    _save_shape(output_x3p, shape)
 
-    result = requests.post(
-        f"{cfg.api_url}/preprocessor/process-scan",
-        json={"scan_file": str(output_x3p)},
-        timeout=300,
-    )
-    result.raise_for_status()
-    result = result.json()
+    result = _post_with_retry(f"{cfg.api_url}/preprocessor/process-scan", {"scan_file": str(output_x3p)})
     for key in ("preview", "surface_map"):
         if key in result:
             url = result[key]
@@ -265,14 +152,12 @@ def convert_mark(
     body: dict[str, Any] = {
         "scan_file": str(converted_x3p),
         "mark_type": mark_type.value,
-        "mask": mask.astype(float).tolist(),
+        "mask": mask.astype(int).tolist(),
         "mark_parameters": params,
         "bounding_box_list": bounding_box_list,
     }
 
-    resp = requests.post(f"{cfg.api_url}/{endpoint}", json=body, timeout=300)
-    resp.raise_for_status()
-    result = resp.json()
+    result = _post_with_retry(f"{cfg.api_url}/{endpoint}", body)
 
     processed_dir = mark_dir / "processed"
     mark_dir.mkdir(parents=True, exist_ok=True)
@@ -317,6 +202,7 @@ def main() -> None:
     parser.add_argument("--api-url", default="http://localhost:8000", help="Preprocessor API base URL")
     parser.add_argument("--workers", type=int, default=1, help="Number of parallel workers")
     parser.add_argument("--force", action="store_true", help="Reconvert even if output exists")
+    parser.add_argument("--limit", type=int, default=None, help="Only process first N marks (for debugging)")
     args = parser.parse_args()
 
     cfg = ConversionConfig(root=args.root, output_dir=args.output, api_url=args.api_url, force=args.force)
@@ -324,6 +210,8 @@ def main() -> None:
     copy_db_scratch_files(cfg.root, cfg.output_dir)
 
     marks = list(tqdm(find_mark_folders(cfg.root), desc="Scanning", unit=" marks"))
+    if args.limit:
+        marks = marks[: args.limit]
     logger.info(f"Found {len(marks)} marks")
 
     unique_measurements = list({mf for mf, _ in marks})
