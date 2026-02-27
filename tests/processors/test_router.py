@@ -187,9 +187,9 @@ class TestStriationMark:
             "filtered_compared_heatmap",
             "filtered_reference_heatmap",
             "mark_ref_surfacemap",
-            "mark_ref_depthmap",
+            "mark_ref_preview",
             "mark_comp_surfacemap",
-            "mark_comp_depthmap",
+            "mark_comp_preview",
         ]
 
         json_data = CalculateScoreStriation(
