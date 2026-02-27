@@ -1,4 +1,5 @@
 from conversion.export.mark import load_mark_from_path
+from conversion.export.profile import load_profile_from_path
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from loguru import logger
@@ -72,35 +73,34 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
     expected_files = ComparisonResponseStriation.get_files(vault.resource_path)
     mark_ref = load_mark_from_path(path=striation_params.mark_ref, stem="processed")
     mark_comp = load_mark_from_path(path=striation_params.mark_comp, stem="processed")
-    logger.debug("Marking loaded")
-    mark_comparison = compare_striation_marks(
-        mark_ref=mark_ref,
-        mark_comp=mark_comp,
-        ref_path=striation_params.mark_ref,
-        compare_path=striation_params.mark_ref,
+    profile_ref = load_profile_from_path(path=striation_params.mark_ref, stem="profile")
+    profile_comp = load_profile_from_path(path=striation_params.mark_ref, stem="profile")
+    logger.debug("marks & profiles loaded")
+    comparison_result = compare_striation_marks(
+        mark_ref=mark_ref, mark_comp=mark_comp, profile_ref=profile_ref, profile_comp=profile_comp
     )
     save_striation_comparison_plots(
         mark_ref=mark_ref,
         mark_comp=mark_comp,
-        mark_correlations=mark_comparison,
+        mark_correlations=comparison_result,
         files_to_save=expected_files,
         meta_data_ref=striation_params.param.metadata_reference,
         meta_data_compare=striation_params.param.metadata_compared,
     )
     surface_map_pipeline(
-        mark_comparison.mark_reference_aligned.scan_image,
+        comparison_result.mark_reference_aligned.scan_image,
         expected_files["mark_ref_surfacemap"],
         LIGHT_SOURCES,
         OBSERVER,
     )
-    preview_pipeline(mark_comparison.mark_reference_aligned.scan_image, expected_files["mark_ref_depthmap"])
+    preview_pipeline(comparison_result.mark_reference_aligned.scan_image, expected_files["mark_ref_depthmap"])
     surface_map_pipeline(
-        mark_comparison.mark_compared_aligned.scan_image,
+        comparison_result.mark_compared_aligned.scan_image,
         expected_files["mark_comp_surfacemap"],
         LIGHT_SOURCES,
         OBSERVER,
     )
-    preview_pipeline(mark_comparison.mark_compared_aligned.scan_image, expected_files["mark_comp_depthmap"])
+    preview_pipeline(comparison_result.mark_compared_aligned.scan_image, expected_files["mark_comp_depthmap"])
     logger.debug(f"images saved in:{vault.resource_path}")
 
     return ComparisonResponseStriation.generate_urls(vault.access_url)

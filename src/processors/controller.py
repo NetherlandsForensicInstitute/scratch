@@ -2,30 +2,24 @@ from http import HTTPStatus
 from pathlib import Path
 
 from conversion.data_formats import Mark
-from conversion.export.profile import load_profile_from_path
 from conversion.plots.plot_striation import plot_striation_comparison_results
-from conversion.profile_correlator import MarkCorrelationResult, correlate_striation_marks
+from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from fastapi import HTTPException
 from loguru import logger
 from PIL import Image
 
 
 def compare_striation_marks(
-    mark_ref: Mark,
-    mark_comp: Mark,
-    compare_path: Path,
-    ref_path: Path,
+    mark_ref: Mark, mark_comp: Mark, profile_ref: Profile, profile_comp: Profile
 ) -> MarkCorrelationResult:
     """Calculate correlation between two striation marks."""
-    mark_ref_profile = load_profile_from_path(path=ref_path, stem="profile")
-    mark_comp_profile = load_profile_from_path(path=compare_path, stem="profile")
     logger.debug("Profile loaded")
 
     mark_correlations = correlate_striation_marks(
         mark_reference=mark_ref,
         mark_compared=mark_comp,
-        profile_reference=mark_ref_profile,
-        profile_compared=mark_comp_profile,
+        profile_reference=profile_ref,
+        profile_compared=profile_comp,
     )
     if not mark_correlations:
         raise HTTPException(HTTPStatus.INTERNAL_SERVER_ERROR, "No correlations were found.")
