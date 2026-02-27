@@ -215,15 +215,15 @@ class ComparisonResponseImpression(ComparisonResponse):
 
 
 class ComparisonResponseStriation(ComparisonResponse):
-    mark_ref_depthmap: HttpUrl = Field(
+    mark_ref_preview: HttpUrl = Field(
         description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_depthmap.png"],
-        json_schema_extra={"file_name": "mark_ref_depthmap.png"},
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_preview.png"],
+        json_schema_extra={"file_name": "mark_ref_preview.png"},
     )
-    mark_comp_depthmap: HttpUrl = Field(
+    mark_comp_preview: HttpUrl = Field(
         description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_comp_depthmap.png"],
-        json_schema_extra={"file_name": "mark_ref_depthmap.png"},
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_comp_preview.png"],
+        json_schema_extra={"file_name": "mark_comp_preview.png"},
     )
     similarity_plot: HttpUrl = Field(
         description="",
