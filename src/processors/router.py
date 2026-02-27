@@ -8,7 +8,7 @@ from extractors.schemas import ComparisonResponseImpression, ComparisonResponseS
 from file_services import create_vault
 from models import DirectoryAccess
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
-from processors.controller import calculate_striation_plots, save_plots
+from processors.controller import compare_striation_marks, save_striation_comparison_plots
 from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
@@ -73,13 +73,13 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
     mark_ref = load_mark_from_path(path=striation_params.mark_ref, stem="processed")
     mark_comp = load_mark_from_path(path=striation_params.mark_comp, stem="processed")
     logger.debug("Marking loaded")
-    mark_comparison = calculate_striation_plots(
+    mark_comparison = compare_striation_marks(
         mark_ref=mark_ref,
         mark_comp=mark_comp,
         ref_path=striation_params.mark_ref,
         compare_path=striation_params.mark_ref,
     )
-    save_plots(
+    save_striation_comparison_plots(
         mark_ref=mark_ref,
         mark_comp=mark_comp,
         mark_correlations=mark_comparison,

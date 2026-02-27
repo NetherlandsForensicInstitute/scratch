@@ -10,13 +10,13 @@ from loguru import logger
 from PIL import Image
 
 
-def calculate_striation_plots(
+def compare_striation_marks(
     mark_ref: Mark,
     mark_comp: Mark,
     compare_path: Path,
     ref_path: Path,
 ) -> MarkCorrelationResult:
-    """Calculate striation plots."""
+    """Calculate correlation between two striation marks."""
     mark_ref_profile = load_profile_from_path(path=ref_path, stem="profile")
     mark_comp_profile = load_profile_from_path(path=compare_path, stem="profile")
     logger.debug("Profile loaded")
@@ -28,12 +28,12 @@ def calculate_striation_plots(
         profile_compared=mark_comp_profile,
     )
     if not mark_correlations:
-        raise HTTPException(HTTPStatus.INTERNAL_SERVER_ERROR, "we have found no correlations, I know shouldn't happens")
-    logger.debug("correlations made")
+        raise HTTPException(HTTPStatus.INTERNAL_SERVER_ERROR, "No correlations were found.")
+    logger.debug("correlations are calculated")
     return mark_correlations
 
 
-def save_plots(  # noqa: PLR0913
+def save_striation_comparison_plots(  # noqa: PLR0913
     mark_ref: Mark,
     mark_comp: Mark,
     mark_correlations: MarkCorrelationResult,
@@ -53,7 +53,7 @@ def save_plots(  # noqa: PLR0913
         metadata_reference=meta_data_ref,
         metadata_compared=meta_data_compare,
     )
-    logger.debug("plots made")
+    logger.debug("striation comparison plots generated")
     # TODO: update this dict to a Pydantic class.
     #  so plots.attribute is linked to get_file_path(ComparisonResponse.attribute)
     Image.fromarray(plots.similarity_plot).save(files_to_save["similarity_plot"])
