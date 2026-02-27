@@ -133,7 +133,13 @@ def _outliers_gesd(
 
     if outliers <= 0 or len(data) < 3:
         return np.zeros(len(data), dtype=bool)
-    return outliers_gesd(data, outliers=outliers, hypo=hypo, alpha=alpha)
+    mask_sorted = outliers_gesd(data, outliers=outliers, hypo=hypo, alpha=alpha)
+    # Unsort: argsort gives the permutation that sorts data;
+    # placing mask_sorted values at those positions recovers original order.
+    argsort = np.argsort(data)
+    mask_original = np.zeros(len(data), dtype=bool)
+    mask_original[argsort] = mask_sorted
+    return mask_original
 
 
 def _circular_median(angles: np.ndarray) -> float:
