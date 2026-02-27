@@ -4,11 +4,10 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 
 from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
+from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from extractors.schemas import (
-    ComparisonImpressionFiles,
     ComparisonResponseImpression,
     ComparisonResponseStriation,
-    ComparisonStriationFiles,
     LRResponse,
     LRResponseURL,
     generate_model_with_urls,
@@ -157,7 +156,8 @@ async def calculate_lr_impression(impression: CalculateLRImpression) -> LRRespon
     #         impression.lr_system,
     #     )
     # )
-    return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=42)
+    urls = generate_model_with_urls("LRResponseURL", LRFiles, vault.access_url)
+    return LRResponse(urls=urls, lr=42)
 
 
 @processors.post(
@@ -181,4 +181,5 @@ async def calculate_lr_striation(striation: CalculateLRStriation) -> LRResponse:
     #         striation.lr_system,
     #     )
     # )
-    return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=42)
+    urls = generate_model_with_urls("LRResponseURL", LRFiles, vault.access_url)
+    return LRResponse(urls=urls, lr=42)

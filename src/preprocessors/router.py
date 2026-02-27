@@ -13,7 +13,18 @@ from constants import (
     RoutePrefix,
 )
 from extractors import ProcessedDataAccess
-from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
+from extractors.constants import (
+    GeneratedImageFiles,
+    PrepareMarkImpressionFiles,
+    PrepareMarkStriationFiles,
+    ProcessFiles,
+)
+from extractors.schemas import (
+    GeneratedImages,
+    PrepareMarkResponseImpression,
+    PrepareMarkResponseStriation,
+    generate_model_with_urls,
+)
 from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
@@ -74,13 +85,14 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     """
     vault = create_vault(upload_scan.tag)
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
-    files = ProcessedDataAccess.get_files(vault.resource_path)
-    x3p_pipeline(parsed_scan, files["scan"])
-    surface_map_pipeline(parsed_scan, files["surface_map"], LIGHT_SOURCES, OBSERVER)
-    preview_pipeline(parsed_scan, files["preview"])
+    x3p_pipeline(parsed_scan, ProcessFiles.scan_image.get_file_path(vault.resource_path))
+    surface_map_pipeline(
+        parsed_scan, ProcessFiles.surface_map_image.get_file_path(vault.resource_path), LIGHT_SOURCES, OBSERVER
+    )
+    preview_pipeline(parsed_scan, ProcessFiles.preview_image.get_file_path(vault.resource_path))
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess.model_validate(ProcessedDataAccess.generate_urls(vault.access_url))
+    return generate_model_with_urls("ProcessedDataAccess", ProcessFiles, vault.access_url)
 
 
 @preprocessor_route.post(
@@ -101,15 +113,15 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
     process_prepare_impression_mark(
-        files=PrepareMarkResponseImpression.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
         mark_type=prepare_mark_parameters.mark_type,
         mask=prepare_mark_parameters.mask_array,
         bounding_box=prepare_mark_parameters.bounding_box,
         preprocess_parameters=prepare_mark_parameters.mark_parameters,
+        working_dir=vault.resource_path,
     )
     logger.info(f"Generated files saved to {vault}")
-    return PrepareMarkResponseImpression.generate_urls(vault.access_url)
+    return generate_model_with_urls("PrepareMarkResponseImpression", PrepareMarkImpressionFiles, vault.access_url)
 
 
 @preprocessor_route.post(
@@ -130,7 +142,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
     process_prepare_striation_mark(
-        files=PrepareMarkResponseStriation.get_files(vault.resource_path),
+        working_dir=vault.resource_path,
         scan_file=prepare_mark_parameters.scan_file,
         mark_type=prepare_mark_parameters.mark_type,
         mask=prepare_mark_parameters.mask_array,
@@ -138,7 +150,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
         preprocess_parameters=prepare_mark_parameters.mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
-    return PrepareMarkResponseStriation.generate_urls(vault.access_url)
+    return generate_model_with_urls("PrepareMarkResponseStriation", PrepareMarkStriationFiles, vault.access_url)
 
 
 @preprocessor_route.post(
@@ -198,15 +210,16 @@ async def edit_scan(
         shape=params.mask_parameters.shape,
         is_bitpacked=params.mask_parameters.is_bitpacked,
     )
-    files = GeneratedImages.get_files(vault.resource_path)
 
     edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
-    preview_pipeline(parsed_scan=edited_scan_image, output_path=files["preview"])
+    preview_pipeline(
+        parsed_scan=edited_scan_image, output_path=GeneratedImageFiles.preview_image.get_file_path(vault.resource_path)
+    )
     surface_map_pipeline(
         parsed_scan=edited_scan_image,
-        output_path=files["surface_map"],
+        output_path=GeneratedImageFiles.surface_map_image.get_file_path(vault.resource_path),
         light_sources=LIGHT_SOURCES,
         observer=OBSERVER,
     )
     logger.info(f"Generated files saved to {vault}")
-    return GeneratedImages.generate_urls(vault.access_url)
+    return generate_model_with_urls("GeneratedImages", GeneratedImageFiles, vault.access_url)

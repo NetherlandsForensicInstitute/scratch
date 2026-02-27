@@ -18,6 +18,7 @@ from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resam
 from skimage.transform import resize
 
 from constants import LIGHT_SOURCES, OBSERVER
+from extractors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline
 from preprocessors.schemas import EditImage
 
@@ -39,18 +40,21 @@ def _extract_mark_from_scan(
     return mark
 
 
-def _save_outputs(mark: Mark, processed_mark: Mark, files: dict[str, Path]) -> None:
+def _save_outputs(mark: Mark, processed_mark: Mark, working_dir: Path) -> None:
     """Save surface map, preview, raw mark, and processed mark."""
     logger.info("Saving marks, surface_map.png and preview.png")
     surface_map_pipeline(
         parsed_scan=processed_mark.scan_image,
-        output_path=files["surface_map"],
+        output_path=PrepareMarkStriationFiles.surface_map_image.get_file_path(working_dir),
         observer=OBSERVER,
         light_sources=LIGHT_SOURCES,
     )
-    preview_pipeline(parsed_scan=processed_mark.scan_image, output_path=files["preview"])
-    save_mark(mark, path=files["mark_data"])
-    save_mark(processed_mark, path=files["processed_data"])
+    preview_pipeline(
+        parsed_scan=processed_mark.scan_image,
+        output_path=PrepareMarkStriationFiles.preview_image.get_file_path(working_dir),
+    )
+    save_mark(mark, path=PrepareMarkStriationFiles.mark_data.get_file_path(working_dir))
+    save_mark(processed_mark, path=PrepareMarkStriationFiles.processed_data.get_file_path(working_dir))
 
 
 def process_prepare_impression_mark(  # noqa: PLR0913
@@ -59,15 +63,14 @@ def process_prepare_impression_mark(  # noqa: PLR0913
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
     preprocess_parameters: PreprocessingImpressionParams,
-    files: dict[str, Path],
-) -> dict[str, Path]:
+    working_dir: Path,
+) -> None:
     """Prepare impression mark data."""
     mark = _extract_mark_from_scan(scan_file, mark_type, mask, bounding_box)
     logger.info("Preparing mark")
     processed_mark, leveled_mark = preprocess_impression_mark(mark, params=preprocess_parameters)
-    _save_outputs(mark, processed_mark, files)
-    save_mark(leveled_mark, path=files["leveled_data"])
-    return files
+    _save_outputs(mark, processed_mark, working_dir)
+    save_mark(leveled_mark, path=PrepareMarkImpressionFiles.leveled_data.get_file_path(working_dir))
 
 
 def process_prepare_striation_mark(  # noqa: PLR0913
@@ -76,15 +79,14 @@ def process_prepare_striation_mark(  # noqa: PLR0913
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
     preprocess_parameters: PreprocessingStriationParams,
-    files: dict[str, Path],
-) -> dict[str, Path]:
+    working_dir: Path,
+) -> None:
     """Prepare striation mark data."""
     mark = _extract_mark_from_scan(scan_file, mark_type, mask, bounding_box)
     logger.info("Preparing mark")
     processed_mark, profile = preprocess_striation_mark(mark, params=preprocess_parameters)
-    _save_outputs(mark, processed_mark, files)
-    save_profile(profile, path=files["profile_data"])
-    return files
+    _save_outputs(mark, processed_mark, working_dir)
+    save_profile(profile, path=PrepareMarkStriationFiles.profile_data.get_file_path(working_dir))
 
 
 def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: BinaryMask) -> ScanImage:

@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from loguru import logger
 from PIL import Image
 
-from extractors.schemas import ComparisonStriationFiles
+from extractors.constants import ComparisonStriationFiles
 
 
 def calculate_striation_plots(
