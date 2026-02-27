@@ -7,7 +7,7 @@ import numpy as np
 from container_models.base import FloatArray1D
 
 
-def m_to_pixels(size_m: FloatArray1D, pixel_spacing: FloatArray1D) -> np.ndarray:
+def meters_to_pixels(size_m: FloatArray1D, pixel_spacing: FloatArray1D) -> np.ndarray:
     """
     Convert a size in meters to the nearest integer number of pixels.
 
@@ -18,7 +18,7 @@ def m_to_pixels(size_m: FloatArray1D, pixel_spacing: FloatArray1D) -> np.ndarray
     return np.round(size_m / pixel_spacing).astype(int)
 
 
-def center_m_to_top_left_pixel(
+def compute_top_left_pixel_of_cell(
     center_m: FloatArray1D,
     cell_size_px: np.ndarray,
     pixel_spacing: FloatArray1D,

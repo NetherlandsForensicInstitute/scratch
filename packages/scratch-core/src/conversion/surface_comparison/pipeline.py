@@ -1,5 +1,5 @@
 from conversion.surface_comparison.models import (
-    SurfaceMap,
+    ScanImage,
     ComparisonResult,
     ComparisonParams,
 )
@@ -10,7 +10,7 @@ from conversion.surface_comparison.cmc_classification import (
 
 
 def run_comparison_pipeline(
-    reference_map: SurfaceMap, comparison_map: SurfaceMap, params: ComparisonParams
+    reference_map: ScanImage, comparison_map: ScanImage, params: ComparisonParams
 ) -> ComparisonResult:
     """
     Execute the NIST Congruent Matching Cells (CMC) pipeline.

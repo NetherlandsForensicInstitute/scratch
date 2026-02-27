@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from container_models.scan_image import ScanImage
-from conversion.surface_comparison.models import ComparisonParams, SurfaceMap
+from conversion.surface_comparison.models import ComparisonParams
 
 
 @dataclass
@@ -15,8 +15,8 @@ class MatlabTestCase:
     """A single MATLAB test case with inputs and expected outputs."""
 
     case_name: str
-    reference_map: SurfaceMap
-    comparison_map: SurfaceMap
+    reference_map: ScanImage
+    comparison_map: ScanImage
     params: ComparisonParams
     expected_results: dict
 
@@ -50,7 +50,7 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
 
 def _load_surface_map(
     case_dir: Path, height_data_name: str, scale_x: float, scale_y: float
-) -> SurfaceMap:
+) -> ScanImage:
     """Load a surface map from a .npy depth file and pixel scale dimensions."""
     data = np.load(str(case_dir / f"input_{height_data_name}_depth_data.npy")).astype(
         np.float64

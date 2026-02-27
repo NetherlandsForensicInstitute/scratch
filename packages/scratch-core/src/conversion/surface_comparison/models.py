@@ -1,15 +1,35 @@
-from pydantic import Field
+from pydantic import Field, field_validator
 
 import numpy as np
 
-from container_models.base import ConfigBaseModel, FloatArray1D
-from container_models.scan_image import ScanImage
+from container_models.base import ConfigBaseModel, FloatArray1D, FloatArray2D
 
-# SurfaceMap is a ScanImage: height map data with pixel spacing, and derived
-# physical_size and global_center properties are provided by ScanImage.
-# All spatial quantities (pixel_spacing, physical_size, global_center, cell_size)
-# are in meters.
-SurfaceMap = ScanImage
+
+class Cell(ConfigBaseModel):
+    """
+    :param center_reference: Cell center on reference image [x, y] in meters, shape(2, ).
+    :param cell_data: Height_data, in meters, FloatArray2D
+    :param fill_fraction: Surface based on the number of pixels divided by the desired surface.
+    :param best_score: best cross_correlation score
+    :param angle: angle rotation on reference corresponding to best correlation score
+    :param center_comparison: cell center on comparison image (x, y) in meters corresponding to best correlation score
+
+    """
+
+    center_reference: FloatArray1D
+    cell_data: FloatArray2D
+    fill_fraction: float = Field(..., ge=0.0, le=1.0)
+    best_score: float = Field(..., le=1.0)
+    angle: float = Field(..., ge=-180, le=180)
+    center_comparison: FloatArray1D
+
+    @field_validator("fill_fraction", "best_score", mode="before")
+    @classmethod
+    def check_upper_bound_with_tol(cls, v):
+        TOL = 1e-6
+        if v > 1.0 + TOL:
+            raise ValueError(f"value must be ≤ 1.0 (+{TOL} tolerance)")
+        return min(v, 1.0)  # optionally clip
 
 
 class CellResult(ConfigBaseModel):
