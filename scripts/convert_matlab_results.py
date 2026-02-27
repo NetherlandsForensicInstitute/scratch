@@ -11,10 +11,8 @@ Usage:
 """
 
 import argparse
-import contextlib
 import logging
 import os
-import warnings
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -22,16 +20,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from returns.unsafe import unsafe_perform_io
+
+os.environ["LOGURU_LEVEL"] = "WARNING"
 import numpy as np
 import requests
 import scipy.io as sio
 from conversion.data_formats import MarkType
+from parsers import load_scan_image, parse_to_x3p
 from tqdm import tqdm
-from x3p import X3Pfile
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
-warnings.filterwarnings("ignore", message="The date must be in the following format")
 
 
 @dataclass
@@ -76,22 +76,16 @@ def load_mat_struct(mat_path: Path) -> np.ndarray:
 
 
 def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
-    """Re-save a MATLAB x3p as a clean single-layer x3p.
-
-    :returns: (size_x, size_y) pixel dimensions.
-    """
-    with open(os.devnull, "w") as devnull, contextlib.redirect_stdout(devnull):
-        x3p = X3Pfile(str(input_path))
+    """Load an X3P from path and parse it with the pipelines and write the result."""
+    scan = unsafe_perform_io(load_scan_image(input_path).unwrap())
+    x3p = parse_to_x3p(scan).unwrap()
     x3p.write(str(output_path))
-    size_x, size_y = x3p.data.shape
-    return size_x, size_y
+    return scan.width, scan.height
 
 
 def _get_x3p_shape(x3p_path: Path) -> tuple[int, int]:
-    """Read pixel dimensions (SizeX, SizeY) from an x3p file."""
-    x3p = X3Pfile(str(x3p_path))
-    size_x, size_y = x3p.data.shape
-    return size_x, size_y
+    scan = unsafe_perform_io(load_scan_image(x3p_path).unwrap())
+    return scan.width, scan.height
 
 
 def _parse_ellipse(raw: Any) -> dict[str, Any]:
