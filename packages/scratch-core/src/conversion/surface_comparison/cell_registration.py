@@ -214,6 +214,7 @@ def _fine_tune_cell(cell: Cell, comparison_image: ScanImage):
         or pixel_width == 0
     ):
         cell.best_score = 0
+        return
 
     # Crop the comparison image to the region around the Stage 1 estimate.
     # The crop is the same size as the reference cell_data so that phase
@@ -228,6 +229,7 @@ def _fine_tune_cell(cell: Cell, comparison_image: ScanImage):
 
     if comp_crop is None:
         cell.best_score = 0
+        return
 
     shift, _, _ = phase_cross_correlation(
         cell_data_mean_subtracted - cell_data_mean_subtracted.mean(),
