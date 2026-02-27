@@ -9,48 +9,31 @@ class Cell(ConfigBaseModel):
     """
     :param center_reference: Cell center on reference image [x, y] in meters, shape(2, ).
     :param cell_data: Height_data, in meters, FloatArray2D
-    :param fill_fraction: Surface based on the number of pixels divided by the desired surface.
+    :param fill_fraction_reference: Surface based on the number of pixels divided by the desired surface.
     :param best_score: best cross_correlation score
-    :param angle: angle rotation on reference corresponding to best correlation score
+    :param angle_reference: angle rotation on reference corresponding to best correlation score
     :param center_comparison: cell center on comparison image (x, y) in meters corresponding to best correlation score
+    :param is_congruent: True if this cell is classified as a Congruent Matching Cell (CMC).
 
     """
 
     center_reference: FloatArray1D
     cell_data: FloatArray2D
-    fill_fraction: float = Field(..., ge=0.0, le=1.0)
-    best_score: float = Field(..., le=1.0)
-    angle: float = Field(..., ge=-180, le=180)
-    center_comparison: FloatArray1D
+    fill_fraction_reference: float = Field(..., ge=0.0, le=1.0)
+    best_score: float | None = Field(None, le=1.0)
+    angle_reference: float | None = Field(None, ge=-180, le=180)
+    center_comparison: FloatArray1D | None = None
+    is_congruent: bool = False
 
-    @field_validator("fill_fraction", "best_score", mode="before")
+    @field_validator("fill_fraction_reference", "best_score", mode="before")
     @classmethod
     def check_upper_bound_with_tol(cls, v):
         TOL = 1e-6
+        if v is None:
+            return v
         if v > 1.0 + TOL:
             raise ValueError(f"value must be ≤ 1.0 (+{TOL} tolerance)")
         return min(v, 1.0)  # optionally clip
-
-
-class CellResult(ConfigBaseModel):
-    """
-    Registration and similarity results for a single cell.
-
-    :param center_reference: Cell center [x, y] on the reference surface (m), shape (2,).
-    :param center_comparison: Cell center [x, y] on the comparison surface (m), shape (2,).
-    :param registration_angle: Optimal rotation for this cell (radians).
-    :param area_cross_correlation_function_score: Per-cell normalised cross-correlation
-        coefficient (ACCF) at the best registration pose.
-    :param reference_fill_fraction: Fraction of valid (non-NaN) pixels in the reference cell.
-    :param is_congruent: True if this cell is classified as a Congruent Matching Cell (CMC).
-    """
-
-    center_reference: FloatArray1D
-    center_comparison: FloatArray1D
-    registration_angle: float
-    area_cross_correlation_function_score: float
-    reference_fill_fraction: float = Field(..., ge=0.0, le=1.0)
-    is_congruent: bool = False
 
 
 class ComparisonResult(ConfigBaseModel):
@@ -59,11 +42,11 @@ class ComparisonResult(ConfigBaseModel):
 
     :param cells: Per-cell registration and classification results.
     :param congruent_matching_cells_count: Number of cells classified as CMC.
-    :param consensus_rotation: Rotation consensus across CMC cells (radians).
+    :param consensus_rotation: Rotation consensus across CMC cells (degrees).
     :param consensus_translation: Translation consensus across CMC cells (m), shape (2,).
     """
 
-    cells: list[CellResult] = Field(default_factory=list)
+    cells: list[Cell] = Field(default_factory=list)
     congruent_matching_cells_count: int = 0
     consensus_rotation: float = 0.0
     consensus_translation: FloatArray1D = Field(
@@ -94,11 +77,11 @@ class ComparisonResult(ConfigBaseModel):
     @property
     def cmc_area_fraction(self) -> float:
         """Fraction of valid surface area covered by CMC cells."""
-        total_area = sum(cell.reference_fill_fraction for cell in self.cells)
+        total_area = sum(cell.fill_fraction_reference for cell in self.cells)
         if total_area == 0:
             return float("nan")
         cmc_area = sum(
-            cell.reference_fill_fraction for cell in self.cells if cell.is_congruent
+            cell.fill_fraction_reference for cell in self.cells if cell.is_congruent
         )
         return cmc_area / total_area
 

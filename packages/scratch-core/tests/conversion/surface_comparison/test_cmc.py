@@ -3,7 +3,7 @@ import numpy as np
 from conversion.surface_comparison.cmc_classification import classify_congruent_cells
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
-    CellResult,
+    Cell,
     ComparisonParams,
     ComparisonResult,
 )
@@ -34,31 +34,34 @@ def test_classify_cmc_cells_consensus():
     their median translation is [5,5].  Cell 2's position error [55,55] exceeds
     position_threshold=2, so it is not classified as a CMC.
 
-    Cell 2 also has registration_angle=0.5 rad, which is far outside the default
+    Cell 2 also has angle_reference=0.5 rad, which is far outside the default
     angle_threshold of 2 degrees, providing a second independent reason for
     rejection.
     """
     cells = [
-        CellResult(
+        Cell(
+            cell_data=np.array([[0.0, 0.0], [0.0, 0.0]]),
             center_reference=np.array([0.0, 0.0]),
             center_comparison=np.array([5.0, 5.0]),
-            registration_angle=0.0,
-            area_cross_correlation_function_score=0.8,
-            reference_fill_fraction=1.0,
+            angle_reference=0.0,
+            best_score=0.8,
+            fill_fraction_reference=1.0,
         ),
-        CellResult(
+        Cell(
+            cell_data=np.array([[0.0, 0.0], [0.0, 0.0]]),
             center_reference=np.array([10.0, 10.0]),
             center_comparison=np.array([15.0, 15.0]),
-            registration_angle=0.0,
-            area_cross_correlation_function_score=0.8,
-            reference_fill_fraction=1.0,
+            angle_reference=0.0,
+            best_score=0.8,
+            fill_fraction_reference=1.0,
         ),
-        CellResult(
+        Cell(
+            cell_data=np.array([[0.0, 0.0], [0.0, 0.0]]),
             center_reference=np.array([20.0, 20.0]),
             center_comparison=np.array([80.0, 80.0]),
-            registration_angle=0.5,
-            area_cross_correlation_function_score=0.8,
-            reference_fill_fraction=1.0,
+            angle_reference=0.5 * 180 / np.pi,
+            best_score=0.8,
+            fill_fraction_reference=1.0,
         ),
     ]
     result = ComparisonResult(cells=cells)
@@ -78,19 +81,21 @@ def test_classify_cmc_score_below_threshold():
     """A cell whose ACCF score is below correlation_threshold is not CMC,
     even when its position and angle agree perfectly with the consensus."""
     cells = [
-        CellResult(
+        Cell(
+            cell_data=np.array([[0.0, 0.0], [0.0, 0.0]]),
             center_reference=np.array([0.0, 0.0]),
             center_comparison=np.array([5.0, 5.0]),
-            registration_angle=0.0,
-            area_cross_correlation_function_score=0.8,
-            reference_fill_fraction=1.0,
+            angle_reference=0.0,
+            best_score=0.8,
+            fill_fraction_reference=1.0,
         ),
-        CellResult(
+        Cell(
+            cell_data=np.array([[0.0, 0.0], [0.0, 0.0]]),
             center_reference=np.array([10.0, 10.0]),
             center_comparison=np.array([15.0, 5.0]),
-            registration_angle=0.0,
-            area_cross_correlation_function_score=0.3,
-            reference_fill_fraction=1.0,
+            angle_reference=0.0,
+            best_score=0.3,
+            fill_fraction_reference=1.0,
         ),
     ]
     result = ComparisonResult(cells=cells)
@@ -117,33 +122,37 @@ def test_classify_cmc_empty_cells():
 def test_classify_cmc_all_congruent():
     """All four cells agree perfectly on translation: all become CMC."""
     cells = [
-        CellResult(
+        Cell(
+            cell_data=np.array([[0.0, 0.0], [0.0, 0.0]]),
             center_reference=np.array([0.0, 0.0]),
             center_comparison=np.array([5.0, 5.0]),
-            registration_angle=0.0,
-            area_cross_correlation_function_score=0.9,
-            reference_fill_fraction=1.0,
+            angle_reference=0.0,
+            best_score=0.9,
+            fill_fraction_reference=1.0,
         ),
-        CellResult(
+        Cell(
+            cell_data=np.array([[0.0, 0.0], [0.0, 0.0]]),
             center_reference=np.array([10.0, 0.0]),
             center_comparison=np.array([15.0, 5.0]),
-            registration_angle=0.0,
-            area_cross_correlation_function_score=0.9,
-            reference_fill_fraction=1.0,
+            angle_reference=0.0,
+            best_score=0.9,
+            fill_fraction_reference=1.0,
         ),
-        CellResult(
+        Cell(
+            cell_data=np.array([[0.0, 0.0], [0.0, 0.0]]),
             center_reference=np.array([0.0, 10.0]),
             center_comparison=np.array([5.0, 15.0]),
-            registration_angle=0.0,
-            area_cross_correlation_function_score=0.9,
-            reference_fill_fraction=1.0,
+            angle_reference=0.0,
+            best_score=0.9,
+            fill_fraction_reference=1.0,
         ),
-        CellResult(
+        Cell(
+            cell_data=np.array([[0.0, 0.0], [0.0, 0.0]]),
             center_reference=np.array([10.0, 10.0]),
             center_comparison=np.array([15.0, 15.0]),
-            registration_angle=0.0,
-            area_cross_correlation_function_score=0.9,
-            reference_fill_fraction=1.0,
+            angle_reference=0.0,
+            best_score=0.9,
+            fill_fraction_reference=1.0,
         ),
     ]
     result = ComparisonResult(cells=cells)

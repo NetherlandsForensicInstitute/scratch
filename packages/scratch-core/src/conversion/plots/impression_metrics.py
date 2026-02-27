@@ -72,11 +72,11 @@ def build_impression_metrics(
         row = flat_idx // n_cols
         col = flat_idx % n_cols
         if row < n_rows and col < n_cols:
-            cell_correlations[row, col] = cell.area_cross_correlation_function_score
+            cell_correlations[row, col] = cell.best_score
 
         # Convert center_comparison from meters to µm for the plot layer
         cell_positions_compared[flat_idx] = cell.center_comparison * 1e6
-        cell_rotations_compared[flat_idx] = cell.registration_angle
+        cell_rotations_compared[flat_idx] = cell.angle_reference
 
     # --- Scalar unit conversions ---
     cell_size_um = float(cell_size_m[0] * 1e6)  # assume square cells for display

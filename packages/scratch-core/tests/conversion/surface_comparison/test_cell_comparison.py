@@ -12,8 +12,8 @@ import numpy as np
 from conversion.surface_comparison.cell_registration import register_cells
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
-    CellResult,
     ComparisonParams,
+    Cell,
 )
 
 
@@ -55,8 +55,8 @@ def test_register_cells_identity_scores():
 
     assert len(cells) > 0
     for cell in cells:
-        assert cell.area_cross_correlation_function_score > 0.99, (
-            f"Expected score > 0.99, got {cell.area_cross_correlation_function_score:.6f}"
+        assert cell.best_score > 0.99, (
+            f"Expected score > 0.99, got {cell.best_score:.6f}"
         )
 
 
@@ -75,8 +75,8 @@ def test_register_cells_identity_angles():
     cells = register_cells(surface, surface, params)
 
     for cell in cells:
-        assert abs(np.degrees(cell.registration_angle)) < 0.1, (
-            f"Expected angle ≈ 0°, got {np.degrees(cell.registration_angle):.4f}°"
+        assert abs(np.degrees(cell.angle_reference)) < 0.1, (
+            f"Expected angle ≈ 0°, got {np.degrees(cell.angle_reference):.4f}°"
         )
 
 
@@ -101,13 +101,13 @@ def test_register_cells_returns_valid_cell_results():
 
     assert len(cells) > 0
     for cell in cells:
-        assert isinstance(cell, CellResult)
+        assert isinstance(cell, Cell)
         assert cell.center_reference.shape == (2,)
         assert cell.center_comparison.shape == (2,)
-        assert -1.0 <= cell.area_cross_correlation_function_score <= 1.0 + 1e-5, (
-            f"Score {cell.area_cross_correlation_function_score:.8f} outside [-1, 1+eps]"
+        assert -1.0 <= cell.best_score <= 1.0 + 1e-5, (
+            f"Score {cell.best_score:.8f} outside [-1, 1+eps]"
         )
-        assert 0.0 < cell.reference_fill_fraction <= 1.0
+        assert 0.0 < cell.fill_fraction_reference <= 1.0
 
 
 def test_register_cells_no_cells_for_tiny_image():

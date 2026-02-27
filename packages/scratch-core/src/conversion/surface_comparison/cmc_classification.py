@@ -6,6 +6,7 @@ implements the median procedure (Procedure 6) with ESD outlier rejection.
 """
 
 import numpy as np
+from scipy.stats import t
 
 from conversion.surface_comparison.models import ComparisonResult, ComparisonParams
 
@@ -41,10 +42,10 @@ def classify_congruent_cells(
     if not cells:
         return
 
-    angles = np.array([c.registration_angle for c in cells])  # radians
+    angles = np.array([c.angle_reference for c in cells]) * np.pi / 180  # radians
     pos_ref = np.array([c.center_reference for c in cells])  # (N, 2) in m
     pos_comp = np.array([c.center_comparison for c in cells])  # (N, 2) in m
-    scores = np.array([c.area_cross_correlation_function_score for c in cells])
+    scores = np.array([c.best_score for c in cells])
 
     valid = ~np.isnan(angles)
     if not np.any(valid):
@@ -108,7 +109,9 @@ def classify_congruent_cells(
             and np.abs(pos_errors[i, 1]) <= params.position_threshold
         )
 
-    result.consensus_rotation = float(consensus_angle)
+    result.consensus_rotation = (
+        float(consensus_angle) * 180 / np.pi
+    )  # convert back to degrees
     result.consensus_translation = consensus_translation
     result.update_summary()
 
@@ -122,23 +125,85 @@ def _outliers_gesd(
     data: np.ndarray, outliers: int, hypo: bool, alpha: float
 ) -> np.ndarray:
     """
-    Thin wrapper around ``scikit_posthocs.outliers_gesd`` that normalises the
-    return value to a boolean outlier mask, matching the interface previously
-    provided by the hand-rolled ESD implementation.
+    Generalised ESD test for outliers (Rosner 1983), matching the MATLAB
+    ``stat_idout_esd`` reference implementation used by the NIST CMC pipeline.
 
-    ``outliers_gesd(hypo=True)`` returns a boolean array where True marks
-    outliers when H0 can be rejected; we re-expose that directly.
+    Critical values use the Rosner formula:
+        lambda_i = t(p, ni-1) * ni / sqrt((ni-1 + t^2) * (ni+1))
+        where p = 1 - alpha / (2*(ni+1)) and ni = remaining observations
+        AFTER the i-th removal (i.e. n - i).
+
+    :param data: 1-D array of values to test.
+    :param outliers: Maximum number of outliers to test for.
+    :param hypo: Ignored (always operates in hypothesis-test mode).
+    :param alpha: Significance level.
+    :returns: Boolean mask in original array order; True = outlier.
     """
-    from scikit_posthocs import outliers_gesd
+    n = len(data)
+    if outliers <= 0 or n < 3:
+        return np.zeros(n, dtype=bool)
 
-    if outliers <= 0 or len(data) < 3:
-        return np.zeros(len(data), dtype=bool)
-    mask_sorted = outliers_gesd(data, outliers=outliers, hypo=hypo, alpha=alpha)
-    # Unsort: argsort gives the permutation that sorts data;
-    # placing mask_sorted values at those positions recovers original order.
-    argsort = np.argsort(data)
-    mask_original = np.zeros(len(data), dtype=bool)
-    mask_original[argsort] = mask_sorted
+    argsort_index = np.argsort(data)
+    data_sorted = data[argsort_index]
+
+    # First pass: compute R statistics and critical values, tracking which
+    # sorted-array position is removed at each step.
+    rs: list[float] = []
+    lambdas: list[float] = []
+    data_work = list(data_sorted)
+    remaining_positions = list(range(n))  # sorted-array positions still in data_work
+
+    for _ in range(outliers):
+        if len(data_work) < 3:
+            break
+        arr = np.array(data_work)
+        mean_w = float(np.mean(arr))
+        std_w = float(np.std(arr, ddof=1))
+        if std_w == 0:
+            break
+        idx = int(np.argmax(np.abs(arr - mean_w)))
+        rs.append(float(np.abs(arr[idx] - mean_w) / std_w))
+
+        # Critical value uses ni = remaining count AFTER this removal
+        ni = len(data_work) - 1
+        if ni >= 2:
+            p = 1.0 - alpha / (2.0 * (ni + 1))
+            rt = float(t.ppf(p, ni - 1))
+            lambdas.append(rt * ni / np.sqrt((ni - 1 + rt**2) * (ni + 1)))
+        else:
+            lambdas.append(np.inf)
+
+        remaining_positions.pop(idx)
+        data_work.pop(idx)
+
+    # Find the last step i (1-indexed) where H0 is rejected
+    last_reject = 0
+    for i, (R, lam) in enumerate(zip(rs, lambdas)):
+        if R > lam:
+            last_reject = i + 1
+
+    if last_reject == 0:
+        return np.zeros(n, dtype=bool)
+
+    # Second pass: retrace the first `last_reject` removals to identify
+    # which sorted-array positions are outliers.
+    data_work2 = list(data_sorted)
+    remaining2 = list(range(n))
+    outlier_sorted_positions: list[int] = []
+    for _ in range(last_reject):
+        arr = np.array(data_work2)
+        idx = int(np.argmax(np.abs(arr - np.mean(arr))))
+        outlier_sorted_positions.append(remaining2[idx])
+        remaining2.pop(idx)
+        data_work2.pop(idx)
+
+    mask_sorted = np.zeros(n, dtype=bool)
+    for pos in outlier_sorted_positions:
+        mask_sorted[pos] = True
+
+    # Unsort back to original input order
+    mask_original = np.zeros(n, dtype=bool)
+    mask_original[argsort_index] = mask_sorted
     return mask_original
 
 

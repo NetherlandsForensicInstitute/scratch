@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.signal import fftconvolve
 
-from conversion.surface_comparison.models import ScanImage, ComparisonParams
+from container_models.scan_image import ScanImage
+from conversion.surface_comparison.models import ComparisonParams
 from conversion.surface_comparison.utils import meters_to_pixels
 
 

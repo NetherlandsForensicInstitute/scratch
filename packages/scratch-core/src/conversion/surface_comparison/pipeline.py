@@ -1,5 +1,5 @@
+from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
-    ScanImage,
     ComparisonResult,
     ComparisonParams,
 )

@@ -36,9 +36,8 @@ from skimage.registration import phase_cross_correlation
 from skimage.transform import rotate
 
 from container_models.base import FloatArray1D, FloatArray2D
+from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
-    ScanImage,
-    CellResult,
     ComparisonParams,
     Cell,
 )
@@ -55,72 +54,12 @@ from conversion.surface_comparison.utils import (
 _ECC_MAX_ITER = 150
 _ECC_TOL_SIM = 1e-4  # minimum ECC value change per iteration to continue
 
-# Initial cell parameters
-INITIAL_SCORE = -np.inf
-INITIAL_ANGLE = 0.0
-INITIAL_CENTER_COMPARISON = np.zeros(2)
-
-
-# ---------------------------------------------------------------------------
-# Public interface
-# ---------------------------------------------------------------------------
-
-
-def _get_optimal_cc_and_translation(
-    mean_subtracted_rotated: FloatArray2D, mean_subtracted_cell_data: FloatArray2D
-) -> tuple[float, int, int]:
-    """Compute optimal cross correlation and corresponding location of top-left idxs of mean_subtracted_cell_data.
-        Mean_subtracted_rotated is reference.
-
-    :param mean_subtracted_rotated: the rotated reference image with mean subtracted.
-    :param mean_subtracted_cell_data: the cell data with mean subtracted.
-    :return: largest cross correlation value and corresponding translation in pixel space (y, x)
-    """
-    # match_template computes NCC via FFT; pad_input=False means the
-    # output is (comp_height - cell_data_height + 1, comp_width - cell_data_width + 1)
-    # and each index corresponds to the top-left corner of the cell_data position.
-    cc_map = match_template(
-        mean_subtracted_rotated, mean_subtracted_cell_data, pad_input=False
-    )
-    iy, ix = np.unravel_index(np.argmax(cc_map), cc_map.shape)
-    score = float(cc_map[iy, ix])
-
-    return score, ix, iy
-
-
-def _initialize_cell(
-    center_reference: FloatArray1D, cell_data: FloatArray2D, fill_fraction: float
-) -> Cell:
-    return Cell(
-        center_reference=center_reference,
-        cell_data=cell_data,
-        fill_fraction=fill_fraction,
-        best_score=INITIAL_SCORE,
-        angle=INITIAL_ANGLE,
-        center_comparison=INITIAL_CENTER_COMPARISON,
-    )
-
-
-def _update_cell(
-    cell, cross_correlation_value, angle, left_column, top_row, pixel_spacing
-):
-    pixel_height, pixel_width = cell.cell_data.shape
-    center_comparison_meters = np.array(
-        [
-            (left_column + (pixel_width - 1) / 2.0) * pixel_spacing[0],
-            (top_row + (pixel_height - 1) / 2.0) * pixel_spacing[1],
-        ]
-    )
-    cell.best_score = cross_correlation_value
-    cell.angle = angle
-    cell.center_comparison = center_comparison_meters
-
 
 def register_cells(
     reference_image: ScanImage,
     comparison_image: ScanImage,
     params: ComparisonParams,
-) -> list[CellResult]:
+) -> list[Cell]:
     """
     Run the three-stage per-cell registration pipeline.
 
@@ -166,7 +105,12 @@ def register_cells(
         fill_fraction = clipped_area / full_area
         if fill_fraction < params.minimum_fill_fraction:
             continue
-        cell = _initialize_cell(center, cell_data, fill_fraction)
+
+        cell = Cell(
+            center_reference=center,
+            cell_data=cell_data,
+            fill_fraction_reference=fill_fraction,
+        )
         # center in meters, 2D np.array, fill_fraction, initial score, initial angle, translation in meters
         valid_cells.append(cell)
 
@@ -178,22 +122,18 @@ def register_cells(
     )
 
     for angle_deg in angles_deg:
-        rotated = _rotate_image(comparison_image.data, float(angle_deg))
-        mean_subtracted_rotated = _replace_nan_with_image_mean(rotated)
+        rotated = _rotate_comparison_image(comparison_image.data, float(angle_deg))
 
         for cell in valid_cells:
             nan_filled_cell_data = _replace_nan_with_image_mean(cell.cell_data)
-            mean_subtracted_cell_data = nan_filled_cell_data - np.nanmean(
-                nan_filled_cell_data
-            )
 
             cross_correlation_value, left_column, top_row = (
-                _get_optimal_cc_and_translation(
-                    mean_subtracted_rotated, mean_subtracted_cell_data
+                _get_optimal_crosscorr_and_comparison_center(
+                    rotated, nan_filled_cell_data
                 )
             )
 
-            if cross_correlation_value > cell.best_score:
+            if cell.best_score is None or cross_correlation_value > cell.best_score:
                 _update_cell(
                     cell,
                     cross_correlation_value,
@@ -204,17 +144,52 @@ def register_cells(
                 )
 
     # ---- Stages 2 + 3: sub-pixel refinement per cell ----
-    results = []
     for cell in valid_cells:
-        cell = _register_cell_on_ref_and_comp(cell, comparison_image)
-        results.append(cell)
+        _fine_tune_cell(cell, comparison_image)
 
-    return results
+    return valid_cells
 
 
-def _register_cell_on_ref_and_comp(
-    cell: Cell, comparison_image: ScanImage
-) -> CellResult:
+def _get_optimal_crosscorr_and_comparison_center(
+    rotated: FloatArray2D, cell_data: FloatArray2D
+) -> tuple[float, int, int]:
+    mean_subtracted_rotated = _replace_nan_with_image_mean(rotated)
+    mean_subtracted_cell_data = _replace_nan_with_image_mean(cell_data)
+    """Compute optimal cross correlation and corresponding location of top-left idxs of mean_subtracted_cell_data.
+        Mean_subtracted_rotated is reference.
+
+    :param rotated: the rotated reference imag.
+    :param cell_data: the cell data.
+    :return: largest cross correlation value and corresponding translation in pixel space (y, x)
+    """
+    # match_template computes NCC via FFT; pad_input=False means the
+    # output is (comp_height - cell_data_height + 1, comp_width - cell_data_width + 1)
+    # and each index corresponds to the top-left corner of the cell_data position.
+    cc_map = match_template(
+        mean_subtracted_rotated, mean_subtracted_cell_data, pad_input=False
+    )
+    iy, ix = np.unravel_index(np.argmax(cc_map), cc_map.shape)
+    score = float(cc_map[iy, ix])
+
+    return score, ix, iy
+
+
+def _update_cell(
+    cell, cross_correlation_value, angle, left_column, top_row, pixel_spacing
+):
+    pixel_height, pixel_width = cell.cell_data.shape
+    center_comparison_meters = np.array(
+        [
+            (left_column + (pixel_width - 1) / 2.0) * pixel_spacing[0],
+            (top_row + (pixel_height - 1) / 2.0) * pixel_spacing[1],
+        ]
+    )
+    cell.best_score = cross_correlation_value
+    cell.angle_reference = angle
+    cell.center_comparison = center_comparison_meters
+
+
+def _fine_tune_cell(cell: Cell, comparison_image: ScanImage):
     """
     Refine a single cell registration via phase cross-correlation (Stage 2)
     then ECC (Stage 3).
@@ -227,7 +202,7 @@ def _register_cell_on_ref_and_comp(
 
     # Rotate the comparison image to the Stage 1 angle so that Stages 2 and 3
     # only need to refine the translation (and a small residual angle).
-    comp_rotated = _rotate_image(comparison_image.data, cell.angle)
+    comp_rotated = _rotate_comparison_image(comparison_image.data, cell.angle_reference)
     comp_mean_subtracted = _replace_nan_with_image_mean(comp_rotated)
     cell_data_mean_subtracted = _replace_nan_with_image_mean(cell.cell_data)
     pixel_height, pixel_width = cell_data_mean_subtracted.shape
@@ -238,13 +213,7 @@ def _register_cell_on_ref_and_comp(
         or pixel_height == 0
         or pixel_width == 0
     ):
-        return CellResult(
-            center_reference=cell.center_reference,
-            center_comparison=cell.center_comparison,
-            registration_angle=np.radians(cell.angle),
-            area_cross_correlation_function_score=0.0,
-            reference_fill_fraction=cell.fill_fraction,
-        )
+        cell.best_score = 0
 
     # Crop the comparison image to the region around the Stage 1 estimate.
     # The crop is the same size as the reference cell_data so that phase
@@ -258,13 +227,7 @@ def _register_cell_on_ref_and_comp(
     comp_crop = _safe_crop(comp_mean_subtracted, y0c, x0c, pixel_height, pixel_width)
 
     if comp_crop is None:
-        return CellResult(
-            center_reference=cell.center_reference,
-            center_comparison=cell.center_comparison,
-            registration_angle=np.radians(cell.angle),
-            area_cross_correlation_function_score=0.0,
-            reference_fill_fraction=cell.fill_fraction,
-        )
+        cell.best_score = 0
 
     shift, _, _ = phase_cross_correlation(
         cell_data_mean_subtracted - cell_data_mean_subtracted.mean(),
@@ -275,7 +238,7 @@ def _register_cell_on_ref_and_comp(
     # to align with the reference cell_data.
     refined_cx = (x0c + (pixel_width - 1) / 2.0 - shift[1]) * pixel_spacing[0]
     refined_cy = (y0c + (pixel_height - 1) / 2.0 - shift[0]) * pixel_spacing[1]
-    refined_angle_deg = cell.angle
+    refined_angle_deg = cell.angle_reference
 
     # ---- Stage 3: ECC gradient refinement ----
     ecc_center, ecc_angle_deg, ecc_score = _ecc_refine(
@@ -286,13 +249,9 @@ def _register_cell_on_ref_and_comp(
         init_angle_deg=refined_angle_deg,
     )
 
-    return CellResult(
-        center_reference=cell.center_reference,
-        center_comparison=ecc_center * pixel_spacing,
-        registration_angle=np.radians(ecc_angle_deg),
-        area_cross_correlation_function_score=ecc_score,
-        reference_fill_fraction=cell.fill_fraction,
-    )
+    cell.best_score = ecc_score
+    cell.center_comparison = ecc_center * pixel_spacing
+    cell.angle_reference = ecc_angle_deg
 
 
 def _ecc_refine(
@@ -338,8 +297,8 @@ def _ecc_refine(
     if comp_crop_raw is None:
         return np.array([init_cx_px, init_cy_px]), init_angle_deg, 0.0
 
-    ref_filled, ref_nan_mask = _replace_nan_with_image_means_nearest(ref_cell_data)
-    comp_filled, _ = _replace_nan_with_image_means_nearest(comp_crop_raw)
+    ref_filled, ref_nan_mask = _replace_nan_with_image_nearest_valid(ref_cell_data)
+    comp_filled, _ = _replace_nan_with_image_nearest_valid(comp_crop_raw)
 
     # findTransformECC requires float32 input in [0, 1].
     ref_f32 = _norm01_f32(ref_filled)
@@ -396,14 +355,17 @@ def _ecc_refine(
 # ---------------------------------------------------------------------------
 
 
-def _rotate_image(image: FloatArray2D, angle_deg: float) -> FloatArray2D:
+def _rotate_comparison_image(
+    image: FloatArray2D, angle_deg_reference: float
+) -> FloatArray2D:
     """Rotate image by angle_deg (degrees), NaN-padding, full-resolution."""
-    if np.isclose(angle_deg, 0.0):
+    if np.isclose(angle_deg_reference, 0.0):
         return image
-    return rotate(image, -float(angle_deg), preserve_range=True, cval=np.nan)
+    # rotate by negative angle since angle_deg_reference is defined as the rotation of the reference
+    return rotate(image, -float(angle_deg_reference), preserve_range=True, cval=np.nan)
 
 
-def _replace_nan_with_image_means_nearest(
+def _replace_nan_with_image_nearest_valid(
     image: FloatArray2D,
 ) -> tuple[FloatArray2D, np.ndarray]:
     """
