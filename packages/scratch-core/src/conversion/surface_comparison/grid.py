@@ -25,6 +25,7 @@ def _axis_centers(origin_coord: float, cell_sz: float, image_sz: float) -> np.nd
     while c + cell_sz / 2 > 0:  # cell right edge is still within image
         centers.insert(0, c)
         c -= cell_sz
+    print(f"axis centers = {centers}")
     return np.array(centers)
 
 
@@ -173,7 +174,7 @@ def _find_grid_origin(
 
     # Convert to physical coordinates
     origin_physical = first_center_px * pixel_spacing
-
+    print(f"grid origin =  {origin_physical}")
     return origin_physical
 
 

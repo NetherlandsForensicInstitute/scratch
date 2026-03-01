@@ -80,9 +80,4 @@ def _build_comparison_params(params: dict) -> ComparisonParams:
             continue
         kwargs[k] = float(v) * 1e-6 if k in _UM_FIELDS else float(v)
 
-    if "angle_threshold" in kwargs and "search_angle_max" not in kwargs:
-        kwargs["search_angle_max"] = kwargs["angle_threshold"]
-    if "search_angle_max" in kwargs and "search_angle_min" not in kwargs:
-        kwargs["search_angle_min"] = -kwargs["search_angle_max"]
-
     return ComparisonParams(**kwargs)

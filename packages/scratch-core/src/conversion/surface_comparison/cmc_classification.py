@@ -69,19 +69,19 @@ def classify_congruent_cells(
             inlier_full[idx] = False
 
     if np.any(inlier_full):
-        # Recompute median from inliers
+        # Recompute median from ESD inliers
         consensus_angle = _circular_median(angle_diffs[inlier_full])
         angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
 
-        # Tighten: keep only cells within 2 × angle_threshold
+        # Tighten: re-evaluate ALL valid cells (not just ESD survivors)
         angle_threshold_rad = np.radians(params.angle_threshold)
-        tight_mask = inlier_full & (np.abs(angle_residuals) <= 2 * angle_threshold_rad)
+        inlier_full = valid & (np.abs(angle_residuals) <= 2 * angle_threshold_rad)
 
-        if np.any(tight_mask):
-            consensus_angle = _circular_median(angle_diffs[tight_mask])
+        if np.any(inlier_full):
+            consensus_angle = _circular_median(angle_diffs[inlier_full])
             angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
 
-        # NaN-out rejected cells
+        # NaN-out rejected cells (ESD + tightening)
         rejected = valid & ~inlier_full
         angles[rejected] = np.nan
         pos_ref[rejected] = np.nan
@@ -96,7 +96,17 @@ def classify_congruent_cells(
     pos_residuals = pos_comp - expected_pos
     consensus_translation = np.nanmedian(pos_residuals, axis=0)
     pos_errors = pos_residuals - consensus_translation
-
+    for i, cell in enumerate(cells):
+        print(
+            f"  cell {i}: ref=[{cell.center_reference[0] * 1e6:.2f}, {cell.center_reference[1] * 1e6:.2f}] µm, "
+            f"comp=[{cell.center_comparison[0] * 1e6:.2f}, {cell.center_comparison[1] * 1e6:.2f}] µm, "
+            f"angle={np.degrees(cell.registration_angle):.4f}°, "
+            f"score={cell.area_cross_correlation_function_score:.6f}"
+        )
+    print(f"  consensus_angle={np.degrees(consensus_angle):.4f}°")
+    print(
+        f"  consensus_translation=[{consensus_translation[0] * 1e6:.2f}, {consensus_translation[1] * 1e6:.2f}] µm"
+    )
     # --- Step 4: Label CMCs ---
     angle_threshold_rad = np.radians(params.angle_threshold)
     for i, cell in enumerate(cells):
@@ -121,14 +131,6 @@ def classify_congruent_cells(
 def _outliers_gesd(
     data: np.ndarray, outliers: int, hypo: bool, alpha: float
 ) -> np.ndarray:
-    """
-    Thin wrapper around ``scikit_posthocs.outliers_gesd`` that normalises the
-    return value to a boolean outlier mask, matching the interface previously
-    provided by the hand-rolled ESD implementation.
-
-    ``outliers_gesd(hypo=True)`` returns a boolean array where True marks
-    outliers when H0 can be rejected; we re-expose that directly.
-    """
     from scikit_posthocs import outliers_gesd
 
     if outliers <= 0 or len(data) < 3:
@@ -146,27 +148,34 @@ def _circular_median(angles: np.ndarray) -> float:
     """
     Compute the circular median of a set of angles (in radians).
 
-    The circular median minimises the sum of absolute angular distances.
-
-    :param angles: 1-D array of angles in radians.
-    :returns: The circular median angle in radians.
+    For an odd number of values the middle element is returned; for an
+    even number the circular mean of the two middle elements is returned,
+    matching MATLAB's angle_median behaviour.
     """
     angles = angles[~np.isnan(angles)]
     if angles.size == 0:
         return np.nan
 
+    # Find the rotation that minimises total absolute angular distance
     best_idx = 0
     best_cost = np.inf
     for i, candidate in enumerate(angles):
         raw_diff = angles - candidate
-        # Wrap into [-π, π): differences can reach ±2π since both angles
-        # and candidate live in (-π, π].
         wrapped_diff = (raw_diff + np.pi) % (2 * np.pi) - np.pi
         cost = np.sum(np.abs(wrapped_diff))
         if cost < best_cost:
             best_cost = cost
             best_idx = i
-    return float(angles[best_idx])
+
+    # Centre angles around the best candidate, take standard median,
+    # then unwrap back.
+    ref = angles[best_idx]
+    centred = (angles - ref + np.pi) % (2 * np.pi) - np.pi
+    med = float(np.median(centred))
+    result = ref + med
+    # Wrap result into (-π, π]
+    result = (result + np.pi) % (2 * np.pi) - np.pi
+    return float(result)
 
 
 def _wrapped_angle_diff(angles: np.ndarray, reference: float) -> np.ndarray:

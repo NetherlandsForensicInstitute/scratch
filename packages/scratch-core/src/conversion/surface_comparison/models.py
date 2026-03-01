@@ -111,6 +111,6 @@ class ComparisonParams(ConfigBaseModel):
     correlation_threshold: float = Field(default=0.4, ge=-1.0, le=1.0)
     angle_threshold: float = Field(default=2.0, gt=0.0)
     position_threshold: float = Field(default=100e-6, gt=0.0)
-    search_angle_min: float = -180.0
-    search_angle_max: float = 180.0
+    search_angle_min: float = -30.0
+    search_angle_max: float = 30.0
     search_angle_step: float = Field(default=1.0, gt=0.0)

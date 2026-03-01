@@ -9,7 +9,9 @@
     "cell_size_x": 300,
     "cell_size_y": 300,
     "minimum_fill_fraction": 0.35,
-    "angle_threshold": 180,
+    "angle_threshold": 3.0,
+    "search_angle_min": -180.0,
+    "search_angle_max": 180.0,
     "search_angle_step": 1,
     "position_threshold": 75
   },
