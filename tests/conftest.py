@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from numpy import ndarray
-from numpy._typing._dtype_like import _DTypeT_co
 
 from constants import PROJECT_ROOT
 from main import app
