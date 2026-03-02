@@ -73,10 +73,10 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     :return: Access URLs for the generated files.
     """
     vault = create_vault(upload_scan.tag)
-    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size_x, upload_scan.step_size_y)
+    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
     files = ProcessedDataAccess.get_files(vault.resource_path)
     x3p_pipeline(parsed_scan, files["scan"])
-    surface_map_pipeline(parsed_scan, files["surface_map"], upload_scan.light_sources, upload_scan.observer)
+    surface_map_pipeline(parsed_scan, files["surface_map"], LIGHT_SOURCES, OBSERVER)
     preview_pipeline(parsed_scan, files["preview"])
 
     logger.info(f"Generated files saved to {vault}")
@@ -192,7 +192,7 @@ async def edit_scan(
     """
     vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
-    parsed_image = parse_scan_pipeline(params.scan_file, params.step_size_x, params.step_size_y)
+    parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
     parsed_mask = parse_mask_pipeline(
         raw_data=await mask_data.read(),
         shape=params.mask_parameters.shape,

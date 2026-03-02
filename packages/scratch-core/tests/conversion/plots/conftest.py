@@ -9,27 +9,17 @@ from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
     LlrTransformationData,
 )
-from conversion.profile_correlator import StriationComparisonResults
+from conversion.profile_correlator import StriationComparisonResults, Profile
 
 from .helper_functions import (
     create_synthetic_impression_data,
     create_synthetic_impression_mark,
     create_synthetic_impression_surface_pair,
-    create_synthetic_profile_mark,
+    create_synthetic_profile,
     create_synthetic_striation_data,
     create_synthetic_striation_mark,
     make_mark,
 )
-
-
-@pytest.fixture
-def striation_profile_reference() -> FloatArray2D:
-    return create_synthetic_striation_data(height=1, width=200, seed=42)
-
-
-@pytest.fixture
-def striation_profile_compared() -> FloatArray2D:
-    return create_synthetic_striation_data(height=1, width=200, seed=43)
 
 
 @pytest.fixture
@@ -63,29 +53,17 @@ def striation_mark_compared_aligned() -> Mark:
 
 
 @pytest.fixture
-def striation_mark_profile_reference() -> Mark:
-    return create_synthetic_profile_mark(length=200, seed=46)
+def profile_reference() -> Profile:
+    return create_synthetic_profile(length=200, seed=46)
 
 
 @pytest.fixture
-def striation_mark_profile_compared() -> Mark:
-    return create_synthetic_profile_mark(length=200, seed=47)
+def profile_compared() -> Profile:
+    return create_synthetic_profile(length=200, seed=47)
 
 
 @pytest.fixture
-def striation_quality_passbands() -> dict[tuple[float, float], float]:
-    return {
-        (5, 250): 0.85,
-        (100, 250): 0.78,
-        (50, 100): 0.65,
-        (25, 50): 0.45,
-        (10, 25): 0.30,
-        (5, 10): 0.15,
-    }
-
-
-@pytest.fixture
-def striation_metrics(striation_quality_passbands) -> StriationComparisonResults:
+def striation_metrics() -> StriationComparisonResults:
     sq_ref = 0.2395 * micro
     sq_comp = 0.7121 * micro
     sq_diff = 0.6138 * micro
@@ -107,7 +85,6 @@ def striation_metrics(striation_quality_passbands) -> StriationComparisonResults
         ds_roughness_normalized_to_compared=(sq_diff / sq_comp) ** 2,
         ds_roughness_normalized_to_reference_and_compared=sq_diff**2
         / (sq_ref * sq_comp),
-        quality_passbands=striation_quality_passbands,
     )
 
 
