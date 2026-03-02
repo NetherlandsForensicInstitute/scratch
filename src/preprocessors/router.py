@@ -93,7 +93,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
 
-    The mask must have exactly the same shape (rows × columns) as the parsed scan image.
+    The mask must have exactly the same shape (height × width) as the parsed scan image.
     """,
     responses={
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
@@ -125,7 +125,7 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
 
-    The mask must have exactly the same shape (rows × columns) as the parsed scan image.
+    The mask must have exactly the same shape (height × width) as the parsed scan image.
     """,
     responses={
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
@@ -155,7 +155,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     (mask, crop, subsampling). Creates a new vault for storing future outputs.
 
     The mask shape specified in `mask_parameters.shape` must exactly match the shape
-    (rows × columns) of the parsed scan image.
+    (height × width) of the parsed scan image.
 
     Note: Image generation is currently not implemented.
 """,
