@@ -4,7 +4,6 @@ from functools import cached_property
 from typing import Annotated, Any
 
 import numpy as np
-from container_models.base import BinaryMask
 from conversion.data_formats import BoundingBox, MarkType
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
@@ -80,7 +79,7 @@ class CropInfo(BaseModelConfig):
 
 class PrepareMarkBase(BaseParameters):
     mark_type: MarkType = Field(..., description="Type of mark to prepare.")
-    mask: BinaryMask = Field(
+    mask: list[list[float]] = Field(
         ...,
         description="2D boolean array representing the mask for the mark. Must have exactly the same shape"
         " (height × width) as the scan image.",
