@@ -103,7 +103,7 @@ class TestPrepareMarkEndpoint:
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
             scan_file=self.scan_file_path,
-            mask=mask,
+            mask=mask.astype(float).tolist(),
             bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
             mark_parameters=mark_parameters(),  # type: ignore
         ).model_dump(mode="json")
@@ -238,7 +238,7 @@ def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
         project_name="test_project",
         mark_type=mark_type,
         scan_file=scan_directory / "circle.x3p",
-        mask=wrong_mask,
+        mask=wrong_mask.astype(float).tolist(),
         mark_parameters=mark_parameters(),  # type: ignore
         bounding_box_list=[],
     ).model_dump(mode="json")
