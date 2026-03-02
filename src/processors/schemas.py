@@ -1,4 +1,4 @@
-from pydantic import DirectoryPath, FilePath, PositiveInt
+from pydantic import DirectoryPath, Field, FilePath, PositiveInt
 
 from models import BaseModelConfig
 
@@ -6,6 +6,11 @@ from models import BaseModelConfig
 class MarkDirectories(BaseModelConfig):
     mark_ref: DirectoryPath
     mark_comp: DirectoryPath
+
+    @property
+    def tag(self) -> str:
+        """Get the tag to use for directory naming."""
+        return "SomethingWithNoValue"
 
 
 class ImpressionParameters(BaseModelConfig): ...
@@ -15,7 +20,9 @@ class CalculateScoreImpression(MarkDirectories):
     param: ImpressionParameters
 
 
-class StriationParamaters(BaseModelConfig): ...
+class StriationParamaters(BaseModelConfig):
+    metadata_reference: dict[str, str] = Field(..., description="fields needed for adding metadata to the plot")
+    metadata_compared: dict[str, str] = Field(..., description="fields needed for adding metadata to the plot")
 
 
 class CalculateScoreStriation(MarkDirectories):

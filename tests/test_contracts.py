@@ -149,7 +149,7 @@ class TestContracts:
         return CalculateScoreStriation(
             mark_ref=directory_access.resource_path,
             mark_comp=directory_access.resource_path,
-            param=StriationParamaters(),
+            param=StriationParamaters(metadata_reference={}, metadata_compared={}),
         ), ComparisonResponseStriation
 
     @pytest.fixture(scope="class")
