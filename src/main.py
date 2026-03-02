@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from loguru import logger
 from uvicorn import run
 
+from constants import LogLevel
+from helpers import setup_logging
 from routers import prefix_router
 from settings import get_settings
 
@@ -17,6 +19,7 @@ async def _lifespan(_: FastAPI):
     This context manager configures the application with settings and
     manages the storage directory lifecycle.
     """
+    setup_logging(LogLevel.INFO)  # TODO: We can move this config of loglevel to env
     settings = get_settings()
     settings.log_startup_config()
 
