@@ -19,15 +19,10 @@ from .helpers import MatlabTestCase, load_test_case
 import cv2
 from typing import List, Tuple
 
-# ---- Constants ----
-
 TEST_DATA_DIR = Path(__file__).parent.parent.parent / "resources" / "cmc"
 
 RTOL_SCALAR = 1e-6
 ATOL_SCALAR = 1e-10
-
-
-# ---- Helpers ----
 
 
 def discover_test_cases() -> list[str]:
@@ -54,9 +49,6 @@ test_case_names = discover_test_cases()
 @pytest.fixture(params=test_case_names, ids=test_case_names)
 def test_case(request: pytest.FixtureRequest) -> MatlabTestCase:
     return load_test_case(TEST_DATA_DIR / request.param)
-
-
-#### PLOT UTILS
 
 
 def plot_rotated_squares(

@@ -11,11 +11,6 @@ from scipy.stats import t
 from conversion.surface_comparison.models import ComparisonResult, ComparisonParams
 
 
-# ---------------------------------------------------------------------------
-# Public interface
-# ---------------------------------------------------------------------------
-
-
 def classify_congruent_cells(
     result: ComparisonResult,
     params: ComparisonParams,
@@ -42,10 +37,26 @@ def classify_congruent_cells(
     if not cells:
         return
 
-    angles = np.array([c.angle_reference for c in cells]) * np.pi / 180  # radians
+    angles = (
+        np.array(
+            [
+                c.angle_reference if c.angle_reference is not None else np.nan
+                for c in cells
+            ]
+        )
+        * np.pi
+        / 180
+    )  # radians
     pos_ref = np.array([c.center_reference for c in cells])  # (N, 2) in m
-    pos_comp = np.array([c.center_comparison for c in cells])  # (N, 2) in m
-    scores = np.array([c.best_score for c in cells])
+    pos_comp = np.array(
+        [
+            c.center_comparison if c.center_comparison is not None else [np.nan, np.nan]
+            for c in cells
+        ]
+    )  # (N, 2) in m
+    scores = np.array(
+        [c.best_score if c.best_score is not None else np.nan for c in cells]
+    )
 
     valid = ~np.isnan(angles)
     if not np.any(valid):
@@ -74,15 +85,15 @@ def classify_congruent_cells(
         consensus_angle = _circular_median(angle_diffs[inlier_full])
         angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
 
-        # Tighten: keep only cells within 2 × angle_threshold
+        # Tighten: re-evaluate ALL valid cells against 2 × angle_threshold
         angle_threshold_rad = np.radians(params.angle_threshold)
-        tight_mask = inlier_full & (np.abs(angle_residuals) <= 2 * angle_threshold_rad)
+        inlier_full = valid & (np.abs(angle_residuals) <= 2 * angle_threshold_rad)
 
-        if np.any(tight_mask):
-            consensus_angle = _circular_median(angle_diffs[tight_mask])
+        if np.any(inlier_full):
+            consensus_angle = _circular_median(angle_diffs[inlier_full])
             angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
 
-        # NaN-out rejected cells
+        # NaN-out rejected cells (ESD + tightening)
         rejected = valid & ~inlier_full
         angles[rejected] = np.nan
         pos_ref[rejected] = np.nan
@@ -114,11 +125,6 @@ def classify_congruent_cells(
     )  # convert back to degrees
     result.consensus_translation = consensus_translation
     result.update_summary()
-
-
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
 
 
 def _outliers_gesd(
@@ -224,14 +230,17 @@ def _circular_median(angles: np.ndarray) -> float:
     best_cost = np.inf
     for i, candidate in enumerate(angles):
         raw_diff = angles - candidate
-        # Wrap into [-π, π): differences can reach ±2π since both angles
-        # and candidate live in (-π, π].
         wrapped_diff = (raw_diff + np.pi) % (2 * np.pi) - np.pi
         cost = np.sum(np.abs(wrapped_diff))
         if cost < best_cost:
             best_cost = cost
             best_idx = i
-    return float(angles[best_idx])
+
+    ref = angles[best_idx]
+    centred = (angles - ref + np.pi) % (2 * np.pi) - np.pi
+    med = float(np.median(centred))
+    result = (ref + med + np.pi) % (2 * np.pi) - np.pi
+    return float(result)
 
 
 def _wrapped_angle_diff(angles: np.ndarray, reference: float) -> np.ndarray:

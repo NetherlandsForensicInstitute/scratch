@@ -23,10 +23,6 @@ from conversion.surface_comparison_simone.models import (
     ComparisonResult,
 )
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
 TEST_DATA_PATH = Path(__file__).parent / "cmc_test_data.json"
 
 
@@ -116,10 +112,6 @@ def _build_comparison_result(
     return result, params, global_center
 
 
-# ---------------------------------------------------------------------------
-# Parametrized tests
-# ---------------------------------------------------------------------------
-
 _TEST_CASES = _load_test_cases()
 _TEST_IDS = [tc["name"] for tc in _TEST_CASES]
 
@@ -206,11 +198,6 @@ class TestClassifyCongruentCells:
                 atol=1e-10,
                 err_msg=f"[{tc['name']}] Consensus translation mismatch",
             )
-
-
-# ---------------------------------------------------------------------------
-# Named tests for specific scenarios
-# ---------------------------------------------------------------------------
 
 
 class TestSpecificScenarios:

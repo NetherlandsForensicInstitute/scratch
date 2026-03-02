@@ -23,11 +23,8 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
 )
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 
-TEST_DATA_PATH = Path(__file__).parent / "cmc_test_data.json"
+TEST_DATA_PATH = Path(__file__).parent / "cmc_test_data_degrees.json"
 
 
 def _load_test_cases() -> list[dict]:
@@ -92,13 +89,15 @@ def _build_comparison_result(
 
     cells = []
     for i in range(n_cells):
+        angle_val = float(angle2[i] - angle1[i])
+        score_val = float(sim_vals[i])
         cell = Cell(
             cell_data=np.array([[0.0, 0.0], [0.1, 0.1]]),
             center_reference=mPos1[i],
             center_comparison=mPos2[i],
             # registration_angle is the delta: angle2 - angle1
-            angle_reference=float(angle2[i] - angle1[i]),
-            best_score=float(sim_vals[i]),
+            angle_reference=None if np.isnan(angle_val) else angle_val,
+            best_score=None if np.isnan(score_val) else score_val,
             fill_fraction_reference=1.0,
         )
         cells.append(cell)
@@ -108,7 +107,7 @@ def _build_comparison_result(
 
     params = ComparisonParams(
         correlation_threshold=inputs["simMin"],
-        angle_threshold=np.degrees(inputs["angleMax"]),
+        angle_threshold=inputs["angleMax"],
         position_threshold=inputs["distMax"],
     )
 
@@ -116,10 +115,6 @@ def _build_comparison_result(
 
     return result, params, global_center
 
-
-# ---------------------------------------------------------------------------
-# Parametrized tests
-# ---------------------------------------------------------------------------
 
 _TEST_CASES = _load_test_cases()
 _TEST_IDS = [tc["name"] for tc in _TEST_CASES]
@@ -207,11 +202,6 @@ class TestClassifyCongruentCells:
                 atol=1e-10,
                 err_msg=f"[{tc['name']}] Consensus translation mismatch",
             )
-
-
-# ---------------------------------------------------------------------------
-# Named tests for specific scenarios
-# ---------------------------------------------------------------------------
 
 
 class TestSpecificScenarios:

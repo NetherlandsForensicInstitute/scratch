@@ -10,11 +10,6 @@ import numpy as np
 from conversion.surface_comparison.models import ComparisonResult, ComparisonParams
 
 
-# ---------------------------------------------------------------------------
-# Public interface
-# ---------------------------------------------------------------------------
-
-
 def classify_congruent_cells(
     result: ComparisonResult,
     params: ComparisonParams,
@@ -121,11 +116,6 @@ def classify_congruent_cells(
     result.consensus_rotation = float(consensus_angle)
     result.consensus_translation = consensus_translation
     result.update_summary()
-
-
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
 
 
 def _outliers_gesd(
