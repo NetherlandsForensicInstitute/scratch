@@ -1,18 +1,13 @@
 from http import HTTPStatus
 from pathlib import Path
-from typing import Type
 
 from conversion.data_formats import Mark
-from conversion.export.mark import load_mark_from_path
-from conversion.export.profile import load_profile_from_path
-from conversion.plots.data_formats import StriationComparisonPlots
 from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from fastapi import HTTPException
 from loguru import logger
 from PIL import Image
 
-from extractors.schemas import ComparisonResponse
 
 def compare_striation_marks(
     mark_ref: Mark, mark_comp: Mark, profile_ref: Profile, profile_comp: Profile
