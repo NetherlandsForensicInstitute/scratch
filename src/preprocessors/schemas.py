@@ -79,7 +79,11 @@ class CropInfo(BaseModelConfig):
 
 class PrepareMarkBase(BaseParameters):
     mark_type: MarkType = Field(..., description="Type of mark to prepare.")
-    mask: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
+    mask: list[list[float]] = Field(
+        ...,
+        description="2D boolean array representing the mask for the mark. Must have exactly the same shape"
+        " (height × width) as the scan image.",
+    )
     bounding_box_list: list[list[float]] | None = Field(
         None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
     )
@@ -129,7 +133,10 @@ class PrepareMarkImpression(PrepareMarkBase):
 
 class MaskParameters(BaseModelConfig):
     shape: tuple[PositiveInt, PositiveInt] = Field(
-        ..., examples=[[100, 100], [250, 150]], description="Defines the shape of the 2D mask array."
+        ...,
+        examples=[[100, 100], [250, 150]],
+        description="Shape (height, width) of the 2D mask array. Must exactly match the shape of the parsed scan"
+        " image.",
     )
     is_bitpacked: bool = Field(default=False, examples=[False, True], description="Whether the mask is bit-packed.")
 

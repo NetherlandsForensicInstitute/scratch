@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import Json
@@ -92,8 +92,11 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
+
+    The mask must have exactly the same shape (height × width) as the parsed scan image.
     """,
     responses={
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
@@ -121,8 +124,11 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
 
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
+
+    The mask must have exactly the same shape (height × width) as the parsed scan image.
     """,
     responses={
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
@@ -148,10 +154,14 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     Parse and validate a scan file (X3P format only) with the provided edit parameters
     (mask, crop, subsampling). Creates a new vault for storing future outputs.
 
+    The mask shape specified in `mask_parameters.shape` must exactly match the shape
+    (height × width) of the parsed scan image.
+
     Note: Image generation is currently not implemented.
 """,
     responses={
         HTTPStatus.BAD_REQUEST: {"description": "parse error"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {
             "description": "processing error",
         },
@@ -198,6 +208,11 @@ async def edit_scan(
         shape=params.mask_parameters.shape,
         is_bitpacked=params.mask_parameters.is_bitpacked,
     )
+    if parsed_mask.shape != parsed_image.data.shape:
+        raise HTTPException(
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            detail=f"Mask shape {parsed_mask.shape} does not match image shape {parsed_image.data.shape}",
+        )
     files = GeneratedImages.get_files(vault.resource_path)
 
     edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
