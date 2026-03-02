@@ -1,23 +1,28 @@
-"""Tests for CompareDatasetsNIST: compare Python implementation against MATLAB reference.
+"""Tests for CompareDatasetsNIST: compare simone (MATLAB-faithful) pipeline against MATLAB reference.
 
 Usage:
-    pytest test_compare_datasets_nist.py -v
+    pytest test_compare_datasets_nist_old_simone_way.py -v
 
 Requires converted test cases in TEST_DATA_DIR (see convert_comparedatasetsnist_tests.py).
 """
 
 from pathlib import Path
+from typing import List, Tuple
 
+import cv2
 import numpy as np
 import pytest
 from matplotlib import pyplot as plt
 
-from conversion.surface_comparison.pipeline import run_comparison_pipeline
-from conversion.surface_comparison.models import ComparisonResult
+from conversion.surface_comparison_simone.cell_registration import register_cells
+from conversion.surface_comparison_simone.cmc_classification import (
+    classify_congruent_cells,
+)
+from conversion.surface_comparison_simone.models import (
+    ComparisonParams,
+    ComparisonResult,
+)
 from .helpers import MatlabTestCase, load_test_case
-
-import cv2
-from typing import List, Tuple
 
 TEST_DATA_DIR = Path(__file__).parent.parent.parent / "resources" / "cmc"
 
@@ -35,20 +40,24 @@ def discover_test_cases() -> list[str]:
 
 
 def run_pipeline(test_case: MatlabTestCase) -> ComparisonResult:
-    """Execute the comparison pipeline for a test case."""
-    return run_comparison_pipeline(
-        test_case.reference_map, test_case.comparison_map, test_case.params
+    """Execute the simone comparison pipeline for a test case."""
+    params = ComparisonParams(
+        cell_size=test_case.params.cell_size.copy(),
+        minimum_fill_fraction=test_case.params.minimum_fill_fraction,
+        correlation_threshold=test_case.params.correlation_threshold,
+        angle_threshold=test_case.params.angle_threshold,
+        position_threshold=test_case.params.position_threshold,
+        search_angle_min=test_case.params.search_angle_min,
+        search_angle_max=test_case.params.search_angle_max,
+        search_angle_step=test_case.params.search_angle_step,
     )
-
-
-# ---- Fixtures ----
-
-test_case_names = discover_test_cases()
-
-
-@pytest.fixture(params=test_case_names, ids=test_case_names)
-def test_case(request: pytest.FixtureRequest) -> MatlabTestCase:
-    return load_test_case(TEST_DATA_DIR / request.param)
+    result = ComparisonResult()
+    result.cells = register_cells(
+        test_case.reference_map, test_case.comparison_map, params
+    )
+    classify_congruent_cells(result, params, test_case.reference_map.global_center)
+    result.update_summary()
+    return result
 
 
 def plot_rotated_squares(
@@ -65,24 +74,17 @@ def plot_rotated_squares(
     Returns:
         Annotated image in BGR format (uint8).
     """
-    # 1. Normalize the 1e-6 data to 0-255 range for visualization
     img_min, img_max = np.nanmin(image), np.nanmax(image)
     if img_max - img_min != 0:
         norm_img = ((image - img_min) / (img_max - img_min) * 255).astype(np.uint8)
     else:
         norm_img = np.zeros(image.shape, dtype=np.uint8)
 
-    # Convert grayscale to BGR to allow colored drawings
     color_img = cv2.cvtColor(norm_img, cv2.COLOR_GRAY2BGR)
 
-    # 2. Draw each rotated square
     for rect in squares:
-        # cv2.boxPoints returns the 4 corners of the rotated rect
         box_points = cv2.boxPoints(rect)
-        # Coordinates must be integers for drawing functions
         box_points = np.int64(box_points)
-
-        # Draw the contour (Green, thickness 2)
         cv2.drawContours(color_img, [box_points], 0, (0, 255, 0), 2)
     return color_img
 
@@ -90,15 +92,12 @@ def plot_rotated_squares(
 def plot_side_by_side(
     img1: np.ndarray, img2: np.ndarray, title1: str = "Image 1", title2: str = "Image 2"
 ) -> None:
-    # Create a figure with 1 row and 2 columns
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
-    # Plot first image
     axes[0].imshow(img1)
     axes[0].set_title(title1)
-    axes[0].axis("off")  # Hide grid/axes
+    axes[0].axis("off")
 
-    # Plot second image
     axes[1].imshow(img2)
     axes[1].set_title(title2)
     axes[1].axis("off")
@@ -107,16 +106,19 @@ def plot_side_by_side(
     plt.show()
 
 
-####
+test_case_names = discover_test_cases()
 
-# ---- Tests ----
+
+@pytest.fixture(params=test_case_names, ids=test_case_names)
+def test_case(request: pytest.FixtureRequest) -> MatlabTestCase:
+    return load_test_case(TEST_DATA_DIR / request.param)
 
 
 @pytest.mark.skipif(
     not test_case_names, reason=f"No test cases found in {TEST_DATA_DIR}"
 )
-class TestCompareDatasetsNIST:
-    """Test CompareDatasetsNIST Python implementation against MATLAB reference."""
+class TestCompareDatasetsNISTSimone:
+    """Test simone (MATLAB-faithful) pipeline against MATLAB reference."""
 
     @pytest.fixture(autouse=True)
     def _run_pipeline(self, test_case: MatlabTestCase) -> None:
@@ -158,10 +160,10 @@ class TestCompareDatasetsNIST:
                         c.center_comparison[1] / comp_scale_y,
                     ),
                     (cell_w_px, cell_h_px),
-                    -c.angle_reference,
+                    -np.degrees(c.registration_angle),
                 )
                 for c in self.result.cells
-                if c.center_comparison is not None and c.angle_reference is not None
+                if not np.isnan(c.center_comparison).any()
             ],
         )
         plot_side_by_side(

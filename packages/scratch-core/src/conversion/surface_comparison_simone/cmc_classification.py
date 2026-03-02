@@ -7,7 +7,10 @@ implements the median procedure (Procedure 6) with ESD outlier rejection.
 
 import numpy as np
 
-from conversion.surface_comparison.models import ComparisonResult, ComparisonParams
+from conversion.surface_comparison_simone.models import (
+    ComparisonResult,
+    ComparisonParams,
+)
 
 
 def classify_congruent_cells(

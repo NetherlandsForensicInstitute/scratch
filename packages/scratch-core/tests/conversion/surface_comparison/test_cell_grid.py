@@ -1,6 +1,9 @@
 import numpy as np
 
-from conversion.surface_comparison.grid import _find_grid_origin, generate_grid_centers
+from conversion.surface_comparison.grid_old import (
+    _find_grid_origin,
+    generate_grid_centers,
+)
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import ComparisonParams
 
