@@ -228,7 +228,7 @@ def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
     monkeypatch: pytest.MonkeyPatch,
     endpoint: PreprocessorEndpoint,
     schema: type[PrepareMarkImpression | PrepareMarkStriation],
-    mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
+    mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
     mark_type: MarkType,
 ) -> None:
     """Test that a 422 is returned when the mask shape does not match the scan image shape."""
