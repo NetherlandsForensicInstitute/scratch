@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 import numpy as np
 
-from conversion.surface_comparison.cell_registration import (
+from conversion.surface_comparison_simone.cell_registration import (
     MapStruct,
     cell_corr_analysis,
 )

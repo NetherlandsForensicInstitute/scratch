@@ -20,11 +20,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from conversion.surface_comparison.cell_registration_matlab import (
+from conversion.surface_comparison_simone.cell_registration_matlab import (
     MapStruct,
     cell_corr_analysis,
 )
-from conversion.surface_comparison.models import (
+from conversion.surface_comparison_simone.models import (
     SurfaceMap,
     CellResult,
     ComparisonParams,
