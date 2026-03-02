@@ -73,8 +73,8 @@ class MatlabTestCase:
 
         # Convert filter params
         filters = meta.get("filters", [])
-        highpass_cutoff = 250.0e-6
-        lowpass_cutoff = 5.0e-6
+        highpass_cutoff = None
+        lowpass_cutoff = None
         highpass_order = 2
         lowpass_order = 0
 

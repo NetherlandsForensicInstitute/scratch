@@ -577,6 +577,7 @@ class TestPreprocessImpressionMarkIntegration:
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
+            lowpass_cutoff=None,
         )
 
         filtered, leveled = preprocess_impression_mark(impression_mark, params)
@@ -597,6 +598,7 @@ class TestPreprocessImpressionMarkIntegration:
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
+            highpass_cutoff=None,
         )
 
         filtered, leveled = preprocess_impression_mark(impression_mark, params)
@@ -617,6 +619,8 @@ class TestPreprocessImpressionMarkIntegration:
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
+            lowpass_cutoff=None,
+            highpass_cutoff=None,
         )
 
         filtered, leveled = preprocess_impression_mark(impression_mark, params)
@@ -716,6 +720,8 @@ class TestPreprocessImpressionMarkIntegration:
             level_offset=True,
             level_tilt=True,
             level_2nd=True,  # Remove curvature from filtered
+            lowpass_cutoff=None,
+            highpass_cutoff=None,
         )
 
         filtered, leveled = preprocess_impression_mark(impression_mark, params)

@@ -25,8 +25,8 @@ class PreprocessingImpressionParams:
     level_tilt: bool = True
     level_2nd: bool = True
     interp_method: str = "cubic"
-    highpass_cutoff: float = 250.0e-6
-    lowpass_cutoff: float = 5.0e-6
+    highpass_cutoff: float | None = 250.0e-6
+    lowpass_cutoff: float | None = 5.0e-6
     highpass_regression_order: int = 2
     lowpass_regression_order: int = 0
 
