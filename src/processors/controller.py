@@ -13,8 +13,6 @@ def compare_striation_marks(
     mark_ref: Mark, mark_comp: Mark, profile_ref: Profile, profile_comp: Profile
 ) -> MarkCorrelationResult:
     """Calculate correlation between two striation marks."""
-    logger.debug("Profile loaded")
-
     mark_correlations = correlate_striation_marks(
         mark_reference=mark_ref,
         mark_compared=mark_comp,
