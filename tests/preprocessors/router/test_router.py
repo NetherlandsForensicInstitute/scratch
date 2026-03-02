@@ -239,7 +239,7 @@ def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
         mark_type=mark_type,
         scan_file=scan_directory / "circle.x3p",
         mask=wrong_mask,
-        mark_parameters=mark_parameters,  # type: ignore
+        mark_parameters=mark_parameters(),  # type: ignore
         bounding_box_list=[],
     ).model_dump(mode="json")
 
