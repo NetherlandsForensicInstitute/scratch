@@ -2034,6 +2034,7 @@ dev = [
     { name = "requests" },
     { name = "ruff" },
     { name = "rust-just" },
+    { name = "tqdm" },
 ]
 
 [package.metadata]
@@ -2066,6 +2067,7 @@ dev = [
     { name = "requests", specifier = ">=2.32.5" },
     { name = "ruff", specifier = ">=0.14.0" },
     { name = "rust-just", specifier = ">=1.43.0" },
+    { name = "tqdm", specifier = ">=4.67.1" },
 ]
 
 [[package]]
