@@ -16,7 +16,9 @@ class MatlabTestCase:
 
     case_name: str
     reference_map: SurfaceMap
+    reference_map_processed: SurfaceMap
     comparison_map: SurfaceMap
+    comparison_map_processed: SurfaceMap
     params: ComparisonParams
     expected_results: dict
 
@@ -28,11 +30,23 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
 
     reference_map = _load_surface_map(
         case_dir,
-        height_data_name="DataConProRef",
+        height_data_name="DataConLevRef",
         scale_x=float(meta.get("reference_scale_x") or 3.5e-6),
         scale_y=float(meta.get("reference_scale_y") or 3.5e-6),
     )
     comparison_map = _load_surface_map(
+        case_dir,
+        height_data_name="DataConLevCom",
+        scale_x=float(meta.get("comparison_scale_x") or 3.5e-6),
+        scale_y=float(meta.get("comparison_scale_y") or 3.5e-6),
+    )
+    reference_map_processed = _load_surface_map(
+        case_dir,
+        height_data_name="DataConProRef",
+        scale_x=float(meta.get("reference_scale_x") or 3.5e-6),
+        scale_y=float(meta.get("reference_scale_y") or 3.5e-6),
+    )
+    comparison_map_processed = _load_surface_map(
         case_dir,
         height_data_name="DataConProCom",
         scale_x=float(meta.get("comparison_scale_x") or 3.5e-6),
@@ -42,7 +56,9 @@ def load_test_case(case_dir: Path) -> MatlabTestCase:
     return MatlabTestCase(
         case_name=meta["case_name"],
         reference_map=reference_map,
+        reference_map_processed=reference_map_processed,
         comparison_map=comparison_map,
+        comparison_map_processed=comparison_map_processed,
         params=_build_comparison_params(meta.get("params", {})),
         expected_results=meta.get("expected_results", {}),
     )
