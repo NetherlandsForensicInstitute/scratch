@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import requests
+from container_models.base import BinaryMask
 from pydantic import BaseModel
 
 from constants import PROJECT_ROOT
@@ -82,7 +83,7 @@ class TestContracts:
         return UploadScan(scan_file=scan_directory / "circle.x3p"), ProcessedDataAccess  # type: ignore
 
     @pytest.fixture(scope="class")
-    def prepare_mark_impression(self, scan_directory: Path, mask: list[list[float]]) -> Interface:
+    def prepare_mark_impression(self, scan_directory: Path, mask: BinaryMask) -> Interface:
         """
         Create dummy files for the expected response.
 
@@ -97,7 +98,7 @@ class TestContracts:
         ), PrepareMarkResponseImpression  # type: ignore
 
     @pytest.fixture(scope="class")
-    def prepare_mark_striation(self, scan_directory: Path, mask: list[list[float]]) -> Interface:
+    def prepare_mark_striation(self, scan_directory: Path, mask: BinaryMask) -> Interface:
         """
         Create dummy files for the expected response.
 

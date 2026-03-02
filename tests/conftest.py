@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+from container_models.base import BinaryMask
 from fastapi.testclient import TestClient
-from numpy import ndarray
 
 from constants import PROJECT_ROOT
 from main import app
@@ -45,7 +45,7 @@ def scan_directory() -> Path:
 
 
 @pytest.fixture(scope="session")
-def mask() -> ndarray[tuple[int, int]]:
+def mask() -> BinaryMask:
     array = np.zeros(shape=(259, 259), dtype=np.bool_)
     array[1:259, 1:259] = True
     return array
