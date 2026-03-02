@@ -303,8 +303,6 @@ def test_edit_image_returns_valid_images(
         terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
-        step_size_x=1,
-        step_size_y=1,
     )
 
     # Act

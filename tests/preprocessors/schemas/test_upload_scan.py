@@ -130,8 +130,7 @@ def test_default_values(upload_scan: UploadScan) -> None:
     # Assert
     assert upload_scan.scale_x == 1.0
     assert upload_scan.scale_y == 1.0
-    assert upload_scan.step_size_x == 1
-    assert upload_scan.step_size_y == 1
+    assert upload_scan.step_size == 1
 
 
 def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> None:
@@ -139,20 +138,17 @@ def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> 
     # Arrange
     expected_scale_x = 2.5
     expected_scale_y = 3.0
-    exppected_step_size_x = 2
-    exppected_step_size_y = 3
+    expected_step_size = 2
     # Act
     params = upload_scan_parameter(
-        scale_x=2.5,
-        scale_y=3.0,
-        step_size_x=2,
-        step_size_y=3,
+        scale_x=expected_scale_x,
+        scale_y=expected_scale_y,
+        step_size=expected_step_size,
     )
     # Assert
     assert params.scale_x == expected_scale_x
     assert params.scale_y == expected_scale_y
-    assert params.step_size_x == exppected_step_size_x
-    assert params.step_size_y == exppected_step_size_y
+    assert params.step_size == expected_step_size
 
 
 @pytest.mark.parametrize(
@@ -162,10 +158,8 @@ def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> 
         ("scale_x", -1.0),
         ("scale_y", 0.0),
         ("scale_y", -1.5),
-        ("step_size_x", 0),
-        ("step_size_x", -1),
-        ("step_size_y", 0),
-        ("step_size_y", -2),
+        ("step_size", 0),
+        ("step_size", -1),
     ],
 )
 def test_invalid_scale_and_step_values(
@@ -176,8 +170,7 @@ def test_invalid_scale_and_step_values(
     valid_params = {
         "scale_x": 1.0,
         "scale_y": 1.0,
-        "step_size_x": 1,
-        "step_size_y": 1,
+        "step_size": 1,
     }
     valid_params[field_name] = invalid_value
 

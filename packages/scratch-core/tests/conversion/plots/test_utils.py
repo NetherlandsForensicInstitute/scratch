@@ -303,14 +303,12 @@ class TestPlotDepthmapOnAxes:
 
 
 class TestPlotProfilesOnAxes:
-    def test_creates_two_lines(
-        self, striation_profile_reference, striation_profile_compared
-    ):
+    def test_creates_two_lines(self, profile_reference, profile_compared):
         fig, ax = plt.subplots()
         plot_profiles_on_axes(
             ax,
-            striation_profile_reference,
-            striation_profile_compared,
+            profile_reference.heights,
+            profile_compared.heights,
             1.5625 * micro,
             0.85,
             "Test",
@@ -318,14 +316,12 @@ class TestPlotProfilesOnAxes:
         assert len(ax.lines) == 2
         plt.close(fig)
 
-    def test_sets_labels_and_title(
-        self, striation_profile_reference, striation_profile_compared
-    ):
+    def test_sets_labels_and_title(self, profile_reference, profile_compared):
         fig, ax = plt.subplots()
         plot_profiles_on_axes(
             ax,
-            striation_profile_reference,
-            striation_profile_compared,
+            profile_reference.heights,
+            profile_compared.heights,
             1.5625 * micro,
             0.85,
             "Test",

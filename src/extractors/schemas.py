@@ -4,7 +4,7 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated, Self, cast
 
-from pydantic import AfterValidator, Field, HttpUrl
+from pydantic import AfterValidator, BaseModel, Field, HttpUrl, model_serializer
 
 from models import (
     BaseModelConfig,
@@ -60,7 +60,7 @@ class BaseResponseURLs(BaseModelConfig):
         .. note::
         URLs are validated as proper HTTP URLs via Pydantic's HttpUrl type.
         """
-        return cls(**{
+        return cls.model_validate({
             field.alias or name: HttpUrl(url=f"{access_url}/{cast(dict, field.json_schema_extra)['file_name']}")
             for name, field in cls.model_fields.items()
             if isinstance(field.json_schema_extra, dict)
@@ -230,3 +230,25 @@ class ComparisonResponseStriation(ComparisonResponse):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
         json_schema_extra={"file_name": "mark1_vs_moved_mark2.png"},
     )
+
+
+class LRResponseURL(BaseResponseURLs):
+    lr_overview_plot: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.png"],
+        json_schema_extra={"file_name": "lr_overview_plot.png"},
+    )
+
+
+class LRResponse(BaseModel):
+    urls: LRResponseURL
+    lr: float
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        """Serialize model to flat json."""
+        data = handler(self)
+        return {
+            **data["urls"],
+            "lr": data["lr"],
+        }
