@@ -112,7 +112,7 @@ class TestContracts:
         ), PrepareMarkResponseStriation  # type: ignore
 
     @pytest.fixture(scope="class")
-    def edit_scan(self, scan_directory: Path) -> tuple[EditImage, type[GeneratedImages], bytes]:
+    def edit_scan(self, scan_directory: Path) -> tuple[EditImage, bytes, type[GeneratedImages]]:
         """Create test data for edit-scan endpoint.
 
         Returns the post request data, expected response type, and mask bytes.
@@ -126,7 +126,7 @@ class TestContracts:
             cutoff_length=CUTOFF_LENGTH,
             mask_parameters=MaskParameters(shape=(rows, cols)),
         )
-        return data, GeneratedImages, mask.tobytes(order="C")
+        return data, mask.tobytes(order="C"), GeneratedImages
 
     @pytest.fixture(scope="class")
     def calculate_score_impression(self, directory_access: DirectoryAccess) -> Interface:
@@ -265,10 +265,10 @@ class TestContracts:
         expected_response.model_validate(response.json())
 
     def test_pre_processor_edit_image_post_requests(
-        self, edit_scan: tuple[EditImage, type[GeneratedImages], bytes]
+        self, edit_scan: tuple[EditImage, bytes, type[GeneratedImages]]
     ) -> None:
         """Test if preprocessor EditImage POST endpoints return expected models."""
-        params, expected_response, mask_bytes = edit_scan
+        params, mask_bytes, expected_response = edit_scan
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scan",

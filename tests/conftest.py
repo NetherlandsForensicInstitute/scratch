@@ -2,8 +2,11 @@ from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
+from numpy import ndarray
+from numpy._typing._dtype_like import _DTypeT_co
 
 from constants import PROJECT_ROOT
 from main import app
@@ -43,6 +46,7 @@ def scan_directory() -> Path:
 
 
 @pytest.fixture(scope="session")
-def mask() -> list[list[float]]:
-    rows, cols = 259, 259
-    return [[int(0 < r < rows - 1 and 0 < c < cols - 1) for c in range(cols)] for r in range(rows)]
+def mask() -> ndarray[tuple[int, int]]:
+    array = np.zeros(shape=(259, 259), dtype=np.bool_)
+    array[1:259, 1:259] = True
+    return array
