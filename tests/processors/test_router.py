@@ -182,14 +182,14 @@ class TestStriationMark:
         comp_mark_path, ref_mark_path = prepare_folder_for_calculation
         expected_files = [
             "similarity_plot",
-            "mark1_vs_moved_mark2",
+            "side_by_side_heatmap",
             "comparison_overview",
-            "mark_comp_filtered_surfacemap",
-            "mark_ref_filtered_surfacemap",
+            "filtered_compared_heatmap",
+            "filtered_reference_heatmap",
             "mark_ref_surfacemap",
-            "mark_ref_depthmap",
+            "mark_ref_preview",
             "mark_comp_surfacemap",
-            "mark_comp_depthmap",
+            "mark_comp_preview",
         ]
 
         json_data = CalculateScoreStriation(
