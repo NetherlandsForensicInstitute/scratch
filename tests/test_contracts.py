@@ -68,9 +68,9 @@ class TestContracts:
                 "step_size": "1",
             },
             expected_output={
-                "preview": f"{self.BASE_URL}/extractor/files/GENERATED_KEY/preview.png",
-                "surface_map": f"{self.BASE_URL}/extractor/files/GENERATED_KEY/surface_map.png",
-                "scan": f"{self.BASE_URL}/extractor/files/GENERATED_KEY/scan.x3p",
+                "preview": ".png",
+                "surface_map": ".png",
+                "scan": ".x3p",
             },
         )
 
@@ -101,14 +101,14 @@ class TestContracts:
                 },
             },
             expected_output={
-                "preview": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/preview.png",
-                "surface_map": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/surface_map.png",
-                "mark_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark.npz",
-                "mark_meta": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark.json",
-                "processed_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/processed.npz",
-                "processed_meta": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/processed.json",
-                "leveled_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/leveled.npz",
-                "leveled_meta": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/leveled.json",
+                "preview": ".png",
+                "surface_map": ".png",
+                "mark_data": ".npz",
+                "mark_meta": ".json",
+                "processed_data": ".npz",
+                "processed_meta": ".json",
+                "leveled_data": ".npz",
+                "leveled_meta": ".json",
             },
         )
 
@@ -136,13 +136,13 @@ class TestContracts:
                 },
             },
             expected_output={
-                "preview": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/preview.png",
-                "surface_map": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/surface_map.png",
-                "mark_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark.npz",
-                "mark_meta": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark.json",
-                "processed_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/processed.npz",
-                "processed_meta": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/processed.json",
-                "profile_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/profile.npz",
+                "preview": ".png",
+                "surface_map": ".png",
+                "mark_data": ".npz",
+                "mark_meta": ".json",
+                "processed_data": ".npz",
+                "processed_meta": ".json",
+                "profile_data": ".npz",
             },
         )
 
@@ -163,8 +163,8 @@ class TestContracts:
                 "mask_parameters": {"shape": (rows, cols), "is_bitpacked": False},
             },
             expected_output={
-                "preview": "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/preview.png",
-                "surface_map": "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/surface_map.png",
+                "preview": ".png",
+                "surface_map": ".png",
             },
         ),np.ones((rows, cols), dtype=np.bool_).tobytes(order="C")
 
@@ -182,7 +182,7 @@ class TestContracts:
                 "param": {},
             },
             expected_output={
-                "urls": {"lr_overview_plot": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/profile.png"},
+                "urls": {"lr_overview_plot": ".png"},
                 "lr": 0,
             },
         )
@@ -201,20 +201,15 @@ class TestContracts:
                 "param": {},
             },
             expected_output={
-                "mark_ref_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_ref_surfacemap.png",
-                "mark_comp_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_comp_surfacemap.png",
-                "filtered_reference_heatmap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
-                f"/filtered_reference_heatmap.png",
-                "comparison_overview": f"{self.BASE_URL}/processor/files/GENERATED_KEY/comparison_overview.png",
-                "mark_ref_filtered_moved_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
-                f"/mark_ref_filtered_moved_surfacemap.png",
-                "mark_ref_filtered_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
-                f"/mark_ref_filtered_bb_surfacemap.png",
-                "mark_comp_filtered_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
-                f"/mark_comp_filtered_bb_surfacemap.png",
-                "mark_comp_filtered_all_bb_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
-                f"/mark_comp_filtered_all_bb_surfacemap.png",
-                "cell_accf_distribution": f"{self.BASE_URL}/processor/files/GENERATED_KEY/cell_accf_distribution.png",
+                "mark_ref_surfacemap": ".png",
+                "mark_comp_surfacemap": ".png",
+                "filtered_reference_heatmap": ".png",
+                "comparison_overview": ".png",
+                "mark_ref_filtered_moved_surfacemap": ".png",
+                "mark_ref_filtered_bb_surfacemap": ".png",
+                "mark_comp_filtered_bb_surfacemap": ".png",
+                "mark_comp_filtered_all_bb_surfacemap": ".png",
+                "cell_accf_distribution": ".png",
             },
         )
 
@@ -236,7 +231,7 @@ class TestContracts:
                 "param": ImpressionLRParameters(),
             },
             expected_output={
-                "urls": {"lr_overview_plot": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/profile.png"},
+                "urls": {"lr_overview_plot": ".png"},
                 "lr": 0,
             },
         )
@@ -258,17 +253,15 @@ class TestContracts:
                 "param": StriationLRParameters(),
             },
             expected_output={
-                "mark_ref_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_ref_surfacemap.png",
-                "mark_comp_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_comp_surfacemap.png",
-                "mark_ref_filtered_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY"
-                f"/mark_ref_filtered_surfacemap.png",
-                "comparison_overview": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/comparison_overview.png",
-                "mark_ref_depthmap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_ref_depthmap.png",
-                "mark_comp_depthmap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_comp_depthmap.png",
-                "similarity_plot": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/similarity_plot.png",
-                "mark_comp_filtered_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY"
-                f"/mark_comp_filtered_surfacemap.png",
-                "mark1_vs_moved_mark2": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark1_vs_moved_mark2.png",
+                "mark_ref_surfacemap": ".png",
+                "mark_comp_surfacemap": ".png",
+                "mark_ref_filtered_surfacemap": ".png",
+                "comparison_overview": ".png",
+                "mark_ref_depthmap": ".png",
+                "mark_comp_depthmap": ".png",
+                "similarity_plot": ".png",
+                "mark_comp_filtered_surfacemap": ".png",
+                "mark1_vs_moved_mark2": ".png",
             },
         )
 
@@ -288,11 +281,30 @@ class TestContracts:
         assert response.headers["location"] == expected_location, f"should redirect to {expected_location}"
 
     def _assert_response_urls(self, response: Response, data: EndpointContractInterface):
+        """Test the response urls if they are live urls pointing to a file from the key."""
+        files = {
+            "png": b"\x89PNG\r\n\x1a\n",
+            "x3p": b"PK\x03\x04",
+            "npz": b"PK\x03\x04",
+            "json": b"{\n",
+        }
         assert response.status_code == HTTPStatus.OK, response.text
-        assert all(HttpUrl(url) for url in response.json().values())
-        for url in response.json().values():
-            assert requests.get(url, timeout=10).status_code == HTTPStatus.OK, response.text
-        assert data.expected_output.keys() == response.json().keys()
+        assert all(HttpUrl(url) for url in response.json().values()), "all response items should be a Http url"
+        for response_key, url in response.json().items():
+            file_response = requests.get(url, timeout=10)
+            assert file_response.status_code == HTTPStatus.OK, f"all urls should point to a live url {response.text}"
+            assert (
+                file_response.headers["content-type"] == "image/png"
+                or file_response.headers["content-type"] == "application/octet-stream"
+            ), "we should receive a file from the url"
+            file_type = file_response.url.split("/")[-1].split(".")[-1]
+            assert data.expected_output[response_key] == f".{file_type}", (
+                f"with key:{response_key} should have file type:{data.expected_output[response_key]}"
+            )
+            assert file_response.content[: len(files[file_type])] == files[file_type], (
+                f"file content should start with: {files[file_type]}"
+            )
+        assert data.expected_output.keys() == response.json().keys(), "all file keys are pressent"
 
     @pytest.mark.parametrize(
         ("fixture_name", "sub_route"),
