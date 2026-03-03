@@ -1,4 +1,5 @@
 import json
+import pickle
 from http import HTTPStatus
 from pathlib import Path
 
@@ -10,12 +11,32 @@ from conversion.data_formats import Mark, MarkType
 from conversion.export.mark import ExportedMarkData
 from conversion.profile_correlator import Profile
 from fastapi.testclient import TestClient
+from lir.data.models import FeatureData, LLRData
+from lir.lrsystems.lrsystems import LRSystem
 from pydantic import HttpUrl
 from scipy.constants import micro
 from scipy.interpolate import interp1d
 
 from constants import ProcessorEndpoint
-from processors.schemas import CalculateScoreStriation, StriationParamaters
+from processors.schemas import (
+    CalculateLRImpression,
+    CalculateLRStriation,
+    CalculateScoreStriation,
+    ImpressionLRParamaters,
+    StriationLRParamaters,
+    StriationParamaters,
+)
+
+
+class _IdentityLRSystem(LRSystem):
+    """Minimal LRSystem that returns the input score as the LLR."""
+
+    def __init__(self) -> None:
+        super().__init__(name="identity")
+
+    def apply(self, instances: FeatureData) -> LLRData:
+        """Return input features as LLR values."""
+        return LLRData(features=instances.features)
 
 
 def test_processors_placeholder(client: TestClient) -> None:
@@ -193,8 +214,8 @@ class TestStriationMark:
         ]
 
         json_data = CalculateScoreStriation(
-            mark_ref=ref_mark_path,
-            mark_comp=comp_mark_path,
+            mark_dir_ref=ref_mark_path,
+            mark_dir_comp=comp_mark_path,
             param=StriationParamaters(metadata_compared={"somthing": "else"}, metadata_reference={"ding": "dong"}),
         ).model_dump(mode="json")
 
@@ -212,3 +233,94 @@ class TestStriationMark:
         assert all(client.get(url).headers["content-type"] == "image/png" for url in urls.values()), (
             "Urls are returning an image."
         )
+
+
+class TestCalculateLRImpression:
+    @pytest.fixture
+    def lr_system_path(self, tmp_path: Path) -> Path:
+        """Pickle an identity LRSystem and return its path."""
+        path = tmp_path / "lr_system.pkl"
+        path.write_bytes(pickle.dumps(_IdentityLRSystem()))
+        return path
+
+    @pytest.fixture
+    def mark_dirs(self, tmp_path: Path) -> tuple[Path, Path]:
+        """Create empty mark directories."""
+        ref = tmp_path / "mark_ref"
+        comp = tmp_path / "mark_comp"
+        ref.mkdir()
+        comp.mkdir()
+        return ref, comp
+
+    @pytest.mark.integration
+    def test_returns_lr_and_plot_url(
+        self,
+        client: TestClient,
+        tmp_dir_api: None,
+        lr_system_path: Path,
+        mark_dirs: tuple[Path, Path],
+    ) -> None:
+        """Endpoint returns a float LR and a reachable plot URL."""
+        ref_path, comp_path = mark_dirs
+        json_data = CalculateLRImpression(
+            mark_dir_ref=ref_path,
+            mark_dir_comp=comp_path,
+            score=3,
+            n_cells=10,
+            lr_system_path=lr_system_path,
+            param=ImpressionLRParamaters(),
+        ).model_dump(mode="json")
+
+        response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
+
+        assert response.status_code == HTTPStatus.OK, response.json()
+        data = response.json()
+        assert isinstance(data["lr"], float)
+        assert HttpUrl(data["lr_overview_plot"])
+        assert client.get(data["lr_overview_plot"]).status_code == HTTPStatus.OK
+        assert client.get(data["lr_overview_plot"]).headers["content-type"] == "image/png"
+
+
+class TestCalculateLRStriation:
+    @pytest.fixture
+    def lr_system_path(self, tmp_path: Path) -> Path:
+        """Pickle an identity LRSystem and return its path."""
+        path = tmp_path / "lr_system.pkl"
+        path.write_bytes(pickle.dumps(_IdentityLRSystem()))
+        return path
+
+    @pytest.fixture
+    def mark_dirs(self, tmp_path: Path) -> tuple[Path, Path]:
+        """Create empty mark directories."""
+        ref = tmp_path / "mark_ref"
+        comp = tmp_path / "mark_comp"
+        ref.mkdir()
+        comp.mkdir()
+        return ref, comp
+
+    @pytest.mark.integration
+    def test_returns_lr_and_plot_url(
+        self,
+        client: TestClient,
+        tmp_dir_api: None,
+        lr_system_path: Path,
+        mark_dirs: tuple[Path, Path],
+    ) -> None:
+        """Endpoint returns a float LR and a reachable plot URL."""
+        ref_path, comp_path = mark_dirs
+        json_data = CalculateLRStriation(
+            mark_dir_ref=ref_path,
+            mark_dir_comp=comp_path,
+            score=0.5,
+            lr_system_path=lr_system_path,
+            param=StriationLRParamaters(),
+        ).model_dump(mode="json")
+
+        response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
+
+        assert response.status_code == HTTPStatus.OK, response.json()
+        data = response.json()
+        assert isinstance(data["lr"], float)
+        assert HttpUrl(data["lr_overview_plot"])
+        assert client.get(data["lr_overview_plot"]).status_code == HTTPStatus.OK
+        assert client.get(data["lr_overview_plot"]).headers["content-type"] == "image/png"

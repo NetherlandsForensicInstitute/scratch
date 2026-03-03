@@ -1,3 +1,7 @@
+import os
+
+os.environ.setdefault("MPLBACKEND", "Agg")
+
 from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch

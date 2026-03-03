@@ -4,8 +4,8 @@ from models import BaseModelConfig
 
 
 class MarkDirectories(BaseModelConfig):
-    mark_ref: DirectoryPath
-    mark_comp: DirectoryPath
+    mark_dir_ref: DirectoryPath
+    mark_dir_comp: DirectoryPath
 
     @property
     def tag(self) -> str:
@@ -30,14 +30,14 @@ class CalculateScoreStriation(MarkDirectories):
 
 
 class CalculateLR(MarkDirectories):
-    score: int
-    lr_system: FilePath
+    lr_system_path: FilePath
 
 
 class ImpressionLRParamaters(BaseModelConfig): ...
 
 
 class CalculateLRImpression(CalculateLR):
+    score: int
     n_cells: PositiveInt
     param: ImpressionLRParamaters
 
@@ -46,4 +46,5 @@ class StriationLRParamaters(BaseModelConfig): ...
 
 
 class CalculateLRStriation(CalculateLR):
+    score: float
     param: StriationLRParamaters

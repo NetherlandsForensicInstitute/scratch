@@ -2,21 +2,29 @@ import pickle
 from pathlib import Path
 
 import pytest
-from sklearn.base import BaseEstimator
-from sklearn.linear_model import LinearRegression
-
-from processors.controller import calculate_lr, get_lr_system
+from computations.likelihood_ratio import calculate_lr, get_lr_system
+from lir.data.models import FeatureData, LLRData
+from lir.lrsystems.lrsystems import LRSystem
 
 TOLERANCE = 1e-6
 
 
+class _IdentityLRSystem(LRSystem):
+    """Minimal LRSystem that returns the input score as the LLR."""
+
+    def __init__(self) -> None:
+        super().__init__(name="identity")
+
+    def apply(self, instances: FeatureData) -> LLRData:
+        """Return input features as LLR values."""
+        return LLRData(features=instances.features)
+
+
 @pytest.fixture
 def dummy_lr_system_pickle(tmp_path: Path) -> Path:
-    """Train a LinearRegression on y=x and write it to a temp pickle file."""
-    model = LinearRegression()
-    model.fit([[0.0], [1.0]], [0.0, 1.0])
+    """Pickle an identity LRSystem and return the path."""
     path = tmp_path / "lr_system.pkl"
-    path.write_bytes(pickle.dumps(model))
+    path.write_bytes(pickle.dumps(_IdentityLRSystem()))
     return path
 
 
@@ -24,15 +32,15 @@ def dummy_lr_system_pickle(tmp_path: Path) -> Path:
 class TestGetLRSystem:
     """Tests for get_lr_system."""
 
-    def test_returns_object_with_predict(self, dummy_lr_system_pickle: Path) -> None:
-        """Loaded object exposes a predict method."""
+    def test_returns_object_with_apply(self, dummy_lr_system_pickle: Path) -> None:
+        """Loaded object exposes an apply method."""
         model = get_lr_system(dummy_lr_system_pickle)
-        assert hasattr(model, "predict")
+        assert hasattr(model, "apply")
 
-    def test_returns_sklearn_estimator(self, dummy_lr_system_pickle: Path) -> None:
-        """Loaded object is an sklearn BaseEstimator."""
+    def test_returns_lrsystem(self, dummy_lr_system_pickle: Path) -> None:
+        """Loaded object is a lir LRSystem."""
         model = get_lr_system(dummy_lr_system_pickle)
-        assert isinstance(model, BaseEstimator)
+        assert isinstance(model, LRSystem)
 
 
 class TestCalculateLR:
@@ -43,7 +51,7 @@ class TestCalculateLR:
         model = get_lr_system(dummy_lr_system_pickle)
         assert isinstance(calculate_lr(0.5, model), float)
 
-    def test_predict_output_matches_model(self, dummy_lr_system_pickle: Path) -> None:
-        """LinearRegression trained on y=x predicts ~0.5 for score=0.5."""
+    def test_output_matches_model(self, dummy_lr_system_pickle: Path) -> None:
+        """Identity LRSystem returns the input score as the LLR."""
         model = get_lr_system(dummy_lr_system_pickle)
         assert abs(calculate_lr(0.5, model) - 0.5) < TOLERANCE

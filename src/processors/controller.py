@@ -1,10 +1,17 @@
 from http import HTTPStatus
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
 from conversion.data_formats import Mark
+from conversion.plots.data_formats import LlrTransformationData
+from conversion.plots.plot_score_llr_transformation import plot_score_llr_transformation
 from conversion.plots.plot_striation import plot_striation_comparison_results
+from conversion.plots.utils import figure_to_array
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from fastapi import HTTPException
+from lir.data.models import FeatureData
+from lir.lrsystems.lrsystems import LRSystem
 from loguru import logger
 from PIL import Image
 
@@ -53,3 +60,28 @@ def save_striation_comparison_plots(  # noqa: PLR0913
     Image.fromarray(plots.comparison_overview).save(files_to_save["comparison_overview"])
     Image.fromarray(plots.filtered_compared_heatmap).save(files_to_save["mark_comp_filtered_surfacemap"])
     Image.fromarray(plots.filtered_reference_heatmap).save(files_to_save["mark_ref_filtered_surfacemap"])
+
+
+def save_lr_overview_plot(
+    system: LRSystem,
+    score: float,
+    lr: float,
+    score_max: float,
+    output_path: Path,
+) -> None:
+    """Generate and save the LLR transformation overview plot."""
+    scores = np.linspace(0, score_max, 100)
+    llr_result = system.apply(FeatureData(features=scores.reshape(-1, 1)))
+    llrs_at5 = llr_result.llr_intervals[:, 0] if llr_result.has_intervals else llr_result.llrs
+    llrs_at95 = llr_result.llr_intervals[:, 1] if llr_result.has_intervals else llr_result.llrs
+    llr_data = LlrTransformationData(
+        scores=scores,
+        llrs=llr_result.llrs,
+        llrs_at5=llrs_at5,
+        llrs_at95=llrs_at95,
+        score_llr_point=(float(score), lr),
+    )
+    fig, ax = plt.subplots()
+    plot_score_llr_transformation(ax, llr_data)
+    Image.fromarray(figure_to_array(fig)).save(output_path)
+    plt.close(fig)
