@@ -184,7 +184,7 @@ class TestLRResponse:
             id=PrepareMarkResponseImpression.__name__,
         ),
         pytest.param(
-            ComparisonResponseStriation,
+            schemas_module.ComparisonResponseStriationURL,
             {
                 "mark_ref_surfacemap",
                 "mark_comp_surfacemap",

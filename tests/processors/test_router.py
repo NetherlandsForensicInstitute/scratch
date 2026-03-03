@@ -166,7 +166,7 @@ class TestStriationMark:
         self._save_mark(dir_path=ref_mark_path, profile=profile_reference, mark=mark_reference)
         self._save_mark(dir_path=comp_mark_path, profile=profile_compared, mark=mark_compared)
 
-        return (comp_mark_path, ref_mark_path)
+        return comp_mark_path, ref_mark_path
 
     @pytest.mark.integration
     def test_calculate_striation_mark(
@@ -195,7 +195,7 @@ class TestStriationMark:
         json_data = CalculateScoreStriation(
             mark_ref=ref_mark_path,
             mark_comp=comp_mark_path,
-            param=StriationParamaters(metadata_compared={"somthing": "else"}, metadata_reference={"ding": "dong"}),
+            param=StriationParamaters(metadata_compared={"something": "else"}, metadata_reference={"ding": "dong"}),
         ).model_dump(mode="json")
 
         # Act
@@ -203,7 +203,7 @@ class TestStriationMark:
 
         # Arrange
         assert response.status_code == HTTPStatus.OK, response.json()
-        urls = response.json()
+        urls = response.json()["urls"]
         assert all(HttpUrl(url) for url in urls.values()), "All items in the response should be an url."
         assert all(url in expected_files for url in urls.keys()), "All expected files are in the url response."
         assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values()), (
