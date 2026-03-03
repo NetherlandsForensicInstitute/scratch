@@ -22,15 +22,19 @@ All mutations in this module must preserve the semantic content of
 the image while adjusting its spatial representation.
 """
 
-import numpy as np
+from typing import Self
 
-from container_models.base import BinaryMask
-from computations.spatial import get_bounding_box
-from container_models.scan_image import ScanImage
-from exceptions import ImageShapeMismatchError
+import numpy as np
 from loguru import logger
-from mutations.base import ImageMutation
+from scipy.ndimage import rotate
 from skimage.transform import resize
+
+from computations.spatial import get_bounding_box
+from container_models.base import BinaryMask
+from container_models.scan_image import ScanImage
+from conversion.data_formats import BoundingBox
+from exceptions import ImageShapeMismatchError
+from mutations.base import ImageMutation
 
 
 class CropToMask(ImageMutation):
@@ -106,3 +110,68 @@ class Resample(ImageMutation):
             scale_x=scan_image.scale_x * scale_x_factor,
             scale_y=scan_image.scale_y * scale_y_factor,
         )
+
+
+class Rotate(ImageMutation):
+    def __init__(self, rotation_angle: float, counter_clockwise_rotation: bool):
+        """Constructor to initiating the Rotate class,
+
+        :Note:
+            if counter_clockwise_rotation is False rotation_angle will be reverse (*-1)
+            if rotation_angle is more then 359, it has made a full turn and raises a ValueError
+        """
+        if rotation_angle > 359 or rotation_angle < -359:
+            raise ValueError("Rotation angle must be between -359 and 359")
+        self.rotation_angle = (
+            rotation_angle if counter_clockwise_rotation else -rotation_angle
+        )
+
+    @property
+    def skip_predicate(self) -> bool:
+        """
+        Determine whether this rotation should be skipped.
+
+        Skips computation if the rotation is 0.
+
+        :returns: True if rotation angle is 0, False otherwise
+        """
+        return True if self.rotation_angle == 0 else False
+
+    @classmethod
+    def from_bounding_box(
+        cls, bounding_box: BoundingBox, counter_clockwise_rotation: bool
+    ) -> Self:
+        """
+        Calculate the rotation angle of a rectangular crop region.
+
+        Determines the rotation angle by computing the angles between edges and the x-axis, and selecting the angle with
+        the smallest absolute value.
+
+        :param bounding_box: Bounding box of a rectangular crop region. Expects pixel coordinates,
+            i.e. top-left origin, in the order [x, y].
+        :param counter_clockwise_rotation: boolean True for right false for left (*-1)
+        :return: The rotation angle in degrees, ranging from -180 to 180 (inclusive).
+        """
+        angles = []
+        for i in range(4):
+            point1 = bounding_box[i]
+            point2 = bounding_box[(i + 1) % 4]
+            angles.append(
+                np.degrees(np.arctan2(point2[1] - point1[1], point2[0] - point1[0]))
+            )
+        angle = min(angles, key=lambda x: abs(x))
+        return cls(
+            rotation_angle=angle,
+            counter_clockwise_rotation=counter_clockwise_rotation,
+        )
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        scan_image.data = rotate(
+            scan_image.data,
+            self.rotation_angle,
+            reshape=True,
+            order=1,
+            mode="constant",
+            cval=np.nan,
+        )
+        return scan_image
