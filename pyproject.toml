@@ -104,7 +104,7 @@ ignore-decorators = ["property"]
 python-version = "3.13"
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "tests/processors/resources"]
+pythonpath = ["src", "packages/scratch-core/tests/resources"]
 testpaths = ["tests", "packages/**/tests"]
 addopts = [
   "--import-mode=importlib",

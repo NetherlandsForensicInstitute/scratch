@@ -1,32 +1,12 @@
-import pickle
 from pathlib import Path
 
 import pytest
-from computations.likelihood_ratio import calculate_lr, get_lr_system
-from lir.data.models import FeatureData, LLRData
-from lir.lrsystems.lrsystems import LRSystem
+from computations.likelihood_ratio import get_lr_system
+from PIL import Image
 
-TOLERANCE = 1e-6
-RESOURCES = Path(__file__).parent / "resources"
+from processors.controller import save_lr_overview_plot
 
-
-class _IdentityLRSystem(LRSystem):
-    """Minimal LRSystem that returns the input score as the LLR."""
-
-    def __init__(self) -> None:
-        super().__init__(name="identity")
-
-    def apply(self, instances: FeatureData) -> LLRData:
-        """Return input features as LLR values."""
-        return LLRData(features=instances.features)
-
-
-@pytest.fixture
-def dummy_lr_system_pickle(tmp_path: Path) -> Path:
-    """Pickle an identity LRSystem and return the path."""
-    path = tmp_path / "lr_system.pkl"
-    path.write_bytes(pickle.dumps(_IdentityLRSystem()))
-    return path
+RESOURCES = Path(__file__).parent.parent.parent / "packages/scratch-core/tests/resources"
 
 
 @pytest.fixture
@@ -35,35 +15,15 @@ def random_lr_system_path() -> Path:
     return RESOURCES / "random_lr_system.pkl"
 
 
-@pytest.mark.integration
-class TestGetLRSystem:
-    """Tests for get_lr_system."""
+class TestSaveLrOverviewPlot:
+    """Tests for save_lr_overview_plot."""
 
-    def test_returns_object_with_apply(self, random_lr_system_path: Path) -> None:
-        """Loaded object exposes an apply method."""
-        model = get_lr_system(random_lr_system_path)
-        assert hasattr(model, "apply")
+    @pytest.mark.integration
+    def test_saves_png(self, tmp_path: Path, random_lr_system_path: Path) -> None:
+        """Output file is written and is a valid PNG."""
+        output = tmp_path / "lr_plot.png"
+        system = get_lr_system(random_lr_system_path)
+        save_lr_overview_plot(system, score=0.5, lr=1.2, score_max=1.0, output_path=output)
 
-    def test_returns_lrsystem(self, random_lr_system_path: Path) -> None:
-        """Loaded object is a lir LRSystem."""
-        model = get_lr_system(random_lr_system_path)
-        assert isinstance(model, LRSystem)
-
-
-class TestCalculateLR:
-    """Tests for calculate_lr."""
-
-    def test_returns_float(self, dummy_lr_system_pickle: Path) -> None:
-        """Return type is float."""
-        model = get_lr_system(dummy_lr_system_pickle)
-        assert isinstance(calculate_lr(0.5, model), float)
-
-    def test_output_matches_model(self, dummy_lr_system_pickle: Path) -> None:
-        """Identity LRSystem returns the input score as the LLR."""
-        model = get_lr_system(dummy_lr_system_pickle)
-        assert abs(calculate_lr(0.5, model) - 0.5) < TOLERANCE
-
-    def test_returns_float_with_n_cells(self, random_lr_system_path: Path) -> None:
-        """Return type is float when n_cells is supplied (impression case)."""
-        model = get_lr_system(random_lr_system_path)
-        assert isinstance(calculate_lr(3, model, n_cells=10), float)
+        assert output.exists()
+        assert Image.open(output).format == "PNG"
