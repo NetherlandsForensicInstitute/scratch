@@ -11,7 +11,10 @@ Usage:
 """
 
 import argparse
+import contextlib
 import logging
+import os
+import uuid
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -54,7 +57,16 @@ def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
     """Load an X3P from path and parse it with the pipelines and write the result."""
     scan = unsafe_perform_io(load_scan_image(input_path).unwrap())
     x3p = parse_to_x3p(scan).unwrap()
-    x3p.write(str(output_path))
+
+    tmp = output_path.with_stem(f".{uuid.uuid4().hex}.tmp")
+    try:
+        x3p.write(str(tmp))
+        os.replace(tmp, output_path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
+
     return scan.width, scan.height
 
 
@@ -68,11 +80,6 @@ def _load_shape(path: Path) -> tuple[int, int] | None:
         x, y = shape_file.read_text().strip().split(",")
         return int(x), int(y)
     return None
-
-
-def _get_x3p_shape(x3p_path: Path) -> tuple[int, int]:
-    scan = unsafe_perform_io(load_scan_image(x3p_path).unwrap())
-    return scan.width, scan.height
 
 
 def find_mark_folders(root: Path) -> Iterator[tuple[Path, Path]]:
@@ -105,7 +112,7 @@ def convert_measurement_x3p(measurement_folder: Path, cfg: ConversionConfig) -> 
         shape = _load_shape(output_x3p)
         if shape is not None:
             return output_x3p, shape
-        return output_x3p, _get_x3p_shape(output_x3p)
+        logger.warning("Missing shape file for %s, reconverting", output_x3p)
 
     output_x3p.parent.mkdir(parents=True, exist_ok=True)
 
