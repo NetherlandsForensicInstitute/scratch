@@ -6,10 +6,8 @@ merging.
 import pytest
 
 from conversion.data_formats import Mark
-from conversion.plots.data_formats import (
-    StriationComparisonMetrics,
-    ImpressionComparisonMetrics,
-)
+from conversion.plots.data_formats import ImpressionComparisonMetrics
+from conversion.profile_correlator import StriationComparisonResults, Profile
 from conversion.plots.plot_impression import plot_impression_comparison_results
 from conversion.plots.plot_striation import plot_striation_comparison_results
 
@@ -47,9 +45,9 @@ class TestGenerateOverview:
         striation_mark_compared: Mark,
         striation_mark_reference_aligned: Mark,
         striation_mark_compared_aligned: Mark,
-        striation_mark_profile_reference: Mark,
-        striation_mark_profile_compared: Mark,
-        striation_metrics: StriationComparisonMetrics,
+        profile_reference: Profile,
+        profile_compared: Profile,
+        striation_metrics: StriationComparisonResults,
         sample_metadata_reference: dict[str, str],
         sample_metadata_compared: dict[str, str],
     ) -> None:
@@ -59,8 +57,8 @@ class TestGenerateOverview:
             mark_compared=striation_mark_compared,
             mark_reference_aligned=striation_mark_reference_aligned,
             mark_compared_aligned=striation_mark_compared_aligned,
-            mark_profile_reference_aligned=striation_mark_profile_reference,
-            mark_profile_compared_aligned=striation_mark_profile_compared,
+            profile_reference_aligned=profile_reference,
+            profile_compared_aligned=profile_compared,
             metrics=striation_metrics,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,

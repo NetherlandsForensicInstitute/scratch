@@ -1,34 +1,25 @@
 import numpy as np
 import pytest
+from scipy.constants import mega, micro
 
 from container_models.base import FloatArray2D
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkType
 from conversion.plots.data_formats import (
-    StriationComparisonMetrics,
+    HistogramData,
     ImpressionComparisonMetrics,
+    LlrTransformationData,
 )
-
-from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType
+from conversion.profile_correlator import StriationComparisonResults, Profile
 
 from .helper_functions import (
     create_synthetic_impression_data,
     create_synthetic_impression_mark,
     create_synthetic_impression_surface_pair,
-    create_synthetic_profile_mark,
+    create_synthetic_profile,
     create_synthetic_striation_data,
     create_synthetic_striation_mark,
+    make_mark,
 )
-
-
-@pytest.fixture
-def striation_profile_reference() -> FloatArray2D:
-    return create_synthetic_striation_data(height=1, width=200, seed=42)
-
-
-@pytest.fixture
-def striation_profile_compared() -> FloatArray2D:
-    return create_synthetic_striation_data(height=1, width=200, seed=43)
 
 
 @pytest.fixture
@@ -62,40 +53,38 @@ def striation_mark_compared_aligned() -> Mark:
 
 
 @pytest.fixture
-def striation_mark_profile_reference() -> Mark:
-    return create_synthetic_profile_mark(length=200, seed=46)
+def profile_reference() -> Profile:
+    return create_synthetic_profile(length=200, seed=46)
 
 
 @pytest.fixture
-def striation_mark_profile_compared() -> Mark:
-    return create_synthetic_profile_mark(length=200, seed=47)
+def profile_compared() -> Profile:
+    return create_synthetic_profile(length=200, seed=47)
 
 
 @pytest.fixture
-def striation_quality_passbands() -> dict[tuple[float, float], float]:
-    return {
-        (5, 250): 0.85,
-        (100, 250): 0.78,
-        (50, 100): 0.65,
-        (25, 50): 0.45,
-        (10, 25): 0.30,
-        (5, 10): 0.15,
-    }
-
-
-@pytest.fixture
-def striation_metrics(striation_quality_passbands) -> StriationComparisonMetrics:
-    return StriationComparisonMetrics(
+def striation_metrics() -> StriationComparisonResults:
+    sq_ref = 0.2395 * micro
+    sq_comp = 0.7121 * micro
+    sq_diff = 0.6138 * micro
+    return StriationComparisonResults(
+        pixel_size=1.5625 * micro,
+        position_shift=12.5 * micro,
+        scale_factor=1.0,
+        similarity_value=0.85,
+        overlap_length=160 * micro,
+        overlap_ratio=0.804,
         correlation_coefficient=0.85,
-        position_shift=12.5,
-        overlap_ratio=80.4,
-        mean_square_ref=0.2395,
-        mean_square_comp=0.7121,
-        mean_square_of_difference=0.6138,
-        mean_square_ratio=297.3765,
-        signed_roughness_difference=220.94,
-        pixel_size=1.5625,
-        quality_passbands=striation_quality_passbands,
+        sa_ref=0.19 * micro,
+        mean_square_ref=sq_ref,
+        sa_comp=0.60 * micro,
+        mean_square_comp=sq_comp,
+        sa_diff=0.50 * micro,
+        mean_square_of_difference=sq_diff,
+        ds_roughness_normalized_to_reference=(sq_diff / sq_ref) ** 2,
+        ds_roughness_normalized_to_compared=(sq_diff / sq_comp) ** 2,
+        ds_roughness_normalized_to_reference_and_compared=sq_diff**2
+        / (sq_ref * sq_comp),
     )
 
 
@@ -166,7 +155,7 @@ def impression_sample_metrics(
 ) -> ImpressionComparisonMetrics:
     n_rows, n_cols = impression_sample_cell_correlations.shape
     n_cells = impression_sample_cell_correlations.size
-    # Surface: 100x120 pixels at 1.5e-6 m/px = 150x180 µm
+    # Surface: 100x120 pixels at 1.5 * micro m/px = 150x180 µm
     height_um, width_um = 150.0, 180.0
     cell_w_um = width_um / n_cols
     cell_h_um = height_um / n_rows
@@ -202,8 +191,8 @@ def impression_sample_metrics(
 def impression_overview_marks() -> dict[str, Mark]:
     """Four impression marks: leveled and filtered for reference and compared."""
     rows, cols = 300, 200
-    scale_x = 1.5626e-6
-    scale_y = 1.5675e-6
+    scale_x = 1.5626 * micro
+    scale_y = 1.5675 * micro
 
     data_ref_lev, data_comp_lev = create_synthetic_impression_surface_pair(
         rows, cols, 0, 10, 11
@@ -212,17 +201,31 @@ def impression_overview_marks() -> dict[str, Mark]:
         rows, cols, 1, 12, 13
     )
 
-    def _mark(data: np.ndarray) -> Mark:
-        return Mark(
-            scan_image=ScanImage(data=data, scale_x=scale_x, scale_y=scale_y),
-            mark_type=MarkType.EJECTOR_IMPRESSION,
-        )
-
     return {
-        "reference_leveled": _mark(data_ref_lev),
-        "compared_leveled": _mark(data_comp_lev),
-        "reference_filtered": _mark(data_ref_flt),
-        "compared_filtered": _mark(data_comp_flt),
+        "reference_leveled": make_mark(
+            data_ref_lev,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
+        "compared_leveled": make_mark(
+            data_comp_lev,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
+        "reference_filtered": make_mark(
+            data_ref_flt,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
+        "compared_filtered": make_mark(
+            data_comp_flt,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
     }
 
 
@@ -240,16 +243,16 @@ def impression_overview_metrics() -> ImpressionComparisonMetrics:
     )
 
     rows, cols = 300, 200
-    scale_x = 1.5626e-6
-    scale_y = 1.5675e-6
+    scale_x = 1.5626 * micro
+    scale_y = 1.5675 * micro
 
     n_cell_rows, n_cell_cols = cell_correlations.shape
     n_cells = n_cell_rows * n_cell_cols
     n_cmc = int(np.sum(cell_correlations >= cell_similarity_threshold))
     cmc_score = n_cmc / n_cells * 100
 
-    surface_w_um = cols * scale_x * 1e6
-    surface_h_um = rows * scale_y * 1e6
+    surface_w_um = cols * scale_x * mega
+    surface_h_um = rows * scale_y * mega
     cell_w_um = surface_w_um / n_cell_cols
     cell_h_um = surface_h_um / n_cell_rows
 
@@ -310,3 +313,118 @@ def impression_overview_metadata_compared() -> dict[str, str]:
         "Specimen ID": "kras_2_r01",
         "Measurement ID": "afsloeting_2",
     }
+
+
+@pytest.fixture
+def ccf_results_metadata() -> dict[str, str]:
+    return {
+        "Date report": "2023-02-16",
+        "User ID": "RUHES (apc_abal)",
+        "Mark type": "Aperture shear striation",
+        "Score type": "CCF",
+        "Score (transform)": "0.97 (1.86)",
+        "LogLR (5%, 95%)": "5.19 (5.17, 5.24)",
+        "# of KM scores": "1144",
+        "# of KNM scores": "296462",
+    }
+
+
+@pytest.fixture
+def ccf_histogram_data() -> HistogramData:
+    rng = np.random.default_rng(42)
+    knm_scores = rng.beta(2, 5, 1000)
+    km_scores = rng.beta(8, 2, 100)
+    scores = np.concatenate([knm_scores, km_scores])
+    labels = np.concatenate([np.zeros(1000), np.ones(100)])
+    return HistogramData(
+        scores=scores,
+        labels=labels,
+        bins=None,
+        densities=None,
+        new_score=None,
+    )
+
+
+@pytest.fixture
+def ccf_histogram_data_transformed(ccf_histogram_data: HistogramData) -> HistogramData:
+    return HistogramData(
+        scores=0.52 + ccf_histogram_data.scores * 0.47,
+        labels=ccf_histogram_data.labels,
+        bins=None,
+        densities=None,
+        new_score=None,
+    )
+
+
+@pytest.fixture
+def ccf_llr_data(
+    ccf_histogram_data_transformed: HistogramData,
+) -> LlrTransformationData:
+    scores_t = ccf_histogram_data_transformed.scores
+    score_grid = np.linspace(scores_t.min(), scores_t.max(), 100)
+    llrs = 5 * (score_grid - 0.75) ** 2 - 2
+    return LlrTransformationData(
+        scores=score_grid,
+        llrs=llrs,
+        llrs_at5=llrs - 0.5,
+        llrs_at95=llrs + 0.5,
+        score_llr_point=None,
+    )
+
+
+@pytest.fixture
+def cmc_results_metadata(
+    impression_overview_metrics: ImpressionComparisonMetrics,
+) -> dict[str, str]:
+    metrics = impression_overview_metrics
+    n_cell_rows, n_cell_cols = metrics.cell_correlations.shape
+    n_cells = n_cell_rows * n_cell_cols
+    n_cmc = int(np.sum(metrics.cell_correlations >= metrics.cell_similarity_threshold))
+    return {
+        "Date report": "2023-02-16",
+        "User ID": "test_user",
+        "Mark type": "Breech face impression",
+        "Collection name": "test_collection",
+        "KM model": "Beta-binomial",
+        "KNM model": "Binomial",
+        "Score type": "CMC",
+        "Score (transform)": f"{n_cmc} of {n_cells}",
+        "LogLR (5%, 95%)": "4.87 (4.87, 4.87)",
+        "LR (5%, 95%)": "7.41e+04 (7.41e+04, 7.41e+04)",
+        "# of KM scores": "500",
+        "# of KNM scores": "5000",
+    }
+
+
+@pytest.fixture
+def cmc_histogram_data() -> HistogramData:
+    rng = np.random.default_rng(42)
+    n_knm, n_km = 5000, 500
+    knm_scores = rng.exponential(scale=2.0, size=n_knm)
+    km_scores = np.clip(rng.normal(loc=28, scale=5, size=n_km), 0, None)
+    scores = np.concatenate([knm_scores, km_scores])
+    labels = np.concatenate([np.zeros(n_knm), np.ones(n_km)])
+    return HistogramData(
+        scores=scores,
+        labels=labels,
+        bins=20,
+        densities=None,
+        new_score=None,
+    )
+
+
+@pytest.fixture
+def cmc_llr_data() -> LlrTransformationData:
+    llr_scores = np.linspace(0, 55, 200)
+    llrs = np.piecewise(
+        llr_scores,
+        [llr_scores < 20, llr_scores >= 20],
+        [lambda s: -2 + 0.1 * s, lambda s: -2 + 0.35 * (s - 10)],
+    )
+    return LlrTransformationData(
+        scores=llr_scores,
+        llrs=llrs,
+        llrs_at5=llrs - 0.3,
+        llrs_at95=llrs + 0.3,
+        score_llr_point=None,
+    )

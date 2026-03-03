@@ -2,6 +2,8 @@ from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 
+import numpy as np
+from container_models.base import BinaryMask
 from container_models.light_source import LightSource
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, parse_to_x3p, save_x3p, subsample_scan_image
@@ -17,10 +19,6 @@ from renders import (
 from renders.normalizations import normalize_2d_array
 
 from pipelines import run_pipeline
-from preprocessors.schemas import (
-    PreprocessingImpressionParams,
-    PreprocessingStriationParams,
-)
 
 
 def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> ScanImage:
@@ -39,6 +37,29 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
         make_isotropic,
         error_message=f"Failed to parsed given scan file: {scan_file}",
     )
+
+
+def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: bool = False) -> BinaryMask:
+    """
+    Convert incoming binary data to a 2D mask array.
+
+    :param raw_data: The binary data to convert.
+    :param shape: The shape of the mask array.
+    :param is_bitpacked: Boolean indicating whether the binary data is bit-packed
+        and should be decompressed before reshaping.
+    :returns: The 2D mask array.
+    """
+    if not is_bitpacked:
+        # TODO: remove this option and only allow bitpacked arrays
+        return np.frombuffer(raw_data, dtype=np.bool).reshape(*shape)
+
+    # Note: this follows the Java implementation for bitpacking
+    height, width = shape
+    packed = np.frombuffer(raw_data, dtype=np.uint8)
+    unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)  # type: ignore
+    padding = (-width) % 8
+    reshaped = unpacked.reshape(height, width + padding)
+    return reshaped[:, :width]
 
 
 def x3p_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
@@ -104,13 +125,3 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
         partial(save_image, output_path=output_path),
         error_message=f"Failed to create the surface map: {output_path}",
     )
-
-
-def impression_mark_pipeline(params: PreprocessingImpressionParams) -> Path:
-    """PLACEHOLDER."""  # noqa: D401
-    return Path()  # TODO: fill in when implementing impression mark.
-
-
-def striation_mark_pipeline(params: PreprocessingStriationParams) -> Path:
-    """PLACEHOLDER."""  # noqa: D401
-    return Path()  # TODO: fill in when implementing striation mark.

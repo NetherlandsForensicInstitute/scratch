@@ -4,7 +4,7 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated, Self, cast
 
-from pydantic import AfterValidator, Field, HttpUrl
+from pydantic import AfterValidator, BaseModel, Field, HttpUrl, model_serializer
 
 from models import (
     BaseModelConfig,
@@ -16,6 +16,8 @@ from models import (
 class SupportedExtension(StrEnum):
     X3P = auto()
     PNG = auto()
+    JSON = auto()
+    NPZ = auto()
 
 
 type RelativePath = Annotated[
@@ -60,7 +62,7 @@ class BaseResponseURLs(BaseModelConfig):
         .. note::
         URLs are validated as proper HTTP URLs via Pydantic's HttpUrl type.
         """
-        return cls(**{
+        return cls.model_validate({
             field.alias or name: HttpUrl(url=f"{access_url}/{cast(dict, field.json_schema_extra)['file_name']}")
             for name, field in cls.model_fields.items()
             if isinstance(field.json_schema_extra, dict)
@@ -132,12 +134,6 @@ class PrepareMarkResponseStriation(PrepareMarkResponse):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.npz"],
         json_schema_extra={"file_name": "profile.npz"},
     )
-    profile_meta: HttpUrl = Field(
-        ...,
-        description="meta data from the profile data.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/profile.json"],
-        json_schema_extra={"file_name": "profile.json"},
-    )
 
 
 class PrepareMarkResponseImpression(PrepareMarkResponse):
@@ -155,3 +151,116 @@ class PrepareMarkResponseImpression(PrepareMarkResponse):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/leveled.json"],
         json_schema_extra={"file_name": "leveled.json"},
     )
+
+
+class ComparisonResponse(BaseResponseURLs):
+    """Response model for comparison data access."""
+
+    mark_ref_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_surfacemap.json"],
+        json_schema_extra={"file_name": "mark_ref_surfacemap.png"},
+    )
+    mark_comp_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_comp_surfacemap.json"],
+        json_schema_extra={"file_name": "mark_comp_surfacemap.png"},
+    )
+    filtered_reference_heatmap: HttpUrl = Field(
+        description="",
+        examples=[
+            "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/filtered_reference_heatmap.json"
+        ],
+        json_schema_extra={"file_name": "filtered_reference_heatmap.png"},
+    )
+    comparison_overview: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/comparison_overview.png"],
+        json_schema_extra={"file_name": "comparison_overview.png"},
+    )
+
+
+class ComparisonResponseImpression(ComparisonResponse):
+    mark_ref_filtered_moved_surfacemap: HttpUrl = Field(
+        description="",
+        examples=[
+            "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_filtered_moved_surfacemap.png"
+        ],
+        json_schema_extra={"file_name": "mark_ref_filtered_moved_surfacemap.png"},
+    )
+    mark_ref_filtered_bb_surfacemap: HttpUrl = Field(
+        description="",
+        examples=[
+            "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_filtered_bb_surfacemap.png"
+        ],
+        json_schema_extra={"file_name": "mark_ref_filtered_bb_surfacemap.png"},
+    )
+    mark_comp_filtered_bb_surfacemap: HttpUrl = Field(
+        description="",
+        examples=[
+            "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_comp_filtered_bb_surfacemap.png"
+        ],
+        json_schema_extra={"file_name": "mark_comp_filtered_bb_surfacemap.png"},
+    )
+    mark_comp_filtered_all_bb_surfacemap: HttpUrl = Field(
+        description="",
+        examples=[
+            "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_comp_filtered_all_bb_surfacemap.png"
+        ],
+        json_schema_extra={"file_name": "mark_comp_filtered_all_bb_surfacemap.png"},
+    )
+    cell_accf_distribution: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/cell_accf_distribution.png"],
+        json_schema_extra={"file_name": "cell_accf_distribution.png"},
+    )
+
+
+class ComparisonResponseStriation(ComparisonResponse):
+    mark_ref_preview: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_preview.png"],
+        json_schema_extra={"file_name": "mark_ref_preview.png"},
+    )
+    mark_comp_preview: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_comp_preview.png"],
+        json_schema_extra={"file_name": "mark_comp_preview.png"},
+    )
+    similarity_plot: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/similarity_plot.png"],
+        json_schema_extra={"file_name": "similarity_plot.png"},
+    )
+    filtered_compared_heatmap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/filtered_compared_heatmap.png"],
+        json_schema_extra={"file_name": "filtered_compared_heatmap.png"},
+    )
+    side_by_side_heatmap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/side_by_side_heatmap.png"],
+        json_schema_extra={"file_name": "side_by_side_heatmap.png"},
+    )
+
+
+class LRResponseURL(BaseResponseURLs):
+    lr_overview_plot: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/lr_overview_plot.png"],
+        json_schema_extra={"file_name": "lr_overview_plot.png"},
+    )
+
+
+class LRResponse(BaseModel):
+    urls: LRResponseURL
+    lr: float
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        """Serialize model to flat json."""
+        data = handler(self)
+        return {
+            **data["urls"],
+            "lr": data["lr"],
+        }

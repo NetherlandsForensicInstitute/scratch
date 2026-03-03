@@ -5,12 +5,15 @@ import numpy as np
 import pytest
 from PIL import Image
 from loguru import logger
+from scipy.constants import micro
 
 from container_models.base import DepthData, BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType, Mark
+from conversion.profile_correlator import Profile
 from parsers.loaders import load_scan_image
 from .helper_function import unwrap_result
+from .conversion.helper_functions import make_mark
 
 TEST_ROOT = Path(__file__).parent
 
@@ -57,7 +60,7 @@ def scan_image_array(baseline_images_dir: Path) -> DepthData:
 @pytest.fixture(scope="session")
 def scan_image(scan_image_array: DepthData) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return ScanImage(data=scan_image_array, scale_x=4e-6, scale_y=4e-6)
+    return ScanImage(data=scan_image_array, scale_x=4 * micro, scale_y=4 * micro)
 
 
 @pytest.fixture(scope="session")
@@ -103,8 +106,52 @@ def mask_array(scan_image_replica: ScanImage) -> BinaryMask:
 
 
 @pytest.fixture(scope="session")
-def mark(scan_image: ScanImage) -> Mark:
-    return Mark(
-        scan_image=scan_image,
+def impression_mark(scan_image: ScanImage) -> Mark:
+    """Breech face impression mark built from the session-scoped scan_image fixture."""
+    return make_mark(
+        scan_image.data,
+        scale_x=scan_image.scale_x,
+        scale_y=scan_image.scale_y,
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
     )
+
+
+@pytest.fixture(scope="session")
+def striation_mark() -> Mark:
+    """Striation Mark built from a synthetic bullet GEA striation profile."""
+    heights = np.sin(np.linspace(0, 10 * np.pi, 1000)) * micro
+    data = np.tile(heights[:, np.newaxis], (1, 50))
+    return make_mark(
+        data,
+        scale_x=0.5 * micro,
+        scale_y=0.5 * micro,
+        mark_type=MarkType.BULLET_GEA_STRIATION,
+    )
+
+
+@pytest.fixture
+def profile_with_nans(pixel_size_05um: float) -> Profile:
+    """Create a profile with some NaN values for NaN handling tests."""
+    np.random.seed(45)
+    x = np.linspace(0, 10 * np.pi, 1000)
+    data = np.sin(x) * micro
+    data += np.random.normal(0, 0.01 * micro, len(data))
+
+    # Insert some NaN values
+    data[100:110] = np.nan  # Block of NaNs
+    data[500] = np.nan  # Single NaN
+    data[700:750] = np.nan  # Larger block
+
+    return Profile(heights=data, pixel_size=pixel_size_05um)
+
+
+@pytest.fixture
+def pixel_size_05um() -> float:
+    """Standard pixel size of 0.5 micrometers in meters."""
+    return 0.5 * micro
+
+
+@pytest.fixture
+def pixel_size_1um() -> float:
+    """Standard pixel size of 1.0 micrometer in meters."""
+    return micro

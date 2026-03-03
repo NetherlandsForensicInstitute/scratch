@@ -2,7 +2,9 @@ from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 import pytest
+from container_models.base import BinaryMask
 from fastapi.testclient import TestClient
 
 from constants import PROJECT_ROOT
@@ -40,3 +42,10 @@ def client():
 @pytest.fixture(scope="session")
 def scan_directory() -> Path:
     return PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
+
+
+@pytest.fixture(scope="session")
+def mask() -> BinaryMask:
+    array = np.zeros(shape=(259, 259), dtype=np.bool_)
+    array[1:259, 1:259] = True
+    return array

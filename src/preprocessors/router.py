@@ -1,21 +1,26 @@
-from functools import partial
 from http import HTTPStatus
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from loguru import logger
+from pydantic import Json
 
-from constants import LIGHT_SOURCES, OBSERVER, PreprocessorEndpoint, RoutePrefix
+from constants import (
+    LIGHT_SOURCES,
+    OBSERVER,
+    PreprocessorEndpoint,
+    RoutePrefix,
+)
 from extractors import ProcessedDataAccess
 from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from file_services import create_vault
-from preprocessors.controller import edit_scan_image, process_prepare_mark
+from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
 from .pipelines import (
-    impression_mark_pipeline,
+    parse_mask_pipeline,
     parse_scan_pipeline,
     preview_pipeline,
-    striation_mark_pipeline,
     surface_map_pipeline,
     x3p_pipeline,
 )
@@ -46,10 +51,12 @@ async def preprocessor_root() -> RedirectResponse:
     path=f"/{PreprocessorEndpoint.PROCESS_SCAN}",
     summary="Create surface_map and preview image from the scan file.",
     description="""
-    Processes the scan file from the given filepath and generates several derived outputs, including
-    an X3P file, a preview image, and a surface map, these files are saved to the output directory given as parameter.
+    Processes the scan file from the given filepath and generates several derived outputs:
+    an X3P file, a preview image, and a surface map. The files are saved to an
+    auto-generated vault and the response contains download URLs for each output.
     The endpoint parses and validates the file before running the processing pipeline.
 """,
+    response_description="Download URLs for the generated X3P scan, preview image, and surface map.",
     responses={
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
@@ -66,10 +73,10 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     :return: Access URLs for the generated files.
     """
     vault = create_vault(upload_scan.tag)
-    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size_x, upload_scan.step_size_y)
+    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
     files = ProcessedDataAccess.get_files(vault.resource_path)
     x3p_pipeline(parsed_scan, files["scan"])
-    surface_map_pipeline(parsed_scan, files["surface_map"], upload_scan.light_sources, upload_scan.observer)
+    surface_map_pipeline(parsed_scan, files["surface_map"], LIGHT_SOURCES, OBSERVER)
     preview_pipeline(parsed_scan, files["preview"])
 
     logger.info(f"Generated files saved to {vault}")
@@ -85,19 +92,24 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
+
+    The mask must have exactly the same shape (height × width) as the parsed scan image.
     """,
     responses={
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
 async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression) -> PrepareMarkResponseImpression:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
-    process_prepare_mark(
+    process_prepare_impression_mark(
         files=PrepareMarkResponseImpression.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
-        marking_method=partial(impression_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
-        params=prepare_mark_parameters,
+        mark_type=prepare_mark_parameters.mark_type,
+        mask=prepare_mark_parameters.mask_array,
+        bounding_box=prepare_mark_parameters.bounding_box,
+        preprocess_parameters=prepare_mark_parameters.mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseImpression.generate_urls(vault.access_url)
@@ -112,19 +124,24 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
 
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
+
+    The mask must have exactly the same shape (height × width) as the parsed scan image.
     """,
     responses={
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
 async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) -> PrepareMarkResponseStriation:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(prepare_mark_parameters.tag)
-    process_prepare_mark(
+    process_prepare_striation_mark(
         files=PrepareMarkResponseStriation.get_files(vault.resource_path),
         scan_file=prepare_mark_parameters.scan_file,
-        marking_method=partial(striation_mark_pipeline, params=prepare_mark_parameters.mark_parameters),
-        params=prepare_mark_parameters,
+        mark_type=prepare_mark_parameters.mark_type,
+        mask=prepare_mark_parameters.mask_array,
+        bounding_box=prepare_mark_parameters.bounding_box,
+        preprocess_parameters=prepare_mark_parameters.mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseStriation.generate_urls(vault.access_url)
@@ -137,32 +154,68 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
     Parse and validate a scan file (X3P format only) with the provided edit parameters
     (mask, crop, subsampling). Creates a new vault for storing future outputs.
 
+    The mask shape specified in `mask_parameters.shape` must exactly match the shape
+    (height × width) of the parsed scan image.
+
     Note: Image generation is currently not implemented.
 """,
     responses={
         HTTPStatus.BAD_REQUEST: {"description": "parse error"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {
             "description": "processing error",
         },
     },
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "properties": {
+                            "params": EditImage.model_json_schema(),
+                            "mask_data": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
+                        },
+                        "required": ["params", "mask_data"],
+                    }
+                },
+                "application/json": {
+                    "schema": {
+                        "properties": {
+                            "params": EditImage.model_json_schema(),
+                        },
+                        "required": ["params"],
+                    }
+                },
+            }
+        }
+    },
 )
-async def edit_scan(edit_image: EditImage) -> GeneratedImages:
+async def edit_scan(
+    params: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)]
+) -> GeneratedImages:
     """
-    Validate and parse a scan file with edit parameters.
+    Validate and parse a scan file with edit parameters and mask.
 
     Accepts an X3P scan file and edit parameters (mask, zoom, step sizes),
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
-    vault = create_vault(edit_image.tag)
+    vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
-    parsed_image = parse_scan_pipeline(edit_image.scan_file, edit_image.step_size_x, edit_image.step_size_y)
+    parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
+    parsed_mask = parse_mask_pipeline(
+        raw_data=await mask_data.read(),
+        shape=params.mask_parameters.shape,
+        is_bitpacked=params.mask_parameters.is_bitpacked,
+    )
+    if parsed_mask.shape != parsed_image.data.shape:
+        raise HTTPException(
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            detail=f"Mask shape {parsed_mask.shape} does not match image shape {parsed_image.data.shape}",
+        )
     files = GeneratedImages.get_files(vault.resource_path)
 
-    edited_scan_image = edit_scan_image(
-        scan_image=parsed_image,
-        edit_image_params=edit_image,
-    )
+    edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
     preview_pipeline(parsed_scan=edited_scan_image, output_path=files["preview"])
     surface_map_pipeline(
         parsed_scan=edited_scan_image,

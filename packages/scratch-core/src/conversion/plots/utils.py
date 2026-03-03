@@ -1,5 +1,5 @@
 import textwrap
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -93,6 +93,7 @@ def plot_side_by_side_on_axes(
     title: str = "Reference Surface A / Moved Compared Surface B",
     colorbar_width: str = "2.5%",
     colorbar_pad: float = 0.05,
+    aspect: Literal["equal", "auto"] = "equal",
 ) -> None:
     """
     Plot two surfaces side by side on the given axes.
@@ -105,6 +106,7 @@ def plot_side_by_side_on_axes(
     :param title: Title for the plot.
     :param colorbar_width: Width of colorbar as percentage of axes.
     :param colorbar_pad: Padding between plot and colorbar.
+    :param aspect: Matplotlib aspect argument passed to imshow.
     """
     gap_width = int(np.ceil(min(data_ref.shape[1], data_comp.shape[1]) / 100))
     gap = np.full((data_ref.shape[0], gap_width), np.nan)
@@ -118,6 +120,7 @@ def plot_side_by_side_on_axes(
         title,
         colorbar_width=colorbar_width,
         colorbar_pad=colorbar_pad,
+        aspect=aspect,
     )
 
 
@@ -129,6 +132,7 @@ def plot_depth_map_on_axes(
     title: str,
     colorbar_width: str = "5%",
     colorbar_pad: float = 0.05,
+    aspect: Literal["equal", "auto"] = "equal",
 ) -> None:
     """
     Plot a depth map on the given axes.
@@ -140,6 +144,7 @@ def plot_depth_map_on_axes(
     :param title: Title for the plot.
     :param colorbar_width: Width of colorbar as percentage of axes.
     :param colorbar_pad: Padding between plot and colorbar.
+    :param aspect: Matplotlib aspect argument passed to imshow.
     """
     height, width = data.shape
     extent = (0, width * scale * 1e6, 0, height * scale * 1e6)
@@ -147,7 +152,7 @@ def plot_depth_map_on_axes(
     im = ax.imshow(
         data * 1e6,
         cmap=DEFAULT_COLORMAP,
-        aspect="equal",
+        aspect=aspect,
         origin="lower",
         extent=extent,
     )
