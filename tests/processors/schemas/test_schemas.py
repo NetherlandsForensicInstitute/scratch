@@ -8,9 +8,9 @@ from processors.schemas import (
     CalculateLR,
     CalculateLRImpression,
     CalculateLRStriation,
-    ImpressionLRParamaters,
+    ImpressionLRParameters,
     MarkDirectories,
-    StriationLRParamaters,
+    StriationLRParameters,
 )
 
 
@@ -137,12 +137,12 @@ class TestCalculateLRImpression:
             score=5,
             lr_system=lr_system_file,
             n_cells=n_cells,
-            param=ImpressionLRParamaters(),
+            param=ImpressionLRParameters(),
         )
 
         # Assert
         assert schema.n_cells == n_cells
-        assert isinstance(schema.param, ImpressionLRParamaters)
+        assert isinstance(schema.param, ImpressionLRParameters)
 
     @pytest.mark.parametrize("n_cells", [0, -1, -10])
     def test_should_reject_nonpositive_n_cells(
@@ -157,7 +157,7 @@ class TestCalculateLRImpression:
                 score=5,
                 lr_system=lr_system_file,
                 n_cells=n_cells,
-                param=ImpressionLRParamaters(),
+                param=ImpressionLRParameters(),
             )
 
     def test_should_reject_missing_param(self, mark_ref: Path, mark_comp: Path, lr_system_file: Path) -> None:
@@ -184,11 +184,11 @@ class TestCalculateLRStriation:
             mark_comp=mark_comp,
             score=5,
             lr_system=lr_system_file,
-            param=StriationLRParamaters(),
+            param=StriationLRParameters(),
         )
 
         # Assert
-        assert isinstance(schema.param, StriationLRParamaters)
+        assert isinstance(schema.param, StriationLRParameters)
 
     def test_should_reject_missing_param(self, mark_ref: Path, mark_comp: Path, lr_system_file: Path) -> None:
         """Test that omitting param raises ValidationError."""

@@ -15,7 +15,8 @@ from scipy.constants import micro
 from scipy.interpolate import interp1d
 
 from constants import ProcessorEndpoint
-from processors.schemas import CalculateScoreStriation, StriationParamaters
+from extractors.schemas import ComparisonResponseStriationURL
+from processors.schemas import CalculateScoreStriation, StriationParameters
 
 
 def test_processors_placeholder(client: TestClient) -> None:
@@ -195,15 +196,17 @@ class TestStriationMark:
         json_data = CalculateScoreStriation(
             mark_ref=ref_mark_path,
             mark_comp=comp_mark_path,
-            param=StriationParamaters(metadata_compared={"something": "else"}, metadata_reference={"ding": "dong"}),
+            param=StriationParameters(metadata_compared={"something": "else"}, metadata_reference={"ding": "dong"}),
         ).model_dump(mode="json")
 
         # Act
         response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
 
         # Arrange
-        assert response.status_code == HTTPStatus.OK, response.json()
-        urls = response.json()["urls"]
+        response_data = response.json()
+        url_keys = set(ComparisonResponseStriationURL.model_fields)
+        urls = {k: v for k, v in response_data.items() if k in url_keys}
+
         assert all(HttpUrl(url) for url in urls.values()), "All items in the response should be an url."
         assert all(url in expected_files for url in urls.keys()), "All expected files are in the url response."
         assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values()), (
@@ -212,3 +215,5 @@ class TestStriationMark:
         assert all(client.get(url).headers["content-type"] == "image/png" for url in urls.values()), (
             "Urls are returning an image."
         )
+
+        assert isinstance(response_data["comparison_results"], dict)

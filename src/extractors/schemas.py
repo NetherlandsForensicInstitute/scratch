@@ -16,6 +16,8 @@ from models import (
 class SupportedExtension(StrEnum):
     X3P = auto()
     PNG = auto()
+    JSON = auto()
+    NPZ = auto()
 
 
 type RelativePath = Annotated[
@@ -248,6 +250,15 @@ class ComparisonResponseStriation(BaseResponseURLs):
         default_factory=dict,
         description="Striation comparison metrics including correlation, roughness, and alignment geometry.",
     )
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        """Serialize model to flat json."""
+        data = handler(self)
+        return {
+            **data["urls"],
+            "comparison_results": data["comparison_results"],
+        }
 
 
 class LRResponseURL(BaseResponseURLs):

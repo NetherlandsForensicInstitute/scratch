@@ -20,13 +20,13 @@ class CalculateScoreImpression(MarkDirectories):
     param: ImpressionParameters
 
 
-class StriationParamaters(BaseModelConfig):
+class StriationParameters(BaseModelConfig):
     metadata_reference: dict[str, str] = Field(..., description="fields needed for adding metadata to the plot")
     metadata_compared: dict[str, str] = Field(..., description="fields needed for adding metadata to the plot")
 
 
 class CalculateScoreStriation(MarkDirectories):
-    param: StriationParamaters
+    param: StriationParameters
 
 
 class CalculateLR(MarkDirectories):
@@ -34,16 +34,16 @@ class CalculateLR(MarkDirectories):
     lr_system: FilePath
 
 
-class ImpressionLRParamaters(BaseModelConfig): ...
+class ImpressionLRParameters(BaseModelConfig): ...
 
 
 class CalculateLRImpression(CalculateLR):
     n_cells: PositiveInt
-    param: ImpressionLRParamaters
+    param: ImpressionLRParameters
 
 
-class StriationLRParamaters(BaseModelConfig): ...
+class StriationLRParameters(BaseModelConfig): ...
 
 
 class CalculateLRStriation(CalculateLR):
-    param: StriationLRParamaters
+    param: StriationLRParameters
