@@ -126,11 +126,22 @@ def compute_normalized_square_based_roughness_differences(
     :returns: Normalized signature differences with respect to reference,
         compared, and combined normalization.
     """
-    ds_normalized_ref = (roughness.sq_diff / roughness.sq_ref) ** 2
-    ds_normalized_comp = (roughness.sq_diff / roughness.sq_comp) ** 2
-    ds_normalized_combined = roughness.sq_diff**2 / (
-        roughness.sq_ref * roughness.sq_comp
-    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ds_normalized_ref = (
+            (roughness.sq_diff / roughness.sq_ref) ** 2
+            if roughness.sq_ref > 0
+            else np.nan
+        )
+        ds_normalized_comp = (
+            (roughness.sq_diff / roughness.sq_comp) ** 2
+            if roughness.sq_comp > 0
+            else np.nan
+        )
+        ds_normalized_combined = (
+            roughness.sq_diff**2 / (roughness.sq_ref * roughness.sq_comp)
+            if (roughness.sq_ref > 0 and roughness.sq_comp > 0)
+            else np.nan
+        )
 
     return NormalizedRoughnessDifferences(
         ds_normalized_ref=ds_normalized_ref,
