@@ -15,7 +15,7 @@ from scipy.constants import micro
 from scipy.interpolate import interp1d
 
 from constants import ProcessorEndpoint
-from processors.schemas import CalculateScoreStriation, StriationParamaters
+from processors.schemas import CalculateScoreStriation, StriationParameters
 
 
 def test_processors_placeholder(client: TestClient) -> None:
@@ -195,7 +195,7 @@ class TestStriationMark:
         json_data = CalculateScoreStriation(
             mark_ref=ref_mark_path,
             mark_comp=comp_mark_path,
-            param=StriationParamaters(metadata_compared={"somthing": "else"}, metadata_reference={"ding": "dong"}),
+            param=StriationParameters(metadata_compared={"somthing": "else"}, metadata_reference={"ding": "dong"}),
         ).model_dump(mode="json")
 
         # Act
