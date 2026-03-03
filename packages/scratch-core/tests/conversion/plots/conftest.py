@@ -1,7 +1,5 @@
 import numpy as np
 import pytest
-from scipy.constants import mega, micro
-
 from container_models.base import FloatArray2D
 from conversion.data_formats import Mark, MarkType
 from conversion.plots.data_formats import (
@@ -9,7 +7,8 @@ from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
     LlrTransformationData,
 )
-from conversion.profile_correlator import StriationComparisonResults, Profile
+from conversion.profile_correlator import Profile, StriationComparisonResults
+from scipy.constants import mega, micro
 
 from .helper_functions import (
     create_synthetic_impression_data,
@@ -83,8 +82,7 @@ def striation_metrics() -> StriationComparisonResults:
         mean_square_of_difference=sq_diff,
         ds_roughness_normalized_to_reference=(sq_diff / sq_ref) ** 2,
         ds_roughness_normalized_to_compared=(sq_diff / sq_comp) ** 2,
-        ds_roughness_normalized_to_reference_and_compared=sq_diff**2
-        / (sq_ref * sq_comp),
+        ds_roughness_normalized_to_reference_and_compared=sq_diff**2 / (sq_ref * sq_comp),
     )
 
 
@@ -194,12 +192,8 @@ def impression_overview_marks() -> dict[str, Mark]:
     scale_x = 1.5626 * micro
     scale_y = 1.5675 * micro
 
-    data_ref_lev, data_comp_lev = create_synthetic_impression_surface_pair(
-        rows, cols, 0, 10, 11
-    )
-    data_ref_flt, data_comp_flt = create_synthetic_impression_surface_pair(
-        rows, cols, 1, 12, 13
-    )
+    data_ref_lev, data_comp_lev = create_synthetic_impression_surface_pair(rows, cols, 0, 10, 11)
+    data_ref_flt, data_comp_flt = create_synthetic_impression_surface_pair(rows, cols, 1, 12, 13)
 
     return {
         "reference_leveled": make_mark(

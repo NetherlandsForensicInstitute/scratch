@@ -1,15 +1,11 @@
-"""
-Tests for preprocess_striation.py and related filter functions.
-"""
+"""Tests for preprocess_striation.py and related filter functions."""
+
+from math import ceil
 
 import numpy as np
 import pytest
-from math import ceil
-from scipy.constants import micro
-
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
-from ..helper_functions import make_mark
 from conversion.filter import (
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
@@ -21,8 +17,11 @@ from conversion.preprocess_striation import (
     fine_align_bullet_marks,
     preprocess_striation_mark,
 )
-from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
 from conversion.preprocess_striation.alignment import _detect_striation_angle
+from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
+from scipy.constants import micro
+
+from ..helper_functions import make_mark
 
 
 def test_cutoff_to_gaussian_sigma():
@@ -52,14 +51,12 @@ def test_apply_nan_weighted_gaussian_1d():
     assert result[0, 0] == pytest.approx(1.0, rel=0.1)
 
 
-def test_apply_striation_preserving_filter_1d_lowpass():
+def test_apply_striation_preserving_filter_1d_lowpass(rng: np.random.Generator):
     """Test lowpass filtering removes high-frequency noise."""
-    np.random.seed(42)
-
     # Create signal with low-frequency component + high-frequency noise
     rows = np.linspace(0, 10, 100)
     low_freq = np.sin(2 * np.pi * rows / 10)  # Low frequency signal
-    high_freq = np.random.randn(100) * 0.5  # High frequency noise
+    high_freq = rng.standard_normal(100) * 0.5  # High frequency noise
 
     surface = np.tile((low_freq + high_freq).reshape(-1, 1), (1, 20))
 
@@ -97,15 +94,13 @@ def test_apply_striation_preserving_filter_1d_highpass():
     assert np.ptp(residuals) < np.ptp(surface) * 0.25
 
 
-def test_apply_shape_noise_removal():
+def test_apply_shape_noise_removal(rng: np.random.Generator):
     """Test complete form and noise removal pipeline."""
-    np.random.seed(42)
-
     # Create synthetic surface: shape + striations + noise
     rows = np.linspace(0, 100, 300)
     shape = 0.001 * (rows - 50) ** 2  # Parabolic form
     striations = np.sin(2 * np.pi * rows / 10) * 0.01  # Striation pattern
-    noise = np.random.randn(300) * 0.001  # Fine noise
+    noise = rng.standard_normal(300) * 0.001  # Fine noise
 
     surface = np.tile((shape + striations + noise).reshape(-1, 1), (1, 50))
 
@@ -120,22 +115,18 @@ def test_apply_shape_noise_removal():
     assert np.ptp(result) < np.ptp(surface)
 
 
-def test_shape_noise_removal_filter_sequence():
+def test_shape_noise_removal_filter_sequence(rng: np.random.Generator):
     """Test filter sequence and border cropping."""
-    np.random.seed(42)
-
     height, width = 200, 150
     scale = micro
 
     # Create test data with known components
     x = np.arange(height) * scale
-    X, _ = np.meshgrid(x, np.arange(width), indexing="ij")
+    grid_x, _ = np.meshgrid(x, np.arange(width), indexing="ij")
 
-    form = 5 * micro * (X / x.max()) ** 2  # Large wavelength
-    striations = (
-        0.5 * micro * np.sin(2 * np.pi * X / (500 * micro))
-    )  # Medium wavelength
-    noise = 0.1 * micro * np.random.randn(height, width)  # Small wavelength
+    form = 5 * micro * (grid_x / x.max()) ** 2  # Large wavelength
+    striations = 0.5 * micro * np.sin(2 * np.pi * grid_x / (500 * micro))  # Medium wavelength
+    noise = 0.1 * micro * rng.standard_normal((height, width))  # Small wavelength
 
     depth_data = form + striations + noise
 
@@ -171,16 +162,14 @@ def test_shape_noise_removal_filter_sequence():
     assert result.shape[1] == width, "Width should not change"
 
 
-def test_shape_noise_removal_short_data():
+def test_shape_noise_removal_short_data(rng: np.random.Generator):
     """Test that short data is handled without border cropping."""
-    np.random.seed(42)
-
     scale = micro
     sigma = cutoff_to_gaussian_sigma(2000 * micro, scale)
     short_height = int(2 * sigma / 0.2) - 5
     width = 150
 
-    short_data = np.random.randn(short_height, width) * micro
+    short_data = rng.standard_normal((short_height, width)) * micro
 
     short_scan_image = ScanImage(data=short_data, scale_x=scale, scale_y=scale)
     result_short = apply_shape_noise_removal(
@@ -194,20 +183,18 @@ def test_shape_noise_removal_short_data():
     )
 
 
-def test_shape_noise_removal_synthetic():
+def test_shape_noise_removal_synthetic(rng: np.random.Generator):
     """Test on synthetic data with known ground truth."""
-    np.random.seed(42)
-
     height, width = 200, 150
     scale = micro
 
     x = np.arange(height) * scale
     y = np.arange(width) * scale
-    X, _ = np.meshgrid(x, y, indexing="ij")
+    grid_x, _ = np.meshgrid(x, y, indexing="ij")
 
-    form = 5 * micro * (X / x.max()) ** 2
-    striations = 0.5 * micro * np.sin(2 * np.pi * X / (500 * micro))
-    noise = 0.1 * micro * np.random.randn(height, width)
+    form = 5 * micro * (grid_x / x.max()) ** 2
+    striations = 0.5 * micro * np.sin(2 * np.pi * grid_x / (500 * micro))
+    noise = 0.1 * micro * rng.standard_normal((height, width))
 
     depth_data = form + striations + noise
 
@@ -237,9 +224,7 @@ def test_rotate_data_by_shifting_profiles():
 
     # 5 degrees = 0.087 radians
     angle_rad = np.radians(5.0)
-    rotated = shear_data_by_shifting_profiles(
-        data, angle_rad=angle_rad, cut_y_after_shift=True
-    )
+    rotated = shear_data_by_shifting_profiles(data, angle_rad=angle_rad, cut_y_after_shift=True)
 
     assert rotated.shape[0] < data.shape[0]
     max_positions = np.argmax(rotated, axis=0)
@@ -248,17 +233,13 @@ def test_rotate_data_by_shifting_profiles():
 
 def test_detect_striation_angle():
     """Test gradient-based striation angle detection."""
-    np.random.seed(42)
-
     height, width = 100, 100
     x = np.arange(width)
     y = np.arange(height)
-    X, Y = np.meshgrid(x, y)
+    grid_x, grid_y = np.meshgrid(x, y)
 
     angle_rad = np.radians(5.0)
-    striations = np.sin(
-        2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 10
-    )
+    striations = np.sin(2 * np.pi * (grid_x * np.cos(angle_rad) + grid_y * np.sin(angle_rad)) / 10)
 
     scan_image = ScanImage(data=striations, scale_x=micro, scale_y=micro)
     detected_angle = _detect_striation_angle(
@@ -271,16 +252,14 @@ def test_detect_striation_angle():
 
 def test_fine_align_bullet_marks():
     """Test iterative fine alignment of striated marks."""
-    np.random.seed(42)
-
     height, width = 80, 80
     x = np.arange(width)
     y = np.arange(height)
-    X, Y = np.meshgrid(x, y)
+    grid_x, grid_y = np.meshgrid(x, y)
 
     angle_input = 2.0
     angle_rad = np.radians(angle_input)
-    striations = np.sin(2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 8)
+    striations = np.sin(2 * np.pi * (grid_x * np.cos(angle_rad) + grid_y * np.sin(angle_rad)) / 8)
 
     mark = make_mark(
         striations,
@@ -300,24 +279,17 @@ def test_fine_align_bullet_marks():
     assert abs(detected_angle) < 45
 
 
-# =============================================================================
-# Tests for full preprocessing pipeline
-# =============================================================================
-
-
-def test_preprocess_striation_mark():
+def test_preprocess_striation_mark(rng: np.random.Generator):
     """Test complete preprocess_striations pipeline."""
-    np.random.seed(42)
-
     height, width = 80, 80
     x = np.arange(width)
     y = np.arange(height)
-    X, Y = np.meshgrid(x, y)
+    grid_x, grid_y = np.meshgrid(x, y)
 
     # Create synthetic data with form + striations + noise
-    form = 0.001 * (Y - height / 2) ** 2
-    striations = np.sin(2 * np.pi * X / 10) * 0.01
-    noise = np.random.randn(height, width) * 0.001
+    form = 0.001 * (grid_y - height / 2) ** 2
+    striations = np.sin(2 * np.pi * grid_x / 10) * 0.01
+    noise = rng.standard_normal((height, width)) * 0.001
     depth_data = form + striations + noise
 
     input_mark = make_mark(
@@ -342,11 +314,6 @@ def test_preprocess_striation_mark():
     assert aligned.shape[1] > 0
     assert len(profile.heights) == aligned.shape[0]
     assert abs(angle) < 45
-
-
-# =============================================================================
-# Tests for MarkType and resampling utilities
-# =============================================================================
 
 
 def test_mark_type_scale():

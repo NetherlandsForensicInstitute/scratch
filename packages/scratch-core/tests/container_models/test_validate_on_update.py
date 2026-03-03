@@ -1,8 +1,8 @@
+import numpy as np
 import pytest
-from pydantic import ValidationError
 from container_models.base import ConfigBaseModel
 from container_models.scan_image import ScanImage
-import numpy as np
+from pydantic import ValidationError
 
 
 class TestModel(ConfigBaseModel):
@@ -45,9 +45,7 @@ def test_scan_image_model_copy_validates_updated_fields(
         ValidationError,
         match="Array shape mismatch, expected 2 dimension\\(s\\), but got 1",
     ):
-        scan_image_with_nans.model_copy(
-            update={"data": scan_image_with_nans.data.flatten()}
-        )
+        scan_image_with_nans.model_copy(update={"data": scan_image_with_nans.data.flatten()})
     with pytest.raises(
         ValidationError,
         match="Array shape mismatch, expected 2 dimension\\(s\\), but got 0",

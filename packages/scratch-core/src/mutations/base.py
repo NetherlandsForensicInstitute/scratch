@@ -1,6 +1,5 @@
 """
-Image Modifications Architecture
-================================
+Image Modifications Architecture.
 
 This module defines how image modifications are structured and applied.
 
@@ -85,6 +84,7 @@ Example
 """
 
 from abc import ABC, abstractmethod
+
 from container_models.scan_image import ScanImage
 from returns.result import safe
 
@@ -120,16 +120,10 @@ class ImageMutation(ABC):
     @safe
     def __call__(self, scan_image: ScanImage) -> ScanImage:
         """
-        Callable interface used by pipelines (e.g. `pipe(...)` from
-        the `returns` library).
+        Apply the mutation to a scan image, or skip if the predicate is set.
 
-        If `skip_predicate` is `True`, the input `ScanImage` is returned
-        unchanged. Otherwise, `apply_on_image` is executed.
-
-        :param scan_image:
-            The `ScanImage` to be modified.
-        :return ScanImage:
-            The resulting `ScanImage`.
+        :param scan_image: The ScanImage to be modified.
+        :returns: The resulting ScanImage, unchanged if skip_predicate is True.
         """
         if self.skip_predicate:
             return scan_image
@@ -138,13 +132,11 @@ class ImageMutation(ABC):
     @abstractmethod
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
-        Applies the mutation to the given `ScanImage`.
+        Apply the mutation to the given `ScanImage`.
 
         This method must be implemented by concrete mutations and is
         called internally by `__call__` to support pipeline composition.
 
-        :param scan_image:
-            The input `ScanImage` to be modified.
-        :return ScanImage:
-            A new or modified `ScanImage`.
+        :param scan_image: The input `ScanImage` to be modified.
+        :return ScanImage: A new or modified `ScanImage`.
         """

@@ -1,11 +1,12 @@
 import numpy as np
-from scipy.ndimage import binary_dilation, rotate
 from container_models.base import BinaryMask
-from conversion.utils import update_scan_image_data
 from container_models.scan_image import ScanImage
-from conversion.remove_needles import mask_and_remove_needles
+from scipy.ndimage import binary_dilation, rotate
+
 from conversion.data_formats import BoundingBox
 from conversion.mask import crop_to_mask
+from conversion.remove_needles import mask_and_remove_needles
+from conversion.utils import update_scan_image_data
 
 # Number of iterations to dilate a mask before it is rotated
 DILATE_STEPS = 3
@@ -38,9 +39,7 @@ def rotate_crop_and_mask_image_by_crop(
     :param median_factor: Parameter used to determine what is considered an outlier when removing outliers/needles.
     :return: The cropped, rotated and masked scan image.
     """
-    rotation_angle = (
-        get_rotation_angle(bounding_box) if bounding_box is not None else 0.0
-    )
+    rotation_angle = get_rotation_angle(bounding_box) if bounding_box is not None else 0.0
 
     margin = 0
     if not np.isclose(rotation_angle, 0.0):
@@ -48,22 +47,16 @@ def rotate_crop_and_mask_image_by_crop(
         # Define a margin to reverse dilation later on
         margin = DILATE_STEPS + 2
 
-    scan_image_cropped, mask_cropped = crop_image_and_mask_to_mask(
-        scan_image, mask, margin
-    )
+    scan_image_cropped, mask_cropped = crop_image_and_mask_to_mask(scan_image, mask, margin)
 
-    scan_image_cleaned_and_masked = mask_and_remove_needles(
-        scan_image_cropped, mask_cropped, median_factor
-    )
+    scan_image_cleaned_and_masked = mask_and_remove_needles(scan_image_cropped, mask_cropped, median_factor)
 
     # Rotate by the negative rotation_angle to counter the current rotation
     scan_image_rotated, mask_rotated = rotate_mask_and_scan_image(
         scan_image_cleaned_and_masked, mask_cropped, -rotation_angle
     )
 
-    scan_image_cropped = update_scan_image_data(
-        scan_image, crop_to_mask(scan_image_rotated.data, mask_rotated, margin)
-    )
+    scan_image_cropped = update_scan_image_data(scan_image, crop_to_mask(scan_image_rotated.data, mask_rotated, margin))
     return scan_image_cropped
 
 
@@ -82,9 +75,7 @@ def get_rotation_angle(bounding_box: BoundingBox) -> float:
     for i in range(4):
         point1 = bounding_box[i]
         point2 = bounding_box[(i + 1) % 4]
-        angles.append(
-            np.degrees(np.arctan2(point2[1] - point1[1], point2[0] - point1[0]))
-        )
+        angles.append(np.degrees(np.arctan2(point2[1] - point1[1], point2[0] - point1[0])))
 
     # find smallest absolute angle
     rotation_angle = min(angles, key=lambda x: abs(x))
@@ -92,21 +83,18 @@ def get_rotation_angle(bounding_box: BoundingBox) -> float:
     return rotation_angle
 
 
-def crop_image_and_mask_to_mask(
-    scan_image: ScanImage, mask: BinaryMask, margin: int
-) -> tuple[ScanImage, BinaryMask]:
+def crop_image_and_mask_to_mask(scan_image: ScanImage, mask: BinaryMask, margin: int) -> tuple[ScanImage, BinaryMask]:
     """
-    Crop scan_image.data and the mask itself to the bounding box of the mask. If a margin is given, the bounding box
-    will be expanded (in case of a negative margin) or cropped (in case of a positive margin) by that amount.
+    Crop a scan image and mask to the bounding box of the mask.
+
+    A positive margin shrinks the bounding box, a negative margin expands it.
 
     :param scan_image: Scan image to crop.
     :param mask: Binary mask array.
-    :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box.
-    :return: Tuple of the cropped scan_image and mask.
+    :param margin: Margin to crop (positive) or extend (negative) the bounding box.
+    :returns: Tuple of the cropped scan image and mask.
     """
-    scan_image_cropped = update_scan_image_data(
-        scan_image, crop_to_mask(scan_image.data, mask, margin)
-    )
+    scan_image_cropped = update_scan_image_data(scan_image, crop_to_mask(scan_image.data, mask, margin))
     mask_cropped = crop_to_mask(mask.astype(float), mask, margin).astype(bool)
 
     return scan_image_cropped, mask_cropped

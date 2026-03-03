@@ -1,9 +1,7 @@
 import numpy as np
 import pytest
-
 from container_models.base import VectorField
 from container_models.light_source import LightSource
-
 
 TEST_IMAGE_SIZE = 10
 TEST_IMAGE_CENTER = TEST_IMAGE_SIZE // 2

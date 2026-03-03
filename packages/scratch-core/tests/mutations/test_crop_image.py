@@ -1,9 +1,10 @@
 import re
+
+import numpy as np
+import pytest
 from container_models.scan_image import ScanImage
 from exceptions import ImageShapeMismatchError
 from mutations.spatial import CropToMask
-import pytest
-import numpy as np
 
 
 class TestCropImage:
@@ -28,12 +29,8 @@ class TestCropImage:
         removed_border = np.array([[5, 6], [9, 10]], dtype=scan_image.data.dtype)
         assert result.data.shape == (2, 2)
         np.testing.assert_array_equal(result.data, removed_border)
-        assert result.scale_x == scan_image.scale_x, (
-            "scale should be the same (unchanged)"
-        )
-        assert result.scale_y == scan_image.scale_y, (
-            "scale should be the same (unchanged)"
-        )
+        assert result.scale_x == scan_image.scale_x, "scale should be the same (unchanged)"
+        assert result.scale_y == scan_image.scale_y, "scale should be the same (unchanged)"
 
     def test_crop_skipped_when_predicate_true(self, scan_image: ScanImage):
         # Arrange
@@ -63,9 +60,9 @@ class TestCropImage:
                 )
             )
         )
-        expected_error_message = f"image shape: {scan_image.data.shape} and crop shape: {cropping_mutator.mask.shape} are not equal"
+        expected_error_message = (
+            f"image shape: {scan_image.data.shape} and crop shape: {cropping_mutator.mask.shape} are not equal"
+        )
         # Act/ Assert
-        with pytest.raises(
-            ImageShapeMismatchError, match=re.escape(expected_error_message)
-        ):
+        with pytest.raises(ImageShapeMismatchError, match=re.escape(expected_error_message)):
             _ = cropping_mutator.apply_on_image(scan_image)

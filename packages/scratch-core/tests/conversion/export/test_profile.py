@@ -2,7 +2,6 @@ from pathlib import PosixPath
 
 import numpy as np
 import pytest
-
 from conversion.export.profile import load_profile_from_path, save_profile
 from conversion.profile_correlator import Profile
 
@@ -21,7 +20,5 @@ class TestSaveAndLoadProfile:
 
     def test_load_missing_file(self, tmp_path: PosixPath):
         """Test that loading raises FileNotFoundError when NPZ is missing."""
-        with pytest.raises(
-            FileNotFoundError, match='File ".*test_profile.npz" does not exist'
-        ):
+        with pytest.raises(FileNotFoundError, match='File ".*test_profile.npz" does not exist'):
             load_profile_from_path(tmp_path, "test_profile")

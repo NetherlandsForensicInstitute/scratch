@@ -1,7 +1,7 @@
 import numpy as np
-
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
+
 from conversion.filter import apply_gaussian_regression_filter
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import mask_and_crop_scan_image
@@ -34,15 +34,11 @@ def get_cropped_image(
         return np.full_like(scan_image.data, np.nan)
 
     # Resample image and mask to speed up the processing
-    resampled_scan_image, resampled_mask = resample_scan_image_and_mask(
-        scan_image, mask, factors=resampling_factors
-    )
+    resampled_scan_image, resampled_mask = resample_scan_image_and_mask(scan_image, mask, factors=resampling_factors)
 
     # Apply mask to the `ScanImage` instance
     if resampled_mask is not None:
-        resampled_scan_image = mask_and_crop_scan_image(
-            scan_image=resampled_scan_image, mask=resampled_mask, crop=crop
-        )
+        resampled_scan_image = mask_and_crop_scan_image(scan_image=resampled_scan_image, mask=resampled_mask, crop=crop)
 
     # Level the image data
     level_result = level_map(scan_image=resampled_scan_image, terms=terms)

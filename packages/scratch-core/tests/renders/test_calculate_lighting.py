@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from container_models.base import VectorField
 from container_models.light_source import LightSource
 from renders.shading import calculate_lighting
@@ -64,13 +63,11 @@ def test_bump_changes_values(
     # Assert
     center_ = out[center, center]
     border = out[center + 1, center + 1]
-    assert not np.allclose(center_, border), (
-        "Center pixel should differ from border pixel due to bump."
-    )
+    assert not np.allclose(center_, border), "Center pixel should differ from border pixel due to bump."
 
 
 @pytest.mark.parametrize(
-    "light_source,nx,ny,nz",
+    ("light_source", "nx", "ny", "nz"),
     [
         pytest.param(
             LightSource(azimuth=0, elevation=0),
@@ -127,11 +124,8 @@ def test_diffuse_clamps_to_zero(
     assert np.all(out == 0), "values should be 0."
 
 
-def test_specular_maximum_case(
-    observer: LightSource, flat_normals: VectorField
-) -> None:
+def test_specular_maximum_case(observer: LightSource, flat_normals: VectorField) -> None:
     """If light, observer, and normal all align, specular should be maximal."""
-
     # Act
     out = calculate_lighting(observer, observer, flat_normals)
 

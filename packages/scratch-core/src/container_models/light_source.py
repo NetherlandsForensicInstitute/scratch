@@ -1,14 +1,13 @@
 from functools import cached_property
+
 import numpy as np
 from pydantic import Field
-from .base import UnitVector, ConfigBaseModel
+
+from .base import ConfigBaseModel, UnitVector
 
 
 class LightSource(ConfigBaseModel):
-    """
-    Representation of a light source using an angular direction (azimuth and elevation)
-    together with a derived 3D unit direction vector.
-    """
+    """Represent a light source as an angular direction with a derived 3D unit vector."""
 
     azimuth: float = Field(
         ...,
@@ -30,19 +29,18 @@ class LightSource(ConfigBaseModel):
     @cached_property
     def unit_vector(self) -> UnitVector:
         """
-        Returns the unit direction vector [x, y, z] corresponding to the azimuth and
-        elevation angles. The conversion follows a spherical-coordinate convention:
+        Return the unit direction vector [x, y, z] corresponding to the azimuth and elevation angles.
+
+        The conversion follows a spherical-coordinate convention:
         azimuth defines the horizontal direction, and elevation defines the vertical
         tilt relative to the x–y plane.
         """
         azimuth = np.deg2rad(self.azimuth)
         elevation = np.deg2rad(self.elevation)
-        vec = np.array(
-            [
-                -np.cos(azimuth) * np.cos(elevation),
-                np.sin(azimuth) * np.cos(elevation),
-                np.sin(elevation),
-            ]
-        )
+        vec = np.array([
+            -np.cos(azimuth) * np.cos(elevation),
+            np.sin(azimuth) * np.cos(elevation),
+            np.sin(elevation),
+        ])
         vec.setflags(write=False)
         return vec

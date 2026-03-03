@@ -1,37 +1,35 @@
 import numpy as np
 import pytest
-from numpy.testing import assert_array_equal
-from scipy.constants import micro
-
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
+from conversion.filter.mark_filters import _apply_anti_aliasing
+from conversion.preprocess_impression.center import (
+    _compute_map_center,
+    _fit_circle_ransac,
+    _get_bounding_box_center,
+    _get_mask_inner_edge_points,
+    _points_are_collinear,
+    compute_center_local,
+)
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.preprocess_impression import (
     preprocess_impression_mark,
 )
 from conversion.preprocess_impression.resample import needs_resampling
-from conversion.filter.mark_filters import _apply_anti_aliasing
-from conversion.preprocess_impression.utils import update_mark_data
 from conversion.preprocess_impression.tilt import (
+    _adjust_for_plane_tilt,
     _estimate_plane_tilt,
     _get_valid_coordinates,
-    _adjust_for_plane_tilt,
 )
-from conversion.preprocess_impression.center import (
-    _get_mask_inner_edge_points,
-    _points_are_collinear,
-    _fit_circle_ransac,
-    _get_bounding_box_center,
-    _compute_map_center,
-    compute_center_local,
-)
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+from conversion.preprocess_impression.utils import update_mark_data
+from numpy.testing import assert_array_equal
+from scipy.constants import micro
+
 from .helper_functions import make_mark
 
 
-def make_circular_data(
-    shape: tuple[int, int], center: tuple[float, float], radius: float
-) -> FloatArray2D:
+def make_circular_data(shape: tuple[int, int], center: tuple[float, float], radius: float) -> FloatArray2D:
     """Create circular height map data with NaN outside circle."""
     data = np.full(shape, np.nan)
     y, x = np.ogrid[: shape[0], : shape[1]]
@@ -41,9 +39,7 @@ def make_circular_data(
     return data
 
 
-def make_rectangular_data(
-    shape: tuple[int, int], margin: int = 10, scale: float = micro
-) -> FloatArray2D:
+def make_rectangular_data(shape: tuple[int, int], margin: int = 10, scale: float = micro) -> FloatArray2D:
     """Create rectangular height map data with NaN border.
 
     :param shape: Shape of the output array.
@@ -51,15 +47,14 @@ def make_rectangular_data(
     :param scale: Scale factor for height values (should match pixel scale).
     :return: Height map with tilted plane and noise.
     """
+    rng = np.random.default_rng(42)
     data = np.full(shape, np.nan)
     # Add tilted plane with some noise, scaled appropriately
     y, x = np.mgrid[: shape[0], : shape[1]]
     data[margin:-margin, margin:-margin] = (
         0.1 * x[margin:-margin, margin:-margin] * scale
         + 0.05 * y[margin:-margin, margin:-margin] * scale
-        + np.random.normal(
-            0, 0.01 * scale, (shape[0] - 2 * margin, shape[1] - 2 * margin)
-        )
+        + rng.normal(0, 0.01 * scale, (shape[0] - 2 * margin, shape[1] - 2 * margin))
     )
     return data
 
@@ -498,9 +493,7 @@ class TestPreprocessImpressionMarkIntegration:
         filtered, leveled = preprocess_impression_mark(impression_mark, params)
 
         # Data should differ due to high-pass filtering
-        assert not np.allclose(
-            filtered.scan_image.data, leveled.scan_image.data, equal_nan=True
-        )
+        assert not np.allclose(filtered.scan_image.data, leveled.scan_image.data, equal_nan=True)
 
     @pytest.mark.integration
     def test_breech_face_uses_circle_center(self):
@@ -700,11 +693,7 @@ class TestPreprocessImpressionMarkIntegration:
         center = (50, 50)
         # Add parabolic form + tilt
         data[10:-10, 10:-10] = (
-            0.001
-            * (
-                (x[10:-10, 10:-10] - center[0]) ** 2
-                + (y[10:-10, 10:-10] - center[1]) ** 2
-            )
+            0.001 * ((x[10:-10, 10:-10] - center[0]) ** 2 + (y[10:-10, 10:-10] - center[1]) ** 2)
             + 0.1 * x[10:-10, 10:-10]
             + 0.05 * y[10:-10, 10:-10]
         )
@@ -781,9 +770,7 @@ class TestUpdateMarkData:
     def test_handles_nan_values(self):
         """Should handle NaN values in data."""
         impression_mark = make_mark(np.zeros((3, 3)))
-        new_data = np.array(
-            [[1.0, np.nan, 2.0], [np.nan, 3.0, np.nan], [4.0, 5.0, 6.0]]
-        )
+        new_data = np.array([[1.0, np.nan, 2.0], [np.nan, 3.0, np.nan], [4.0, 5.0, 6.0]])
 
         result = update_mark_data(impression_mark, new_data)
 
@@ -837,9 +824,7 @@ class TestMarkCenter:
     """Tests for Mark.center property to ensure correct (x, y) coordinate order."""
 
     def test_center_returns_xy_not_yx(self):
-        """
-        Verify center returns (x, y) order by using a non-square image.
-        """
+        """Verify center returns (x, y) order by using a non-square image."""
         height, width = 100, 200
         data = np.zeros((height, width))
         impression_mark = make_mark(

@@ -23,24 +23,24 @@ be at a position far from zero shift for repetitive patterns.
 """
 
 import numpy as np
-
 from container_models.base import FloatArray1D
+
 from conversion.profile_correlator.data_types import (
     AlignmentInputs,
     AlignmentParameters,
     AlignmentResult,
-    StriationComparisonResults,
     Profile,
     RoughnessMetrics,
+    StriationComparisonResults,
 )
-from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.profile_correlator.statistics import (
     compute_cross_correlation,
+    compute_normalized_square_based_roughness_differences,
     compute_overlap_ratio,
     compute_roughness_sa,
     compute_roughness_sq,
-    compute_normalized_square_based_roughness_differences,
 )
+from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.resample import resample_array_1d
 
 
@@ -97,9 +97,7 @@ def correlate_profiles(
         return None
 
     # Step 3: Compute and return metrics
-    return _compute_metrics(
-        alignment, inputs.pixel_size, len(inputs.heights_ref), len(inputs.heights_comp)
-    )
+    return _compute_metrics(alignment, inputs.pixel_size, len(inputs.heights_ref), len(inputs.heights_comp))
 
 
 def _prepare_alignment_inputs(
@@ -117,9 +115,7 @@ def _prepare_alignment_inputs(
     :param params: Alignment parameters.
     :returns: Prepared alignment inputs, or None if profiles are too short.
     """
-    profile_reference_eq, profile_compared_eq = equalize_pixel_scale(
-        profile_reference, profile_compared
-    )
+    profile_reference_eq, profile_compared_eq = equalize_pixel_scale(profile_reference, profile_compared)
     pixel_size = profile_reference_eq.pixel_size
 
     # Minimum overlap in samples
@@ -133,9 +129,7 @@ def _prepare_alignment_inputs(
         return None
 
     # Generate scale factors to try (7 steps gives ~1.7% intervals for ±5%)
-    scale_factors = np.linspace(
-        1.0 - params.max_scaling, 1.0 + params.max_scaling, params.n_scale_steps
-    )
+    scale_factors = np.linspace(1.0 - params.max_scaling, 1.0 + params.max_scaling, params.n_scale_steps)
 
     # Make scaling symmetric to what you choose as reference or compared
     scale_factors = np.unique(np.concatenate((scale_factors, 1 / scale_factors)))
@@ -149,13 +143,8 @@ def _prepare_alignment_inputs(
     )
 
 
-def _calculate_idx_parameters(
-    shift: int, len_compared: int, len_reference: int
-) -> tuple[int, int, int]:
-    """
-    Find starting index for both striations, and compute overlap length
-    """
-
+def _calculate_idx_parameters(shift: int, len_compared: int, len_reference: int) -> tuple[int, int, int]:
+    """Find starting index for both striations, and compute overlap length."""
     if shift >= 0:
         idx_reference_start = shift
         idx_compared_start = 0
@@ -200,19 +189,15 @@ def _find_best_alignment(
         max_shift = len_reference - min_overlap_samples
 
         for shift in range(min_shift, max_shift + 1):
-            idx_compared_start, idx_reference_start, overlap_length = (
-                _calculate_idx_parameters(shift, len_compared, len_reference)
+            idx_compared_start, idx_reference_start, overlap_length = _calculate_idx_parameters(
+                shift, len_compared, len_reference
             )  # Calculate overlap region for this shift
 
             if overlap_length < min_overlap_samples:
                 continue
 
-            partial_reference = heights_reference[
-                idx_reference_start : idx_reference_start + overlap_length
-            ]
-            partial_compared = heights_compared_scaled[
-                idx_compared_start : idx_compared_start + overlap_length
-            ]
+            partial_reference = heights_reference[idx_reference_start : idx_reference_start + overlap_length]
+            partial_compared = heights_compared_scaled[idx_compared_start : idx_compared_start + overlap_length]
 
             correlation = compute_cross_correlation(partial_reference, partial_compared)
 
@@ -224,18 +209,14 @@ def _find_best_alignment(
     if best_shift is None or best_scale is None:
         return None
 
-    # Redo computations for best_scale and best_shift (instead of copying partial_reference and partial_compared above multiple times. This saves time.)
+    # Redo computations for best_scale and best_shift
     heights_compared_scaled = resample_array_1d(heights_compared, best_scale)
     idx_compared_start, idx_reference_start, overlap_length = _calculate_idx_parameters(
         best_shift, len(heights_compared_scaled), len_reference
     )
 
-    best_reference_overlap = heights_reference[
-        idx_reference_start : idx_reference_start + overlap_length
-    ]
-    best_compared_overlap = heights_compared_scaled[
-        idx_compared_start : idx_compared_start + overlap_length
-    ]
+    best_reference_overlap = heights_reference[idx_reference_start : idx_reference_start + overlap_length]
+    best_compared_overlap = heights_compared_scaled[idx_compared_start : idx_compared_start + overlap_length]
 
     return AlignmentResult(
         correlation=best_correlation,
@@ -270,9 +251,7 @@ def _compute_metrics(
     reference_length = len_reference * pixel_size
     compared_length = len_compared * pixel_size
 
-    overlap_ratio = compute_overlap_ratio(
-        overlap_length, reference_length, compared_length
-    )
+    overlap_ratio = compute_overlap_ratio(overlap_length, reference_length, compared_length)
 
     # Roughness metrics
     sa_reference = compute_roughness_sa(reference_overlap)

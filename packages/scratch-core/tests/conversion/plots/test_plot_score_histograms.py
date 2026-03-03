@@ -1,9 +1,8 @@
 from pathlib import Path
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
-
 from conversion.plots.data_formats import DensityData, HistogramData
 from conversion.plots.plot_score_histograms import plot_score_histograms
 from matplotlib.figure import Figure
@@ -14,21 +13,18 @@ from ..helper_functions import assert_plot_is_valid_image
 
 def generate_test_data():
     """Generate example data for testing."""
-    np.random.default_rng(42)
-
+    rng = np.random.default_rng(42)
     n_knm = 171991
-    knm_scores_data = np.random.gamma(0.5, 0.5, n_knm)
+    knm_scores_data = rng.gamma(0.5, 0.5, n_knm)
 
     n_km = 1125
     n_km_low = 787  # 70% of 1125
     n_km_high = 338  # 30% of 1125
 
-    km_scores_data = np.concatenate(
-        [
-            np.random.gamma(1.5, 2, n_km_low),
-            np.random.uniform(10, 50, n_km_high),
-        ]
-    )
+    km_scores_data = np.concatenate([
+        rng.gamma(1.5, 2, n_km_low),
+        rng.uniform(10, 50, n_km_high),
+    ])
 
     scores = np.concatenate([knm_scores_data, km_scores_data])
     labels = np.concatenate([np.zeros(n_knm, dtype=int), np.ones(n_km, dtype=int)])
@@ -65,7 +61,7 @@ def densities() -> DensityData:
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "new_score, bins, show_density",
+    ("new_score", "bins", "show_density"),
     [
         (5.0, 50, True),
         (3.0, 30, False),

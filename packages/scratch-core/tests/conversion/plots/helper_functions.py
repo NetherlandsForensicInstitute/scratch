@@ -7,11 +7,10 @@ Includes helpers for:
 """
 
 import numpy as np
-from scipy.constants import micro
-
-from container_models.base import FloatArray2D, UInt8Array3D, FloatArray
+from container_models.base import FloatArray, FloatArray2D, UInt8Array3D
 from conversion.data_formats import Mark, MarkType
 from conversion.profile_correlator import Profile
+from scipy.constants import micro
 
 from ..helper_functions import make_mark
 
@@ -203,9 +202,7 @@ def create_synthetic_impression_mark(
 ) -> Mark:
     """Create a Mark with synthetic impression surface data."""
     return make_mark(
-        data=create_synthetic_impression_data(
-            height, width, seed, rotation_deg, rotation_mask_deg
-        ),
+        data=create_synthetic_impression_data(height, width, seed, rotation_deg, rotation_mask_deg),
         scale_x=scale,
         scale_y=scale,
         mark_type=mark_type,

@@ -1,8 +1,8 @@
-from returns.pipeline import is_successful
-from container_models.scan_image import ScanImage
-import pytest
-from mutations.base import ImageMutation
 import numpy as np
+import pytest
+from container_models.scan_image import ScanImage
+from mutations.base import ImageMutation
+from returns.pipeline import is_successful
 
 
 class TestBaseMutations:
@@ -21,7 +21,7 @@ class TestBaseMutations:
             self.var = var
 
         def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
-            """Small edit to do a 'mutation'"""
+            """Small edit to do a 'mutation'."""
             scan_image.scale_x = self.var
             scan_image.scale_y = self.var
             return scan_image
@@ -57,9 +57,7 @@ class TestBaseMutations:
         # Assert
         assert is_successful(result)
 
-    def test_call_wraps_exception_in_failure(
-        self, scan_image: ScanImage, monkeypatch: pytest.MonkeyPatch
-    ):
+    def test_call_wraps_exception_in_failure(self, scan_image: ScanImage, monkeypatch: pytest.MonkeyPatch):
         # Arrange
         def raise_error(_):
             raise RuntimeError("boom")

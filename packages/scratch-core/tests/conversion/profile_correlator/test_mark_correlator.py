@@ -2,8 +2,6 @@
 
 import numpy as np
 import pytest
-from scipy.constants import micro
-
 from conversion.profile_correlator import (
     AlignmentParameters,
     MarkCorrelationResult,
@@ -11,10 +9,12 @@ from conversion.profile_correlator import (
     correlate_profiles,
     correlate_striation_marks,
 )
+from scipy.constants import micro
+
 from .conftest import (
-    striation_mark,
-    make_synthetic_striation_profile,
     make_shifted_profile,
+    make_synthetic_striation_profile,
+    striation_mark,
 )
 
 PIXEL_SIZE_M = 1.5 * micro  # 1.5 μm
@@ -32,9 +32,7 @@ class TestCorrelateStriationMarksBasic:
         mark_reference = striation_mark(profile_reference)
         mark_compared = striation_mark(profile_compared)
 
-        result = correlate_striation_marks(
-            mark_reference, mark_compared, profile_reference, profile_compared
-        )
+        result = correlate_striation_marks(mark_reference, mark_compared, profile_reference, profile_compared)
 
         assert isinstance(result, MarkCorrelationResult)
 
@@ -45,9 +43,7 @@ class TestCorrelateStriationMarksBasic:
         mark_reference = striation_mark(profile_reference)
         mark_compared = striation_mark(profile_compared)
 
-        result = correlate_striation_marks(
-            mark_reference, mark_compared, profile_reference, profile_compared
-        )
+        result = correlate_striation_marks(mark_reference, mark_compared, profile_reference, profile_compared)
 
         assert result is not None
         n_rows_reference = result.mark_reference_aligned.scan_image.height
@@ -61,14 +57,10 @@ class TestCorrelateStriationMarksBasic:
         mark_reference = striation_mark(profile_reference)
         mark_compared = striation_mark(profile_compared)
 
-        result = correlate_striation_marks(
-            mark_reference, mark_compared, profile_reference, profile_compared
-        )
+        result = correlate_striation_marks(mark_reference, mark_compared, profile_reference, profile_compared)
 
         assert result is not None
-        assert len(result.profile_reference_aligned.heights) == len(
-            result.profile_compared_aligned.heights
-        )
+        assert len(result.profile_reference_aligned.heights) == len(result.profile_compared_aligned.heights)
 
     def test_aligned_mark_rows_match_profile_length(self):
         """Aligned mark row count should equal the aligned profile length."""
@@ -77,17 +69,11 @@ class TestCorrelateStriationMarksBasic:
         mark_reference = striation_mark(profile_reference)
         mark_compared = striation_mark(profile_compared)
 
-        result = correlate_striation_marks(
-            mark_reference, mark_compared, profile_reference, profile_compared
-        )
+        result = correlate_striation_marks(mark_reference, mark_compared, profile_reference, profile_compared)
 
         assert result is not None
-        assert result.mark_reference_aligned.scan_image.height == len(
-            result.profile_reference_aligned.heights
-        )
-        assert result.mark_compared_aligned.scan_image.height == len(
-            result.profile_compared_aligned.heights
-        )
+        assert result.mark_reference_aligned.scan_image.height == len(result.profile_reference_aligned.heights)
+        assert result.mark_compared_aligned.scan_image.height == len(result.profile_compared_aligned.heights)
 
     def test_column_count_preserved(self):
         """Aligned marks should retain the original number of columns."""
@@ -96,9 +82,7 @@ class TestCorrelateStriationMarksBasic:
         mark_reference = striation_mark(profile_reference)
         mark_compared = striation_mark(profile_compared)
 
-        result = correlate_striation_marks(
-            mark_reference, mark_compared, profile_reference, profile_compared
-        )
+        result = correlate_striation_marks(mark_reference, mark_compared, profile_reference, profile_compared)
 
         assert result is not None
         assert result.mark_reference_aligned.scan_image.width == N_COLS
@@ -112,9 +96,7 @@ class TestCorrelateStriationMarksBasic:
         mark_compared = striation_mark(profile_compared)
         params = AlignmentParameters()
 
-        result = correlate_striation_marks(
-            mark_reference, mark_compared, profile_reference, profile_compared, params
-        )
+        result = correlate_striation_marks(mark_reference, mark_compared, profile_reference, profile_compared, params)
         direct = correlate_profiles(profile_reference, profile_compared, params)
 
         assert result is not None
@@ -126,16 +108,14 @@ class TestCorrelateStriationMarksBasic:
 class TestCorrelateStriationMarksEdgeCases:
     """Edge case tests for correlate_striation_marks."""
 
-    def test_returns_none_for_short_profiles(self):
+    def test_returns_none_for_short_profiles(self, rng: np.random.Generator):
         """Too-short profiles should return None."""
-        profile_reference = Profile(np.random.randn(50), pixel_size=PIXEL_SIZE_M)
-        profile_compared = Profile(np.random.randn(50), pixel_size=PIXEL_SIZE_M)
+        profile_reference = Profile(rng.standard_normal(50), pixel_size=PIXEL_SIZE_M)
+        profile_compared = Profile(rng.standard_normal(50), pixel_size=PIXEL_SIZE_M)
         mark_reference = striation_mark(profile_reference)
         mark_compared = striation_mark(profile_compared)
 
-        result = correlate_striation_marks(
-            mark_reference, mark_compared, profile_reference, profile_compared
-        )
+        result = correlate_striation_marks(mark_reference, mark_compared, profile_reference, profile_compared)
 
         assert result is None
 
@@ -146,12 +126,7 @@ class TestCorrelateStriationMarksEdgeCases:
         mark_reference = striation_mark(profile_reference)
         mark_compared = striation_mark(profile_compared)
 
-        result = correlate_striation_marks(
-            mark_reference, mark_compared, profile_reference, profile_compared
-        )
+        result = correlate_striation_marks(mark_reference, mark_compared, profile_reference, profile_compared)
 
         assert result is not None
-        assert (
-            result.mark_reference_aligned.scan_image.height
-            <= mark_reference.scan_image.height
-        )
+        assert result.mark_reference_aligned.scan_image.height <= mark_reference.scan_image.height

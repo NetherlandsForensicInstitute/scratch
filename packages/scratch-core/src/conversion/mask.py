@@ -1,6 +1,5 @@
 import numpy as np
-
-from container_models.base import FloatArray2D, BinaryMask
+from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 
 
@@ -42,12 +41,14 @@ def crop_to_mask(
 
 def get_bounding_box(mask: BinaryMask, margin: int = 0) -> tuple[slice, slice]:
     """
-    Determines the bounding box of non-zero values in a mask. If a margin is given, the bounding box will be expanded
-    (in case of a negative margin) or cropped (in case of a positive margin) by `margin` pixels per side.
+    Determine the bounding box of non-zero values in a mask.
 
-    :param mask: Binary mask array
-    :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box
-    :return: Tuple of (x_slice, y_slice) for the bounding box
+    A positive margin shrinks the box, a negative margin expands it by
+    that many pixels per side.
+
+    :param mask: Binary mask array.
+    :param margin: Pixels to crop (positive) or extend (negative) the bounding box.
+    :returns: Tuple of (x_slice, y_slice) for the bounding box.
     """
     non_zero_coords = np.nonzero(mask)
     if not non_zero_coords[0].size:
@@ -67,9 +68,7 @@ def get_bounding_box(mask: BinaryMask, margin: int = 0) -> tuple[slice, slice]:
     return slice(x_min, x_max), slice(y_min, y_max)
 
 
-def mask_and_crop_2d_array(
-    image: FloatArray2D, mask: BinaryMask, crop: bool = False
-) -> FloatArray2D:
+def mask_and_crop_2d_array(image: FloatArray2D, mask: BinaryMask, crop: bool = False) -> FloatArray2D:
     """Apply the mask to the data and crop to the bounding box of the mask if `crop` is True."""
     image = mask_2d_array(image=image, mask=mask)
     if crop:
@@ -77,11 +76,7 @@ def mask_and_crop_2d_array(
     return image
 
 
-def mask_and_crop_scan_image(
-    scan_image: ScanImage, mask: BinaryMask, crop: bool = False
-) -> ScanImage:
+def mask_and_crop_scan_image(scan_image: ScanImage, mask: BinaryMask, crop: bool = False) -> ScanImage:
     """Apply masking to the data in an instance of `ScanImage`."""
     masked_data = mask_and_crop_2d_array(image=scan_image.data, mask=mask, crop=crop)
-    return ScanImage(
-        data=masked_data, scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
-    )
+    return ScanImage(data=masked_data, scale_x=scan_image.scale_x, scale_y=scan_image.scale_y)

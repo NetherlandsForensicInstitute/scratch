@@ -1,10 +1,10 @@
 import matplotlib.pyplot as plt
+from container_models.base import ImageRGB
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from container_models.base import ImageRGB
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import (
     HistogramData,
@@ -82,14 +82,10 @@ def plot_cmc_comparison_overview(
 
     # Row 0: Metadata tables (2 equal halves)
     ax_meta_ref = fig.add_subplot(gs[0, 0:3])
-    draw_metadata_box(
-        ax_meta_ref, metadata_reference, "Reference Surface (A)", wrap_width=wrap_width
-    )
+    draw_metadata_box(ax_meta_ref, metadata_reference, "Reference Surface (A)", wrap_width=wrap_width)
 
     ax_meta_comp = fig.add_subplot(gs[0, 3:6])
-    draw_metadata_box(
-        ax_meta_comp, metadata_compared, "Compared Surface (B)", wrap_width=wrap_width
-    )
+    draw_metadata_box(ax_meta_comp, metadata_compared, "Compared Surface (B)", wrap_width=wrap_width)
 
     # Row 1: Filtered surfaces with cell overlay + results metadata (3 equal thirds)
     ax_filtered_ref = fig.add_subplot(gs[1, 0:2])
@@ -102,9 +98,7 @@ def plot_cmc_comparison_overview(
         cell_similarity_threshold=metrics.cell_similarity_threshold,
         show_all_cells=True,
     )
-    _plot_surface_with_colorbar(
-        fig, ax_filtered_ref, im_ref, "Filtered Reference Surface A"
-    )
+    _plot_surface_with_colorbar(fig, ax_filtered_ref, im_ref, "Filtered Reference Surface A")
 
     ax_filtered_comp = fig.add_subplot(gs[1, 2:4])
     cell_size_um = compute_cell_size_um(
@@ -122,18 +116,12 @@ def plot_cmc_comparison_overview(
         show_all_cells=False,
         cell_positions=metrics.cell_positions_compared,
         cell_rotations=metrics.cell_rotations_compared,
-        cell_size_um=cell_size_um
-        if metrics.cell_positions_compared is not None
-        else None,
+        cell_size_um=cell_size_um if metrics.cell_positions_compared is not None else None,
     )
-    _plot_surface_with_colorbar(
-        fig, ax_filtered_comp, im_comp, "Filtered, Moved Compared Surface B"
-    )
+    _plot_surface_with_colorbar(fig, ax_filtered_comp, im_comp, "Filtered, Moved Compared Surface B")
 
     ax_results = fig.add_subplot(gs[1, 4:6])
-    draw_metadata_box(
-        ax_results, results_metadata, draw_border=False, wrap_width=wrap_width
-    )
+    draw_metadata_box(ax_results, results_metadata, draw_border=False, wrap_width=wrap_width)
 
     # Row 2: Score histograms + LogLR plot (2 equal halves)
     ax_hist = fig.add_subplot(gs[2, 0:3])

@@ -1,8 +1,8 @@
-from conversion.leveling.solver import get_2d_grid
-from conversion.leveling.solver.utils import compute_image_center
-from container_models.scan_image import ScanImage
 import numpy as np
 import pytest
+from container_models.scan_image import ScanImage
+from conversion.leveling.solver import get_2d_grid
+from conversion.leveling.solver.utils import compute_image_center
 
 
 def test_grid_matches_scan_image_shape(scan_image_rectangular_with_nans: ScanImage):
@@ -20,14 +20,8 @@ def test_grid_matches_scan_image_shape(scan_image_rectangular_with_nans: ScanIma
 def test_grid_is_a_meshgrid(scan_image_rectangular_with_nans: ScanImage):
     x_grid, y_grid = get_2d_grid(scan_image_rectangular_with_nans)
 
-    assert all(
-        np.array_equal(x_grid[i, :], x_grid[i + 1, :])
-        for i in range(x_grid.shape[0] - 1)
-    )
-    assert all(
-        np.array_equal(y_grid[:, i], y_grid[:, i + 1])
-        for i in range(y_grid.shape[1] - 1)
-    )
+    assert all(np.array_equal(x_grid[i, :], x_grid[i + 1, :]) for i in range(x_grid.shape[0] - 1))
+    assert all(np.array_equal(y_grid[:, i], y_grid[:, i + 1]) for i in range(y_grid.shape[1] - 1))
     assert np.all(x_grid[0, :-1] < x_grid[0, 1:])
     assert np.all(y_grid[:-1, 0] < y_grid[1:, 0])
 
@@ -50,9 +44,7 @@ def test_grid_is_centered_around_origin(
     scan_image_rectangular_with_nans: ScanImage,
 ):
     center_x, center_y = compute_image_center(scan_image_rectangular_with_nans)
-    x_grid, y_grid = get_2d_grid(
-        scan_image_rectangular_with_nans, offset=(-center_x, -center_y)
-    )
+    x_grid, y_grid = get_2d_grid(scan_image_rectangular_with_nans, offset=(-center_x, -center_y))
 
     # With xy indexing: x from row 0, y from column 0
     mid_x, mid_y = x_grid.shape[1] // 2, y_grid.shape[0] // 2

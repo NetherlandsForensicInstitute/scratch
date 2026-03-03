@@ -3,19 +3,24 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PIL import Image
+from container_models.base import BinaryMask, DepthData
+from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark, MarkType
+from conversion.profile_correlator import Profile
 from loguru import logger
+from parsers.loaders import load_scan_image
+from PIL import Image
 from scipy.constants import micro
 
-from container_models.base import DepthData, BinaryMask
-from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkType, Mark
-from conversion.profile_correlator import Profile
-from parsers.loaders import load_scan_image
-from .helper_function import unwrap_result
 from .conversion.helper_functions import make_mark
+from .helper_function import unwrap_result
 
 TEST_ROOT = Path(__file__).parent
+
+
+@pytest.fixture
+def rng() -> np.random.Generator:
+    return np.random.default_rng(42)
 
 
 @pytest.fixture
@@ -73,7 +78,7 @@ def scan_image_replica(scans_dir: Path) -> ScanImage:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
     # add random NaN values
     rng = np.random.default_rng(42)
@@ -82,7 +87,7 @@ def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
     return scan_image
 
 
-@pytest.fixture()
+@pytest.fixture
 def scan_image_rectangular_with_nans(scan_image_with_nans: ScanImage) -> ScanImage:
     """Build a `ScanImage` object` with non-square image data."""
     scan_image = ScanImage(
@@ -130,12 +135,11 @@ def striation_mark() -> Mark:
 
 
 @pytest.fixture
-def profile_with_nans(pixel_size_05um: float) -> Profile:
+def profile_with_nans(rng: np.random.Generator, pixel_size_05um: float) -> Profile:
     """Create a profile with some NaN values for NaN handling tests."""
-    np.random.seed(45)
     x = np.linspace(0, 10 * np.pi, 1000)
     data = np.sin(x) * micro
-    data += np.random.normal(0, 0.01 * micro, len(data))
+    data += rng.normal(0, 0.01 * micro, len(data))
 
     # Insert some NaN values
     data[100:110] = np.nan  # Block of NaNs
@@ -147,11 +151,11 @@ def profile_with_nans(pixel_size_05um: float) -> Profile:
 
 @pytest.fixture
 def pixel_size_05um() -> float:
-    """Standard pixel size of 0.5 micrometers in meters."""
+    """Return a pixel size of 0.5 micrometer in meters."""
     return 0.5 * micro
 
 
 @pytest.fixture
 def pixel_size_1um() -> float:
-    """Standard pixel size of 1.0 micrometer in meters."""
+    """Return a pixel size of 1.0 micrometer in meters."""
     return micro

@@ -1,7 +1,8 @@
-from conversion.leveling import level_map, SurfaceTerms
-from container_models.scan_image import ScanImage
-import pytest
 import numpy as np
+import pytest
+from container_models.scan_image import ScanImage
+from conversion.leveling import SurfaceTerms, level_map
+
 from .constants import RESOURCES_DIR
 
 
@@ -11,11 +12,7 @@ def test_map_level_sphere(scan_image_with_nans: ScanImage):
     result = level_map(scan_image_with_nans, SurfaceTerms.SPHERE)
     assert result
     assert np.allclose(result.leveled_map, verified, equal_nan=True)
-    assert all(
-        np.isclose(result.parameters[p], 0.0)
-        for p in SurfaceTerms
-        if p not in SurfaceTerms.SPHERE
-    )
+    assert all(np.isclose(result.parameters[p], 0.0) for p in SurfaceTerms if p not in SurfaceTerms.SPHERE)
     assert all(not np.isclose(result.parameters[p], 0.0) for p in SurfaceTerms.SPHERE)
 
 
@@ -25,11 +22,7 @@ def test_map_level_plane(scan_image_with_nans: ScanImage):
     result = level_map(scan_image_with_nans, SurfaceTerms.PLANE)
     assert result
     assert np.allclose(result.leveled_map, verified, equal_nan=True)
-    assert all(
-        np.isclose(result.parameters[p], 0.0)
-        for p in SurfaceTerms
-        if p not in SurfaceTerms.PLANE
-    )
+    assert all(np.isclose(result.parameters[p], 0.0) for p in SurfaceTerms if p not in SurfaceTerms.PLANE)
     assert all(not np.isclose(result.parameters[p], 0.0) for p in SurfaceTerms.PLANE)
 
 
@@ -52,11 +45,7 @@ def test_map_level_offset(scan_image_with_nans: ScanImage):
         equal_nan=True,
     )
     assert result.parameters[SurfaceTerms.OFFSET] != 0
-    assert all(
-        np.isclose(result.parameters[p], 0.0)
-        for p in SurfaceTerms
-        if p != SurfaceTerms.OFFSET
-    )
+    assert all(np.isclose(result.parameters[p], 0.0) for p in SurfaceTerms if p != SurfaceTerms.OFFSET)
 
 
 @pytest.mark.integration
@@ -64,12 +53,8 @@ def test_map_level_reference_point_has_no_effect_with_none(
     scan_image_with_nans: ScanImage,
 ):
     result_centered = level_map(scan_image_with_nans, SurfaceTerms.NONE)
-    result_ref = level_map(
-        scan_image_with_nans, SurfaceTerms.NONE, reference_point=(10.5, -5.2)
-    )
-    assert np.allclose(
-        result_centered.leveled_map, result_ref.leveled_map, equal_nan=True
-    )
+    result_ref = level_map(scan_image_with_nans, SurfaceTerms.NONE, reference_point=(10.5, -5.2))
+    assert np.allclose(result_centered.leveled_map, result_ref.leveled_map, equal_nan=True)
 
 
 @pytest.mark.integration
@@ -77,9 +62,5 @@ def test_map_level_reference_point_has_effect_with_plane(
     scan_image_with_nans: ScanImage,
 ):
     result_centered = level_map(scan_image_with_nans, SurfaceTerms.PLANE)
-    result_ref = level_map(
-        scan_image_with_nans, SurfaceTerms.NONE, reference_point=(10.5, -5.2)
-    )
-    assert not np.allclose(
-        result_centered.leveled_map, result_ref.leveled_map, equal_nan=True
-    )
+    result_ref = level_map(scan_image_with_nans, SurfaceTerms.NONE, reference_point=(10.5, -5.2))
+    assert not np.allclose(result_centered.leveled_map, result_ref.leveled_map, equal_nan=True)

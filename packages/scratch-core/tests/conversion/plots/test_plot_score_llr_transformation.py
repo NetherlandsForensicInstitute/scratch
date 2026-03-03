@@ -1,19 +1,17 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
 from pathlib import Path
-import pytest
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pytest
 from container_models.base import FloatArray1D
 from conversion.plots.data_formats import LlrTransformationData
 from conversion.plots.plot_score_llr_transformation import plot_score_llr_transformation
+from matplotlib.axes import Axes
 
 from ..helper_functions import assert_plot_is_valid_image
 
 
-def verify_plot_properties(
-    ax: Axes, expected_num_lines: int, should_have_llr_label: bool
-):
+def verify_plot_properties(ax: Axes, expected_num_lines: int, should_have_llr_label: bool):
     assert len(ax.lines) == expected_num_lines
     assert ax.get_xlabel() == "Score"
     assert ax.get_ylabel() == "LogLR"
@@ -49,7 +47,7 @@ class TestPlotLoglrWithConfidence:
 
     @pytest.mark.integration
     @pytest.mark.parametrize(
-        "score_llr_point, expected_num_lines, should_have_llr_label",
+        ("score_llr_point", "expected_num_lines", "should_have_llr_label"),
         [
             ((0.9, -1.2), 5, True),  # With score_llr_point
             (None, 3, False),  # Without score_llr_point
@@ -77,9 +75,7 @@ class TestPlotLoglrWithConfidence:
         )
         plot_score_llr_transformation(ax, data)
 
-        verify_plot_properties(
-            ax, expected_num_lines, should_have_llr_label
-        )  # Verify that plot was created
+        verify_plot_properties(ax, expected_num_lines, should_have_llr_label)  # Verify that plot was created
         assert_plot_is_valid_image(fig, tmp_path)
 
         plt.close(fig)

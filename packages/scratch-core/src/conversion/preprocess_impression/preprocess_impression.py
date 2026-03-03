@@ -7,21 +7,22 @@ This module provides functions to preprocess 2D scan images of impression marks
 from dataclasses import asdict
 
 from container_models.base import DepthData
+
 from conversion.data_formats import Mark
 from conversion.filter import (
-    apply_gaussian_filter_mark,
     apply_filter_pipeline,
+    apply_gaussian_filter_mark,
 )
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import crop_to_mask
 from conversion.preprocess_impression.center import compute_center_local
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.resample import (
-    resample,
     needs_resampling,
+    resample,
 )
 from conversion.preprocess_impression.tilt import apply_tilt_correction
-from conversion.preprocess_impression.utils import update_mark_data, Point2D
+from conversion.preprocess_impression.utils import Point2D, update_mark_data
 from conversion.resample import get_scaling_factors, resample_array_2d
 
 
@@ -74,9 +75,7 @@ def preprocess_impression_mark(
         if needs_resampling(mark_filtered, params.pixel_size):
             mark_filtered = resample(mark_filtered, params.pixel_size)
             mark_anti_aliased = resample(mark_anti_aliased, params.pixel_size)
-            factors = get_scaling_factors(
-                scales=original_scales, target_scale=params.pixel_size
-            )
+            factors = get_scaling_factors(scales=original_scales, target_scale=params.pixel_size)
             fitted_surface = resample_array_2d(fitted_surface, factors=factors)
 
     # Stage 7: High-pass filter
@@ -111,16 +110,14 @@ def _level_mark(
     terms: SurfaceTerms,
     reference_point: Point2D | None = None,
 ) -> tuple[Mark, DepthData]:
-    result = level_map(
-        mark.scan_image, terms=terms, reference_point=reference_point or mark.center
-    )
+    result = level_map(mark.scan_image, terms=terms, reference_point=reference_point or mark.center)
     leveled_mark = update_mark_data(mark, result.leveled_map)
     return leveled_mark, result.fitted_surface
 
 
 def _prepare_mark(mark: Mark) -> Mark:
     """
-    Initial preparation: compute center and crop NaN borders.
+    Compute center and crop NaN borders.
 
     :param mark: Input mark.
     :return: Cropped mark

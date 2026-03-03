@@ -1,5 +1,4 @@
 import numpy as np
-
 from container_models.base import BinaryMask
 
 

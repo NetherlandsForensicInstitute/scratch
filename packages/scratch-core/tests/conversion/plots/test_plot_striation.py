@@ -1,17 +1,17 @@
 import pytest
-from scipy.constants import micro
-
 from conversion.plots.plot_striation import (
-    plot_similarity,
     plot_comparison_overview,
+    plot_similarity,
     plot_striation_comparison_results,
 )
+from scipy.constants import micro
+
 from .helper_functions import assert_valid_rgb_image, create_synthetic_striation_data
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "metadata_reference,metadata_compared,suffix",
+    ("metadata_reference", "metadata_compared", "suffix"),
     [
         (
             {
@@ -73,9 +73,7 @@ class TestEdgeCases:
     def test_plot_similarity_different_lengths(self):
         profile_short = create_synthetic_striation_data(height=1, width=100, seed=42)
         profile_long = create_synthetic_striation_data(height=1, width=200, seed=43)
-        result = plot_similarity(
-            profile_short, profile_long, scale=1.5625 * micro, score=0.5
-        )
+        result = plot_similarity(profile_short, profile_long, scale=1.5625 * micro, score=0.5)
         assert_valid_rgb_image(result)
 
 

@@ -7,9 +7,9 @@ into a single overview figure.
 """
 
 import matplotlib.pyplot as plt
+from container_models.base import ImageRGB
 from matplotlib.axes import Axes
 
-from container_models.base import ImageRGB
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import HistogramData, LlrTransformationData
 from conversion.plots.plot_score_histograms import plot_score_histograms
@@ -85,14 +85,10 @@ def plot_ccf_comparison_overview(
     gs = fig.add_gridspec(3, 12, height_ratios=height_ratios, hspace=0.35, wspace=0.7)
 
     ax_meta_ref = fig.add_subplot(gs[0, 0:6])
-    draw_metadata_box(
-        ax_meta_ref, metadata_reference, "Reference Profile (A)", wrap_width=wrap_width
-    )
+    draw_metadata_box(ax_meta_ref, metadata_reference, "Reference Profile (A)", wrap_width=wrap_width)
 
     ax_meta_comp = fig.add_subplot(gs[0, 6:])
-    draw_metadata_box(
-        ax_meta_comp, metadata_compared, "Compared Profile (B)", wrap_width=wrap_width
-    )
+    draw_metadata_box(ax_meta_comp, metadata_compared, "Compared Profile (B)", wrap_width=wrap_width)
 
     scale = mark_reference_filtered.scan_image.scale_x
 
@@ -138,9 +134,7 @@ def plot_ccf_comparison_overview(
     ax_side.set_ylabel("")
 
     ax_results = fig.add_subplot(gs[1, 10:])
-    draw_metadata_box(
-        ax_results, results_metadata, draw_border=False, wrap_width=wrap_width
-    )
+    draw_metadata_box(ax_results, results_metadata, draw_border=False, wrap_width=wrap_width)
 
     ax_hist = fig.add_subplot(gs[2, 0:4])
     plot_score_histograms(ax_hist, histogram_data)
@@ -148,9 +142,7 @@ def plot_ccf_comparison_overview(
 
     ax_hist_trans = fig.add_subplot(gs[2, 4:8])
     plot_score_histograms(ax_hist_trans, histogram_data_transformed)
-    ax_hist_trans.set_title(
-        "Transformed score histograms", fontsize=12, fontweight="bold"
-    )
+    ax_hist_trans.set_title("Transformed score histograms", fontsize=12, fontweight="bold")
 
     ax_llr = fig.add_subplot(gs[2, 8:])
     plot_score_llr_transformation(ax_llr, llr_data)

@@ -9,10 +9,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from scipy.constants import micro
-
 from conversion.data_formats import Mark, MarkType
-from conversion.profile_correlator import Profile, AlignmentParameters
+from conversion.profile_correlator import AlignmentParameters, Profile
+from scipy.constants import micro
+from scipy.interpolate import interp1d
+
 from ..helper_functions import make_mark
 
 # Directory for test data files (MATLAB .mat files for validation)
@@ -26,10 +27,10 @@ def simple_sine_profile(pixel_size_05um: float) -> Profile:
 
     The profile contains 1000 samples of a sine wave with some added noise.
     """
-    np.random.seed(42)
+    rng = np.random.default_rng(42)
     x = np.linspace(0, 10 * np.pi, 1000)
     data = np.sin(x) * micro  # Heights in micrometers scale
-    data += np.random.normal(0, 0.01 * micro, len(data))  # Add a small noise
+    data += rng.normal(0, 0.01 * micro, len(data))  # Add a small noise
 
     return Profile(heights=data, pixel_size=pixel_size_05um)
 
@@ -41,11 +42,11 @@ def shifted_sine_profile(pixel_size_05um: float) -> Profile:
 
     The profile is shifted by approximately 20 samples.
     """
-    np.random.seed(43)  # Different seed for different noise
+    rng = np.random.default_rng(43)
     x = np.linspace(0, 10 * np.pi, 1000)
     shift = 0.2  # radians, approximately 20 samples
     data = np.sin(x + shift) * micro
-    data += np.random.normal(0, 0.01 * micro, len(data))
+    data += rng.normal(0, 0.01 * micro, len(data))
 
     return Profile(heights=data, pixel_size=pixel_size_05um)
 
@@ -57,11 +58,11 @@ def scaled_sine_profile(pixel_size_05um: float) -> Profile:
 
     The profile is scaled by 1.02 (2% stretch).
     """
-    np.random.seed(44)
+    rng = np.random.default_rng(44)
     # Create profile with 1.02x scale (fewer periods in same length)
     x = np.linspace(0, 10 * np.pi / 1.02, 1000)
     data = np.sin(x) * micro
-    data += np.random.normal(0, 0.01 * micro, len(data))
+    data += rng.normal(0, 0.01 * micro, len(data))
 
     return Profile(heights=data, pixel_size=pixel_size_05um)
 
@@ -74,13 +75,13 @@ def partial_profile(pixel_size_05um: float) -> Profile:
     This profile is a subset of a longer reference, starting at index 300
     and having length 400.
     """
-    np.random.seed(46)
+    rng = np.random.default_rng(46)
     x = np.linspace(0, 10 * np.pi, 1000)
     full_data = np.sin(x) * micro
 
     # Extract partial segment
     partial_data = full_data[300:700].copy()
-    partial_data += np.random.normal(0, 0.01 * micro, len(partial_data))
+    partial_data += rng.normal(0, 0.01 * micro, len(partial_data))
 
     return Profile(heights=partial_data, pixel_size=pixel_size_05um)
 
@@ -88,24 +89,24 @@ def partial_profile(pixel_size_05um: float) -> Profile:
 @pytest.fixture
 def different_resolution_profile(pixel_size_1um: float) -> Profile:
     """Create a profile with different pixel size for resampling tests."""
-    np.random.seed(48)
+    rng = np.random.default_rng(48)
     # Half the number of samples due to double pixel size
     x = np.linspace(0, 10 * np.pi, 500)
     data = np.sin(x) * micro
-    data += np.random.normal(0, 0.01 * micro, len(data))
+    data += rng.normal(0, 0.01 * micro, len(data))
 
     return Profile(heights=data, pixel_size=pixel_size_1um)
 
 
 @pytest.fixture
 def default_params() -> AlignmentParameters:
-    """Default alignment parameters for tests."""
+    """Create default alignment parameters."""
     return AlignmentParameters()
 
 
 @pytest.fixture
 def fast_params() -> AlignmentParameters:
-    """Fast alignment parameters for quicker tests."""
+    """Create alignment parameters with reduced scaling range."""
     return AlignmentParameters(
         max_scaling=0.05,
     )
@@ -117,7 +118,7 @@ def make_synthetic_striation_profile(
     amplitude_um: float = 0.5,
     noise_level: float = 0.05,
     pixel_size_m: float = 0.5 * micro,
-    seed: int | None = None,
+    seed: int = 1234,
 ) -> Profile:
     """
     Create a synthetic striation profile for testing.
@@ -133,8 +134,7 @@ def make_synthetic_striation_profile(
     :param seed: Random seed for reproducibility.
     :returns: Profile with synthetic striation data.
     """
-    if seed is not None:
-        np.random.seed(seed)
+    rng = np.random.default_rng(42)
 
     # Create base profile with multiple frequency components
     x = np.linspace(0, n_striations * 2 * np.pi, n_samples)
@@ -147,7 +147,7 @@ def make_synthetic_striation_profile(
     data += np.sin(0.5 * x) * amplitude_um * 0.5 * micro
 
     # Add noise
-    noise = np.random.normal(0, amplitude_um * noise_level * micro, n_samples)
+    noise = rng.normal(0, amplitude_um * noise_level * micro, n_samples)
     data += noise
 
     return Profile(heights=data, pixel_size=pixel_size_m)
@@ -168,7 +168,7 @@ def make_shifted_profile(
     profile: Profile,
     shift_samples: float,
     scale_factor: float = 1.0,
-    seed: int | None = None,
+    seed: int = 1234,
 ) -> Profile:
     """
     Create a shifted and optionally scaled version of a profile.
@@ -179,25 +179,20 @@ def make_shifted_profile(
     :param seed: Random seed for added noise.
     :returns: New Profile with shifted/scaled data.
     """
-    from scipy.interpolate import interp1d
-
-    if seed is not None:
-        np.random.seed(seed)
+    rng = np.random.default_rng(42)
 
     data = profile.heights
     n = len(data)
 
     # Create interpolator
     x_orig = np.arange(n)
-    interpolator = interp1d(
-        x_orig, data, kind="linear", fill_value=0, bounds_error=False
-    )
+    interpolator = interp1d(x_orig, data, kind="linear", fill_value=0, bounds_error=False)
 
     # Create new coordinates with shift and scale
     x_new = x_orig * scale_factor + shift_samples
     new_data = interpolator(x_new)
 
     # Add a small amount of noise
-    new_data += np.random.normal(0, np.nanstd(data) * 0.01, n)
+    new_data += rng.normal(0, np.nanstd(data) * 0.01, n)
 
     return Profile(heights=new_data, pixel_size=profile.pixel_size)

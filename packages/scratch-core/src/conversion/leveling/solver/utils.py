@@ -1,5 +1,4 @@
 import numpy as np
-
 from container_models.base import FloatArray
 from container_models.scan_image import ScanImage
 

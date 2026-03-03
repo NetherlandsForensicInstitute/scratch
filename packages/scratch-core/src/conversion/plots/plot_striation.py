@@ -2,12 +2,11 @@ from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
+from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from scipy.constants import mega
 
-from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import StriationComparisonPlots
-from conversion.profile_correlator import StriationComparisonResults, Profile
 from conversion.plots.utils import (
     draw_metadata_box,
     figure_to_array,
@@ -19,6 +18,7 @@ from conversion.plots.utils import (
     plot_profiles_on_axes,
     plot_side_by_side_on_axes,
 )
+from conversion.profile_correlator import Profile, StriationComparisonResults
 
 
 def plot_striation_comparison_results(
@@ -154,7 +154,7 @@ def plot_side_by_side_surfaces(
     return arr
 
 
-def plot_comparison_overview(
+def plot_comparison_overview(  # noqa: PLR0915
     mark_reference: Mark,
     mark_compared: Mark,
     mark_reference_aligned: Mark,
@@ -167,7 +167,6 @@ def plot_comparison_overview(
     wrap_width: int = 25,
 ) -> ImageRGB:
     """Generate the main results overview figure with dynamic sizing."""
-
     # Build results metadata
     results_items = {
         "Date report": datetime.now().strftime("%Y-%m-%d"),
@@ -247,9 +246,7 @@ def plot_comparison_overview(
     )
 
     ax_results = fig.add_subplot(gs[1, 2])
-    draw_metadata_box(
-        ax_results, results_items, draw_border=False, wrap_width=wrap_width
-    )
+    draw_metadata_box(ax_results, results_items, draw_border=False, wrap_width=wrap_width)
 
     # Row 2: Side-by-side
     ax_side = fig.add_subplot(gs[2, :2])

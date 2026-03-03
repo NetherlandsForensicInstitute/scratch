@@ -1,3 +1,4 @@
+import pytest
 from returns.io import IOResultE, IOSuccess
 from returns.result import ResultE, Success
 
@@ -7,4 +8,4 @@ def unwrap_result[T](result: IOResultE[T] | ResultE[T]) -> T:
         case IOSuccess(Success(value)) | Success(value):
             return value
         case _:
-            assert False, "failed to unwrap"
+            pytest.fail("failed to unwrap")

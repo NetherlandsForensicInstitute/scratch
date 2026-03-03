@@ -1,11 +1,13 @@
 from typing import NamedTuple
 
 import numpy as np
-
 from container_models.base import FloatArray1D
 from container_models.scan_image import ScanImage
+
 from conversion.data_formats import Mark
-from conversion.preprocess_impression.utils import update_mark_scan_image, Point2D
+from conversion.preprocess_impression.utils import Point2D, update_mark_scan_image
+
+MIN_POINTS_FOR_PLANE_FIT = 3
 
 
 class TiltEstimate(NamedTuple):
@@ -90,7 +92,7 @@ def _adjust_for_plane_tilt(
     """
     xs, ys, zs = _get_valid_coordinates(scan_image, center)
 
-    if len(xs) < 3:
+    if len(xs) < MIN_POINTS_FOR_PLANE_FIT:
         raise ValueError("Need at least 3 valid points to estimate plane tilt")
 
     tilt = _estimate_plane_tilt(xs, ys, zs)

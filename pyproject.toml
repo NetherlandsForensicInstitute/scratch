@@ -1,3 +1,4 @@
+
 [project]
 name = "scratch"
 version = "0.0.1"
@@ -90,6 +91,9 @@ ignore = [
   'PLE0604', # no restriction on having only strings in __all__ definitions
 ]
 
+[tool.ruff.lint.pylint]
+max-args = 7
+
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"             # docstring type to use
 ignore-decorators = ["property"]
@@ -97,9 +101,17 @@ ignore-decorators = ["property"]
 [tool.ruff.lint.per-file-ignores]
 "**/tests/*.py" = [
   "S101",  # Exclude the 'use of assert' warning in the test files
+  "D102", # No docstring necessary for tests
   "D103",  # No docstring necessary for tests
+  "D106",  # No docstring necessary for tests
+  "D205",
   "PT011", # No `match` parameter necessary for pytest.raises
+  "PLR0913", # Not important for tests
+  "PLR2004",  # There are some magic values in the tests
 ]
+"packages/scratch-core/src/parsers/patches/*" = ["D103", "N806"]
+"packages/scratch-core/src/conversion/plots/*" = ["PLR0913"]
+"__init__.py" = ["I"]
 
 [tool.ty.environment]
 python-version = "3.13"

@@ -1,15 +1,11 @@
-"""
-This Class is to generate a realistic overview image with synthetic data, so no unit test and will be removed before
-merging.
-"""
+"""Generate a realistic overview image with synthetic data for visual inspection."""
 
 import pytest
-
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import ImpressionComparisonMetrics
-from conversion.profile_correlator import StriationComparisonResults, Profile
 from conversion.plots.plot_impression import plot_impression_comparison_results
 from conversion.plots.plot_striation import plot_striation_comparison_results
+from conversion.profile_correlator import Profile, StriationComparisonResults
 
 from .helper_functions import assert_valid_rgb_image
 

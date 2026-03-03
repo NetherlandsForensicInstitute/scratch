@@ -4,19 +4,15 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PIL import Image
-from matplotlib.figure import Figure
-
-from container_models.base import FloatArray, DepthData
+from container_models.base import DepthData, FloatArray
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
-
+from matplotlib.figure import Figure
 from numpy.typing import NDArray
+from PIL import Image
 
 
-def _crop_to_common_shape(
-    arr1: NDArray, arr2: NDArray, center_crop: bool = False
-) -> tuple[NDArray, NDArray]:
+def _crop_to_common_shape(arr1: NDArray, arr2: NDArray, center_crop: bool = False) -> tuple[NDArray, NDArray]:
     """
     Crop two arrays to their common shape.
 

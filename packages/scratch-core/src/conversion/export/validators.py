@@ -3,11 +3,10 @@ from typing import Any, TypeVar
 
 from pydantic import BeforeValidator
 
-
 E = TypeVar("E", bound=Enum)
 
 
-def validate_enum_string(enum_class: type[E]) -> Any:
+def validate_enum_string[E: Enum](enum_class: type[E]) -> Any:
     """
     Create a BeforeValidator for enum validation.
 
@@ -22,8 +21,7 @@ def validate_enum_string(enum_class: type[E]) -> Any:
         value_str = str(value).upper()
         if value_str not in enum_class.__members__:
             raise ValueError(
-                f"Invalid {enum_class.__name__}: '{value}'. "
-                f"Must be one of {list(enum_class.__members__.keys())}"
+                f"Invalid {enum_class.__name__}: '{value}'. Must be one of {list(enum_class.__members__.keys())}"
             )
         return enum_class[value_str]
 

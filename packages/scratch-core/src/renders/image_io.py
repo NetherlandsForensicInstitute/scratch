@@ -1,12 +1,11 @@
 from pathlib import Path
-from PIL.Image import Image, fromarray
-import numpy as np
 
+import numpy as np
+from container_models.base import FloatArray, FloatArray2D, ImageRGBA
+from container_models.scan_image import ScanImage
+from PIL.Image import Image, fromarray
 from returns.io import impure_safe
 from returns.result import safe
-
-from container_models.scan_image import ScanImage
-from container_models.base import ImageRGBA, FloatArray2D, FloatArray
 from utils.logger import log_railway_function
 
 
@@ -29,9 +28,7 @@ def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
 def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArray:
     """Perform min-max normalization on the input array and scale to the [0, 255] interval."""
     if lower >= upper:
-        raise ValueError(
-            f"The lower bound ({lower}) should be smaller than the upper bound ({upper})."
-        )
+        raise ValueError(f"The lower bound ({lower}) should be smaller than the upper bound ({upper}).")
     return (input_array - lower) / (upper - lower) * 255.0
 
 
@@ -56,9 +53,7 @@ def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, 
 
 @log_railway_function("Failed to retrieve array for display")
 @safe
-def get_scan_image_for_display(
-    scan_image: ScanImage, *, std_scaler: float = 2.0
-) -> ScanImage:
+def get_scan_image_for_display(scan_image: ScanImage, *, std_scaler: float = 2.0) -> ScanImage:
     """
     Clip and normalize image data for displaying purposes.
 
@@ -79,17 +74,20 @@ def get_scan_image_for_display(
 @log_railway_function("Failed to convert scan to image")
 @safe
 def scan_to_image(scan_image: ScanImage) -> Image:
+    """Convert a scan image to an RGBA PIL Image."""
     return fromarray(grayscale_to_rgba(scan_data=scan_image.data))
 
 
 @log_railway_function("Failed to convert grayscale data to image")
 @safe
 def grayscale_to_image(grayscale: FloatArray2D) -> Image:
+    """Convert a grayscale array to an RGBA PIL Image."""
     return fromarray(grayscale_to_rgba(scan_data=grayscale))
 
 
 @log_railway_function("Failed to save image")
 @impure_safe
 def save_image(image: Image, output_path: Path) -> Path:
+    """Save a PIL Image to disk and return the output path."""
     image.save(output_path)
     return output_path

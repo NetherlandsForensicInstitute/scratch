@@ -1,6 +1,5 @@
-import pytest
 import numpy as np
-
+import pytest
 from container_models.base import FloatArray1D
 
 N_POINTS = 100
@@ -17,6 +16,5 @@ def ys() -> FloatArray1D:
 
 
 @pytest.fixture
-def zs() -> FloatArray1D:
-    rng = np.random.default_rng(42)
+def zs(rng: np.random.Generator) -> FloatArray1D:
     return rng.random(size=N_POINTS)

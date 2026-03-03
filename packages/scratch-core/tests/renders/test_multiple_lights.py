@@ -1,11 +1,11 @@
 from functools import partial
+
 import numpy as np
 import pytest
-from returns.pipeline import is_successful
-
 from container_models.base import VectorField
 from container_models.light_source import LightSource
 from renders.shading import apply_multiple_lights
+from returns.pipeline import is_successful
 
 no_scale_apply_multiple_lights = partial(apply_multiple_lights)
 
@@ -54,7 +54,6 @@ def test_more_lights_increase_brightness(
     multiple_lights: tuple[LightSource, ...],
 ) -> None:
     """Test that adding more lights increases total brightness."""
-
     # Act
     result_one = no_scale_apply_multiple_lights(flat_normals, (light_source,), observer)
     result_two = no_scale_apply_multiple_lights(flat_normals, multiple_lights, observer)

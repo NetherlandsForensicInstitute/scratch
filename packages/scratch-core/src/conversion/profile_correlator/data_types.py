@@ -15,6 +15,7 @@ All length and height measurements are in meters (SI units).
 from dataclasses import dataclass
 
 from container_models.base import FloatArray1D
+
 from conversion.data_formats import Mark
 
 
@@ -56,7 +57,7 @@ class AlignmentParameters:
 
     :param max_scaling: Maximum allowed scaling deviation as a fraction.
         E.g., 0.05 means scaling can vary from 0.95 to 1.05.
-    :param n_scale_steps: Number of steps along each scale factor. The scaling procedure is made symmetric resulting in (2n - 1) different scaling elements.
+    :param n_scale_steps: Number of scale steps per direction. Symmetry gives (2n - 1) total elements.
     :param min_overlap_distance: Minimum required overlap between profiles
         in meters. Alignments with less overlap are rejected.
     """

@@ -6,23 +6,21 @@ regression filters used by the higher-level Gaussian filter functions.
 """
 
 import numpy as np
-from scipy.signal import fftconvolve
+from container_models.base import FloatArray1D, FloatArray2D, FloatArray3D, FloatArray4D
 from numpy.typing import NDArray
-from container_models.base import FloatArray1D, FloatArray2D, FloatArray4D, FloatArray3D
+from scipy.signal import fftconvolve
 
 
-def create_normalized_separable_kernels(
-    alpha: float, cutoff_pixels: FloatArray1D
-) -> tuple[FloatArray1D, FloatArray1D]:
+def create_normalized_separable_kernels(alpha: float, cutoff_pixels: FloatArray1D) -> tuple[FloatArray1D, FloatArray1D]:
     """
-    Create normalized 1D Gaussian kernels for the X and Y axes, where:
-      - `kernel_x` is the 1D kernel for the X-axis (row vector).
-      - `kernel_y` is the 1D kernel for the Y-axis (column vector).
-      - The outer product of these kernels sums to approx 1.0.
+    Create normalized 1D Gaussian kernels for the X and Y axes.
+
+    The outer product of kernel_x (row vector) and kernel_y (column vector)
+    sums to approximately 1.0.
 
     :param alpha: The Gaussian constant (ISO 16610).
     :param cutoff_pixels: Array of [cutoff_y, cutoff_x] in pixel units.
-    :returns: A tuple `(kernel_x, kernel_y)`.
+    :returns: A tuple (kernel_x, kernel_y).
     """
     # Ensure kernel size is odd and covers sufficient standard deviations
     kernel_dims = 1 + np.ceil(len(cutoff_pixels) * cutoff_pixels).astype(int)
@@ -120,9 +118,7 @@ def convolve_2d_separable(
         pad_x = len(kernel_x) // 2
         padded = np.pad(data, ((pad_y, pad_y), (pad_x, pad_x)), mode="symmetric")
     else:
-        raise ValueError(
-            f"Padding mode '{mode}' is not supported. Use 'constant' or 'symmetric'."
-        )
+        raise ValueError(f"Padding mode '{mode}' is not supported. Use 'constant' or 'symmetric'.")
 
     # Convolve: Y-direction then X-direction
     temp = fftconvolve(padded, kernel_y[:, np.newaxis], mode="same")
@@ -130,9 +126,7 @@ def convolve_2d_separable(
 
     # Crop back to original size if padded
     if pad_y or pad_x:
-        result = result[
-            pad_y : -pad_y if pad_y else None, pad_x : -pad_x if pad_x else None
-        ]
+        result = result[pad_y : -pad_y if pad_y else None, pad_x : -pad_x if pad_x else None]
 
     return result
 
@@ -215,9 +209,7 @@ def apply_polynomial_filter(
 
     # Calculate LHS Matrix 'A' (Weight Moments)
     # A_jk = Convolution(weights, x^(px_j + px_k) * y^(py_j + py_k) * Kernel)
-    lhs_matrix = _build_lhs_matrix(
-        weights, kernel_x, kernel_y, x_coords, y_coords, exponents
-    )
+    lhs_matrix = _build_lhs_matrix(weights, kernel_x, kernel_y, x_coords, y_coords, exponents)
 
     # 4. Solve the System (A * c = b) per pixel
     return _solve_pixelwise_regression(lhs_matrix, rhs_moments, data)
@@ -250,28 +242,19 @@ def _build_lhs_matrix(
     n_params = len(exponents)
 
     # Calculate sum of powers for every cell in the matrix (A_pq = term_p * term_q)
-    matrix_power_sums = np.array(
-        [
-            (exponents[p][0] + exponents[q][0], exponents[p][1] + exponents[q][1])
-            for p in range(n_params)
-            for q in range(n_params)
-        ]
-    )
+    matrix_power_sums = np.array([
+        (exponents[p][0] + exponents[q][0], exponents[p][1] + exponents[q][1])
+        for p in range(n_params)
+        for q in range(n_params)
+    ])
 
     # Find unique combinations of powers to avoid redundant convolutions
-    unique_powers, inverse_indices = np.unique(
-        matrix_power_sums, axis=0, return_inverse=True
-    )
+    unique_powers, inverse_indices = np.unique(matrix_power_sums, axis=0, return_inverse=True)
 
     # Compute convolutions for unique powers
-    unique_moments = np.array(
-        [
-            convolve_2d_separable(
-                weights, (x_coords**px) * kernel_x, (y_coords**py) * kernel_y
-            )
-            for py, px in unique_powers
-        ]
-    )
+    unique_moments = np.array([
+        convolve_2d_separable(weights, (x_coords**px) * kernel_x, (y_coords**py) * kernel_y) for py, px in unique_powers
+    ])
 
     # Reconstruct the full (n_params * n_params) matrix for every pixel
     # Current shape: (unique_terms, H, W) -> Map to -> (n_params^2, H, W)
@@ -279,9 +262,7 @@ def _build_lhs_matrix(
 
     # Reshape to (H, W, n_params, n_params)
     # We move axes so H, W are first, creating a matrix for every pixel
-    return np.moveaxis(
-        full_moments.reshape(n_params, n_params, *weights.shape), [0, 1], [-2, -1]
-    )
+    return np.moveaxis(full_moments.reshape(n_params, n_params, *weights.shape), [0, 1], [-2, -1])
 
 
 def _solve_pixelwise_regression(
@@ -300,7 +281,7 @@ def _solve_pixelwise_regression(
     valid_mask = ~np.isnan(original_data)
     valid_indices = np.where(valid_mask)
 
-    A_valid = lhs_matrix[valid_indices]
+    A_valid = lhs_matrix[valid_indices]  # noqa: N806
     b_valid = rhs_prepared[valid_indices]
 
     try:
@@ -319,9 +300,7 @@ def _solve_fallback_lstsq(
     result_array: FloatArray2D,
     lhs: FloatArray4D,
     rhs: FloatArray4D,
-    indices: tuple[
-        NDArray[np.intp], ...
-    ],  # Use ellipsis to allow variadic tuples of index arrays
+    indices: tuple[NDArray[np.intp], ...],  # Use ellipsis to allow variadic tuples of index arrays
 ) -> None:
     """Robust fallback solver using Least Squares for difficult pixels."""
     # We explicitly extract y and x to make the 2D logic clear to the reader

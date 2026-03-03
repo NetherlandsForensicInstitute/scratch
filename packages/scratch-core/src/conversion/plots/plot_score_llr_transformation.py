@@ -11,7 +11,6 @@ def plot_score_llr_transformation(ax: Axes, data: LlrTransformationData) -> None
     :param data: LLR transformation data containing scores, llrs, confidence intervals,
         and optional score_llr_point.
     """
-
     # Plot main LogLR curve
     ax.plot(data.scores, data.llrs, "b-", linewidth=2, label="LogLR all")
 
@@ -36,9 +35,7 @@ def plot_score_llr_transformation(ax: Axes, data: LlrTransformationData) -> None
     # Set labels and title
     ax.set_xlabel("Score")
     ax.set_ylabel("LogLR")
-    ax.set_title(
-        "LogLR plot (with confidence intervals)", fontsize=12, fontweight="bold"
-    )
+    ax.set_title("LogLR plot (with confidence intervals)", fontsize=12, fontweight="bold")
 
     # Set grid
     ax.grid(True, alpha=0.3)

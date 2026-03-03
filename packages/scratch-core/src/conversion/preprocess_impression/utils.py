@@ -1,11 +1,10 @@
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
+
 from conversion.data_formats import Mark
 
 
-def update_mark_data(
-    mark: Mark, data: FloatArray2D, center: tuple[float, float] | None = None
-) -> Mark:
+def update_mark_data(mark: Mark, data: FloatArray2D, center: tuple[float, float] | None = None) -> Mark:
     """
     Return a new Mark with updated scan data.
 
@@ -18,9 +17,7 @@ def update_mark_data(
     return update_mark_scan_image(mark=mark, scan_image=scan_image, center=center)
 
 
-def update_mark_scan_image(
-    mark: Mark, scan_image: ScanImage, center: tuple[float, float] | None = None
-) -> Mark:
+def update_mark_scan_image(mark: Mark, scan_image: ScanImage, center: tuple[float, float] | None = None) -> Mark:
     """
     Return a new Mark with updated scan image.
 

@@ -2,11 +2,10 @@
 
 import numpy as np
 import pytest
-from numpy.testing import assert_allclose
-
 from conversion.profile_correlator import (
     compute_cross_correlation,
 )
+from numpy.testing import assert_allclose
 
 
 class TestComputeCrossCorrelation:
@@ -27,11 +26,10 @@ class TestComputeCrossCorrelation:
         assert result is not None
         assert_allclose(result, -1.0, atol=1e-10)
 
-    def test_uncorrelated_profiles(self):
+    def test_uncorrelated_profiles(self, rng: np.random.Generator):
         """Uncorrelated profiles should have correlation near 0."""
-        np.random.seed(42)
-        p1 = np.random.randn(1000)
-        p2 = np.random.randn(1000)
+        p1 = rng.standard_normal(1000)
+        p2 = rng.standard_normal(1000)
         result = compute_cross_correlation(p1, p2)
         assert result is not None
         assert abs(result) < 0.1  # Should be close to 0 for random data

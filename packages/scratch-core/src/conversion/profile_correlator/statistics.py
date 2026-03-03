@@ -14,11 +14,11 @@ All length and height measurements are in meters (SI units).
 """
 
 import numpy as np
-
 from container_models.base import FloatArray1D
+
 from conversion.profile_correlator.data_types import (
-    RoughnessMetrics,
     NormalizedSquareBasedRoughnessDifferences,
+    RoughnessMetrics,
 )
 
 
@@ -45,14 +45,11 @@ def compute_cross_correlation(
     profile_2 = profile_2.ravel()
 
     if len(profile_1) != len(profile_2):
-        raise ValueError(
-            f"Profiles must have the same length. "
-            f"Got {len(profile_1)} and {len(profile_2)}."
-        )
+        raise ValueError(f"Profiles must have the same length. Got {len(profile_1)} and {len(profile_2)}.")
 
     valid_mask = ~(np.isnan(profile_1) | np.isnan(profile_2))
 
-    if np.sum(valid_mask) < 2:
+    if np.sum(valid_mask) < 2:  # noqa: PLR2004 - minimum for Pearson correlation
         return None
 
     return float(np.corrcoef(profile_1[valid_mask], profile_2[valid_mask])[0, 1])
@@ -131,14 +128,10 @@ def compute_normalized_square_based_roughness_differences(
 
     with np.errstate(divide="ignore", invalid="ignore"):
         roughness_normalized_to_reference = (
-            (mean_square_of_difference / mean_square_ref) ** 2
-            if mean_square_ref > 0
-            else np.nan
+            (mean_square_of_difference / mean_square_ref) ** 2 if mean_square_ref > 0 else np.nan
         )
         roughness_normalized_to_compared = (
-            (mean_square_of_difference / mean_square_comp) ** 2
-            if mean_square_comp > 0
-            else np.nan
+            (mean_square_of_difference / mean_square_comp) ** 2 if mean_square_comp > 0 else np.nan
         )
         roughness_normalized_to_reference_and_compared = (
             mean_square_of_difference**2 / (mean_square_ref * mean_square_comp)

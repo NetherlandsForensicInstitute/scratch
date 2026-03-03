@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from conversion.plots.data_formats import (
     DensityData,
     HistogramData,
@@ -45,7 +44,7 @@ class TestPlotCCFComparisonOverview:
         assert_valid_rgb_image(result)
 
     @pytest.mark.parametrize(
-        "new_score,score_llr_point",
+        ("new_score", "score_llr_point"),
         [
             (None, None),
             (0.85, None),
@@ -146,7 +145,7 @@ class TestPlotCCFComparisonOverview:
 
 
 @pytest.mark.parametrize(
-    "metadata_reference,metadata_compared,suffix",
+    ("metadata_reference", "metadata_compared", "suffix"),
     [
         (
             {

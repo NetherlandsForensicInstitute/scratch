@@ -2,20 +2,14 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from scipy.constants import micro
-
 from conversion.profile_correlator import (
     AlignmentParameters,
     Profile,
     correlate_profiles,
 )
+from scipy.constants import micro
 
-PROFILES_DIR = (
-    Path(__file__).parent.parent.parent
-    / "resources"
-    / "profile_correlator"
-    / "profiles"
-)
+PROFILES_DIR = Path(__file__).parent.parent.parent / "resources" / "profile_correlator" / "profiles"
 
 PIXEL_SIZE_M = 1.5 * micro  # Sample profiles use 1.5 μm pixel size
 
@@ -60,7 +54,7 @@ class TestProfilePairs:
     """Tests for real profile pairs."""
 
     @pytest.mark.parametrize(
-        "name,ref_path,comp_path",
+        ("name", "ref_path", "comp_path"),
         PROFILE_PAIRS,
         ids=[p[0] for p in PROFILE_PAIRS],
     )

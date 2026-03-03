@@ -1,16 +1,16 @@
+from container_models.base import DepthData
+from container_models.scan_image import ScanImage
 from returns.io import IOResultE, IOSuccess
 from returns.result import ResultE, Success
 
-from container_models.scan_image import ScanImage
-from container_models.base import DepthData
-
 
 def unwrap_result[T](result: IOResultE[T] | ResultE[T]) -> T:
+    """Extract the success value from a Result container."""
     match result:
         case IOSuccess(Success(value)) | Success(value):
             return value
         case _:
-            assert False, "failed to unwrap"
+            raise ValueError("failed to unwrap")
 
 
 def update_scan_image_data(scan_image: ScanImage, data: DepthData) -> ScanImage:

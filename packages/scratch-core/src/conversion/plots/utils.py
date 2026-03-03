@@ -1,15 +1,14 @@
 import textwrap
 from typing import Literal, cast
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 
 DEFAULT_COLORMAP = "viridis"
 
@@ -167,9 +166,7 @@ def plot_depth_map_on_axes(
     cbar.ax.tick_params(labelsize=10)
 
 
-def metadata_to_table_data(
-    metadata: dict[str, str], wrap_width: int
-) -> list[list[str]]:
+def metadata_to_table_data(metadata: dict[str, str], wrap_width: int) -> list[list[str]]:
     """
     Convert metadata dictionary to table rows with text wrapping.
 
@@ -193,9 +190,7 @@ def metadata_to_table_data(
     return table_data
 
 
-def _calculate_text_height(
-    text: str, wrap_width: int, line_height: float = 1.5
-) -> float:
+def _calculate_text_height(text: str, wrap_width: int, line_height: float = 1.5) -> float:
     """Calculate the number of lines needed for wrapped text."""
     if not text:
         return line_height
@@ -257,9 +252,9 @@ def get_bounding_box(side_margin: float, table_data: list[list[str]]) -> Bbox:
     available_width = 1.0 - 2 * side_margin
 
     # Adaptive row height - more rows = tighter spacing, fewer rows = more space
-    if n_rows <= 5:
+    if n_rows <= 5:  # noqa: PLR2004
         row_height_fraction = 0.14
-    elif n_rows <= 8:
+    elif n_rows <= 8:  # noqa: PLR2004
         row_height_fraction = 0.10
     else:
         row_height_fraction = 0.07
@@ -284,9 +279,7 @@ def get_height_ratios(metadata_height: float, *row_heights: float) -> list[float
     return [h / total for h in heights]
 
 
-def get_metadata_dimensions(
-    metadata_compared: dict, metadata_reference: dict, wrap_width: int
-) -> tuple[int, float]:
+def get_metadata_dimensions(metadata_compared: dict, metadata_reference: dict, wrap_width: int) -> tuple[int, float]:
     """
     Calculate metadata section dimensions based on content.
 
@@ -307,9 +300,7 @@ def get_metadata_dimensions(
 
     # Row 0: based on max metadata content (with minimum for readability)
     max_metadata_rows = max(meta_reference_rows, meta_compared_rows)
-    metadata_height_ratio = max(
-        0.12, max_metadata_rows * 0.022
-    )  # Increased minimum and scale
+    metadata_height_ratio = max(0.12, max_metadata_rows * 0.022)  # Increased minimum and scale
     return max_metadata_rows, metadata_height_ratio
 
 

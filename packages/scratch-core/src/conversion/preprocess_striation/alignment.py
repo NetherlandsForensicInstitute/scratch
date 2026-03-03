@@ -6,16 +6,17 @@ aligning striated marks to be horizontal.
 """
 
 import numpy as np
-
 from container_models.base import FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
+from scipy.constants import micro
+
 from conversion.data_formats import Mark
 from conversion.filter import (
-    gaussian_sigma_to_cutoff,
     apply_gaussian_regression_filter,
+    gaussian_sigma_to_cutoff,
 )
-from conversion.resample import resample_mark, resample_scan_image_and_mask
 from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
+from conversion.resample import resample_mark, resample_scan_image_and_mask
 
 # Maximum expected striation angle for outlier filtering in gradient detection (degrees)
 _MAX_GRADIENT_ANGLE_DEG = 10.0
@@ -55,9 +56,7 @@ def fine_align_bullet_marks(
     # Apply shear transformation if angle is non-zero
     if not np.isclose(total_angle, 0.0, atol=1e-09):
         total_angle_rad = np.radians(total_angle)
-        result_data = shear_data_by_shifting_profiles(
-            scan_image.data, total_angle_rad, cut_y_after_shift
-        )
+        result_data = shear_data_by_shifting_profiles(scan_image.data, total_angle_rad, cut_y_after_shift)
     else:
         result_data = scan_image.data
 
@@ -85,7 +84,7 @@ def _find_alignment_angle(
     subsampling_factor: int,
 ) -> float:
     """
-    Iteratively find the alignment angle for striation marks.
+    Find the alignment angle for striation marks iteratively.
 
     The alignment angle is the rotation needed to make striations horizontal.
     Positive angle means clockwise rotation.
@@ -112,18 +111,14 @@ def _find_alignment_angle(
             break
 
         tmp_scan_image = scan_image.model_copy(update={"data": data_tmp})
-        current_angle = _detect_striation_angle(
-            tmp_scan_image, subsampling_factor=subsampling_factor
-        )
+        current_angle = _detect_striation_angle(tmp_scan_image, subsampling_factor=subsampling_factor)
 
         if np.isnan(current_angle):
             break
         else:
             total_angle += current_angle
             total_angle_rad = np.radians(total_angle)
-            data_tmp = shear_data_by_shifting_profiles(
-                scan_image.data, total_angle_rad, cut_y_after_shift
-            )
+            data_tmp = shear_data_by_shifting_profiles(scan_image.data, total_angle_rad, cut_y_after_shift)
 
             # Check if stuck (same angle as previous iteration)
             if current_angle == previous_angle:
@@ -151,11 +146,11 @@ def _detect_striation_angle(
     """
     # Determine subsampling factor
     sub_samp = subsampling_factor
-    if scan_image.scale_x < 1e-6:
-        sub_samp = round(1e-6 / scan_image.scale_x) * subsampling_factor
+    if scan_image.scale_x < micro:
+        sub_samp = round(micro / scan_image.scale_x) * subsampling_factor
 
     # Resample data (only x-dimension, matching MATLAB's resample function)
-    if sub_samp > 1 and scan_image.width // sub_samp >= 2:
+    if sub_samp > 1 and scan_image.width // sub_samp >= 2:  # noqa: PLR2004
         scan_image, _ = resample_scan_image_and_mask(
             scan_image,
             None,

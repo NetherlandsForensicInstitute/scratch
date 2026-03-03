@@ -1,8 +1,5 @@
 import numpy as np
 import pytest
-from matplotlib import pyplot as plt
-from scipy.constants import mega, micro
-
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
@@ -10,12 +7,14 @@ from conversion.plots.data_formats import (
 )
 from conversion.plots.plot_impression import (
     _plot_cell_heatmap_on_axes,
-    plot_cell_overlay_on_axes,
     plot_cell_correlation_heatmap,
     plot_cell_grid_overlay,
+    plot_cell_overlay_on_axes,
     plot_comparison_overview,
     plot_impression_comparison_results,
 )
+from matplotlib import pyplot as plt
+from scipy.constants import mega, micro
 
 from .helper_functions import assert_valid_rgb_image
 
@@ -92,9 +91,7 @@ class TestPlotCellGridOverlay:
         )
         assert_valid_rgb_image(result)
 
-    def test_with_nan_positions_skips_cells(
-        self, impression_sample_depth_data: np.ndarray
-    ):
+    def test_with_nan_positions_skips_cells(self, impression_sample_depth_data: np.ndarray):
         correlations = np.array([[0.9, 0.1], [0.8, 0.3]])
         n_cells = 4
         positions = np.full((n_cells, 2), np.nan, dtype=np.float64)
@@ -124,9 +121,9 @@ class TestPlotCellCorrelationHeatmap:
         )
         assert_valid_rgb_image(result)
 
-    def test_handles_different_grid_sizes(self):
+    def test_handles_different_grid_sizes(self, rng: np.random.Generator):
         for rows, cols in [(2, 3), (5, 5), (3, 8)]:
-            correlations = np.random.rand(rows, cols)
+            correlations = rng.random((rows, cols))
             result = plot_cell_correlation_heatmap(
                 cell_correlations=correlations,
                 surface_extent_um=(300.0, 200.0),
@@ -172,9 +169,7 @@ class TestPlotComparisonOverview:
     ):
         cell_correlations = np.array([[0.8, 0.1], [0.3, 0.6]])
         # 4 cells: hardcoded positions for the 3 CMC cells (>= 0.25), NaN for non-CMC
-        positions = np.array(
-            [[50.0, 120.0], [np.nan, np.nan], [40.0, 30.0], [110.0, 25.0]]
-        )
+        positions = np.array([[50.0, 120.0], [np.nan, np.nan], [40.0, 30.0], [110.0, 25.0]])
         rotations = np.array([0.08, 0.0, 0.05, -0.03])
 
         metrics = ImpressionComparisonMetrics(
@@ -351,9 +346,7 @@ class TestPlotCellOverlayOnAxes:
     def test_returns_axes_image(self, impression_sample_depth_data: np.ndarray):
         correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
         fig, ax = plt.subplots()
-        im = plot_cell_overlay_on_axes(
-            ax, impression_sample_depth_data, 1.5 * micro, correlations
-        )
+        im = plot_cell_overlay_on_axes(ax, impression_sample_depth_data, 1.5 * micro, correlations)
         assert im is not None
         assert len(ax.images) == 1
         plt.close(fig)
@@ -376,17 +369,13 @@ class TestPlotCellOverlayOnAxes:
     def test_grid_mode_draws_rectangles(self, impression_sample_depth_data: np.ndarray):
         correlations = np.array([[0.9, 0.1], [0.3, 0.7]])
         fig, ax = plt.subplots()
-        plot_cell_overlay_on_axes(
-            ax, impression_sample_depth_data, 1.5 * micro, correlations
-        )
+        plot_cell_overlay_on_axes(ax, impression_sample_depth_data, 1.5 * micro, correlations)
         # Should have lines for cell borders + labels
         assert len(ax.lines) > 0
         assert len(ax.texts) > 0
         plt.close(fig)
 
-    def test_rotated_mode_draws_polygons(
-        self, impression_sample_depth_data: np.ndarray
-    ):
+    def test_rotated_mode_draws_polygons(self, impression_sample_depth_data: np.ndarray):
         correlations = np.array([[0.9, 0.1]])
         h, w = impression_sample_depth_data.shape
         scale = 1.5 * micro

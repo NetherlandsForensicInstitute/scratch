@@ -1,6 +1,4 @@
-"""
-Tests comparing Python preprocess_impression output with MATLAB reference.
-"""
+"""Tests comparing Python preprocess_impression output with MATLAB reference."""
 
 import json
 from dataclasses import dataclass
@@ -8,18 +6,18 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from container_models.base import FloatArray2D
 from conversion.data_formats import MarkType
-from .helper_functions import make_mark
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.preprocess_impression import (
     preprocess_impression_mark,
 )
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
+    make_mark,
 )
 
 
@@ -52,10 +50,7 @@ class MatlabTestCase:
         output_data = np.load(case_dir / "output_data.npy")
 
         output_leveled = None
-        if (
-            meta.get("has_leveled_output")
-            and (case_dir / "output_leveled.npy").exists()
-        ):
+        if meta.get("has_leveled_output") and (case_dir / "output_leveled.npy").exists():
             output_leveled = np.load(case_dir / "output_leveled.npy")
 
         # Parse pixel spacing
@@ -146,11 +141,7 @@ def run_python_preprocessing(
     test_case: MatlabTestCase,
 ) -> tuple[FloatArray2D, FloatArray2D | None]:
     """Run Python preprocessing and return (processed, leveled) arrays."""
-    mark_type = (
-        MarkType.BREECH_FACE_IMPRESSION
-        if test_case.use_circle_center
-        else MarkType.FIRING_PIN_IMPRESSION
-    )
+    mark_type = MarkType.BREECH_FACE_IMPRESSION if test_case.use_circle_center else MarkType.FIRING_PIN_IMPRESSION
     impression_mark = make_mark(
         test_case.input_data,
         scale_x=test_case.pixel_spacing[0],
@@ -182,20 +173,13 @@ def pytest_generate_tests(metafunc):
     if "test_case_name" not in metafunc.fixturenames:
         return
 
-    test_cases_dir = (
-        Path(__file__).parent.parent
-        / "resources"
-        / "baseline_images"
-        / "preprocess_impression"
-    )
+    test_cases_dir = Path(__file__).parent.parent / "resources" / "baseline_images" / "preprocess_impression"
     cases = discover_test_cases(test_cases_dir)
     metafunc.parametrize("test_case_name", [c.name for c in cases])
 
 
 @pytest.fixture
-def test_case(
-    test_case_name: str, all_test_cases: list[MatlabTestCase]
-) -> MatlabTestCase:
+def test_case(test_case_name: str, all_test_cases: list[MatlabTestCase]) -> MatlabTestCase:
     """Get individual test case by name."""
     for case in all_test_cases:
         if case.name == test_case_name:
@@ -225,18 +209,18 @@ class TestPreprocessImpressionMatlabComparison:
         # Shape check
         row_diff = abs(matlab_processed.shape[0] - python_processed.shape[0])
         col_diff = abs(matlab_processed.shape[1] - python_processed.shape[1])
-        assert row_diff <= 1 and col_diff <= 1, (
-            f"{test_case.name}: shape mismatch "
-            f"{python_processed.shape} vs {matlab_processed.shape}"
+        assert row_diff <= 1, (
+            f"{test_case.name}: row shape mismatch {python_processed.shape} vs {matlab_processed.shape}"
+        )
+        assert col_diff <= 1, (
+            f"{test_case.name}: col shape mismatch {python_processed.shape} vs {matlab_processed.shape}"
         )
 
         corr_threshold, std_threshold = self._get_thresholds(test_case)
         suffix = "(resampled)" if test_case.involves_resampling else ""
 
         # Processed output checks
-        python_cropped, matlab_cropped = _crop_to_common_shape(
-            python_processed, matlab_processed
-        )
+        python_cropped, matlab_cropped = _crop_to_common_shape(python_processed, matlab_processed)
 
         correlation = _compute_correlation(python_cropped, matlab_cropped)
         assert correlation > corr_threshold, (
@@ -256,9 +240,7 @@ class TestPreprocessImpressionMatlabComparison:
                 python_leveled, test_case.output_leveled
             )
 
-            leveled_corr = _compute_correlation(
-                python_leveled_cropped, matlab_leveled_cropped
-            )
+            leveled_corr = _compute_correlation(python_leveled_cropped, matlab_leveled_cropped)
             assert leveled_corr > corr_threshold, (
                 f"{test_case.name}: leveled correlation {leveled_corr:.4f} < {corr_threshold} {suffix}"
             )

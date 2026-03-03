@@ -1,8 +1,8 @@
 from collections.abc import Sequence
-from functools import partial
-from typing import Annotated, TypeAlias
-from functools import cached_property
-from numpy import array, bool_, floating, float64, number, uint8
+from functools import cached_property, partial
+from typing import Annotated
+
+from numpy import array, bool_, float64, floating, number, uint8
 from numpy.typing import DTypeLike, NDArray
 from pydantic import (
     AfterValidator,
@@ -18,9 +18,7 @@ def serialize_ndarray[T: number](array_: NDArray[T]) -> list[T]:
     return array_.tolist()
 
 
-def coerce_to_array[T: number](
-    dtype: DTypeLike, value: Sequence[T] | NDArray[T] | None
-) -> NDArray[T] | None:
+def coerce_to_array[T: number](dtype: DTypeLike, value: Sequence[T] | NDArray[T] | None) -> NDArray[T] | None:
     """
     Coerce input to dtype numpy array.
 
@@ -36,58 +34,45 @@ def coerce_to_array[T: number](
 
 
 def validate_shape(n_dims: int, value: NDArray) -> NDArray:
+    """Validate that an array has the expected number of dimensions."""
     if (array_dims := len(value.shape)) != n_dims:
-        raise ValueError(
-            f"Array shape mismatch, expected {n_dims} dimension(s), but got {array_dims}"
-        )
+        raise ValueError(f"Array shape mismatch, expected {n_dims} dimension(s), but got {array_dims}")
     return value
 
 
 # Tier 1: Base types
-UInt8Array: TypeAlias = Annotated[
+type UInt8Array = Annotated[
     NDArray[uint8],
     BeforeValidator(partial(coerce_to_array, uint8)),
     PlainSerializer(serialize_ndarray),
 ]
-FloatArray: TypeAlias = Annotated[
+type FloatArray = Annotated[
     NDArray[floating],
     BeforeValidator(partial(coerce_to_array, float64)),
     PlainSerializer(serialize_ndarray),
 ]
-BoolArray: TypeAlias = Annotated[
+type BoolArray = Annotated[
     NDArray[bool_],
     BeforeValidator(partial(coerce_to_array, bool_)),
     PlainSerializer(serialize_ndarray),
 ]
 
 # Tier 2: Shape and data types
-UInt8Array3D: TypeAlias = Annotated[
-    UInt8Array, AfterValidator(partial(validate_shape, 3))
-]
-FloatArray1D: TypeAlias = Annotated[
-    FloatArray, AfterValidator(partial(validate_shape, 1))
-]
-FloatArray2D: TypeAlias = Annotated[
-    FloatArray, AfterValidator(partial(validate_shape, 2))
-]
-FloatArray3D: TypeAlias = Annotated[
-    FloatArray, AfterValidator(partial(validate_shape, 3))
-]
-FloatArray4D: TypeAlias = Annotated[
-    FloatArray, AfterValidator(partial(validate_shape, 4))
-]
-BoolArray2D: TypeAlias = Annotated[
-    BoolArray, AfterValidator(partial(validate_shape, 2))
-]
+type UInt8Array3D = Annotated[UInt8Array, AfterValidator(partial(validate_shape, 3))]
+type FloatArray1D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 1))]
+type FloatArray2D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 2))]
+type FloatArray3D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 3))]
+type FloatArray4D = Annotated[FloatArray, AfterValidator(partial(validate_shape, 4))]
+type BoolArray2D = Annotated[BoolArray, AfterValidator(partial(validate_shape, 2))]
 
 # Tier 3: Semantic context
-ImageRGB: TypeAlias = UInt8Array3D  # Shape: (H, W, 3)
-ImageRGBA: TypeAlias = UInt8Array3D  # Shape: (H, W, 4)
-UnitVector: TypeAlias = FloatArray1D  # Shape: (3,)
-DepthData: TypeAlias = FloatArray2D  # Shape: (H, W)
-BinaryMask: TypeAlias = BoolArray2D  # Shape: (H, W)
-VectorField: TypeAlias = FloatArray3D  # Shape (H, W, 3)
-StriationProfile: TypeAlias = FloatArray1D  # Shape (N,)
+type ImageRGB = UInt8Array3D  # Shape: (H, W, 3)
+type ImageRGBA = UInt8Array3D  # Shape: (H, W, 4)
+type UnitVector = FloatArray1D  # Shape: (3,)
+type DepthData = FloatArray2D  # Shape: (H, W)
+type BinaryMask = BoolArray2D  # Shape: (H, W)
+type VectorField = FloatArray3D  # Shape (H, W, 3)
+type StriationProfile = FloatArray1D  # Shape (N,)
 
 
 class ConfigBaseModel(BaseModel):
@@ -102,6 +87,7 @@ class ConfigBaseModel(BaseModel):
     )
 
     def model_copy(self, *, update=None, deep=False):
+        """Copy the model, revalidating cached properties when fields change."""
         copy = super().model_copy(update=update, deep=deep)
         if update:
             # Invalidate cached properties when any field changes

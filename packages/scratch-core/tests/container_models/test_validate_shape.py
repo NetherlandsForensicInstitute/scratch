@@ -1,23 +1,23 @@
-import pytest
-import numpy as np
-from numpy.typing import NDArray
-from pydantic import ValidationError
 from typing import Any
 
+import numpy as np
+import pytest
 from container_models.base import (
-    validate_shape,
-    UInt8Array3D,
+    BoolArray2D,
+    ConfigBaseModel,
     FloatArray1D,
     FloatArray2D,
     FloatArray4D,
-    BoolArray2D,
-    ConfigBaseModel,
+    UInt8Array3D,
+    validate_shape,
 )
+from numpy.typing import NDArray
+from pydantic import ValidationError
 
 
 @pytest.fixture
 def create_validation_model():
-    """Factory fixture to create a validation model for a given TypeAlias."""
+    """Create a validation model for a given TypeAlias."""
 
     def _create_model(type_alias: Any) -> type[ConfigBaseModel]:
         class _ValidationModel(ConfigBaseModel):
@@ -32,7 +32,7 @@ class TestValidateShape:
     """Tests for the validate_shape validator."""
 
     @pytest.mark.parametrize(
-        "n_dims,array",
+        ("n_dims", "array"),
         [
             pytest.param(
                 1,
@@ -67,7 +67,7 @@ class TestValidateShape:
         assert np.array_equal(result, array)
 
     @pytest.mark.parametrize(
-        "n_dims,array,expected_match",
+        ("n_dims", "array", "expected_match"),
         [
             pytest.param(
                 1,
@@ -95,9 +95,7 @@ class TestValidateShape:
             ),
         ],
     )
-    def test_validate_shape_mismatch(
-        self, n_dims: int, array: NDArray[Any], expected_match: str
-    ) -> None:
+    def test_validate_shape_mismatch(self, n_dims: int, array: NDArray[Any], expected_match: str) -> None:
         """Test shape validation failures with various dimension mismatches."""
         # Arrange is handled by parametrize
 
@@ -110,7 +108,7 @@ class TestPydanticShapeValidation:
     """Test shape validation at Tier 2 level using Pydantic models."""
 
     @pytest.mark.parametrize(
-        "array_type,array",
+        ("array_type", "array"),
         [
             pytest.param(
                 FloatArray1D,
@@ -139,21 +137,19 @@ class TestPydanticShapeValidation:
             ),
         ],
     )
-    def test_array_valid_shape(
-        self, create_validation_model: Any, array_type: Any, array: NDArray[Any]
-    ) -> None:
+    def test_array_valid_shape(self, create_validation_model: Any, array_type: Any, array: NDArray[Any]) -> None:
         """Test valid shape validation for various array types."""
         # Arrange
-        Model = create_validation_model(array_type)
+        validation_model = create_validation_model(array_type)
 
         # Act
-        model = Model(data=array)
+        model = validation_model(data=array)
 
         # Assert
         assert np.array_equal(model.data, array)
 
     @pytest.mark.parametrize(
-        "array_type,array,expected_match",
+        ("array_type", "array", "expected_match"),
         [
             pytest.param(
                 FloatArray1D,
@@ -190,8 +186,8 @@ class TestPydanticShapeValidation:
     ) -> None:
         """Test shape validation failures for various array types."""
         # Arrange
-        Model = create_validation_model(array_type)
+        validation_model = create_validation_model(array_type)
 
         # Act & Assert
         with pytest.raises(ValidationError, match=expected_match):
-            Model(data=array)
+            validation_model(data=array)

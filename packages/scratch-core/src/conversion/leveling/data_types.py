@@ -1,9 +1,9 @@
+from collections.abc import Callable
 from enum import Flag, auto
-import numpy as np
-from typing import Callable
-from pydantic import BaseModel
 
+import numpy as np
 from container_models.base import FloatArray1D, FloatArray2D
+from pydantic import BaseModel
 
 
 class SurfaceTerms(Flag):
@@ -27,9 +27,7 @@ class SurfaceTerms(Flag):
 
 
 # Mapping mathematical term indices to lambda functions for design matrix generation
-TERM_FUNCTIONS: dict[
-    SurfaceTerms, Callable[[FloatArray1D, FloatArray1D], FloatArray1D]
-] = {
+TERM_FUNCTIONS: dict[SurfaceTerms, Callable[[FloatArray1D, FloatArray1D], FloatArray1D]] = {
     SurfaceTerms.OFFSET: lambda xs, ys: np.ones_like(xs),
     SurfaceTerms.TILT_X: lambda xs, ys: xs,
     SurfaceTerms.TILT_Y: lambda xs, ys: ys,

@@ -1,11 +1,11 @@
 import numpy as np
-
 from container_models.base import FloatArray1D
+
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.solver import (
-    normalize_coordinates,
     build_design_matrix,
     denormalize_parameters,
+    normalize_coordinates,
 )
 
 

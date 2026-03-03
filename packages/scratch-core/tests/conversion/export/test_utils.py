@@ -3,7 +3,6 @@ from pathlib import PosixPath
 
 import numpy as np
 import pytest
-
 from conversion.export.utils import (
     check_if_file_exists,
     load_compressed_binary,
@@ -28,9 +27,7 @@ class TestCheckIfFileExists:
         """Test that missing file raises FileNotFoundError."""
         missing_file = tmp_path / "does_not_exist.txt"
 
-        with pytest.raises(
-            FileNotFoundError, match='File ".*does_not_exist.txt" does not exist'
-        ):
+        with pytest.raises(FileNotFoundError, match='File ".*does_not_exist.txt" does not exist'):
             check_if_file_exists(missing_file)
 
     def test_directory_raises_error(self, tmp_path: PosixPath):
@@ -115,7 +112,7 @@ class TestSaveAsJson:
         save_as_json(data, file_path)
 
         assert (tmp_path / "test.json").exists()
-        with open(tmp_path / "test.json", "r") as f:
+        with open(tmp_path / "test.json") as f:
             loaded = json.load(f)
         assert loaded == {"key": "value"}
 
@@ -126,7 +123,7 @@ class TestSaveAsJson:
         save_as_json(json.dumps({"first": "data"}), file_path)
         save_as_json(json.dumps({"second": "data"}), file_path)
 
-        with open(tmp_path / "test.json", "r") as f:
+        with open(tmp_path / "test.json") as f:
             loaded = json.load(f)
         assert loaded == {"second": "data"}
 
@@ -194,10 +191,10 @@ class TestLoadCompressedBinary:
         assert loaded.dtype == np.int32
 
     @pytest.mark.integration
-    def test_load_large_array(self, tmp_path: PosixPath):
+    def test_load_large_array(self, tmp_path: PosixPath, rng: np.random.Generator):
         """Test loading large array to verify compression works."""
         npz_file = tmp_path / "large.npz"
-        original = np.random.rand(1000, 1000)
+        original = rng.random((1000, 1000))
         np.savez_compressed(npz_file, data=original)
 
         loaded = load_compressed_binary(npz_file)
@@ -301,10 +298,10 @@ class TestRoundtrip:
 
         assert loaded_data == original_data
 
-    def test_binary_roundtrip(self, tmp_path: PosixPath):
+    def test_binary_roundtrip(self, tmp_path: PosixPath, rng: np.random.Generator):
         """Test complete binary save/load cycle."""
         file_path = tmp_path / "test"
-        original_array = np.random.rand(100, 100)
+        original_array = rng.random((100, 100))
 
         save_as_compressed_binary(original_array, file_path)
         loaded_array = load_compressed_binary(tmp_path / "test.npz")

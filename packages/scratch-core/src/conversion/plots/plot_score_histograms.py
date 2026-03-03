@@ -11,7 +11,6 @@ def plot_score_histograms(ax: Axes, data: HistogramData) -> None:
     :param ax: The axis to plot on.
     :param data: Histogram input data containing scores, labels, bins, densities, and new_score.
     """
-
     # Separate data by label
     knm_scores = data.scores[data.labels == 0]
     km_scores = data.scores[data.labels == 1]
@@ -21,9 +20,7 @@ def plot_score_histograms(ax: Axes, data: HistogramData) -> None:
     if data.bins is not None:
         bin_edges = np.linspace(0, max_score, data.bins + 1)
     else:
-        bin_edges = np.histogram_bin_edges(
-            data.scores, range=(0, max_score), bins="auto"
-        )
+        bin_edges = np.histogram_bin_edges(data.scores, range=(0, max_score), bins="auto")
     bin_edges = list(bin_edges)
 
     # Plot things in right order for getting legend items in the right order

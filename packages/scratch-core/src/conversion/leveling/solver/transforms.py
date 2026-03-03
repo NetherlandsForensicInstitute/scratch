@@ -1,7 +1,8 @@
-import numpy as np
 from collections.abc import Mapping
 
+import numpy as np
 from container_models.base import FloatArray1D
+
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.data_types import NormalizedCoordinates
 
@@ -42,7 +43,7 @@ def denormalize_parameters(
     scale: float,
 ) -> dict[SurfaceTerms, float]:
     """
-    Converts normalized fit parameters back to real-world physical units.
+    Convert normalized fit parameters back to real-world physical units.
 
     The computation matches the specific numerical corrections from the original MATLAB script.
 
@@ -52,9 +53,7 @@ def denormalize_parameters(
     :param scale: The scale factor.
     :returns: A dictionary containing the denormalized fit parameters for all surface terms.
     """
-    params = np.array(
-        [coefficients.get(term, 0.0) for term in SurfaceTerms], dtype=np.float64
-    )
+    params = np.array([coefficients.get(term, 0.0) for term in SurfaceTerms], dtype=np.float64)
 
     # Un-normalize scaling
     params[1:3] *= scale  # Tilts
@@ -74,12 +73,8 @@ def denormalize_parameters(
         + params[5] * (x_mean**2 - y_mean**2)
     )
     # Adjust Tilt X (p1)
-    params[1] = (
-        params[1] - params[3] * y_mean - 2 * params[4] * x_mean - 2 * params[5] * x_mean
-    )
+    params[1] = params[1] - params[3] * y_mean - 2 * params[4] * x_mean - 2 * params[5] * x_mean
     # Adjust Tilt Y (p2)
-    params[2] = (
-        params[2] - params[3] * x_mean - 2 * params[4] * y_mean + 2 * params[5] * y_mean
-    )
+    params[2] = params[2] - params[3] * x_mean - 2 * params[4] * y_mean + 2 * params[5] * y_mean
 
     return dict(zip(SurfaceTerms, map(float, params)))

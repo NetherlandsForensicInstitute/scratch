@@ -1,13 +1,11 @@
 import numpy as np
-
 import pytest
-
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import (
-    get_rotation_angle,
     crop_image_and_mask_to_mask,
+    get_rotation_angle,
     rotate_mask_and_scan_image,
 )
 
@@ -17,25 +15,21 @@ class TestGetRotationAngle:
 
     @pytest.fixture
     def rectangle_15deg(self) -> BoundingBox:
-        return np.array(
-            [
-                [53.69130745, 16.00419511],
-                [169.60240661, 47.06248052],
-                [146.30869255, 133.99580489],
-                [30.39759339, 102.93751948],
-            ]
-        )
+        return np.array([
+            [53.69130745, 16.00419511],
+            [169.60240661, 47.06248052],
+            [146.30869255, 133.99580489],
+            [30.39759339, 102.93751948],
+        ])
 
     @pytest.fixture
     def rectangle_0deg(self) -> BoundingBox:
-        return np.array(
-            [
-                [30.0, 23.0],
-                [169.0, 23.0],
-                [169.0, 126.0],
-                [30.0, 126.0],
-            ]
-        )
+        return np.array([
+            [30.0, 23.0],
+            [169.0, 23.0],
+            [169.0, 126.0],
+            [30.0, 126.0],
+        ])
 
     def test_rotation_from_rectangle_crop_0_degrees(self, rectangle_0deg):
         """Test rotation calculation from horizontal rectangle."""
@@ -69,7 +63,7 @@ class TestCropImageAndMaskToMask:
         return mask
 
     @pytest.mark.parametrize(
-        "margin, output_shape",
+        ("margin", "output_shape"),
         [
             pytest.param(0, (6, 6), id="Normal bounding box, no margin"),
             pytest.param(0, (6, 6), id="Normal bounding box, no marginx"),
@@ -86,9 +80,7 @@ class TestCropImageAndMaskToMask:
         output_shape: tuple[int, int],
     ):
         """Test cropping with different margins."""
-        result_image, result_mask = crop_image_and_mask_to_mask(
-            scan_image, mask, margin=margin
-        )
+        result_image, result_mask = crop_image_and_mask_to_mask(scan_image, mask, margin=margin)
 
         assert isinstance(result_image, ScanImage)
         assert result_image.scale_x == scan_image.scale_x
@@ -107,9 +99,7 @@ class TestRotateMaskAndScanImage:
         mask = np.array([[True, True], [True, False]])
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
 
-        result_image, result_mask = rotate_mask_and_scan_image(
-            scan_image, mask, rotation_angle=0
-        )
+        result_image, result_mask = rotate_mask_and_scan_image(scan_image, mask, rotation_angle=0)
 
         np.testing.assert_array_equal(result_image.data, data)
         np.testing.assert_array_equal(result_mask, mask)
@@ -121,14 +111,10 @@ class TestRotateMaskAndScanImage:
         mask[3:7, 3:7] = True
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
 
-        result_image, result_mask = rotate_mask_and_scan_image(
-            scan_image, mask, rotation_angle=45
-        )
+        result_image, result_mask = rotate_mask_and_scan_image(scan_image, mask, rotation_angle=45)
 
         # After rotation, shape should change due to reshape=True
-        assert result_image.data.shape != data.shape or not np.array_equal(
-            result_image.data, data
-        )
+        assert result_image.data.shape != data.shape or not np.array_equal(result_image.data, data)
 
     def test_rotation_handles_nan_values(self):
         """Test that rotation properly handles NaN values in data."""
@@ -137,9 +123,7 @@ class TestRotateMaskAndScanImage:
         mask = np.ones((10, 10), dtype=bool)
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
 
-        result_image, result_mask = rotate_mask_and_scan_image(
-            scan_image, mask, rotation_angle=30
-        )
+        result_image, result_mask = rotate_mask_and_scan_image(scan_image, mask, rotation_angle=30)
 
         # Should not raise error and should handle NaNs
         assert isinstance(result_image, ScanImage)
@@ -151,9 +135,7 @@ class TestRotateMaskAndScanImage:
         mask = np.ones((10, 10), dtype=bool)
         scan_image = ScanImage(data=data, scale_x=2.0, scale_y=3.0)
 
-        result_image, result_mask = rotate_mask_and_scan_image(
-            scan_image, mask, rotation_angle=15
-        )
+        result_image, result_mask = rotate_mask_and_scan_image(scan_image, mask, rotation_angle=15)
 
         assert result_image.scale_x == 2.0
         assert result_image.scale_y == 3.0

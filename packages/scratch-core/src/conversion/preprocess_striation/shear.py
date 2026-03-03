@@ -6,9 +6,10 @@ by shifting vertical profiles.
 """
 
 import numpy as np
+from container_models.base import DepthData, FloatArray2D
 from skimage.transform import AffineTransform, warp
 
-from container_models.base import DepthData, FloatArray2D
+MIN_SHEAR_ANGLE_RAD = 0.00175  # ~0.1°
 
 
 def shear_data_by_shifting_profiles(
@@ -37,7 +38,7 @@ def shear_data_by_shifting_profiles(
     :returns: The sheared depth data.
     """
     # Skip shear for angles smaller than ~0.1° (0.00175 rad)
-    if abs(angle_rad) <= 0.00175:
+    if abs(angle_rad) <= MIN_SHEAR_ANGLE_RAD:
         return depth_data.astype(np.floating).copy()
 
     height, width = depth_data.shape

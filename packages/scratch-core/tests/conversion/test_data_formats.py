@@ -14,6 +14,4 @@ class TestMarkType:
 
     def test_all_marks_are_either_impression_or_striation(self):
         for mark in MarkType:
-            assert mark.is_impression() ^ mark.is_striation(), (
-                f"{mark} is neither or both"
-            )
+            assert mark.is_impression() ^ mark.is_striation(), f"{mark} is neither or both"

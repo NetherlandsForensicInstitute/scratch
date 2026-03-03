@@ -1,8 +1,8 @@
 import numpy as np
-from scipy.ndimage import binary_erosion
-from skimage.measure import ransac, CircleModel
-
 from container_models.base import BinaryMask, FloatArray2D
+from scipy.ndimage import binary_erosion
+from skimage.measure import CircleModel, ransac
+
 from conversion.data_formats import Mark, MarkType
 from conversion.mask import get_bounding_box
 from conversion.preprocess_impression.utils import Point2D
@@ -31,7 +31,7 @@ def _points_are_collinear(points: FloatArray2D, tol: float = 1e-9) -> bool:
     :param tol: Tolerance for collinearity check.
     :return: True if points are collinear.
     """
-    if len(points) < 3:
+    if len(points) < 3:  # noqa: PLR2004 - minimum points to test collinearity
         return True
     centered = points - points.mean(axis=0)
     _, singular_values, _ = np.linalg.svd(centered, full_matrices=False)
@@ -52,7 +52,7 @@ def _fit_circle_ransac(
     :return: Circle center (x, y) or None if fitting failed.
     :raises ValueError: If points array has wrong shape.
     """
-    if points.ndim != 2 or points.shape[1] != 2:
+    if points.ndim != 2 or points.shape[1] != 2:  # noqa: PLR2004
         raise ValueError(f"Expected (N, 2) array, got {points.shape}")
 
     if _points_are_collinear(points):

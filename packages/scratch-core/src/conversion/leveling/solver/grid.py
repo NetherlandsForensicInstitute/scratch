@@ -1,12 +1,9 @@
 import numpy as np
-
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 
 
-def get_2d_grid(
-    scan_image: ScanImage, offset: tuple[float, float] = (0, 0)
-) -> tuple[FloatArray2D, FloatArray2D]:
+def get_2d_grid(scan_image: ScanImage, offset: tuple[float, float] = (0, 0)) -> tuple[FloatArray2D, FloatArray2D]:
     """
     Return a 2D grid containing the physical coordinates of the scan data.
 
@@ -17,9 +14,7 @@ def get_2d_grid(
     :returns: A tuple containing the grid coordinates for the X-direction and Y-direction.
     """
     # Generate Grid (ij indexing to match matrix coordinates)
-    x_indices, y_indices = np.meshgrid(
-        np.arange(scan_image.width), np.arange(scan_image.height), indexing="xy"
-    )
+    x_indices, y_indices = np.meshgrid(np.arange(scan_image.width), np.arange(scan_image.height), indexing="xy")
     # Translate the grid by `offset`
     x_grid = (x_indices * scan_image.scale_x) + offset[0]
     y_grid = (y_indices * scan_image.scale_y) + offset[1]

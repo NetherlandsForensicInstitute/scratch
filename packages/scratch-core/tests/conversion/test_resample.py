@@ -1,17 +1,17 @@
-import numpy as np
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from scipy.constants import micro
+import numpy as np
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.resample import (
-    resample_scan_image_and_mask,
+    _clip_factors,
     _resample_scan_image,
     get_scaling_factors,
-    _clip_factors,
     resample_array_2d,
     resample_mark,
+    resample_scan_image_and_mask,
 )
+from scipy.constants import micro
 
 
 class TestGetScalingFactors:
@@ -81,9 +81,7 @@ class TestResampleScanImage:
 
 
 class TestResampleImageAndMask:
-    def test_no_resampling_when_factors_close_to_one(
-        self, scan_image_rectangular_with_nans: ScanImage
-    ):
+    def test_no_resampling_when_factors_close_to_one(self, scan_image_rectangular_with_nans: ScanImage):
         mask = np.ones((100, 100), dtype=np.bool_)
 
         result_img, result_mask = resample_scan_image_and_mask(
@@ -95,24 +93,16 @@ class TestResampleImageAndMask:
 
     def test_uses_explicit_factors(self, scan_image_rectangular_with_nans: ScanImage):
         with patch("conversion.resample.get_scaling_factors") as mock:
-            resample_scan_image_and_mask(
-                scan_image_rectangular_with_nans, factors=(2.0, 2.0)
-            )
+            resample_scan_image_and_mask(scan_image_rectangular_with_nans, factors=(2.0, 2.0))
             mock.assert_not_called()
 
-    def test_calculates_factors_when_not_provided(
-        self, scan_image_rectangular_with_nans: ScanImage
-    ):
+    def test_calculates_factors_when_not_provided(self, scan_image_rectangular_with_nans: ScanImage):
         with patch("conversion.resample.get_scaling_factors") as mock:
             mock.return_value = (2.0, 2.0)
-            resample_scan_image_and_mask(
-                scan_image_rectangular_with_nans, target_scale=4 * micro
-            )
+            resample_scan_image_and_mask(scan_image_rectangular_with_nans, target_scale=4 * micro)
             mock.assert_called_once()
 
-    def test_clips_when_only_downsample(
-        self, scan_image_rectangular_with_nans: ScanImage
-    ):
+    def test_clips_when_only_downsample(self, scan_image_rectangular_with_nans: ScanImage):
         with patch("conversion.resample._clip_factors") as mock_clip:
             mock_clip.return_value = (1.0, 1.0)
             resample_scan_image_and_mask(
@@ -122,9 +112,7 @@ class TestResampleImageAndMask:
             )
             mock_clip.assert_called_once_with((0.5, 0.5), True)
 
-    def test_no_clip_when_only_downsample_false(
-        self, scan_image_rectangular_with_nans: ScanImage
-    ):
+    def test_no_clip_when_only_downsample_false(self, scan_image_rectangular_with_nans: ScanImage):
         with patch("conversion.resample._clip_factors") as mock_clip:
             with patch("conversion.resample._resample_scan_image"):
                 resample_scan_image_and_mask(
@@ -134,24 +122,18 @@ class TestResampleImageAndMask:
                 )
                 mock_clip.assert_not_called()
 
-    def test_resamples_mask_when_provided(
-        self, scan_image_rectangular_with_nans: ScanImage
-    ):
+    def test_resamples_mask_when_provided(self, scan_image_rectangular_with_nans: ScanImage):
         mask = np.ones((100, 100), dtype=np.bool_)
 
         with patch("conversion.resample.resample_array_2d") as mock:
             mock.return_value = np.zeros((50, 50))
 
-            _, result_mask = resample_scan_image_and_mask(
-                scan_image_rectangular_with_nans, mask, factors=(2.0, 2.0)
-            )
+            _, result_mask = resample_scan_image_and_mask(scan_image_rectangular_with_nans, mask, factors=(2.0, 2.0))
 
             assert mock.call_count == 2  # Once for image, once for mask
 
     def test_none_mask_stays_none(self, scan_image_rectangular_with_nans):
-        _, result_mask = resample_scan_image_and_mask(
-            scan_image_rectangular_with_nans, mask=None, factors=(2.0, 2.0)
-        )
+        _, result_mask = resample_scan_image_and_mask(scan_image_rectangular_with_nans, mask=None, factors=(2.0, 2.0))
 
         assert result_mask is None
 

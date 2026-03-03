@@ -10,6 +10,8 @@ from conversion.filter.gaussian import apply_gaussian_regression_filter
 from conversion.preprocess_impression.utils import update_mark_data
 from conversion.resample import get_scaling_factors
 
+MIN_DOWNSAMPLE_RATIO = 1.5
+
 
 def apply_gaussian_filter_mark(
     mark: Mark,
@@ -26,7 +28,6 @@ def apply_gaussian_filter_mark(
     :param is_high_pass: If True, apply high-pass filter; otherwise low-pass.
     :return: Filtered mark.
     """
-
     filtered_data = apply_gaussian_regression_filter(
         mark.scan_image.data,
         is_high_pass=is_high_pass,
@@ -61,9 +62,7 @@ def apply_filter_pipeline(
         mark_anti_aliased, anti_alias_cutoff = _apply_anti_aliasing(mark, target_scale)
 
     # Only apply an additional low-pass filter if `lowpass_cutoff` is defined and is bigger than the `anti_alias_cutoff`
-    if lowpass_cutoff is not None and (
-        anti_alias_cutoff is None or lowpass_cutoff < anti_alias_cutoff
-    ):
+    if lowpass_cutoff is not None and (anti_alias_cutoff is None or lowpass_cutoff < anti_alias_cutoff):
         mark_filtered = apply_gaussian_filter_mark(
             mark,
             lowpass_cutoff,
@@ -84,7 +83,7 @@ def _apply_anti_aliasing(
     Apply anti-aliasing filter before downsampling.
 
     Anti-aliasing prevents high-frequency content from aliasing when
-    resampling to a coarser resolution. Applied when downsampling by >1.5x.
+    resampling to a coarser resolution. Applied when downsampling by >MIN_DOWNSAMPLE_RATIO.
 
     :param mark: Input mark.
     :param target_scale: Target scale in meters.
@@ -96,7 +95,7 @@ def _apply_anti_aliasing(
     )
 
     # Only filter if downsampling by >1.5x
-    if all(r <= 1.5 for r in factors):
+    if all(r <= MIN_DOWNSAMPLE_RATIO for r in factors):
         return mark, None
 
     filtered_data = apply_gaussian_regression_filter(

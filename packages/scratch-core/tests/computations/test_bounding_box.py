@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask
 
@@ -13,7 +12,7 @@ class TestMaskBoundingBox:
     """
 
     @pytest.mark.parametrize(
-        "mask,expected",
+        ("mask", "expected"),
         [
             pytest.param(
                 np.array(
@@ -197,9 +196,7 @@ class TestMaskBoundingBox:
             ),
         ],
     )
-    def test_mask_bounding_box_subset(
-        self, mask: BinaryMask, expected: tuple[slice, slice]
-    ) -> None:
+    def test_mask_bounding_box_subset(self, mask: BinaryMask, expected: tuple[slice, slice]) -> None:
         # Act
         slices = get_bounding_box(mask=mask)
         # assert

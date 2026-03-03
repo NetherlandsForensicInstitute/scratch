@@ -9,13 +9,13 @@ This module provides the high-level entry points for striation preprocessing:
 from dataclasses import asdict
 
 import numpy as np
-
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
+
 from conversion.data_formats import Mark
 from conversion.filter import (
-    cutoff_to_gaussian_sigma,
     apply_striation_preserving_filter_1d,
+    cutoff_to_gaussian_sigma,
 )
 from conversion.preprocess_striation import PreprocessingStriationParams
 from conversion.preprocess_striation.alignment import fine_align_bullet_marks
@@ -57,9 +57,7 @@ def preprocess_striation_mark(
     )
 
     if data_filtered.shape[1] > 1:
-        filtered_mark = mark.model_copy(
-            update={"scan_image": scan_image.model_copy(update={"data": data_filtered})}
-        )
+        filtered_mark = mark.model_copy(update={"scan_image": scan_image.model_copy(update={"data": data_filtered})})
         aligned_mark_result, total_angle = fine_align_bullet_marks(
             mark=filtered_mark,
             angle_accuracy=params.angle_accuracy,
@@ -80,11 +78,7 @@ def preprocess_striation_mark(
     # Propagate NaN to adjacent pixels to match MATLAB's asymmetric NaN handling
     data_aligned = propagate_nan(data_aligned)
 
-    profile_heights = (
-        np.nanmean(data_aligned, axis=1)
-        if params.use_mean
-        else np.nanmedian(data_aligned, axis=1)
-    )
+    profile_heights = np.nanmean(data_aligned, axis=1) if params.use_mean else np.nanmedian(data_aligned, axis=1)
 
     # Build meta_data with mask and total_angle
     aligned_meta_data = {
@@ -138,7 +132,6 @@ def apply_shape_noise_removal(
 
     :returns: processed_data
     """
-
     # Calculate Gaussian sigma from cutoff wavelength
     sigma = cutoff_to_gaussian_sigma(highpass_cutoff, scan_image.scale_x)
 

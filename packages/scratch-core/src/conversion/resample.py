@@ -1,25 +1,24 @@
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 import numpy as np
+from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
+from container_models.scan_image import ScanImage
 from scipy.signal import resample as signal_resample
 from skimage.transform import resize
 
-from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
-from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
-
 
 T = TypeVar("T", FloatArray2D, BinaryMask)
 
 
-def resample_scan_image_and_mask(
+def resample_scan_image_and_mask(  # noqa: PLR0913
     scan_image: ScanImage,
-    mask: Optional[BinaryMask] = None,
-    factors: Optional[tuple[float, float]] = None,
+    mask: BinaryMask | None = None,
+    factors: tuple[float, float] | None = None,
     target_scale: float = 4e-6,
     only_downsample: bool = True,
     preserve_aspect_ratio: bool = True,
-) -> tuple[ScanImage, Optional[BinaryMask]]:
+) -> tuple[ScanImage, BinaryMask | None]:
     """
     Resample the input image and optionally its corresponding mask.
 
@@ -28,16 +27,14 @@ def resample_scan_image_and_mask(
 
     :param scan_image: Input ScanImage to resample.
     :param mask: Corresponding mask array.
-    :param factors: The multipliers for the scale of the X- and Y-axis. The formula used is `new_scale = factor * old_scale`.
+    :param factors: The multipliers for the scale of the X- and Y-axis. `new_scale = factor * old_scale`.
     :param target_scale: Target scale (in meters) when `factors` are not provided.
     :param preserve_aspect_ratio: Whether to preserve the aspect ratio of the image.
     :param only_downsample: If True, only downsample data (default). If False, allow upsampling.
     :returns: Resampled ScanImage and MaskArray
     """
     if not factors:
-        factors = get_scaling_factors(
-            scales=(scan_image.scale_x, scan_image.scale_y), target_scale=target_scale
-        )
+        factors = get_scaling_factors(scales=(scan_image.scale_x, scan_image.scale_y), target_scale=target_scale)
     if only_downsample:
         factors = _clip_factors(factors, preserve_aspect_ratio)
     if np.allclose(factors, 1.0):
@@ -104,7 +101,7 @@ def resample_array_1d(
     return result
 
 
-def resample_array_2d(
+def resample_array_2d[T: (FloatArray2D, BinaryMask)](
     array: T,
     factors: tuple[float, float],
 ) -> T:

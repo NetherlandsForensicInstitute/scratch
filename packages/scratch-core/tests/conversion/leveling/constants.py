@@ -1,6 +1,6 @@
-from conversion.leveling import SurfaceTerms
 from pathlib import Path
 
+from conversion.leveling import SurfaceTerms
 
 SINGLE_TERMS = list(SurfaceTerms)
 COMBINED_TERMS = [SurfaceTerms.PLANE, SurfaceTerms.SPHERE]

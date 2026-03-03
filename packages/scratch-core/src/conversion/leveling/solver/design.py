@@ -1,15 +1,13 @@
 import numpy as np
-
 from container_models.base import FloatArray1D, FloatArray2D
+
 from conversion.leveling import SurfaceTerms
 from conversion.leveling.data_types import TERM_FUNCTIONS
 
 
-def build_design_matrix(
-    xs: FloatArray1D, ys: FloatArray1D, terms: SurfaceTerms
-) -> FloatArray2D:
+def build_design_matrix(xs: FloatArray1D, ys: FloatArray1D, terms: SurfaceTerms) -> FloatArray2D:
     """
-    Constructs the Least Squares design matrix based on grid coordinates (xs, ys) and requested terms.
+    Construct the Least Squares design matrix based on grid coordinates (xs, ys) and requested terms.
 
     :param xs: The X-coordinates.
     :param ys: The Y-coordinates.

@@ -1,12 +1,13 @@
 import numpy as np
-from conversion.leveling import SurfaceTerms, LevelingResult
+from container_models.scan_image import ScanImage
+
+from conversion.leveling import LevelingResult, SurfaceTerms
 from conversion.leveling.solver import (
+    compute_root_mean_square,
     fit_surface,
     get_2d_grid,
-    compute_root_mean_square,
 )
 from conversion.leveling.solver.utils import compute_image_center
-from container_models.scan_image import ScanImage
 
 
 def level_map(
@@ -30,9 +31,7 @@ def level_map(
         reference_point = compute_image_center(scan_image)
 
     # Build the 2D grids and translate in the opposite direction of `reference_point`
-    x_grid, y_grid = get_2d_grid(
-        scan_image, offset=(-reference_point[0], -reference_point[1])
-    )
+    x_grid, y_grid = get_2d_grid(scan_image, offset=(-reference_point[0], -reference_point[1]))
 
     # Get the point cloud (xs, ys, zs) for the numerical data
     xs, ys, zs = (

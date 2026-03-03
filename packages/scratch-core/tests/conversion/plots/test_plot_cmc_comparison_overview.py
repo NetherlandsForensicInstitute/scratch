@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import (
     HistogramData,

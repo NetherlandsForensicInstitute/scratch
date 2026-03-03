@@ -1,7 +1,5 @@
 # noqa
-"""
-Tests comparing Python preprocess_data output with MATLAB PreprocessData.
-"""
+"""Tests comparing Python preprocess_data output with MATLAB PreprocessData."""
 
 import json
 from dataclasses import dataclass, fields
@@ -9,19 +7,19 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from scipy.constants import micro
-
-from container_models.base import DepthData, BinaryMask, StriationProfile
+from container_models.base import BinaryMask, DepthData, StriationProfile
 from conversion.data_formats import MarkType
-from .helper_functions import make_mark
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_striation_mark,
 )
+from scipy.constants import micro
+
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
+    make_mark,
 )
 
 
@@ -147,9 +145,7 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture
-def test_case(
-    test_case_name: str, all_test_cases: list[MatlabTestCase]
-) -> MatlabTestCase:
+def test_case(test_case_name: str, all_test_cases: list[MatlabTestCase]) -> MatlabTestCase:
     """Get individual test case by name."""
     for case in all_test_cases:
         if case.name == test_case_name:
@@ -212,19 +208,15 @@ class TestPreprocessDataMatlabComparison:
 
         # Empty mask case
         if test_case.is_empty_mask:
-            assert np.all(np.isnan(python_depth)), (
-                f"{test_case.name}: empty mask should produce all-NaN output"
-            )
+            assert np.all(np.isnan(python_depth)), f"{test_case.name}: empty mask should produce all-NaN output"
             return
 
         # Shape check (skip for masked cases - MATLAB extracts central region)
         if not test_case.has_mask:
             row_diff = abs(matlab_depth.shape[0] - python_depth.shape[0])
             col_diff = abs(matlab_depth.shape[1] - python_depth.shape[1])
-            assert row_diff <= 1 and col_diff <= 1, (
-                f"{test_case.name}: shape mismatch "
-                f"{python_depth.shape} vs {matlab_depth.shape}"
-            )
+            assert row_diff <= 1, f"{test_case.name}: row shape mismatch {python_depth.shape} vs {matlab_depth.shape}"
+            assert col_diff <= 1, f"{test_case.name}: col shape mismatch {python_depth.shape} vs {matlab_depth.shape}"
 
         # Crop to common shape for value comparisons
         python_depth, matlab_depth = _crop_to_common_shape(python_depth, matlab_depth)
@@ -270,9 +262,7 @@ class TestPreprocessDataMatlabComparison:
             python_profile = python_profile[:min_len]
             matlab_profile = matlab_profile[:min_len]
 
-        correlation = _compute_correlation(
-            python_profile.reshape(-1, 1), matlab_profile.reshape(-1, 1)
-        )
+        correlation = _compute_correlation(python_profile.reshape(-1, 1), matlab_profile.reshape(-1, 1))
 
         corr_threshold, _ = self._get_thresholds(test_case)
         assert correlation > corr_threshold, (
@@ -303,9 +293,7 @@ class TestPreprocessDataMatlabComparison:
         _, python_mask, _, _ = run_python_preprocessing(test_case)
         assert python_mask is not None
 
-        python_mask, matlab_mask = _crop_to_common_shape(
-            python_mask, test_case.output_mask
-        )
+        python_mask, matlab_mask = _crop_to_common_shape(python_mask, test_case.output_mask)
 
         python_binary = (python_mask > 0.5).astype(float)
         matlab_binary = (matlab_mask > 0.5).astype(float)

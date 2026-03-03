@@ -1,6 +1,5 @@
 """
-Spatial Image Mutations
-=======================
+Spatial Image Mutations.
 
 This module contains image mutations that operate on the *spatial*
 properties of a `ScanImage`.
@@ -23,14 +22,14 @@ the image while adjusting its spatial representation.
 """
 
 import numpy as np
-
-from container_models.base import BinaryMask
 from computations.spatial import get_bounding_box
+from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from exceptions import ImageShapeMismatchError
 from loguru import logger
-from mutations.base import ImageMutation
 from skimage.transform import resize
+
+from mutations.base import ImageMutation
 
 
 class CropToMask(ImageMutation):
@@ -53,6 +52,7 @@ class CropToMask(ImageMutation):
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
         Crop the image to the bounding box of the mask.
+
         :returns: New ScanImage cropped to the minimal bounding box containing all True mask values.
         """
         if scan_image.data.shape != self.mask.shape:
@@ -67,7 +67,7 @@ class CropToMask(ImageMutation):
 class Resample(ImageMutation):
     def __init__(self, target_shape: tuple[float, float]) -> None:
         """
-        Constructor for initiating the Resampling.
+        Initialize resampling with target shape multipliers.
 
         :param target_shape: The multipliers for the scale of the X- and Y-axis(y first).
         """
@@ -81,10 +81,7 @@ class Resample(ImageMutation):
         :param image: Input ScanImage to resample.
         :returns: The resampled ScanImage.
         """
-        anti_aliasing = (
-            self.target_shape_height < scan_image.height
-            and self.target_shape_width < scan_image.width
-        )
+        anti_aliasing = self.target_shape_height < scan_image.height and self.target_shape_width < scan_image.width
         resampled_data = resize(
             image=scan_image.data,
             output_shape=(
@@ -98,7 +95,9 @@ class Resample(ImageMutation):
         scale_y_factor = scan_image.height / self.target_shape_height
 
         logger.debug(
-            f"Resampling image array to new size: {round(self.target_shape_height, 1)}/{round(self.target_shape_width, 1)} with scale: x:{round(scale_x_factor, 1)}, y:{round(scale_y_factor, 1)}"
+            f"Resampling image array to new size: {round(self.target_shape_height, 1)}/"
+            f"{round(self.target_shape_width, 1)} with scale: x:{round(scale_x_factor, 1)}, "
+            f"y:{round(scale_y_factor, 1)}"
         )
 
         return ScanImage(

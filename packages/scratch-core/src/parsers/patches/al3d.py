@@ -51,7 +51,8 @@ def read_al3d(filehandle, read_image_layers=False, encoding="utf-8") -> RawSurfa
     stride = nx + (nx % 2)
     data = read_array(filehandle, dtype=DTYPE, count=ny * stride, offset=0)
     # Compute the image width from the parsed buffer shape
-    # Note: we cannot reuse `stride` for this, since the number of values parsed from the buffer can be smaller than `ny * stride`
+    # Note: we cannot reuse `stride` for this, since the number of values parsed from the buffer can be smaller than
+    # `ny * stride`
     image_width = data.shape[0] // ny
     data = data.reshape(ny, image_width)
     # When `nx` is odd, the computed image width may exceed the tag value `nx`

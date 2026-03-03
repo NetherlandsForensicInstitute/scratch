@@ -3,16 +3,15 @@ from pathlib import PosixPath
 
 import numpy as np
 import pytest
-from scipy.constants import micro
-
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.export.mark import ExportedMarkData, load_mark_from_path, save_mark
+from scipy.constants import micro
 
 
-@pytest.fixture()
+@pytest.fixture
 def scan_image(scan_image_with_nans: ScanImage) -> ScanImage:
-    """Convenience fixture for a `ScanImage` instance."""
+    """Create a `ScanImage` instance."""
     return scan_image_with_nans
 
 
@@ -129,7 +128,7 @@ class TestSaveAndLoadMark:
 
         save_mark(impression_mark, tmp_path / "test_mark")
 
-        with open(tmp_path / "test_mark.json", "r") as f:
+        with open(tmp_path / "test_mark.json") as f:
             data = json.load(f)
 
         assert "mark_type" in data
@@ -140,9 +139,7 @@ class TestSaveAndLoadMark:
         assert data["mark_type"] == "CHAMBER_STRIATION"
         assert data["meta_data"] == {"key": "value"}
 
-    def test_load_mark_restores_all_meta_data(
-        self, tmp_path: PosixPath, scan_image: ScanImage
-    ):
+    def test_load_mark_restores_all_meta_data(self, tmp_path: PosixPath, scan_image: ScanImage):
         """Test that `load_mark_from_path` correctly restores all meta-data in a `Mark` object."""
         original_mark = Mark(
             scan_image=scan_image,
@@ -160,9 +157,7 @@ class TestSaveAndLoadMark:
         assert loaded_mark.scan_image.scale_x == original_mark.scan_image.scale_x
         assert loaded_mark.scan_image.scale_y == original_mark.scan_image.scale_y
 
-    def test_load_mark_binary_data_matches(
-        self, tmp_path: PosixPath, scan_image: ScanImage
-    ):
+    def test_load_mark_binary_data_matches(self, tmp_path: PosixPath, scan_image: ScanImage):
         """Test that loaded binary data matches original data."""
         original_mark = Mark(
             scan_image=scan_image,
@@ -172,13 +167,9 @@ class TestSaveAndLoadMark:
         save_mark(original_mark, tmp_path / "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
-        np.testing.assert_array_equal(
-            loaded_mark.scan_image.data, original_mark.scan_image.data
-        )
+        np.testing.assert_array_equal(loaded_mark.scan_image.data, original_mark.scan_image.data)
 
-    def test_load_mark_computed_center(
-        self, tmp_path: PosixPath, scan_image: ScanImage
-    ):
+    def test_load_mark_computed_center(self, tmp_path: PosixPath, scan_image: ScanImage):
         """Test loading mark with computed (not explicit) center."""
         original_mark = Mark(
             scan_image=scan_image,
@@ -194,9 +185,7 @@ class TestSaveAndLoadMark:
 
     def test_load_mark_missing_json(self, tmp_path: PosixPath):
         """Test that loading raises FileNotFoundError when JSON is missing."""
-        with pytest.raises(
-            FileNotFoundError, match='File ".*test_mark.json" does not exist'
-        ):
+        with pytest.raises(FileNotFoundError, match='File ".*test_mark.json" does not exist'):
             load_mark_from_path(tmp_path, "test_mark")
 
     def test_load_mark_missing_npz(self, tmp_path: PosixPath, scan_image: ScanImage):
@@ -210,14 +199,10 @@ class TestSaveAndLoadMark:
         json_path = tmp_path / "test_mark.json"
         json_path.write_text(mark.export())
 
-        with pytest.raises(
-            FileNotFoundError, match='File ".*test_mark.npz" does not exist'
-        ):
+        with pytest.raises(FileNotFoundError, match='File ".*test_mark.npz" does not exist'):
             load_mark_from_path(tmp_path, "test_mark")
 
-    def test_roundtrip_with_complex_metadata(
-        self, tmp_path: PosixPath, scan_image: ScanImage
-    ):
+    def test_roundtrip_with_complex_metadata(self, tmp_path: PosixPath, scan_image: ScanImage):
         """Test save/load roundtrip with complex metadata."""
         complex_meta = {
             "nested": {"key": "value"},
@@ -238,9 +223,7 @@ class TestSaveAndLoadMark:
 
         assert loaded_mark.meta_data == complex_meta
 
-    def test_multiple_marks_in_directory(
-        self, tmp_path: PosixPath, scan_image: ScanImage
-    ):
+    def test_multiple_marks_in_directory(self, tmp_path: PosixPath, scan_image: ScanImage):
         """Test saving and loading multiple marks in the same directory."""
         mark1 = Mark(
             scan_image=scan_image,

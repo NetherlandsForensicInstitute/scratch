@@ -1,8 +1,7 @@
-from mutations.spatial import Resample
 import numpy as np
 import pytest
-
 from container_models.scan_image import ScanImage
+from mutations.spatial import Resample
 
 
 @pytest.fixture
@@ -25,7 +24,7 @@ def scan_image_with_mask(simple_scan_image: ScanImage) -> ScanImage:
 
 class TestResampleScanImage:
     @pytest.mark.parametrize(
-        "y_factor,x_factor,expected_shape",
+        ("y_factor", "x_factor", "expected_shape"),
         [
             pytest.param(
                 2.0,
@@ -80,7 +79,8 @@ class TestResampleScanImage:
         assert result.data.shape[0] == round(expected_shape[0], 0)
         assert result.data.shape[1] == round(expected_shape[1], 0)
         assert (
-            f"Resampling image array to new size: {round(float(expected_shape[0]), 1)}/{round(float(expected_shape[1]), 1)} with scale: x:{round(x_factor, 1)}, y:{round(y_factor, 1)}"
+            f"Resampling image array to new size: {round(float(expected_shape[0]), 1)}/"
+            f"{round(float(expected_shape[1]), 1)} with scale: x:{round(x_factor, 1)}, y:{round(y_factor, 1)}"
             in caplog.messages
         )
 

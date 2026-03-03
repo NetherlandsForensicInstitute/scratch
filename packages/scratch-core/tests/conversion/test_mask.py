@@ -1,17 +1,17 @@
 from pathlib import Path
+
 import numpy as np
 import pytest
-from numpy.testing import assert_array_almost_equal
-
+from container_models.base import BinaryMask
+from container_models.scan_image import ScanImage
 from conversion.mask import (
-    mask_2d_array,
     crop_to_mask,
     get_bounding_box,
+    mask_2d_array,
     mask_and_crop_2d_array,
     mask_and_crop_scan_image,
 )
-from container_models.scan_image import ScanImage
-from container_models.base import BinaryMask
+from numpy.testing import assert_array_almost_equal
 
 
 class TestMask2dArray:
@@ -128,7 +128,7 @@ class TestDetermineBoundingBox:
         return mask
 
     @pytest.mark.parametrize(
-        "margin, output_slice",
+        ("margin", "output_slice"),
         [
             pytest.param(0, slice(2, 8), id="Normal bounding box, no margin"),
             pytest.param(0, slice(2, 8), id="Normal bounding box, no marginx"),
@@ -137,9 +137,7 @@ class TestDetermineBoundingBox:
             pytest.param(-5, slice(0, 10), id="Margin bounding box out of bounds"),
         ],
     )
-    def test_bounding_box_slices_with_margin(
-        self, mask: BinaryMask, margin: int, output_slice: slice
-    ):
+    def test_bounding_box_slices_with_margin(self, mask: BinaryMask, margin: int, output_slice: slice):
         """Test bounding boxes with different margins."""
         x_slice, y_slice = get_bounding_box(mask, margin)
 
@@ -147,19 +145,12 @@ class TestDetermineBoundingBox:
         assert x_slice == output_slice
 
     @pytest.mark.parametrize(
-        "margin, output_slice_y, output_slice_x",
+        ("margin", "output_slice_y", "output_slice_x"),
         [
-            pytest.param(
-                0, slice(2, 8), slice(3, 15), id="Normal bounding box, no margin"
-            ),
-            pytest.param(
-                0, slice(2, 8), slice(3, 15), id="Normal bounding box, no margin"
-            ),
+            pytest.param(0, slice(2, 8), slice(3, 15), id="Normal bounding box, no margin"),
             pytest.param(1, slice(3, 7), slice(4, 14), id="Decrease bounding box"),
             pytest.param(-1, slice(1, 9), slice(2, 16), id="Increase bounding box"),
-            pytest.param(
-                -20, slice(0, 10), slice(0, 20), id="Margin bounding box out of bounds"
-            ),
+            pytest.param(-20, slice(0, 10), slice(0, 20), id="Margin bounding box out of bounds"),
         ],
     )
     def test_asymmetric_bounding_box_slices_with_margin(
@@ -206,22 +197,14 @@ class TestDetermineBoundingBox:
 
 class TestCropScanImage:
     @pytest.mark.integration
-    def test_mask_scan_image(
-        self, scan_image_replica: ScanImage, mask_array: BinaryMask
-    ):
-        masked_scan_image = mask_and_crop_scan_image(
-            scan_image=scan_image_replica, mask=mask_array, crop=False
-        )
+    def test_mask_scan_image(self, scan_image_replica: ScanImage, mask_array: BinaryMask):
+        masked_scan_image = mask_and_crop_scan_image(scan_image=scan_image_replica, mask=mask_array, crop=False)
         nans = np.isnan(scan_image_replica.data) | ~mask_array
         assert np.array_equal(nans, np.isnan(masked_scan_image.data))
 
     @pytest.mark.integration
-    def test_crop_scan_image(
-        self, scan_image_replica: ScanImage, mask_array: BinaryMask
-    ):
-        cropped_scan_image = mask_and_crop_scan_image(
-            scan_image=scan_image_replica, mask=mask_array, crop=True
-        )
+    def test_crop_scan_image(self, scan_image_replica: ScanImage, mask_array: BinaryMask):
+        cropped_scan_image = mask_and_crop_scan_image(scan_image=scan_image_replica, mask=mask_array, crop=True)
         assert cropped_scan_image.width < scan_image_replica.width
         assert cropped_scan_image.height < scan_image_replica.height
 
@@ -231,7 +214,5 @@ def test_get_image_for_display_matches_baseline_image(
     scan_image_with_nans: ScanImage, mask_array: BinaryMask, baseline_images_dir: Path
 ):
     verified = np.load(baseline_images_dir / "masked_cropped_array.npy")
-    masked_cropped_array = mask_and_crop_2d_array(
-        scan_image_with_nans.data, mask_array, crop=True
-    )
+    masked_cropped_array = mask_and_crop_2d_array(scan_image_with_nans.data, mask_array, crop=True)
     assert_array_almost_equal(masked_cropped_array, verified)

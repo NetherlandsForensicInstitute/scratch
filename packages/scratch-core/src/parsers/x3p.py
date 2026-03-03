@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import NamedTuple
 
 import numpy as np
-from returns.pipeline import flow
-from x3p import X3Pfile
-from returns.result import safe
-from returns.io import impure_safe
 from container_models.scan_image import ScanImage
+from returns.io import impure_safe
+from returns.pipeline import flow
+from returns.result import safe
 from utils.logger import log_railway_function
+from x3p import X3Pfile
 from x3p._x3pfileclasses import Ax
 
 
@@ -103,6 +103,5 @@ def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
     :returns: An ``IOResult[Path, Exception]`` — ``IOSuccess(Path)`` on success,
               or ``IOFailure(Exception)`` if an error occurs.
     """
-
     x3p.write(str(output_path))
     return output_path

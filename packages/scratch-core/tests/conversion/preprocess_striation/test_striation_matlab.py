@@ -1,6 +1,4 @@
-"""
-Tests comparing Python preprocess_striation output with MATLAB PreprocessData.
-"""
+"""Tests comparing Python preprocess_striation output with MATLAB PreprocessData."""
 
 import json
 from dataclasses import dataclass, fields
@@ -8,21 +6,20 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from scipy.constants import micro
-
 from container_models.base import DepthData
 from conversion.data_formats import MarkType
-from ..helper_functions import make_mark
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_striation_mark,
 )
+from scipy.constants import micro
+
 from ..helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
+    make_mark,
 )
-
 
 MARK_TYPE_MAPPING = {
     "bullet lea striation": MarkType.BULLET_LEA_STRIATION,
@@ -144,17 +141,13 @@ def pytest_generate_tests(metafunc):
     if "test_case_name" not in metafunc.fixturenames:
         return
 
-    test_cases_dir = (
-        Path(__file__).parent.parent.parent / "resources" / "preprocess_striation"
-    )
+    test_cases_dir = Path(__file__).parent.parent.parent / "resources" / "preprocess_striation"
     cases = discover_test_cases(test_cases_dir)
     metafunc.parametrize("test_case_name", [c.name for c in cases])
 
 
 @pytest.fixture
-def test_case(
-    test_case_name: str, all_test_cases: list[MatlabTestCase]
-) -> MatlabTestCase:
+def test_case(test_case_name: str, all_test_cases: list[MatlabTestCase]) -> MatlabTestCase:
     """Get individual test case by name."""
     for case in all_test_cases:
         if case.name == test_case_name:
@@ -207,15 +200,11 @@ class TestPreprocessDataMatlabComparison:
         # Shape check
         row_diff = abs(matlab_depth.shape[0] - python_depth.shape[0])
         col_diff = abs(matlab_depth.shape[1] - python_depth.shape[1])
-        assert row_diff <= 1 and col_diff <= 1, (
-            f"{test_case.name}: shape mismatch "
-            f"{python_depth.shape} vs {matlab_depth.shape}"
-        )
+        assert row_diff <= 1, f"{test_case.name}: row shape mismatch {python_depth.shape} vs {matlab_depth.shape}"
+        assert col_diff <= 1, f"{test_case.name}: col shape mismatch {python_depth.shape} vs {matlab_depth.shape}"
 
         # Crop to common shape for value comparisons
-        python_depth, matlab_depth = _crop_to_common_shape(
-            python_depth, matlab_depth, center_crop=False
-        )
+        python_depth, matlab_depth = _crop_to_common_shape(python_depth, matlab_depth, center_crop=False)
 
         # Correlation check
         correlation = _compute_correlation(python_depth, matlab_depth)
@@ -249,9 +238,7 @@ class TestPreprocessDataMatlabComparison:
         python_profile = python_profile[:min_len]
         matlab_profile = matlab_profile[:min_len]
 
-        correlation = _compute_correlation(
-            python_profile.reshape(-1, 1), matlab_profile.reshape(-1, 1)
-        )
+        correlation = _compute_correlation(python_profile.reshape(-1, 1), matlab_profile.reshape(-1, 1))
 
         assert correlation > self.CORRELATION_THRESHOLD, (
             f"{test_case.name}: profile correlation {correlation:.4f} < {self.CORRELATION_THRESHOLD}"

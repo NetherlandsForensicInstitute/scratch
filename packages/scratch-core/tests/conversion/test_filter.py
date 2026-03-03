@@ -4,9 +4,7 @@ from functools import partial
 
 import numpy as np
 import pytest
-
 from conversion.filter import apply_gaussian_regression_filter
-
 
 CUTOFF: float = 5.0
 SEED: int = 42
@@ -79,12 +77,8 @@ class TestGaussianFilterFunction:
         """High-pass should return data - lowpass."""
         data = rng.random((30, 30)) * 100
 
-        lowpass = apply_gaussian_regression_filter(
-            data, cutoff_length=5.0, is_high_pass=False
-        )
-        highpass = apply_gaussian_regression_filter(
-            data, cutoff_length=5.0, is_high_pass=True
-        )
+        lowpass = apply_gaussian_regression_filter(data, cutoff_length=5.0, is_high_pass=False)
+        highpass = apply_gaussian_regression_filter(data, cutoff_length=5.0, is_high_pass=True)
 
         np.testing.assert_allclose(highpass, data - lowpass, rtol=1e-10)
 
@@ -205,15 +199,9 @@ class TestRegressionOrders:
         """Higher regression orders should preserve more local structure."""
         data = rng.random((30, 30)) * 100
 
-        result_r0 = apply_gaussian_regression_filter(
-            data, 5.0, regression_order=0, is_high_pass=True
-        )
-        result_r1 = apply_gaussian_regression_filter(
-            data, 5.0, regression_order=1, is_high_pass=True
-        )
-        result_r2 = apply_gaussian_regression_filter(
-            data, 5.0, regression_order=2, is_high_pass=True
-        )
+        result_r0 = apply_gaussian_regression_filter(data, 5.0, regression_order=0, is_high_pass=True)
+        result_r1 = apply_gaussian_regression_filter(data, 5.0, regression_order=1, is_high_pass=True)
+        result_r2 = apply_gaussian_regression_filter(data, 5.0, regression_order=2, is_high_pass=True)
 
         # Higher orders should have lower std in high-pass output
         # (they preserve more structure, so less ends up in high-pass)

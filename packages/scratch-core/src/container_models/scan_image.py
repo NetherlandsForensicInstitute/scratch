@@ -2,7 +2,8 @@ from functools import cached_property
 
 import numpy as np
 from pydantic import Field
-from .base import ConfigBaseModel, BinaryMask, FloatArray1D, DepthData
+
+from .base import BinaryMask, ConfigBaseModel, DepthData, FloatArray1D
 
 
 class ScanImage(ConfigBaseModel):

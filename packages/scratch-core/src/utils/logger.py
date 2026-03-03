@@ -1,8 +1,9 @@
+import logging
+from collections.abc import Callable
 from enum import Enum
 from functools import wraps
-import logging
-from typing import Any, Callable, Final
 from itertools import chain
+from typing import Any, Final
 
 from loguru import logger
 from returns.io import IOFailure, IOResult, IOSuccess
@@ -29,6 +30,13 @@ class FailureLevel(Enum):
 
 
 def log_failure(failure_message: str, failure_level: FailureLevel, error: str) -> None:
+    """
+    Log a failure message at the specified severity level.
+
+    :param failure_message: Human-readable failure description.
+    :param failure_level: Severity level to log at (warning, error, or critical).
+    :param error: Detailed error string, logged at debug level.
+    """
     logger.debug(f"{failure_message}: {error}")
     match failure_level:
         case FailureLevel.WARNING:
@@ -72,6 +80,17 @@ def log_railway_function(
     success_message: str | None = None,
     failure_level: FailureLevel = FailureLevel.ERROR,
 ):
+    """
+    Decorate a railway-oriented function to log its success or failure.
+
+    Inspects the return value and logs based on whether the Result
+    or IOResult container holds a success or failure value.
+
+    :param failure_message: Message to log when the result is a failure.
+    :param success_message: Message to log on success, or None to skip.
+    :param failure_level: Logging level for failure messages.
+    """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -80,13 +99,9 @@ def log_railway_function(
             result = func(*args, **kwargs)
             match result:
                 case IOResult():
-                    _log_io_container(
-                        result, failure_message, success_message, failure_level
-                    )
+                    _log_io_container(result, failure_message, success_message, failure_level)
                 case Result():
-                    _log_container(
-                        result, failure_message, success_message, failure_level
-                    )
+                    _log_container(result, failure_message, success_message, failure_level)
             return result
 
         return wrapper

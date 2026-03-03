@@ -1,11 +1,5 @@
 import numpy as np
 import pytest
-from matplotlib import pyplot as plt
-from scipy.constants import micro
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.figure import Figure
-from matplotlib.transforms import Bbox
-
 from conversion.plots.utils import (
     draw_metadata_box,
     figure_to_array,
@@ -20,6 +14,11 @@ from conversion.plots.utils import (
     plot_profiles_on_axes,
     plot_side_by_side_on_axes,
 )
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
+from matplotlib.transforms import Bbox
+from scipy.constants import micro
 
 from .helper_functions import (
     assert_valid_rgb_image,
@@ -43,7 +42,7 @@ class TestFigureToArray:
 
 class TestGetFigDimensions:
     @pytest.mark.parametrize(
-        "height,width,expected_width",
+        ("height", "width", "expected_width"),
         [
             (100, 200, 10),
             (200, 100, 10),
@@ -255,12 +254,10 @@ class TestPlotDepthMapWithAxes:
         )
         assert_valid_rgb_image(result)
 
-    def test_handles_nan_values(self):
-        data = np.random.randn(50, 60) * micro
+    def test_handles_nan_values(self, rng: np.random.Generator):
+        data = rng.standard_normal((50, 60)) * micro
         data[10:20, 10:20] = np.nan
-        result = plot_depth_map_with_axes(
-            data=data, scale=1.5 * micro, title="With NaN"
-        )
+        result = plot_depth_map_with_axes(data=data, scale=1.5 * micro, title="With NaN")
         assert_valid_rgb_image(result)
 
     def test_square_data(self):
@@ -287,17 +284,13 @@ class TestPlotDepthMapWithAxes:
 class TestPlotDepthmapOnAxes:
     def test_creates_image(self, striation_surface_reference):
         fig, ax = plt.subplots()
-        plot_depth_map_on_axes(
-            ax, fig, striation_surface_reference, 1.5625 * micro, "Test"
-        )
+        plot_depth_map_on_axes(ax, fig, striation_surface_reference, 1.5625 * micro, "Test")
         assert len(ax.images) == 1
         plt.close(fig)
 
     def test_sets_title(self, striation_surface_reference):
         fig, ax = plt.subplots()
-        plot_depth_map_on_axes(
-            ax, fig, striation_surface_reference, 1.5625 * micro, "My Title"
-        )
+        plot_depth_map_on_axes(ax, fig, striation_surface_reference, 1.5625 * micro, "My Title")
         assert ax.get_title() == "My Title"
         plt.close(fig)
 
@@ -334,9 +327,7 @@ class TestPlotProfilesOnAxes:
 
 
 class TestPlotSideBySideOnAxes:
-    def test_creates_combined_image(
-        self, striation_surface_reference, striation_surface_compared
-    ):
+    def test_creates_combined_image(self, striation_surface_reference, striation_surface_compared):
         fig, ax = plt.subplots()
         plot_side_by_side_on_axes(
             ax,
@@ -348,9 +339,7 @@ class TestPlotSideBySideOnAxes:
         assert len(ax.images) == 1
         plt.close(fig)
 
-    def test_combined_width_includes_gap(
-        self, striation_surface_reference, striation_surface_compared
-    ):
+    def test_combined_width_includes_gap(self, striation_surface_reference, striation_surface_compared):
         fig, ax = plt.subplots()
         plot_side_by_side_on_axes(
             ax,
@@ -361,8 +350,6 @@ class TestPlotSideBySideOnAxes:
         )
         image_data = ax.images[0].get_array()
         assert image_data is not None
-        expected_min_width = (
-            striation_surface_reference.shape[1] + striation_surface_compared.shape[1]
-        )
+        expected_min_width = striation_surface_reference.shape[1] + striation_surface_compared.shape[1]
         assert image_data.shape[1] > expected_min_width
         plt.close(fig)

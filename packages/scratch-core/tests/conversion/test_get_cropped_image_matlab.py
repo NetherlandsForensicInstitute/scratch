@@ -1,6 +1,4 @@
-"""
-Tests comparing Python get_cropped_image output with MATLAB GetPreviewImageForCropping.
-"""
+"""Tests comparing Python get_cropped_image output with MATLAB GetPreviewImageForCropping."""
 
 import json
 from dataclasses import dataclass, field, fields
@@ -8,16 +6,16 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from scipy.constants import micro
-
-from container_models.base import FloatArray2D, BinaryMask
+from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.get_cropped_image import get_cropped_image
 from conversion.leveling import SurfaceTerms
+from scipy.constants import micro
+
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
 )
 
 LEVEL_METHOD_MAP = {
@@ -107,10 +105,7 @@ class MatlabTestCase:
             return True
         if not self.output_xdim or not self.output_ydim:
             return False
-        return (
-            abs(self.output_xdim - self.input_xdim) > 1e-12
-            or abs(self.output_ydim - self.input_ydim) > 1e-12
-        )
+        return abs(self.output_xdim - self.input_xdim) > 1e-12 or abs(self.output_ydim - self.input_ydim) > 1e-12
 
     @property
     def is_empty_mask(self) -> bool:
@@ -148,20 +143,13 @@ def pytest_generate_tests(metafunc):
     if "test_case_name" not in metafunc.fixturenames:
         return
 
-    test_cases_dir = (
-        Path(__file__).parent.parent
-        / "resources"
-        / "baseline_images"
-        / "get_cropped_image"
-    )
+    test_cases_dir = Path(__file__).parent.parent / "resources" / "baseline_images" / "get_cropped_image"
     cases = discover_test_cases(test_cases_dir)
     metafunc.parametrize("test_case_name", [c.name for c in cases])  # <-- created here
 
 
 @pytest.fixture
-def test_case(
-    test_case_name: str, all_test_cases: list[MatlabTestCase]
-) -> MatlabTestCase:
+def test_case(test_case_name: str, all_test_cases: list[MatlabTestCase]) -> MatlabTestCase:
     """Get individual test case by name."""
     for case in all_test_cases:
         if case.name == test_case_name:
@@ -178,9 +166,7 @@ def run_python_preprocessing(test_case: MatlabTestCase) -> FloatArray2D:
     )
 
     resampling_factors = (
-        (test_case.resampling_factor, test_case.resampling_factor)
-        if test_case.resampling_factor
-        else None
+        (test_case.resampling_factor, test_case.resampling_factor) if test_case.resampling_factor else None
     )
     return get_cropped_image(
         scan_image=scan_image,
@@ -217,31 +203,27 @@ class TestGetCroppedImageMatlabComparison:
 
         # Empty mask case
         if test_case.is_empty_mask:
-            assert np.all(np.isnan(python_result)), (
-                f"{test_case.name}: empty mask should produce all-NaN output"
-            )
+            assert np.all(np.isnan(python_result)), f"{test_case.name}: empty mask should produce all-NaN output"
             return
 
         # Shape check
         max_diff = 2 if test_case.involves_resampling else 1
         row_diff = abs(matlab_result.shape[0] - python_result.shape[0])
         col_diff = abs(matlab_result.shape[1] - python_result.shape[1])
-        assert row_diff <= max_diff and col_diff <= max_diff, (
-            f"{test_case.name}: shape mismatch "
-            f"{python_result.shape} vs {matlab_result.shape}"
+        assert row_diff <= max_diff, (
+            f"{test_case.name}: row shape mismatch {python_result.shape} vs {matlab_result.shape}"
+        )
+        assert col_diff <= max_diff, (
+            f"{test_case.name}: col shape mismatch {python_result.shape} vs {matlab_result.shape}"
         )
 
         # Crop to common shape for value comparisons
-        python_result, matlab_result = _crop_to_common_shape(
-            python_result, matlab_result
-        )
+        python_result, matlab_result = _crop_to_common_shape(python_result, matlab_result)
         corr_threshold, std_threshold = self._get_thresholds(test_case)
 
         # Correlation check
         correlation = _compute_correlation(python_result, matlab_result)
-        assert correlation > corr_threshold, (
-            f"{test_case.name}: correlation {correlation:.4f} < {corr_threshold}"
-        )
+        assert correlation > corr_threshold, f"{test_case.name}: correlation {correlation:.4f} < {corr_threshold}"
 
         # Difference check
         stats = _compute_difference_stats(python_result, matlab_result)
@@ -249,6 +231,4 @@ class TestGetCroppedImageMatlabComparison:
         matlab_result_std = np.nanstd(matlab_result)
         combined_std = np.sqrt(python_result_std**2 + matlab_result_std**2)
         relative_std = stats["std"] / combined_std if combined_std > 0 else np.inf
-        assert relative_std < std_threshold, (
-            f"{test_case.name}: relative_std {relative_std:.4f} > {std_threshold}"
-        )
+        assert relative_std < std_threshold, f"{test_case.name}: relative_std {relative_std:.4f} > {std_threshold}"

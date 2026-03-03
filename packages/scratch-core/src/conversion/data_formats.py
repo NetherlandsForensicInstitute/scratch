@@ -1,26 +1,23 @@
-from typing import Annotated
-from enum import StrEnum
 import json
-
-from container_models.base import (
-    FloatArray2D,
-)
-
+from enum import StrEnum
 from functools import partial
-from pydantic import (
-    Field,
-    computed_field,
-    AfterValidator,
-    PlainSerializer,
-    BeforeValidator,
-)
-from numpy import float64
+from typing import Annotated
+
 from container_models.base import (
     ConfigBaseModel,
+    FloatArray2D,
     coerce_to_array,
     serialize_ndarray,
 )
 from container_models.scan_image import ScanImage
+from numpy import float64
+from pydantic import (
+    AfterValidator,
+    BeforeValidator,
+    Field,
+    PlainSerializer,
+    computed_field,
+)
 
 
 class MarkType(StrEnum):
@@ -42,9 +39,11 @@ class MarkType(StrEnum):
     FIRING_PIN_DRAG_STRIATION = "firing pin drag striation mark"
 
     def is_impression(self) -> bool:
+        """Check if this mark type is an impression mark."""
         return "IMPRESSION" in self.name
 
     def is_striation(self) -> bool:
+        """Check if this mark type is a striation mark."""
         return "STRIATION" in self.name
 
     @property
@@ -55,7 +54,7 @@ class MarkType(StrEnum):
 
 
 def validate_rectangle_corners(arr: FloatArray2D) -> FloatArray2D:
-    """Validate that array has shape (4, 2)"""
+    """Validate that array has shape (4, 2)."""
     if arr.shape != (4, 2):
         raise ValueError(f"Rectangle must have shape (4, 2), got {arr.shape}")
     return arr
@@ -71,9 +70,7 @@ BoundingBox = Annotated[
 
 
 class Mark(ConfigBaseModel):
-    """
-    Representation of a mark (impression or striation)
-    """
+    """Representation of a mark (impression or striation)."""
 
     scan_image: ScanImage
     mark_type: MarkType

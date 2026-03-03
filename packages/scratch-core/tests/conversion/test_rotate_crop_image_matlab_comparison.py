@@ -1,6 +1,4 @@
-"""
-Tests comparing Python rotate_crop_image output with MATLAB RotateCropImage.
-"""
+"""Tests comparing Python rotate_crop_image output with MATLAB RotateCropImage."""
 
 import json
 import re
@@ -9,16 +7,16 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from scipy.constants import micro
-
-from container_models.base import FloatArray2D, BinaryMask
+from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import get_rotation_angle, rotate_crop_and_mask_image_by_crop
+from scipy.constants import micro
+
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
 )
 
 
@@ -114,20 +112,13 @@ def pytest_generate_tests(metafunc):
     if "test_case_name" not in metafunc.fixturenames:
         return
 
-    test_cases_dir = (
-        Path(__file__).parent.parent
-        / "resources"
-        / "baseline_images"
-        / "rotate_crop_image"
-    )
+    test_cases_dir = Path(__file__).parent.parent / "resources" / "baseline_images" / "rotate_crop_image"
     cases = discover_test_cases(test_cases_dir)
     metafunc.parametrize("test_case_name", [c.name for c in cases])
 
 
 @pytest.fixture
-def test_case(
-    test_case_name: str, all_test_cases: list[MatlabTestCase]
-) -> MatlabTestCase:
+def test_case(test_case_name: str, all_test_cases: list[MatlabTestCase]) -> MatlabTestCase:
     """Get individual test case by name."""
     for case in all_test_cases:
         if case.name == test_case_name:
@@ -183,10 +174,8 @@ class TestRotateCropImageMatlabComparison:
         max_diff = 5 if test_case.involves_rotation else 2
         row_diff = abs(matlab_data.shape[0] - python_data.shape[0])
         col_diff = abs(matlab_data.shape[1] - python_data.shape[1])
-        assert row_diff <= max_diff and col_diff <= max_diff, (
-            f"{test_case.name}: shape mismatch "
-            f"{python_data.shape} vs {matlab_data.shape}"
-        )
+        assert row_diff <= max_diff, f"{test_case.name}: row shape mismatch {python_data.shape} vs {matlab_data.shape}"
+        assert col_diff <= max_diff, f"{test_case.name}: col shape mismatch {python_data.shape} vs {matlab_data.shape}"
 
         # Crop to common shape for value comparisons
         python_data, matlab_data = _crop_to_common_shape(python_data, matlab_data)
@@ -210,9 +199,7 @@ class TestRotateCropImageMatlabComparison:
         matlab_result_std = np.nanstd(matlab_data)
         combined_std = np.sqrt(python_result_std**2 + matlab_result_std**2)
         relative_std = stats["std"] / combined_std if combined_std > 0 else np.inf
-        assert relative_std < std_threshold, (
-            f"{test_case.name}: relative_std {relative_std:.4f} > {std_threshold}"
-        )
+        assert relative_std < std_threshold, f"{test_case.name}: relative_std {relative_std:.4f} > {std_threshold}"
 
     def test_rotation_angle_calculation(self, test_case: MatlabTestCase):
         """Test that rotation angle is calculated correctly from corners."""

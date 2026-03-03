@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import numpy as np
-
 from conversion.export.utils import check_if_file_exists
 from conversion.profile_correlator import Profile
 

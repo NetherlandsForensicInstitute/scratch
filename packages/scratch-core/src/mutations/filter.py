@@ -1,9 +1,7 @@
 from typing import NamedTuple
 
 import numpy as np
-from loguru import logger
-
-from container_models.base import FloatArray1D, FloatArray2D, BinaryMask
+from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.filter import apply_gaussian_regression_filter
 from conversion.leveling.data_types import SurfaceTerms
@@ -11,8 +9,10 @@ from conversion.leveling.solver.design import build_design_matrix
 from conversion.leveling.solver.grid import get_2d_grid
 from conversion.leveling.solver.transforms import normalize_coordinates
 from exceptions import ImageShapeMismatchError
-from mutations.base import ImageMutation
+from loguru import logger
 from utils.constants import RegressionOrder
+
+from mutations.base import ImageMutation
 
 
 class PointCloud(NamedTuple):
@@ -50,9 +50,7 @@ class Mask(ImageMutation):
         :returns: bool `True` if the mutation can be skipped, otherwise `False`.
         """
         if self.mask.all():
-            logger.warning(
-                "skipping masking, Mask area is not containing any masking fields."
-            )
+            logger.warning("skipping masking, Mask area is not containing any masking fields.")
             return True
         return False
 
@@ -75,40 +73,28 @@ class Mask(ImageMutation):
 
 class LevelMap(ImageMutation):
     """
-    Image mutation that performs surface leveling by fitting and subtracting
-    a polynomial surface from a scan image.
+    Image mutation that performs surface leveling by fitting and subtracting a polynomial surface from a scan image.
 
     The valid pixels of the input `ScanImage` are interpreted as a 3D point
     cloud (X, Y, Z). A polynomial surface, defined by `SurfaceTerms`, is fitted
     to this data using a least-squares approach.
     The fitted surface is then subtracted from the original height data.
 
-    Coordinates are translated such that the given reference point becomes
-    the origin and are normalized for numerical stability.
-
-    Parameters
-    ----------
-    x_reference_point : float
-        X-coordinate used as the origin for surface fitting.
-    y_reference_point : float
-        Y-coordinate used as the origin for surface fitting.
-    terms : SurfaceTerms
-        Polynomial surface terms defining the fitted surface.
+    :param x_reference_point: X-coordinate used as the origin for surface fitting.
+    :param y_reference_point: Y-coordinate used as the origin for surface fitting.
+    :param terms: Polynomial surface terms defining the fitted surface.
     """
 
-    def __init__(
-        self, x_reference_point: float, y_reference_point: float, terms: SurfaceTerms
-    ) -> None:
+    def __init__(self, x_reference_point: float, y_reference_point: float, terms: SurfaceTerms) -> None:
         self.x_reference_point = x_reference_point
         self.y_reference_point = y_reference_point
         self.terms = terms
 
     @staticmethod
-    def solve_least_squares(
-        design_matrix: FloatArray2D, zs: FloatArray1D
-    ) -> FloatArray1D:
+    def solve_least_squares(design_matrix: FloatArray2D, zs: FloatArray1D) -> FloatArray1D:
         """
         Solve the least squares problem to find polynomial coefficients.
+
         :param design_matrix: The design matrix constructed from polynomial terms.
         :param zs: The Z-values (height data) to fit.
         :returns: Array of polynomial coefficients.
@@ -119,36 +105,30 @@ class LevelMap(ImageMutation):
         ) = np.linalg.lstsq(design_matrix, zs, rcond=None)
         return coefficients
 
-    def _evaluate_fitted_surface(
-        self, point_cloud: PointCloud, terms: SurfaceTerms
-    ) -> FloatArray1D:
+    def _evaluate_fitted_surface(self, point_cloud: PointCloud, terms: SurfaceTerms) -> FloatArray1D:
         """
         Core solver: fits a surface to the point cloud.
+
         :param point_cloud: PointCloud containing the X, Y, and Z coordinates.
         :param terms: The surface terms to use in the polynomial fitting.
         :returns: 1D array containing the fitted surface values (zs).
         """
         normalized = normalize_coordinates(point_cloud.xs, point_cloud.ys)
         design_matrix = build_design_matrix(normalized.xs, normalized.ys, terms)
-        coefficients = self.solve_least_squares(
-            design_matrix=design_matrix, zs=point_cloud.zs
-        )
+        coefficients = self.solve_least_squares(design_matrix=design_matrix, zs=point_cloud.zs)
         return design_matrix @ coefficients
 
     @staticmethod
-    def _generate_point_cloud(
-        scan_image: ScanImage, x_reference_point: float, y_reference_point: float
-    ) -> PointCloud:
+    def _generate_point_cloud(scan_image: ScanImage, x_reference_point: float, y_reference_point: float) -> PointCloud:
         """
         Generate a 3D point cloud from a scan image with coordinates centered at a reference point.
+
         :param scan_image: The scan image containing the height data and mask.
         :param x_reference_point: x in physical coordinates to use as the origin.
         :param y_reference_point: y in physical coordinates to use as the origin.
         :returns: PointCloud containing the valid X, Y, and Z coordinates.
         """
-        x_grid, y_grid = get_2d_grid(
-            scan_image, offset=(-x_reference_point, -y_reference_point)
-        )
+        x_grid, y_grid = get_2d_grid(scan_image, offset=(-x_reference_point, -y_reference_point))
         xs, ys, zs = (
             x_grid[scan_image.valid_mask],
             y_grid[scan_image.valid_mask],
@@ -159,6 +139,7 @@ class LevelMap(ImageMutation):
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
         Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
+
         This computation effectively acts as a high-pass filter on the image data.
         :param scan_image: The scan image containing the image data to level.
         :returns: scan_image with the array containing the leveled scan data (original data minus fitted surface).
@@ -190,6 +171,7 @@ class GausianRegressionFilter(ImageMutation):  # pragma: no cover
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
         Apply a 2D Savitzky-Golay filter with Gaussian weighting via local polynomial regression (ISO 16610-21).
+
         This implementation generalizes standard Gaussian filtering to handle missing data (NaNs) using local
         regression techniques. It supports 0th order (Gaussian Kernel weighted average), 1st order (planar fit),
         and 2nd order (quadratic fit) regression.
@@ -209,7 +191,6 @@ class GausianRegressionFilter(ImageMutation):  # pragma: no cover
         :param scan_image: Gausian filter is applied on this scan_image data.
         :returns: ScanImage with the filtered 2D array.
         """
-
         pixel_size = (scan_image.scale_y, scan_image.scale_x)
         scan_image.data = apply_gaussian_regression_filter(
             data=scan_image.data,

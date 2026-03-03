@@ -1,15 +1,14 @@
 import pytest
-from scipy.constants import micro
-
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.get_cropped_image import get_cropped_image
 from conversion.leveling import SurfaceTerms
+from scipy.constants import micro
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "terms, regression_order",
+    ("terms", "regression_order"),
     [
         (SurfaceTerms.PLANE, 0),
         (SurfaceTerms.PLANE, 1),

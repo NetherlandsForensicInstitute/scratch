@@ -1,20 +1,19 @@
 from datetime import datetime
 
 import matplotlib.pyplot as plt
-from scipy.constants import mega
 import numpy as np
+from container_models.base import FloatArray2D, ImageRGB
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.constants import mega
 
-from container_models.base import FloatArray2D, ImageRGB
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
     ImpressionComparisonPlots,
 )
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-
 from conversion.plots.utils import (
     DEFAULT_COLORMAP,
     draw_metadata_box,
@@ -107,9 +106,7 @@ def plot_impression_comparison_results(
         show_all_cells=False,
         cell_positions=metrics.cell_positions_compared,
         cell_rotations=metrics.cell_rotations_compared,
-        cell_size_um=cell_size_um
-        if metrics.cell_positions_compared is not None
-        else None,
+        cell_size_um=cell_size_um if metrics.cell_positions_compared is not None else None,
     )
     cell_overlay = plot_cell_grid_overlay(
         data=mark_reference_filtered.scan_image.data,
@@ -239,7 +236,7 @@ def plot_cell_correlation_heatmap(
     return arr
 
 
-def plot_comparison_overview(
+def plot_comparison_overview(  # noqa: PLR0915
     mark_reference_leveled: Mark,
     mark_compared_leveled: Mark,
     mark_reference_filtered: Mark,
@@ -285,14 +282,10 @@ def plot_comparison_overview(
     results_items["Data spacing (X)"] = f"{scale_x_um:.4f} µm"
     results_items["Data spacing (Y)"] = f"{scale_y_um:.4f} µm"
     results_items["Cutoff length low-pass filter"] = f"{metrics.cutoff_low_pass:.0f} µm"
-    results_items["Cutoff length high-pass filter"] = (
-        f"{metrics.cutoff_high_pass:.0f} µm"
-    )
+    results_items["Cutoff length high-pass filter"] = f"{metrics.cutoff_high_pass:.0f} µm"
     results_items["Cell Size"] = f"{metrics.cell_size_um:.0f} µm"
     results_items["Minimum cell similarity"] = f"{metrics.cell_similarity_threshold}"
-    results_items["Max error cell position"] = (
-        f"{metrics.max_error_cell_position:.0f} µm"
-    )
+    results_items["Max error cell position"] = f"{metrics.max_error_cell_position:.0f} µm"
     results_items["Max error cell angle"] = f"{metrics.max_error_cell_angle:.0f} degree"
 
     max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
@@ -373,9 +366,7 @@ def plot_comparison_overview(
         cell_similarity_threshold=metrics.cell_similarity_threshold,
         show_all_cells=True,
     )
-    ax_filtered_ref.set_title(
-        "Filtered Reference Surface A", fontsize=12, fontweight="bold"
-    )
+    ax_filtered_ref.set_title("Filtered Reference Surface A", fontsize=12, fontweight="bold")
     divider_ref = make_axes_locatable(ax_filtered_ref)
     cax_ref = divider_ref.append_axes("right", size="5%", pad=0.05)
     cbar_ref = fig.colorbar(im_ref, cax=cax_ref, label="Scan Depth [µm]")
@@ -398,13 +389,9 @@ def plot_comparison_overview(
         show_all_cells=False,
         cell_positions=metrics.cell_positions_compared,
         cell_rotations=metrics.cell_rotations_compared,
-        cell_size_um=cell_size_um
-        if metrics.cell_positions_compared is not None
-        else None,
+        cell_size_um=cell_size_um if metrics.cell_positions_compared is not None else None,
     )
-    ax_filtered_comp.set_title(
-        "Filtered Compared Surface B", fontsize=12, fontweight="bold"
-    )
+    ax_filtered_comp.set_title("Filtered Compared Surface B", fontsize=12, fontweight="bold")
     divider_comp = make_axes_locatable(ax_filtered_comp)
     cax_comp = divider_comp.append_axes("right", size="5%", pad=0.05)
     cbar_comp = fig.colorbar(im_comp, cax=cax_comp, label="Scan Depth [µm]")
@@ -433,9 +420,7 @@ def plot_comparison_overview(
     return arr
 
 
-def _get_grid_positions(
-    n_rows: int, n_cols: int, cell_w_um: float, cell_h_um: float
-) -> np.ndarray:
+def _get_grid_positions(n_rows: int, n_cols: int, cell_w_um: float, cell_h_um: float) -> np.ndarray:
     """Return (n_rows * n_cols, 2) array of cell center positions in µm."""
     positions = np.empty((n_rows * n_cols, 2), dtype=np.float64)
     for i in range(n_rows):
@@ -497,9 +482,7 @@ def _draw_cell_labels(
 
     w, h = cell_size
     half_w, half_h = w / 2, h / 2
-    base_corners = np.array(
-        [[-half_w, -half_h], [half_w, -half_h], [half_w, half_h], [-half_w, half_h]]
-    )
+    base_corners = np.array([[-half_w, -half_h], [half_w, -half_h], [half_w, half_h], [-half_w, half_h]])
 
     for color, cells in [("black", cmc_cells), ("red", non_cmc_cells)]:
         for i, j, idx in cells:
@@ -589,15 +572,9 @@ def plot_cell_overlay_on_axes(
     cell_h_um = height * scale * mega / n_rows
 
     positions = (
-        cell_positions
-        if cell_positions is not None
-        else _get_grid_positions(n_rows, n_cols, cell_w_um, cell_h_um)
+        cell_positions if cell_positions is not None else _get_grid_positions(n_rows, n_cols, cell_w_um, cell_h_um)
     )
-    rotations = (
-        cell_rotations
-        if cell_rotations is not None
-        else np.zeros(n_rows * n_cols, dtype=np.float64)
-    )
+    rotations = cell_rotations if cell_rotations is not None else np.zeros(n_rows * n_cols, dtype=np.float64)
     cell_size = cell_size_um or (cell_w_um, cell_h_um)
 
     _draw_cell_labels(

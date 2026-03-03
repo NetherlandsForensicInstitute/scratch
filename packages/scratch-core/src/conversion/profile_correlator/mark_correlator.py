@@ -8,16 +8,16 @@ callers can visualise or further process the overlapping portion of each mark pa
 
 from conversion.data_formats import Mark
 from conversion.preprocess_impression.utils import update_mark_data
-from conversion.profile_correlator.profile_correlator import (
-    _calculate_idx_parameters,
-    correlate_profiles,
-)
-from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
     MarkCorrelationResult,
     Profile,
 )
+from conversion.profile_correlator.profile_correlator import (
+    _calculate_idx_parameters,
+    correlate_profiles,
+)
+from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.resample import resample_array_1d, resample_scan_image_and_mask
 
 
@@ -32,9 +32,7 @@ def _resample_mark_rows(mark: Mark, factor: float) -> Mark:
     :param factor: Scale factor for row pixel size.
     :returns: Resampled mark with updated scale_y.
     """
-    resampled_scan, _ = resample_scan_image_and_mask(
-        mark.scan_image, factors=(1.0, factor), only_downsample=False
-    )
+    resampled_scan, _ = resample_scan_image_and_mask(mark.scan_image, factors=(1.0, factor), only_downsample=False)
     return mark.model_copy(update={"scan_image": resampled_scan})
 
 
@@ -90,13 +88,9 @@ def correlate_striation_marks(
     mark_compared_aligned = _trim_mark(mark_compared_scaled, idx_compared, overlap_len)
 
     # 6. Re-derive profile overlap regions using the same indices
-    profile_reference_eq, profile_compared_eq = equalize_pixel_scale(
-        profile_reference, profile_compared
-    )
+    profile_reference_eq, profile_compared_eq = equalize_pixel_scale(profile_reference, profile_compared)
     heights_compared_scaled = resample_array_1d(profile_compared_eq.heights, scale)
-    ref_overlap = profile_reference_eq.heights[
-        idx_reference : idx_reference + overlap_len
-    ]
+    ref_overlap = profile_reference_eq.heights[idx_reference : idx_reference + overlap_len]
     comp_overlap = heights_compared_scaled[idx_compared : idx_compared + overlap_len]
 
     pixel_eq = results.pixel_size

@@ -1,6 +1,5 @@
 """
-Image Mutations Module
-======================
+Image Mutations Module.
 
 This package contains all available `ImageMutation` implementations.
 

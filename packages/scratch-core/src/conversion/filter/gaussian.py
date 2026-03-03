@@ -6,17 +6,17 @@ including NaN-aware filtering and striation-preserving 1D filters.
 """
 
 from math import ceil
-from scipy.special import lambertw
 
 import numpy as np
-
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
+from scipy.special import lambertw
+
 from conversion.filter.regression import (
-    create_normalized_separable_kernels,
-    create_gaussian_kernel_1d,
     apply_order0_filter,
     apply_polynomial_filter,
+    create_gaussian_kernel_1d,
+    create_normalized_separable_kernels,
 )
 
 # Constants based on ISO 16610 surface texture standards
@@ -110,7 +110,7 @@ def apply_gaussian_regression_filter(
     """
     # 1. Prepare Filter Parameters
     cutoff_pixels = cutoff_length / np.array(pixel_size)
-    alpha = ALPHA_REGRESSION if regression_order >= 2 else ALPHA_GAUSSIAN
+    alpha = ALPHA_REGRESSION if regression_order >= 2 else ALPHA_GAUSSIAN  # noqa: PLR2004
 
     # 2. Generate Base 1D Kernels
     kernel_x, kernel_y = create_normalized_separable_kernels(alpha, cutoff_pixels)
@@ -164,7 +164,6 @@ def apply_striation_preserving_filter_1d(
 
     :returns filtered_data: Filtered data.
     """
-
     # Apply 1D Gaussian filter along y-direction
     cropped_data = _apply_nan_weighted_gaussian_1d(
         scan_image,
@@ -215,13 +214,9 @@ def _apply_nan_weighted_gaussian_1d(
 
     kernel_1d = create_gaussian_kernel_1d(cutoff_pixel, bool(has_nans), ALPHA_GAUSSIAN)
     kernel_identity = np.array([1.0])
-    kernel_x, kernel_y = (
-        (kernel_identity, kernel_1d) if axis == 0 else (kernel_1d, kernel_identity)
-    )
+    kernel_x, kernel_y = (kernel_identity, kernel_1d) if axis == 0 else (kernel_1d, kernel_identity)
 
-    smoothed = apply_order0_filter(
-        data, kernel_x, kernel_y, mode="constant" if has_nans else "symmetric"
-    )
+    smoothed = apply_order0_filter(data, kernel_x, kernel_y, mode="constant" if has_nans else "symmetric")
 
     # Preserve invalid positions as NaN
     if has_nans:

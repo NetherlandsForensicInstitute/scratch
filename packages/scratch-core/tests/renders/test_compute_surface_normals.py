@@ -1,11 +1,11 @@
 from functools import partial
+
 import numpy as np
 import pytest
-from scipy.constants import milli
-
+from container_models.base import BinaryMask, VectorField
 from container_models.scan_image import ScanImage
 from renders import compute_surface_normals
-from container_models.base import BinaryMask, VectorField
+from scipy.constants import milli
 
 IMAGE_SIZE = 20
 BUMP_SIZE = 6
@@ -46,21 +46,13 @@ def are_normals_allclose(
 def is_all_nan(normals: VectorField, mask: BinaryMask) -> np.bool_:
     """All channels must be NaN within mask."""
     nx, ny, nz = normals[..., 0], normals[..., 1], normals[..., 2]
-    return (
-        np.isnan(nx[mask]).all()
-        and np.isnan(ny[mask]).all()
-        and np.isnan(nz[mask]).all()
-    )
+    return np.isnan(nx[mask]).all() and np.isnan(ny[mask]).all() and np.isnan(nz[mask]).all()
 
 
 def has_nan(normals: VectorField, mask: BinaryMask) -> np.bool_:
     """No channel should contain NaN within mask."""
     nx, ny, nz = normals[..., 0], normals[..., 1], normals[..., 2]
-    return (
-        np.isnan(nx[mask]).any()
-        and np.isnan(ny[mask]).any()
-        and np.isnan(nz[mask]).any()
-    )
+    return np.isnan(nx[mask]).any() and np.isnan(ny[mask]).any() and np.isnan(nz[mask]).any()
 
 
 @pytest.fixture(scope="module")
@@ -68,13 +60,8 @@ def flat_neutral_image() -> ScanImage:
     return NoScaleScanImage(data=np.zeros((IMAGE_SIZE, IMAGE_SIZE)))
 
 
-def test_slope_has_nan_border(
-    inner_mask: BinaryMask, outer_mask: BinaryMask, flat_neutral_image: ScanImage
-) -> None:
-    """
-    The image is 1 pixel smaller on all sides due to the slope calculation.
-    This is filled with NaN values to get the same shape as original image
-    """
+def test_slope_has_nan_border(inner_mask: BinaryMask, outer_mask: BinaryMask, flat_neutral_image: ScanImage) -> None:
+    """Slope calculation shrinks the image by 1px on each side, padded with NaN."""
     # Act
     surface_normals = compute_surface_normals(flat_neutral_image).unwrap()
 
@@ -83,11 +70,8 @@ def test_slope_has_nan_border(
     assert is_all_nan(surface_normals, outer_mask)
 
 
-def test_flat_surface_returns_flat_surface(
-    inner_mask: BinaryMask, flat_neutral_image: ScanImage
-) -> None:
+def test_flat_surface_returns_flat_surface(inner_mask: BinaryMask, flat_neutral_image: ScanImage) -> None:
     """Given a flat surface the depth map should also be flat."""
-
     # Act
     surface_normals = compute_surface_normals(flat_neutral_image).unwrap()
 
@@ -96,7 +80,7 @@ def test_flat_surface_returns_flat_surface(
 
 
 @pytest.mark.parametrize(
-    "step_x, step_y",
+    ("step_x", "step_y"),
     [
         pytest.param(2.0, 0.0, id="step increase in x"),
         pytest.param(0.0, 2.0, id="step increase in y"),
@@ -110,9 +94,7 @@ def test_linear_slope(step_x: float, step_y: float, inner_mask: BinaryMask) -> N
     # Arrange
     x_vals = np.arange(IMAGE_SIZE) * step_x
     y_vals = np.arange(IMAGE_SIZE) * step_y
-    input_image = ScanImage(
-        data=y_vals[:, None] + x_vals[None, :], scale_x=1, scale_y=1
-    )
+    input_image = ScanImage(data=y_vals[:, None] + x_vals[None, :], scale_x=1, scale_y=1)
     norm = np.sqrt(step_x**2 + step_y**2 + 1)
     expected = (-step_x / norm, step_y / norm, 1 / norm)
 
@@ -160,21 +142,17 @@ def test_location_slope_is_where_expected(
 
 
 def test_corner_of_slope(image_with_bump: ScanImage) -> None:
-    """Test if the corner of the slope is an extension of x, y"""
+    """Test if the corner of the slope is an extension of x, y."""
     # Arrange
     corner = (
         BUMP_CENTER - BUMP_SIZE // 2,
         BUMP_CENTER - BUMP_SIZE // 2,
     )
-    expected_corner_value = 1 / np.sqrt(
-        (BUMP_HEIGHT // 2) ** 2 + (BUMP_HEIGHT // 2) ** 2 + 1
-    )
+    expected_corner_value = 1 / np.sqrt((BUMP_HEIGHT // 2) ** 2 + (BUMP_HEIGHT // 2) ** 2 + 1)
 
     # Act
     surface_normals = compute_surface_normals(image_with_bump).unwrap()
     nz = surface_normals[..., 2]
 
     # Assert
-    assert nz[corner[0], corner[1]] == expected_corner_value, (
-        "corner of x and y should have unit normal of x and y"
-    )
+    assert nz[corner[0], corner[1]] == expected_corner_value, "corner of x and y should have unit normal of x and y"
