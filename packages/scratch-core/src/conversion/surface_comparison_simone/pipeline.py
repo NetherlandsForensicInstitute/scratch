@@ -1,10 +1,10 @@
-from conversion.surface_comparison.models import (
+from conversion.surface_comparison_simone.models import (
     SurfaceMap,
     ComparisonResult,
     ComparisonParams,
 )
-from conversion.surface_comparison.cell_registration import register_cells
-from conversion.surface_comparison.cmc_classification import (
+from conversion.surface_comparison_simone.cell_registration import register_cells
+from conversion.surface_comparison_simone.cmc_classification import (
     classify_congruent_cells,
 )
 

@@ -124,7 +124,9 @@ class TestCompareDatasetsNISTSimone:
     def _run_pipeline(self, test_case: MatlabTestCase) -> None:
         self.result = run_pipeline(test_case)
 
-    def test_res_scalar_fields(self, test_case: MatlabTestCase) -> None:
+    def test_res_scalar_fields(
+        self, test_case: MatlabTestCase, plot: bool = False
+    ) -> None:
         """Test that Res scalar output fields match MATLAB."""
         if not test_case.expected_results:
             pytest.skip("No comparable scalar fields in Res output")
@@ -136,42 +138,43 @@ class TestCompareDatasetsNISTSimone:
         cell_w_px = int(round(test_case.params.cell_size[0] / ref_scale_x))
         cell_h_px = int(round(test_case.params.cell_size[1] / ref_scale_y))
 
-        reference_plot = plot_rotated_squares(
-            image=test_case.reference_map.data,
-            squares=[
-                (
+        if plot:
+            reference_plot = plot_rotated_squares(
+                image=test_case.reference_map.data,
+                squares=[
                     (
-                        c.center_reference[0] / ref_scale_x,
-                        c.center_reference[1] / ref_scale_y,
-                    ),
-                    (cell_w_px, cell_h_px),
-                    0.0,
-                )
-                for c in self.result.cells
-            ],
-        )
+                        (
+                            c.center_reference[0] / ref_scale_x,
+                            c.center_reference[1] / ref_scale_y,
+                        ),
+                        (cell_w_px, cell_h_px),
+                        0.0,
+                    )
+                    for c in self.result.cells
+                ],
+            )
 
-        comparison_plot = plot_rotated_squares(
-            image=test_case.comparison_map.data,
-            squares=[
-                (
+            comparison_plot = plot_rotated_squares(
+                image=test_case.comparison_map.data,
+                squares=[
                     (
-                        c.center_comparison[0] / comp_scale_x,
-                        c.center_comparison[1] / comp_scale_y,
-                    ),
-                    (cell_w_px, cell_h_px),
-                    -np.degrees(c.registration_angle),
-                )
-                for c in self.result.cells
-                if not np.isnan(c.center_comparison).any()
-            ],
-        )
-        plot_side_by_side(
-            img1=reference_plot,
-            img2=comparison_plot,
-            title1="Reference",
-            title2="Comparison",
-        )
+                        (
+                            c.center_comparison[0] / comp_scale_x,
+                            c.center_comparison[1] / comp_scale_y,
+                        ),
+                        (cell_w_px, cell_h_px),
+                        -np.degrees(c.registration_angle),
+                    )
+                    for c in self.result.cells
+                    if not np.isnan(c.center_comparison).any()
+                ],
+            )
+            plot_side_by_side(
+                img1=reference_plot,
+                img2=comparison_plot,
+                title1="Reference",
+                title2="Comparison",
+            )
 
         failures = []
         for field, expected in test_case.expected_results.items():

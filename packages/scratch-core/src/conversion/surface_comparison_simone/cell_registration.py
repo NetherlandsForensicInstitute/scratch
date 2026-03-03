@@ -29,6 +29,7 @@ from conversion.surface_comparison_simone.models import (
     CellResult,
     ComparisonParams,
 )
+from conversion.surface_comparison_simone.grid import _find_grid_origin
 
 
 def _surface_map_to_map_struct(
@@ -93,6 +94,15 @@ def register_cells(
     1. Coarse angular sweep — evaluates ACCF at discrete angles.
     2. Gradient-based ECC fine registration — refines [dx, dy, θ] iteratively.
 
+    The grid origin is determined by ``_find_grid_origin``, which maximises
+    valid-data coverage across all cells (faithfully translating MATLAB's
+    ``cell_position_optim.m``). Its result is an [x, y] first-cell centre that
+    is converted to [row, col] and passed to the MATLAB engine as
+    ``vCellPosition``. This replaces the previous hard-coded image-centre seed,
+    which caused a cross-shaped grid (one full-size centre cell flanked by four
+    partial edge cells) instead of the intended 2×2 (or N×M) layout of
+    full-coverage cells.
+
     :param reference_map: Fixed reference surface.
     :param comparison_map: Moving comparison surface.
     :param params: CMC algorithm parameters.
@@ -100,15 +110,16 @@ def register_cells(
     """
     # Convert to MATLAB engine types
     map1 = _surface_map_to_map_struct(reference_map, angle=0.0)
-
-    # Comparison map angle: 0.0 (no initial rotation known)
     map2 = _surface_map_to_map_struct(comparison_map, angle=0.0)
 
     # Cell size: params uses [width, height] = [x, y], engine uses [row, col]
     vCellSize = np.array([params.cell_size[1], params.cell_size[0]])
 
-    # Cell position seed: centre of the map in [row, col]
-    vCellPosition = map1.vCenterL.copy()
+    # --- Grid origin via coverage-maximising optimisation ---
+    # _find_grid_origin returns the first-cell centre [x, y] in metres.
+    # Convert to [row, col] for the MATLAB engine.
+    origin_xy = _find_grid_origin(reference_map, params)
+    vCellPosition = _xy_to_rc(origin_xy)
 
     # Angular search range: params uses degrees, engine uses radians
     shiftAngleMin = np.radians(params.search_angle_min)

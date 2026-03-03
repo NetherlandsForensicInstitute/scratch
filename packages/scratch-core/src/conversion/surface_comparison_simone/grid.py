@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.signal import fftconvolve
 
-from conversion.surface_comparison.models import SurfaceMap, ComparisonParams
-from conversion.surface_comparison.utils import m_to_pixels
+from conversion.surface_comparison_simone.models import SurfaceMap, ComparisonParams
+from conversion.surface_comparison_simone.utils import m_to_pixels
 
 
 def _axis_centers(origin_coord: float, cell_sz: float, image_sz: float) -> np.ndarray:
