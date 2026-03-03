@@ -109,6 +109,8 @@ def register_cells(
         if fill_fraction < params.minimum_fill_fraction:
             continue
 
+        #      reference_center = (left_col + right_col, bottom_row + top_row)/2
+
         cell = Cell(
             center_reference=center,
             cell_data=cell_data,
