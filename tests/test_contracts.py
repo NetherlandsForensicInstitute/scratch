@@ -10,13 +10,14 @@ from container_models.base import BinaryMask
 from pydantic import BaseModel, HttpUrl
 from requests import Response
 
-from constants import PROJECT_ROOT
 from models import DirectoryAccess
+from preprocessors.pipelines import parse_scan_pipeline
 from processors.schemas import (
     ImpressionLRParameters,
     StriationLRParameters,
 )
 from settings import get_settings
+
 
 class RoutePrefix(StrEnum):
     COMPARATOR = "comparator"
@@ -85,7 +86,7 @@ class TestContracts:
             expected_input={
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
                 "mark_type": "breech face impression mark",
-                "mask": mask,
+                "mask": mask.tolist(),
                 "bounding_box_list": [[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
                 "mark_parameters": {
                     "pixel_size": None,
@@ -123,7 +124,7 @@ class TestContracts:
             expected_input={
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
                 "mark_type": "aperture shear striation mark",
-                "mask": mask,
+                "mask": mask.tolist(),
                 "bounding_box_list": [[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
                 "mark_parameters": {
                     "highpass_cutoff": 2e-3,
@@ -147,26 +148,26 @@ class TestContracts:
         )
 
     @pytest.fixture(scope="class")
-    def edit_scan(self, scan_directory: Path) -> tuple[EndpointContractInterface,bytes]:
+    def edit_scan(self, scan_directory: Path) -> tuple[EndpointContractInterface, bytes]:
         """Create test data for edit-scan endpoint.
 
         Returns the post request data, expected response type, and mask bytes.
         """
-        CUTOFF_LENGTH = 250
+        cutoff_length = 250
         scan_file = scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p"
         parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
         rows, cols = parsed_scan.data.shape
         return EndpointContractInterface(
             expected_input={
                 "scan_file": scan_file,
-                "cutoff_length": CUTOFF_LENGTH,
+                "cutoff_length": cutoff_length,
                 "mask_parameters": {"shape": (rows, cols), "is_bitpacked": False},
             },
             expected_output={
                 "preview": ".png",
                 "surface_map": ".png",
             },
-        ),np.ones((rows, cols), dtype=np.bool_).tobytes(order="C")
+        ), np.ones((rows, cols), dtype=np.bool_).tobytes(order="C")
 
     @pytest.fixture(scope="class")
     def calculate_score_impression(self, directory_access: DirectoryAccess) -> EndpointContractInterface:
@@ -367,9 +368,9 @@ class TestContracts:
         assert response.status_code == HTTPStatus.OK
         self._assert_response_urls(data=data, response=response)
 
-    def test_pre_processor_edit_image_post_requests(self, edit_scan: tuple[EndpointContractInterface,bytes]) -> None:
+    def test_pre_processor_edit_image_post_requests(self, edit_scan: tuple[EndpointContractInterface, bytes]) -> None:
         """Test if preprocessor EditImage POST endpoints return expected models."""
-        edit_scan_params, mask_bytes =edit_scan
+        edit_scan_params, mask_bytes = edit_scan
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scan",
