@@ -112,8 +112,9 @@ def register_cells(
         reference_center = (
             (left_col + right_col) / 2 * pixel_spacing[0],
             (bottom_row + top_row) / 2 * pixel_spacing[1],
-        )
+        )  # (x,y) in meters
 
+        # TODO centers in pixels
         cell = Cell(
             center_reference=reference_center,
             cell_data=cell_data,
