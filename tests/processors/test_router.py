@@ -35,8 +35,8 @@ class _IdentityLRSystem(LRSystem):
         super().__init__(name="identity")
 
     def apply(self, instances: FeatureData) -> LLRData:
-        """Return input features as LLR values."""
-        return LLRData(features=instances.features)
+        """Return the first feature column as LLR values."""
+        return LLRData(features=instances.features[:, 0])
 
 
 def test_processors_placeholder(client: TestClient) -> None:

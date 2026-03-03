@@ -121,7 +121,7 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
     files = LRResponseURL.get_files(vault.resource_path)
 
     system = get_lr_system(lr_input.lr_system_path)
-    lr = calculate_lr(lr_input.score, system)
+    lr = calculate_lr(lr_input.score, system, lr_input.n_cells)
     save_lr_overview_plot(system, lr_input.score, lr, lr_input.n_cells, files["lr_overview_plot"])
     return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=lr)
 
