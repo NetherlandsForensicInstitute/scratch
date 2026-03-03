@@ -72,8 +72,9 @@ def save_lr_overview_plot(
     """Generate and save the LLR transformation overview plot."""
     scores = np.linspace(0, score_max, 100)
     llr_result = system.apply(FeatureData(features=scores.reshape(-1, 1)))
-    llrs_at5 = llr_result.llr_intervals[:, 0] if llr_result.has_intervals else llr_result.llrs
-    llrs_at95 = llr_result.llr_intervals[:, 1] if llr_result.has_intervals else llr_result.llrs
+    intervals = llr_result.llr_intervals
+    llrs_at5 = intervals[:, 0] if intervals is not None else llr_result.llrs
+    llrs_at95 = intervals[:, 1] if intervals is not None else llr_result.llrs
     llr_data = LlrTransformationData(
         scores=scores,
         llrs=llr_result.llrs,

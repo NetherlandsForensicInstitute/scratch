@@ -137,8 +137,8 @@ class TestContracts:
         Returns the post request data and expected response type.
         """
         return CalculateScoreImpression(
-            mark_ref=directory_access.resource_path,
-            mark_comp=directory_access.resource_path,
+            mark_dir_ref=directory_access.resource_path,
+            mark_dir_comp=directory_access.resource_path,
             param=ImpressionParameters(),
         ), ComparisonResponseImpression
 
@@ -150,8 +150,8 @@ class TestContracts:
         Returns the post request data and expected response type.
         """
         return CalculateScoreStriation(
-            mark_ref=directory_access.resource_path,
-            mark_comp=directory_access.resource_path,
+            mark_dir_ref=directory_access.resource_path,
+            mark_dir_comp=directory_access.resource_path,
             param=StriationParamaters(metadata_reference={}, metadata_compared={}),
         ), ComparisonResponseStriation
 
@@ -164,11 +164,11 @@ class TestContracts:
         """
         (lr_system := tmp_path / "lr_system").touch()
         return CalculateLRImpression(
-            mark_ref=directory_access.resource_path,
-            mark_comp=directory_access.resource_path,
+            mark_dir_ref=directory_access.resource_path,
+            mark_dir_comp=directory_access.resource_path,
             score=1,
             n_cells=5,
-            lr_system=lr_system,
+            lr_system_path=lr_system,
             param=ImpressionLRParamaters(),
         ), LRResponse
 
@@ -181,10 +181,10 @@ class TestContracts:
         """
         (lr_system := tmp_path / "lr_system").touch()
         return CalculateLRStriation(
-            mark_ref=directory_access.resource_path,
-            mark_comp=directory_access.resource_path,
+            mark_dir_ref=directory_access.resource_path,
+            mark_dir_comp=directory_access.resource_path,
             score=1,
-            lr_system=lr_system,
+            lr_system_path=lr_system,
             param=StriationLRParamaters(),
         ), ComparisonResponseStriation
 
