@@ -1,11 +1,13 @@
 import numpy as np
 from scipy.ndimage import binary_dilation, rotate
+
 from container_models.base import BinaryMask
-from conversion.utils import update_scan_image_data
 from container_models.scan_image import ScanImage
-from conversion.remove_needles import mask_and_remove_needles
 from conversion.data_formats import BoundingBox
 from conversion.mask import crop_to_mask
+from conversion.remove_needles import mask_and_remove_needles
+from conversion.utils import update_scan_image_data
+from mutations.spatial import Rotate
 
 # Number of iterations to dilate a mask before it is rotated
 DILATE_STEPS = 3
@@ -38,12 +40,16 @@ def rotate_crop_and_mask_image_by_crop(
     :param median_factor: Parameter used to determine what is considered an outlier when removing outliers/needles.
     :return: The cropped, rotated and masked scan image.
     """
-    rotation_angle = (
-        get_rotation_angle(bounding_box) if bounding_box is not None else 0.0
-    )
-
+    if (
+        bounding_box is None
+    ):  # TODO: This check should belong to higher level calls like API and determin to skip rotation
+        rotator = Rotate(rotation_angle=0.0, counter_clockwise_rotation=True)
+    else:
+        rotator = Rotate.from_bounding_box(
+            bounding_box=bounding_box, counter_clockwise_rotation=False
+        )
     margin = 0
-    if not np.isclose(rotation_angle, 0.0):
+    if not np.isclose(rotator.rotation_angle, 0.0):
         mask = binary_dilation(mask, iterations=DILATE_STEPS).astype(bool)
         # Define a margin to reverse dilation later on
         margin = DILATE_STEPS + 2
@@ -56,10 +62,8 @@ def rotate_crop_and_mask_image_by_crop(
         scan_image_cropped, mask_cropped, median_factor
     )
 
-    # Rotate by the negative rotation_angle to counter the current rotation
-    scan_image_rotated, mask_rotated = rotate_mask_and_scan_image(
-        scan_image_cleaned_and_masked, mask_cropped, -rotation_angle
-    )
+    scan_image_rotated = rotator.apply_on_image(scan_image_cleaned_and_masked)
+    mask_rotated = rotate_mask(mask=mask_cropped, rotation_angle=rotator.rotation_angle)
 
     scan_image_cropped = update_scan_image_data(
         scan_image, crop_to_mask(scan_image_rotated.data, mask_rotated, margin)
@@ -112,20 +116,17 @@ def crop_image_and_mask_to_mask(
     return scan_image_cropped, mask_cropped
 
 
-def rotate_mask_and_scan_image(
-    scan_image: ScanImage, mask: BinaryMask, rotation_angle: float
-) -> tuple[ScanImage, BinaryMask]:
+def rotate_mask(mask: BinaryMask, rotation_angle: float) -> BinaryMask:
     """
-    Rotate mask and scan image if rotation angle is not 0.
+    Rotate mask if rotation angle is not 0.
 
-    :param scan_image: Image to rotate and crop.
     :param mask: Binary mask indicating the crop region.
     :param rotation_angle: Rotation angle in degrees. Positive values rotate counterclockwise. If 0, returns inputs
         unchanged.
-    :return: Tuple of (rotated) scan image and mask.
+    :return: BinaryMask of  mask.
     """
     if np.isclose(rotation_angle, 0.0):
-        return scan_image, mask
+        return mask
 
     mask = rotate(
         mask,
@@ -136,15 +137,4 @@ def rotate_mask_and_scan_image(
         cval=0,
     ).astype(bool)
 
-    scan_image = update_scan_image_data(
-        scan_image,
-        rotate(
-            scan_image.data,
-            rotation_angle,
-            reshape=True,
-            order=1,
-            mode="constant",
-            cval=np.nan,
-        ),
-    )
-    return scan_image, mask
+    return mask
