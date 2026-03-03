@@ -14,17 +14,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from conversion.surface_comparison.cmc_classification import (
+from conversion.surface_comparison_simone.cmc_classification import (
     classify_congruent_cells,
 )
-from conversion.surface_comparison.models import (
-    Cell,
+from conversion.surface_comparison_simone.models import (
+    CellResult,
     ComparisonParams,
     ComparisonResult,
 )
 
-
-TEST_DATA_PATH = Path(__file__).parent / "cmc_test_data_degrees.json"
+TEST_DATA_PATH = Path(__file__).parent / "cmc_test_data.json"
 
 
 def _load_test_cases() -> list[dict]:
@@ -89,16 +88,13 @@ def _build_comparison_result(
 
     cells = []
     for i in range(n_cells):
-        angle_val = float(angle2[i] - angle1[i])
-        score_val = float(sim_vals[i])
-        cell = Cell(
-            cell_data=np.array([[0.0, 0.0], [0.1, 0.1]]),
+        cell = CellResult(
             center_reference=mPos1[i],
             center_comparison=mPos2[i],
             # registration_angle is the delta: angle2 - angle1
-            angle_reference=None if np.isnan(angle_val) else angle_val,
-            best_score=None if np.isnan(score_val) else score_val,
-            fill_fraction_reference=1.0,
+            registration_angle=float(angle2[i] - angle1[i]),
+            area_cross_correlation_function_score=float(sim_vals[i]),
+            reference_fill_fraction=1.0,
         )
         cells.append(cell)
 
@@ -107,7 +103,7 @@ def _build_comparison_result(
 
     params = ComparisonParams(
         correlation_threshold=inputs["simMin"],
-        angle_threshold=inputs["angleMax"],
+        angle_threshold=np.degrees(inputs["angleMax"]),
         position_threshold=inputs["distMax"],
     )
 

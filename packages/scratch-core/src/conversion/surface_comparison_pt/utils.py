@@ -1,6 +1,9 @@
-"""Shared utility functions for the CMC surface comparison pipeline."""
+"""
+Shared utility functions for the CMC surface comparison pipeline.
+"""
 
 import numpy as np
+
 from container_models.base import FloatArray1D
 
 

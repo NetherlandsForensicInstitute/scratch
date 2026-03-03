@@ -1,27 +1,29 @@
 """
-Test cell_registration against MATLAB reference data.
+Test the new cell_registration_matlab.py against MATLAB reference data.
 
-Loads cell_corr_test_data.json, constructs ScanImage objects, calls
-register_cells, and compares per-cell results against MATLAB's vPos2,
-dAngle, and ACCF.
+Loads cell_corr_test_data.json, constructs MapStruct objects with MATLAB's
+exact coordinate metadata, calls cell_corr_analysis, and compares per-cell
+results against MATLAB's vPos2, dAngle, and ACCF.
 
 Usage:
-    python new_test_fine_reg.py [cell_corr_test_data.json]
+    python test_new_registration.py [cell_corr_test_data.json]
 """
 
 import json
 import sys
 from pathlib import Path
-
 import numpy as np
 
-from container_models.scan_image import ScanImage
-from conversion.surface_comparison.cell_registration import register_cells
-from conversion.surface_comparison.models import ComparisonParams
+from conversion.surface_comparison_simone.cell_registration import (
+    MapStruct,
+    cell_corr_analysis,
+)
 
+# Tolerances
 POS_TOL_M = 5e-6
 ANGLE_TOL_RAD = 0.01
 ACCF_TOL = 0.05
+ACCF_LOW_TOL = 0.15
 
 
 def load_test_data(json_path: str) -> list[dict]:
@@ -40,114 +42,121 @@ def run_test_case(tc: dict, verbose: bool = True) -> dict:
         print(f"  {tc['description']}")
         print(f"  MATLAB cells: {tc['nCells']}")
 
-    # vPixSep is [row_sep, col_sep] → scale_y, scale_x for ScanImage.
-    vPixSep1 = np.array(inp["map1_vPixSep"])
-    vPixSep2 = np.array(inp["map2_vPixSep"])
-    reference_image = ScanImage(
-        data=np.array(inp["map1_data"], dtype=np.float64),
-        scale_x=float(vPixSep1[1]),
-        scale_y=float(vPixSep1[0]),
+    # Build MapStruct objects with MATLAB's exact metadata
+    map1 = MapStruct(
+        map=np.array(inp["map1_data"], dtype=np.float64),
+        vCenterG=np.array(inp["map1_vCenterG"]),
+        vCenterL=np.array(inp["map1_vCenterL"]),
+        angle=inp["map1_angle"],
+        vPixSep=np.array(inp["map1_vPixSep"]),
     )
-    comparison_image = ScanImage(
-        data=np.array(inp["map2_data"], dtype=np.float64),
-        scale_x=float(vPixSep2[1]),
-        scale_y=float(vPixSep2[0]),
+    map2 = MapStruct(
+        map=np.array(inp["map2_data"], dtype=np.float64),
+        vCenterG=np.array(inp["map2_vCenterG"]),
+        vCenterL=np.array(inp["map2_vCenterL"]),
+        angle=inp["map2_angle"],
+        vPixSep=np.array(inp["map2_vPixSep"]),
     )
 
-    # vCellSize is [row_size, col_size]; ComparisonParams.cell_size is [x, y].
     vCellSize = np.array(inp["vCellSize"])
-    params = ComparisonParams(
-        cell_size=np.array([vCellSize[1], vCellSize[0]]),
-        minimum_fill_fraction=inp["cellFillRefMin"],
-        search_angle_min=np.degrees(inp["shiftAngleMin"]),
-        search_angle_max=np.degrees(inp["shiftAngleMax"]),
-    )
 
     if verbose:
         print(
-            f"  Map1: {reference_image.data.shape}, "
-            f"scale=[{vPixSep1[0] * 1e6:.2f}, {vPixSep1[1] * 1e6:.2f}] µm/px"
+            f"  Map1: {map1.map.shape}, vCG={map1.vCenterG * 1e6}, angle={np.degrees(map1.angle):.2f}°"
         )
         print(
-            f"  Map2: {comparison_image.data.shape}, "
-            f"scale=[{vPixSep2[0] * 1e6:.2f}, {vPixSep2[1] * 1e6:.2f}] µm/px"
+            f"  Map2: {map2.map.shape}, vCG={map2.vCenterG * 1e6}, angle={np.degrees(map2.angle):.2f}°"
         )
         print(f"  cellSize: {vCellSize * 1e6} µm")
 
-    results_list = register_cells(reference_image, comparison_image, params)
+    # Use MATLAB vPos1 of first cell as seed position
+    # (In real usage this comes from cell_position_optim)
+    if matlab_cells:
+        vCellPosition = np.array(matlab_cells[0]["vPos1"])
+    else:
+        vCellPosition = map1.vCenterL.copy()
+
+    # Run cell correlation analysis
+    results_list = cell_corr_analysis(
+        map1=map1,
+        map2=map2,
+        vCellSize=vCellSize,
+        vCellPosition=vCellPosition,
+        shiftAngleMin=inp["shiftAngleMin"],
+        shiftAngleMax=inp["shiftAngleMax"],
+        cellFillRefMin=inp["cellFillRefMin"],
+        cellFillRegMin=0.25,
+        cellFillRedMax=0.50,
+        viParLevel=np.array([1]),
+        verbose=verbose,
+    )
 
     if verbose:
         print(
             f"\n  Python produced {len(results_list)} cells, MATLAB has {len(matlab_cells)}"
         )
 
+    # Match Python cells to MATLAB cells by vPos1 proximity
     is_different_mark = name == "different_mark"
     test_results = {"name": name, "n_cells_matlab": tc["nCells"], "cell_results": []}
 
     for i, mc in enumerate(matlab_cells):
-        matlab_vpos1 = np.array(mc["vPos1"])  # [row, col] in m
-        matlab_vpos2 = np.array(mc["vPos2"])  # [row, col] in m
-        matlab_dangle = mc["dAngle"]  # radians
+        matlab_vpos1 = np.array(mc["vPos1"])
+        matlab_vpos2 = np.array(mc["vPos2"])
+        matlab_dangle = mc["dAngle"]
         matlab_accf = mc["accf"]
 
-        # Match Python cell by closest center_reference.
-        # Cell.center_reference is [x, y]; MATLAB vPos1 is [row, col] = [y, x].
+        # Find matching Python cell by closest vPos1
         best_match = None
         best_dist = np.inf
-        for cell in results_list:
-            cell_rc = np.array([cell.center_reference[1], cell.center_reference[0]])
-            d = np.linalg.norm(cell_rc - matlab_vpos1)
+        for pr in results_list:
+            d = np.linalg.norm(pr.vPos1 - matlab_vpos1)
             if d < best_dist:
                 best_dist = d
-                best_match = cell
+                best_match = pr
 
         if best_match is None or best_dist > 50e-6:
             if verbose:
                 print(
-                    f"  Cell {i}: NO MATCH "
-                    f"(vPos1=[{matlab_vpos1[0] * 1e6:.1f}, {matlab_vpos1[1] * 1e6:.1f}])"
+                    f"  Cell {i}: NO MATCH (vPos1=[{matlab_vpos1[0] * 1e6:.1f}, {matlab_vpos1[1] * 1e6:.1f}])"
                 )
             test_results["cell_results"].append({"matlab_idx": i, "status": "NO_MATCH"})
             continue
 
-        cell = best_match
+        pr = best_match
 
-        if (
-            cell.center_comparison is None
-            or cell.angle_reference is None
-            or cell.best_score is None
-        ):
+        if not pr.bValid:
             if verbose:
                 print(f"  Cell {i}: REGISTRATION FAILED")
             test_results["cell_results"].append({"matlab_idx": i, "status": "REG_FAIL"})
             continue
 
-        # Convert Cell [x, y] back to [row, col] for position comparison.
-        python_vpos2 = np.array([cell.center_comparison[1], cell.center_comparison[0]])
-
-        pos2_err = np.linalg.norm(python_vpos2 - matlab_vpos2)
-        angle_err = abs(np.radians(cell.angle_reference) - matlab_dangle)
+        # Compare
+        pos2_err = np.linalg.norm(pr.vPos2 - matlab_vpos2)
+        angle_err = abs(pr.dAngle - matlab_dangle)
         if angle_err > np.pi:
             angle_err = 2 * np.pi - angle_err
-        accf_err = abs(cell.best_score - matlab_accf)
+        accf_err = abs(pr.accf - matlab_accf)
 
         if is_different_mark:
-            both_low = matlab_accf < 0.2 and abs(cell.best_score) < 0.2
+            # For different marks, both ACCF should be low
+            both_low = matlab_accf < 0.2 and abs(pr.accf) < 0.2
             cell_pass = both_low
         else:
+            accf_tol = ACCF_TOL
             pos2_ok = pos2_err < POS_TOL_M
             angle_ok = angle_err < ANGLE_TOL_RAD
-            accf_ok = accf_err < ACCF_TOL
+            accf_ok = accf_err < accf_tol
             cell_pass = pos2_ok and angle_ok and accf_ok
 
         cell_result = {
             "matlab_idx": i,
             "matlab_vPos2_um": (matlab_vpos2 * 1e6).tolist(),
-            "python_vPos2_um": (python_vpos2 * 1e6).tolist(),
+            "python_vPos2_um": (pr.vPos2 * 1e6).tolist(),
             "matlab_dAngle_deg": np.degrees(matlab_dangle),
-            "python_dAngle_deg": cell.angle_reference,
+            "python_dAngle_deg": np.degrees(pr.dAngle),
             "matlab_accf": matlab_accf,
-            "python_accf": cell.best_score,
+            "python_accf": pr.accf,
             "err_pos2_um": pos2_err * 1e6,
             "err_angle_deg": np.degrees(angle_err),
             "err_accf": accf_err,
@@ -170,11 +179,11 @@ def run_test_case(tc: dict, verbose: bool = True) -> dict:
             print(
                 f"  Cell {i}: {status}{flag_str}"
                 f"  M:pos2=[{matlab_vpos2[0] * 1e6:.1f},{matlab_vpos2[1] * 1e6:.1f}]"
-                f"  P:pos2=[{python_vpos2[0] * 1e6:.1f},{python_vpos2[1] * 1e6:.1f}]"
+                f"  P:pos2=[{pr.vPos2[0] * 1e6:.1f},{pr.vPos2[1] * 1e6:.1f}]"
                 f"  M:ang={np.degrees(matlab_dangle):.3f}°"
-                f"  P:ang={cell.angle_reference:.3f}°"
+                f"  P:ang={np.degrees(pr.dAngle):.3f}°"
                 f"  M:accf={matlab_accf:.4f}"
-                f"  P:accf={cell.best_score:.4f}"
+                f"  P:accf={pr.accf:.4f}"
             )
 
     n_pass = sum(1 for cr in test_results["cell_results"] if cr.get("status") == "PASS")

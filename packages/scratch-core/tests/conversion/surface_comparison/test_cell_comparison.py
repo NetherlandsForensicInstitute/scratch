@@ -75,8 +75,8 @@ def test_register_cells_identity_angles():
     cells = register_cells(surface, surface, params)
 
     for cell in cells:
-        assert abs(np.degrees(cell.angle_reference)) < 0.1, (
-            f"Expected angle ≈ 0°, got {np.degrees(cell.angle_reference):.4f}°"
+        assert abs(cell.angle_reference) < 0.1, (
+            f"Expected angle ≈ 0°, got {cell.angle_reference:.4f}°"
         )
 
 

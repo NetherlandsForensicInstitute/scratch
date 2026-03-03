@@ -41,10 +41,7 @@ from conversion.surface_comparison.models import (
     ComparisonParams,
     Cell,
 )
-from conversion.surface_comparison.grid_old import (
-    _find_grid_origin,
-    generate_grid_centers,
-)
+from conversion.surface_comparison.grid import generate_grid_centers
 from conversion.surface_comparison.utils import (
     meters_to_pixels,
     compute_top_left_pixel_of_cell,
@@ -75,7 +72,13 @@ def register_cells(
         ``search_angle_step`` (all in degrees, centred on 0°).
     :returns: CellResult list for all cells that pass the fill-fraction check.
     """
-    origin = _find_grid_origin(reference_image, params)
+    nrows, ncols = reference_image.data.shape
+    origin = np.array(
+        [
+            np.ceil(ncols / 2) * reference_image.scale_x,
+            np.ceil(nrows / 2) * reference_image.scale_y,
+        ]
+    )
     centers = generate_grid_centers(reference_image, origin, params)
 
     # Pre-extract reference cell_dataes and compute fill fractions.
@@ -106,8 +109,14 @@ def register_cells(
         if fill_fraction < params.minimum_fill_fraction:
             continue
 
+        reference_center = (
+            (left_col + right_col) / 2 * pixel_spacing[0],
+            (bottom_row + top_row) / 2 * pixel_spacing[1],
+        )  # (x,y) in meters
+
+        # TODO centers in pixels
         cell = Cell(
-            center_reference=center,
+            center_reference=reference_center,
             cell_data=cell_data,
             fill_fraction_reference=fill_fraction,
         )

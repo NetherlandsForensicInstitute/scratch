@@ -75,6 +75,8 @@ def test_classify_cmc_cells_consensus():
     assert result.cells[1].is_congruent is True
     assert result.cells[2].is_congruent is False
     assert np.allclose(result.consensus_translation, [5.0, 5.0])
+    # consensus_rotation is degrees — add if you want to check it:
+    assert np.isclose(result.consensus_rotation, 0.0, atol=0.01)
 
 
 def test_classify_cmc_score_below_threshold():

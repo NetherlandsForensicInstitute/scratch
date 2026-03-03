@@ -7,7 +7,7 @@ Fourier-Mellin alignment step that is not part of the current codebase.
 
 The closest existing equivalent is ``run_comparison_pipeline``, which returns
 a ``ComparisonResult`` containing:
-  - ``consensus_rotation``:            agreed rotation across CMC cells (radians)
+  - ``consensus_rotation``:            agreed rotation across CMC cells (degrees)
   - ``consensus_translation``:         agreed translation across CMC cells (m)
   - ``congruent_matching_cells_count``:number of CMC cells
 
@@ -20,11 +20,11 @@ import numpy as np
 from scipy.ndimage import shift as nd_shift
 
 from container_models.scan_image import ScanImage
-from conversion.surface_comparison_simone.models import (
+from conversion.surface_comparison.models import (
     ComparisonParams,
     ComparisonResult,
 )
-from conversion.surface_comparison_simone.pipeline import run_comparison_pipeline
+from conversion.surface_comparison.pipeline import run_comparison_pipeline
 
 
 # ---------------------------------------------------------------------------
@@ -106,15 +106,14 @@ def test_pipeline_identity_returns_comparison_result():
 
 
 def test_pipeline_identity_zero_rotation():
-    """Identical surfaces yield consensus_rotation ≈ 0."""
+    """Identical surfaces yield consensus_rotation ≈ 0°."""
     surface = _identity_surface()
 
     result = run_comparison_pipeline(surface, surface, _identity_params())
 
-    # TODO: Can we lower the tolerance somehow?
+    # consensus_rotation is in degrees
     assert np.isclose(result.consensus_rotation, 0.0, atol=0.01), (
-        f"Expected consensus_rotation ≈ 0°, "
-        f"got {np.degrees(result.consensus_rotation):.4f}°"
+        f"Expected consensus_rotation ≈ 0°, got {result.consensus_rotation:.4f}°"
     )
 
 

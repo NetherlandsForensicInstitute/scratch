@@ -70,7 +70,7 @@ def register_cells(
     :param params: Algorithm parameters.  The angular sweep runs from
         ``search_angle_min`` to ``search_angle_max`` in steps of
         ``search_angle_step`` (all in degrees, centred on 0°).
-    :returns: CellResult list for all cells that pass the fill-fraction check.
+    :returns: Cell list for all cells that pass the fill-fraction check.
     """
     nrows, ncols = reference_image.data.shape
     origin = np.array(
@@ -81,7 +81,7 @@ def register_cells(
     )
     centers = generate_grid_centers(reference_image, origin, params)
 
-    # Pre-extract reference cell_dataes and compute fill fractions.
+    # Pre-extract reference cell patches and compute fill fractions.
     # Only cells that sufficiently overlap the image are kept.
     pixel_spacing = reference_image.pixel_spacing
     cell_size_px = meters_to_pixels(params.cell_size, pixel_spacing)
@@ -110,8 +110,8 @@ def register_cells(
             continue
 
         reference_center = (
-            (left_col + right_col) / 2 * pixel_spacing[0],
-            (bottom_row + top_row) / 2 * pixel_spacing[1],
+            (left_col + right_col - 1) / 2 * pixel_spacing[0],
+            (bottom_row + top_row - 1) / 2 * pixel_spacing[1],
         )  # (x,y) in meters
 
         # TODO centers in pixels
@@ -167,7 +167,7 @@ def _get_optimal_crosscorr_and_comparison_center(
     """Compute optimal cross correlation and corresponding location of top-left idxs of mean_subtracted_cell_data.
         Mean_subtracted_rotated is reference.
 
-    :param rotated: the rotated reference imag.
+    :param rotated: the rotated comparison image.
     :param cell_data: the cell data.
     :return: largest cross correlation value and corresponding translation in pixel space (y, x)
     """
@@ -203,9 +203,8 @@ def _fine_tune_cell(cell: Cell, comparison_image: ScanImage):
     Refine a single cell registration via phase cross-correlation (Stage 2)
     then ECC (Stage 3).
 
-    :param cell: a Cell instance
-    :param comparison_image: comparison image.
-    :returns: CellResult.
+    :param cell: a Cell instance with Stage 1 estimates populated (mutated in place).
+    :param comparison_image: Full moving surface map.
     """
     pixel_spacing = comparison_image.pixel_spacing
 
@@ -287,12 +286,12 @@ def _ecc_refine(
     All inputs and outputs are in pixel units; the caller is responsible
     for converting to physical coordinates (m).
 
-    :param ref_cell_data: Reference cell cell_data (may contain NaNs), shape (H, W).
-    :param comp_image: Full comparison image (may contain NaNs), shape (M, N).
+    :param ref_cell_data: Reference cell data (may contain NaNs), shape (H, W).
+    :param comp_image: Comparison image crop (may contain NaNs), shape (H, W).
     :param init_cx_px: Initial comparison center column in pixels (from Stage 2).
     :param init_cy_px: Initial comparison center row in pixels (from Stage 2).
     :param init_angle_deg: Initial rotation angle in degrees (from Stage 1).
-    :returns: (center_pixels [cx, cy], angle_deg, accf_score).
+    :returns: (center_pixels [cx, cy], angle_deg, ecc_score).
     """
     pixel_height, pixel_width = ref_cell_data.shape
 
