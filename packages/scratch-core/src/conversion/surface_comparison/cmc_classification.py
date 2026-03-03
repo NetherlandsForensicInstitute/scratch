@@ -1,10 +1,3 @@
-"""
-CMC classification: identify Congruent Matching Cells from registered cell results.
-
-The public interface is a single function, ``classify_congruent_cells``, which
-implements the median procedure (Procedure 6) with ESD outlier rejection.
-"""
-
 import numpy as np
 from scipy.stats import t
 
@@ -17,7 +10,7 @@ def classify_congruent_cells(
     reference_center: np.ndarray,
 ) -> None:
     """
-    Identify Congruent Matching Cells (CMCs) using median procedure 6.
+    Identify Congruent Matching Cells (CMCs) using median procedure with ESD outlier rejection for angles.
 
     Steps:
     1. Compute per-cell registration angle difference.
