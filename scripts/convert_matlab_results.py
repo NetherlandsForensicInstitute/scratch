@@ -149,7 +149,7 @@ def convert_mark(
     endpoint = f"preprocessor/prepare-mark-{'impression' if is_impression else 'striation'}"
     params = extract_impression_params(struct, mark_type) if is_impression else extract_striation_params(struct)
 
-    body: dict[str, Any] = {
+    body = {
         "scan_file": str(converted_x3p),
         "mark_type": mark_type.value,
         "mask": mask.astype(int).tolist(),
