@@ -344,16 +344,16 @@ class TestContracts:
     )
     def test_processor_post_requests(self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest) -> None:
         """Test if processor POST endpoints return expected models."""
-        data, expected_response = request.getfixturevalue(fixture_name)
+        data: EndpointContractInterface = request.getfixturevalue(fixture_name)
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PROCESSOR}/{sub_route}",
-            json=data.model_dump(mode="json"),
+            json=data.expected_input,
             timeout=5,
         )
         # Assert
         assert response.status_code == HTTPStatus.OK
-        expected_response.model_validate(response.json())
+        self._assert_response_urls(data=data, response=response)
 
     def test_pre_processor_edit_image_post_requests(self, edit_scan: tuple[EndpointContractInterface,bytes]) -> None:
         """Test if preprocessor EditImage POST endpoints return expected models."""
