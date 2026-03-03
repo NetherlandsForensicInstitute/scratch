@@ -24,7 +24,13 @@ from conversion.surface_comparison.models import (
 )
 
 
-TEST_DATA_PATH = Path(__file__).parent / "cmc_test_data_degrees.json"
+TEST_DATA_PATH = (
+    Path(__file__).parent.parent.parent
+    / "resources"
+    / "cmc"
+    / "classification"
+    / "cmc_test_data_degrees.json"
+)
 
 
 def _load_test_cases() -> list[dict]:
@@ -92,7 +98,9 @@ def _build_comparison_result(
         angle_val = float(angle2[i] - angle1[i])
         score_val = float(sim_vals[i])
         cell = Cell(
-            cell_data=np.array([[0.0, 0.0], [0.1, 0.1]]),
+            cell_data=np.array(
+                [[0.0, 0.0], [0.1, 0.1]]
+            ),  # some fake cell_data. Noy used in test.
             center_reference=mPos1[i],
             center_comparison=mPos2[i],
             # registration_angle is the delta: angle2 - angle1

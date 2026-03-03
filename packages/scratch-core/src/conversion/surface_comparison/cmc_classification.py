@@ -47,8 +47,8 @@ def classify_congruent_cells(
         * np.pi
         / 180
     )  # radians
-    pos_ref = np.array([c.center_reference for c in cells])  # (N, 2) in m
-    pos_comp = np.array(
+    centers_references = np.array([c.center_reference for c in cells])  # (N, 2) in m
+    centers_comparisons = np.array(
         [
             c.center_comparison if c.center_comparison is not None else [np.nan, np.nan]
             for c in cells
@@ -68,10 +68,10 @@ def classify_congruent_cells(
     angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
 
     # --- Step 2: ESD outlier rejection on angles ---
-    valid_residuals = angle_residuals[valid]
+    valid_angle_residuals = angle_residuals[valid]
     max_outliers = max(np.sum(valid) - 4, 0)
     outlier_mask_sub = _outliers_gesd(
-        valid_residuals, outliers=max_outliers, hypo=True, alpha=0.05
+        valid_angle_residuals, outliers=max_outliers, hypo=True, alpha=0.05
     )
 
     inlier_full = valid.copy()
@@ -96,18 +96,22 @@ def classify_congruent_cells(
         # NaN-out rejected cells (ESD + tightening)
         rejected = valid & ~inlier_full
         angles[rejected] = np.nan
-        pos_ref[rejected] = np.nan
-        pos_comp[rejected] = np.nan
+        centers_references[rejected] = np.nan
+        centers_comparisons[rejected] = np.nan
         scores[rejected] = np.nan
         angle_residuals[rejected] = np.nan
 
     # --- Step 3: Rotate reference positions and compute position residuals ---
-    # Since we rotate the reference image the natural center for ration is the mid of the reference image defined in
+    # Since we rotate the reference image the natural center for rotation is the mid of the reference image defined in
     # reference center.
-    expected_pos = _rotate_points(pos_ref, consensus_angle, reference_center)
-    pos_residuals = pos_comp - expected_pos
-    consensus_translation = np.nanmedian(pos_residuals, axis=0)
-    pos_errors = pos_residuals - consensus_translation
+    expected_positions_on_reference = _rotate_points(
+        centers_references, consensus_angle, reference_center
+    )
+    position_residuals = (
+        centers_comparisons - expected_positions_on_reference
+    )  # Comparison = base. Residuals with respect to comparison.
+    consensus_translation = np.nanmedian(position_residuals, axis=0)
+    position_errors = position_residuals - consensus_translation
 
     # --- Step 4: Label CMCs ---
     angle_threshold_rad = np.radians(params.angle_threshold)
@@ -116,8 +120,8 @@ def classify_congruent_cells(
             scores[i] >= params.correlation_threshold
             and not np.isnan(angle_residuals[i])
             and np.abs(angle_residuals[i]) <= angle_threshold_rad
-            and np.abs(pos_errors[i, 0]) <= params.position_threshold
-            and np.abs(pos_errors[i, 1]) <= params.position_threshold
+            and np.abs(position_errors[i, 0]) <= params.position_threshold
+            and np.abs(position_errors[i, 1]) <= params.position_threshold
         )
 
     result.consensus_rotation = (
@@ -147,35 +151,41 @@ def _outliers_gesd(
     """
     n = len(data)
     if outliers <= 0 or n < 3:
-        return np.zeros(n, dtype=bool)
+        return np.zeros(n, dtype=bool)  # All inliers
 
     argsort_index = np.argsort(data)
     data_sorted = data[argsort_index]
 
     # First pass: compute R statistics and critical values, tracking which
     # sorted-array position is removed at each step.
-    rs: list[float] = []
-    lambdas: list[float] = []
-    data_work = list(data_sorted)
+    r_statistics: list[float] = []  # r_statistic is max(abs(z_scores)). test_statistic.
+    lambdas: list[float] = []  # test critical values
+    data_work = list(
+        data_sorted
+    )  # convert to list since we need to pop elements later.
     remaining_positions = list(range(n))  # sorted-array positions still in data_work
 
     for _ in range(outliers):
         if len(data_work) < 3:
             break
         arr = np.array(data_work)
-        mean_w = float(np.mean(arr))
-        std_w = float(np.std(arr, ddof=1))
-        if std_w == 0:
+        mean_work = float(np.mean(arr))
+        std_work = float(np.std(arr, ddof=1))
+        if std_work == 0:
             break
-        idx = int(np.argmax(np.abs(arr - mean_w)))
-        rs.append(float(np.abs(arr[idx] - mean_w) / std_w))
+        idx = int(np.argmax(np.abs(arr - mean_work)))  # idx with max absolute z_value
+        r_statistics.append(
+            float(np.abs(arr[idx] - mean_work) / std_work)
+        )  # store this value
 
         # Critical value uses ni = remaining count AFTER this removal
         ni = len(data_work) - 1
         if ni >= 2:
             p = 1.0 - alpha / (2.0 * (ni + 1))
             rt = float(t.ppf(p, ni - 1))
-            lambdas.append(rt * ni / np.sqrt((ni - 1 + rt**2) * (ni + 1)))
+            lambdas.append(
+                rt * ni / np.sqrt((ni - 1 + rt**2) * (ni + 1))
+            )  # this is the critical value formula used by (Rosner 1983)
         else:
             lambdas.append(np.inf)
 
@@ -184,8 +194,8 @@ def _outliers_gesd(
 
     # Find the last step i (1-indexed) where H0 is rejected
     last_reject = 0
-    for i, (R, lam) in enumerate(zip(rs, lambdas)):
-        if R > lam:
+    for i, (r_statistic, critical_value) in enumerate(zip(r_statistics, lambdas)):
+        if r_statistic > critical_value:
             last_reject = i + 1
 
     if last_reject == 0:
@@ -195,17 +205,17 @@ def _outliers_gesd(
     # which sorted-array positions are outliers.
     data_work2 = list(data_sorted)
     remaining2 = list(range(n))
-    outlier_sorted_positions: list[int] = []
+    outlier_sorted_idxs: list[int] = []
     for _ in range(last_reject):
         arr = np.array(data_work2)
         idx = int(np.argmax(np.abs(arr - np.mean(arr))))
-        outlier_sorted_positions.append(remaining2[idx])
+        outlier_sorted_idxs.append(remaining2[idx])
         remaining2.pop(idx)
         data_work2.pop(idx)
 
     mask_sorted = np.zeros(n, dtype=bool)
-    for pos in outlier_sorted_positions:
-        mask_sorted[pos] = True
+    for idx in outlier_sorted_idxs:
+        mask_sorted[idx] = True
 
     # Unsort back to original input order
     mask_original = np.zeros(n, dtype=bool)
