@@ -13,8 +13,8 @@ from requests import Response
 from constants import PROJECT_ROOT
 from models import DirectoryAccess
 from processors.schemas import (
-    ImpressionLRParamaters,
-    StriationLRParamaters,
+    ImpressionLRParameters,
+    StriationLRParameters,
 )
 from settings import get_settings
 
@@ -233,7 +233,7 @@ class TestContracts:
                 "score": 1,
                 "n_cells": 5,
                 "lr_system": lr_system,
-                "param": ImpressionLRParamaters(),
+                "param": ImpressionLRParameters(),
             },
             response_json={
                 "urls": {"lr_overview_plot": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/profile.png"},
@@ -255,7 +255,7 @@ class TestContracts:
                 "mark_comp": directory_access.resource_path,
                 "score": 1,
                 "lr_system": lr_system,
-                "param": StriationLRParamaters(),
+                "param": StriationLRParameters(),
             },
             response_json={
                 "mark_ref_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_ref_surfacemap.png",
