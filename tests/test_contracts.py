@@ -32,8 +32,8 @@ class TemplateResponse(BaseModel):
 
 
 class EndpointContractInterface(BaseModel):
-    input_json: dict
-    response_json: dict
+    expected_input: dict
+    expected_output: dict
 
 
 type Interface = tuple[BaseModel, type[BaseModel]]
@@ -60,14 +60,14 @@ class TestContracts:
         Returns the post request data, sub_route & expected response.
         """
         return EndpointContractInterface(
-            input_json={
+            expected_input={
                 "project_name": "forensic_analysis_2026",
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
                 "scale_x": "1",
                 "scale_y": "1",
                 "step_size": "1",
             },
-            response_json={
+            expected_output={
                 "preview": f"{self.BASE_URL}/extractor/files/GENERATED_KEY/preview.png",
                 "surface_map": f"{self.BASE_URL}/extractor/files/GENERATED_KEY/surface_map.png",
                 "scan": f"{self.BASE_URL}/extractor/files/GENERATED_KEY/scan.x3p",
@@ -82,7 +82,7 @@ class TestContracts:
         Returns the post request data, sub_route & expected response.
         """
         return EndpointContractInterface(
-            input_json={
+            expected_input={
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
                 "mark_type": "breech face impression mark",
                 "mask": mask,
@@ -100,7 +100,7 @@ class TestContracts:
                     "lowpass_regression_order": 0,
                 },
             },
-            response_json={
+            expected_output={
                 "preview": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/preview.png",
                 "surface_map": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/surface_map.png",
                 "mark_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark.npz",
@@ -120,7 +120,7 @@ class TestContracts:
         Returns the post request data, sub_route & expected response.
         """
         return EndpointContractInterface(
-            input_json={
+            expected_input={
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
                 "mark_type": "aperture shear striation mark",
                 "mask": mask,
@@ -135,7 +135,7 @@ class TestContracts:
                     "subsampling_factor": 1,
                 },
             },
-            response_json={
+            expected_output={
                 "preview": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/preview.png",
                 "surface_map": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/surface_map.png",
                 "mark_data": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark.npz",
@@ -157,12 +157,12 @@ class TestContracts:
         parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
         rows, cols = parsed_scan.data.shape
         return EndpointContractInterface(
-            input_json={
+            expected_input={
                 "scan_file": scan_file,
                 "cutoff_length": CUTOFF_LENGTH,
                 "mask_parameters": {"shape": (rows, cols), "is_bitpacked": False},
             },
-            response_json={
+            expected_output={
                 "preview": "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/preview.png",
                 "surface_map": "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/surface_map.png",
             },
@@ -176,12 +176,12 @@ class TestContracts:
         Returns the post request data and expected response type.
         """
         return EndpointContractInterface(
-            input_json={
+            expected_input={
                 "mark_ref": str(directory_access.resource_path),
                 "mark_comp": str(directory_access.resource_path),
                 "param": {},
             },
-            response_json={
+            expected_output={
                 "urls": {"lr_overview_plot": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/profile.png"},
                 "lr": 0,
             },
@@ -195,12 +195,12 @@ class TestContracts:
         Returns the post request data and expected response type.
         """
         return EndpointContractInterface(
-            input_json={
+            expected_input={
                 "mark_ref": str(directory_access.resource_path),
                 "mark_comp": str(directory_access.resource_path),
                 "param": {},
             },
-            response_json={
+            expected_output={
                 "mark_ref_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_ref_surfacemap.png",
                 "mark_comp_surfacemap": f"{self.BASE_URL}/processor/files/GENERATED_KEY/mark_comp_surfacemap.png",
                 "filtered_reference_heatmap": f"{self.BASE_URL}/processor/files/GENERATED_KEY"
@@ -227,7 +227,7 @@ class TestContracts:
         """
         (lr_system := tmp_path / "lr_system").touch()
         return EndpointContractInterface(
-            input_json={
+            expected_input={
                 "mark_ref": directory_access.resource_path,
                 "mark_comp": directory_access.resource_path,
                 "score": 1,
@@ -235,7 +235,7 @@ class TestContracts:
                 "lr_system": lr_system,
                 "param": ImpressionLRParameters(),
             },
-            response_json={
+            expected_output={
                 "urls": {"lr_overview_plot": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/profile.png"},
                 "lr": 0,
             },
@@ -250,14 +250,14 @@ class TestContracts:
         """
         (lr_system := tmp_path / "lr_system").touch()
         return EndpointContractInterface(
-            input_json={
+            expected_input={
                 "mark_ref": directory_access.resource_path,
                 "mark_comp": directory_access.resource_path,
                 "score": 1,
                 "lr_system": lr_system,
                 "param": StriationLRParameters(),
             },
-            response_json={
+            expected_output={
                 "mark_ref_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_ref_surfacemap.png",
                 "mark_comp_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY/mark_comp_surfacemap.png",
                 "mark_ref_filtered_surfacemap": f"{self.BASE_URL}/preprocessor/files/GENERATED_KEY"
@@ -292,7 +292,7 @@ class TestContracts:
         assert all(HttpUrl(url) for url in response.json().values())
         for url in response.json().values():
             assert requests.get(url, timeout=10).status_code == HTTPStatus.OK, response.text
-        assert data.response_json.keys() == response.json().keys()
+        assert data.expected_output.keys() == response.json().keys()
 
     @pytest.mark.parametrize(
         ("fixture_name", "sub_route"),
@@ -310,7 +310,7 @@ class TestContracts:
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{sub_route}",
-            json=data.input_json,
+            json=data.expected_input,
             timeout=20,
         )
         # Assert
@@ -361,7 +361,7 @@ class TestContracts:
         # Act
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scan",
-            data={"params": json.dumps(edit_scan_params.input_json, default=str)},
+            data={"params": json.dumps(edit_scan_params.expected_input, default=str)},
             files={"mask_data": ("mask.bin", mask_bytes, "application/octet-stream")},
             timeout=5,
         )
