@@ -2152,7 +2152,9 @@ version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
+    { name = "lir" },
     { name = "loguru" },
+    { name = "matplotlib" },
     { name = "numpy" },
     { name = "pillow" },
     { name = "pydantic" },
@@ -2185,7 +2187,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.119.0" },
+    { name = "lir", git = "https://github.com/NetherlandsForensicInstitute/lir.git?rev=335f8e0dc458b3d969b1a126e492c04cbf8499ab" },
     { name = "loguru", specifier = ">=0.7.3" },
+    { name = "matplotlib", specifier = ">=3.10.7" },
     { name = "numpy", specifier = ">=2.3.5" },
     { name = "pillow", specifier = ">=12.0.0" },
     { name = "pydantic", specifier = ">=2.12.4" },
