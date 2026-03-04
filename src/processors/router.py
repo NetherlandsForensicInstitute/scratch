@@ -60,7 +60,7 @@ async def processor_root() -> RedirectResponse:
 async def calculate_score_impression(impression: CalculateScoreImpression) -> ComparisonResponseImpression:  # type: ignore
     """Compare two impression profiles."""
     vault = DirectoryAccess()  # type: ignore
-    return generate_model_with_urls(name="", files=ComparisonImpressionFiles, base_url=vault.access_url)
+    return ComparisonResponseImpression.from_enum(enum=ComparisonImpressionFiles, base_url=vault.access_url)
 
 
 @processors.post(
@@ -116,7 +116,7 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
     )
     logger.debug(f"images saved in:{vault.resource_path}")
 
-    return generate_model_with_urls(name="", files=ComparisonStriationFiles, base_url=vault.access_url)
+    return ComparisonResponseStriation.from_enum(enum=ComparisonStriationFiles, base_url=vault.access_url)
 
 
 @processors.post(
@@ -156,8 +156,7 @@ async def calculate_lr_impression(impression: CalculateLRImpression) -> LRRespon
     #         impression.lr_system,
     #     )
     # )
-    urls = generate_model_with_urls("LRResponseURL", LRFiles, vault.access_url)
-    return LRResponse(urls=urls, lr=42)
+    return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url), lr=42)
 
 
 @processors.post(
@@ -181,5 +180,4 @@ async def calculate_lr_striation(striation: CalculateLRStriation) -> LRResponse:
     #         striation.lr_system,
     #     )
     # )
-    urls = generate_model_with_urls("LRResponseURL", LRFiles, vault.access_url)
-    return LRResponse(urls=urls, lr=42)
+    return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url), lr=42)

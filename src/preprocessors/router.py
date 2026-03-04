@@ -92,7 +92,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     preview_pipeline(parsed_scan, ProcessFiles.preview_image.get_file_path(vault.resource_path))
 
     logger.info(f"Generated files saved to {vault}")
-    return generate_model_with_urls("ProcessedDataAccess", ProcessFiles, vault.access_url)
+    return ProcessedDataAccess.from_enum(enum=ProcessFiles, base_url=vault.access_url)
 
 
 @preprocessor_route.post(
@@ -121,7 +121,7 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
         working_dir=vault.resource_path,
     )
     logger.info(f"Generated files saved to {vault}")
-    return generate_model_with_urls("PrepareMarkResponseImpression", PrepareMarkImpressionFiles, vault.access_url)
+    return PrepareMarkResponseImpression.from_enum(enum=PrepareMarkImpressionFiles, base_url=vault.access_url)
 
 
 @preprocessor_route.post(
@@ -150,7 +150,7 @@ async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) 
         preprocess_parameters=prepare_mark_parameters.mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
-    return generate_model_with_urls("PrepareMarkResponseStriation", PrepareMarkStriationFiles, vault.access_url)
+    return PrepareMarkResponseStriation.from_enum(enum=PrepareMarkStriationFiles, base_url=vault.access_url)
 
 
 @preprocessor_route.post(
