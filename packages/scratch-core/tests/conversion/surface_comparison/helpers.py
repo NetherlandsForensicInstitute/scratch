@@ -10,10 +10,8 @@ from conversion.surface_comparison.models import (
 )
 
 
-def as_array(value, dtype=np.float64) -> np.ndarray:
+def as_array(value: int | float | list, dtype=np.float64) -> np.ndarray:
     """Convert a JSON value (which may contain ``None`` for NaN) to a numpy array."""
-    if value is None:
-        return np.array([np.nan], dtype=dtype)
     if isinstance(value, (int, float)):
         return np.array([value], dtype=dtype)
 
@@ -68,9 +66,10 @@ def build_cells(inputs: dict) -> list[Cell]:
             ),  # placeholder; unused in tests
             center_reference=mPos1[i],
             center_comparison=mPos2[i],
-            angle_reference=None if np.isnan(angle_val) else angle_val,
-            best_score=None if np.isnan(score_val) else score_val,
+            angle_reference=angle_val,
+            best_score=score_val,
             fill_fraction_reference=1.0,
+            is_congruent=False,
         )
         cells.append(cell)
 

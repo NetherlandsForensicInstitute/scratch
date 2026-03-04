@@ -825,15 +825,11 @@
   },
   {
     "name": "nan_similarity_values",
-    "description": "Some cells have NaN simVal (failed registration)",
+    "description": "Deleted cells 2&5 had NaN simVal (failed registration).",
     "inputs": {
       "mPos1": [
         [
           0.001,
-          0.001
-        ],
-        [
-          0.002,
           0.001
         ],
         [
@@ -842,10 +838,6 @@
         ],
         [
           0.001,
-          0.002
-        ],
-        [
-          0.002,
           0.002
         ],
         [
@@ -859,20 +851,12 @@
           0.0009912889463551053
         ],
         [
-          null,
-          null
-        ],
-        [
           0.003033051137616215,
           0.0010114177100923954
         ],
         [
           0.0010189228952139188,
           0.0019873384167089425
-        ],
-        [
-          null,
-          null
         ],
         [
           0.0030248184003806326,
@@ -883,24 +867,18 @@
         0.0,
         0.0,
         0.0,
-        0.0,
-        0.0,
         0.0
       ],
       "angle2": [
         0.5137874232318523,
-        null,
         0.5826601479126216,
         0.5324328062147605,
-        null,
         0.6288382707179835
       ],
       "simVals": [
         0.85,
-        null,
         0.78,
         0.9,
-        null,
         0.82
       ],
       "simMetric": "accf",
@@ -915,10 +893,8 @@
     "outputs": {
       "vbVal": [
         true,
-        false,
         true,
         true,
-        false,
         true
       ],
       "vTrans": [

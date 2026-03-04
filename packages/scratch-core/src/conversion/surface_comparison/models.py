@@ -16,13 +16,14 @@ class Cell(ConfigBaseModel):
     :param is_congruent: True if this cell is classified as a Congruent Matching Cell (CMC).
     """
 
+    # TODO: use tuples instead FloatArray1D
     center_reference: FloatArray1D
     cell_data: FloatArray2D
-    fill_fraction_reference: float = Field(..., ge=0.0, le=1.0)
-    best_score: float | None = Field(default=None, ge=0.0, le=1.0)
-    angle_reference: float | None = Field(None, ge=-180, le=180)
-    center_comparison: FloatArray1D | None = None
-    is_congruent: bool = False
+    fill_fraction_reference: float = Field(ge=0.0, le=1.0)
+    best_score: float = Field(ge=0.0, le=1.0)
+    angle_reference: float = Field(ge=-180, le=180)
+    center_comparison: FloatArray1D
+    is_congruent: bool
 
     @field_validator("fill_fraction_reference", "best_score", mode="before")
     @classmethod
@@ -45,6 +46,7 @@ class ComparisonResult:
     :param consensus_translation: Translation consensus across CMC cells (m), shape (2,).
     """
 
+    # TODO: use tuples instead FloatArray1D
     cells: Sequence[Cell]
     consensus_rotation: float
     consensus_translation: FloatArray1D  # shape (2,)
@@ -89,6 +91,7 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
     """
 
+    # TODO: Define default values somewhere
     cell_size: FloatArray1D = Field(
         default_factory=lambda: np.array([1e-3, 1e-3], dtype=np.float64)
     )

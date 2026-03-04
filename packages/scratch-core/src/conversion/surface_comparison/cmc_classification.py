@@ -1,3 +1,4 @@
+
 import numpy as np
 from scipy.stats import t
 from collections.abc import Sequence
@@ -6,6 +7,8 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
     ComparisonParams,
 )
+
+Point2D = tuple[float, float]  # (X, Y) coordinates
 
 
 def classify_congruent_cells(
@@ -25,71 +28,46 @@ def classify_congruent_cells(
         used as the center of rotation.
     """
     if not cells:
-        raise ValueError("Cannot classify CMC for empty list.")
+        raise ValueError("Cannot classify CMC from an empty list.")
 
-    angles = (
-        np.array(
-            [
-                c.angle_reference if c.angle_reference is not None else np.nan
-                for c in cells
-            ]
-        )
-        * np.pi
-        / 180
-    )  # radians
+    angle_threshold_rad = np.radians(params.angle_threshold)
+
+    angles = np.radians([c.angle_reference for c in cells])
     centers_references = np.array([c.center_reference for c in cells])  # (N, 2) in m
-    centers_comparisons = np.array(
-        [
-            c.center_comparison if c.center_comparison is not None else [np.nan, np.nan]
-            for c in cells
-        ]
-    )  # (N, 2) in m
-    scores = np.array(
-        [c.best_score if c.best_score is not None else np.nan for c in cells]
-    )
-
-    valid = ~np.isnan(angles)
-    if not np.any(valid):
-        raise ValueError("Cannot classify CMC for non-valid data.")
+    centers_comparisons = np.array([c.center_comparison for c in cells])  # (N, 2) in m
+    scores = np.array([c.best_score for c in cells])
 
     # --- Step 1: Initial median angle ---
-    angle_diffs = angles.copy()
-    consensus_angle = _circular_median(angle_diffs[valid])
-    angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
+    consensus_angle = _circular_median(angles)
+    angle_residuals = _wrapped_angle_diff(angles=angles, reference=consensus_angle)
 
     # --- Step 2: ESD outlier rejection on angles ---
-    valid_angle_residuals = angle_residuals[valid]
-    max_outliers = max(np.sum(valid) - 4, 0)
+    max_outliers = max(len(angles) - 4, 0)
     outlier_mask_sub = _outliers_gesd(
-        valid_angle_residuals, outliers=max_outliers, hypo=True, alpha=0.05
+        angle_residuals, outliers=max_outliers, alpha=0.05
     )
+    inliers = ~outlier_mask_sub
+    if not np.any(inliers):
+        raise RuntimeError("All cells are outlier.")
 
-    inlier_full = valid.copy()
-    valid_indices = np.where(valid)[0]
-    for i, idx in enumerate(valid_indices):
-        if outlier_mask_sub[i]:
-            inlier_full[idx] = False
+    # Recompute median from inliers
+    consensus_angle = _circular_median(angles[inliers])
+    angle_residuals = _wrapped_angle_diff(angles=angles, reference=consensus_angle)
 
-    if np.any(inlier_full):
-        # Recompute median from inliers
-        consensus_angle = _circular_median(angle_diffs[inlier_full])
-        angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
+    # Tighten: re-evaluate all cells against 2 × angle_threshold
+    inliers = np.abs(angle_residuals) <= 2 * angle_threshold_rad  # overwrite `inliers`
 
-        # Tighten: re-evaluate ALL valid cells against 2 × angle_threshold
-        angle_threshold_rad = np.radians(params.angle_threshold)
-        inlier_full = valid & (np.abs(angle_residuals) <= 2 * angle_threshold_rad)
+    if np.any(inliers):
+        consensus_angle = _circular_median(angles[inliers])
+        angle_residuals = _wrapped_angle_diff(angles, consensus_angle)
 
-        if np.any(inlier_full):
-            consensus_angle = _circular_median(angle_diffs[inlier_full])
-            angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
-
-        # NaN-out rejected cells (ESD + tightening)
-        rejected = valid & ~inlier_full
-        angles[rejected] = np.nan
-        centers_references[rejected] = np.nan
-        centers_comparisons[rejected] = np.nan
-        scores[rejected] = np.nan
-        angle_residuals[rejected] = np.nan
+    # NaN-out rejected cells (ESD + tightening)
+    rejected = ~inliers
+    angles[rejected] = np.nan
+    centers_references[rejected] = np.nan
+    centers_comparisons[rejected] = np.nan
+    scores[rejected] = np.nan
+    angle_residuals[rejected] = np.nan
 
     # --- Step 3: Rotate reference positions and compute position residuals ---
     # Since we rotate the reference image the natural center for rotation is the mid of the reference image defined in
@@ -104,7 +82,6 @@ def classify_congruent_cells(
     position_errors = position_residuals - consensus_translation
 
     # --- Step 4: Label CMCs ---
-    angle_threshold_rad = np.radians(params.angle_threshold)
     for i, cell in enumerate(cells):
         cell.is_congruent = bool(
             scores[i] >= params.correlation_threshold
@@ -122,9 +99,7 @@ def classify_congruent_cells(
     return result
 
 
-def _outliers_gesd(
-    data: np.ndarray, outliers: int, hypo: bool, alpha: float
-) -> np.ndarray:
+def _outliers_gesd(data: np.ndarray, outliers: int, alpha: float) -> np.ndarray:
     """
     Generalised ESD test for outliers (Rosner 1983), matching the MATLAB
     ``stat_idout_esd`` reference implementation used by the NIST CMC pipeline.
@@ -136,7 +111,6 @@ def _outliers_gesd(
 
     :param data: 1-D array of values to test.
     :param outliers: Maximum number of outliers to test for.
-    :param hypo: Ignored (always operates in hypothesis-test mode).
     :param alpha: Significance level.
     :returns: Boolean mask in original array order; True = outlier.
     """
@@ -268,3 +242,12 @@ def _rotate_points(points: np.ndarray, angle: float, center: np.ndarray) -> np.n
     c, s = np.cos(angle), np.sin(angle)
     R = np.array([[c, -s], [s, c]])
     return (points - center) @ R.T + center
+
+
+#
+# def _rotate_point(point: Point2D, angle: float, center: Point2D) -> Point2D:
+#     """Clock-wise rotate a 2D point (px, py) around a center (cx, cy) by `angle` radians."""
+#     translated = (point[0] - center[0], point[1] - center[1])
+#     rotated_x = math.cos(angle) * translated[0] - math.sin(angle) * translated[1]
+#     rotated_y = math.sin(angle) * translated[0] + math.cos(angle) * translated[1]
+#     return rotated_x, rotated_y
