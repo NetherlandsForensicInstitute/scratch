@@ -16,7 +16,7 @@ import pytest
 
 from conversion.surface_comparison.cmc_classification import classify_congruent_cells
 
-from .helpers import build_test_params
+from .helpers import build_test_inputs
 
 
 # ---------------------------------------------------------------------------
@@ -28,7 +28,7 @@ TEST_DATA_PATH = (
     / "resources"
     / "cmc"
     / "classification"
-    / "cmc_test_data_degrees.json"
+    / "cmc_test_data.json"
 )
 
 ANGLE_ATOL = 1e-10
@@ -46,12 +46,19 @@ def _load_test_cases() -> list[dict]:
 
 
 _TEST_CASES = _load_test_cases()
-_TEST_IDS = [tc["name"] for tc in _TEST_CASES]
+_TEST_IDS = [test_case["name"] for test_case in _TEST_CASES]
 
 
 @pytest.fixture(params=_TEST_CASES, ids=_TEST_IDS)
-def matlab_test_case(request):
+def matlab_test_case(request) -> dict:
     return request.param
+
+
+def _get_case(name: str) -> dict:
+    for test_case in _TEST_CASES:
+        if test_case["name"] == name:
+            return test_case
+    raise ValueError(f"Test case '{name}' not found")
 
 
 # ---------------------------------------------------------------------------
@@ -62,76 +69,73 @@ def matlab_test_case(request):
 class TestClassifyCongruentCells:
     """Test classify_congruent_cells against MATLAB cell_cmc_median procedure 6."""
 
-    def test_cmc_count(self, matlab_test_case):
+    def test_cmc_count(self, matlab_test_case: dict) -> None:
         """The number of CMC cells must match the MATLAB reference."""
-        tc = matlab_test_case
-        cells, params, center = build_test_params(tc["inputs"])
+        cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
-        expected_n = tc["outputs"]["nCmc"]
-        actual_n = result.cmc_count
-        assert actual_n == expected_n, (
-            f"[{tc['name']}] CMC count mismatch: expected {expected_n}, got {actual_n}"
+        expected_cmc_count = matlab_test_case["outputs"]["cmc_count"]
+        assert result.cmc_count == expected_cmc_count, (
+            f"[{matlab_test_case['name']}] CMC count mismatch: "
+            f"expected {expected_cmc_count}, got {result.cmc_count}"
         )
 
-    def test_cmc_flags(self, matlab_test_case):
-        """Per-cell CMC flags must match the MATLAB reference."""
-        tc = matlab_test_case
-        cells, params, center = build_test_params(tc["inputs"])
+    def test_cmc_flags(self, matlab_test_case: dict) -> None:
+        """Per-cell congruence flags must match the MATLAB reference."""
+        cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
-        expected_flags = tc["outputs"]["vbVal"]
+        expected_flags = matlab_test_case["outputs"]["is_congruent"]
         if isinstance(expected_flags, bool):
             expected_flags = [expected_flags]
-        actual_flags = [c.is_congruent for c in result.cells]
+        actual_flags = [cell.is_congruent for cell in result.cells]
         assert actual_flags == expected_flags, (
-            f"[{tc['name']}] CMC flags mismatch:\n"
+            f"[{matlab_test_case['name']}] Congruence flags mismatch:\n"
             f"  expected: {expected_flags}\n"
             f"  actual:   {actual_flags}"
         )
 
-    def test_consensus_rotation(self, matlab_test_case):
-        """The consensus rotation must match the MATLAB rAngle."""
-        tc = matlab_test_case
-        cells, params, center = build_test_params(tc["inputs"])
+    def test_consensus_rotation(self, matlab_test_case: dict) -> None:
+        """The consensus rotation must match the MATLAB reference."""
+        cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
-        expected_angle = tc["outputs"]["rAngle"]
-        actual_angle = result.consensus_rotation
-        if np.isnan(expected_angle):
-            assert np.isnan(actual_angle), (
-                f"[{tc['name']}] Expected NaN consensus rotation, got {actual_angle}"
+        expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
+        if np.isnan(expected_rotation):
+            assert np.isnan(result.consensus_rotation), (
+                f"[{matlab_test_case['name']}] Expected NaN consensus rotation, "
+                f"got {result.consensus_rotation}"
             )
         else:
             np.testing.assert_allclose(
-                actual_angle,
-                expected_angle,
+                result.consensus_rotation,
+                expected_rotation,
                 atol=ANGLE_ATOL,
-                err_msg=f"[{tc['name']}] Consensus rotation mismatch",
+                err_msg=f"[{matlab_test_case['name']}] Consensus rotation mismatch",
             )
 
-    def test_consensus_translation(self, matlab_test_case):
-        """The consensus translation must match the MATLAB vTrans."""
-        tc = matlab_test_case
-        cells, params, center = build_test_params(tc["inputs"])
+    def test_consensus_translation(self, matlab_test_case: dict) -> None:
+        """The consensus translation must match the MATLAB reference."""
+        cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
-        expected_trans = np.array(tc["outputs"]["vTrans"])
-        actual_trans = np.asarray(result.consensus_translation)
-        if all(item is None for item in expected_trans):
-            assert np.all(np.isnan(actual_trans)), (
-                f"[{tc['name']}] Expected NaN translation, got {actual_trans}"
+        expected_translation = matlab_test_case["outputs"]["consensus_translation"]
+        actual_translation = np.asarray(result.consensus_translation)
+        if all(item is None for item in expected_translation):
+            assert np.all(np.isnan(actual_translation)), (
+                f"[{matlab_test_case['name']}] Expected NaN translation, "
+                f"got {actual_translation}"
             )
         else:
             np.testing.assert_allclose(
-                actual_trans,
-                expected_trans,
+                actual_translation,
+                np.array(expected_translation),
                 atol=TRANSLATION_ATOL,
-                err_msg=f"[{tc['name']}] Consensus translation mismatch",
+                err_msg=f"[{matlab_test_case['name']}] Consensus translation mismatch",
             )
 
 
@@ -141,141 +145,118 @@ class TestClassifyCongruentCells:
 
 
 class TestSpecificScenarios:
-    """
-    Named tests for each scenario, useful for quick debugging of
-    individual failure modes.
-    """
+    """Named tests per scenario, useful for targeted debugging of failure modes."""
 
-    @staticmethod
-    def _get_case(name: str) -> dict:
-        for tc in _TEST_CASES:
-            if tc["name"] == name:
-                return tc
-        raise ValueError(f"Test case '{name}' not found")
-
-    def test_all_congruent_no_outliers(self):
+    def test_all_congruent_no_outliers(self) -> None:
         """All cells share a consistent transformation — all should be CMC."""
         # Arrange
-        cells, params, center = build_test_params(
-            self._get_case("all_congruent_no_outliers")["inputs"]
+        cells, params, rotation_center = build_test_inputs(
+            _get_case("all_congruent_no_outliers")["inputs"]
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
         # Assert
-        assert all(c.is_congruent for c in result.cells)
+        assert all(cell.is_congruent for cell in result.cells)
         assert result.cmc_count == 6
 
-    def test_low_similarity_rejected(self):
+    def test_low_similarity_rejected(self) -> None:
         """Cells below the correlation threshold must not be classified as CMC."""
         # Arrange
-        cells, params, center = build_test_params(
-            self._get_case("low_similarity_cells")["inputs"]
+        cells, params, rotation_center = build_test_inputs(
+            _get_case("low_similarity_cells")["inputs"]
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert — cells at index 1 and 3 have simVal 0.2 and 0.15 (below 0.4)
+        # Assert — cells at index 1 and 3 have scores 0.2 and 0.15 (below threshold 0.4)
         assert not result.cells[1].is_congruent
         assert not result.cells[3].is_congruent
         assert result.cmc_count == 4
 
-    def test_esd_rejects_angle_outliers(self):
+    def test_esd_rejects_angle_outliers(self) -> None:
         """ESD outlier rejection should remove cells with aberrant angles."""
         # Arrange
-        cells, params, center = build_test_params(
-            self._get_case("angle_outliers_esd_rejection")["inputs"]
+        cells, params, rotation_center = build_test_inputs(
+            _get_case("angle_outliers_esd_rejection")["inputs"]
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert — cells 3 and 7 (0-indexed: 2 and 6) are angle outliers
+        # Assert — cells at index 2 and 6 are angle outliers (~29° and ~-23°)
         assert not result.cells[2].is_congruent
         assert not result.cells[6].is_congruent
         assert result.cmc_count == 6
 
-    def test_position_outliers_rejected(self):
+    def test_position_outliers_rejected(self) -> None:
         """Cells with large position residuals must be rejected."""
         # Arrange
-        cells, params, center = build_test_params(
-            self._get_case("position_outliers")["inputs"]
+        cells, params, rotation_center = build_test_inputs(
+            _get_case("position_outliers")["inputs"]
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert — cells 2 and 5 (0-indexed: 1 and 4) have large position errors
+        # Assert — cells at index 1 and 4 exceed the position threshold
         assert not result.cells[1].is_congruent
         assert not result.cells[4].is_congruent
         assert result.cmc_count == 4
 
-    def test_no_valid_cells(self):
-        """When all cells are below similarity threshold, zero CMCs result."""
+    def test_no_valid_cells(self) -> None:
+        """When all cells are below the similarity threshold, zero CMCs result."""
         # Arrange
-        cells, params, center = build_test_params(
-            self._get_case("no_valid_cells")["inputs"]
+        cells, params, rotation_center = build_test_inputs(
+            _get_case("no_valid_cells")["inputs"]
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
         # Assert
-        assert not any(c.is_congruent for c in result.cells)
+        assert not any(cell.is_congruent for cell in result.cells)
 
-    def test_mixed_outliers(self):
+    def test_mixed_outliers(self) -> None:
         """Mixed failure modes: similarity, angle, and position outliers."""
         # Arrange
-        cells, params, center = build_test_params(
-            self._get_case("mixed_outliers")["inputs"]
+        cells, params, rotation_center = build_test_inputs(
+            _get_case("mixed_outliers")["inputs"]
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert — cell 2 (idx 1): low sim, cell 4 (idx 3): angle, cell 8 (idx 7): pos
+        # Assert — index 1: low score, index 3: angle outlier, index 7: position outlier
         assert not result.cells[1].is_congruent
         assert not result.cells[3].is_congruent
         assert not result.cells[7].is_congruent
         assert result.cmc_count == 7
 
-    def test_single_cell(self):
+    def test_single_cell(self) -> None:
         """A single valid cell should be classified as CMC."""
         # Arrange
-        cells, params, center = build_test_params(
-            self._get_case("single_cell")["inputs"]
+        cells, params, rotation_center = build_test_inputs(
+            _get_case("single_cell")["inputs"]
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
         # Assert
         assert result.cells[0].is_congruent
 
-    def test_all_angle_outliers_no_cmc(self):
-        """When all angles are wildly scattered, ESD + filtering yields 0 CMC."""
+    def test_all_angle_outliers_yields_no_cmc(self) -> None:
+        """When all angles are widely scattered, ESD and tightening yield 0 CMC."""
         # Arrange
-        cells, params, center = build_test_params(
-            self._get_case("all_angle_outliers")["inputs"]
+        cells, params, rotation_center = build_test_inputs(
+            _get_case("all_angle_outliers")["inputs"]
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, center)
+        result = classify_congruent_cells(cells, params, rotation_center)
 
         # Assert
-        assert not any(c.is_congruent for c in result.cells)
-
-    def test_nan_similarity_handled(self):
-        """Cells with NaN similarity (failed registration) must not be CMC."""
-        # Arrange
-        cells, params, center = build_test_params(
-            self._get_case("nan_similarity_values")["inputs"]
-        )
-
-        # Act
-        result = classify_congruent_cells(cells, params, center)
-
-        # Assert
-        assert result.cmc_count == 4
+        assert not any(cell.is_congruent for cell in result.cells)
