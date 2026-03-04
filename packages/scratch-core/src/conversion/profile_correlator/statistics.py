@@ -6,7 +6,7 @@ This module provides functions for computing statistical metrics between
 
 - compute_cross_correlation: NaN-aware normalized cross-correlation
 - compute_roughness_sa: Arithmetic mean roughness
-- compute_roughness_sqrt: Root mean square roughness
+- compute_roughness_sq: Root mean square roughness
 - compute_overlap_ratio: Overlap ratio relative to shorter profile
 - compute_normalized_square_based_roughness_differences: Normalized signature difference metrics
 
