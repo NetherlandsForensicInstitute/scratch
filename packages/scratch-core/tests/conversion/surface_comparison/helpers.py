@@ -62,9 +62,7 @@ def build_cells(inputs: dict) -> list[Cell]:
         angle_val = float(angle2[i] - angle1[i])
         score_val = float(sim_vals[i])
         cell = Cell(
-            cell_data=np.array(
-                [[0.0, 0.0], [0.1, 0.1]]
-            ),  # placeholder; unused in tests
+            cell_data=np.array([[0.0, 0.0], [0.1, 0.1]]),
             center_reference=mPos1[i],
             center_comparison=mPos2[i],
             angle_deg=angle_val,

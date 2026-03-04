@@ -14,9 +14,85 @@ from conversion.surface_comparison.models import (
 )
 
 
+def classify_congruent_cells(
+    cells: list[Cell],
+    params: ComparisonParams,
+    reference_center: np.ndarray,
+) -> ComparisonResult:
+    """
+    Identify Congruent Matching Cells (CMCs) using median procedure with ESD outlier rejection for angles.
+
+    Steps:
+    TODO: explain algorithmic steps here
+
+    :param cells: The list of computed cells.
+    :param params: Algorithm parameters with thresholds.
+    :param reference_center: The global center [x, y] of the reference surface in meters,
+        used as the center of rotation.
+    """
+    if not cells:
+        raise ValueError("Cannot classify CMC from an empty list.")
+
+    consensus_angle = _get_consensus_angle(
+        cells=cells, threshold=np.radians(params.angle_threshold)
+    )
+    # Rotate reference positions to compute the translation.
+    # Since we rotate the reference image, the natural center for rotation
+    # is the mid of the reference image defined in reference center.
+    consensus_translation = _get_consensus_translation(
+        cells=cells, angle=consensus_angle, rotation_center=reference_center
+    )
+    _update_congruence(cells=cells, params=params)
+
+    result = ComparisonResult(
+        cells=cells,
+        consensus_rotation=float(np.degrees(consensus_angle)),
+        consensus_translation=consensus_translation,
+    )
+    return result
+
+
+def _circular_median(angles: FloatArray1D) -> float:
+    """
+    Compute the circular median of a set of angles (in radians).
+
+    The circular median minimizes the sum of absolute angular distances.
+
+    :param angles: 1-D array of angles in radians.
+    :returns: The circular median angle in radians.
+    """
+    costs = [np.sum(np.abs(_wrap_angles(angles - a))) for a in angles]
+    ref = angles[np.argmin(costs)]
+    return float(_wrap_angles(ref + np.median(_wrap_angles(angles - ref))))
+
+
+def _wrap_angles(angles: FloatArray1D) -> FloatArray1D:
+    """
+    Normalize angles in radians to the [-pi, pi] interval.
+
+    :param angles: Array of angles in radians.
+    :returns: Array of normalized angles in radians.
+    """
+    return (angles + np.pi) % (2 * np.pi) - np.pi
+
+
+def _rotate_points(points: Points2D, angle: float, center: Point2D) -> Points2D:
+    """
+    Rotate 2-D points around a center.
+
+    :param points: (N, 2) array of [x, y] coordinates.
+    :param angle: Rotation angle in radians.
+    :param center: (2,) array for the center of rotation [x, y].
+    :returns: (N, 2) rotated points.
+    """
+    cos_val, sin_val = np.cos(angle), np.sin(angle)
+    rotation_matrix = np.array([[cos_val, -sin_val], [sin_val, cos_val]])
+    return (points - center) @ rotation_matrix.T + center
+
+
 def _get_esd_criterion(values: FloatArray1D) -> BoolArray1D:
     max_outliers = max(len(values) - 4, 0)
-    outliers_mask = _outliers_gesd(data=values, outliers=max_outliers, alpha=0.05)
+    outliers_mask = _outliers_gesd(data=values, max_outliers=max_outliers, alpha=0.05)
     return ~outliers_mask
 
 
@@ -30,20 +106,20 @@ def _get_consensus_angle(cells: list[Cell], threshold: float) -> float:
 
     # Compute median from angles
     consensus_angle = _circular_median(angles=angles)
-    angle_residuals = _wrapped_angle_diff(angles=angles, reference=consensus_angle)
+    angle_residuals = _wrap_angles(angles=angles - consensus_angle)
     mask = _get_esd_criterion(values=angle_residuals)
     if not np.any(mask):
         raise RuntimeError("All cells are outliers.")
 
     # Recompute median based on the inliers
     consensus_angle = _circular_median(angles[mask])
-    angle_residuals = _wrapped_angle_diff(angles=angles, reference=consensus_angle)
+    angle_residuals = _wrap_angles(angles=angles - consensus_angle)
 
     # Tighten: re-evaluate all cells against 2 × angle_threshold
     mask = _get_threshold_criterion(values=angle_residuals, threshold=threshold)
     if np.any(mask):
         consensus_angle = _circular_median(angles[mask])
-        angle_residuals = _wrapped_angle_diff(angles=angles, reference=consensus_angle)
+        angle_residuals = _wrap_angles(angles=angles - consensus_angle)
 
     # Update cell meta-data
     for cell, is_outlier, residual_angle in zip(cells, ~mask, angle_residuals):
@@ -89,180 +165,76 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams):
         )
 
 
-def classify_congruent_cells(
-    cells: list[Cell],
-    params: ComparisonParams,
-    reference_center: np.ndarray,
-) -> ComparisonResult:
+def _rosner_critical_value(n_remaining: int, alpha: float) -> float:
     """
-    Identify Congruent Matching Cells (CMCs) using median procedure with ESD outlier rejection for angles.
+    Rosner (1983) critical value for the GESD test.
 
-    Steps:
-    TODO: explain algorithmic steps here
-
-    :param cells: The list of computed cells.
-    :param params: Algorithm parameters with thresholds.
-    :param reference_center: The global center [x, y] of the reference surface in meters,
-        used as the center of rotation.
+    :param n_remaining: Number of observations after removal.
+    :param alpha: Significance level.
+    :returns: Critical value lambda_i.
     """
-    if not cells:
-        raise ValueError("Cannot classify CMC from an empty list.")
-
-    consensus_angle = _get_consensus_angle(
-        cells=cells, threshold=np.radians(params.angle_threshold)
+    if n_remaining < 2:
+        return np.inf
+    p = 1.0 - alpha / (2.0 * (n_remaining + 1))
+    t_value = float(t.ppf(p, n_remaining - 1))
+    return (
+        t_value
+        * n_remaining
+        / np.sqrt((n_remaining - 1 + t_value**2) * (n_remaining + 1))
     )
-    # Rotate reference positions to compute the translation.
-    # Since we rotate the reference image, the natural center for rotation
-    # is the mid of the reference image defined in reference center.
-    consensus_translation = _get_consensus_translation(
-        cells=cells, angle=consensus_angle, rotation_center=reference_center
-    )
-    _update_congruence(cells=cells, params=params)
-
-    result = ComparisonResult(
-        cells=cells,
-        consensus_rotation=float(np.degrees(consensus_angle)),
-        consensus_translation=consensus_translation,
-    )
-    return result
 
 
-def _outliers_gesd(data: np.ndarray, outliers: int, alpha: float) -> np.ndarray:
+def _outliers_gesd(
+    data: FloatArray1D, max_outliers: int, alpha: float = 0.05
+) -> BoolArray1D:
     """
     Generalised ESD test for outliers (Rosner 1983), matching the MATLAB
     ``stat_idout_esd`` reference implementation used by the NIST CMC pipeline.
 
-    Critical values use the Rosner formula:
-        lambda_i = t(p, ni-1) * ni / sqrt((ni-1 + t^2) * (ni+1))
-        where p = 1 - alpha / (2*(ni+1)) and ni = remaining observations
-        AFTER the i-th removal (i.e. n - i).
+    Iteratively removes the most extreme value and tests whether it is a
+    statistically significant outlier. The final outlier count is the last
+    iteration where the test statistic exceeds the critical value, which
+    handles masking effects where removing one outlier reveals another.
+
+    Tie-breaking: when multiple values share the maximum deviation from the
+    mean, the one with the lowest array index is removed first.
 
     :param data: 1-D array of values to test.
-    :param outliers: Maximum number of outliers to test for.
+    :param max_outliers: Maximum number of outliers to test for.
     :param alpha: Significance level.
     :returns: Boolean mask in original array order; True = outlier.
     """
     n = len(data)
-    if outliers <= 0 or n < 3:
-        return np.zeros(n, dtype=bool)  # All inliers
+    if max_outliers <= 0 or n < 3:
+        return np.zeros(n, dtype=bool)
 
-    argsort_index = np.argsort(data)
-    data_sorted = data[argsort_index]
-
-    # First pass: compute R statistics and critical values, tracking which
-    # sorted-array position is removed at each step.
-    r_statistics: list[float] = []  # r_statistic is max(abs(z_scores)). test_statistic.
-    lambdas: list[float] = []  # test critical values
-    data_work = list(
-        data_sorted
-    )  # convert to list since we need to pop elements later.
-    remaining_positions = list(range(n))  # sorted-array positions still in data_work
-
-    for _ in range(outliers):
-        if len(data_work) < 3:
-            break
-        arr = np.array(data_work)
-        mean_work = float(np.mean(arr))
-        std_work = float(np.std(arr, ddof=1))
-        if std_work == 0:
-            break
-        idx = int(np.argmax(np.abs(arr - mean_work)))  # idx with max absolute z_value
-        r_statistics.append(
-            float(np.abs(arr[idx] - mean_work) / std_work)
-        )  # store this value
-
-        # Critical value uses ni = remaining count AFTER this removal
-        ni = len(data_work) - 1
-        if ni >= 2:
-            p = 1.0 - alpha / (2.0 * (ni + 1))
-            rt = float(t.ppf(p, ni - 1))
-            lambdas.append(
-                rt * ni / np.sqrt((ni - 1 + rt**2) * (ni + 1))
-            )  # this is the critical value formula used by (Rosner 1983)
-        else:
-            lambdas.append(np.inf)
-
-        remaining_positions.pop(idx)
-        data_work.pop(idx)
-
-    # Find the last step i (1-indexed) where H0 is rejected
+    remaining = np.arange(n)
+    values = data.copy()
+    removed_indices: list[int] = []
     last_reject = 0
-    for i, (r_statistic, critical_value) in enumerate(zip(r_statistics, lambdas)):
+
+    for i in range(max_outliers):
+        if len(values) < 3:
+            break
+
+        mean = float(np.mean(values))
+        std = float(np.std(values, ddof=1))
+        if std == 0:
+            break
+
+        deviations = np.abs(values - mean)
+        idx = int(np.argmax(deviations))
+        r_statistic = deviations[idx] / std
+        critical_value = _rosner_critical_value(len(values) - 1, alpha)
+
+        removed_indices.append(remaining[idx])
+
         if r_statistic > critical_value:
             last_reject = i + 1
 
-    if last_reject == 0:
-        return np.zeros(n, dtype=bool)
+        values = np.delete(values, idx)
+        remaining = np.delete(remaining, idx)
 
-    # Second pass: retrace the first `last_reject` removals to identify
-    # which sorted-array positions are outliers.
-    data_work2 = list(data_sorted)
-    remaining2 = list(range(n))
-    outlier_sorted_idxs: list[int] = []
-    for _ in range(last_reject):
-        arr = np.array(data_work2)
-        idx = int(np.argmax(np.abs(arr - np.mean(arr))))
-        outlier_sorted_idxs.append(remaining2[idx])
-        remaining2.pop(idx)
-        data_work2.pop(idx)
-
-    mask_sorted = np.zeros(n, dtype=bool)
-    for idx in outlier_sorted_idxs:
-        mask_sorted[idx] = True
-
-    # Unsort back to original input order
-    mask_original = np.zeros(n, dtype=bool)
-    mask_original[argsort_index] = mask_sorted
-    return mask_original
-
-
-def _circular_median(angles: FloatArray1D) -> float:
-    """
-    Compute the circular median of a set of angles (in radians).
-
-    The circular median minimizes the sum of absolute angular distances.
-
-    :param angles: 1-D array of angles in radians.
-    :returns: The circular median angle in radians.
-    """
-    best_idx = 0
-    best_cost = np.inf
-    for i, candidate in enumerate(angles):
-        raw_diff = angles - candidate
-        wrapped_diff = (raw_diff + np.pi) % (2 * np.pi) - np.pi
-        cost = np.sum(np.abs(wrapped_diff))
-        if cost < best_cost:
-            best_cost = cost
-            best_idx = i
-
-    ref = angles[best_idx]
-    centred = (angles - ref + np.pi) % (2 * np.pi) - np.pi
-    med = float(np.median(centred))
-    result = (ref + med + np.pi) % (2 * np.pi) - np.pi
-    return float(result)
-
-
-def _wrapped_angle_diff(angles: FloatArray1D, reference: float) -> FloatArray1D:
-    """
-    Signed angular difference wrapped to [-pi, pi].
-
-    :param angles: Array of angles in radians.
-    :param reference: Reference angle in radians.
-    :returns: Array of signed differences in radians.
-    """
-    d = angles - reference
-    return np.arctan2(np.sin(d), np.cos(d))
-
-
-def _rotate_points(points: Points2D, angle: float, center: Point2D) -> Points2D:
-    """
-    Rotate 2-D points around a center.
-
-    :param points: (N, 2) array of [x, y] coordinates.
-    :param angle: Rotation angle in radians.
-    :param center: (2,) array for the center of rotation [x, y].
-    :returns: (N, 2) rotated points.
-    """
-    cos_val, sin_val = np.cos(angle), np.sin(angle)
-    rotation_matrix = np.array([[cos_val, -sin_val], [sin_val, cos_val]])
-    return (points - center) @ rotation_matrix.T + center
+    mask = np.zeros(n, dtype=bool)
+    mask[removed_indices[:last_reject]] = True
+    return mask

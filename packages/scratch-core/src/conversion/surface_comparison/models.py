@@ -17,7 +17,7 @@ class Cell(ConfigBaseModel):
     :param cell_data: Height_data, in meters, FloatArray2D
     :param fill_fraction_reference: Surface based on the number of pixels divided by the desired surface.
     :param best_score: Best cross correlation score
-    :param angle_reference: Angle rotation in degrees corresponding to the correlation score
+    :param angle_deg: Angle rotation in degrees with respect to the reference image corresponding to the correlation score
     :param center_comparison: Cell center on comparison image (x, y) in meters corresponding to the correlation score
     :param is_congruent: True if this cell is classified as a Congruent Matching Cell (CMC).
     """
