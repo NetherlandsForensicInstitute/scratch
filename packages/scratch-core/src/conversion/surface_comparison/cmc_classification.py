@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import t
 
-from container_models.base import Points2D, FloatArray1D, BoolArray1D, Point2D
+from container_models.base import Points2D, FloatArray1D, BoolArray1D
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonResult,
@@ -44,7 +44,7 @@ def classify_congruent_cells(
     :raises RuntimeError: If the ESD test rejects every cell as an angle outlier.
     """
     if not cells:
-        raise ValueError("Cannot classify CMC from an empty list.")
+        raise ValueError("Cannot identify CMC from an empty list.")
 
     consensus_angle = _get_consensus_angle(
         cells=cells, threshold=np.radians(params.angle_threshold)
@@ -89,17 +89,20 @@ def _wrap_angles(angles: FloatArray1D) -> FloatArray1D:
     return (angles + np.pi) % (2 * np.pi) - np.pi
 
 
-def _rotate_points(points: Points2D, angle: float, center: Point2D) -> Points2D:
+def _rotate_points(
+    points: Points2D, angle: float, center: tuple[float, float]
+) -> Points2D:
     """
     Rotate 2-D points around a center.
 
     :param points: (N, 2) array of [x, y] coordinates.
     :param angle: Rotation angle in radians.
-    :param center: (2,) array for the center of rotation [x, y].
+    :param center: Tuple for the center of rotation [x, y].
     :returns: (N, 2) rotated points.
     """
     cos_val, sin_val = np.cos(angle), np.sin(angle)
     rotation_matrix = np.array([[cos_val, -sin_val], [sin_val, cos_val]])
+    center = np.array(center)
     return (points - center) @ rotation_matrix.T + center
 
 
@@ -201,7 +204,7 @@ def _get_consensus_translation(
     centers_reference[outliers] = np.nan
     centers_comparison[outliers] = np.nan
     expected_positions_on_reference = _rotate_points(
-        points=centers_reference, angle=angle, center=np.array(rotation_center)
+        points=centers_reference, angle=angle, center=rotation_center
     )
     # Compute residuals with respect to comparison.
     position_residuals = centers_comparison - expected_positions_on_reference

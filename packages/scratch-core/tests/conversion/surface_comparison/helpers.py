@@ -81,3 +81,29 @@ def build_test_inputs(
     rotation_center = (float(rotation_center_list[0]), float(rotation_center_list[1]))
 
     return cells, params, rotation_center
+
+
+def _make_cell(
+    angle_deg: float,
+    center_reference: tuple[float, float] = (0.0, 0.0),
+    center_comparison: tuple[float, float] = (0.0, 0.0),
+    best_score: float = 0.8,
+    is_outlier: bool = False,
+    residual_angle_deg: float = 0.0,
+    position_error: tuple[float, float] = (0.0, 0.0),
+) -> Cell:
+    """Construct a minimal Cell with sensible defaults for unit testing."""
+    return Cell(
+        center_reference=center_reference,
+        cell_data=np.zeros((4, 4)),
+        fill_fraction_reference=1.0,
+        best_score=best_score,
+        angle_deg=angle_deg,
+        center_comparison=center_comparison,
+        is_congruent=False,
+        meta_data=CellMetaData(
+            is_outlier=is_outlier,
+            residual_angle_deg=residual_angle_deg,
+            position_error=position_error,
+        ),
+    )

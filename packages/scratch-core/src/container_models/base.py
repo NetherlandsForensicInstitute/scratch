@@ -91,7 +91,6 @@ DepthData: TypeAlias = FloatArray2D  # Shape: (H, W)
 BinaryMask: TypeAlias = BoolArray2D  # Shape: (H, W)
 VectorField: TypeAlias = FloatArray3D  # Shape (H, W, 3)
 StriationProfile: TypeAlias = FloatArray1D  # Shape (N,)
-Point2D: TypeAlias = FloatArray1D  # Shape (2,)
 Points2D: TypeAlias = FloatArray2D  # Shape (N, 2)
 
 

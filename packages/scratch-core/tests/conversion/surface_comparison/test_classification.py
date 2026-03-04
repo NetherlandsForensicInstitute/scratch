@@ -19,25 +19,13 @@ from conversion.surface_comparison.cmc_classification import classify_congruent_
 from .helpers import build_test_inputs
 
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
+TEST_ROOT = Path(__file__).parent.parent.parent
+RESOURCES_DIR = TEST_ROOT / "resources"
+TEST_DATA_PATH = RESOURCES_DIR / "cmc" / "classification" / "cmc_test_data.json"
 
-TEST_DATA_PATH = (
-    Path(__file__).parent.parent.parent
-    / "resources"
-    / "cmc"
-    / "classification"
-    / "cmc_test_data.json"
-)
 
 ANGLE_ATOL = 1e-10
 TRANSLATION_ATOL = 1e-10
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 
 
 def _load_test_cases() -> list[dict]:
@@ -59,11 +47,6 @@ def _get_case(name: str) -> dict:
         if test_case["name"] == name:
             return test_case
     raise ValueError(f"Test case '{name}' not found")
-
-
-# ---------------------------------------------------------------------------
-# Parametrised tests against MATLAB reference
-# ---------------------------------------------------------------------------
 
 
 class TestClassifyCongruentCells:
@@ -137,11 +120,6 @@ class TestClassifyCongruentCells:
                 atol=TRANSLATION_ATOL,
                 err_msg=f"[{matlab_test_case['name']}] Consensus translation mismatch",
             )
-
-
-# ---------------------------------------------------------------------------
-# Named scenario tests
-# ---------------------------------------------------------------------------
 
 
 class TestSpecificScenarios:

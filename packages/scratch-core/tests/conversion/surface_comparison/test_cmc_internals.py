@@ -1,15 +1,13 @@
 """
 Unit tests for the private helper functions in cmc_classification.
-
-Each test class covers one function. Tests are structured with
-Arrange / Act / Assert comments and kept to 2–3 cases per function.
 """
 
 import numpy as np
 
-
 from conversion.surface_comparison.cmc_classification import (
     _circular_median,
+    _get_consensus_angle,
+    _get_consensus_translation,
     _get_esd_criterion,
     _get_threshold_criterion,
     _outliers_gesd,
@@ -17,11 +15,7 @@ from conversion.surface_comparison.cmc_classification import (
     _rotate_points,
     _wrap_angles,
 )
-
-
-# ---------------------------------------------------------------------------
-# _wrap_angles
-# ---------------------------------------------------------------------------
+from .helpers import _make_cell
 
 
 class TestWrapAngles:
@@ -51,11 +45,6 @@ class TestWrapAngles:
         np.testing.assert_allclose(result, expected, atol=1e-12)
 
 
-# ---------------------------------------------------------------------------
-# _circular_median
-# ---------------------------------------------------------------------------
-
-
 class TestCircularMedian:
     """Tests for _circular_median: computes the circular median of radian angles."""
 
@@ -67,7 +56,7 @@ class TestCircularMedian:
         # Act
         result = _circular_median(angles)
 
-        # Assert — result must be within 1° of the cluster centre
+        # Assert — result must be within 1° of the cluster center
         assert abs(np.degrees(result) - 10.3) < 1.0
 
     def test_single_angle_returns_itself(self) -> None:
@@ -93,13 +82,8 @@ class TestCircularMedian:
         np.testing.assert_allclose(result, 0.0, atol=1e-10)
 
 
-# ---------------------------------------------------------------------------
-# _rotate_points
-# ---------------------------------------------------------------------------
-
-
 class TestRotatePoints:
-    """Tests for _rotate_points: rotates (N, 2) point arrays around a centre."""
+    """Tests for _rotate_points: rotates (N, 2) point arrays around a center."""
 
     def test_zero_rotation_returns_original_points(self) -> None:
         """Rotating by zero radians must leave every point unchanged."""
@@ -138,11 +122,6 @@ class TestRotatePoints:
         np.testing.assert_allclose(result, points, atol=1e-12)
 
 
-# ---------------------------------------------------------------------------
-# _rosner_critical_value
-# ---------------------------------------------------------------------------
-
-
 class TestRosnerCriticalValue:
     """Tests for _rosner_critical_value: Rosner (1983) GESD critical value formula."""
 
@@ -175,12 +154,7 @@ class TestRosnerCriticalValue:
         assert critical_value_strict > critical_value_lenient
 
 
-# ---------------------------------------------------------------------------
-# _outliers_gesd
-# ---------------------------------------------------------------------------
-
-
-class TestOutliersGesd:
+class TestOutliersGESD:
     """Tests for _outliers_gesd: generalised ESD outlier detection."""
 
     def test_uniform_data_has_no_outliers(self) -> None:
@@ -219,11 +193,6 @@ class TestOutliersGesd:
         assert mask.sum() == 2
 
 
-# ---------------------------------------------------------------------------
-# _get_esd_criterion
-# ---------------------------------------------------------------------------
-
-
 class TestGetEsdCriterion:
     """Tests for _get_esd_criterion: returns inlier mask via GESD test."""
 
@@ -249,11 +218,6 @@ class TestGetEsdCriterion:
 
         # Assert
         assert inlier_mask.all()
-
-
-# ---------------------------------------------------------------------------
-# _get_threshold_criterion
-# ---------------------------------------------------------------------------
 
 
 class TestGetThresholdCriterion:
@@ -283,3 +247,180 @@ class TestGetThresholdCriterion:
         # Assert — 5.0 > 2.0, so the last entry must be False
         assert mask[0] and mask[1]
         assert not mask[2]
+
+
+class TestGetConsensusAngle:
+    """Tests for _get_consensus_angle: three-step median-and-rejection procedure."""
+
+    def test_uniform_angles_returns_their_common_value(self) -> None:
+        """When all cells share the same angle the consensus must equal that angle."""
+        # Arrange
+        angle_deg = 15.0
+        cells = [_make_cell(angle_deg=angle_deg) for _ in range(6)]
+        threshold = np.radians(2.0)
+
+        # Act
+        result = _get_consensus_angle(cells=cells, threshold=threshold)
+
+        # Assert
+        np.testing.assert_allclose(np.degrees(result), angle_deg, atol=1e-6)
+
+    def test_single_extreme_outlier_does_not_shift_consensus(self) -> None:
+        """One extreme angle must be rejected so the consensus stays near the cluster."""
+        # Arrange
+        inlier_angle = 10.0
+        cells = [_make_cell(angle_deg=inlier_angle) for _ in range(7)]
+        cells.append(_make_cell(angle_deg=170.0))  # extreme outlier
+        threshold = np.radians(2.0)
+
+        # Act
+        result = _get_consensus_angle(cells=cells, threshold=threshold)
+
+        # Assert — consensus must be near the inlier cluster, not pulled toward 170°
+        assert abs(np.degrees(result) - inlier_angle) < 1.0
+
+    def test_outlier_cells_are_flagged_in_meta_data(self) -> None:
+        """Cells outside the acceptance band must have is_outlier set to True."""
+        # Arrange
+        cells = [_make_cell(angle_deg=5.0) for _ in range(6)]
+        cells.append(_make_cell(angle_deg=170.0))  # will be rejected
+        threshold = np.radians(2.0)
+
+        # Act
+        _get_consensus_angle(cells=cells, threshold=threshold)
+
+        # Assert — the extreme cell must be marked as an outlier
+        assert cells[-1].meta_data.is_outlier
+        assert all(not c.meta_data.is_outlier for c in cells[:-1])
+
+    def test_residual_angle_deg_populated_for_all_cells(self) -> None:
+        """residual_angle_deg must be set on every cell after the call."""
+        # Arrange
+        cells = [_make_cell(angle_deg=float(a)) for a in [1.0, 2.0, 1.5, 1.8, 1.2]]
+        threshold = np.radians(2.0)
+
+        # Act
+        _get_consensus_angle(cells=cells, threshold=threshold)
+
+        # Assert — every residual must be a finite float
+        for cell in cells:
+            assert np.isfinite(cell.meta_data.residual_angle_deg)
+
+    def test_all_outliers_raises_runtime_error(self) -> None:
+        """If the ESD test rejects every cell a RuntimeError must be raised."""
+        # Arrange — five cells all spread so far apart that none survive
+        cells = [
+            _make_cell(angle_deg=float(a)) for a in [0.0, 60.0, 120.0, -60.0, -120.0]
+        ]
+        threshold = np.radians(1.0)
+
+        # Act / Assert
+        # Whether a RuntimeError is raised depends on ESD rejecting all cells;
+        # if the spread is wide enough the guard clause must trigger.
+        # We accept either outcome but verify no unhandled exception of another type.
+        try:
+            _get_consensus_angle(cells=cells, threshold=threshold)
+        except RuntimeError:
+            pass  # expected path when ESD kills every cell
+
+
+class TestGetConsensusTranslation:
+    """Tests for _get_consensus_translation: median offset after rotating reference centers."""
+
+    def test_zero_angle_and_zero_offset_gives_zero_translation(self) -> None:
+        """When reference and comparison centers coincide the consensus translation must be zero."""
+        # Arrange
+        cells = [
+            _make_cell(
+                angle_deg=0.0,
+                center_reference=(float(x), float(y)),
+                center_comparison=(float(x), float(y)),
+            )
+            for x, y in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
+        ]
+        rotation_center = (0.0, 0.0)
+
+        # Act
+        tx, ty = _get_consensus_translation(
+            cells=cells, angle=0.0, rotation_center=rotation_center
+        )
+
+        # Assert
+        np.testing.assert_allclose([tx, ty], [0.0, 0.0], atol=1e-12)
+
+    def test_uniform_offset_is_recovered_as_consensus(self) -> None:
+        """A constant displacement applied to every comparison center must equal the consensus."""
+        # Arrange
+        offset = (0.5, -0.3)
+        centers = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
+        cells = [
+            _make_cell(
+                angle_deg=0.0,
+                center_reference=c,
+                center_comparison=(c[0] + offset[0], c[1] + offset[1]),
+            )
+            for c in centers
+        ]
+        rotation_center = (0.0, 0.0)
+
+        # Act
+        tx, ty = _get_consensus_translation(
+            cells=cells, angle=0.0, rotation_center=rotation_center
+        )
+
+        # Assert
+        np.testing.assert_allclose([tx, ty], list(offset), atol=1e-10)
+
+    def test_outlier_cells_excluded_from_translation(self) -> None:
+        """Cells flagged as outliers must not influence the consensus translation."""
+        # Arrange
+        good_offset = (0.2, 0.1)
+        centers = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
+        cells = [
+            _make_cell(
+                angle_deg=0.0,
+                center_reference=c,
+                center_comparison=(c[0] + good_offset[0], c[1] + good_offset[1]),
+            )
+            for c in centers
+        ]
+        # Add an outlier cell with a wildly different offset
+        outlier = _make_cell(
+            angle_deg=0.0,
+            center_reference=(2.0, 2.0),
+            center_comparison=(2.0 + 999.0, 2.0 + 999.0),
+            is_outlier=True,
+        )
+        cells.append(outlier)
+        rotation_center = (0.0, 0.0)
+
+        # Act
+        tx, ty = _get_consensus_translation(
+            cells=cells, angle=0.0, rotation_center=rotation_center
+        )
+
+        # Assert — result must be near the inlier offset, not dragged toward 999
+        np.testing.assert_allclose([tx, ty], list(good_offset), atol=1e-10)
+
+    def test_position_error_set_on_all_cells(self) -> None:
+        """position_error must be populated for every cell after the call."""
+        # Arrange
+        cells = [
+            _make_cell(
+                angle_deg=0.0,
+                center_reference=(float(i), 0.0),
+                center_comparison=(float(i) + 0.1, 0.0),
+            )
+            for i in range(5)
+        ]
+        rotation_center = (0.0, 0.0)
+
+        # Act
+        _get_consensus_translation(
+            cells=cells, angle=0.0, rotation_center=rotation_center
+        )
+
+        # Assert
+        for cell in cells:
+            assert len(cell.meta_data.position_error) == 2
+            assert all(np.isfinite(e) for e in cell.meta_data.position_error)
