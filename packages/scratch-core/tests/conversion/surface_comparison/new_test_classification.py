@@ -14,10 +14,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from conversion.surface_comparison_simone.cmc_classification import (
+from conversion.surface_comparison.cmc_classification import (
     classify_congruent_cells,
 )
-from conversion.surface_comparison_simone.models import (
+from conversion.surface_comparison.models import (
     CellResult,
     ComparisonParams,
     ComparisonResult,

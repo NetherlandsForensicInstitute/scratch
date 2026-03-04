@@ -1,63 +1,70 @@
-from pydantic import Field, field_validator
+from pydantic import Field
+
 import numpy as np
-from container_models.base import ConfigBaseModel, FloatArray1D, FloatArray2D
+
+from container_models.base import ConfigBaseModel, FloatArray1D
 from container_models.scan_image import ScanImage
 
+# SurfaceMap is a ScanImage: height map data with pixel spacing, and derived
+# physical_size and global_center properties are provided by ScanImage.
+# All spatial quantities (pixel_spacing, physical_size, global_center, cell_size)
+# are in meters.
 SurfaceMap = ScanImage
 
 
-class Cell(ConfigBaseModel):
+class CellResult(ConfigBaseModel):
     """
+    Registration and similarity results for a single cell.
+
     :param center_reference: Cell center [x, y] on the reference surface (m), shape (2,).
-    :param cell_data: Height data in meters, shape (H, W).
-    :param fill_fraction_reference: Fraction of valid (non-NaN) pixels in the reference cell.
-    :param best_score: ACCF score at best registration pose. None if registration failed.
-    :param angle_reference: Optimal rotation in degrees. None if registration failed.
-    :param center_comparison: Cell center [x, y] on comparison surface (m). None if failed.
-    :param is_congruent: True if classified as a Congruent Matching Cell (CMC).
+    :param center_comparison: Cell center [x, y] on the comparison surface (m), shape (2,).
+    :param registration_angle: Optimal rotation for this cell (radians).
+    :param area_cross_correlation_function_score: Per-cell normalised cross-correlation
+        coefficient (ACCF) at the best registration pose.
+    :param reference_fill_fraction: Fraction of valid (non-NaN) pixels in the reference cell.
+    :param is_congruent: True if this cell is classified as a Congruent Matching Cell (CMC).
     """
 
     center_reference: FloatArray1D
-    cell_data: FloatArray2D
-    fill_fraction_reference: float = Field(..., ge=0.0, le=1.0)
-    best_score: float | None = Field(None, le=1.0)
-    angle_reference: float | None = Field(None, ge=-180, le=180)
-    center_comparison: FloatArray1D | None = None
+    center_comparison: FloatArray1D
+    registration_angle: float
+    area_cross_correlation_function_score: float
+    reference_fill_fraction: float = Field(..., ge=0.0, le=1.0)
     is_congruent: bool = False
-
-    @field_validator("fill_fraction_reference", "best_score", mode="before")
-    @classmethod
-    def check_upper_bound_with_tol(cls, v):
-        TOL = 1e-6
-        if v is None:
-            return v
-        if v > 1.0 + TOL:
-            raise ValueError(f"value must be <= 1.0 (+{TOL} tolerance)")
-        return min(v, 1.0)
 
 
 class ComparisonResult(ConfigBaseModel):
     """
+    Consolidated results of the CMC pipeline.
+
     :param cells: Per-cell registration and classification results.
-    :param congruent_matching_cells_count: Number of CMC cells.
-    :param consensus_rotation: Rotation consensus in degrees.
-    :param consensus_translation: Translation consensus (m), shape (2,).
+    :param congruent_matching_cells_count: Number of cells classified as CMC.
+    :param consensus_rotation: Rotation consensus across CMC cells (radians).
+    :param consensus_translation: Translation consensus across CMC cells (m), shape (2,).
     """
 
-    cells: list[Cell] = Field(default_factory=list)
+    cells: list[CellResult] = Field(default_factory=list)
     congruent_matching_cells_count: int = 0
     consensus_rotation: float = 0.0
     consensus_translation: FloatArray1D = Field(
         default_factory=lambda: np.zeros(2, dtype=np.float64)
     )
-    model_config = {**ConfigBaseModel.model_config, "frozen": False}
+
+    # ComparisonResult is intentionally mutable: the pipeline populates cells
+    # and updates counts after construction.
+    model_config = {
+        **ConfigBaseModel.model_config,
+        "frozen": False,
+    }
 
     @property
     def cell_count(self) -> int:
+        """Total number of cells."""
         return len(self.cells)
 
     @property
     def cmc_fraction(self) -> float:
+        """Fraction of cells classified as CMC."""
         return (
             self.congruent_matching_cells_count / self.cell_count
             if self.cells
@@ -66,17 +73,17 @@ class ComparisonResult(ConfigBaseModel):
 
     @property
     def cmc_area_fraction(self) -> float:
-        total_area = sum(cell.fill_fraction_reference for cell in self.cells)
+        """Fraction of valid surface area covered by CMC cells."""
+        total_area = sum(cell.reference_fill_fraction for cell in self.cells)
         if total_area == 0:
             return float("nan")
-        return (
-            sum(
-                cell.fill_fraction_reference for cell in self.cells if cell.is_congruent
-            )
-            / total_area
+        cmc_area = sum(
+            cell.reference_fill_fraction for cell in self.cells if cell.is_congruent
         )
+        return cmc_area / total_area
 
     def update_summary(self) -> None:
+        """Recount CMC cells from current cell statuses."""
         self.congruent_matching_cells_count = sum(
             1 for cell in self.cells if cell.is_congruent
         )
@@ -84,14 +91,17 @@ class ComparisonResult(ConfigBaseModel):
 
 class ComparisonParams(ConfigBaseModel):
     """
+    Parameters for the Congruent Matching Cells (CMC) algorithm.
+
     :param cell_size: Nominal cell size [width, height] in meters, shape (2,).
-    :param minimum_fill_fraction: Minimum valid-pixel fraction for a reference cell.
-    :param correlation_threshold: Minimum ACCF score for CMC classification.
-    :param angle_threshold: Max angular deviation from consensus (degrees).
-    :param position_threshold: Max positional deviation from consensus (m).
+    :param minimum_fill_fraction: Minimum fraction of valid pixels required in a
+        reference cell for it to be processed.
+    :param correlation_threshold: Minimum per-cell ACCF score for CMC classification.
+    :param angle_threshold: Maximum angular deviation from consensus for CMC (degrees).
+    :param position_threshold: Maximum positional deviation from consensus for CMC (m).
     :param search_angle_min: Lower bound of rotation search range (degrees).
     :param search_angle_max: Upper bound of rotation search range (degrees).
-    :param search_angle_step: Angular step for coarse rotation sweep (degrees).
+    :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
     """
 
     cell_size: FloatArray1D = Field(

@@ -1,6 +1,6 @@
 import numpy as np
 
-from conversion.surface_comparison_simone.grid import (
+from conversion.surface_comparison.grid import (
     _find_grid_origin,
     generate_grid_centers,
 )

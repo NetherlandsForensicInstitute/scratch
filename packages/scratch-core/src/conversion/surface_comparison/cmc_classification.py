@@ -6,9 +6,11 @@ implements the median procedure (Procedure 6) with ESD outlier rejection.
 """
 
 import numpy as np
-from scipy.stats import t
 
-from conversion.surface_comparison.models import ComparisonResult, ComparisonParams
+from conversion.surface_comparison.models import (
+    ComparisonResult,
+    ComparisonParams,
+)
 
 
 def classify_congruent_cells(
@@ -37,26 +39,10 @@ def classify_congruent_cells(
     if not cells:
         return
 
-    angles = (
-        np.array(
-            [
-                c.angle_reference if c.angle_reference is not None else np.nan
-                for c in cells
-            ]
-        )
-        * np.pi
-        / 180
-    )  # radians
+    angles = np.array([c.registration_angle for c in cells])  # radians
     pos_ref = np.array([c.center_reference for c in cells])  # (N, 2) in m
-    pos_comp = np.array(
-        [
-            c.center_comparison if c.center_comparison is not None else [np.nan, np.nan]
-            for c in cells
-        ]
-    )  # (N, 2) in m
-    scores = np.array(
-        [c.best_score if c.best_score is not None else np.nan for c in cells]
-    )
+    pos_comp = np.array([c.center_comparison for c in cells])  # (N, 2) in m
+    scores = np.array([c.area_cross_correlation_function_score for c in cells])
 
     valid = ~np.isnan(angles)
     if not np.any(valid):
@@ -81,11 +67,11 @@ def classify_congruent_cells(
             inlier_full[idx] = False
 
     if np.any(inlier_full):
-        # Recompute median from inliers
+        # Recompute median from ESD inliers
         consensus_angle = _circular_median(angle_diffs[inlier_full])
         angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
 
-        # Tighten: re-evaluate ALL valid cells against 2 × angle_threshold
+        # Tighten: re-evaluate ALL valid cells (not just ESD survivors)
         angle_threshold_rad = np.radians(params.angle_threshold)
         inlier_full = valid & (np.abs(angle_residuals) <= 2 * angle_threshold_rad)
 
@@ -108,7 +94,17 @@ def classify_congruent_cells(
     pos_residuals = pos_comp - expected_pos
     consensus_translation = np.nanmedian(pos_residuals, axis=0)
     pos_errors = pos_residuals - consensus_translation
-
+    for i, cell in enumerate(cells):
+        print(
+            f"  cell {i}: ref=[{cell.center_reference[0] * 1e6:.2f}, {cell.center_reference[1] * 1e6:.2f}] µm, "
+            f"comp=[{cell.center_comparison[0] * 1e6:.2f}, {cell.center_comparison[1] * 1e6:.2f}] µm, "
+            f"angle={np.degrees(cell.registration_angle):.4f}°, "
+            f"score={cell.area_cross_correlation_function_score:.6f}"
+        )
+    print(f"  consensus_angle={np.degrees(consensus_angle):.4f}°")
+    print(
+        f"  consensus_translation=[{consensus_translation[0] * 1e6:.2f}, {consensus_translation[1] * 1e6:.2f}] µm"
+    )
     # --- Step 4: Label CMCs ---
     angle_threshold_rad = np.radians(params.angle_threshold)
     for i, cell in enumerate(cells):
@@ -120,9 +116,7 @@ def classify_congruent_cells(
             and np.abs(pos_errors[i, 1]) <= params.position_threshold
         )
 
-    result.consensus_rotation = (
-        float(consensus_angle) * 180 / np.pi
-    )  # convert back to degrees
+    result.consensus_rotation = float(consensus_angle)
     result.consensus_translation = consensus_translation
     result.update_summary()
 
@@ -130,86 +124,16 @@ def classify_congruent_cells(
 def _outliers_gesd(
     data: np.ndarray, outliers: int, hypo: bool, alpha: float
 ) -> np.ndarray:
-    """
-    Generalised ESD test for outliers (Rosner 1983), matching the MATLAB
-    ``stat_idout_esd`` reference implementation used by the NIST CMC pipeline.
+    from scikit_posthocs import outliers_gesd
 
-    Critical values use the Rosner formula:
-        lambda_i = t(p, ni-1) * ni / sqrt((ni-1 + t^2) * (ni+1))
-        where p = 1 - alpha / (2*(ni+1)) and ni = remaining observations
-        AFTER the i-th removal (i.e. n - i).
-
-    :param data: 1-D array of values to test.
-    :param outliers: Maximum number of outliers to test for.
-    :param hypo: Ignored (always operates in hypothesis-test mode).
-    :param alpha: Significance level.
-    :returns: Boolean mask in original array order; True = outlier.
-    """
-    n = len(data)
-    if outliers <= 0 or n < 3:
-        return np.zeros(n, dtype=bool)
-
-    argsort_index = np.argsort(data)
-    data_sorted = data[argsort_index]
-
-    # First pass: compute R statistics and critical values, tracking which
-    # sorted-array position is removed at each step.
-    rs: list[float] = []
-    lambdas: list[float] = []
-    data_work = list(data_sorted)
-    remaining_positions = list(range(n))  # sorted-array positions still in data_work
-
-    for _ in range(outliers):
-        if len(data_work) < 3:
-            break
-        arr = np.array(data_work)
-        mean_w = float(np.mean(arr))
-        std_w = float(np.std(arr, ddof=1))
-        if std_w == 0:
-            break
-        idx = int(np.argmax(np.abs(arr - mean_w)))
-        rs.append(float(np.abs(arr[idx] - mean_w) / std_w))
-
-        # Critical value uses ni = remaining count AFTER this removal
-        ni = len(data_work) - 1
-        if ni >= 2:
-            p = 1.0 - alpha / (2.0 * (ni + 1))
-            rt = float(t.ppf(p, ni - 1))
-            lambdas.append(rt * ni / np.sqrt((ni - 1 + rt**2) * (ni + 1)))
-        else:
-            lambdas.append(np.inf)
-
-        remaining_positions.pop(idx)
-        data_work.pop(idx)
-
-    # Find the last step i (1-indexed) where H0 is rejected
-    last_reject = 0
-    for i, (R, lam) in enumerate(zip(rs, lambdas)):
-        if R > lam:
-            last_reject = i + 1
-
-    if last_reject == 0:
-        return np.zeros(n, dtype=bool)
-
-    # Second pass: retrace the first `last_reject` removals to identify
-    # which sorted-array positions are outliers.
-    data_work2 = list(data_sorted)
-    remaining2 = list(range(n))
-    outlier_sorted_positions: list[int] = []
-    for _ in range(last_reject):
-        arr = np.array(data_work2)
-        idx = int(np.argmax(np.abs(arr - np.mean(arr))))
-        outlier_sorted_positions.append(remaining2[idx])
-        remaining2.pop(idx)
-        data_work2.pop(idx)
-
-    mask_sorted = np.zeros(n, dtype=bool)
-    for pos in outlier_sorted_positions:
-        mask_sorted[pos] = True
-
-    # Unsort back to original input order
-    mask_original = np.zeros(n, dtype=bool)
-    mask_original[argsort_index] = mask_sorted
+    if outliers <= 0 or len(data) < 3:
+        return np.zeros(len(data), dtype=bool)
+    mask_sorted = outliers_gesd(data, outliers=outliers, hypo=hypo, alpha=alpha)
+    # Unsort: argsort gives the permutation that sorts data;
+    # placing mask_sorted values at those positions recovers original order.
+    argsort = np.argsort(data)
+    mask_original = np.zeros(len(data), dtype=bool)
+    mask_original[argsort] = mask_sorted
     return mask_original
 
 
@@ -217,15 +141,15 @@ def _circular_median(angles: np.ndarray) -> float:
     """
     Compute the circular median of a set of angles (in radians).
 
-    The circular median minimises the sum of absolute angular distances.
-
-    :param angles: 1-D array of angles in radians.
-    :returns: The circular median angle in radians.
+    For an odd number of values the middle element is returned; for an
+    even number the circular mean of the two middle elements is returned,
+    matching MATLAB's angle_median behaviour.
     """
     angles = angles[~np.isnan(angles)]
     if angles.size == 0:
         return np.nan
 
+    # Find the rotation that minimises total absolute angular distance
     best_idx = 0
     best_cost = np.inf
     for i, candidate in enumerate(angles):
@@ -236,10 +160,14 @@ def _circular_median(angles: np.ndarray) -> float:
             best_cost = cost
             best_idx = i
 
+    # Centre angles around the best candidate, take standard median,
+    # then unwrap back.
     ref = angles[best_idx]
     centred = (angles - ref + np.pi) % (2 * np.pi) - np.pi
     med = float(np.median(centred))
-    result = (ref + med + np.pi) % (2 * np.pi) - np.pi
+    result = ref + med
+    # Wrap result into (-π, π]
+    result = (result + np.pi) % (2 * np.pi) - np.pi
     return float(result)
 
 
