@@ -11,19 +11,6 @@ from conversion.surface_comparison.models import (
 )
 
 
-def as_array(value: int | float | list, dtype=np.float64) -> np.ndarray:
-    """Convert a JSON value (which may contain ``None`` for NaN) to a numpy array."""
-    if isinstance(value, (int, float)):
-        return np.array([value], dtype=dtype)
-
-    def _replace_none(v):
-        return np.nan if v is None else v
-
-    if isinstance(value, list) and value and isinstance(value[0], list):
-        return np.array([[_replace_none(x) for x in row] for row in value], dtype=dtype)
-    return np.array([_replace_none(x) for x in value], dtype=dtype)
-
-
 def build_cells(inputs: dict) -> list[Cell]:
     """
     Build a list of Cell objects from a single MATLAB test-case input dict.
@@ -40,11 +27,11 @@ def build_cells(inputs: dict) -> list[Cell]:
     simVal         best_score
     ============== ====================================================
     """
-    mPos1 = as_array(inputs["mPos1"])
-    mPos2 = as_array(inputs["mPos2"])
-    angle1 = as_array(inputs["angle1"])
-    angle2 = as_array(inputs["angle2"])
-    sim_vals = as_array(inputs["simVals"])
+    mPos1 = np.array(inputs["mPos1"])
+    mPos2 = np.array(inputs["mPos2"])
+    angle1 = np.array(inputs["angle1"])
+    angle2 = np.array(inputs["angle2"])
+    sim_vals = np.array(inputs["simVals"])
 
     # Handle single-cell case where JSON gives 1-D arrays
     if mPos1.ndim == 1:

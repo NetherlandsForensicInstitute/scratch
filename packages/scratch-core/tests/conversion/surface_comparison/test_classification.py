@@ -16,7 +16,7 @@ import pytest
 
 from conversion.surface_comparison.cmc_classification import classify_congruent_cells
 
-from .helpers import as_array, build_test_params
+from .helpers import build_test_params
 
 
 # ---------------------------------------------------------------------------
@@ -120,9 +120,9 @@ class TestClassifyCongruentCells:
 
         result = classify_congruent_cells(cells, params, center)
 
-        expected_trans = as_array(tc["outputs"]["vTrans"])
+        expected_trans = np.array(tc["outputs"]["vTrans"])
         actual_trans = np.asarray(result.consensus_translation)
-        if np.all(np.isnan(expected_trans)):
+        if all(item is None for item in expected_trans):
             assert np.all(np.isnan(actual_trans)), (
                 f"[{tc['name']}] Expected NaN translation, got {actual_trans}"
             )
