@@ -121,7 +121,6 @@ def classify_congruent_cells(
         float(consensus_angle) * 180 / np.pi
     )  # convert back to degrees
     result.consensus_translation = consensus_translation
-    result.update_summary()
 
 
 def _outliers_gesd(
