@@ -6,25 +6,6 @@ from container_models.light_source import LightSource
 PROJECT_ROOT = Path(__file__).parent.parent
 
 
-class StriationMarks(StrEnum):
-    APERTURE_SHEAR = "aperture shear striation mark"
-    BULLET_GEA = "bullet gea striation mark"
-    BULLET_LEA = "bullet lea striation mark"
-    CHAMBER = "chamber striation mark"
-    EJECTOR = "ejector striation mark"
-    EJECTOR_PORT = "ejector port striation mark"
-    EXTRACTOR = "extractor striation mark"
-    FIRING_PIN_DRAG = "firing pin drag striation mark"
-
-
-class ImpressionMarks(StrEnum):
-    BREACH_FACE = "breach face impression mark"
-    CHAMBER = "chamber impression mark"
-    EJECTOR = "ejector impression mark"
-    EXTRACTOR = "extractor impression mark"
-    FIRING_PIN = "firing pin impression mark"
-
-
 class MaskTypes(StrEnum):
     RECTANGLE = "rectangle"
     CIRCLE = "circle"
@@ -56,6 +37,8 @@ class ProcessorEndpoint(StrEnum):
     ROOT = ""
     CALCULATE_SCORE_IMPRESSION = "calculate-score-impression"
     CALCULATE_SCORE_STRIATION = "calculate-score-striation"
+    CALCULATE_LR_IMPRESSION = "calculate-lr-impression"
+    CALCULATE_LR_STRIATION = "calculate-lr-striation"
 
 
 class ComparatorEndpoint(StrEnum):
@@ -67,3 +50,13 @@ LIGHT_SOURCES = (
     LightSource(azimuth=180, elevation=45),
 )
 OBSERVER = LightSource(azimuth=90, elevation=45)
+
+
+class LogLevel(StrEnum):
+    TRACE = "TRACE"
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    SUCCESS = "SUCCESS"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"

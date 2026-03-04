@@ -9,13 +9,11 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 from scipy.constants import micro
-from utils.constants import RegressionOrder
 
-from preprocessors.schemas import EditImage, Mask
+from preprocessors.schemas import EditImage, RegressionOrder
 
 DEFAULT_RESAMPLING_FACTOR: Final[int] = 4
 DEFAULT_STEP_SIZE: Final[int] = 1
-MASK: Final[Mask] = ((1, 0, 1), (0, 1, 0))  # type: ignore
 CUTOFF_LENGTH: Final[float] = 250
 
 
@@ -80,8 +78,6 @@ class TestEditImage:
         assert params.terms == SurfaceTerms.PLANE
         assert params.regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE
         assert params.cutoff_length == CUTOFF_LENGTH * micro
-        assert params.step_size_x == DEFAULT_STEP_SIZE
-        assert params.step_size_y == DEFAULT_STEP_SIZE
         assert params.crop is False
         assert params.project_name is None
 
@@ -105,32 +101,6 @@ class TestEditImage:
 
         # Assert
         assert all(getattr(params, field) == value for field, value in kwargs.items())
-
-    @given(valid_value=st.integers(min_value=1, max_value=3))
-    @pytest.mark.parametrize("field", ["step_size_x", "step_size_y"])
-    def test_should_accept_positive_integer_fields(
-        self, field: str, valid_value: float, edit_image_parameter: Callable[..., EditImage]
-    ) -> None:
-        """Test that positive step sizes are accepted."""
-        # Act
-        params = edit_image_parameter(**{field: valid_value})
-
-        # Assert
-        assert getattr(params, field) == valid_value
-
-    @given(invalid_value=st.integers(max_value=0))
-    @pytest.mark.parametrize("field", ["step_size_x", "step_size_y"])
-    def test_should_reject_non_positive_integer_fields(
-        self, field: str, invalid_value: float, edit_image_parameter: Callable[..., EditImage]
-    ) -> None:
-        """Test that step_size_x must be greater than 0."""
-        # Act & Assert
-        with pytest.raises(ValidationError, match="greater than 0") as exc_info:
-            edit_image_parameter(**{field: invalid_value})
-
-        # Assert
-        errors = exc_info.value.errors()
-        assert any(error["loc"] == (field,) for error in errors)
 
     @given(valid_value=st.floats(min_value=micro, max_value=3, allow_nan=False, allow_infinity=False))
     def test_should_accept_positive_cutoff_length(
@@ -175,4 +145,4 @@ class TestEditImage:
             EditImage()  # type: ignore
 
         # Assert
-        assert get_error_fields(exc_info, "missing") == ("scan_file", "mask", "cutoff_length")
+        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "mask_parameters")

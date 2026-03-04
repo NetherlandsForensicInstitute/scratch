@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
+from scipy.constants import micro
 
 from conversion.profile_correlator import (
     Profile,
@@ -15,7 +16,7 @@ class TestEqualizePixelScale:
 
     def test_same_pixel_size_unchanged(self):
         """Profiles with same pixel size should be returned unchanged."""
-        pixel_size = 0.5e-6
+        pixel_size = 0.5 * micro
         p1 = Profile(np.random.randn(100), pixel_size=pixel_size)
         p2 = Profile(np.random.randn(100), pixel_size=pixel_size)
 
@@ -26,8 +27,8 @@ class TestEqualizePixelScale:
 
     def test_downsamples_higher_resolution_profile(self):
         """Higher resolution profile should be downsampled to lower resolution."""
-        p1 = Profile(np.random.randn(100), pixel_size=1.0e-6)  # Lower resolution
-        p2 = Profile(np.random.randn(200), pixel_size=0.5e-6)  # Higher resolution
+        p1 = Profile(np.random.randn(100), pixel_size=micro)  # Lower resolution
+        p2 = Profile(np.random.randn(200), pixel_size=0.5 * micro)  # Higher resolution
 
         p1_out, p2_out = equalize_pixel_scale(p1, p2)
 

@@ -1,34 +1,25 @@
 import numpy as np
 import pytest
+from scipy.constants import mega, micro
 
 from container_models.base import FloatArray2D
-from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.plots.data_formats import (
     HistogramData,
     ImpressionComparisonMetrics,
     LlrTransformationData,
-    StriationComparisonMetrics,
 )
+from conversion.profile_correlator import StriationComparisonResults, Profile
 
 from .helper_functions import (
     create_synthetic_impression_data,
     create_synthetic_impression_mark,
     create_synthetic_impression_surface_pair,
-    create_synthetic_profile_mark,
+    create_synthetic_profile,
     create_synthetic_striation_data,
     create_synthetic_striation_mark,
+    make_mark,
 )
-
-
-@pytest.fixture
-def striation_profile_reference() -> FloatArray2D:
-    return create_synthetic_striation_data(height=1, width=200, seed=42)
-
-
-@pytest.fixture
-def striation_profile_compared() -> FloatArray2D:
-    return create_synthetic_striation_data(height=1, width=200, seed=43)
 
 
 @pytest.fixture
@@ -62,40 +53,38 @@ def striation_mark_compared_aligned() -> Mark:
 
 
 @pytest.fixture
-def striation_mark_profile_reference() -> Mark:
-    return create_synthetic_profile_mark(length=200, seed=46)
+def profile_reference() -> Profile:
+    return create_synthetic_profile(length=200, seed=46)
 
 
 @pytest.fixture
-def striation_mark_profile_compared() -> Mark:
-    return create_synthetic_profile_mark(length=200, seed=47)
+def profile_compared() -> Profile:
+    return create_synthetic_profile(length=200, seed=47)
 
 
 @pytest.fixture
-def striation_quality_passbands() -> dict[tuple[float, float], float]:
-    return {
-        (5, 250): 0.85,
-        (100, 250): 0.78,
-        (50, 100): 0.65,
-        (25, 50): 0.45,
-        (10, 25): 0.30,
-        (5, 10): 0.15,
-    }
-
-
-@pytest.fixture
-def striation_metrics(striation_quality_passbands) -> StriationComparisonMetrics:
-    return StriationComparisonMetrics(
+def striation_metrics() -> StriationComparisonResults:
+    sq_ref = 0.2395 * micro
+    sq_comp = 0.7121 * micro
+    sq_diff = 0.6138 * micro
+    return StriationComparisonResults(
+        pixel_size=1.5625 * micro,
+        position_shift=12.5 * micro,
+        scale_factor=1.0,
+        similarity_value=0.85,
+        overlap_length=160 * micro,
+        overlap_ratio=0.804,
         correlation_coefficient=0.85,
-        position_shift=12.5,
-        overlap_ratio=80.4,
-        mean_square_ref=0.2395,
-        mean_square_comp=0.7121,
-        mean_square_of_difference=0.6138,
-        mean_square_ratio=297.3765,
-        signed_roughness_difference=220.94,
-        pixel_size=1.5625,
-        quality_passbands=striation_quality_passbands,
+        sa_ref=0.19 * micro,
+        mean_square_ref=sq_ref,
+        sa_comp=0.60 * micro,
+        mean_square_comp=sq_comp,
+        sa_diff=0.50 * micro,
+        mean_square_of_difference=sq_diff,
+        ds_roughness_normalized_to_reference=(sq_diff / sq_ref) ** 2,
+        ds_roughness_normalized_to_compared=(sq_diff / sq_comp) ** 2,
+        ds_roughness_normalized_to_reference_and_compared=sq_diff**2
+        / (sq_ref * sq_comp),
     )
 
 
@@ -166,7 +155,7 @@ def impression_sample_metrics(
 ) -> ImpressionComparisonMetrics:
     n_rows, n_cols = impression_sample_cell_correlations.shape
     n_cells = impression_sample_cell_correlations.size
-    # Surface: 100x120 pixels at 1.5e-6 m/px = 150x180 µm
+    # Surface: 100x120 pixels at 1.5 * micro m/px = 150x180 µm
     height_um, width_um = 150.0, 180.0
     cell_w_um = width_um / n_cols
     cell_h_um = height_um / n_rows
@@ -202,8 +191,8 @@ def impression_sample_metrics(
 def impression_overview_marks() -> dict[str, Mark]:
     """Four impression marks: leveled and filtered for reference and compared."""
     rows, cols = 300, 200
-    scale_x = 1.5626e-6
-    scale_y = 1.5675e-6
+    scale_x = 1.5626 * micro
+    scale_y = 1.5675 * micro
 
     data_ref_lev, data_comp_lev = create_synthetic_impression_surface_pair(
         rows, cols, 0, 10, 11
@@ -212,17 +201,31 @@ def impression_overview_marks() -> dict[str, Mark]:
         rows, cols, 1, 12, 13
     )
 
-    def _mark(data: np.ndarray) -> Mark:
-        return Mark(
-            scan_image=ScanImage(data=data, scale_x=scale_x, scale_y=scale_y),
-            mark_type=MarkType.EJECTOR_IMPRESSION,
-        )
-
     return {
-        "reference_leveled": _mark(data_ref_lev),
-        "compared_leveled": _mark(data_comp_lev),
-        "reference_filtered": _mark(data_ref_flt),
-        "compared_filtered": _mark(data_comp_flt),
+        "reference_leveled": make_mark(
+            data_ref_lev,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
+        "compared_leveled": make_mark(
+            data_comp_lev,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
+        "reference_filtered": make_mark(
+            data_ref_flt,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
+        "compared_filtered": make_mark(
+            data_comp_flt,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            mark_type=MarkType.EJECTOR_IMPRESSION,
+        ),
     }
 
 
@@ -240,16 +243,16 @@ def impression_overview_metrics() -> ImpressionComparisonMetrics:
     )
 
     rows, cols = 300, 200
-    scale_x = 1.5626e-6
-    scale_y = 1.5675e-6
+    scale_x = 1.5626 * micro
+    scale_y = 1.5675 * micro
 
     n_cell_rows, n_cell_cols = cell_correlations.shape
     n_cells = n_cell_rows * n_cell_cols
     n_cmc = int(np.sum(cell_correlations >= cell_similarity_threshold))
     cmc_score = n_cmc / n_cells * 100
 
-    surface_w_um = cols * scale_x * 1e6
-    surface_h_um = rows * scale_y * 1e6
+    surface_w_um = cols * scale_x * mega
+    surface_h_um = rows * scale_y * mega
     cell_w_um = surface_w_um / n_cell_cols
     cell_h_um = surface_h_um / n_cell_rows
 
