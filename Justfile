@@ -91,6 +91,10 @@ build: (log "\nBuilding the REST API to an executable" "blue")
 api: (log "Starting FastAPI development server")
     uv run fastapi dev src/main.py
 
+# Start API with multiple workers
+api-prod: (log "Starting FastAPI with 6 workers")
+    uv run fastapi run src/main.py --workers 6
+
 # Start API server in the background
 api-bg artifact="":
     @cmd=(just api); [ -n "{{ artifact }}" ] && cmd=(./dist/{{ artifact }}); \
