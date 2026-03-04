@@ -11,7 +11,7 @@ import numpy as np
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
-from conversion.plots.impression_metrics import build_impression_metrics
+from .plot_utils import build_impression_metrics
 from conversion.plots.plot_impression import plot_impression_comparison_results
 from conversion.surface_comparison.models import ComparisonParams
 from conversion.surface_comparison.pipeline import run_comparison_pipeline

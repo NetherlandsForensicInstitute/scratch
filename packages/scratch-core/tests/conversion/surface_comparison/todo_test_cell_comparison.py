@@ -9,8 +9,8 @@ pipeline (coarse NCC sweep → phase cross-correlation → ECC refinement).
 
 import numpy as np
 
-from conversion.surface_comparison.cell_registration import register_cells
 from container_models.scan_image import ScanImage
+from conversion.surface_comparison.cell_registration import register_cells
 from conversion.surface_comparison.models import (
     ComparisonParams,
     Cell,
