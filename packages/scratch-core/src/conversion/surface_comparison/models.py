@@ -1,34 +1,50 @@
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, PositiveFloat
 from collections.abc import Sequence
-import numpy as np
 from dataclasses import dataclass
-from container_models.base import ConfigBaseModel, FloatArray1D, FloatArray2D, Point2D
+from container_models.base import ConfigBaseModel, FloatArray2D
 
 
 class CellMetaData(ConfigBaseModel):
+    """
+    Intermediate classification data computed during the CMC pipeline.
+
+    :param is_outlier: True if this cell was rejected as an angle outlier during
+        consensus estimation (ESD test or tightening step).
+    :param residual_angle_deg: Signed angular deviation from the consensus rotation,
+        in degrees, after the final inlier median is computed.
+    :param position_error: Signed [x, y] deviation from the consensus translation,
+        in meters.
+    """
+
     is_outlier: bool
     residual_angle_deg: float = Field(ge=-180, le=180)
-    position_error: Point2D
+    position_error: tuple[float, float]
 
 
 class Cell(ConfigBaseModel):
     """
-    :param center_reference: Cell center on reference image [x, y] in meters, shape(2, ).
-    :param cell_data: Height_data, in meters, FloatArray2D
-    :param fill_fraction_reference: Surface based on the number of pixels divided by the desired surface.
-    :param best_score: Best cross correlation score
-    :param angle_deg: Angle rotation in degrees with respect to the reference image corresponding to the correlation score
-    :param center_comparison: Cell center on comparison image (x, y) in meters corresponding to the correlation score
-    :param is_congruent: True if this cell is classified as a Congruent Matching Cell (CMC).
+    Per-cell registration result and CMC classification outcome.
+
+    :param center_reference: Cell center on the reference image [x, y] in meters.
+    :param cell_data: Height data of the cell in meters.
+    :param fill_fraction_reference: Fraction of valid pixels in this cell relative
+        to the nominal cell area (0 = empty, 1 = fully filled).
+    :param best_score: Best ACCF cross-correlation score achieved for this cell.
+    :param angle_deg: Rotation angle in degrees relative to the reference image at
+        which the best score was obtained.
+    :param center_comparison: Cell center on the comparison image [x, y] in meters
+        at which the best score was obtained.
+    :param is_congruent: True if this cell is classified as a Congruent Matching Cell.
+    :param meta_data: Intermediate pipeline data (outlier flag, angle residual,
+        position error) populated by the classifier.
     """
 
-    # TODO: use tuples instead FloatArray1D?
-    center_reference: FloatArray1D
+    center_reference: tuple[float, float]
     cell_data: FloatArray2D
     fill_fraction_reference: float = Field(ge=0.0, le=1.0)
     best_score: float = Field(ge=0.0, le=1.0)
     angle_deg: float = Field(ge=-180, le=180)
-    center_comparison: FloatArray1D
+    center_comparison: tuple[float, float]
     is_congruent: bool
     meta_data: CellMetaData
 
@@ -50,13 +66,12 @@ class ComparisonResult:
 
     :param cells: Per-cell registration and classification results.
     :param consensus_rotation: Rotation consensus across CMC cells (degrees).
-    :param consensus_translation: Translation consensus across CMC cells (m), shape (2,).
+    :param consensus_translation: Translation consensus across CMC cells (m)
     """
 
-    # TODO: use tuples instead FloatArray1D
     cells: Sequence[Cell]
     consensus_rotation: float
-    consensus_translation: FloatArray1D  # shape (2,)
+    consensus_translation: tuple[float, float]
 
     @property
     def cell_count(self) -> int:
@@ -87,7 +102,7 @@ class ComparisonParams(ConfigBaseModel):
     """
     Parameters for the Congruent Matching Cells (CMC) algorithm.
 
-    :param cell_size: Nominal cell size [width, height] in meters, shape (2,).
+    :param cell_size: Nominal cell size [width, height] in meters.
     :param minimum_fill_fraction: Minimum fraction of valid pixels required in a
         reference cell for it to be processed.
     :param correlation_threshold: Minimum per-cell ACCF score for CMC classification.
@@ -98,10 +113,7 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
     """
 
-    # TODO: Define default values somewhere
-    cell_size: FloatArray1D = Field(
-        default_factory=lambda: np.array([1e-3, 1e-3], dtype=np.float64)
-    )
+    cell_size: tuple[PositiveFloat, PositiveFloat] = (1e-3, 1e-3)
     minimum_fill_fraction: float = Field(default=0.5, ge=0.0, le=1.0)
     correlation_threshold: float = Field(default=0.4, ge=-1.0, le=1.0)
     angle_threshold: float = Field(default=2.0, gt=0.0)

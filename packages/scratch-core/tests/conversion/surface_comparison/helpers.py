@@ -13,7 +13,7 @@ _PLACEHOLDER_CELL_DATA = np.array([[0.0, 0.0], [0.1, 0.1]])
 _DEFAULT_META_DATA = CellMetaData(
     is_outlier=False,
     residual_angle_deg=0.0,
-    position_error=np.array([0.0, 0.0]),
+    position_error=(0.0, 0.0),
 )
 
 
@@ -42,8 +42,14 @@ def build_cells(inputs: dict) -> list[Cell]:
     return [
         Cell(
             cell_data=_PLACEHOLDER_CELL_DATA,
-            center_reference=centers_reference[i],
-            center_comparison=centers_comparison[i],
+            center_reference=(
+                float(centers_reference[i, 0]),
+                float(centers_reference[i, 1]),
+            ),
+            center_comparison=(
+                float(centers_comparison[i, 0]),
+                float(centers_comparison[i, 1]),
+            ),
             angle_deg=float(angles_comparison[i] - angles_reference[i]),
             best_score=float(correlation_scores[i]),
             fill_fraction_reference=1.0,
@@ -54,7 +60,9 @@ def build_cells(inputs: dict) -> list[Cell]:
     ]
 
 
-def build_test_inputs(inputs: dict) -> tuple[list[Cell], ComparisonParams, np.ndarray]:
+def build_test_inputs(
+    inputs: dict,
+) -> tuple[list[Cell], ComparisonParams, tuple[float, float]]:
     """
     Build the full set of inputs for ``classify_congruent_cells`` from a test-case
     input dict.
@@ -69,6 +77,7 @@ def build_test_inputs(inputs: dict) -> tuple[list[Cell], ComparisonParams, np.nd
         position_threshold=inputs["position_threshold"],
     )
 
-    rotation_center = np.array(inputs["rotation_center"], dtype=np.float64)
+    rotation_center_list = inputs["rotation_center"]
+    rotation_center = (float(rotation_center_list[0]), float(rotation_center_list[1]))
 
     return cells, params, rotation_center
