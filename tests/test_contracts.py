@@ -161,6 +161,7 @@ class TestContracts:
             expected_input={
                 "scan_file": scan_file,
                 "cutoff_length": cutoff_length,
+                "terms": "plane",
                 "mask_parameters": {"shape": (rows, cols), "is_bitpacked": False},
             },
             expected_output={
