@@ -7,6 +7,7 @@ import numpy as np
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonParams,
+    CellMetaData,
 )
 
 
@@ -66,10 +67,15 @@ def build_cells(inputs: dict) -> list[Cell]:
             ),  # placeholder; unused in tests
             center_reference=mPos1[i],
             center_comparison=mPos2[i],
-            angle_reference=angle_val,
+            angle_deg=angle_val,
             best_score=score_val,
             fill_fraction_reference=1.0,
             is_congruent=False,
+            meta_data=CellMetaData(
+                is_outlier=False,
+                position_error=np.array([0.0, 0.0]),
+                residual_angle_deg=0.0,
+            ),
         )
         cells.append(cell)
 

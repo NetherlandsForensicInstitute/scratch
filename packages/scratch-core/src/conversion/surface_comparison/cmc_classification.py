@@ -1,18 +1,96 @@
-
 import numpy as np
 from scipy.stats import t
-from collections.abc import Sequence
+
+from container_models.base import (
+    Points2D,
+    Point2D,
+    FloatArray1D,
+    BoolArray1D,
+)
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonResult,
     ComparisonParams,
 )
 
-Point2D = tuple[float, float]  # (X, Y) coordinates
+
+def _get_esd_criterion(values: FloatArray1D) -> BoolArray1D:
+    max_outliers = max(len(values) - 4, 0)
+    outliers_mask = _outliers_gesd(data=values, outliers=max_outliers, alpha=0.05)
+    return ~outliers_mask
+
+
+def _get_threshold_criterion(values: FloatArray1D, threshold: float) -> BoolArray1D:
+    return np.abs(values) <= 2 * threshold
+
+
+def _get_consensus_angle(cells: list[Cell], threshold: float) -> float:
+    """TODO ESD outlier rejection on angles ---."""
+    angles = np.radians([c.angle_deg for c in cells])
+
+    # Compute median from angles
+    consensus_angle = _circular_median(angles=angles)
+    angle_residuals = _wrapped_angle_diff(angles=angles, reference=consensus_angle)
+    mask = _get_esd_criterion(values=angle_residuals)
+    if not np.any(mask):
+        raise RuntimeError("All cells are outliers.")
+
+    # Recompute median based on the inliers
+    consensus_angle = _circular_median(angles[mask])
+    angle_residuals = _wrapped_angle_diff(angles=angles, reference=consensus_angle)
+
+    # Tighten: re-evaluate all cells against 2 × angle_threshold
+    mask = _get_threshold_criterion(values=angle_residuals, threshold=threshold)
+    if np.any(mask):
+        consensus_angle = _circular_median(angles[mask])
+        angle_residuals = _wrapped_angle_diff(angles=angles, reference=consensus_angle)
+
+    # Update cell meta-data
+    for cell, is_outlier, residual_angle in zip(cells, ~mask, angle_residuals):
+        cell.meta_data.is_outlier = bool(is_outlier)
+        cell.meta_data.residual_angle_deg = float(np.degrees(residual_angle))
+
+    return consensus_angle
+
+
+def _get_consensus_translation(
+    cells: list[Cell], angle: float, rotation_center: Point2D
+) -> Point2D:
+    """TODO: Rotate reference positions and compute position residuals ---."""
+    centers_reference = np.array([c.center_reference for c in cells])
+    centers_comparison = np.array([c.center_comparison for c in cells])
+    outliers = np.array([c.meta_data.is_outlier for c in cells])
+    centers_reference[outliers] = np.nan
+    centers_comparison[outliers] = np.nan
+    expected_positions_on_reference = _rotate_points(
+        points=centers_reference, angle=angle, center=rotation_center
+    )
+    # Compute residuals with respect to comparison.
+    position_residuals = centers_comparison - expected_positions_on_reference
+    consensus_translation = np.nanmedian(position_residuals, axis=0)
+    position_errors = position_residuals - consensus_translation
+
+    # Update cell meta-data
+    for cell, position_error in zip(cells, position_errors):
+        cell.meta_data.position_error = position_error
+
+    return consensus_translation
+
+
+def _update_congruence(cells: list[Cell], params: ComparisonParams):
+    for cell in cells:
+        cell.is_congruent = (
+            cell.best_score >= params.correlation_threshold
+            and not cell.meta_data.is_outlier
+            and np.abs(cell.meta_data.residual_angle_deg) <= params.angle_threshold
+            and np.all(
+                np.abs(cell.meta_data.position_error) <= params.position_threshold
+            )
+        )
 
 
 def classify_congruent_cells(
-    cells: Sequence[Cell],
+    cells: list[Cell],
     params: ComparisonParams,
     reference_center: np.ndarray,
 ) -> ComparisonResult:
@@ -30,70 +108,20 @@ def classify_congruent_cells(
     if not cells:
         raise ValueError("Cannot classify CMC from an empty list.")
 
-    angle_threshold_rad = np.radians(params.angle_threshold)
-
-    angles = np.radians([c.angle_reference for c in cells])
-    centers_references = np.array([c.center_reference for c in cells])  # (N, 2) in m
-    centers_comparisons = np.array([c.center_comparison for c in cells])  # (N, 2) in m
-    scores = np.array([c.best_score for c in cells])
-
-    # --- Step 1: Initial median angle ---
-    consensus_angle = _circular_median(angles)
-    angle_residuals = _wrapped_angle_diff(angles=angles, reference=consensus_angle)
-
-    # --- Step 2: ESD outlier rejection on angles ---
-    max_outliers = max(len(angles) - 4, 0)
-    outlier_mask_sub = _outliers_gesd(
-        angle_residuals, outliers=max_outliers, alpha=0.05
+    consensus_angle = _get_consensus_angle(
+        cells=cells, threshold=np.radians(params.angle_threshold)
     )
-    inliers = ~outlier_mask_sub
-    if not np.any(inliers):
-        raise RuntimeError("All cells are outlier.")
-
-    # Recompute median from inliers
-    consensus_angle = _circular_median(angles[inliers])
-    angle_residuals = _wrapped_angle_diff(angles=angles, reference=consensus_angle)
-
-    # Tighten: re-evaluate all cells against 2 × angle_threshold
-    inliers = np.abs(angle_residuals) <= 2 * angle_threshold_rad  # overwrite `inliers`
-
-    if np.any(inliers):
-        consensus_angle = _circular_median(angles[inliers])
-        angle_residuals = _wrapped_angle_diff(angles, consensus_angle)
-
-    # NaN-out rejected cells (ESD + tightening)
-    rejected = ~inliers
-    angles[rejected] = np.nan
-    centers_references[rejected] = np.nan
-    centers_comparisons[rejected] = np.nan
-    scores[rejected] = np.nan
-    angle_residuals[rejected] = np.nan
-
-    # --- Step 3: Rotate reference positions and compute position residuals ---
-    # Since we rotate the reference image the natural center for rotation is the mid of the reference image defined in
-    # reference center.
-    expected_positions_on_reference = _rotate_points(
-        centers_references, consensus_angle, reference_center
+    # Rotate reference positions to compute the translation.
+    # Since we rotate the reference image, the natural center for rotation
+    # is the mid of the reference image defined in reference center.
+    consensus_translation = _get_consensus_translation(
+        cells=cells, angle=consensus_angle, rotation_center=reference_center
     )
-    position_residuals = (
-        centers_comparisons - expected_positions_on_reference
-    )  # Comparison = base. Residuals with respect to comparison.
-    consensus_translation = np.nanmedian(position_residuals, axis=0)
-    position_errors = position_residuals - consensus_translation
-
-    # --- Step 4: Label CMCs ---
-    for i, cell in enumerate(cells):
-        cell.is_congruent = bool(
-            scores[i] >= params.correlation_threshold
-            and not np.isnan(angle_residuals[i])
-            and np.abs(angle_residuals[i]) <= angle_threshold_rad
-            and np.abs(position_errors[i, 0]) <= params.position_threshold
-            and np.abs(position_errors[i, 1]) <= params.position_threshold
-        )
+    _update_congruence(cells=cells, params=params)
 
     result = ComparisonResult(
         cells=cells,
-        consensus_rotation=float(consensus_angle) * 180 / np.pi,
+        consensus_rotation=float(np.degrees(consensus_angle)),
         consensus_translation=consensus_translation,
     )
     return result
@@ -188,19 +216,15 @@ def _outliers_gesd(data: np.ndarray, outliers: int, alpha: float) -> np.ndarray:
     return mask_original
 
 
-def _circular_median(angles: np.ndarray) -> float:
+def _circular_median(angles: FloatArray1D) -> float:
     """
     Compute the circular median of a set of angles (in radians).
 
-    The circular median minimises the sum of absolute angular distances.
+    The circular median minimizes the sum of absolute angular distances.
 
     :param angles: 1-D array of angles in radians.
     :returns: The circular median angle in radians.
     """
-    angles = angles[~np.isnan(angles)]
-    if angles.size == 0:
-        return np.nan
-
     best_idx = 0
     best_cost = np.inf
     for i, candidate in enumerate(angles):
@@ -218,7 +242,7 @@ def _circular_median(angles: np.ndarray) -> float:
     return float(result)
 
 
-def _wrapped_angle_diff(angles: np.ndarray, reference: float) -> np.ndarray:
+def _wrapped_angle_diff(angles: FloatArray1D, reference: float) -> FloatArray1D:
     """
     Signed angular difference wrapped to [-pi, pi].
 
@@ -230,24 +254,15 @@ def _wrapped_angle_diff(angles: np.ndarray, reference: float) -> np.ndarray:
     return np.arctan2(np.sin(d), np.cos(d))
 
 
-def _rotate_points(points: np.ndarray, angle: float, center: np.ndarray) -> np.ndarray:
+def _rotate_points(points: Points2D, angle: float, center: Point2D) -> Points2D:
     """
     Rotate 2-D points around a center.
 
     :param points: (N, 2) array of [x, y] coordinates.
     :param angle: Rotation angle in radians.
-    :param center: (2,) center of rotation [x, y].
+    :param center: (2,) array for the center of rotation [x, y].
     :returns: (N, 2) rotated points.
     """
-    c, s = np.cos(angle), np.sin(angle)
-    R = np.array([[c, -s], [s, c]])
-    return (points - center) @ R.T + center
-
-
-#
-# def _rotate_point(point: Point2D, angle: float, center: Point2D) -> Point2D:
-#     """Clock-wise rotate a 2D point (px, py) around a center (cx, cy) by `angle` radians."""
-#     translated = (point[0] - center[0], point[1] - center[1])
-#     rotated_x = math.cos(angle) * translated[0] - math.sin(angle) * translated[1]
-#     rotated_y = math.sin(angle) * translated[0] + math.cos(angle) * translated[1]
-#     return rotated_x, rotated_y
+    cos_val, sin_val = np.cos(angle), np.sin(angle)
+    rotation_matrix = np.array([[cos_val, -sin_val], [sin_val, cos_val]])
+    return (points - center) @ rotation_matrix.T + center

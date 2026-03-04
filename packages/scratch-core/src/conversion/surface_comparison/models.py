@@ -2,7 +2,13 @@ from pydantic import Field, field_validator
 from collections.abc import Sequence
 import numpy as np
 from dataclasses import dataclass
-from container_models.base import ConfigBaseModel, FloatArray1D, FloatArray2D
+from container_models.base import ConfigBaseModel, FloatArray1D, FloatArray2D, Point2D
+
+
+class CellMetaData(ConfigBaseModel):
+    is_outlier: bool
+    residual_angle_deg: float = Field(ge=-180, le=180)
+    position_error: Point2D
 
 
 class Cell(ConfigBaseModel):
@@ -16,14 +22,15 @@ class Cell(ConfigBaseModel):
     :param is_congruent: True if this cell is classified as a Congruent Matching Cell (CMC).
     """
 
-    # TODO: use tuples instead FloatArray1D
+    # TODO: use tuples instead FloatArray1D?
     center_reference: FloatArray1D
     cell_data: FloatArray2D
     fill_fraction_reference: float = Field(ge=0.0, le=1.0)
     best_score: float = Field(ge=0.0, le=1.0)
-    angle_reference: float = Field(ge=-180, le=180)
+    angle_deg: float = Field(ge=-180, le=180)
     center_comparison: FloatArray1D
     is_congruent: bool
+    meta_data: CellMetaData
 
     @field_validator("fill_fraction_reference", "best_score", mode="before")
     @classmethod
