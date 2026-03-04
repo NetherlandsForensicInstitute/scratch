@@ -89,7 +89,7 @@ class TestRotatePoints:
         """Rotating by zero radians must leave every point unchanged."""
         # Arrange
         points = np.array([[1.0, 0.0], [0.0, 1.0], [-1.0, -1.0]])
-        center = np.array([0.0, 0.0])
+        center = 0.0, 0.0
 
         # Act
         result = _rotate_points(points, angle=0.0, center=center)
@@ -101,7 +101,7 @@ class TestRotatePoints:
         """A 90° CCW rotation of [1, 0] around the origin should give [0, 1]."""
         # Arrange
         points = np.array([[1.0, 0.0]])
-        center = np.array([0.0, 0.0])
+        center = 0.0, 0.0
 
         # Act
         result = _rotate_points(points, angle=np.pi / 2, center=center)
@@ -113,7 +113,7 @@ class TestRotatePoints:
         """Rotating a point 180° around itself must return the same point."""
         # Arrange
         points = np.array([[3.0, 4.0]])
-        center = np.array([3.0, 4.0])
+        center = 3.0, 4.0
 
         # Act
         result = _rotate_points(points, angle=np.pi, center=center)
@@ -305,23 +305,6 @@ class TestGetConsensusAngle:
         # Assert — every residual must be a finite float
         for cell in cells:
             assert np.isfinite(cell.meta_data.residual_angle_deg)
-
-    def test_all_outliers_raises_runtime_error(self) -> None:
-        """If the ESD test rejects every cell a RuntimeError must be raised."""
-        # Arrange — five cells all spread so far apart that none survive
-        cells = [
-            _make_cell(angle_deg=float(a)) for a in [0.0, 60.0, 120.0, -60.0, -120.0]
-        ]
-        threshold = np.radians(1.0)
-
-        # Act / Assert
-        # Whether a RuntimeError is raised depends on ESD rejecting all cells;
-        # if the spread is wide enough the guard clause must trigger.
-        # We accept either outcome but verify no unhandled exception of another type.
-        try:
-            _get_consensus_angle(cells=cells, threshold=threshold)
-        except RuntimeError:
-            pass  # expected path when ESD kills every cell
 
 
 class TestGetConsensusTranslation:

@@ -102,8 +102,8 @@ def _rotate_points(
     """
     cos_val, sin_val = np.cos(angle), np.sin(angle)
     rotation_matrix = np.array([[cos_val, -sin_val], [sin_val, cos_val]])
-    center = np.array(center)
-    return (points - center) @ rotation_matrix.T + center
+    translation = np.array(center)
+    return (points - translation) @ rotation_matrix.T + translation
 
 
 def _get_esd_criterion(values: FloatArray1D) -> BoolArray1D:
@@ -161,8 +161,6 @@ def _get_consensus_angle(cells: list[Cell], threshold: float) -> float:
     consensus_angle = _circular_median(angles=angles)
     angle_residuals = _wrap_angles(angles=angles - consensus_angle)
     mask = _get_esd_criterion(values=angle_residuals)
-    if not np.any(mask):
-        raise RuntimeError("All cells are outliers.")
 
     # Recompute median based on the inliers
     consensus_angle = _circular_median(angles[mask])
