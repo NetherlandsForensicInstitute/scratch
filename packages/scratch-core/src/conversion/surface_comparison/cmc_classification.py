@@ -155,7 +155,7 @@ def _get_consensus_translation(
 
 def _update_congruence(cells: list[Cell], params: ComparisonParams):
     for cell in cells:
-        cell.is_congruent = (
+        cell.is_congruent = bool(
             cell.best_score >= params.correlation_threshold
             and not cell.meta_data.is_outlier
             and np.abs(cell.meta_data.residual_angle_deg) <= params.angle_threshold
