@@ -20,7 +20,6 @@ from conversion.profile_correlator.data_types import (
     RoughnessMetrics,
     NormalizedSquareBasedRoughnessDifferences,
 )
-from container_models.base import FloatArray
 
 
 def compute_cross_correlation(
@@ -59,7 +58,7 @@ def compute_cross_correlation(
     return float(np.corrcoef(profile_1[valid_mask], profile_2[valid_mask])[0, 1])
 
 
-def compute_roughness_sa(data: FloatArray) -> float:
+def compute_roughness_sa(profile: FloatArray1D) -> float:
     """
     Compute arithmetic mean roughness (ISO 25178 Sa parameter) of a profile.
 
@@ -67,24 +66,24 @@ def compute_roughness_sa(data: FloatArray) -> float:
     calculated as: mean(|z|). The 'S' denotes a surface/areal parameter and
     'a' denotes arithmetical mean.
 
-    :param data: profile array. May contain NaN values which are ignored.
+    :param profile: 1D profile array. May contain NaN values which are ignored.
     :returns: Arithmetic mean roughness (Sa) in the same units as the input profile.
     """
-    return float(np.nanmean(np.abs(data - np.nanmean(data))))
+    return float(np.nanmean(np.abs(profile - np.nanmean(profile))))
 
 
-def compute_roughness_sq(data: FloatArray) -> float:
+def compute_roughness_sq(profile: FloatArray1D) -> float:
     """
     Compute root-mean-square roughness (ISO 25178 Sq parameter) of a profile.
 
-    Sq is the root-mean-square (or standard deviation with ddof=0) of the profile heights, calculated as:
+    Sq is the root-mean-square of the profile heights, calculated as:
     sqrt(mean(z^2)). The 'S' denotes a surface/areal parameter and 'q'
     denotes quadratic mean (root-mean-square).
 
-    :param data: profile array. May contain NaN values which are ignored.
+    :param profile: 1D profile array. May contain NaN values which are ignored.
     :returns: Root-mean-square roughness (Sq) in the same units as the input profile.
     """
-    return float(np.sqrt(np.nanmean((data - np.nanmean(data)) ** 2)))
+    return float(np.sqrt(np.nanmean((profile - np.nanmean(profile)) ** 2)))
 
 
 def compute_overlap_ratio(
