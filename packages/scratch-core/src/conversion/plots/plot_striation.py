@@ -5,7 +5,7 @@ import numpy as np
 from scipy.constants import mega
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import StriationComparisonPlots
 from conversion.profile_correlator import StriationComparisonResults, Profile
 from conversion.plots.utils import (
@@ -29,8 +29,8 @@ def plot_striation_comparison_results(
     profile_reference_aligned: Profile,
     profile_compared_aligned: Profile,
     metrics: StriationComparisonResults,
-    metadata_reference: dict[str, str],
-    metadata_compared: dict[str, str],
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
 ) -> StriationComparisonPlots:
     """
     Generate visualization results for striation (profile) correlation comparison.
@@ -162,8 +162,8 @@ def plot_comparison_overview(
     profile_reference: Profile,
     profile_compared: Profile,
     metrics: StriationComparisonResults,
-    metadata_reference: dict[str, str],
-    metadata_compared: dict[str, str],
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
     wrap_width: int = 25,
 ) -> ImageRGB:
     """Generate the main results overview figure with dynamic sizing."""
@@ -214,7 +214,7 @@ def plot_comparison_overview(
     ax_meta_reference = fig.add_subplot(gs_meta[0, 0])
     draw_metadata_box(
         ax_meta_reference,
-        metadata_reference,
+        metadata_reference.to_display_dict(),
         "Reference Profile (A)",
         wrap_width=wrap_width,
     )
@@ -222,7 +222,7 @@ def plot_comparison_overview(
     ax_meta_compared = fig.add_subplot(gs_meta[0, 1])
     draw_metadata_box(
         ax_meta_compared,
-        metadata_compared,
+        metadata_compared.to_display_dict(),
         "Compared Profile (B)",
         wrap_width=wrap_width,
     )

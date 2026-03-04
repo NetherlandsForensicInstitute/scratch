@@ -3,7 +3,7 @@ import pytest
 from scipy.constants import mega, micro
 
 from container_models.base import FloatArray2D
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkType, MarkMetadata
 from conversion.plots.data_formats import (
     HistogramData,
     ImpressionComparisonMetrics,
@@ -89,23 +89,25 @@ def striation_metrics() -> StriationComparisonResults:
 
 
 @pytest.fixture
-def sample_metadata_reference() -> dict[str, str]:
-    return {
-        "Collection": "firearms",
-        "Firearm ID": "firearm_1_-_known_match",
-        "Specimen ID": "bullet_1",
-        "Measurement ID": "striated_mark",
-    }
+def sample_metadata_reference() -> MarkMetadata:
+    return MarkMetadata(
+        case_id="firearms",
+        firearm_id="firearm_1_-_known_match",
+        specimen_id="bullet_1",
+        measurement_id="striated_mark",
+        mark_id="mark_ref",
+    )
 
 
 @pytest.fixture
-def sample_metadata_compared() -> dict[str, str]:
-    return {
-        "Collection": "firearms",
-        "Firearm ID": "firearm_1_-_known_match",
-        "Specimen ID": "bullet_2",
-        "Measurement ID": "striated_mark",
-    }
+def sample_metadata_compared() -> MarkMetadata:
+    return MarkMetadata(
+        case_id="firearms",
+        firearm_id="firearm_1_-_known_match",
+        specimen_id="bullet_2",
+        measurement_id="striated_mark",
+        mark_id="mark_comp",
+    )
 
 
 @pytest.fixture
@@ -293,26 +295,6 @@ def impression_overview_metrics() -> ImpressionComparisonMetrics:
         max_error_cell_position=75.0,
         max_error_cell_angle=6.0,
     )
-
-
-@pytest.fixture
-def impression_overview_metadata_reference() -> dict[str, str]:
-    return {
-        "Collection": "firearms",
-        "Firearm ID": "firearm_1_known_match",
-        "Specimen ID": "kras_1",
-        "Measurement ID": "afsloeting_1",
-    }
-
-
-@pytest.fixture
-def impression_overview_metadata_compared() -> dict[str, str]:
-    return {
-        "Collection": "firearms",
-        "Firearm ID": "firearm_1_known_match",
-        "Specimen ID": "kras_2_r01",
-        "Measurement ID": "afsloeting_2",
-    }
 
 
 @pytest.fixture

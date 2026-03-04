@@ -1,3 +1,4 @@
+from conversion.data_formats import MarkMetadata
 from pydantic import DirectoryPath, Field, FilePath, PositiveInt
 
 from models import BaseModelConfig
@@ -13,37 +14,24 @@ class MarkDirectories(BaseModelConfig):
         return "SomethingWithNoValue"
 
 
-class ImpressionParameters(BaseModelConfig): ...
+class MetadataParameters(BaseModelConfig):
+    metadata_reference: MarkMetadata = Field(..., description="Metadata identifying the reference mark.")
+    metadata_compared: MarkMetadata = Field(..., description="Metadata identifying the compared mark.")
 
 
-class CalculateScoreImpression(MarkDirectories):
-    param: ImpressionParameters
-
-
-class StriationParameters(BaseModelConfig):
-    metadata_reference: dict[str, str] = Field(..., description="fields needed for adding metadata to the plot")
-    metadata_compared: dict[str, str] = Field(..., description="fields needed for adding metadata to the plot")
-
-
-class CalculateScoreStriation(MarkDirectories):
-    param: StriationParameters
+class CalculateScore(MarkDirectories):
+    param: MetadataParameters
 
 
 class CalculateLR(MarkDirectories):
-    score: int
     lr_system: FilePath
-
-
-class ImpressionLRParameters(BaseModelConfig): ...
+    param: MetadataParameters
 
 
 class CalculateLRImpression(CalculateLR):
+    score: int
     n_cells: PositiveInt
-    param: ImpressionLRParameters
-
-
-class StriationLRParameters(BaseModelConfig): ...
 
 
 class CalculateLRStriation(CalculateLR):
-    param: StriationLRParameters
+    score: float

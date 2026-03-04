@@ -8,7 +8,7 @@ from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 
 from container_models.base import FloatArray2D, ImageRGB
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
     ImpressionComparisonPlots,
@@ -47,8 +47,8 @@ def plot_impression_comparison_results(
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
     metrics: ImpressionComparisonMetrics,
-    metadata_reference: dict[str, str],
-    metadata_compared: dict[str, str],
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
 ) -> ImpressionComparisonPlots:
     """
     Generate visualization results for impression mark comparison.
@@ -245,8 +245,8 @@ def plot_comparison_overview(
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
     metrics: ImpressionComparisonMetrics,
-    metadata_reference: dict[str, str],
-    metadata_compared: dict[str, str],
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
     wrap_width: int = 25,
 ) -> ImageRGB:
     """
@@ -260,8 +260,8 @@ def plot_comparison_overview(
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.
     :param metrics: Comparison metrics including correlation values.
-    :param metadata_reference: Metadata dict for reference mark display.
-    :param metadata_compared: Metadata dict for compared mark display.
+    :param metadata_reference: Metadata object for reference mark display.
+    :param metadata_compared: Metadata object for compared mark display.
     :param wrap_width: Maximum characters per line before wrapping.
     :returns: RGB image as uint8 array.
     """
@@ -322,7 +322,7 @@ def plot_comparison_overview(
     ax_meta_reference = fig.add_subplot(gs_meta[0, 0])
     draw_metadata_box(
         ax_meta_reference,
-        metadata_reference,
+        metadata_reference.to_display_dict(),
         "Reference Surface (A)",
         wrap_width=wrap_width,
     )
@@ -330,7 +330,7 @@ def plot_comparison_overview(
     ax_meta_compared = fig.add_subplot(gs_meta[0, 1])
     draw_metadata_box(
         ax_meta_compared,
-        metadata_compared,
+        metadata_compared.to_display_dict(),
         "Compared Surface (B)",
         wrap_width=wrap_width,
     )

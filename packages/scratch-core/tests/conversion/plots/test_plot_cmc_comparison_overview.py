@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import (
     HistogramData,
     ImpressionComparisonMetrics,
@@ -20,8 +20,8 @@ class TestPlotCmcComparisonOverview:
         self,
         impression_overview_marks: dict[str, Mark],
         impression_overview_metrics: ImpressionComparisonMetrics,
-        impression_overview_metadata_reference: dict[str, str],
-        impression_overview_metadata_compared: dict[str, str],
+        sample_metadata_reference: MarkMetadata,
+        sample_metadata_compared: MarkMetadata,
         cmc_results_metadata: dict[str, str],
         cmc_histogram_data: HistogramData,
         cmc_llr_data: LlrTransformationData,
@@ -49,8 +49,8 @@ class TestPlotCmcComparisonOverview:
             mark_reference_filtered=impression_overview_marks["reference_filtered"],
             mark_compared_filtered=impression_overview_marks["compared_filtered"],
             metrics=impression_overview_metrics,
-            metadata_reference=impression_overview_metadata_reference,
-            metadata_compared=impression_overview_metadata_compared,
+            metadata_reference=sample_metadata_reference,
+            metadata_compared=sample_metadata_compared,
             results_metadata=cmc_results_metadata,
             histogram_data=histogram_data,
             llr_data=llr_data,

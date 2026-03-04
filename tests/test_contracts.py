@@ -12,10 +12,7 @@ from requests import Response
 
 from models import DirectoryAccess
 from preprocessors.pipelines import parse_scan_pipeline
-from processors.schemas import (
-    ImpressionLRParameters,
-    StriationLRParameters,
-)
+from processors.schemas import MetadataParameters
 from settings import get_settings
 
 
@@ -215,7 +212,9 @@ class TestContracts:
         )
 
     @pytest.fixture(scope="class")
-    def calculate_lr_impression(self, directory_access: DirectoryAccess, tmp_path: Path) -> EndpointContractInterface:
+    def calculate_lr_impression(
+        self, directory_access: DirectoryAccess, tmp_path: Path, sample_metadata_parameters: MetadataParameters
+    ) -> EndpointContractInterface:
         """
         Create test data for calculate-score-impression endpoint.
 
@@ -229,7 +228,7 @@ class TestContracts:
                 "score": 1,
                 "n_cells": 5,
                 "lr_system": lr_system,
-                "param": ImpressionLRParameters(),
+                "param": sample_metadata_parameters,
             },
             expected_output={
                 "urls": {"lr_overview_plot": ".png"},
@@ -238,7 +237,9 @@ class TestContracts:
         )
 
     @pytest.fixture(scope="class")
-    def calculate_lr_striation(self, directory_access: DirectoryAccess, tmp_path: Path) -> EndpointContractInterface:
+    def calculate_lr_striation(
+        self, directory_access: DirectoryAccess, tmp_path: Path, sample_metadata_parameters: MetadataParameters
+    ) -> EndpointContractInterface:
         """
         Create test data for calculate-score-striation endpoint.
 
@@ -251,7 +252,7 @@ class TestContracts:
                 "mark_comp": directory_access.resource_path,
                 "score": 1,
                 "lr_system": lr_system,
-                "param": StriationLRParameters(),
+                "param": sample_metadata_parameters,
             },
             expected_output={
                 "mark_ref_surfacemap": ".png",

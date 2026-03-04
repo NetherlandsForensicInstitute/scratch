@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from container_models.base import DepthData
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkMetadata, MarkType
 from conversion.export.mark import ExportedMarkData
 from conversion.profile_correlator import Profile
 from fastapi.testclient import TestClient
@@ -15,7 +15,7 @@ from scipy.constants import micro
 from scipy.interpolate import interp1d
 
 from constants import ProcessorEndpoint
-from processors.schemas import CalculateScoreStriation, StriationParameters
+from processors.schemas import CalculateScore, MetadataParameters
 
 
 def test_processors_placeholder(client: TestClient) -> None:
@@ -131,7 +131,7 @@ class TestStriationMark:
             pixel_size=profile.pixel_size,
         )
 
-    def _save_mark(self, dir_path: Path, profile: Profile, mark: Mark):
+    def _save_mark(self, dir_path: Path, mark: Mark):
         mark_stem = "processed"
         mark_json = ExportedMarkData(
             mark_type=MarkType.EXTRACTOR_STRIATION,
@@ -163,10 +163,10 @@ class TestStriationMark:
 
         self._save_profile(ref_mark_path, profile_reference)
         self._save_profile(comp_mark_path, profile_compared)
-        self._save_mark(dir_path=ref_mark_path, profile=profile_reference, mark=mark_reference)
-        self._save_mark(dir_path=comp_mark_path, profile=profile_compared, mark=mark_compared)
+        self._save_mark(dir_path=ref_mark_path, mark=mark_reference)
+        self._save_mark(dir_path=comp_mark_path, mark=mark_compared)
 
-        return (comp_mark_path, ref_mark_path)
+        return comp_mark_path, ref_mark_path
 
     @pytest.mark.integration
     def test_calculate_striation_mark(
@@ -192,12 +192,26 @@ class TestStriationMark:
             "mark_comp_preview",
         ]
 
-        json_data = CalculateScoreStriation(
+        json_data = CalculateScore(
             mark_ref=ref_mark_path,
             mark_comp=comp_mark_path,
-            param=StriationParameters(metadata_compared={"somthing": "else"}, metadata_reference={"ding": "dong"}),
+            param=MetadataParameters(
+                metadata_compared=MarkMetadata(
+                    case_id="something",
+                    firearm_id="else",
+                    specimen_id="spec_comp",
+                    measurement_id="meas_comp",
+                    mark_id="mark_comp",
+                ),
+                metadata_reference=MarkMetadata(
+                    case_id="ding",
+                    firearm_id="dong",
+                    specimen_id="spec_ref",
+                    measurement_id="meas_ref",
+                    mark_id="mark_ref",
+                ),
+            ),
         ).model_dump(mode="json")
-
         # Act
         response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
 
