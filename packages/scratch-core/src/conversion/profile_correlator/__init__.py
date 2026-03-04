@@ -38,9 +38,10 @@ from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.profile_correlator.statistics import (
     compute_cross_correlation,
     compute_overlap_ratio,
+    compute_roughness_sa,
+    compute_roughness_sq,
     compute_normalized_square_based_roughness_differences,
 )
-from conversion.utils import compute_roughness_sa, compute_roughness_sqrt
 
 # Re-export cutoff_to_gaussian_sigma from conversion.filter for convenience
 from conversion.filter.gaussian import cutoff_to_gaussian_sigma
@@ -58,7 +59,7 @@ __all__ = [
     "compute_cross_correlation",
     "compute_overlap_ratio",
     "compute_roughness_sa",
-    "compute_roughness_sqrt",
+    "compute_roughness_sq",
     "compute_normalized_square_based_roughness_differences",
     # Filtering (re-exported from conversion.filter)
     "cutoff_to_gaussian_sigma",

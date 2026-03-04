@@ -37,11 +37,11 @@ from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.profile_correlator.statistics import (
     compute_cross_correlation,
     compute_overlap_ratio,
+    compute_roughness_sa,
+    compute_roughness_sq,
     compute_normalized_square_based_roughness_differences,
 )
 from conversion.resample import resample_array_1d
-
-from conversion.utils import compute_roughness_sa, compute_roughness_sqrt
 
 
 def correlate_profiles(
@@ -268,14 +268,14 @@ def _compute_metrics(
 
     # Roughness metrics
     sa_ref = compute_roughness_sa(ref_overlap)
-    mean_square_ref = compute_roughness_sqrt(ref_overlap)
+    mean_square_ref = compute_roughness_sq(ref_overlap)
     sa_comp = compute_roughness_sa(comp_overlap)
-    mean_square_comp = compute_roughness_sqrt(comp_overlap)
+    mean_square_comp = compute_roughness_sq(comp_overlap)
 
     # Difference profile roughness
     diff_profile = comp_overlap - ref_overlap
     sa_diff = compute_roughness_sa(diff_profile)
-    mean_square_of_difference = compute_roughness_sqrt(diff_profile)
+    mean_square_of_difference = compute_roughness_sq(diff_profile)
 
     # Signature differences
     roughness = RoughnessMetrics(
