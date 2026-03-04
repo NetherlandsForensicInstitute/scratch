@@ -16,7 +16,7 @@ import pytest
 
 from conversion.surface_comparison.cmc_classification import classify_congruent_cells
 
-from .helpers import as_array, build_comparison_result
+from .helpers import as_array, build_test_params
 
 
 # ---------------------------------------------------------------------------
@@ -65,9 +65,9 @@ class TestClassifyCongruentCells:
     def test_cmc_count(self, matlab_test_case):
         """The number of CMC cells must match the MATLAB reference."""
         tc = matlab_test_case
-        result, params, center = build_comparison_result(tc["inputs"])
+        cells, params, center = build_test_params(tc["inputs"])
 
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         expected_n = tc["outputs"]["nCmc"]
         actual_n = result.cmc_count
@@ -78,9 +78,9 @@ class TestClassifyCongruentCells:
     def test_cmc_flags(self, matlab_test_case):
         """Per-cell CMC flags must match the MATLAB reference."""
         tc = matlab_test_case
-        result, params, center = build_comparison_result(tc["inputs"])
+        cells, params, center = build_test_params(tc["inputs"])
 
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         expected_flags = tc["outputs"]["vbVal"]
         if isinstance(expected_flags, bool):
@@ -95,9 +95,9 @@ class TestClassifyCongruentCells:
     def test_consensus_rotation(self, matlab_test_case):
         """The consensus rotation must match the MATLAB rAngle."""
         tc = matlab_test_case
-        result, params, center = build_comparison_result(tc["inputs"])
+        cells, params, center = build_test_params(tc["inputs"])
 
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         expected_angle = tc["outputs"]["rAngle"]
         actual_angle = result.consensus_rotation
@@ -116,9 +116,9 @@ class TestClassifyCongruentCells:
     def test_consensus_translation(self, matlab_test_case):
         """The consensus translation must match the MATLAB vTrans."""
         tc = matlab_test_case
-        result, params, center = build_comparison_result(tc["inputs"])
+        cells, params, center = build_test_params(tc["inputs"])
 
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         expected_trans = as_array(tc["outputs"]["vTrans"])
         actual_trans = np.asarray(result.consensus_translation)
@@ -156,12 +156,12 @@ class TestSpecificScenarios:
     def test_all_congruent_no_outliers(self):
         """All cells share a consistent transformation — all should be CMC."""
         # Arrange
-        result, params, center = build_comparison_result(
+        cells, params, center = build_test_params(
             self._get_case("all_congruent_no_outliers")["inputs"]
         )
 
         # Act
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         # Assert
         assert all(c.is_congruent for c in result.cells)
@@ -170,12 +170,12 @@ class TestSpecificScenarios:
     def test_low_similarity_rejected(self):
         """Cells below the correlation threshold must not be classified as CMC."""
         # Arrange
-        result, params, center = build_comparison_result(
+        cells, params, center = build_test_params(
             self._get_case("low_similarity_cells")["inputs"]
         )
 
         # Act
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         # Assert — cells at index 1 and 3 have simVal 0.2 and 0.15 (below 0.4)
         assert not result.cells[1].is_congruent
@@ -185,12 +185,12 @@ class TestSpecificScenarios:
     def test_esd_rejects_angle_outliers(self):
         """ESD outlier rejection should remove cells with aberrant angles."""
         # Arrange
-        result, params, center = build_comparison_result(
+        cells, params, center = build_test_params(
             self._get_case("angle_outliers_esd_rejection")["inputs"]
         )
 
         # Act
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         # Assert — cells 3 and 7 (0-indexed: 2 and 6) are angle outliers
         assert not result.cells[2].is_congruent
@@ -200,12 +200,12 @@ class TestSpecificScenarios:
     def test_position_outliers_rejected(self):
         """Cells with large position residuals must be rejected."""
         # Arrange
-        result, params, center = build_comparison_result(
+        cells, params, center = build_test_params(
             self._get_case("position_outliers")["inputs"]
         )
 
         # Act
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         # Assert — cells 2 and 5 (0-indexed: 1 and 4) have large position errors
         assert not result.cells[1].is_congruent
@@ -215,12 +215,12 @@ class TestSpecificScenarios:
     def test_no_valid_cells(self):
         """When all cells are below similarity threshold, zero CMCs result."""
         # Arrange
-        result, params, center = build_comparison_result(
+        cells, params, center = build_test_params(
             self._get_case("no_valid_cells")["inputs"]
         )
 
         # Act
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         # Assert
         assert not any(c.is_congruent for c in result.cells)
@@ -228,12 +228,12 @@ class TestSpecificScenarios:
     def test_mixed_outliers(self):
         """Mixed failure modes: similarity, angle, and position outliers."""
         # Arrange
-        result, params, center = build_comparison_result(
+        cells, params, center = build_test_params(
             self._get_case("mixed_outliers")["inputs"]
         )
 
         # Act
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         # Assert — cell 2 (idx 1): low sim, cell 4 (idx 3): angle, cell 8 (idx 7): pos
         assert not result.cells[1].is_congruent
@@ -244,12 +244,12 @@ class TestSpecificScenarios:
     def test_single_cell(self):
         """A single valid cell should be classified as CMC."""
         # Arrange
-        result, params, center = build_comparison_result(
+        cells, params, center = build_test_params(
             self._get_case("single_cell")["inputs"]
         )
 
         # Act
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         # Assert
         assert result.cells[0].is_congruent
@@ -257,12 +257,12 @@ class TestSpecificScenarios:
     def test_all_angle_outliers_no_cmc(self):
         """When all angles are wildly scattered, ESD + filtering yields 0 CMC."""
         # Arrange
-        result, params, center = build_comparison_result(
+        cells, params, center = build_test_params(
             self._get_case("all_angle_outliers")["inputs"]
         )
 
         # Act
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         # Assert
         assert not any(c.is_congruent for c in result.cells)
@@ -270,12 +270,12 @@ class TestSpecificScenarios:
     def test_nan_similarity_handled(self):
         """Cells with NaN similarity (failed registration) must not be CMC."""
         # Arrange
-        result, params, center = build_comparison_result(
+        cells, params, center = build_test_params(
             self._get_case("nan_similarity_values")["inputs"]
         )
 
         # Act
-        classify_congruent_cells(result, params, center)
+        result = classify_congruent_cells(cells, params, center)
 
         # Assert — cells 2 and 5 (0-indexed: 1 and 4) have NaN similarity
         assert not result.cells[1].is_congruent

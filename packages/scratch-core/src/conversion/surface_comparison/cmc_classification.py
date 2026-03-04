@@ -1,34 +1,31 @@
 import numpy as np
 from scipy.stats import t
-
-from conversion.surface_comparison.models import ComparisonResult, ComparisonParams
+from collections.abc import Sequence
+from conversion.surface_comparison.models import (
+    Cell,
+    ComparisonResult,
+    ComparisonParams,
+)
 
 
 def classify_congruent_cells(
-    result: ComparisonResult,
+    cells: Sequence[Cell],
     params: ComparisonParams,
     reference_center: np.ndarray,
-) -> None:
+) -> ComparisonResult:
     """
     Identify Congruent Matching Cells (CMCs) using median procedure with ESD outlier rejection for angles.
 
     Steps:
-    1. Compute per-cell registration angle difference.
-    2. Take circular median as initial consensus angle.
-    3. Apply ESD outlier rejection on angle residuals.
-    4. Recompute median from inliers; tighten to 2 × angle_threshold; recompute.
-    5. Rotate reference positions by consensus angle around reference_center.
-    6. Compute position residuals; take median as consensus translation.
-    7. Label cells within thresholds as congruent.
+    TODO: explain algorithmic steps here
 
-    :param result: ComparisonResult containing the list of cell results.
+    :param cells: The list of computed cells.
     :param params: Algorithm parameters with thresholds.
-    :param reference_center: The global center [x, y] of the reference surface
-        in meters, used as the center of rotation.
+    :param reference_center: The global center [x, y] of the reference surface in meters,
+        used as the center of rotation.
     """
-    cells = result.cells
     if not cells:
-        return
+        raise ValueError("Cannot classify CMC for empty list.")
 
     angles = (
         np.array(
@@ -53,7 +50,7 @@ def classify_congruent_cells(
 
     valid = ~np.isnan(angles)
     if not np.any(valid):
-        return
+        raise ValueError("Cannot classify CMC for non-valid data.")
 
     # --- Step 1: Initial median angle ---
     angle_diffs = angles.copy()
@@ -117,10 +114,12 @@ def classify_congruent_cells(
             and np.abs(position_errors[i, 1]) <= params.position_threshold
         )
 
-    result.consensus_rotation = (
-        float(consensus_angle) * 180 / np.pi
-    )  # convert back to degrees
-    result.consensus_translation = consensus_translation
+    result = ComparisonResult(
+        cells=cells,
+        consensus_rotation=float(consensus_angle) * 180 / np.pi,
+        consensus_translation=consensus_translation,
+    )
+    return result
 
 
 def _outliers_gesd(

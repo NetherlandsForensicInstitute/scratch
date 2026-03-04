@@ -7,7 +7,6 @@ import numpy as np
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonParams,
-    ComparisonResult,
 )
 
 
@@ -78,21 +77,15 @@ def build_cells(inputs: dict) -> list[Cell]:
     return cells
 
 
-def build_comparison_result(
+def build_test_params(
     inputs: dict,
-) -> tuple[ComparisonResult, ComparisonParams, np.ndarray]:
+) -> tuple[list[Cell], ComparisonParams, np.ndarray]:
     """
-    Build a ComparisonResult, ComparisonParams, and global center from a MATLAB test-case input dict.
+    Build a list of Cell instances, ComparisonParams, and global center from a MATLAB test-case input dict.
 
-    Returns ``(result, params, global_center)``.
+    Returns ``(cells, params, global_center)``.
     """
     cells = build_cells(inputs)
-
-    result = ComparisonResult(
-        cells=cells,
-        consensus_rotation=0.0,
-        consensus_translation=np.zeros(2, dtype=np.float64),
-    )
 
     params = ComparisonParams(
         correlation_threshold=inputs["simMin"],
@@ -102,4 +95,4 @@ def build_comparison_result(
 
     global_center = np.array(inputs["vCenter"], dtype=np.float64)
 
-    return result, params, global_center
+    return cells, params, global_center
