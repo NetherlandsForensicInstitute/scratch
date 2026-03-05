@@ -41,11 +41,11 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
     )
 
 
-def _try_reshape(array: NDArray, shape: tuple[int, int]) -> NDArray:
-    try:
-        return array.reshape(*shape)
-    except ValueError:
+def _reshape_array(array: NDArray, shape: tuple[int, int]) -> NDArray:
+    if array.size != shape[0] * shape[1]:
         raise ArrayShapeMismatchError(size=array.size, target_shape=shape)
+
+    return array.reshape(*shape)
 
 
 def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: bool) -> BinaryMask:
@@ -60,14 +60,14 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
     """
     if not is_bitpacked:
         array = np.frombuffer(raw_data, dtype=np.bool)
-        return _try_reshape(array=array, shape=shape)
+        return _reshape_array(array=array, shape=shape)
 
     # Note: this follows our Java implementation for bitpacking
     height, width = shape
     packed = np.frombuffer(raw_data, dtype=np.uint8)
     unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)  # type: ignore
     padding = (-width) % 8
-    reshaped = _try_reshape(array=unpacked, shape=(height, width + padding))
+    reshaped = _reshape_array(array=unpacked, shape=(height, width + padding))
     return reshaped[:, :width]
 
 
