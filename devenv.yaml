@@ -1,4 +1,9 @@
 inputs:
+  git-hooks:
+    url: github:cachix/git-hooks.nix
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
   mk-shell-bin:
     url: github:rrbutani/nix-mk-shell-bin
   nix2container:
@@ -8,6 +13,3 @@ inputs:
         follows: nixpkgs
   nixpkgs:
     url: github:cachix/devenv-nixpkgs/rolling
-  git-hooks:
-    url: github:cachix/git-hooks.nix
-    follows: nixpkgs
