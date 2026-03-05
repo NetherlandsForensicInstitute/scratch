@@ -154,7 +154,7 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: SurfaceOptions = Field(
+    terms: SurfaceOptions | None = Field(
         default=SurfaceOptions.PLANE,
         description=(
             "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
