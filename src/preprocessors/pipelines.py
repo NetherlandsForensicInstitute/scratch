@@ -6,6 +6,7 @@ import numpy as np
 from container_models.base import BinaryMask
 from container_models.light_source import LightSource
 from container_models.scan_image import ScanImage
+from numpy.typing import NDArray
 from parsers import load_scan_image, parse_to_x3p, save_x3p, subsample_scan_image
 from parsers.loaders import make_isotropic
 from renders import (
@@ -19,6 +20,7 @@ from renders import (
 from renders.normalizations import normalize_2d_array
 
 from pipelines import run_pipeline
+from preprocessors.exceptions import ArrayShapeMismatchError
 
 
 def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> ScanImage:
@@ -39,6 +41,13 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
     )
 
 
+def _try_reshape(array: NDArray, shape: tuple[int, int]) -> NDArray:
+    try:
+        return array.reshape(*shape)
+    except ValueError:
+        raise ArrayShapeMismatchError(size=array.size, target_shape=shape)
+
+
 def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: bool) -> BinaryMask:
     """
     Convert incoming binary data to a 2D mask array.
@@ -50,14 +59,15 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
     :returns: The 2D mask array.
     """
     if not is_bitpacked:
-        return np.frombuffer(raw_data, dtype=np.bool).reshape(*shape)
+        array = np.frombuffer(raw_data, dtype=np.bool)
+        return _try_reshape(array=array, shape=shape)
 
     # Note: this follows our Java implementation for bitpacking
     height, width = shape
     packed = np.frombuffer(raw_data, dtype=np.uint8)
     unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)  # type: ignore
     padding = (-width) % 8
-    reshaped = unpacked.reshape(height, width + padding)
+    reshaped = _try_reshape(array=unpacked, shape=(height, width + padding))
     return reshaped[:, :width]
 
 

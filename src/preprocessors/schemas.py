@@ -8,7 +8,6 @@ from conversion.data_formats import BoundingBox, MarkType
 from conversion.leveling.data_types import SurfaceTerms
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
-from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
     Field,
@@ -79,23 +78,15 @@ class CropInfo(BaseModelConfig):
 
 class PrepareMarkBase(BaseParameters):
     mark_type: MarkType = Field(..., description="Type of mark to prepare.")
-    mask: list[list[float]] = Field(
-        ...,
-        description="2D boolean array representing the mask for the mark. Must have exactly the same shape"
-        " (height × width) as the scan image.",
-    )
     bounding_box_list: list[list[float]] | None = Field(
         None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
     )
-
-    @cached_property
-    def mask_array(self) -> NDArray:
-        """
-        Convert the mask tuple to a numpy boolean array.
-
-        :return: 2D numpy array of boolean values representing the mask
-        """
-        return np.array(self.mask, np.bool_)
+    mask_is_bitpacked: bool = Field(
+        default=False,
+        description="Whether the bytes in the mask are bit-packed. "
+        'The expected bit-order for bit-packed arrays is "little".',
+        examples=[True, False],
+    )
 
     @cached_property
     def bounding_box(self) -> BoundingBox | None:

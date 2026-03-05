@@ -17,6 +17,7 @@ from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, P
 from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
+from .exceptions import ArrayShapeMismatchError
 from .pipelines import (
     parse_mask_pipeline,
     parse_scan_pipeline,
@@ -100,16 +101,29 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
-async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression) -> PrepareMarkResponseImpression:
+async def prepare_mark_impression(
+    params: Annotated[Json[PrepareMarkImpression], Form(...)], mask_data: Annotated[UploadFile, File(...)]
+) -> PrepareMarkResponseImpression:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
-    vault = create_vault(prepare_mark_parameters.tag)
+    vault = create_vault(params.tag)
+    parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
+
+    try:
+        parsed_mask = parse_mask_pipeline(
+            raw_data=await mask_data.read(),
+            shape=parsed_image.data.shape,
+            is_bitpacked=params.mask_is_bitpacked,
+        )
+    except ArrayShapeMismatchError as e:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
+
     process_prepare_impression_mark(
         files=PrepareMarkResponseImpression.get_files(vault.resource_path),
-        scan_file=prepare_mark_parameters.scan_file,
-        mark_type=prepare_mark_parameters.mark_type,
-        mask=prepare_mark_parameters.mask_array,
-        bounding_box=prepare_mark_parameters.bounding_box,
-        preprocess_parameters=prepare_mark_parameters.mark_parameters,
+        scan_image=parsed_image,
+        mark_type=params.mark_type,
+        mask=parsed_mask,
+        bounding_box=params.bounding_box,
+        preprocess_parameters=params.mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseImpression.generate_urls(vault.access_url)
@@ -132,16 +146,29 @@ async def prepare_mark_impression(prepare_mark_parameters: PrepareMarkImpression
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
-async def prepare_mark_striation(prepare_mark_parameters: PrepareMarkStriation) -> PrepareMarkResponseStriation:
+async def prepare_mark_striation(
+    params: Annotated[Json[PrepareMarkStriation], Form(...)], mask_data: Annotated[UploadFile, File(...)]
+) -> PrepareMarkResponseStriation:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
-    vault = create_vault(prepare_mark_parameters.tag)
+    vault = create_vault(params.tag)
+    parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
+
+    try:
+        parsed_mask = parse_mask_pipeline(
+            raw_data=await mask_data.read(),
+            shape=parsed_image.data.shape,
+            is_bitpacked=params.mask_is_bitpacked,
+        )
+    except ArrayShapeMismatchError as e:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
+
     process_prepare_striation_mark(
         files=PrepareMarkResponseStriation.get_files(vault.resource_path),
-        scan_file=prepare_mark_parameters.scan_file,
-        mark_type=prepare_mark_parameters.mark_type,
-        mask=prepare_mark_parameters.mask_array,
-        bounding_box=prepare_mark_parameters.bounding_box,
-        preprocess_parameters=prepare_mark_parameters.mark_parameters,
+        scan_image=parsed_image,
+        mark_type=params.mark_type,
+        mask=parsed_mask,
+        bounding_box=params.bounding_box,
+        preprocess_parameters=params.mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseStriation.generate_urls(vault.access_url)
@@ -203,18 +230,17 @@ async def edit_scan(
     vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-    parsed_mask = parse_mask_pipeline(
-        raw_data=await mask_data.read(),
-        shape=parsed_image.data.shape,
-        is_bitpacked=params.mask_is_bitpacked,
-    )
-    if parsed_mask.shape != parsed_image.data.shape:
-        raise HTTPException(
-            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-            detail=f"Mask shape {parsed_mask.shape} does not match image shape {parsed_image.data.shape}",
-        )
-    files = GeneratedImages.get_files(vault.resource_path)
 
+    try:
+        parsed_mask = parse_mask_pipeline(
+            raw_data=await mask_data.read(),
+            shape=parsed_image.data.shape,
+            is_bitpacked=params.mask_is_bitpacked,
+        )
+    except ArrayShapeMismatchError as e:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
+
+    files = GeneratedImages.get_files(vault.resource_path)
     edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
     preview_pipeline(parsed_scan=edited_scan_image, output_path=files["preview"])
     surface_map_pipeline(

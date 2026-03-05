@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from container_models.base import BinaryMask
 
+from preprocessors.exceptions import ArrayShapeMismatchError
 from preprocessors.pipelines import parse_mask_pipeline
 
 
@@ -35,5 +36,5 @@ class TestParseMaskPipeline:
         """Test that the pipeline will raise an error if the shape is incorrect."""
         raw_data = mask_array.tobytes(order="C")
         incorrect_shape = (100, 150)
-        with pytest.raises(ValueError, match="cannot reshape array"):
+        with pytest.raises(ArrayShapeMismatchError):
             _ = parse_mask_pipeline(raw_data, incorrect_shape, is_bitpacked=is_bitpacked)
