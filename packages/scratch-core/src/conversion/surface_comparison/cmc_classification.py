@@ -1,197 +1,324 @@
-"""
-CMC classification: identify Congruent Matching Cells from registered cell results.
-
-The public interface is a single function, ``classify_congruent_cells``, which
-implements the median procedure (Procedure 6) with ESD outlier rejection.
-"""
-
 import numpy as np
+from scipy.stats import t
 
+from container_models.base import Points2D, FloatArray1D, BoolArray1D
 from conversion.surface_comparison.models import (
+    Cell,
     ComparisonResult,
     ComparisonParams,
 )
 
 
 def classify_congruent_cells(
-    result: ComparisonResult,
+    cells: list[Cell],
     params: ComparisonParams,
-    reference_center: np.ndarray,
-) -> None:
+    reference_center: tuple[float, float],
+) -> ComparisonResult:
     """
-    Identify Congruent Matching Cells (CMCs) using median procedure 6.
+    Identify Congruent Matching Cells (CMCs) using a median-based procedure with
+    generalized ESD outlier rejection.
 
     Steps:
-    1. Compute per-cell registration angle difference.
-    2. Take circular median as initial consensus angle.
-    3. Apply ESD outlier rejection on angle residuals.
-    4. Recompute median from inliers; tighten to 2 × angle_threshold; recompute.
-    5. Rotate reference positions by consensus angle around reference_center.
-    6. Compute position residuals; take median as consensus translation.
-    7. Label cells within thresholds as congruent.
+    1. **Consensus angle** — compute a circular median of all cell registration
+       angles, reject statistical outliers via the generalized ESD test, tighten
+       the inlier set to cells within ``2 × angle_threshold``, and recompute the
+       median. Each cell's ``meta_data.is_outlier`` and
+       ``meta_data.residual_angle_deg`` are set accordingly.
+    2. **Consensus translation** — rotate every reference cell center by the
+       consensus angle, then take the component-wise median of the offsets between
+       rotated reference centers and comparison centres, excluding outlier cells.
+       Each cell's ``meta_data.position_error`` is set to its deviation from this
+       consensus.
+    3. **Congruence labeling** — mark each cell as congruent when it meets all
+       four criteria: correlation score ≥ threshold, not an angle outlier,
+       ``|residual_angle_deg| ≤ angle_threshold``, and both position error
+       components within ``position_threshold``.
 
-    :param result: ComparisonResult containing the list of cell results.
-    :param params: Algorithm parameters with thresholds.
-    :param reference_center: The global center [x, y] of the reference surface
-        in meters, used as the center of rotation.
+    :param cells: Per-cell registration results to classify.
+    :param params: Algorithm parameters (thresholds for score, angle, and position).
+    :param reference_center: Global center [x, y] of the reference surface in meters,
+        used as the fixed point for the consensus rotation.
+    :returns: A :class:`ComparisonResult` containing the classified cells, consensus
+        rotation in degrees, and consensus translation in meters.
+    :raises ValueError: If ``cells`` is empty.
+    :raises RuntimeError: If the ESD test rejects every cell as an angle outlier.
     """
-    cells = result.cells
     if not cells:
-        return
+        raise ValueError("Cannot identify CMC from an empty list.")
 
-    angles = np.array([c.registration_angle for c in cells])  # radians
-    pos_ref = np.array([c.center_reference for c in cells])  # (N, 2) in m
-    pos_comp = np.array([c.center_comparison for c in cells])  # (N, 2) in m
-    scores = np.array([c.area_cross_correlation_function_score for c in cells])
-
-    valid = ~np.isnan(angles)
-    if not np.any(valid):
-        return
-
-    # --- Step 1: Initial median angle ---
-    angle_diffs = angles.copy()
-    consensus_angle = _circular_median(angle_diffs[valid])
-    angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
-
-    # --- Step 2: ESD outlier rejection on angles ---
-    valid_residuals = angle_residuals[valid]
-    max_outliers = max(np.sum(valid) - 4, 0)
-    outlier_mask_sub = _outliers_gesd(
-        valid_residuals, outliers=max_outliers, hypo=True, alpha=0.05
+    consensus_angle = _get_consensus_angle(
+        cells=cells, threshold=np.radians(params.angle_deviation_threshold)
     )
-
-    inlier_full = valid.copy()
-    valid_indices = np.where(valid)[0]
-    for i, idx in enumerate(valid_indices):
-        if outlier_mask_sub[i]:
-            inlier_full[idx] = False
-
-    if np.any(inlier_full):
-        # Recompute median from ESD inliers
-        consensus_angle = _circular_median(angle_diffs[inlier_full])
-        angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
-
-        # Tighten: re-evaluate ALL valid cells (not just ESD survivors)
-        angle_threshold_rad = np.radians(params.angle_threshold)
-        inlier_full = valid & (np.abs(angle_residuals) <= 2 * angle_threshold_rad)
-
-        if np.any(inlier_full):
-            consensus_angle = _circular_median(angle_diffs[inlier_full])
-            angle_residuals = _wrapped_angle_diff(angle_diffs, consensus_angle)
-
-        # NaN-out rejected cells (ESD + tightening)
-        rejected = valid & ~inlier_full
-        angles[rejected] = np.nan
-        pos_ref[rejected] = np.nan
-        pos_comp[rejected] = np.nan
-        scores[rejected] = np.nan
-        angle_residuals[rejected] = np.nan
-
-    # --- Step 3: Rotate reference positions and compute position residuals ---
-    # Since we rotate the reference image the natural center for ration is the mid of the reference image defined in
-    # reference center.
-    expected_pos = _rotate_points(pos_ref, consensus_angle, reference_center)
-    pos_residuals = pos_comp - expected_pos
-    consensus_translation = np.nanmedian(pos_residuals, axis=0)
-    pos_errors = pos_residuals - consensus_translation
-    for i, cell in enumerate(cells):
-        print(
-            f"  cell {i}: ref=[{cell.center_reference[0] * 1e6:.2f}, {cell.center_reference[1] * 1e6:.2f}] µm, "
-            f"comp=[{cell.center_comparison[0] * 1e6:.2f}, {cell.center_comparison[1] * 1e6:.2f}] µm, "
-            f"angle={np.degrees(cell.registration_angle):.4f}°, "
-            f"score={cell.area_cross_correlation_function_score:.6f}"
-        )
-    print(f"  consensus_angle={np.degrees(consensus_angle):.4f}°")
-    print(
-        f"  consensus_translation=[{consensus_translation[0] * 1e6:.2f}, {consensus_translation[1] * 1e6:.2f}] µm"
+    # Rotate reference positions to compute the translation.
+    # Since we rotate the reference image, the natural center for rotation
+    # is the mid of the reference image defined in reference center.
+    consensus_translation = _get_consensus_translation(
+        cells=cells, angle=consensus_angle, rotation_center=reference_center
     )
-    # --- Step 4: Label CMCs ---
-    angle_threshold_rad = np.radians(params.angle_threshold)
-    for i, cell in enumerate(cells):
-        cell.is_congruent = bool(
-            scores[i] >= params.correlation_threshold
-            and not np.isnan(angle_residuals[i])
-            and np.abs(angle_residuals[i]) <= angle_threshold_rad
-            and np.abs(pos_errors[i, 0]) <= params.position_threshold
-            and np.abs(pos_errors[i, 1]) <= params.position_threshold
-        )
+    _update_congruence(cells=cells, params=params)
 
-    result.consensus_rotation = float(consensus_angle)
-    result.consensus_translation = consensus_translation
-    result.update_summary()
+    result = ComparisonResult(
+        cells=cells,
+        consensus_rotation=float(np.degrees(consensus_angle)),
+        consensus_translation=consensus_translation,
+    )
+    return result
 
 
-def _outliers_gesd(
-    data: np.ndarray, outliers: int, hypo: bool, alpha: float
-) -> np.ndarray:
-    from scikit_posthocs import outliers_gesd
-
-    if outliers <= 0 or len(data) < 3:
-        return np.zeros(len(data), dtype=bool)
-    mask_sorted = outliers_gesd(data, outliers=outliers, hypo=hypo, alpha=alpha)
-    # Unsort: argsort gives the permutation that sorts data;
-    # placing mask_sorted values at those positions recovers original order.
-    argsort = np.argsort(data)
-    mask_original = np.zeros(len(data), dtype=bool)
-    mask_original[argsort] = mask_sorted
-    return mask_original
-
-
-def _circular_median(angles: np.ndarray) -> float:
+def _circular_median(angles: FloatArray1D) -> float:
     """
     Compute the circular median of a set of angles (in radians).
 
-    For an odd number of values the middle element is returned; for an
-    even number the circular mean of the two middle elements is returned,
-    matching MATLAB's angle_median behaviour.
+    The circular median minimizes the sum of absolute angular distances.
+
+    :param angles: 1-D array of angles in radians.
+    :returns: The circular median angle in radians.
     """
-    angles = angles[~np.isnan(angles)]
-    if angles.size == 0:
-        return np.nan
-
-    # Find the rotation that minimises total absolute angular distance
-    best_idx = 0
-    best_cost = np.inf
-    for i, candidate in enumerate(angles):
-        raw_diff = angles - candidate
-        wrapped_diff = (raw_diff + np.pi) % (2 * np.pi) - np.pi
-        cost = np.sum(np.abs(wrapped_diff))
-        if cost < best_cost:
-            best_cost = cost
-            best_idx = i
-
-    # Centre angles around the best candidate, take standard median,
-    # then unwrap back.
-    ref = angles[best_idx]
-    centred = (angles - ref + np.pi) % (2 * np.pi) - np.pi
-    med = float(np.median(centred))
-    result = ref + med
-    # Wrap result into (-π, π]
-    result = (result + np.pi) % (2 * np.pi) - np.pi
-    return float(result)
+    costs = [np.sum(np.abs(_wrap_angles(angles - a))) for a in angles]
+    ref = angles[np.argmin(costs)]
+    return float(_wrap_angles(ref + np.median(_wrap_angles(angles - ref))))
 
 
-def _wrapped_angle_diff(angles: np.ndarray, reference: float) -> np.ndarray:
+def _wrap_angles(angles: FloatArray1D) -> FloatArray1D:
     """
-    Signed angular difference wrapped to [-pi, pi].
+    Normalize angles in radians to the [-pi, pi] interval.
 
     :param angles: Array of angles in radians.
-    :param reference: Reference angle in radians.
-    :returns: Array of signed differences in radians.
+    :returns: Array of normalized angles in radians.
     """
-    d = angles - reference
-    return np.arctan2(np.sin(d), np.cos(d))
+    return (angles + np.pi) % (2 * np.pi) - np.pi
 
 
-def _rotate_points(points: np.ndarray, angle: float, center: np.ndarray) -> np.ndarray:
+def _rotate_points(
+    points: Points2D, angle: float, center: tuple[float, float]
+) -> Points2D:
     """
     Rotate 2-D points around a center.
 
     :param points: (N, 2) array of [x, y] coordinates.
     :param angle: Rotation angle in radians.
-    :param center: (2,) center of rotation [x, y].
+    :param center: Tuple for the center of rotation [x, y].
     :returns: (N, 2) rotated points.
     """
-    c, s = np.cos(angle), np.sin(angle)
-    R = np.array([[c, -s], [s, c]])
-    return (points - center) @ R.T + center
+    cos_val, sin_val = np.cos(angle), np.sin(angle)
+    rotation_matrix = np.array([[cos_val, -sin_val], [sin_val, cos_val]])
+    translation = np.array(center)
+    return (points - translation) @ rotation_matrix.T + translation
+
+
+def _get_esd_criterion(values: FloatArray1D) -> BoolArray1D:
+    """
+    Return a boolean inlier mask for ``values`` using the generalized ESD test.
+
+    The maximum number of outliers tested is ``len(values) - 4``, preserving at
+    least four observations for a stable median estimate.
+
+    :param values: 1-D array of residuals to screen.
+    :returns: Boolean mask; True = inlier, False = outlier.
+    """
+    max_outliers = max(len(values) - 4, 0)
+    outliers_mask = _outliers_gesd(data=values, max_outliers=max_outliers, alpha=0.05)
+    return ~outliers_mask
+
+
+def _get_threshold_criterion(values: FloatArray1D, threshold: float) -> BoolArray1D:
+    """
+    Return a boolean inlier mask where ``|value| ≤ 2 * threshold``.
+
+    The factor of two provides a looser tightening gate in the first pass of
+    consensus-angle estimation before the final single-threshold classification.
+
+    :param values: 1-D array of residuals to screen.
+    :param threshold: Half-width of the acceptance band.
+    :returns: Boolean mask; True = inlier, False = outlier.
+    """
+    return np.abs(values) <= 2 * threshold
+
+
+def _get_consensus_angle(cells: list[Cell], threshold: float) -> float:
+    """
+    Estimate the consensus rotation angle across all cells using a three-step
+    median-and-rejection procedure.
+
+    1. Compute an initial circular median of all cell angles.
+    2. Apply the generalized ESD test to the angle residuals to remove statistical
+       outliers, then recompute the median from inliers.
+    3. Tighten the inlier set to cells within ``2 × threshold`` of the new median
+       and recompute once more.
+
+    Each cell's ``meta_data.is_outlier`` and ``meta_data.residual_angle_deg`` are
+    updated to reflect the final inlier/outlier decision.
+
+    :param cells: List of cells providing ``angle_deg`` measurements.
+    :param threshold: Half-width acceptance band in radians (typically the
+        ``angle_threshold`` parameter converted from degrees).
+    :returns: Consensus rotation angle in radians.
+    :raises RuntimeError: If the ESD test rejects every cell.
+    """
+    angles = np.radians([c.angle_deg for c in cells])
+
+    # Compute median from angles
+    consensus_angle = _circular_median(angles=angles)
+    angle_residuals = _wrap_angles(angles=angles - consensus_angle)
+    mask = _get_esd_criterion(values=angle_residuals)
+
+    # Recompute median based on the inliers
+    consensus_angle = _circular_median(angles[mask])
+    angle_residuals = _wrap_angles(angles=angles - consensus_angle)
+
+    # Tighten: re-evaluate all cells against 2 × angle_threshold
+    mask = _get_threshold_criterion(values=angle_residuals, threshold=threshold)
+    if np.any(mask):
+        consensus_angle = _circular_median(angles[mask])
+        angle_residuals = _wrap_angles(angles=angles - consensus_angle)
+
+    # Update cell meta-data
+    for cell, is_outlier, residual_angle in zip(cells, ~mask, angle_residuals):
+        cell.meta_data.is_outlier = bool(is_outlier)
+        cell.meta_data.residual_angle_deg = float(np.degrees(residual_angle))
+
+    return consensus_angle
+
+
+def _get_consensus_translation(
+    cells: list[Cell], angle: float, rotation_center: tuple[float, float]
+) -> tuple[float, float]:
+    """
+    Rotate reference cell centers by the consensus angle, then compute the
+    median positional offset between the rotated reference and comparison centers.
+
+    Outlier cells are excluded from the median by NaN-masking their centers before aggregation.
+    Every cell's ``meta_data.position_error`` is updated with its signed [x, y] deviation
+    from the consensus translation.
+
+    :param cells: List of cells whose ``meta_data.is_outlier`` flags are already set.
+    :param angle: Consensus rotation angle in radians.
+    :param rotation_center: [x, y] center of rotation in meters.
+    :returns: Consensus translation [x, y] in meters.
+    """
+    centers_reference = np.array([c.center_reference for c in cells])
+    centers_comparison = np.array([c.center_comparison for c in cells])
+    outliers = np.array([c.meta_data.is_outlier for c in cells])
+    centers_reference[outliers] = np.nan
+    centers_comparison[outliers] = np.nan
+    expected_positions_on_reference = _rotate_points(
+        points=centers_reference, angle=angle, center=rotation_center
+    )
+    # Compute residuals with respect to comparison.
+    position_residuals = centers_comparison - expected_positions_on_reference
+    consensus_translation = np.nanmedian(position_residuals, axis=0)
+    position_errors = position_residuals - consensus_translation
+
+    # Update cell meta-data
+    for cell, position_error in zip(cells, position_errors):
+        cell.meta_data.position_error = (
+            float(position_error[0]),
+            float(position_error[1]),
+        )
+
+    return float(consensus_translation[0]), float(consensus_translation[1])
+
+
+def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
+    """
+    Set ``is_congruent`` on each cell based on all four CMC criteria.
+
+    A cell is congruent when it satisfies every condition simultaneously:
+    - ``best_score ≥ correlation_threshold`` — sufficient cross-correlation quality.
+    - ``not meta_data.is_outlier`` — not rejected as an angle outlier by ESD or
+      the tightening step.
+    - ``|meta_data.residual_angle_deg| ≤ angle_threshold`` — angular deviation
+      from the consensus rotation is within tolerance.
+    - ``|meta_data.position_error[x]| ≤ position_threshold`` and
+      ``|meta_data.position_error[y]| ≤ position_threshold`` — positional deviation
+      from the consensus translation is within tolerance in both axes.
+
+    :param cells: Cells whose ``meta_data`` fields have already been populated by
+        :func:`_get_consensus_angle` and :func:`_get_consensus_translation`.
+    :param params: Algorithm parameters providing the classification thresholds.
+    """
+    for cell in cells:
+        cell.is_congruent = bool(
+            cell.best_score >= params.correlation_threshold
+            and not cell.meta_data.is_outlier
+            and np.abs(cell.meta_data.residual_angle_deg)
+            <= params.angle_deviation_threshold
+            and np.all(
+                np.abs(cell.meta_data.position_error) <= params.position_threshold
+            )
+        )
+
+
+def _rosner_critical_value(n_remaining: int, alpha: float) -> float:
+    """
+    Rosner (1983) critical value for the GESD test.
+
+    :param n_remaining: Number of observations after removal.
+    :param alpha: Significance level.
+    :returns: Critical value lambda_i.
+    """
+    if n_remaining < 2:
+        return np.inf
+    p = 1.0 - alpha / (2.0 * (n_remaining + 1))
+    t_value = float(t.ppf(p, n_remaining - 1))
+    return (
+        t_value
+        * n_remaining
+        / np.sqrt((n_remaining - 1 + t_value**2) * (n_remaining + 1))
+    )
+
+
+def _outliers_gesd(
+    data: FloatArray1D, max_outliers: int, alpha: float = 0.05
+) -> BoolArray1D:
+    """
+    Generalised ESD test for outliers (Rosner 1983), matching the MATLAB
+    ``stat_idout_esd`` reference implementation used by the NIST CMC pipeline.
+
+    Iteratively removes the most extreme value and tests whether it is a
+    statistically significant outlier. The final outlier count is the last
+    iteration where the test statistic exceeds the critical value, which
+    handles masking effects where removing one outlier reveals another.
+
+    Tie-breaking: when multiple values share the maximum deviation from the
+    mean, the one with the lowest array index is removed first.
+
+    :param data: 1-D array of values to test.
+    :param max_outliers: Maximum number of outliers to test for.
+    :param alpha: Significance level.
+    :returns: Boolean mask in original array order; True = outlier.
+    """
+    n = len(data)
+    if max_outliers <= 0 or n < 3:
+        return np.zeros(n, dtype=bool)
+
+    remaining = np.arange(n)
+    values = data.copy()
+    removed_indices: list[int] = []
+    last_reject = 0
+
+    for i in range(max_outliers):
+        if len(values) < 3:
+            break
+
+        mean = float(np.mean(values))
+        std = float(np.std(values, ddof=1))
+        if std == 0:
+            break
+
+        deviations = np.abs(values - mean)
+        idx = int(np.argmax(deviations))
+        r_statistic = deviations[idx] / std
+        critical_value = _rosner_critical_value(len(values) - 1, alpha)
+
+        removed_indices.append(remaining[idx])
+
+        if r_statistic > critical_value:
+            last_reject = i + 1
+
+        values = np.delete(values, idx)
+        remaining = np.delete(remaining, idx)
+
+    mask = np.zeros(n, dtype=bool)
+    mask[removed_indices[:last_reject]] = True
+    return mask
