@@ -131,16 +131,6 @@ class PrepareMarkImpression(PrepareMarkBase):
         return v
 
 
-class MaskParameters(BaseModelConfig):
-    shape: tuple[PositiveInt, PositiveInt] = Field(
-        ...,
-        examples=[[100, 100], [250, 150]],
-        description="Shape (height, width) of the 2D mask array. Must exactly match the shape of the parsed scan"
-        " image.",
-    )
-    is_bitpacked: bool = Field(default=False, examples=[False, True], description="Whether the mask is bit-packed.")
-
-
 class EditImage(BaseParameters):
     """Request model for editing and transforming processed scan images."""
 
@@ -168,10 +158,11 @@ class EditImage(BaseParameters):
         default=False,
         description="Whether to crop the image to the non-masked region.",
     )
-    mask_parameters: MaskParameters = Field(
-        ...,
-        description="Mask parameters.",
-        # TODO: change this field to `mask_shape: tuple[PositiveInt, PositiveInt]`
+    mask_is_bitpacked: bool = Field(
+        default=False,
+        description="Whether the bytes in the mask are bit-packed. "
+        'The expected bit-order for bit-packed arrays is "little".',
+        examples=[True, False],
     )
 
     @model_validator(mode="after")
@@ -185,8 +176,6 @@ class EditImage(BaseParameters):
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
         """Override the base method."""
         schema = super().model_json_schema(*args, **kwargs)
-        # Add schema for mask parameters to JSON model
-        schema["properties"]["mask_parameters"] = MaskParameters.model_json_schema(*args, **kwargs)
         # Add schema for BaseParameters and EditImage to JSON model
         attr_to_class = (
             ("scan_file", "ScanFile"),

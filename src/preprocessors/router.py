@@ -205,8 +205,8 @@ async def edit_scan(
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
     parsed_mask = parse_mask_pipeline(
         raw_data=await mask_data.read(),
-        shape=params.mask_parameters.shape,
-        is_bitpacked=params.mask_parameters.is_bitpacked,
+        shape=parsed_image.data.shape,
+        is_bitpacked=params.mask_is_bitpacked,
     )
     if parsed_mask.shape != parsed_image.data.shape:
         raise HTTPException(

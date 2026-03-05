@@ -17,7 +17,6 @@ from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, P
 from models import DirectoryAccess
 from preprocessors.schemas import (
     EditImage,
-    MaskParameters,
     PrepareMarkImpression,
     PrepareMarkStriation,
     PreprocessingImpressionParams,
@@ -268,7 +267,6 @@ def test_edit_image_returns_valid_images(
     params = EditImage(
         project_name="test",
         scan_file=scan_directory / "circle.x3p",
-        mask_parameters=MaskParameters(shape=mask.shape),
         cutoff_length=2 * micro,
         resampling_factor=0.5,
         terms=SurfaceTerms.PLANE,

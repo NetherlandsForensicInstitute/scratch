@@ -18,7 +18,7 @@ class TestParseMaskPipeline:
         raw_data = mask_array.tobytes(order="C")
         shape = mask_array.shape
         # Act
-        parsed_mask = parse_mask_pipeline(raw_data, shape)
+        parsed_mask = parse_mask_pipeline(raw_data, shape, is_bitpacked=False)
         # Assert
         assert np.array_equal(parsed_mask, mask_array)
 
@@ -30,9 +30,10 @@ class TestParseMaskPipeline:
         assert parsed_mask.shape == mask_original.shape
         assert np.array_equal(parsed_mask, mask_original)
 
-    def test_pipeline_raises_on_incorrect_shape(self, mask_array: BinaryMask) -> None:
+    @pytest.mark.parametrize("is_bitpacked", [True, False])
+    def test_pipeline_raises_on_incorrect_shape(self, mask_array: BinaryMask, is_bitpacked: bool) -> None:
         """Test that the pipeline will raise an error if the shape is incorrect."""
         raw_data = mask_array.tobytes(order="C")
         incorrect_shape = (100, 150)
         with pytest.raises(ValueError, match="cannot reshape array"):
-            _ = parse_mask_pipeline(raw_data, incorrect_shape)
+            _ = parse_mask_pipeline(raw_data, incorrect_shape, is_bitpacked=is_bitpacked)

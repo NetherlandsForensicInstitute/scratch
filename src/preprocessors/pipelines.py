@@ -39,7 +39,7 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
     )
 
 
-def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: bool = False) -> BinaryMask:
+def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: bool) -> BinaryMask:
     """
     Convert incoming binary data to a 2D mask array.
 
@@ -50,10 +50,9 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
     :returns: The 2D mask array.
     """
     if not is_bitpacked:
-        # TODO: remove this option and only allow bitpacked arrays
         return np.frombuffer(raw_data, dtype=np.bool).reshape(*shape)
 
-    # Note: this follows the Java implementation for bitpacking
+    # Note: this follows our Java implementation for bitpacking
     height, width = shape
     packed = np.frombuffer(raw_data, dtype=np.uint8)
     unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)  # type: ignore
