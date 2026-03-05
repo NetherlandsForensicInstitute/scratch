@@ -17,11 +17,11 @@ class _IdentityLRSystem(LRSystem):
     """Minimal LRSystem that returns the input score as the LLR."""
 
     def __init__(self) -> None:
-        super().__init__(name="identity")
+        pass
 
     def apply(self, instances: FeatureData) -> LLRData:
         """Return input features as LLR values."""
-        return LLRData(features=instances.features)
+        return LLRData(features=instances.features[:, 0])
 
 
 @pytest.fixture

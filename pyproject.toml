@@ -59,6 +59,7 @@ dev = [
   "ruff>=0.14.0",
   "rust-just>=1.43.0",
   "pyright>=1.1.407",
+  "tqdm>=4.67.1",
 ]
 
 [tool.ruff]

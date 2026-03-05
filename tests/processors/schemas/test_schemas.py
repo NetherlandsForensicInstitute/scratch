@@ -7,9 +7,9 @@ from processors.schemas import (
     CalculateLR,
     CalculateLRImpression,
     CalculateLRStriation,
-    ImpressionLRParamaters,
+    ImpressionLRParameters,
     MarkDirectories,
-    StriationLRParamaters,
+    StriationLRParameters,
 )
 
 
@@ -106,12 +106,12 @@ class TestCalculateLRImpression:
             score=score,
             lr_system_path=lr_system_file,
             n_cells=n_cells,
-            param=ImpressionLRParamaters(),
+            param=ImpressionLRParameters(),
         )
 
         assert schema.score == score
         assert schema.n_cells == n_cells
-        assert isinstance(schema.param, ImpressionLRParamaters)
+        assert isinstance(schema.param, ImpressionLRParameters)
 
     @pytest.mark.parametrize("score", [0, 1, 100])
     def test_should_accept_score_within_n_cells(
@@ -124,7 +124,7 @@ class TestCalculateLRImpression:
             score=score,
             lr_system_path=lr_system_file,
             n_cells=100,
-            param=ImpressionLRParamaters(),
+            param=ImpressionLRParameters(),
         )
 
         assert schema.score == score
@@ -137,7 +137,7 @@ class TestCalculateLRImpression:
             score=10,
             lr_system_path=lr_system_file,
             n_cells=10,
-            param=ImpressionLRParamaters(),
+            param=ImpressionLRParameters(),
         )
 
         assert schema.score == schema.n_cells
@@ -154,7 +154,22 @@ class TestCalculateLRImpression:
                 score=score,
                 lr_system_path=lr_system_file,
                 n_cells=10,
-                param=ImpressionLRParamaters(),
+                param=ImpressionLRParameters(),
+            )
+
+    @pytest.mark.parametrize("score", [-11, -100])
+    def test_should_reject_negative_score(
+        self, mark_ref: Path, mark_comp: Path, lr_system_file: Path, score: int
+    ) -> None:
+        """Test that negative score raises ValidationError."""
+        with pytest.raises(ValidationError):
+            CalculateLRImpression(
+                mark_dir_ref=mark_ref,
+                mark_dir_comp=mark_comp,
+                score=score,
+                lr_system_path=lr_system_file,
+                n_cells=10,
+                param=ImpressionLRParameters(),
             )
 
     @pytest.mark.parametrize("n_cells", [0, -1, -10])
@@ -169,7 +184,7 @@ class TestCalculateLRImpression:
                 score=5,
                 lr_system_path=lr_system_file,
                 n_cells=n_cells,
-                param=ImpressionLRParamaters(),
+                param=ImpressionLRParameters(),
             )
 
     def test_should_reject_missing_param(self, mark_ref: Path, mark_comp: Path, lr_system_file: Path) -> None:
@@ -195,14 +210,14 @@ class TestCalculateLRStriation:
             mark_dir_comp=mark_comp,
             score=score,
             lr_system_path=lr_system_file,
-            param=StriationLRParamaters(),
+            param=StriationLRParameters(),
         )
 
         assert schema.score == score
-        assert isinstance(schema.param, StriationLRParamaters)
+        assert isinstance(schema.param, StriationLRParameters)
 
-    @pytest.mark.parametrize("score", [-1.0, 0.0, 0.5, 1.0])
-    def test_should_accept_any_float_score(
+    @pytest.mark.parametrize("score", [0.0, 0.5, 1.0])
+    def test_should_accept_positive_float_score(
         self, mark_ref: Path, mark_comp: Path, lr_system_file: Path, score: float
     ) -> None:
         """Test that score accepts any float value."""
@@ -211,10 +226,24 @@ class TestCalculateLRStriation:
             mark_dir_comp=mark_comp,
             score=score,
             lr_system_path=lr_system_file,
-            param=StriationLRParamaters(),
+            param=StriationLRParameters(),
         )
 
         assert schema.score == score
+
+    @pytest.mark.parametrize("score", [-1.0, -0.5, -2.0])
+    def test_should_reject_negative_float_score(
+        self, mark_ref: Path, mark_comp: Path, lr_system_file: Path, score: float
+    ) -> None:
+        """Test that score accepts any float value."""
+        with pytest.raises(ValidationError):
+            CalculateLRStriation(
+                mark_dir_ref=mark_ref,
+                mark_dir_comp=mark_comp,
+                score=score,
+                lr_system_path=lr_system_file,
+                param=StriationLRParameters(),
+            )
 
     def test_should_reject_missing_param(self, mark_ref: Path, mark_comp: Path, lr_system_file: Path) -> None:
         """Test that omitting param raises ValidationError."""

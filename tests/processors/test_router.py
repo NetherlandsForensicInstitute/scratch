@@ -22,9 +22,9 @@ from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
     CalculateScoreStriation,
-    ImpressionLRParamaters,
-    StriationLRParamaters,
-    StriationParamaters,
+    ImpressionLRParameters,
+    StriationLRParameters,
+    StriationParameters,
 )
 
 
@@ -32,7 +32,7 @@ class _IdentityLRSystem(LRSystem):
     """Minimal LRSystem that returns the input score as the LLR."""
 
     def __init__(self) -> None:
-        super().__init__(name="identity")
+        pass
 
     def apply(self, instances: FeatureData) -> LLRData:
         """Return the first feature column as LLR values."""
@@ -216,7 +216,7 @@ class TestStriationMark:
         json_data = CalculateScoreStriation(
             mark_dir_ref=ref_mark_path,
             mark_dir_comp=comp_mark_path,
-            param=StriationParamaters(metadata_compared={"somthing": "else"}, metadata_reference={"ding": "dong"}),
+            param=StriationParameters(metadata_compared={"something": "else"}, metadata_reference={"ding": "dong"}),
         ).model_dump(mode="json")
 
         # Act
@@ -268,7 +268,7 @@ class TestCalculateLRImpression:
             score=3,
             n_cells=10,
             lr_system_path=lr_system_path,
-            param=ImpressionLRParamaters(),
+            param=ImpressionLRParameters(),
         ).model_dump(mode="json")
 
         response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
@@ -313,7 +313,7 @@ class TestCalculateLRStriation:
             mark_dir_comp=comp_path,
             score=0.5,
             lr_system_path=lr_system_path,
-            param=StriationLRParamaters(),
+            param=StriationLRParameters(),
         ).model_dump(mode="json")
 
         response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
