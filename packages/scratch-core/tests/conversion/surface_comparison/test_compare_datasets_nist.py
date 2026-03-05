@@ -125,7 +125,7 @@ class TestCompareDatasetsNISTSimone:
         self.result = run_pipeline(test_case)
 
     def test_res_scalar_fields(
-        self, test_case: MatlabTestCase, plot: bool = False
+        self, test_case: MatlabTestCase, plot: bool = True
     ) -> None:
         """Test that Res scalar output fields match MATLAB."""
         if not test_case.expected_results:

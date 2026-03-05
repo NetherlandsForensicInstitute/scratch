@@ -1,22 +1,22 @@
 {
-  "case_name": "14_noisy_shifted_smallcells",
+  "case_name": "15_cellangle_180",
   "reference_scale_x": 3.5e-06,
   "reference_scale_y": 3.5e-06,
   "comparison_scale_x": 3.5e-06,
   "comparison_scale_y": 3.5e-06,
   "params": {
     "correlation_threshold": 0.25,
-    "cell_size_x": 150,
-    "cell_size_y": 150,
+    "cell_size_x": 300,
+    "cell_size_y": 300,
     "minimum_fill_fraction": 0.35,
-    "angle_threshold": 3,
+    "angle_threshold": 180,
     "search_angle_step": 1,
     "position_threshold": 75
   },
   "expected_results": {
-    "cell_count": 25,
-    "congruent_matching_cells_count": 19,
-    "cmc_fraction": 0.76,
-    "cmc_area_fraction": 0.7617385
+    "cell_count": 9,
+    "congruent_matching_cells_count": 0,
+    "cmc_fraction": 0,
+    "cmc_area_fraction": 0
   }
 }

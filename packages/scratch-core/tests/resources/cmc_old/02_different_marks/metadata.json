@@ -1,5 +1,5 @@
 {
-  "case_name": "03_shifted_mark",
+  "case_name": "02_different_marks",
   "reference_scale_x": 3.5e-06,
   "reference_scale_y": 3.5e-06,
   "comparison_scale_x": 3.5e-06,
@@ -15,8 +15,8 @@
   },
   "expected_results": {
     "cell_count": 4,
-    "congruent_matching_cells_count": 1,
-    "cmc_fraction": 0.25,
-    "cmc_area_fraction": 0.2492888888888889
+    "congruent_matching_cells_count": 0,
+    "cmc_fraction": 0,
+    "cmc_area_fraction": 0
   }
 }

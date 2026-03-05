@@ -1,22 +1,22 @@
 {
-  "case_name": "05_different_sizes",
+  "case_name": "16_cellangle_180_same",
   "reference_scale_x": 3.5e-06,
   "reference_scale_y": 3.5e-06,
   "comparison_scale_x": 3.5e-06,
   "comparison_scale_y": 3.5e-06,
   "params": {
     "correlation_threshold": 0.25,
-    "cell_size_x": 300.0,
-    "cell_size_y": 300.0,
+    "cell_size_x": 300,
+    "cell_size_y": 300,
     "minimum_fill_fraction": 0.35,
-    "angle_threshold": 3.0,
-    "search_angle_step": 1.0,
-    "position_threshold": 75.0
+    "angle_threshold": 180,
+    "search_angle_step": 1,
+    "position_threshold": 75
   },
   "expected_results": {
     "cell_count": 4,
     "congruent_matching_cells_count": 3,
     "cmc_fraction": 0.75,
-    "cmc_area_fraction": 0.7226222222222223
+    "cmc_area_fraction": 0.6490222222222222
   }
 }

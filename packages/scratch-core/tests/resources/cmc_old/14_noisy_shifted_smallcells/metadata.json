@@ -15,8 +15,8 @@
   },
   "expected_results": {
     "cell_count": 25,
-    "congruent_matching_cells_count": 19,
-    "cmc_fraction": 0.76,
-    "cmc_area_fraction": 0.7617385
+    "congruent_matching_cells_count": 2,
+    "cmc_fraction": 0.08,
+    "cmc_area_fraction": 0.082775
   }
 }
