@@ -1,15 +1,13 @@
 from http import HTTPStatus
 from pathlib import Path
 
-import numpy as np
-from conversion.data_formats import Mark
-from conversion.plots.data_formats import LlrTransformationData
-from conversion.plots.plot_lr_overview import plot_lr_overview
+from conversion.data_formats import Mark, ReferenceData
+from conversion.plots.data_formats import HistogramData, ImpressionComparisonMetrics, LlrTransformationData
+from conversion.plots.plot_ccf_comparison_overview import plot_ccf_comparison_overview
+from conversion.plots.plot_cmc_comparison_overview import plot_cmc_comparison_overview
 from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from fastapi import HTTPException
-from lir.data.models import FeatureData
-from lir.lrsystems.lrsystems import LRSystem
 from loguru import logger
 from PIL import Image
 
@@ -35,8 +33,8 @@ def save_striation_comparison_plots(  # noqa: PLR0913
     mark_comp: Mark,
     mark_correlations: MarkCorrelationResult,
     files_to_save: dict[str, Path],
-    meta_data_compare: dict[str, str],
-    meta_data_ref: dict[str, str],
+    metadata_compared: dict[str, str],
+    metadata_reference: dict[str, str],
 ) -> None:
     """Create and save the plots of the processed markings."""
     plots = plot_striation_comparison_results(
@@ -47,8 +45,8 @@ def save_striation_comparison_plots(  # noqa: PLR0913
         profile_reference_aligned=mark_correlations.profile_reference_aligned,
         profile_compared_aligned=mark_correlations.profile_compared_aligned,
         metrics=mark_correlations.comparison_results,
-        metadata_reference=meta_data_ref,
-        metadata_compared=meta_data_compare,
+        metadata_reference=metadata_reference,
+        metadata_compared=metadata_compared,
     )
     logger.debug("striation comparison plots generated")
     # TODO: update this dict to a Pydantic class.
@@ -60,24 +58,103 @@ def save_striation_comparison_plots(  # noqa: PLR0913
     Image.fromarray(plots.filtered_reference_heatmap).save(files_to_save["filtered_reference_heatmap"])
 
 
-def save_lr_overview_plot(
-    system: LRSystem,
+def save_lr_impression_plot(  # noqa: PLR0913
+    reference_data: ReferenceData,
+    mark_ref: Mark,
+    mark_comp: Mark,
+    metrics: ImpressionComparisonMetrics,
+    metadata_reference: dict[str, str],
+    metadata_compared: dict[str, str],
+    results_metadata: dict[str, str],
     score: float,
     lr: float,
-    score_max: float,
     output_path: Path,
-) -> None:
-    """Generate and save the LLR transformation overview plot."""
-    scores = np.linspace(0, score_max, 100)
-    llr_result = system.apply(FeatureData(features=scores.reshape(-1, 1)))
-    intervals = llr_result.llr_intervals
-    llrs_at5 = intervals[:, 0] if intervals is not None else llr_result.llrs
-    llrs_at95 = intervals[:, 1] if intervals is not None else llr_result.llrs
-    llr_data = LlrTransformationData(
-        scores=scores,
-        llrs=llr_result.llrs,
-        llrs_at5=llrs_at5,
-        llrs_at95=llrs_at95,
-        score_llr_point=(float(score), lr),
+):
+    """
+    Generate and save a CMC comparison overview plot for impression marks.
+
+    Combines surface visualizations, cell correlation metrics, score histograms,
+    and LLR transformation curves into a single overview image.
+
+    :param reference_data: Reference population data with KM/KNM scores and LLRs.
+    :param mark_ref: Filtered reference mark surface.
+    :param mark_comp: Filtered compared mark surface.
+    :param metrics: Cell and area correlation metrics from the CMC comparison.
+    :param metadata_reference: Display metadata for the reference mark.
+    :param metadata_compared: Display metadata for the compared mark.
+    :param results_metadata: Formatted summary of comparison results for display.
+    :param score: CMC score for the current case comparison.
+    :param lr: Log-likelihood ratio for the current case comparison.
+    :param output_path: Path to save the output PNG image.
+    """
+    plot = plot_cmc_comparison_overview(
+        mark_reference_filtered=mark_ref,
+        mark_compared_filtered=mark_comp,
+        metrics=metrics,
+        metadata_reference=metadata_reference,
+        metadata_compared=metadata_compared,
+        results_metadata=results_metadata,
+        histogram_data=HistogramData(scores=reference_data.scores, labels=reference_data.labels, new_score=score),
+        llr_data=LlrTransformationData(
+            scores=reference_data.scores,
+            llrs=reference_data.llrs,
+            llrs_at5=reference_data.llrs_at5,
+            llrs_at95=reference_data.llrs_at95,
+            score_llr_point=(score, lr),
+        ),
     )
-    Image.fromarray(plot_lr_overview(llr_data)).save(output_path)
+    Image.fromarray(plot).save(output_path)
+
+
+def save_lr_striation_plot(  # noqa: PLR0913
+    reference_data: ReferenceData,
+    mark_ref: Mark,
+    mark_comp: Mark,
+    mark_ref_aligned: Mark,
+    mark_comp_aligned: Mark,
+    metadata_reference: dict[str, str],
+    metadata_compared: dict[str, str],
+    results_metadata: dict[str, str],
+    score: float,
+    lr: float,
+    output_path: Path,
+):
+    """
+    Generate and save a CCF comparison overview plot for striation marks.
+
+    Combines surface visualizations of both full and aligned marks, score
+    histograms, and LLR transformation curves into a single overview image.
+
+    :param reference_data: Reference population data with KM/KNM scores and LLRs.
+    :param mark_ref: Filtered reference mark surface.
+    :param mark_comp: Filtered compared mark surface.
+    :param mark_ref_aligned: Reference mark trimmed to the overlap region.
+    :param mark_comp_aligned: Compared mark trimmed to the overlap region.
+    :param metadata_reference: Display metadata for the reference mark.
+    :param metadata_compared: Display metadata for the compared mark.
+    :param results_metadata: Formatted summary of comparison results for display.
+    :param score: CCF score for the current case comparison.
+    :param lr: Log-likelihood ratio for the current case comparison.
+    :param output_path: Path to save the output PNG image.
+    """
+    plot = plot_ccf_comparison_overview(
+        mark_reference_filtered=mark_ref,
+        mark_compared_filtered=mark_comp,
+        mark_reference_aligned=mark_ref_aligned,
+        mark_compared_aligned=mark_comp_aligned,
+        metadata_reference=metadata_reference,
+        metadata_compared=metadata_compared,
+        results_metadata=results_metadata,
+        histogram_data=HistogramData(scores=reference_data.scores, labels=reference_data.labels, new_score=score),
+        histogram_data_transformed=HistogramData(
+            scores=reference_data.scores, labels=reference_data.labels, new_score=score
+        ),
+        llr_data=LlrTransformationData(
+            scores=reference_data.scores,
+            llrs=reference_data.llrs,
+            llrs_at5=reference_data.llrs_at5,
+            llrs_at95=reference_data.llrs_at95,
+            score_llr_point=(score, lr),
+        ),
+    )
+    Image.fromarray(plot).save(output_path)

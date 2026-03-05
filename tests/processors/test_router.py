@@ -1,16 +1,16 @@
 import json
-import pickle
+from datetime import date
 from http import HTTPStatus
 from pathlib import Path
 
 import numpy as np
 import pytest
-from container_models.base import DepthData
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.export.mark import ExportedMarkData
 from conversion.profile_correlator import Profile
 from fastapi.testclient import TestClient
+from lir import InstanceData
 from lir.data.models import FeatureData, LLRData
 from lir.lrsystems.lrsystems import LRSystem
 from pydantic import HttpUrl
@@ -34,8 +34,9 @@ class _IdentityLRSystem(LRSystem):
     def __init__(self) -> None:
         pass
 
-    def apply(self, instances: FeatureData) -> LLRData:
+    def apply(self, instances: InstanceData) -> LLRData:
         """Return the first feature column as LLR values."""
+        assert isinstance(instances, FeatureData)
         return LLRData(features=instances.features[:, 0])
 
 
@@ -48,150 +49,86 @@ def test_processors_placeholder(client: TestClient) -> None:
     assert response.headers["location"] == "/docs#operations-tag-processor", "should redirect to processor docs"
 
 
-class TestStriationMark:
-    def make_mark(
-        self,
-        data: DepthData,
-        scale_x: float,
-        scale_y: float,
-        center: tuple[float, float] | None,
-        mark_type: MarkType = MarkType.EXTRACTOR_IMPRESSION,
-    ) -> Mark:
-        """Create a Mark instance for testing."""
-        scan_image = ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
-        return Mark(scan_image=scan_image, mark_type=mark_type, center=center)
+def _create_dummy_profile(n_samples: int = 1000) -> Profile:
+    """Create a synthetic striation profile for testing."""
+    n_striations = 20
+    amplitude_um = 0.5
+    noise_level = 0.05
+    pixel_size_m = 0.5 * micro
 
-    def _create_dummy_profile(
-        self,
-        n_samples: int,
-    ) -> Profile:
-        """
-        Create a synthetic striation profile for testing.
+    x = np.linspace(0, n_striations * 2 * np.pi, n_samples)
+    data = np.sin(x) * amplitude_um * micro
+    data += np.sin(2 * x) * amplitude_um * 0.3 * micro
+    data += np.sin(0.5 * x) * amplitude_um * 0.5 * micro
 
-        This function generates a profile that mimics the appearance of striation
-        marks with multiple ridges and valleys.
+    rng = np.random.default_rng()
+    data += rng.normal(0, amplitude_um * noise_level * micro, n_samples)
 
-        :param n_samples: Number of samples in the profile.
-        :param n_striations: Number of striation features.
-        :param amplitude_um: Amplitude of striations in micrometers.
-        :param noise_level: Relative noise level (0 to 1).
-        :param pixel_size_m: Pixel size in meters.
-        :param seed: Random seed for reproducibility.
-        :returns: Profile with synthetic striation data.
-        """
-        n_striations = 20
-        amplitude_um = 0.5
-        noise_level = 0.05
-        pixel_size_m = 0.5 * micro
+    return Profile(heights=data, pixel_size=pixel_size_m)
 
-        # Create base profile with multiple frequency components
-        x = np.linspace(0, n_striations * 2 * np.pi, n_samples)
 
-        # Primary striation pattern
-        data = np.sin(x) * amplitude_um * micro
+def _shift_profile(profile: Profile, shift_samples: float) -> Profile:
+    """Create a shifted version of a profile."""
+    data = profile.heights
+    n = len(data)
+    x_orig = np.arange(n)
+    interpolator = interp1d(x_orig, data, kind="linear", fill_value=0, bounds_error=False)
+    x_new = x_orig + shift_samples
+    new_data = interpolator(x_new)
 
-        # Add some harmonics for realism
-        data += np.sin(2 * x) * amplitude_um * 0.3 * micro
-        data += np.sin(0.5 * x) * amplitude_um * 0.5 * micro
+    rng = np.random.default_rng()
+    new_data += rng.normal(0, np.nanstd(data) * 0.01, n)
 
-        # Add noise
-        rng = np.random.default_rng()
-        noise = rng.normal(0, amplitude_um * noise_level * micro, n_samples)
-        data += noise
+    return Profile(heights=new_data, pixel_size=profile.pixel_size)
 
-        return Profile(heights=data, pixel_size=pixel_size_m)
 
-    def _shift_profile(
-        self,
-        profile: Profile,
-        shift_samples: float,
-    ) -> Profile:
-        """
-        Create a shifted and optionally scaled version of a profile.
+def _striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
+    """Build a striation Mark by tiling a profile across columns."""
+    data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
+    scan_image = ScanImage(data=data, scale_x=profile.pixel_size, scale_y=profile.pixel_size)
+    return Mark(scan_image=scan_image, mark_type=MarkType.BULLET_GEA_STRIATION, center=None)
 
-        :param profile: Original profile.
-        :param shift_samples: Number of samples to shift (can be fractional).
-        :param scale_factor: Scaling factor (1.0 = no scaling).
-        :param seed: Random seed for added noise.
-        :returns: New Profile with shifted/scaled data.
-        """
-        scale_factor = (1.0,)
-        data = profile.heights
-        n = len(data)
 
-        # Create interpolator
-        x_orig = np.arange(n)
-        interpolator = interp1d(x_orig, data, kind="linear", fill_value=0, bounds_error=False)
+def _save_mark_and_profile(dir_path: Path, profile: Profile, mark: Mark) -> None:
+    """Save mark and profile files to a directory."""
+    np.savez(dir_path / "profile.npz", heights=profile.heights, pixel_size=profile.pixel_size)
+    np.savez(dir_path / "processed.npz", data=mark.scan_image.data)
+    mark_json = ExportedMarkData(
+        mark_type=MarkType.EXTRACTOR_STRIATION,
+        center=(mark.scan_image.height, mark.scan_image.width),
+        scale_x=mark.scan_image.scale_x,
+        scale_y=mark.scan_image.scale_y,
+    ).model_dump(mode="json")
+    mark_json["mark_type"] = "EXTRACTOR_STRIATION"
+    with open(dir_path / "processed.json", "w") as f:
+        json.dump(mark_json, f)
 
-        # Create new coordinates with shift and scale
-        x_new = x_orig * scale_factor + shift_samples
-        new_data = interpolator(x_new)
 
-        # Add a small amount of noise
-        rng = np.random.default_rng()
-        new_data += rng.normal(0, np.nanstd(data) * 0.01, n)
+@pytest.fixture
+def mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
+    """Prepare directories with striation mark and profile files."""
+    ref_path = tmp_path / "ref_mark"
+    comp_path = tmp_path / "comp_mark"
+    ref_path.mkdir()
+    comp_path.mkdir()
 
-        return Profile(heights=new_data, pixel_size=profile.pixel_size)
+    profile_ref = _create_dummy_profile()
+    profile_comp = _shift_profile(profile_ref, 10.0)
+    mark_ref = _striation_mark(profile_ref)
+    mark_comp = _striation_mark(profile_comp)
 
-    def _striation_mark(self, profile: Profile) -> Mark:
-        """Build a striation Mark by tiling a profile across n_cols columns."""
-        n_cols: int = 50
-        data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
-        return self.make_mark(
-            data,
-            scale_x=profile.pixel_size,
-            scale_y=profile.pixel_size,
-            mark_type=MarkType.BULLET_GEA_STRIATION,
-            center=None,
-        )
+    _save_mark_and_profile(ref_path, profile_ref, mark_ref)
+    _save_mark_and_profile(comp_path, profile_comp, mark_comp)
 
-    def _save_profile(self, dir_path: Path, profile: Profile):
-        np.savez(
-            (dir_path / "profile").with_suffix(".npz"),
-            heights=profile.heights,
-            pixel_size=profile.pixel_size,
-        )
+    return ref_path, comp_path
 
-    def _save_mark(self, dir_path: Path, profile: Profile, mark: Mark):
-        mark_stem = "processed"
-        mark_json = ExportedMarkData(
-            mark_type=MarkType.EXTRACTOR_STRIATION,
-            center=(mark.scan_image.height, mark.scan_image.width),
-            scale_x=mark.scan_image.scale_x,
-            scale_y=mark.scan_image.scale_y,
-        ).model_dump(mode="json")
-        mark_json["mark_type"] = "EXTRACTOR_STRIATION"  # quick fix, due to misfit in enum
 
-        np.savez(
-            (dir_path / mark_stem).with_suffix(".npz"),
-            data=mark.scan_image.data,
-        )
-        with open((dir_path / mark_stem).with_suffix(".json"), "w") as f:
-            json.dump(mark_json, f)
-
-    @pytest.fixture
-    def prepare_folder_for_calculation(self, tmp_path: Path) -> tuple[Path, Path]:
-        """Prepare folder with marking and profiles for testing."""
-        comp_mark_path = tmp_path / "comp_mark"
-        ref_mark_path = tmp_path / "ref_mark"
-        comp_mark_path.mkdir(parents=True, exist_ok=True)
-        ref_mark_path.mkdir(parents=True, exist_ok=True)
-
-        profile_reference = self._create_dummy_profile(n_samples=1000)
-        profile_compared = self._shift_profile(profile_reference, 10.0)
-        mark_reference = self._striation_mark(profile_reference)
-        mark_compared = self._striation_mark(profile_compared)
-
-        self._save_profile(ref_mark_path, profile_reference)
-        self._save_profile(comp_mark_path, profile_compared)
-        self._save_mark(dir_path=ref_mark_path, profile=profile_reference, mark=mark_reference)
-        self._save_mark(dir_path=comp_mark_path, profile=profile_compared, mark=mark_compared)
-
-        return (comp_mark_path, ref_mark_path)
-
+class TestMarkStriation:
     @pytest.mark.integration
     def test_calculate_striation_mark(
-        self, client: TestClient, prepare_folder_for_calculation: tuple[Path, Path]
+        self,
+        client: TestClient,
+        mark_dirs: tuple[Path, Path],
     ) -> None:
         """
         Test the whole chain of the endpoint.
@@ -200,7 +137,7 @@ class TestStriationMark:
         Those files containing information like the preprocces scan_image.
         """
         # Arrange
-        comp_mark_path, ref_mark_path = prepare_folder_for_calculation
+        mark_dir_comp, mark_dir_ref = mark_dirs
         expected_files = [
             "similarity_plot",
             "side_by_side_heatmap",
@@ -214,8 +151,8 @@ class TestStriationMark:
         ]
 
         json_data = CalculateScoreStriation(
-            mark_dir_ref=ref_mark_path,
-            mark_dir_comp=comp_mark_path,
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
             param=StriationParameters(metadata_compared={"something": "else"}, metadata_reference={"ding": "dong"}),
         ).model_dump(mode="json")
 
@@ -236,39 +173,29 @@ class TestStriationMark:
 
 
 class TestCalculateLRImpression:
-    @pytest.fixture
-    def lr_system_path(self, tmp_path: Path) -> Path:
-        """Pickle an identity LRSystem and return its path."""
-        path = tmp_path / "lr_system.pkl"
-        path.write_bytes(pickle.dumps(_IdentityLRSystem()))
-        return path
-
-    @pytest.fixture
-    def mark_dirs(self, tmp_path: Path) -> tuple[Path, Path]:
-        """Create empty mark directories."""
-        ref = tmp_path / "mark_ref"
-        comp = tmp_path / "mark_comp"
-        ref.mkdir()
-        comp.mkdir()
-        return ref, comp
-
     @pytest.mark.integration
-    def test_returns_lr_and_plot_url(
+    def test_returns_lr_and_plot_url(  # noqa: PLR0913
         self,
         client: TestClient,
         tmp_dir_api: None,
         lr_system_path: Path,
-        mark_dirs: tuple[Path, Path],
+        mark_dir_ref: Path,
+        mark_dir_comp: Path,
+        mark_dirs,
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
-        ref_path, comp_path = mark_dirs
+        mark_dir_comp, mark_dir_ref = mark_dirs
         json_data = CalculateLRImpression(
-            mark_dir_ref=ref_path,
-            mark_dir_comp=comp_path,
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
             score=3,
             n_cells=10,
             lr_system_path=lr_system_path,
             param=ImpressionLRParameters(),
+            metadata_compared={"metadata": "compared"},
+            metadata_reference={"metadata": "reference"},
+            user_id="AAAAA",
+            date_report=date(2000, 1, 1),
         ).model_dump(mode="json")
 
         response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
@@ -282,22 +209,6 @@ class TestCalculateLRImpression:
 
 
 class TestCalculateLRStriation:
-    @pytest.fixture
-    def lr_system_path(self, tmp_path: Path) -> Path:
-        """Pickle an identity LRSystem and return its path."""
-        path = tmp_path / "lr_system.pkl"
-        path.write_bytes(pickle.dumps(_IdentityLRSystem()))
-        return path
-
-    @pytest.fixture
-    def mark_dirs(self, tmp_path: Path) -> tuple[Path, Path]:
-        """Create empty mark directories."""
-        ref = tmp_path / "mark_ref"
-        comp = tmp_path / "mark_comp"
-        ref.mkdir()
-        comp.mkdir()
-        return ref, comp
-
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
         self,
@@ -307,13 +218,17 @@ class TestCalculateLRStriation:
         mark_dirs: tuple[Path, Path],
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
-        ref_path, comp_path = mark_dirs
+        mark_dir_comp, mark_dir_ref = mark_dirs
         json_data = CalculateLRStriation(
-            mark_dir_ref=ref_path,
-            mark_dir_comp=comp_path,
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
             score=0.5,
             lr_system_path=lr_system_path,
             param=StriationLRParameters(),
+            metadata_compared={"metadata": "compared"},
+            metadata_reference={"metadata": "reference"},
+            user_id="AAAAA",
+            date_report=date(2000, 1, 1),
         ).model_dump(mode="json")
 
         response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)

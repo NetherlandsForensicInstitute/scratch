@@ -1,6 +1,7 @@
+import datetime
 from typing import Self
 
-from pydantic import DirectoryPath, Field, FilePath, PositiveInt, model_validator
+from pydantic import DirectoryPath, Field, FilePath, NonNegativeFloat, NonNegativeInt, PositiveInt, model_validator
 
 from models import BaseModelConfig
 
@@ -33,13 +34,15 @@ class CalculateScoreStriation(MarkDirectories):
 
 class CalculateLR(MarkDirectories):
     lr_system_path: FilePath
+    user_id: str
+    date_report: datetime.date
 
 
 class ImpressionLRParameters(BaseModelConfig): ...
 
 
-class CalculateLRImpression(CalculateLR):
-    score: int
+class CalculateLRImpression(CalculateLR, StriationParameters):
+    score: NonNegativeInt
     n_cells: PositiveInt
     param: ImpressionLRParameters
 
@@ -54,6 +57,6 @@ class CalculateLRImpression(CalculateLR):
 class StriationLRParameters(BaseModelConfig): ...
 
 
-class CalculateLRStriation(CalculateLR):
-    score: float
+class CalculateLRStriation(CalculateLR, StriationParameters):
+    score: NonNegativeFloat
     param: StriationLRParameters
