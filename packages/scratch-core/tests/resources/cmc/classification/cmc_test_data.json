@@ -82,7 +82,7 @@
       "similarity_metric": "accf",
       "correlation_threshold": 0.4,
       "position_threshold": 0.0001,
-      "angle_threshold": 2.0,
+      "angle_deviation_threshold": 2.0,
       "rotation_center": [
         0.005,
         0.003
@@ -188,7 +188,7 @@
       "similarity_metric": "accf",
       "correlation_threshold": 0.4,
       "position_threshold": 0.0001,
-      "angle_threshold": 2.0,
+      "angle_deviation_threshold": 2.0,
       "rotation_center": [
         0.004,
         0.004
@@ -316,7 +316,7 @@
       "similarity_metric": "accf",
       "correlation_threshold": 0.4,
       "position_threshold": 0.0001,
-      "angle_threshold": 2.0,
+      "angle_deviation_threshold": 2.0,
       "rotation_center": [
         0.003,
         0.003
@@ -424,7 +424,7 @@
       "similarity_metric": "accf",
       "correlation_threshold": 0.4,
       "position_threshold": 0.0001,
-      "angle_threshold": 2.0,
+      "angle_deviation_threshold": 2.0,
       "rotation_center": [
         0.003,
         0.003
@@ -508,7 +508,7 @@
       "similarity_metric": "accf",
       "correlation_threshold": 0.4,
       "position_threshold": 0.0001,
-      "angle_threshold": 2.0,
+      "angle_deviation_threshold": 2.0,
       "rotation_center": [
         0.002,
         0.002
@@ -656,7 +656,7 @@
       "similarity_metric": "accf",
       "correlation_threshold": 0.4,
       "position_threshold": 0.0001,
-      "angle_threshold": 2.0,
+      "angle_deviation_threshold": 2.0,
       "rotation_center": [
         0.004,
         0.003
@@ -701,7 +701,7 @@
       "similarity_metric": "accf",
       "correlation_threshold": 0.4,
       "position_threshold": 0.0001,
-      "angle_threshold": 2.0,
+      "angle_deviation_threshold": 2.0,
       "rotation_center": [
         0.002,
         0.002
@@ -800,7 +800,7 @@
       "similarity_metric": "accf",
       "correlation_threshold": 0.4,
       "position_threshold": 0.0001,
-      "angle_threshold": 2.0,
+      "angle_deviation_threshold": 2.0,
       "rotation_center": [
         0.003,
         0.003
@@ -884,7 +884,7 @@
       "similarity_metric": "accf",
       "correlation_threshold": 0.4,
       "position_threshold": 0.0001,
-      "angle_threshold": 2.0,
+      "angle_deviation_threshold": 2.0,
       "rotation_center": [
         0.003,
         0.003

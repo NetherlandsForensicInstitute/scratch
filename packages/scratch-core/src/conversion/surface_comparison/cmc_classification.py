@@ -47,7 +47,7 @@ def classify_congruent_cells(
         raise ValueError("Cannot identify CMC from an empty list.")
 
     consensus_angle = _get_consensus_angle(
-        cells=cells, threshold=np.radians(params.angle_threshold)
+        cells=cells, threshold=np.radians(params.angle_deviation_threshold)
     )
     # Rotate reference positions to compute the translation.
     # Since we rotate the reference image, the natural center for rotation
@@ -241,7 +241,8 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
         cell.is_congruent = bool(
             cell.best_score >= params.correlation_threshold
             and not cell.meta_data.is_outlier
-            and np.abs(cell.meta_data.residual_angle_deg) <= params.angle_threshold
+            and np.abs(cell.meta_data.residual_angle_deg)
+            <= params.angle_deviation_threshold
             and np.all(
                 np.abs(cell.meta_data.position_error) <= params.position_threshold
             )

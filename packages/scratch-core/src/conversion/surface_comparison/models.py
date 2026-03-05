@@ -30,8 +30,7 @@ class Cell(ConfigBaseModel):
     :param fill_fraction_reference: Fraction of valid pixels in this cell relative
         to the nominal cell area (0 = empty, 1 = fully filled).
     :param best_score: Best ACCF cross-correlation score achieved for this cell.
-    :param angle_deg: Rotation angle in degrees relative to the reference image at
-        which the best score was obtained.
+    :param angle_deg: Rotation angle in degrees for the reference image at which the best score was obtained.
     :param center_comparison: Cell center on the comparison image [x, y] in meters
         at which the best score was obtained.
     :param is_congruent: True if this cell is classified as a Congruent Matching Cell.
@@ -106,7 +105,7 @@ class ComparisonParams(ConfigBaseModel):
     :param minimum_fill_fraction: Minimum fraction of valid pixels required in a
         reference cell for it to be processed.
     :param correlation_threshold: Minimum per-cell ACCF score for CMC classification.
-    :param angle_threshold: Maximum angular deviation from consensus for CMC (degrees).
+    :param angle_deviation_threshold: Maximum absolute angular deviation from consensus for CMC (degrees).
     :param position_threshold: Maximum positional deviation from consensus for CMC (m).
     :param search_angle_min: Lower bound of rotation search range (degrees).
     :param search_angle_max: Upper bound of rotation search range (degrees).
@@ -116,7 +115,7 @@ class ComparisonParams(ConfigBaseModel):
     cell_size: tuple[PositiveFloat, PositiveFloat] = (1e-3, 1e-3)
     minimum_fill_fraction: float = Field(default=0.5, ge=0.0, le=1.0)
     correlation_threshold: float = Field(default=0.4, ge=-1.0, le=1.0)
-    angle_threshold: float = Field(default=2.0, gt=0.0)
+    angle_deviation_threshold: float = Field(default=2.0, gt=0.0)
     position_threshold: float = Field(default=100e-6, gt=0.0)
     search_angle_min: float = -180.0
     search_angle_max: float = 180.0
