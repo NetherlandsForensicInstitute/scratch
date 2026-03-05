@@ -1,9 +1,7 @@
 import pytest
-from pydantic import HttpUrl
 
 from constants import RoutePrefix
 from extractors.constants import ProcessFiles
-from extractors.schemas import ProcessedDataAccess
 from models import DirectoryAccess
 from settings import get_settings
 

@@ -54,12 +54,12 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
         return np.frombuffer(raw_data, dtype=np.bool).reshape(*shape)
 
     # Note: this follows the Java implementation for bitpacking
-    rows, cols = shape
+    height, width = shape
     packed = np.frombuffer(raw_data, dtype=np.uint8)
     unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)  # type: ignore
-    padding = (-cols) % 8
-    reshaped = unpacked.reshape(rows, cols + padding)
-    return reshaped[:, :cols]
+    padding = (-width) % 8
+    reshaped = unpacked.reshape(height, width + padding)
+    return reshaped[:, :width]
 
 
 def x3p_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:

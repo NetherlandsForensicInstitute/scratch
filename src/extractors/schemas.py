@@ -2,22 +2,11 @@ from __future__ import annotations
 
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Annotated, ClassVar, Generic, Protocol, Self, Type, TypeVar, cast
+from typing import Annotated, TypeVar
 
 from pydantic import AfterValidator, BaseModel, Field, HttpUrl, create_model, model_serializer
 
-from extractors.constants import (
-    ComparisonImpressionFiles,
-    ComparisonStriationFiles,
-    GeneratedImageFiles,
-    LRFiles,
-    PrepareMarkImpressionFiles,
-    PrepareMarkStriationFiles,
-    ProcessFiles,
-    UrlFiles,
-)
 from models import (
-    BaseModelConfig,
     validate_file_extension,
     validate_relative_path,
 )
@@ -26,6 +15,8 @@ from models import (
 class SupportedExtension(StrEnum):
     X3P = auto()
     PNG = auto()
+    JSON = auto()
+    NPZ = auto()
 
 
 type RelativePath = Annotated[
@@ -51,6 +42,7 @@ class URLContainer(BaseModel):
         enum: type[StrEnum],
         base_url: str,
     ) -> C:
+        """Initiate the Response model with the given files from the enum."""
         return cls(**{file.name: HttpUrl(f"{base_url}/{file.value}") for file in enum})
 
 

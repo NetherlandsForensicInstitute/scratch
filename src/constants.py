@@ -50,3 +50,13 @@ LIGHT_SOURCES = (
     LightSource(azimuth=180, elevation=45),
 )
 OBSERVER = LightSource(azimuth=90, elevation=45)
+
+
+class LogLevel(StrEnum):
+    TRACE = "TRACE"
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    SUCCESS = "SUCCESS"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"

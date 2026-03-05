@@ -1,10 +1,10 @@
 import json
-from enum import StrEnum
 from http import HTTPStatus
 from pathlib import Path
 
 import numpy as np
 import pytest
+from container_models.base import BinaryMask
 from conversion.data_formats import MarkType
 from conversion.leveling import SurfaceTerms
 from fastapi.testclient import TestClient
@@ -98,7 +98,7 @@ class TestPrepareMarkEndpoint:
         self,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         mark_type: str,
-        mask: list[list[float]],
+        mask: BinaryMask,
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
     ):
         """Generate the schema payload for the prepare-mark endpoint."""
@@ -106,7 +106,7 @@ class TestPrepareMarkEndpoint:
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
             scan_file=self.scan_file_path,
-            mask=mask,
+            mask=mask.astype(float).tolist(),
             bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
             mark_parameters=mark_parameters(),  # type: ignore
         ).model_dump(mode="json")
@@ -119,7 +119,7 @@ class TestPrepareMarkEndpoint:
         response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
         mark_type: str,
-        mask: list[list[float]],
+        mask: BinaryMask,
         expected_keys: list[str],
         files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
@@ -151,7 +151,7 @@ class TestPrepareMarkEndpoint:
         endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
-        mask: list[list[float]],
+        mask: BinaryMask,
         expected_keys: list[str],
         files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
@@ -181,7 +181,7 @@ class TestPrepareMarkEndpoint:
         endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mark_type: str,
-        mask: list[list[float]],
+        mask: BinaryMask,
         expected_keys: list[str],
         files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
@@ -207,6 +207,54 @@ class TestPrepareMarkEndpoint:
             # TODO: retrieve tag and token from url and find file in vault to ensure correctness
 
 
+@pytest.mark.parametrize(
+    ("endpoint", "schema", "mark_parameters", "mark_type"),
+    [
+        pytest.param(
+            PreprocessorEndpoint.PREPARE_MARK_STRIATION,
+            PrepareMarkStriation,
+            PreprocessingStriationParams,
+            MarkType.APERTURE_SHEAR_STRIATION,
+            id="striation mark",
+        ),
+        pytest.param(
+            PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
+            PrepareMarkImpression,
+            PreprocessingImpressionParams,
+            MarkType.CHAMBER_IMPRESSION,
+            id="impression mark",
+        ),
+    ],
+)
+def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: PreprocessorEndpoint,
+    schema: type[PrepareMarkImpression | PrepareMarkStriation],
+    mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+    mark_type: MarkType,
+) -> None:
+    """Test that a 422 is returned when the mask shape does not match the scan image shape."""
+    wrong_mask = np.zeros(shape=(2, 2), dtype=np.bool_)  # 2x2, won't match the scan shape
+
+    payload = schema(
+        project_name="test_project",
+        mark_type=mark_type,
+        scan_file=scan_directory / "circle.x3p",
+        mask=wrong_mask.astype(float).tolist(),
+        mark_parameters=mark_parameters(),  # type: ignore
+        bounding_box_list=[],
+    ).model_dump(mode="json")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
 @pytest.mark.usefixtures("tmp_dir_api")
 def test_edit_image_returns_valid_images(
     client: TestClient,
@@ -219,7 +267,8 @@ def test_edit_image_returns_valid_images(
     base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
     directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
-    mask = np.array([[False] * 3, [False, True, False], [False] * 3], dtype=np.bool)
+    mask = np.zeros(shape=(259, 259), dtype=np.bool_)
+    mask[1:259, 1:259] = True
 
     params = EditImage(
         project_name="test",

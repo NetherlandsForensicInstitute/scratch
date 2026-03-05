@@ -5,15 +5,12 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from extractors.schemas import ProcessedDataAccess
 from models import (
-    BaseModelConfig,
     DirectoryAccess,
     validate_file_extension,
     validate_not_executable,
     validate_relative_path,
 )
-from preprocessors.schemas import EditImage, UploadScan
 from settings import get_settings
 
 

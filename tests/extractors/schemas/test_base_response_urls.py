@@ -1,6 +1,5 @@
 import inspect
 from enum import StrEnum
-from pathlib import Path
 
 import pytest
 from pydantic import Field, HttpUrl, ValidationError
@@ -8,13 +7,8 @@ from pydantic import Field, HttpUrl, ValidationError
 import extractors.schemas as schemas_module
 from extractors.constants import LRFiles
 from extractors.schemas import (
-    ComparisonResponseImpression,
-    ComparisonResponseStriation,
     LRResponse,
     LRResponseURL,
-    PrepareMarkResponseImpression,
-    PrepareMarkResponseStriation,
-    ProcessedDataAccess,
     SupportedExtension,
     URLContainer,
 )
@@ -92,7 +86,7 @@ class TestGenerateUrls:
             _SimpleURLs.from_enum(enum=_SimpleFiles, base_url=invalid_url)
 
     def test_raises_when_enum_has_incorrect_field_namings(self):
-        """Should raise error when enum has not the correct values"""
+        """Should raise error when enum has not the correct values."""
 
         class WrongFiles(StrEnum):
             wrong_file = "oeps.txt"

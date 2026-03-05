@@ -1,21 +1,16 @@
 from conversion.export.mark import load_mark_from_path
+from conversion.export.profile import load_profile_from_path
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from loguru import logger
 
 from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
 from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
-from extractors.schemas import (
-    ComparisonResponseImpression,
-    ComparisonResponseStriation,
-    LRResponse,
-    LRResponseURL,
-    generate_model_with_urls,
-)
+from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation, LRResponse, LRResponseURL
 from file_services import create_vault
 from models import DirectoryAccess
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
-from processors.controller import calculate_striation_plots, save_plots
+from processors.controller import compare_striation_marks, save_striation_comparison_plots
 from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
@@ -72,46 +67,45 @@ async def calculate_score_impression(impression: CalculateScoreImpression) -> Co
     The score, together with plots, are saved and made available via URLs.
     """,
 )
-async def calculate_score_striation(striation_params: CalculateScoreStriation) -> ComparisonResponseStriation:  # type: ignore
+async def calculate_score_striation(striation_params: CalculateScoreStriation) -> ComparisonResponseStriation:
     """Compare two striation profiles."""
     logger.debug("starting calculate score striation")
     vault = create_vault(striation_params.tag)
     mark_ref = load_mark_from_path(path=striation_params.mark_ref, stem="processed")
     mark_comp = load_mark_from_path(path=striation_params.mark_comp, stem="processed")
-    logger.debug("Marking loaded")
-    mark_comparison = calculate_striation_plots(
-        mark_ref=mark_ref,
-        mark_comp=mark_comp,
-        ref_path=striation_params.mark_ref,
-        compare_path=striation_params.mark_ref,
+    profile_ref = load_profile_from_path(path=striation_params.mark_ref, stem="profile")
+    profile_comp = load_profile_from_path(path=striation_params.mark_ref, stem="profile")
+    logger.debug("marks & profiles loaded")
+    comparison_result = compare_striation_marks(
+        mark_ref=mark_ref, mark_comp=mark_comp, profile_ref=profile_ref, profile_comp=profile_comp
     )
-    save_plots(
+    save_striation_comparison_plots(
         mark_ref=mark_ref,
         mark_comp=mark_comp,
-        mark_correlations=mark_comparison,
+        mark_correlations=comparison_result,
         working_dir=vault.resource_path,
         files_to_save=ComparisonStriationFiles,
         meta_data_ref=striation_params.param.metadata_reference,
         meta_data_compare=striation_params.param.metadata_compared,
     )
     surface_map_pipeline(
-        mark_comparison.mark_reference_aligned.scan_image,
+        comparison_result.mark_reference_aligned.scan_image,
         ComparisonStriationFiles.mark_ref_surfacemap.get_file_path(vault.resource_path),
         LIGHT_SOURCES,
         OBSERVER,
     )
     preview_pipeline(
-        mark_comparison.mark_reference_aligned.scan_image,
+        comparison_result.mark_reference_aligned.scan_image,
         ComparisonStriationFiles.mark_ref_preview.get_file_path(vault.resource_path),
     )
     surface_map_pipeline(
-        mark_comparison.mark_compared_aligned.scan_image,
+        comparison_result.mark_compared_aligned.scan_image,
         ComparisonStriationFiles.mark_comp_surfacemap.get_file_path(vault.resource_path),
         LIGHT_SOURCES,
         OBSERVER,
     )
     preview_pipeline(
-        mark_comparison.mark_compared_aligned.scan_image,
+        comparison_result.mark_compared_aligned.scan_image,
         ComparisonStriationFiles.mark_comp_preview.get_file_path(vault.resource_path),
     )
     logger.debug(f"images saved in:{vault.resource_path}")
