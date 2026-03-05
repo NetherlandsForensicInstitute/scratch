@@ -102,7 +102,7 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
     )
     preview_pipeline(
         mark_comparison.mark_reference_aligned.scan_image,
-        ComparisonStriationFiles.mark_ref_depthmap.get_file_path(vault.resource_path),
+        ComparisonStriationFiles.mark_ref_preview.get_file_path(vault.resource_path),
     )
     surface_map_pipeline(
         mark_comparison.mark_compared_aligned.scan_image,
@@ -112,7 +112,7 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
     )
     preview_pipeline(
         mark_comparison.mark_compared_aligned.scan_image,
-        ComparisonStriationFiles.mark_comp_depthmap.get_file_path(vault.resource_path),
+        ComparisonStriationFiles.mark_comp_preview.get_file_path(vault.resource_path),
     )
     logger.debug(f"images saved in:{vault.resource_path}")
 

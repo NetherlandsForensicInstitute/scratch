@@ -107,7 +107,7 @@ class TestLRResponse:
     @pytest.fixture
     def lr_response(self) -> LRResponse:
         """LRResponse instance with a valid LRResponseURL and a non-zero lr value."""
-        return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url="http://localhost:8000"), lr=2.5)
+        return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL), lr=2.5)
 
     def test_serialized_output_is_flat(self, lr_response: LRResponse) -> None:
         """model_dump produces a flat dict with no nested 'urls' key."""
@@ -125,4 +125,4 @@ class TestLRResponse:
     def test_raises_validation_error_for_non_numeric_lr(self) -> None:
         """ValidationError is raised when lr cannot be coerced to float."""
         with pytest.raises(ValidationError):
-            LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url="http://localhost:8000"), lr="not-a-number")  # type: ignore
+            LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL), lr="not-a-number")  # type: ignore

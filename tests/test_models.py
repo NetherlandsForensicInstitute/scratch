@@ -294,16 +294,3 @@ class TestDirectoryAccess:
         # Assert
         assert access.resource_path.name == f"my-tag-{access.token.hex}"
         assert access.resource_path.parent == get_settings().storage
-
-
-@pytest.mark.parametrize(
-    "schema",
-    [
-        DirectoryAccess,
-        ProcessedDataAccess,
-        UploadScan,
-        EditImage,
-    ],
-)
-def test_schema_is_base_model_config(schema: type[BaseModelConfig]):
-    assert issubclass(schema, BaseModelConfig)

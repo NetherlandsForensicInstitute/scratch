@@ -1,4 +1,5 @@
 import json
+from enum import StrEnum
 from http import HTTPStatus
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from scipy.constants import micro
 from utils.constants import RegressionOrder
 
 from constants import PreprocessorEndpoint, RoutePrefix
+from extractors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from models import DirectoryAccess
 from preprocessors.schemas import (
@@ -38,7 +40,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize(
-    ("endpoint", "schema", "response_schema", "mark_parameters", "mark_type", "expected_keys"),
+    ("endpoint", "schema", "response_schema", "mark_parameters", "mark_type", "expected_keys", "files"),
     [
         pytest.param(
             PreprocessorEndpoint.PREPARE_MARK_STRIATION,
@@ -47,14 +49,15 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PreprocessingStriationParams,
             MarkType.APERTURE_SHEAR_STRIATION,
             [
-                "preview",
-                "surface_map",
+                "preview_image",
+                "surface_map_image",
                 "mark_data",
                 "mark_meta",
                 "processed_data",
                 "processed_meta",
                 "profile_data",
             ],
+            PrepareMarkStriationFiles,
             id="striation mark",
         ),
         pytest.param(
@@ -64,8 +67,8 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PreprocessingImpressionParams,
             MarkType.CHAMBER_IMPRESSION,
             [
-                "preview",
-                "surface_map",
+                "preview_image",
+                "surface_map_image",
                 "mark_data",
                 "mark_meta",
                 "processed_data",
@@ -73,6 +76,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
                 "leveled_data",
                 "leveled_meta",
             ],
+            PrepareMarkImpressionFiles,
             id="impression mark",
         ),
     ],
@@ -117,6 +121,7 @@ class TestPrepareMarkEndpoint:
         mark_type: str,
         mask: list[list[float]],
         expected_keys: list[str],
+        files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
         """Test that the prepare-mark endpoint processes the request and returns file URLs."""
         # Arrange
@@ -148,6 +153,7 @@ class TestPrepareMarkEndpoint:
         mark_type: str,
         mask: list[list[float]],
         expected_keys: list[str],
+        files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
         """Test that the prepare-mark endpoint creates files in the vault."""
         # Arrange
@@ -162,9 +168,8 @@ class TestPrepareMarkEndpoint:
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
-        expected_filenames = response_schema.get_files(directory_access.resource_path)
-
-        missing = {path.name for path in expected_filenames.values() if not path.exists()}
+        expected_absolute_file_paths = [file.get_file_path(directory_access.resource_path) for file in files]
+        missing = {path.name for path in expected_absolute_file_paths if not path.exists()}
         assert not missing, f"Expected: {', '.join(missing)} to be created"
 
     def test_prepare_mark_endpoint_response_url_matches_folder_location(  # noqa: PLR0913
@@ -178,6 +183,7 @@ class TestPrepareMarkEndpoint:
         mark_type: str,
         mask: list[list[float]],
         expected_keys: list[str],
+        files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
         """Test that the URLs in the prepare-mark endpoint response match the vault folder location."""
         # Arrange
@@ -238,8 +244,8 @@ def test_edit_image_returns_valid_images(
 
     # Assert
     expected_response = GeneratedImages(
-        preview=HttpUrl(f"{base_url}/preview.png"),
-        surface_map=HttpUrl(f"{base_url}/surface_map.png"),
+        preview_image=HttpUrl(f"{base_url}/preview.png"),
+        surface_map_image=HttpUrl(f"{base_url}/surface_map.png"),
     )
     assert response.status_code == HTTPStatus.OK, "endpoint is alive"
     response_model = GeneratedImages.model_validate(response.json())
