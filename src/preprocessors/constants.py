@@ -13,6 +13,7 @@ class SurfaceOptions(StrEnum):
 
     PLANE = auto()
     SPHERE = auto()
+    NONE = auto()
 
     def to_surface_terms(self) -> SurfaceTerms:
         """

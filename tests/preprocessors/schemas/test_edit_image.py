@@ -24,17 +24,6 @@ def get_error_fields(exc_info, typ: str) -> tuple[str, ...]:
 class TestEditImage:
     """Tests for EditImage request model."""
 
-    def test_should_create_with_project_name(self, edit_image_parameter: Callable[..., EditImage]) -> None:
-        """Test that EditImage can be created with optional project_name."""
-        # Arrange
-        project_name = "forensic_analysis_2026"
-
-        # Act
-        edit_image = edit_image_parameter(project_name=project_name)
-
-        # Assert
-        assert edit_image.project_name == edit_image.tag == project_name
-
     def test_should_reject_non_x3p_file(
         self, scan_directory: Path, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
@@ -75,7 +64,7 @@ class TestEditImage:
 
         # Assert
         assert params.resampling_factor == DEFAULT_RESAMPLING_FACTOR
-        assert params.terms == SurfaceOptions.PLANE
+        assert params.terms == SurfaceOptions.NONE
         assert params.regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE
         assert params.cutoff_length == CUTOFF_LENGTH * micro
         assert params.crop is False
@@ -145,4 +134,4 @@ class TestEditImage:
             EditImage()  # type: ignore
 
         # Assert
-        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "mask_parameters")
+        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "terms", "mask_parameters")

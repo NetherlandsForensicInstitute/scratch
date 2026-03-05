@@ -21,6 +21,7 @@ def edit_image_parameter(scan_directory: Path) -> Callable[..., EditImage]:
                 "scan_file": scan_directory / "circle.x3p",
                 "cutoff_length": CUTOFF_LENGTH,
                 "mask_parameters": {"shape": MASK_SHAPE},
+                "terms": "none",
             }
             | kwargs
         )
