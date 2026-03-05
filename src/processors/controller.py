@@ -1,13 +1,11 @@
 from http import HTTPStatus
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 from conversion.data_formats import Mark
 from conversion.plots.data_formats import LlrTransformationData
-from conversion.plots.plot_score_llr_transformation import plot_score_llr_transformation
+from conversion.plots.plot_lr_overview import plot_lr_overview
 from conversion.plots.plot_striation import plot_striation_comparison_results
-from conversion.plots.utils import figure_to_array
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from fastapi import HTTPException
 from lir.data.models import FeatureData
@@ -82,7 +80,4 @@ def save_lr_overview_plot(
         llrs_at95=llrs_at95,
         score_llr_point=(float(score), lr),
     )
-    fig, ax = plt.subplots()
-    plot_score_llr_transformation(ax, llr_data)
-    Image.fromarray(figure_to_array(fig)).save(output_path)
-    plt.close(fig)
+    Image.fromarray(plot_lr_overview(llr_data)).save(output_path)

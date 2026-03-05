@@ -1,4 +1,6 @@
-from computations.likelihood_ratio import calculate_lr, get_lr_system
+from computations.likelihood_ratio import calculate_lr_impression as _calculate_lr_impression
+from computations.likelihood_ratio import calculate_lr_striation as _calculate_lr_striation
+from computations.likelihood_ratio import get_lr_system
 from conversion.export.mark import load_mark_from_path
 from conversion.export.profile import load_profile_from_path
 from fastapi import APIRouter
@@ -121,7 +123,7 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
     files = LRResponseURL.get_files(vault.resource_path)
 
     system = get_lr_system(lr_input.lr_system_path)
-    lr = calculate_lr(lr_input.score, system, lr_input.n_cells)
+    lr = _calculate_lr_impression(system, lr_input.score, lr_input.n_cells)
     save_lr_overview_plot(system, lr_input.score, lr, lr_input.n_cells, files["lr_overview_plot"])
     return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=lr)
 
@@ -141,6 +143,6 @@ async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     files = LRResponseURL.get_files(vault.resource_path)
 
     system = get_lr_system(lr_input.lr_system_path)
-    lr = calculate_lr(lr_input.score, system)
+    lr = _calculate_lr_striation(system, lr_input.score)
     save_lr_overview_plot(system, lr_input.score, lr, 1.0, files["lr_overview_plot"])
     return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=lr)

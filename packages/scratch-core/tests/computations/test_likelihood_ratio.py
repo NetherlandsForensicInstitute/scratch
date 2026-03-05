@@ -2,11 +2,14 @@ import pickle
 from pathlib import Path
 
 import pytest
-from computations.likelihood_ratio import calculate_lr, get_lr_system
+from computations.likelihood_ratio import (
+    calculate_lr_impression,
+    calculate_lr_striation,
+    get_lr_system,
+)
 from lir.data.models import FeatureData, LLRData
 from lir.lrsystems.lrsystems import LRSystem
 
-TOLERANCE = 1e-6
 RESOURCES = Path(__file__).parent.parent / "resources"
 
 
@@ -51,20 +54,35 @@ class TestGetLRSystem:
 
 
 @pytest.mark.integration
-class TestCalculateLR:
-    """Tests for calculate_lr."""
-
-    def test_returns_float(self, identity_lr_system_path: Path) -> None:
-        """Return type is float."""
-        model = get_lr_system(identity_lr_system_path)
-        assert isinstance(calculate_lr(0.5, model), float)
+class TestCalculateLRStriation:
+    """Tests for calculate_lr_striation."""
 
     def test_output_matches_model(self, identity_lr_system_path: Path) -> None:
         """Identity LRSystem returns the input score as the LLR."""
         model = get_lr_system(identity_lr_system_path)
-        assert abs(calculate_lr(0.5, model) - 0.5) < TOLERANCE
+        assert calculate_lr_striation(model, 0.5) == pytest.approx(0.5)
 
-    def test_returns_float_with_n_cells(self, random_lr_system_path: Path) -> None:
-        """Return type is float when n_cells is supplied (impression case)."""
+    def test_score_zero(self, identity_lr_system_path: Path) -> None:
+        """Score of zero (no correlation) returns 0.0."""
+        model = get_lr_system(identity_lr_system_path)
+        assert calculate_lr_striation(model, 0.0) == pytest.approx(0.0)
+
+    def test_score_negative(self, identity_lr_system_path: Path) -> None:
+        """Negative correlation score (anti-correlation) returns the correct LLR."""
+        model = get_lr_system(identity_lr_system_path)
+        assert calculate_lr_striation(model, -0.5) == pytest.approx(-0.5)
+
+
+@pytest.mark.integration
+class TestCalculateLRImpression:
+    """Tests for calculate_lr_impression."""
+
+    def test_score_zero(self, identity_lr_system_path: Path) -> None:
+        """Score of zero (no matching cells) returns 0.0."""
+        model = get_lr_system(identity_lr_system_path)
+        assert calculate_lr_impression(model, 0, 10) == pytest.approx(0.0)
+
+    def test_score_negative(self, random_lr_system_path: Path) -> None:
+        """Negative score does not raise."""
         model = get_lr_system(random_lr_system_path)
-        assert isinstance(calculate_lr(3, model, n_cells=10), float)
+        assert isinstance(calculate_lr_impression(model, -1, 10), float)

@@ -1,4 +1,5 @@
-from pydantic import DirectoryPath, Field, FilePath, PositiveInt
+from pydantic import DirectoryPath, Field, FilePath, PositiveInt, model_validator
+from typing import Self
 
 from models import BaseModelConfig
 
@@ -40,6 +41,12 @@ class CalculateLRImpression(CalculateLR):
     score: int
     n_cells: PositiveInt
     param: ImpressionLRParamaters
+
+    @model_validator(mode="after")
+    def score_cannot_exceed_n_cells(self) -> Self:
+        if self.score > self.n_cells:
+            raise ValueError(f"score ({self.score}) cannot exceed n_cells ({self.n_cells})")
+        return self
 
 
 class StriationLRParamaters(BaseModelConfig): ...

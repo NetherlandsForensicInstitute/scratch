@@ -113,21 +113,49 @@ class TestCalculateLRImpression:
         assert schema.n_cells == n_cells
         assert isinstance(schema.param, ImpressionLRParamaters)
 
-    @pytest.mark.parametrize("score", [-100, -1, 0, 1, 100])
-    def test_should_accept_any_integer_score(
+    @pytest.mark.parametrize("score", [0, 1, 100])
+    def test_should_accept_score_within_n_cells(
         self, mark_ref: Path, mark_comp: Path, lr_system_file: Path, score: int
     ) -> None:
-        """Test that score accepts any integer value."""
+        """Test that score accepts any integer value up to n_cells."""
         schema = CalculateLRImpression(
             mark_dir_ref=mark_ref,
             mark_dir_comp=mark_comp,
             score=score,
             lr_system_path=lr_system_file,
-            n_cells=10,
+            n_cells=100,
             param=ImpressionLRParamaters(),
         )
 
         assert schema.score == score
+
+    def test_should_accept_score_equal_to_n_cells(self, mark_ref: Path, mark_comp: Path, lr_system_file: Path) -> None:
+        """Test that score equal to n_cells is valid (all cells match)."""
+        schema = CalculateLRImpression(
+            mark_dir_ref=mark_ref,
+            mark_dir_comp=mark_comp,
+            score=10,
+            lr_system_path=lr_system_file,
+            n_cells=10,
+            param=ImpressionLRParamaters(),
+        )
+
+        assert schema.score == schema.n_cells
+
+    @pytest.mark.parametrize("score", [11, 100])
+    def test_should_reject_score_exceeding_n_cells(
+        self, mark_ref: Path, mark_comp: Path, lr_system_file: Path, score: int
+    ) -> None:
+        """Test that score greater than n_cells raises ValidationError."""
+        with pytest.raises(ValidationError):
+            CalculateLRImpression(
+                mark_dir_ref=mark_ref,
+                mark_dir_comp=mark_comp,
+                score=score,
+                lr_system_path=lr_system_file,
+                n_cells=10,
+                param=ImpressionLRParamaters(),
+            )
 
     @pytest.mark.parametrize("n_cells", [0, -1, -10])
     def test_should_reject_nonpositive_n_cells(
