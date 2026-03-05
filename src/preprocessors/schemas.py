@@ -28,6 +28,17 @@ from models import (
 )
 
 
+def _update_schema(schema: dict[str, Any], attr_to_class: tuple[tuple[str, str], ...]) -> dict[str, Any]:
+    """Update the model JSON schema for correctly rendering the `openapi_extra` fields."""
+    for attribute, class_name in attr_to_class:
+        updated = schema["$defs"][class_name]
+        for key in ("examples", "description"):
+            if value := schema["properties"][attribute].get(key):
+                updated[key] = value
+        schema["properties"][attribute] = updated
+    return schema
+
+
 class BaseParameters(BaseModelConfig):
     """Base parameters for preprocessor operations including scan file."""
 
@@ -48,6 +59,16 @@ class BaseParameters(BaseModelConfig):
     def tag(self) -> str:
         """Get the tag to use for directory naming."""
         return self.project_name or self.scan_file.stem
+
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (
+            ("scan_file", "ScanFile"),
+            ("project_name", "ProjectTag"),
+        )
+        return _update_schema(schema, attr_to_class)
 
 
 class UploadScan(BaseParameters):
@@ -97,6 +118,13 @@ class PrepareMarkBase(BaseParameters):
         """
         return np.array(self.bounding_box_list) if self.bounding_box_list is not None else None
 
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (("mark_type", "MarkType"),)
+        return _update_schema(schema, attr_to_class)
+
 
 class PrepareMarkStriation(PrepareMarkBase):
     mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
@@ -109,6 +137,13 @@ class PrepareMarkStriation(PrepareMarkBase):
             raise ValueError(f"{v} is not a striation mark")
         return v
 
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (("mark_parameters", "PreprocessingStriationParams"),)
+        return _update_schema(schema, attr_to_class)
+
 
 class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
@@ -120,6 +155,13 @@ class PrepareMarkImpression(PrepareMarkBase):
         if not v.is_impression():
             raise ValueError(f"{v} is not an impression mark")
         return v
+
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (("mark_parameters", "PreprocessingImpressionParams"),)
+        return _update_schema(schema, attr_to_class)
 
 
 class EditImage(BaseParameters):
@@ -169,16 +211,7 @@ class EditImage(BaseParameters):
         schema = super().model_json_schema(*args, **kwargs)
         # Add schema for BaseParameters and EditImage to JSON model
         attr_to_class = (
-            ("scan_file", "ScanFile"),
             ("regression_order", "RegressionOrder"),
             ("terms", "SurfaceTerms"),
-            ("project_name", "ProjectTag"),
         )
-        for attribute, class_name in attr_to_class:
-            updated = schema["$defs"][class_name]
-            for key in ("examples", "description"):
-                if value := schema["properties"][attribute].get(key):
-                    updated[key] = value
-            schema["properties"][attribute] = updated
-
-        return schema
+        return _update_schema(schema, attr_to_class)

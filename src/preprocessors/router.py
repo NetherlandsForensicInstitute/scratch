@@ -1,10 +1,10 @@
 from http import HTTPStatus
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from loguru import logger
-from pydantic import Json
+from pydantic import BaseModel, Json
 
 from constants import (
     LIGHT_SOURCES,
@@ -28,6 +28,33 @@ from .pipelines import (
 from .schemas import EditImage, PrepareMarkImpression, PrepareMarkStriation, UploadScan
 
 preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[RoutePrefix.PREPROCESSOR])
+
+
+def _generate_openapi_schema(model: type[BaseModel]) -> dict[str, Any]:
+    """Generate example fields in the Swagger docs for endpoints receiving multipart/form-data with a binary mask."""
+    return {
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "properties": {
+                            "params": model.model_json_schema(),
+                            "mask_data": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
+                        },
+                        "required": ["params", "mask_data"],
+                    }
+                },
+                "application/json": {
+                    "schema": {
+                        "properties": {
+                            "params": model.model_json_schema(),
+                        },
+                        "required": ["params"],
+                    }
+                },
+            }
+        }
+    }
 
 
 @preprocessor_route.get(
@@ -100,6 +127,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
+    openapi_extra=_generate_openapi_schema(model=PrepareMarkImpression),
 )
 async def prepare_mark_impression(
     params: Annotated[Json[PrepareMarkImpression], Form(...)], mask_data: Annotated[UploadFile, File(...)]
@@ -145,6 +173,7 @@ async def prepare_mark_impression(
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
+    openapi_extra=_generate_openapi_schema(model=PrepareMarkStriation),
 )
 async def prepare_mark_striation(
     params: Annotated[Json[PrepareMarkStriation], Form(...)], mask_data: Annotated[UploadFile, File(...)]
@@ -193,29 +222,7 @@ async def prepare_mark_striation(
             "description": "processing error",
         },
     },
-    openapi_extra={
-        "requestBody": {
-            "content": {
-                "multipart/form-data": {
-                    "schema": {
-                        "properties": {
-                            "params": EditImage.model_json_schema(),
-                            "mask_data": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
-                        },
-                        "required": ["params", "mask_data"],
-                    }
-                },
-                "application/json": {
-                    "schema": {
-                        "properties": {
-                            "params": EditImage.model_json_schema(),
-                        },
-                        "required": ["params"],
-                    }
-                },
-            }
-        }
-    },
+    openapi_extra=_generate_openapi_schema(model=EditImage),
 )
 async def edit_scan(
     params: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)]
