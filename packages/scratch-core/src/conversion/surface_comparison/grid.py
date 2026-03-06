@@ -3,7 +3,7 @@ from scipy.signal import fftconvolve
 
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import ComparisonParams
-from conversion.surface_comparison.utils import m_to_pixels
+from conversion.surface_comparison.utils import meters_to_pixels
 
 
 def _axis_centers(origin_coord: float, cell_sz: float, image_sz: float) -> np.ndarray:
@@ -26,7 +26,6 @@ def _axis_centers(origin_coord: float, cell_sz: float, image_sz: float) -> np.nd
     while c + cell_sz / 2 > 0:  # cell right edge is still within image
         centers.insert(0, c)
         c -= cell_sz
-    print(f"axis centers = {centers}")
     return np.array(centers)
 
 
@@ -63,7 +62,7 @@ def _find_grid_origin(reference_map: ScanImage, params: ComparisonParams) -> np.
     pixel_spacing = reference_map.pixel_spacing  # [dx, dy] in meters
 
     # Cell size in pixels (integer)
-    cell_size_px = m_to_pixels(
+    cell_size_px = meters_to_pixels(
         params.cell_size, pixel_spacing
     )  # [pixel_width, pixel_height]
     cell_area_px = int(np.prod(cell_size_px))
@@ -173,7 +172,6 @@ def _find_grid_origin(reference_map: ScanImage, params: ComparisonParams) -> np.
 
     # Convert to physical coordinates
     origin_physical = first_center_px * pixel_spacing
-    print(f"grid origin =  {origin_physical}")
     return origin_physical
 
 
