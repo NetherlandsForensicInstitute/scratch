@@ -77,7 +77,7 @@ def correlate_profiles(
     :param profile_compared: Compared profile to align to the reference.
     :param params: Alignment parameters. Key parameters:
         - max_scaling: Maximum scaling deviation (e.g., 0.05 for ±5%)
-        - min_overlap_distance: Minimum overlap distance in meters (default 200 μm)
+        - min_overlap_distance: Minimum overlap distance in meters (default 350 μm)
     :returns: StriationComparisonResults containing all computed metrics, or None if no
         valid alignment could be found.
     """
@@ -98,7 +98,15 @@ def correlate_profiles(
 
     # Step 3: Compute and return metrics
     return _compute_metrics(
-        alignment, inputs.pixel_size, len(inputs.heights_ref), len(inputs.heights_comp)
+        alignment,
+        inputs.pixel_size,
+        len(inputs.heights_ref),
+        len(inputs.heights_comp),
+        pixel_size_reference=inputs.pixel_size_reference,
+        pixel_size_compared=inputs.pixel_size_compared,
+        len_reference_original=len(profile_reference.heights),
+        len_compared_original=len(profile_compared.heights),
+        params=params,
     )
 
 
@@ -146,6 +154,8 @@ def _prepare_alignment_inputs(
         pixel_size=pixel_size,
         scale_factors=scale_factors,
         min_overlap_samples=min_overlap_samples,
+        pixel_size_reference=profile_reference.pixel_size,
+        pixel_size_compared=profile_compared.pixel_size,
     )
 
 
@@ -243,6 +253,9 @@ def _find_best_alignment(
         scale=best_scale,
         ref_overlap=best_reference_overlap,
         comp_overlap=best_compared_overlap,
+        idx_reference_start=idx_reference_start,
+        idx_compared_start=idx_compared_start,
+        overlap_length=overlap_length,
     )
 
 
@@ -251,20 +264,44 @@ def _compute_metrics(
     pixel_size: float,
     len_reference: int,
     len_compared: int,
+    pixel_size_reference: float,
+    pixel_size_compared: float,
+    len_reference_original: int,
+    len_compared_original: int,
+    params: AlignmentParameters,
 ) -> StriationComparisonResults:
     """
     Compute comparison metrics from an alignment result.
 
-    :param alignment: The best alignment found.
-    :param pixel_size: Pixel size in meters.
-    :param len_reference: Length of reference profile in samples.
-    :param len_compared: Length of comparison profile in samples.
-    :returns: Full comparison results.
+    Converts sample-space alignment geometry to SI units, computes
+    roughness parameters (Sa, Sq) for the reference overlap, compared
+    overlap, and their difference profile, and derives normalized
+    signature differences.
+
+    :param alignment: Best alignment found by the brute-force search,
+        containing overlap arrays and sample-space indices.
+    :param pixel_size: Pixel size of the equalized profiles in meters.
+    :param len_reference: Length of the equalized reference profile in
+        samples.
+    :param len_compared: Length of the equalized compared profile in
+        samples (before scaling).
+    :param pixel_size_reference: Original pixel size of the reference
+        profile before equalization, in meters.
+    :param pixel_size_compared: Original pixel size of the compared
+        profile before equalization, in meters.
+    :param len_reference_original: Length of the reference profile as
+        originally provided, in samples.
+    :param len_compared_original: Length of the compared profile as
+        originally provided, in samples.
+    :param params: Alignment parameters used for this comparison,
+        stored in the result for reproducibility.
+    :returns: Full comparison results including registration parameters,
+        roughness metrics, normalized signature differences, sample-space
+        geometry, and original profile metadata.
     """
     reference_overlap = alignment.ref_overlap
     compared_overlap = alignment.comp_overlap
 
-    # Convert to meters
     position_shift = alignment.shift * pixel_size
     overlap_length = len(reference_overlap) * pixel_size
     reference_length = len_reference * pixel_size
@@ -274,22 +311,19 @@ def _compute_metrics(
         overlap_length, reference_length, compared_length
     )
 
-    # Roughness metrics
     sa_reference = compute_roughness_sa(reference_overlap)
-    mean_square_reference = compute_roughness_sq(reference_overlap)
+    sq_reference = compute_roughness_sq(reference_overlap)
     sa_compared = compute_roughness_sa(compared_overlap)
-    mean_square_compared = compute_roughness_sq(compared_overlap)
+    sq_compared = compute_roughness_sq(compared_overlap)
 
-    # Difference profile roughness
     diff_profile = compared_overlap - reference_overlap
     sa_diff = compute_roughness_sa(diff_profile)
-    mean_square_of_difference = compute_roughness_sq(diff_profile)
+    sq_diff = compute_roughness_sq(diff_profile)
 
-    # Signature differences
     roughness = RoughnessMetrics(
-        mean_square_ref=mean_square_reference,
-        mean_square_comp=mean_square_compared,
-        mean_square_of_difference=mean_square_of_difference,
+        sq_ref=sq_reference,
+        sq_comp=sq_compared,
+        sq_diff=sq_diff,
     )
     signature_diff = compute_normalized_square_based_roughness_differences(roughness)
 
@@ -297,17 +331,27 @@ def _compute_metrics(
         pixel_size=pixel_size,
         position_shift=position_shift,
         scale_factor=alignment.scale,
-        similarity_value=alignment.correlation,
+        correlation_coefficient=alignment.correlation,
         overlap_length=overlap_length,
         overlap_ratio=overlap_ratio,
-        correlation_coefficient=alignment.correlation,
         sa_ref=sa_reference,
-        mean_square_ref=mean_square_reference,
+        sq_ref=sq_reference,
         sa_comp=sa_compared,
-        mean_square_comp=mean_square_compared,
+        sq_comp=sq_compared,
         sa_diff=sa_diff,
-        mean_square_of_difference=mean_square_of_difference,
-        ds_roughness_normalized_to_reference=signature_diff.roughness_normalized_to_reference,
-        ds_roughness_normalized_to_compared=signature_diff.roughness_normalized_to_compared,
-        ds_roughness_normalized_to_reference_and_compared=signature_diff.roughness_normalized_to_reference_and_compared,
+        sq_diff=sq_diff,
+        ds_normalized_ref=signature_diff.ds_normalized_ref,
+        ds_normalized_comp=signature_diff.ds_normalized_comp,
+        ds_normalized_combined=signature_diff.ds_normalized_combined,
+        shift_samples=alignment.shift,
+        overlap_samples=alignment.overlap_length,
+        idx_reference_start=alignment.idx_reference_start,
+        idx_compared_start=alignment.idx_compared_start,
+        len_reference_equalized=len_reference,
+        len_compared_equalized=len_compared,
+        pixel_size_reference=pixel_size_reference,
+        pixel_size_compared=pixel_size_compared,
+        len_reference_original=len_reference_original,
+        len_compared_original=len_compared_original,
+        alignment_parameters=params,
     )

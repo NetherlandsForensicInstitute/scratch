@@ -35,7 +35,10 @@ def compare_striation_marks(
         profile_compared=profile_comp,
     )
     if not mark_correlations:
-        raise HTTPException(HTTPStatus.INTERNAL_SERVER_ERROR, "No correlations were found.")
+        logger.error("profiles could not be aligned: insufficient overlap between marks")
+        raise HTTPException(
+            HTTPStatus.UNPROCESSABLE_ENTITY, "profiles could not be aligned: insufficient overlap between marks"
+        )
     logger.debug("correlations are calculated")
     return mark_correlations
 
@@ -110,8 +113,8 @@ def save_lr_impression_plot(  # noqa: PLR0913
         llr_data=LlrTransformationData(
             scores=reference_data.scores,
             llrs=reference_data.llrs,
-            llrs_at5=reference_data.llr_intervals[0],
-            llrs_at95=reference_data.llr_intervals[1],
+            llrs_at5=reference_data.llr_intervals[:, 0],
+            llrs_at95=reference_data.llr_intervals[:, 1],
             score_llr_point=(score, lr),
         ),
     )
@@ -164,8 +167,8 @@ def save_lr_striation_plot(  # noqa: PLR0913
         llr_data=LlrTransformationData(
             scores=reference_data.scores,
             llrs=reference_data.llrs,
-            llrs_at5=reference_data.llr_intervals[0],
-            llrs_at95=reference_data.llr_intervals[1],
+            llrs_at5=reference_data.llr_intervals[:, 0],
+            llrs_at95=reference_data.llr_intervals[:, 1],
             score_llr_point=(score, lr),
         ),
     )

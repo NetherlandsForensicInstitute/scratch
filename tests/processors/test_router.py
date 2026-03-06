@@ -40,8 +40,8 @@ class TestMarkStriation:
             "mark_reference_aligned_data",
             "mark_compared_aligned_data",
             "mark_compared_aligned_meta",
+            "comparison_results",
         }
-        expected_files = expected_images | expected_data
 
         json_data = CalculateScoreStriation(
             mark_dir_ref=mark_dir_ref,
@@ -51,8 +51,11 @@ class TestMarkStriation:
         response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
 
         assert response.status_code == HTTPStatus.OK, response.json()
-        urls = response.json()
-        assert urls.keys() == expected_files
+        response_data = response.json()
+        assert response_data.keys() == (expected_images | expected_data)
+
+        url_keys = (expected_images | expected_data) - {"comparison_results"}
+        urls = {k: v for k, v in response_data.items() if k in url_keys}
         assert all(HttpUrl(url) for url in urls.values())
         assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
 

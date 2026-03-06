@@ -121,9 +121,9 @@ class TestCorrelateProfilesBasic:
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result is not None
         assert not np.isnan(result.sa_ref)
-        assert not np.isnan(result.mean_square_ref)
+        assert not np.isnan(result.sq_ref)
         assert result.sa_ref > 0
-        assert result.mean_square_ref > 0
+        assert result.sq_ref > 0
 
     def test_overlap_metrics_computed(self):
         """Overlap length and ratio should be computed."""

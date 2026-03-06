@@ -18,7 +18,7 @@ import numpy as np
 from container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import (
     RoughnessMetrics,
-    NormalizedSquareBasedRoughnessDifferences,
+    NormalizedRoughnessDifferences,
 )
 
 
@@ -113,40 +113,38 @@ def compute_overlap_ratio(
 
 def compute_normalized_square_based_roughness_differences(
     roughness: RoughnessMetrics,
-) -> NormalizedSquareBasedRoughnessDifferences:
+) -> NormalizedRoughnessDifferences:
     """
-    Compute normalized signature difference metrics.
+    Compute normalized signature differences from roughness metrics.
 
-    These metrics quantify the difference between profiles normalized by
-    their roughness, providing dimensionless measures of dissimilarity.
+    Each metric expresses the squared ratio of the difference-profile
+    roughness to the individual profile roughnesses, providing a
+    scale-independent measure of surface dissimilarity.
 
-    :param roughness: Container with quadratic mean roughness (Sq) values for
-        the reference profile, comparison profile, and difference profile.
-    :returns: NormalizedSquareBasedRoughnessDifferences containing normalized metrics.
-        Returns NaN for any metric where division by zero would occur.
+    :param roughness: Sq values for the reference, compared, and
+        difference profiles.
+    :returns: Normalized signature differences with respect to reference,
+        compared, and combined normalization.
     """
-    mean_square_ref = roughness.mean_square_ref
-    mean_square_comp = roughness.mean_square_comp
-    mean_square_of_difference = roughness.mean_square_of_difference
-
     with np.errstate(divide="ignore", invalid="ignore"):
-        roughness_normalized_to_reference = (
-            (mean_square_of_difference / mean_square_ref) ** 2
-            if mean_square_ref > 0
+        ds_normalized_ref = (
+            (roughness.sq_diff / roughness.sq_ref) ** 2
+            if roughness.sq_ref > 0
             else np.nan
         )
-        roughness_normalized_to_compared = (
-            (mean_square_of_difference / mean_square_comp) ** 2
-            if mean_square_comp > 0
+        ds_normalized_comp = (
+            (roughness.sq_diff / roughness.sq_comp) ** 2
+            if roughness.sq_comp > 0
             else np.nan
         )
-        roughness_normalized_to_reference_and_compared = (
-            mean_square_of_difference**2 / (mean_square_ref * mean_square_comp)
-            if (mean_square_ref > 0 and mean_square_comp > 0)
+        ds_normalized_combined = (
+            roughness.sq_diff**2 / (roughness.sq_ref * roughness.sq_comp)
+            if (roughness.sq_ref > 0 and roughness.sq_comp > 0)
             else np.nan
         )
-    return NormalizedSquareBasedRoughnessDifferences(
-        roughness_normalized_to_reference=roughness_normalized_to_reference,
-        roughness_normalized_to_compared=roughness_normalized_to_compared,
-        roughness_normalized_to_reference_and_compared=roughness_normalized_to_reference_and_compared,
+
+    return NormalizedRoughnessDifferences(
+        ds_normalized_ref=ds_normalized_ref,
+        ds_normalized_comp=ds_normalized_comp,
+        ds_normalized_combined=ds_normalized_combined,
     )
