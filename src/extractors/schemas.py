@@ -216,7 +216,7 @@ class ComparisonResponseImpression(ComparisonResponse):
     )
 
 
-class ComparisonResponseStriation(ComparisonResponse):
+class ComparisonResponseStriationURL(ComparisonResponse):
     mark_ref_preview: HttpUrl = Field(
         description="",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_preview.png"],
@@ -242,6 +242,23 @@ class ComparisonResponseStriation(ComparisonResponse):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/side_by_side_heatmap.png"],
         json_schema_extra={"file_name": "side_by_side_heatmap.png"},
     )
+
+
+class ComparisonResponseStriation(BaseResponseURLs):
+    urls: ComparisonResponseStriationURL
+    comparison_results: dict = Field(
+        default_factory=dict,
+        description="Striation comparison metrics including correlation, roughness, and alignment geometry.",
+    )
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        """Serialize model to flat json."""
+        data = handler(self)
+        return {
+            **data["urls"],
+            "comparison_results": data["comparison_results"],
+        }
 
 
 class LRResponseURL(BaseResponseURLs):

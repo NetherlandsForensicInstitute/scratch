@@ -15,6 +15,7 @@ from scipy.constants import micro
 from scipy.interpolate import interp1d
 
 from constants import ProcessorEndpoint
+from extractors.schemas import ComparisonResponseStriationURL
 from processors.schemas import CalculateScoreStriation, StriationParameters
 
 
@@ -166,49 +167,31 @@ class TestStriationMark:
         self._save_mark(dir_path=ref_mark_path, profile=profile_reference, mark=mark_reference)
         self._save_mark(dir_path=comp_mark_path, profile=profile_compared, mark=mark_compared)
 
-        return (comp_mark_path, ref_mark_path)
+        return comp_mark_path, ref_mark_path
 
     @pytest.mark.integration
     def test_calculate_striation_mark(
         self, client: TestClient, prepare_folder_for_calculation: tuple[Path, Path]
     ) -> None:
-        """
-        Test the whole chain of the endpoint.
-
-        The test expects a folder with some json/npz files.
-        Those files containing information like the preprocces scan_image.
-        """
-        # Arrange
+        """Striation score endpoint returns reachable plot URLs and comparison results."""
         comp_mark_path, ref_mark_path = prepare_folder_for_calculation
-        expected_files = [
-            "similarity_plot",
-            "side_by_side_heatmap",
-            "comparison_overview",
-            "filtered_compared_heatmap",
-            "filtered_reference_heatmap",
-            "mark_ref_surfacemap",
-            "mark_ref_preview",
-            "mark_comp_surfacemap",
-            "mark_comp_preview",
-        ]
 
         json_data = CalculateScoreStriation(
             mark_ref=ref_mark_path,
             mark_comp=comp_mark_path,
-            param=StriationParameters(metadata_compared={"somthing": "else"}, metadata_reference={"ding": "dong"}),
+            param=StriationParameters(metadata_compared={"something": "else"}, metadata_reference={"ding": "dong"}),
         ).model_dump(mode="json")
 
-        # Act
         response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
 
-        # Arrange
         assert response.status_code == HTTPStatus.OK, response.json()
-        urls = response.json()
-        assert all(HttpUrl(url) for url in urls.values()), "All items in the response should be an url."
-        assert all(url in expected_files for url in urls.keys()), "All expected files are in the url response."
-        assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values()), (
-            "Urls point to an living endpoint."
-        )
-        assert all(client.get(url).headers["content-type"] == "image/png" for url in urls.values()), (
-            "Urls are returning an image."
-        )
+        response_data = response.json()
+
+        url_keys = set(ComparisonResponseStriationURL.model_fields)
+        urls = {k: v for k, v in response_data.items() if k in url_keys}
+
+        assert all(HttpUrl(url) for url in urls.values())
+        assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
+        assert all(client.get(url).headers["content-type"] == "image/png" for url in urls.values())
+
+        assert "comparison_results" in response_data

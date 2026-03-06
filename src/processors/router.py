@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 from conversion.export.mark import load_mark_from_path
 from conversion.export.profile import load_profile_from_path
 from fastapi import APIRouter
@@ -8,6 +10,7 @@ from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
 from extractors.schemas import (
     ComparisonResponseImpression,
     ComparisonResponseStriation,
+    ComparisonResponseStriationURL,
     LRResponse,
     LRResponseURL,
 )
@@ -78,7 +81,7 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
     """Compare two striation profiles."""
     logger.debug("starting calculate score striation")
     vault = create_vault(striation_params.tag)
-    expected_files = ComparisonResponseStriation.get_files(vault.resource_path)
+    expected_files = ComparisonResponseStriationURL.get_files(vault.resource_path)
     mark_ref = load_mark_from_path(path=striation_params.mark_ref, stem="processed")
     mark_comp = load_mark_from_path(path=striation_params.mark_comp, stem="processed")
     profile_ref = load_profile_from_path(path=striation_params.mark_ref, stem="profile")
@@ -110,8 +113,11 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
     )
     preview_pipeline(comparison_result.mark_compared_aligned.scan_image, expected_files["mark_comp_preview"])
     logger.debug(f"images saved in:{vault.resource_path}")
-
-    return ComparisonResponseStriation.generate_urls(vault.access_url)
+    response = ComparisonResponseStriation(
+        urls=ComparisonResponseStriationURL.generate_urls(vault.access_url),
+        comparison_results=asdict(comparison_result.comparison_results),
+    )
+    return response
 
 
 @processors.post(
