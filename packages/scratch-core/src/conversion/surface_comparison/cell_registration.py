@@ -1,53 +1,49 @@
 """
-Cell registration adapter.
+Per-cell registration: two-stage pipeline.
 
-Converts between the application's ``ScanImage`` / ``ComparisonParams`` /
-``Cell`` types and the MATLAB-faithful ``cell_corr_analysis`` engine.
+Stage 1  (coarse angular sweep)
+    The comparison image is rotated once per candidate angle.  For each
+    rotation, every reference cell is matched against the rotated image using
+    normalised cross-correlation (NCC).  NCC preserves frequency amplitudes,
+    so its peak value is a true similarity score in [-1, 1].  This makes it
+    possible to compare scores across different angles and reliably pick the
+    best rotation for each cell.
 
-Coordinate conventions
-----------------------
-Application (ScanImage, Cell):
-    [x, y] in metres, where x = column direction, y = row direction.
-    ``ScanImage.global_center`` = physical_size / 2 = [W/2, H/2].
-
-MATLAB engine (MapStruct, cell_corr_analysis):
-    [row, col] in metres.
-    ``vCenterG`` = ceil(N/2) * vPixSep per axis.
-    ``vCenterL`` = same as vCenterG for full maps.
-
-cell_registration_matlab.py — Faithful Python translation of MATLAB cell_corr_analysis.
-
-Key fix vs earlier versions:
-  - cell_init: cells share parent map's vCenterG, adjust vCenterL by pixel offset
-    (matching MATLAB: Cell.Map1.vCenterG = Map1.vCenterG,
-     Cell.Map1.vCenterL = Map1.vCenterL - vTrans.*Map1.vPixSep)
-
-Coordinate convention (MATLAB):
-  - Positions: [row, col] in physical units (metres)
-  - vCenterG: global position of the image centre
-  - vCenterL: local centre position (adjusted for sub-images)
-  - vPixSep: [row_spacing, col_spacing]
-  - Pixel indexing: 1-based, column-major
+Stage 2  (gradient fine registration)
+    MATLAB-faithful gradient-based fine registration (``maps_register_fine_gradient``).
+    Jointly refines translation and rotation by iteratively solving a linearised
+    gradient system in physical coordinates on the *full* comparison image — no
+    crop, no fixed window.  Seeded directly from the Stage 1 NCC position and
+    angle estimate.
 """
 
-from __future__ import annotations
+from dataclasses import dataclass
 
 import numpy as np
-from dataclasses import dataclass
 from scipy.interpolate import RegularGridInterpolator
+from skimage.feature import match_template
+from skimage.transform import rotate
 
+from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
-    Cell,
-    CellMetaData,
     ComparisonParams,
+    Cell,
 )
-from conversion.surface_comparison.grid import _find_grid_origin
+from conversion.surface_comparison.grid import (
+    _find_grid_origin,
+    generate_grid_centers,
+)
+from conversion.surface_comparison.utils import (
+    meters_to_pixels,
+    compute_top_left_pixel_of_cell,
+)
 
 
-# =====================================================================
-# Data classes
-# =====================================================================
+# Fine registration: ±3° angular search window around NCC seed (matches MATLAB default)
+_FINE_ANGLE_HALF_RAD = np.radians(3.0)
+# Minimum cell fill fraction for fine registration overlap check
+_FINE_CELL_FILL_REG_MIN = 0.25
 
 
 @dataclass
@@ -61,494 +57,99 @@ class MapStruct:
     vPixSep: np.ndarray
 
 
-@dataclass
-class CellResult:
-    """Per-cell output matching MATLAB's Cell(i) structure."""
+def register_cells(
+    reference_image: ScanImage,
+    comparison_image: ScanImage,
+    params: ComparisonParams,
+) -> list[Cell]:
+    """
+    Run the three-stage per-cell registration pipeline.
 
-    vPos1: np.ndarray
-    vPos2: np.ndarray
-    dAngle: float
-    accf: float
-    fill1: float
-    vdPos: np.ndarray
-    bValid: bool = True
+    The comparison image is rotated once per candidate angle; every reference
+    cell is then matched against that single rotated image.  This amortizes
+    the cost of rotation across all cells.  The best angle per cell is passed
+    to Stages 2 and 3 for sub-pixel refinement.
 
+    :param reference_image: Fixed surface map.
+    :param comparison_image: Moving surface map.
+    :param params: Algorithm parameters.  The angular sweep runs from
+        ``search_angle_min`` to ``search_angle_max`` in steps of
+        ``search_angle_step`` (all in degrees, centred on 0°).
+    :returns: CellResult list for all cells that pass the fill-fraction check.
+    """
+    origin = _find_grid_origin(reference_image, params)
+    centers = generate_grid_centers(reference_image, origin, params)
 
-# =====================================================================
-# Low-level helpers
-# =====================================================================
+    # Pre-extract reference cell_dataes and compute fill fractions.
+    # Only cells that sufficiently overlap the image are kept.
+    pixel_spacing = reference_image.pixel_spacing
+    cell_size_px = meters_to_pixels(params.cell_size, pixel_spacing)
+    n_rows, n_cols = reference_image.data.shape
 
+    valid_cells = []
 
-def _trans_ind2sub(shape, vi):
-    nrows = shape[0]
-    row1 = (vi - 1) % nrows + 1
-    col1 = (vi - 1) // nrows + 1
-    return np.column_stack([row1, col1]).astype(np.float64)
+    for center in centers:
+        row, col = compute_top_left_pixel_of_cell(center, cell_size_px, pixel_spacing)
+        top_row, left_col = max(0, row), max(0, col)
 
+        # lower/right corner of cell, in pixels
+        bottom_row = min(n_rows, row + cell_size_px[1])
+        right_col = min(n_cols, col + cell_size_px[0])
 
-def _pix2pos(pix, vCenterG, angle, vCenterL, vPixSep):
-    """1-based [row,col] pixels → global [row,col] positions."""
-    scaled = pix * vPixSep
-    centred = scaled - vCenterL
-    if abs(angle) > 1e-15:
-        c, s = np.cos(angle), np.sin(angle)
-        rotated = np.column_stack(
-            [
-                c * centred[:, 0] - s * centred[:, 1],
-                s * centred[:, 0] + c * centred[:, 1],
-            ]
-        )
-    else:
-        rotated = centred
-    return rotated + vCenterG
-
-
-def _pos2pix(pos, vCenterG, angle, vCenterL, vPixSep):
-    """Global [row,col] positions → 1-based [row,col] pixels."""
-    shifted = pos - vCenterG
-    if abs(angle) > 1e-15:
-        c, s = np.cos(-angle), np.sin(-angle)
-        rotated = np.column_stack(
-            [
-                c * shifted[:, 0] - s * shifted[:, 1],
-                s * shifted[:, 0] + c * shifted[:, 1],
-            ]
-        )
-    else:
-        rotated = shifted
-    return (rotated + vCenterL) / vPixSep
-
-
-def _build_interpolator(map2, method="cubic"):
-    nrows, ncols = map2.shape
-    row_coords = np.arange(1, nrows + 1, dtype=np.float64)
-    col_coords = np.arange(1, ncols + 1, dtype=np.float64)
-    map_clean = np.where(np.isnan(map2), 0.0, map2)
-    return RegularGridInterpolator(
-        (row_coords, col_coords),
-        map_clean,
-        method=method,
-        bounds_error=False,
-        fill_value=np.nan,
-    )
-
-
-def _map_interp2(interp, pix):
-    return interp(pix)
-
-
-def _level_2d_pos(x, y, mm, viParLevel):
-    if viParLevel is None or len(viParLevel) == 0:
-        return mm
-    n = len(x)
-    result = mm.copy()
-    cols = []
-    for p in viParLevel:
-        if p == 1:
-            cols.append(np.ones(n))
-        elif p == 2:
-            cols.append(x)
-        elif p == 3:
-            cols.append(y)
-        elif p == 4:
-            cols.append(x * y)
-        elif p == 5:
-            cols.append(x**2)
-        elif p == 6:
-            cols.append(y**2)
-    if not cols:
-        return mm
-    A = np.column_stack(cols)
-    for col_idx in range(mm.shape[1]):
-        data = mm[:, col_idx]
-        vb = ~np.isnan(data)
-        if vb.sum() < len(cols) + 1:
+        if bottom_row <= top_row or right_col <= left_col:
             continue
-        coeffs, _, _, _ = np.linalg.lstsq(A[vb], data[vb], rcond=None)
-        result[:, col_idx] = data - A @ coeffs
-    return result
+        cell_data = reference_image.data[top_row:bottom_row, left_col:right_col]
 
+        # Fill fraction is the fraction of the full cell area that overlaps
+        # the image, regardless of NaN holes within the image.
+        clipped_area = (bottom_row - top_row) * (right_col - left_col)
+        full_area = int(cell_size_px[0] * cell_size_px[1])
+        fill_fraction = clipped_area / full_area
+        if fill_fraction < params.minimum_fill_fraction:
+            continue
 
-def _map_gradient(map_data, vPixSep):
-    grad_row = np.gradient(map_data, vPixSep[0], axis=0)
-    grad_col = np.gradient(map_data, vPixSep[1], axis=1)
-    return grad_row, grad_col
-
-
-def _trans_ind2size(full_shape, vi1):
-    nrows = full_shape[0]
-    row0 = (vi1 - 1) % nrows
-    col0 = (vi1 - 1) // nrows
-    r_min, r_max = row0.min(), row0.max()
-    c_min, c_max = col0.min(), col0.max()
-    sub_nrows = r_max - r_min + 1
-    sub_ncols = c_max - c_min + 1
-    sub_row0 = row0 - r_min
-    sub_col0 = col0 - c_min
-    vi2 = sub_row0 + sub_col0 * sub_nrows + 1
-    return (sub_nrows, sub_ncols), (r_min, c_min), vi2
-
-
-def _similarity2cost(sim_val, sim_metric, to_cost):
-    if sim_metric.lower() == "accf":
-        return -sim_val if to_cost else -sim_val
-    raise ValueError(f"Unsupported metric: {sim_metric}")
-
-
-def _rotz(v, angle):
-    c, s = np.cos(angle), np.sin(angle)
-    if v.ndim == 1:
-        return np.array([c * v[0] - s * v[1], s * v[0] + c * v[1]])
-    return np.column_stack(
-        [
-            c * v[:, 0] - s * v[:, 1],
-            s * v[:, 0] + c * v[:, 1],
-        ]
-    )
-
-
-def _level_map(map_data, viParLevel, vCenterL, vPixSep):
-    nrows, ncols = map_data.shape
-    result = map_data.copy()
-    rows = np.arange(1, nrows + 1) * vPixSep[0] - vCenterL[0]
-    cols = np.arange(1, ncols + 1) * vPixSep[1] - vCenterL[1]
-    cc, rr = np.meshgrid(cols, rows)
-    valid = ~np.isnan(result)
-    if valid.sum() < len(viParLevel) + 1:
-        return result
-    x, y, z = rr[valid], cc[valid], result[valid]
-    cols_list = []
-    for p in viParLevel:
-        if p == 1:
-            cols_list.append(np.ones_like(x))
-        elif p == 2:
-            cols_list.append(x)
-        elif p == 3:
-            cols_list.append(y)
-    if cols_list:
-        A = np.column_stack(cols_list)
-        coeffs, _, _, _ = np.linalg.lstsq(A, z, rcond=None)
-        Af = np.column_stack(
-            [
-                np.ones(nrows * ncols)
-                if p == 1
-                else rr.ravel()
-                if p == 2
-                else cc.ravel()
-                for p in viParLevel
-            ]
+        cell = Cell(
+            center_reference=center,
+            cell_data=cell_data,
+            fill_fraction_reference=fill_fraction,
         )
-        result = result - (Af @ coeffs).reshape(nrows, ncols)
-    return result
+        # center in meters, 2D np.array, fill_fraction, initial score, initial angle, translation in meters
+        valid_cells.append(cell)
 
-
-# =====================================================================
-# Cell initialisation — MATLAB cell_init.m faithful translation
-# =====================================================================
-
-
-def _cell_init(
-    map1: MapStruct,
-    vCellSize: np.ndarray,
-    vCellPosition: np.ndarray,
-    cellFillRefMin: float,
-) -> list[dict]:
-    """
-    Generate cells on Map1.
-
-    MATLAB key: Cell.Map1.vCenterG = Map1.vCenterG (shared!)
-                Cell.Map1.vCenterL = Map1.vCenterL - vTrans * Map1.vPixSep
-    where vTrans is the 0-based pixel offset of the sub-image origin.
-    """
-    vPixSep = map1.vPixSep
-    nrows, ncols = map1.map.shape
-
-    cell_px = np.round(vCellSize / vPixSep).astype(int)
-
-    # Generate cell centres (local coordinates in Map1 frame)
-    # First get global positions of all valid pixels
-    vi1 = np.flatnonzero(~np.isnan(map1.map.ravel(order="F"))) + 1
-    mp1 = _trans_ind2sub(map1.map.shape, vi1)
-    mp1_pos = _pix2pos(mp1, map1.vCenterG, map1.angle, map1.vCenterL, map1.vPixSep)
-
-    # Generate cell grid positions
-    map_extent_r = nrows * vPixSep[0]
-    map_extent_c = ncols * vPixSep[1]
-
-    centres_row = []
-    r = vCellPosition[0]
-    while r - vCellSize[0] / 2 > vPixSep[0]:
-        r -= vCellSize[0]
-    while r - vCellSize[0] / 2 < map_extent_r:
-        centres_row.append(r)
-        r += vCellSize[0]
-
-    centres_col = []
-    c = vCellPosition[1]
-    while c - vCellSize[1] / 2 > vPixSep[1]:
-        c -= vCellSize[1]
-    while c - vCellSize[1] / 2 < map_extent_c:
-        centres_col.append(c)
-        c += vCellSize[1]
-
-    cells = []
-
-    for cr in centres_row:
-        for cc in centres_col:
-            # Cell centre in global coordinates
-            # MATLAB: mCellPosition(ic,:) which is in global frame after cell_generate
-            # For Map1 with angle=0: vPos1 = [cr, cc] (local = global)
-            vPos1 = map1.vCenterG + _rotz(
-                np.array([cr, cc]) - map1.vCenterL,
-                map1.angle,
-            )
-
-            # Identify pixels inside cell (rectangle)
-            half_r = vCellSize[0] / 2
-            half_c = vCellSize[1] / 2
-            vb1 = (np.abs(mp1_pos[:, 0] - vPos1[0]) <= half_r + 1e-10) & (
-                np.abs(mp1_pos[:, 1] - vPos1[1]) <= half_c + 1e-10
-            )
-
-            nPoint1 = int(np.sum(vb1))
-            nPointCellRefMin = max(
-                9,
-                int(
-                    np.floor(
-                        cellFillRefMin * vCellSize[0] * vCellSize[1] / np.prod(vPixSep)
-                    )
-                ),
-            )
-            if nPoint1 < nPointCellRefMin:
-                continue
-
-            # Extract sub-image: find bounding box of selected pixels
-            # MATLAB: map2map_sub_ind returns (sub_map, vTrans)
-            # vTrans is the 0-based [row, col] offset of the sub-image
-            sel_vi = vi1[vb1]  # 1-based column-major indices
-            sel_rows = (sel_vi - 1) % nrows
-            sel_cols = (sel_vi - 1) // nrows
-            r_min, r_max = sel_rows.min(), sel_rows.max()
-            c_min, c_max = sel_cols.min(), sel_cols.max()
-
-            # vTrans: 0-based offset (matches MATLAB map2map_sub_ind)
-            vTrans = np.array([r_min, c_min], dtype=np.float64)
-
-            sub = map1.map[r_min : r_max + 1, c_min : c_max + 1].copy()
-
-            # Fill fraction
-            fill1 = float(nPoint1) / float(cell_px[0] * cell_px[1])
-
-            # MATLAB: Cell.Map1.vCenterG = Map1.vCenterG (SHARED!)
-            #         Cell.Map1.vCenterL = Map1.vCenterL - vTrans .* Map1.vPixSep
-            sub_vCenterG = map1.vCenterG.copy()
-            sub_vCenterL = map1.vCenterL - vTrans * map1.vPixSep
-
-            cell_map = MapStruct(
-                map=sub,
-                vCenterG=sub_vCenterG,
-                vCenterL=sub_vCenterL,
-                angle=map1.angle,
-                vPixSep=vPixSep.copy(),
-            )
-
-            cells.append(
-                {
-                    "Map1": cell_map,
-                    "vPos1": vPos1.copy(),
-                    "nPoint1": nPoint1,
-                    "fill1": fill1,
-                }
-            )
-
-    return cells
-
-
-# =====================================================================
-# Evaluate similarity at a given angle
-# =====================================================================
-
-
-def _evaluate_similarity(
-    cell_map: MapStruct,
-    map2: MapStruct,
-    map2_interp,
-    angle: float,
-    viParLevel: np.ndarray,
-    n_overlap_min: int,
-    scale: float = 1.0,
-) -> float:
-    """Evaluate ACCF between a cell and Map2 at a given angle."""
-    map1 = cell_map.map
-    vi1 = np.flatnonzero(~np.isnan(map1.ravel(order="F"))) + 1
-    if len(vi1) < n_overlap_min:
-        return np.nan
-    mp1 = _trans_ind2sub(map1.shape, vi1)
-    mp1 = _pix2pos(
-        mp1, cell_map.vCenterG, cell_map.angle, cell_map.vCenterL, cell_map.vPixSep
+    # ---- Stage 1: Sweep over angles_deg and store parameters for best cross_correlation per cell
+    angles_deg = np.arange(
+        params.search_angle_min,
+        params.search_angle_max + params.search_angle_step,
+        params.search_angle_step,
     )
-    mp2 = _pos2pix(
-        mp1, map2.vCenterG, angle, map2.vCenterL * scale, map2.vPixSep * scale
-    )
-    vm2 = _map_interp2(map2_interp, mp2)
-    vb = ~np.isnan(vm2)
-    n_valid = np.sum(vb)
-    if n_valid < n_overlap_min:
-        return np.nan
-    vm1 = map1.ravel(order="F")[vi1[vb] - 1]
-    mm = np.column_stack([vm1, vm2[vb]])
-    mm = _level_2d_pos(mp1[vb, 0], mp1[vb, 1], mm, viParLevel)
-    s1, s2 = mm[:, 0], mm[:, 1]
-    denom = np.sqrt(np.sum(s1**2) * np.sum(s2**2))
-    if denom < 1e-30:
-        return np.nan
-    return float(np.sum(s1 * s2) / denom)
 
+    for angle_deg in angles_deg:
+        rotated = _rotate_comparison_image(comparison_image.data, float(angle_deg))
 
-# =====================================================================
-# Coarse angular sweep
-# =====================================================================
+        for cell in valid_cells:
+            nan_filled_cell_data = _replace_nan_with_image_mean(cell.cell_data)
 
-
-def _cell_corr_angle(
-    cells,
-    map2,
-    vAngles,
-    viParLevel,
-    n_overlap_min_per_cell,
-    scale=1.0,
-    verbose=False,
-):
-    """Evaluate ACCF for all cells at all angles."""
-    map2_interp = _build_interpolator(map2.map, method="cubic")
-    n_cells = len(cells)
-    sim_vals = [np.full(len(vAngles), np.nan) for _ in range(n_cells)]
-    for ia, angle in enumerate(vAngles):
-        for ic, cell in enumerate(cells):
-            sim_vals[ic][ia] = _evaluate_similarity(
-                cell["Map1"],
-                map2,
-                map2_interp,
-                angle,
-                viParLevel,
-                n_overlap_min_per_cell[ic],
-                scale,
-            )
-    if verbose:
-        for ic in range(n_cells):
-            valid = ~np.isnan(sim_vals[ic])
-            if valid.any():
-                best_idx = np.nanargmax(sim_vals[ic])
-                print(
-                    f"  Coarse cell {ic}: best angle={np.degrees(vAngles[best_idx]):.3f}°, "
-                    f"ACCF={sim_vals[ic][best_idx]:.4f}"
+            cross_correlation_value, left_column, top_row = (
+                _get_optimal_crosscorr_and_comparison_center(
+                    rotated, nan_filled_cell_data
                 )
-    return sim_vals
+            )
 
+            if cell.best_score is None or cross_correlation_value > cell.best_score:
+                _update_cell(
+                    cell,
+                    cross_correlation_value,
+                    angle_deg,
+                    left_column,
+                    top_row,
+                    comparison_image.pixel_spacing,
+                )
 
-# =====================================================================
-# Gradient-based fine registration
-# =====================================================================
+    # ---- Stage 2: gradient fine registration per cell ----
+    for cell in valid_cells:
+        _fine_tune_cell(cell, reference_image, comparison_image, params)
 
-
-def _fun_minimize_gradient(
-    vPar,
-    map1,
-    map2_vCenterL,
-    map2_vPixSep,
-    vi1,
-    mp1,
-    interp,
-    viParLevel,
-    n_overlap_min,
-    m_range,
-    map1_vPixSep,
-    verbose=False,
-):
-    scale = vPar[3]
-    mp2 = _pos2pix(mp1, vPar[:2], vPar[2], map2_vCenterL * scale, map2_vPixSep * scale)
-    vm2 = _map_interp2(interp, mp2)
-    vb = ~np.isnan(vm2)
-    n_valid = np.sum(vb)
-    if n_valid < n_overlap_min:
-        return 1.0 + 0.01 * (n_overlap_min - n_valid), False, vPar.copy()
-    vi1_v, mp1_v, vm2_v = vi1[vb], mp1[vb], vm2[vb]
-    vm1 = map1.ravel(order="F")[vi1_v - 1]
-    mm = np.column_stack([vm1, vm2_v])
-    mm = _level_2d_pos(mp1_v[:, 0], mp1_v[:, 1], mm, viParLevel)
-    s1, s2 = mm[:, 0], mm[:, 1]
-    denom = np.sqrt(np.sum(s1**2) * np.sum(s2**2))
-    if denom < 1e-30:
-        return 1.0, False, vPar.copy()
-    sim_val = np.sum(s1 * s2) / denom
-    cost_val = _similarity2cost(sim_val, "accf", True)
-    if verbose:
-        print(f"    Points: {n_valid}  ACCF: {sim_val:.6f}")
-
-    # ECC gradient update
-    vip = np.where(m_range[:, 1] > m_range[:, 0])[0]
-    if len(vip) == 0:
-        return cost_val, True, vPar.copy()
-    sub_shape, offset, vi2 = _trans_ind2size(map1.shape, vi1_v)
-    sub_nrows = sub_shape[0]
-    map_d = np.full(sub_shape, np.nan)
-    vi2_row0 = (vi2 - 1) % sub_nrows
-    vi2_col0 = (vi2 - 1) // sub_nrows
-    map_d[vi2_row0, vi2_col0] = mm[:, 1]
-    grad_row, grad_col = _map_gradient(map_d, map1_vPixSep)
-    m_grad = np.column_stack(
-        [
-            grad_row[vi2_row0, vi2_col0],
-            grad_col[vi2_row0, vi2_col0],
-        ]
-    )
-    vb_grad = np.all(~np.isnan(m_grad), axis=1)
-    m_grad, mm, mp1_v = m_grad[vb_grad], mm[vb_grad], mp1_v[vb_grad]
-    if len(m_grad) < max(len(vip) + 1, 4):
-        return cost_val, True, vPar.copy()
-
-    n_pts = len(m_grad)
-    mG = np.zeros((n_pts, len(vip)))
-    mp1_rel = mp1_v - vPar[:2]
-    for idx, p in enumerate(vip):
-        if p == 0:
-            mG[:, idx] = -m_grad[:, 0]
-        elif p == 1:
-            mG[:, idx] = -m_grad[:, 1]
-        elif p == 2:
-            mG[:, idx] = m_grad[:, 0] * mp1_rel[:, 1] - m_grad[:, 1] * mp1_rel[:, 0]
-        elif p == 3:
-            mG[:, idx] = m_grad[:, 0] * mp1_v[:, 0] + m_grad[:, 1] * mp1_v[:, 1]
-    mG = mG - mG.mean(axis=0)
-
-    s1, s2 = mm[:, 0], mm[:, 1]
-    vp1, _, _, _ = np.linalg.lstsq(mG, s1, rcond=None)
-    vp2, _, _, _ = np.linalg.lstsq(mG, s2, rcond=None)
-
-    s1_s2 = s1 @ s2
-    s1_G_vp2 = s1 @ (mG @ vp2)
-    if s1_s2 > s1_G_vp2:
-        numer = s2 @ s2 - s2 @ (mG @ vp2)
-        denom_lam = s1_s2 - s1_G_vp2
-        if abs(denom_lam) < 1e-30:
-            return cost_val, True, vPar.copy()
-        lam = numer / denom_lam
-    else:
-        s2_G_vp2 = s2 @ (mG @ vp2)
-        s1_G_vp1 = s1 @ (mG @ vp1)
-        if abs(s1_G_vp1) < 1e-30:
-            return cost_val, True, vPar.copy()
-        lam1 = np.sqrt(abs(s2_G_vp2 / s1_G_vp1))
-        lam2 = (s1_G_vp2 - s1_s2) / s1_G_vp1
-        lam = max(lam1, lam2)
-
-    vdPar, _, _, _ = np.linalg.lstsq(mG, s2 - lam * s1, rcond=None)
-    vPar_out = vPar.copy()
-    for idx, p in enumerate(vip):
-        vPar_out[p] -= vdPar[idx]
-    vPar_out = np.maximum(vPar_out, m_range[:, 0])
-    vPar_out = np.minimum(vPar_out, m_range[:, 1])
-    return cost_val, True, vPar_out
+    return valid_cells
 
 
 def maps_register_fine_gradient(
@@ -656,374 +257,425 @@ def maps_register_fine_gradient(
     return vPar[:2].copy(), float(vPar[2]), float(vPar[3]), float(sim_val)
 
 
-# =====================================================================
-# Main: cell_corr_analysis
-# =====================================================================
+def _similarity2cost(sim_val, sim_metric, to_cost):
+    if sim_metric.lower() == "accf":
+        return -sim_val if to_cost else -sim_val
+    raise ValueError(f"Unsupported metric: {sim_metric}")
 
 
-def cell_corr_analysis(
-    map1: MapStruct,
-    map2: MapStruct,
-    vCellSize: np.ndarray,
-    vCellPosition: np.ndarray,
-    shiftAngleMin: float,
-    shiftAngleMax: float,
-    cellFillRefMin: float = 0.35,
-    cellFillRegMin: float = 0.25,
-    cellFillRedMax: float = 0.50,
-    viParLevel: np.ndarray = np.array([1]),
-    viParLevelReg: np.ndarray | None = None,
-    scale_min: float = 1.0,
-    scale_max: float = 1.0,
-    cellConvAnglePix: float = 0.5,
-    nCellRegImageReductionMax: int = 4,
-    nInterval: int = 3,
-    bEval180: bool = False,
-    verbose: bool = False,
-) -> list[CellResult]:
-    if map1.angle != 0.0:
-        raise ValueError("Angle of reference map must equal 0")
+def _build_interpolator(map2, method="cubic"):
+    nrows, ncols = map2.shape
+    row_coords = np.arange(1, nrows + 1, dtype=np.float64)
+    col_coords = np.arange(1, ncols + 1, dtype=np.float64)
+    map_clean = np.where(np.isnan(map2), 0.0, map2)
+    return RegularGridInterpolator(
+        (row_coords, col_coords),
+        map_clean,
+        method=method,
+        bounds_error=False,
+        fill_value=np.nan,
+    )
 
-    vCenterG2Init = map2.vCenterG.copy()
-    vCenterL2Init = map2.vCenterL.copy()
-    angle2Init = map2.angle
 
-    angleMin = map2.angle + shiftAngleMin
-    angleMax = map2.angle + shiftAngleMax
-    bAngularReg = (shiftAngleMax - shiftAngleMin) > 1e-10
+def _trans_ind2sub(shape, vi):
+    nrows = shape[0]
+    row1 = (vi - 1) % nrows + 1
+    col1 = (vi - 1) // nrows + 1
+    return np.column_stack([row1, col1]).astype(np.float64)
 
-    # Generate cells on Map1
-    cells = _cell_init(map1, vCellSize, vCellPosition, cellFillRefMin)
-    if not cells:
-        return []
 
-    cellArea = vCellSize[0] * vCellSize[1]
-    nPointCellRegMin = int(np.floor(cellFillRegMin * cellArea / np.prod(map1.vPixSep)))
-
-    # ================================================================
-    # Coarse angular sweep (on full-resolution maps, no decimation)
-    # ================================================================
-    coarse_best_angles = None
-    dAngle = 0.0
-
-    if bAngularReg:
-        # Angular resolution from cell size in pixels
-        cell_px = vCellSize / map1.vPixSep
-        radiusP = 0.5 * np.sqrt(np.sum(cell_px**2))
-        dAngle = cellConvAnglePix / radiusP
-
-        # Build angle list
-        vAngles = np.arange(angleMin, angleMax + 1e-6, dAngle)
-        vAngles = vAngles - np.mean(vAngles) + 0.5 * (angleMin + angleMax)
-
-        if bEval180:
-            vAngles = np.concatenate([vAngles, vAngles + np.pi])
-
-        if verbose:
-            print(
-                f"  Coarse sweep: {len(vAngles)} angles, dAngle={np.degrees(dAngle):.3f}°"
-            )
-
-        # Overlap minimums per cell
-        n_overlap_mins = []
-        for cell in cells:
-            nom = max(
-                nPointCellRegMin, int(np.floor(cell["nPoint1"] * (1 - cellFillRedMax)))
-            )
-            n_overlap_mins.append(int(1.02 * nom))
-
-        # Perform angular sweep on full-resolution maps
-        sim_vals = _cell_corr_angle(
-            cells,
-            map2,
-            vAngles,
-            viParLevel,
-            n_overlap_mins,
-            1.0,
-            verbose,
+def _pix2pos(pix, vCenterG, angle, vCenterL, vPixSep):
+    """1-based [row,col] pixels → global [row,col] positions."""
+    scaled = pix * vPixSep
+    centred = scaled - vCenterL
+    if abs(angle) > 1e-15:
+        c, s = np.cos(angle), np.sin(angle)
+        rotated = np.column_stack(
+            [
+                c * centred[:, 0] - s * centred[:, 1],
+                s * centred[:, 0] + c * centred[:, 1],
+            ]
         )
-
-        # Best angle per cell
-        coarse_best_angles = []
-        for sv in sim_vals:
-            costs = np.array(
-                [
-                    _similarity2cost(v, "accf", True) if not np.isnan(v) else np.inf
-                    for v in sv
-                ]
-            )
-            coarse_best_angles.append(vAngles[np.argmin(costs)])
-
-    # ================================================================
-    # Fine registration per cell
-    # ================================================================
-    results = []
-
-    for ic, cell in enumerate(cells):
-        cell_map = cell["Map1"]
-
-        if viParLevelReg is not None and len(viParLevelReg) > 0:
-            cell_map.map = _level_map(
-                cell_map.map,
-                viParLevelReg,
-                cell_map.vCenterL,
-                cell_map.vPixSep,
-            )
-
-        if not np.isnan(cellFillRedMax):
-            n_overlap_min = max(
-                nPointCellRegMin,
-                int(np.floor(cell["nPoint1"] * (1 - cellFillRedMax))),
-            )
-        else:
-            n_overlap_min = nPointCellRegMin
-
-        if bAngularReg and coarse_best_angles is not None:
-            best_angle = (
-                coarse_best_angles[ic]
-                if ic < len(coarse_best_angles)
-                else 0.5 * (angleMin + angleMax)
-            )
-            map2_angle = best_angle
-            fine_shiftMin = max(angleMin - map2_angle, -nInterval * dAngle)
-            fine_shiftMax = min(angleMax - map2_angle, nInterval * dAngle)
-            fine_angleMin = map2_angle + fine_shiftMin
-            fine_angleMax = map2_angle + fine_shiftMax
-        else:
-            map2_angle = 0.5 * (angleMin + angleMax)
-            fine_angleMin = map2_angle
-            fine_angleMax = map2_angle
-
-        map2_reg = MapStruct(
-            map=map2.map,
-            vCenterG=map2.vCenterG.copy(),
-            vCenterL=map2.vCenterL.copy(),
-            angle=map2_angle,
-            vPixSep=map2.vPixSep.copy(),
-        )
-
-        vCG2, angle2, scale2, sim_val = maps_register_fine_gradient(
-            cell_map=cell_map,
-            comp_map=map2_reg,
-            angle_min=fine_angleMin,
-            angle_max=fine_angleMax,
-            n_overlap_min=n_overlap_min,
-            viParLevel=viParLevel,
-            n_conv_iter=150,
-            conv_sim=1e-4,
-            conv_pos=0.1,
-            conv_angle=1e-3,
-            conv_scale=1e-3,
-            scale_min=scale_min,
-            scale_max=scale_max,
-            verbose=verbose,
-        )
-
-        if np.isnan(vCG2[0]):
-            # TODO deal with np.nans in the output of maps_register_fine_gradient. This should never output np.nans.
-            results.append(
-                CellResult(
-                    vPos1=cell["vPos1"],
-                    vPos2=np.full(2, 10**8),
-                    dAngle=0.0,
-                    accf=0.0,
-                    fill1=cell["fill1"],
-                    vdPos=np.full(2, 0),
-                    bValid=True,
-                )
-            )
-            # results.append(
-            #     CellResult(
-            #         vPos1=cell["vPos1"],
-            #         vPos2=np.full(2, np.nan),
-            #         dAngle=np.nan,
-            #         accf=np.nan,
-            #         fill1=cell["fill1"],
-            #         vdPos=np.full(2, np.nan),
-            #         bValid=False,
-            #     )
-            # )
-            continue
-
-        # vPos2 computation (MATLAB lines 316-328)
-        Map2_vCenterL_scaled = vCenterL2Init * scale2
-        vPos2 = _rotz(cell["vPos1"] - vCG2, -angle2) + Map2_vCenterL_scaled
-        vPos2 = _rotz(vPos2 - vCenterL2Init, angle2Init) + vCenterG2Init
-
-        dAngle_val = angle2 - angle2Init
-        vdPos = vCG2 - vCenterG2Init
-
-        results.append(
-            CellResult(
-                vPos1=cell["vPos1"],
-                vPos2=vPos2,
-                dAngle=dAngle_val,
-                accf=sim_val,
-                fill1=cell["fill1"],
-                vdPos=vdPos,
-                bValid=True,
-            )
-        )
-
-        if verbose:
-            print(
-                f"  Cell {ic}: fill={cell['fill1']:.2f}  "
-                f"dX={vdPos[0] * 1e6:.1f}  dY={vdPos[1] * 1e6:.1f}  "
-                f"dA={np.degrees(dAngle_val):.3f}°  ACCF={sim_val:.4f}"
-            )
-
-    return results
+    else:
+        rotated = centred
+    return rotated + vCenterG
 
 
-# =====================================================================
-# Application adapter
-# =====================================================================
+def _fun_minimize_gradient(
+    vPar,
+    map1,
+    map2_vCenterL,
+    map2_vPixSep,
+    vi1,
+    mp1,
+    interp,
+    viParLevel,
+    n_overlap_min,
+    m_range,
+    map1_vPixSep,
+    verbose=False,
+):
+    scale = vPar[3]
+    mp2 = _pos2pix(mp1, vPar[:2], vPar[2], map2_vCenterL * scale, map2_vPixSep * scale)
+    vm2 = _map_interp2(interp, mp2)
+    vb = ~np.isnan(vm2)
+    n_valid = np.sum(vb)
+    if n_valid < n_overlap_min:
+        return 1.0 + 0.01 * (n_overlap_min - n_valid), False, vPar.copy()
+    vi1_v, mp1_v, vm2_v = vi1[vb], mp1[vb], vm2[vb]
+    vm1 = map1.ravel(order="F")[vi1_v - 1]
+    mm = np.column_stack([vm1, vm2_v])
+    mm = _level_2d_pos(mp1_v[:, 0], mp1_v[:, 1], mm, viParLevel)
+    s1, s2 = mm[:, 0], mm[:, 1]
+    denom = np.sqrt(np.sum(s1**2) * np.sum(s2**2))
+    if denom < 1e-30:
+        return 1.0, False, vPar.copy()
+    sim_val = np.sum(s1 * s2) / denom
+    cost_val = _similarity2cost(sim_val, "accf", True)
+    if verbose:
+        print(f"    Points: {n_valid}  ACCF: {sim_val:.6f}")
 
-
-def _surface_map_to_map_struct(image: ScanImage, angle: float = 0.0) -> MapStruct:
-    """
-    Convert a ScanImage to a MapStruct.
-
-    MATLAB convention: vCenterG and vCenterL are [row, col] in metres.
-    For a full map with no rotation:
-        vCenterL = vCenterG = [ceil(nrows/2) * row_sep, ceil(ncols/2) * col_sep]
-
-    :param image: Application surface map.
-    :param angle: Rotation angle in radians.
-    :returns: MapStruct for the MATLAB engine.
-    """
-    nrows, ncols = image.data.shape
-    # MATLAB: vPixSep = [row_sep, col_sep] = [scale_y, scale_x]
-    vPixSep = np.array([image.scale_y, image.scale_x])
-
-    # MATLAB: vCenterL = ceil(N/2) * vPixSep
-    vCenterL = np.array(
+    # ECC gradient update
+    vip = np.where(m_range[:, 1] > m_range[:, 0])[0]
+    if len(vip) == 0:
+        return cost_val, True, vPar.copy()
+    sub_shape, offset, vi2 = _trans_ind2size(map1.shape, vi1_v)
+    sub_nrows = sub_shape[0]
+    map_d = np.full(sub_shape, np.nan)
+    vi2_row0 = (vi2 - 1) % sub_nrows
+    vi2_col0 = (vi2 - 1) // sub_nrows
+    map_d[vi2_row0, vi2_col0] = mm[:, 1]
+    grad_row, grad_col = _map_gradient(map_d, map1_vPixSep)
+    m_grad = np.column_stack(
         [
-            np.ceil(nrows / 2) * vPixSep[0],
-            np.ceil(ncols / 2) * vPixSep[1],
+            grad_row[vi2_row0, vi2_col0],
+            grad_col[vi2_row0, vi2_col0],
+        ]
+    )
+    vb_grad = np.all(~np.isnan(m_grad), axis=1)
+    m_grad, mm, mp1_v = m_grad[vb_grad], mm[vb_grad], mp1_v[vb_grad]
+    if len(m_grad) < max(len(vip) + 1, 4):
+        return cost_val, True, vPar.copy()
+
+    n_pts = len(m_grad)
+    mG = np.zeros((n_pts, len(vip)))
+    mp1_rel = mp1_v - vPar[:2]
+    for idx, p in enumerate(vip):
+        if p == 0:
+            mG[:, idx] = -m_grad[:, 0]
+        elif p == 1:
+            mG[:, idx] = -m_grad[:, 1]
+        elif p == 2:
+            mG[:, idx] = m_grad[:, 0] * mp1_rel[:, 1] - m_grad[:, 1] * mp1_rel[:, 0]
+        elif p == 3:
+            mG[:, idx] = m_grad[:, 0] * mp1_v[:, 0] + m_grad[:, 1] * mp1_v[:, 1]
+    mG = mG - mG.mean(axis=0)
+
+    s1, s2 = mm[:, 0], mm[:, 1]
+    vp1, _, _, _ = np.linalg.lstsq(mG, s1, rcond=None)
+    vp2, _, _, _ = np.linalg.lstsq(mG, s2, rcond=None)
+
+    s1_s2 = s1 @ s2
+    s1_G_vp2 = s1 @ (mG @ vp2)
+    if s1_s2 > s1_G_vp2:
+        numer = s2 @ s2 - s2 @ (mG @ vp2)
+        denom_lam = s1_s2 - s1_G_vp2
+        if abs(denom_lam) < 1e-30:
+            return cost_val, True, vPar.copy()
+        lam = numer / denom_lam
+    else:
+        s2_G_vp2 = s2 @ (mG @ vp2)
+        s1_G_vp1 = s1 @ (mG @ vp1)
+        if abs(s1_G_vp1) < 1e-30:
+            return cost_val, True, vPar.copy()
+        lam1 = np.sqrt(abs(s2_G_vp2 / s1_G_vp1))
+        lam2 = (s1_G_vp2 - s1_s2) / s1_G_vp1
+        lam = max(lam1, lam2)
+
+    vdPar, _, _, _ = np.linalg.lstsq(mG, s2 - lam * s1, rcond=None)
+    vPar_out = vPar.copy()
+    for idx, p in enumerate(vip):
+        vPar_out[p] -= vdPar[idx]
+    vPar_out = np.maximum(vPar_out, m_range[:, 0])
+    vPar_out = np.minimum(vPar_out, m_range[:, 1])
+    return cost_val, True, vPar_out
+
+
+def _map_gradient(map_data, vPixSep):
+    grad_row = np.gradient(map_data, vPixSep[0], axis=0)
+    grad_col = np.gradient(map_data, vPixSep[1], axis=1)
+    return grad_row, grad_col
+
+
+def _trans_ind2size(full_shape, vi1):
+    nrows = full_shape[0]
+    row0 = (vi1 - 1) % nrows
+    col0 = (vi1 - 1) // nrows
+    r_min, r_max = row0.min(), row0.max()
+    c_min, c_max = col0.min(), col0.max()
+    sub_nrows = r_max - r_min + 1
+    sub_ncols = c_max - c_min + 1
+    sub_row0 = row0 - r_min
+    sub_col0 = col0 - c_min
+    vi2 = sub_row0 + sub_col0 * sub_nrows + 1
+    return (sub_nrows, sub_ncols), (r_min, c_min), vi2
+
+
+def _map_interp2(interp, pix):
+    return interp(pix)
+
+
+def _pos2pix(pos, vCenterG, angle, vCenterL, vPixSep):
+    """Global [row,col] positions → 1-based [row,col] pixels."""
+    shifted = pos - vCenterG
+    if abs(angle) > 1e-15:
+        c, s = np.cos(-angle), np.sin(-angle)
+        rotated = np.column_stack(
+            [
+                c * shifted[:, 0] - s * shifted[:, 1],
+                s * shifted[:, 0] + c * shifted[:, 1],
+            ]
+        )
+    else:
+        rotated = shifted
+    return (rotated + vCenterL) / vPixSep
+
+
+def _level_2d_pos(x, y, mm, viParLevel):
+    if viParLevel is None or len(viParLevel) == 0:
+        return mm
+    n = len(x)
+    result = mm.copy()
+    cols = []
+    for p in viParLevel:
+        if p == 1:
+            cols.append(np.ones(n))
+        elif p == 2:
+            cols.append(x)
+        elif p == 3:
+            cols.append(y)
+        elif p == 4:
+            cols.append(x * y)
+        elif p == 5:
+            cols.append(x**2)
+        elif p == 6:
+            cols.append(y**2)
+    if not cols:
+        return mm
+    A = np.column_stack(cols)
+    for col_idx in range(mm.shape[1]):
+        data = mm[:, col_idx]
+        vb = ~np.isnan(data)
+        if vb.sum() < len(cols) + 1:
+            continue
+        coeffs, _, _, _ = np.linalg.lstsq(A[vb], data[vb], rcond=None)
+        result[:, col_idx] = data - A @ coeffs
+    return result
+
+
+def _rotz(v, angle):
+    c, s = np.cos(angle), np.sin(angle)
+    if v.ndim == 1:
+        return np.array([c * v[0] - s * v[1], s * v[0] + c * v[1]])
+    return np.column_stack(
+        [
+            c * v[:, 0] - s * v[:, 1],
+            s * v[:, 0] + c * v[:, 1],
         ]
     )
 
-    # For a full, unregistered map, vCenterG = vCenterL
-    vCenterG = vCenterL.copy()
 
-    return MapStruct(
-        map=image.data.copy(),
-        vCenterG=vCenterG,
-        vCenterL=vCenterL,
-        angle=angle,
-        vPixSep=vPixSep,
+def _get_optimal_crosscorr_and_comparison_center(
+    rotated: FloatArray2D, cell_data: FloatArray2D
+) -> tuple[float, int, int]:
+    mean_subtracted_rotated = _replace_nan_with_image_mean(rotated)
+    mean_subtracted_cell_data = _replace_nan_with_image_mean(cell_data)
+    """Compute optimal cross correlation and corresponding location of top-left idxs of mean_subtracted_cell_data.
+        Mean_subtracted_rotated is reference.
+
+    :param rotated: the rotated reference imag.
+    :param cell_data: the cell data.
+    :return: largest cross correlation value and corresponding translation in pixel space (y, x)
+    """
+    # match_template computes NCC via FFT; pad_input=False means the
+    # output is (comp_height - cell_data_height + 1, comp_width - cell_data_width + 1)
+    # and each index corresponds to the top-left corner of the cell_data position.
+    cc_map = match_template(
+        mean_subtracted_rotated, mean_subtracted_cell_data, pad_input=False
     )
+    iy, ix = np.unravel_index(np.argmax(cc_map), cc_map.shape)
+    score = float(cc_map[iy, ix])
+
+    return score, ix, iy
 
 
-def _rc_to_xy(rc: np.ndarray) -> np.ndarray:
-    """Convert [row, col] → [x, y]."""
-    return np.array([rc[1], rc[0]])
+def _update_cell(
+    cell, cross_correlation_value, angle, left_column, top_row, pixel_spacing
+):
+    pixel_height, pixel_width = cell.cell_data.shape
+    center_comparison_meters = np.array(
+        [
+            (left_column + (pixel_width - 1) / 2.0) * pixel_spacing[0],
+            (top_row + (pixel_height - 1) / 2.0) * pixel_spacing[1],
+        ]
+    )
+    cell.best_score = cross_correlation_value
+    cell.angle_reference = angle
+    cell.center_comparison = center_comparison_meters
 
 
-def _xy_to_rc(xy: np.ndarray) -> np.ndarray:
-    """Convert [x, y] → [row, col]."""
-    return np.array([xy[1], xy[0]])
-
-
-def register_cells(
+def _fine_tune_cell(
+    cell: Cell,
     reference_image: ScanImage,
     comparison_image: ScanImage,
     params: ComparisonParams,
-) -> list[Cell]:
+) -> None:
     """
-    Run the MATLAB-faithful per-cell registration pipeline.
+    Refine a single cell registration using the MATLAB-faithful gradient fine
+    registration algorithm (``maps_register_fine_gradient``).
 
-    The reference image is divided into cells; each cell is registered against
-    the comparison image via a coarse angular sweep followed by gradient-based
-    ECC fine registration.
+    Works in physical coordinates on the full comparison image — no crop.
+    Seeded from the Stage 1 NCC position and angle estimate.
 
+    Coordinate conventions
+    ----------------------
+    Application layer (ScanImage, Cell):
+        ``[x, y]`` in metres, x = column direction, y = row direction.
+        Pixel positions are 0-based: ``pos = 0based_pixel * pixel_spacing``.
+
+    MATLAB engine (MapStruct):
+        ``[row, col]`` in metres.  Pixel indexing is 1-based:
+        ``pos = 1based_pixel * vPixSep`` (when ``vCenterG == vCenterL``).
+
+    The conversion between the two systems is a shift of exactly one pixel:
+        ``1based_pixel = 0based_pixel + 1``
+        ``matlab_pos   = app_pos + vPixSep``
+
+    :param cell: Cell instance with Stage 1 NCC result in
+        ``center_comparison`` and ``angle_reference``.
     :param reference_image: Fixed surface map.
     :param comparison_image: Moving surface map.
-    :param params: Algorithm parameters.  The angular sweep runs from
-        ``search_angle_min`` to ``search_angle_max`` (in degrees).
-    :returns: Cell list for all cells that pass the fill-fraction check.
+    :param params: Algorithm parameters (used for cell size and fill fraction).
     """
-    # Convert to MATLAB engine types
-    map1 = _surface_map_to_map_struct(reference_image, angle=0.0)
-    map2 = _surface_map_to_map_struct(comparison_image, angle=0.0)
+    ps = reference_image.pixel_spacing  # [dx, dy]  (x=col, y=row)
+    vPS = np.array([ps[1], ps[0]])  # [dy, dx]  — MATLAB [row, col]
 
-    # Cell size: params uses (width, height) = (x, y), engine uses [row, col]
-    vCellSize = np.array([params.cell_size[1], params.cell_size[0]])
+    ref_nrows, ref_ncols = reference_image.data.shape
+    comp_nrows, comp_ncols = comparison_image.data.shape
 
-    # --- Grid origin via coverage-maximising optimisation ---
-    # _find_grid_origin returns the first-cell centre [x, y] in metres.
-    # Convert to [row, col] for the MATLAB engine.
-    origin_xy = _find_grid_origin(reference_image, params)
-    vCellPosition = _xy_to_rc(origin_xy)
+    # Global image centres; for full images vCenterG == vCenterL
+    ref_vCG = np.array(
+        [np.ceil(ref_nrows / 2) * vPS[0], np.ceil(ref_ncols / 2) * vPS[1]]
+    )
+    comp_vCG_init = np.array(
+        [np.ceil(comp_nrows / 2) * vPS[0], np.ceil(comp_ncols / 2) * vPS[1]]
+    )
 
-    # Angular search range: params uses degrees, engine uses radians
-    shiftAngleMin = np.radians(params.search_angle_min)
-    shiftAngleMax = np.radians(params.search_angle_max)
+    # ---- Recover the top-left pixel offset of this cell in the reference image ----
+    # Reproduces the same arithmetic used in register_cells when the cell was extracted.
+    cell_height, cell_width = cell.cell_data.shape
+    cell_size_px = meters_to_pixels(params.cell_size, ps)
+    top_row = max(0, int(round(cell.center_reference[1] / ps[1] - cell_size_px[1] / 2)))
+    left_col = max(
+        0, int(round(cell.center_reference[0] / ps[0] - cell_size_px[0] / 2))
+    )
+    vTrans = np.array([top_row, left_col], dtype=np.float64)
 
-    # Run the MATLAB-faithful cell correlation analysis
-    results = cell_corr_analysis(
-        map1=map1,
-        map2=map2,
-        vCellSize=vCellSize,
-        vCellPosition=vCellPosition,
-        shiftAngleMin=shiftAngleMin,
-        shiftAngleMax=shiftAngleMax,
-        cellFillRefMin=params.minimum_fill_fraction,
-        cellFillRegMin=max(0.1, params.minimum_fill_fraction - 0.15),
-        cellFillRedMax=0.50,
+    # ---- Build cell MapStruct ----
+    # MATLAB: Cell.Map1.vCenterG = Map1.vCenterG  (shared)
+    #         Cell.Map1.vCenterL = Map1.vCenterL - vTrans * vPixSep
+    cell_map = MapStruct(
+        map=cell.cell_data.copy(),
+        vCenterG=ref_vCG.copy(),
+        vCenterL=ref_vCG - vTrans * vPS,
+        angle=0.0,
+        vPixSep=vPS.copy(),
+    )
+
+    # ---- Compute vPos1: cell centre in reference, MATLAB 1-based convention ----
+    # 1-based centre pixel = (0-based top-left) + (cell_size - 1)/2 + 1
+    vPos1 = np.array(
+        [
+            (top_row + (cell_height - 1) / 2.0 + 1) * vPS[0],
+            (left_col + (cell_width - 1) / 2.0 + 1) * vPS[1],
+        ]
+    )
+
+    # ---- Seed comp MapStruct from Stage 1 NCC result ----
+    # NCC center_comparison is in 0-based [x, y] metres.
+    # Convert to MATLAB 1-based [row, col] metres by adding one pixel per axis.
+    angle_seed = np.radians(cell.angle_reference)
+    comp_pos_m = np.array(
+        [
+            cell.center_comparison[1] + vPS[0],  # row (y direction)
+            cell.center_comparison[0] + vPS[1],  # col (x direction)
+        ]
+    )
+    # Derive vCenterG2 seed so that the coordinate transform maps vPos1 → comp_pos_m:
+    #   vPos2 = rotz(vPos1 - vCG2, -angle2) + vCL2
+    #   => vCG2 = vPos1 - rotz(vPos2 - vCL2, angle2)
+    vCG2_seed = vPos1 - _rotz(comp_pos_m - comp_vCG_init, angle_seed)
+
+    comp_map = MapStruct(
+        map=comparison_image.data.copy(),
+        vCenterG=vCG2_seed,
+        vCenterL=comp_vCG_init.copy(),
+        angle=angle_seed,
+        vPixSep=vPS.copy(),
+    )
+
+    # ---- Minimum overlap for fine registration ----
+    cell_area = params.cell_size[0] * params.cell_size[1]
+    n_overlap_min = int(np.floor(_FINE_CELL_FILL_REG_MIN * cell_area / np.prod(vPS)))
+
+    # ---- Run gradient fine registration ----
+    vCG2_out, angle2_out, _, sim_val = maps_register_fine_gradient(
+        cell_map=cell_map,
+        comp_map=comp_map,
+        angle_min=angle_seed - _FINE_ANGLE_HALF_RAD,
+        angle_max=angle_seed + _FINE_ANGLE_HALF_RAD,
+        n_overlap_min=n_overlap_min,
         viParLevel=np.array([1]),
-        viParLevelReg=np.array([1]),
-        scale_min=1.0,
-        scale_max=1.0,
-        cellConvAnglePix=0.5,
-        nCellRegImageReductionMax=4,
-        nInterval=3,
-        bEval180=False,
-        verbose=False,
     )
 
-    # Default CellMetaData before classification has run
-    _default_meta = CellMetaData(
-        is_outlier=False,
-        residual_angle_deg=0.0,
-        position_error=(0.0, 0.0),
+    if np.isnan(sim_val):
+        cell.best_score = 0.0
+        return
+
+    # ---- Convert result back to application [x, y] 0-based convention ----
+    # Recover vPos2 (cell centre in comp image, MATLAB 1-based metres):
+    #   vPos2 = rotz(vPos1 - vCG2, -angle2) + vCL2
+    vPos2 = _rotz(vPos1 - vCG2_out, -angle2_out) + comp_vCG_init
+
+    # Convert from 1-based metres to 0-based metres (subtract one pixel per axis)
+    cell.center_comparison = np.array(
+        [
+            vPos2[1] - vPS[1],  # x = col direction
+            vPos2[0] - vPS[0],  # y = row direction
+        ]
     )
+    cell.angle_reference = float(np.degrees(angle2_out))
+    cell.best_score = float(sim_val)
 
-    # Convert engine results → Cell objects
-    cell_results: list[Cell] = []
-    for r in results:
-        center_ref_xy = _rc_to_xy(r.vPos1)
-        center_ref: tuple[float, float] = (
-            float(center_ref_xy[0]),
-            float(center_ref_xy[1]),
-        )
 
-        if r.bValid:
-            center_comp_xy = _rc_to_xy(r.vPos2)
-            center_comp: tuple[float, float] = (
-                float(center_comp_xy[0]),
-                float(center_comp_xy[1]),
-            )
-            angle_deg = float(np.degrees(r.dAngle))
-            accf = float(r.accf)
-        else:
-            # TODO bValid should never be False. See cell_registration_matlab line 796 and below.
-            center_comp = (float("nan"), float("nan"))
-            angle_deg = float("nan")
-            accf = float("nan")
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-        cell_results.append(
-            Cell(
-                center_reference=center_ref,
-                center_comparison=center_comp,
-                cell_data=r.cell_data if hasattr(r, "cell_data") else np.zeros((2, 2)),
-                fill_fraction_reference=float(r.fill1),
-                best_score=accf,
-                angle_deg=angle_deg,
-                is_congruent=False,
-                meta_data=_default_meta.model_copy(),
-            )
-        )
 
-    return cell_results
+def _rotate_comparison_image(
+    image: FloatArray2D, angle_deg_reference: float
+) -> FloatArray2D:
+    """Rotate image by angle_deg (degrees), NaN-padding, full-resolution."""
+    if np.isclose(angle_deg_reference, 0.0):
+        return image
+    # rotate by negative angle since angle_deg_reference is defined as the rotation of the reference
+    return rotate(image, -float(angle_deg_reference), preserve_range=True, cval=np.nan)
+
+
+def _replace_nan_with_image_mean(image: FloatArray2D) -> FloatArray2D:
+    """Replace NaN with the image mean (or 0 if all-NaN)."""
+    if not np.any(np.isnan(image)):
+        return image.astype(np.float64)
+    mean = float(np.nanmean(image)) if not np.all(np.isnan(image)) else 0.0
+    return np.where(np.isnan(image), mean, image).astype(np.float64)
