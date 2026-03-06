@@ -12,7 +12,8 @@ from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
-from conversion.data_formats import ReferenceData
+from conversion.data_formats import MarkType
+from conversion.likelihood_ratio import ReferenceData
 
 DEFAULT_COLORMAP = "viridis"
 
@@ -386,33 +387,52 @@ def draw_metadata_box(
         table[i, 1].PAD = 0.02
 
 
+def _format_lr(llr_data: LLRData) -> str:
+    """Format a single log-LR value with optional confidence interval."""
+    if len(llr_data.llrs) != 1:
+        msg = f"expected single LR value, got {len(llr_data.llrs)}"
+        raise ValueError(msg)
+
+    log_lr = llr_data.llrs[0]
+    intervals = llr_data.llr_intervals
+
+    if intervals is not None:
+        lower, upper = intervals[0, 0], intervals[0, 1]
+        return f"{log_lr:.2f} ({lower:.2f}, {upper:.2f})"
+    return f"{log_lr:.2f}"
+
+
+def _common_metadata(
+    reference_data: ReferenceData,
+    llr_data: LLRData,
+    date_report: datetime.date,
+    user_id: str,
+    mark_type: MarkType,
+) -> dict[str, str]:
+    """Metadata fields shared across all mark types."""
+    return {
+        "Date report": date_report.isoformat(),
+        "User ID": user_id,
+        "Mark type": mark_type.value,
+        "LogLR (5%, 95%)": _format_lr(llr_data),
+        "# of KM scores": str(len(reference_data.km_scores)),
+        "# of KNM scores": str(len(reference_data.knm_scores)),
+    }
+
+
 def build_results_metadata_striation(
     reference_data: ReferenceData,
     llr_data: LLRData,
     date_report: datetime.date,
     user_id: str,
-    mark_type: str,
+    mark_type: MarkType,
     score: float,
     score_transform: float,
 ) -> dict[str, str]:
-    if len(llr_data.llrs) != 1:
-        msg = f"expected single LR value, got {len(llr_data.llrs)}"
-        raise ValueError(msg)
-    intervals = llr_data.llr_intervals
-    log_lr = llr_data.llrs[0]
-    if intervals is not None:
-        lr_str = f"{log_lr:.2f} ({intervals[0, 0]:.2f}, {intervals[0, 1]:.2f})"
-    else:
-        lr_str = f"{log_lr:.2f}"
     return {
-        "Date report": date_report,
-        "User ID": user_id,
-        "Mark type": mark_type,
+        **_common_metadata(reference_data, llr_data, date_report, user_id, mark_type),
         "Score type": "CCF",
         "Score (transform)": f"{score:.2f} ({score_transform:.2f})",
-        "LogLR (5%, 95%)": lr_str,
-        "# of KM scores": str(len(reference_data.km_scores)),
-        "# of KNM scores": str(len(reference_data.knm_scores)),
     }
 
 
@@ -421,43 +441,14 @@ def build_results_metadata_impression(
     llr_data: LLRData,
     date_report: datetime.date,
     user_id: str,
-    mark_type: str,
+    mark_type: MarkType,
     score: int,
     n_cells: int,
-    km_model: str,
-    knm_model: str,
 ) -> dict[str, str]:
-    """
-    Build display metadata for an impression comparison report.
-
-    :param reference_data: Reference population data with KM/KNM scores and LLRs.
-    :param llr_data: LLR result for the case comparison (must contain exactly one value).
-    :param date_report: Date of the report.
-    :param user_id: Identifier of the user who performed the comparison.
-    :param mark_type: Type of impression mark (e.g. "Breech face impression").
-    :param score: CMC score (number of congruent matching cells).
-    :param n_cells: Total number of cells in the comparison grid.
-    :param km_model: Distribution model used for known-match population.
-    :param knm_model: Distribution model used for known-non-match population.
-    :returns: Dictionary of display labels to formatted string values.
-    """
-    if len(llr_data.llrs) != 1:
-        raise ValueError(f"expected single LR value, got {len(llr_data.llrs)}")
-    intervals = llr_data.llr_intervals
-    log_lr = llr_data.llrs[0]
-    if intervals is not None:
-        lr_str = f"{log_lr:.2f} ({intervals[0, 0]:.2f}, {intervals[0, 1]:.2f})"
-    else:
-        lr_str = f"{log_lr:.2f}"
     return {
-        "Date report": date_report,
-        "User ID": user_id,
-        "Mark type": mark_type,
-        "KM model": km_model,
-        "KNM model": knm_model,
+        **_common_metadata(reference_data, llr_data, date_report, user_id, mark_type),
+        "KM model": reference_data.km_model,
+        "KNM model": reference_data.knm_model,
         "Score type": "CMC",
-        "Score (transform)": f"{score} of {n_cells} ",
-        "LogLR (5%, 95%)": lr_str,
-        "# of KM scores": str(len(reference_data.km_scores)),
-        "# of KNM scores": str(len(reference_data.knm_scores)),
+        "Score (transform)": f"{score} of {n_cells}",
     }

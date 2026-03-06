@@ -1,6 +1,7 @@
 import datetime
 from typing import Self
 
+from conversion.plots.data_formats import ImpressionComparisonMetrics
 from pydantic import DirectoryPath, Field, FilePath, NonNegativeFloat, NonNegativeInt, PositiveInt, model_validator
 
 from models import BaseModelConfig
@@ -45,6 +46,7 @@ class CalculateLRImpression(CalculateLR, StriationParameters):
     score: NonNegativeInt
     n_cells: PositiveInt
     param: ImpressionLRParameters
+    metrics: ImpressionComparisonMetrics
 
     @model_validator(mode="after")
     def score_cannot_exceed_n_cells(self) -> Self:
@@ -58,5 +60,7 @@ class StriationLRParameters(BaseModelConfig): ...
 
 
 class CalculateLRStriation(CalculateLR, StriationParameters):
+    mark_dir_ref_aligned: DirectoryPath
+    mark_dir_comp_aligned: DirectoryPath
     score: NonNegativeFloat
     param: StriationLRParameters

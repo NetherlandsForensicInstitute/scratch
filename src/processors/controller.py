@@ -1,15 +1,27 @@
 from http import HTTPStatus
 from pathlib import Path
 
-from conversion.data_formats import Mark, ReferenceData
+import numpy as np
+from conversion.data_formats import Mark
+from conversion.export.mark import load_mark_from_path
+from conversion.likelihood_ratio import (
+    ReferenceData,
+    calculate_lr_impression,
+    calculate_lr_striation,
+    get_lr_system,
+    get_reference_data,
+)
 from conversion.plots.data_formats import HistogramData, ImpressionComparisonMetrics, LlrTransformationData
 from conversion.plots.plot_ccf_comparison_overview import plot_ccf_comparison_overview
 from conversion.plots.plot_cmc_comparison_overview import plot_cmc_comparison_overview
 from conversion.plots.plot_striation import plot_striation_comparison_results
+from conversion.plots.utils import build_results_metadata_impression, build_results_metadata_striation
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from fastapi import HTTPException
 from loguru import logger
 from PIL import Image
+
+from processors.schemas import CalculateLRImpression, CalculateLRStriation
 
 
 def compare_striation_marks(
@@ -98,8 +110,8 @@ def save_lr_impression_plot(  # noqa: PLR0913
         llr_data=LlrTransformationData(
             scores=reference_data.scores,
             llrs=reference_data.llrs,
-            llrs_at5=reference_data.llrs_at5,
-            llrs_at95=reference_data.llrs_at95,
+            llrs_at5=reference_data.llr_intervals[0],
+            llrs_at95=reference_data.llr_intervals[1],
             score_llr_point=(score, lr),
         ),
     )
@@ -152,9 +164,123 @@ def save_lr_striation_plot(  # noqa: PLR0913
         llr_data=LlrTransformationData(
             scores=reference_data.scores,
             llrs=reference_data.llrs,
-            llrs_at5=reference_data.llrs_at5,
-            llrs_at95=reference_data.llrs_at95,
+            llrs_at5=reference_data.llr_intervals[0],
+            llrs_at95=reference_data.llr_intervals[1],
             score_llr_point=(score, lr),
         ),
     )
     Image.fromarray(plot).save(output_path)
+
+
+def process_lr_striation(
+    lr_input: CalculateLRStriation,
+    files: dict[str, Path],
+) -> float:
+    """Calculate LR for striation marks and save the overview plot."""
+    lr_system = get_lr_system(lr_input.lr_system_path)
+    reference_data = get_reference_data(lr_input.lr_system_path)
+    llr_data = calculate_lr_striation(lr_system, lr_input.score)
+    log_lr = llr_data.llrs[0]
+
+    mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
+    mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
+    mark_ref_aligned = load_mark_from_path(lr_input.mark_dir_ref_aligned, stem="aligned")
+    mark_comp_aligned = load_mark_from_path(lr_input.mark_dir_comp_aligned, stem="aligned")
+
+    results_metadata = build_results_metadata_striation(
+        reference_data=reference_data,
+        llr_data=llr_data,
+        date_report=lr_input.date_report,
+        user_id=lr_input.user_id,
+        mark_type=mark_ref.mark_type,
+        score=lr_input.score,
+        score_transform=lr_input.score,
+    )
+
+    save_lr_striation_plot(
+        reference_data=reference_data,
+        mark_ref=mark_ref,
+        mark_comp=mark_comp,
+        mark_ref_aligned=mark_ref_aligned,
+        mark_comp_aligned=mark_comp_aligned,
+        metadata_reference=lr_input.metadata_reference,
+        metadata_compared=lr_input.metadata_compared,
+        results_metadata=results_metadata,
+        score=lr_input.score,
+        lr=log_lr,
+        output_path=files["lr_overview_plot"],
+    )
+
+    return log_lr
+
+
+def process_lr_impression(
+    lr_input: CalculateLRImpression,
+    files: dict[str, Path],
+) -> float:
+    """Calculate LR for impression marks and save the overview plot."""
+    lr_system = get_lr_system(lr_input.lr_system_path)
+    reference_data = get_reference_data(lr_input.lr_system_path)
+    llr_data = calculate_lr_impression(lr_system, lr_input.score, lr_input.n_cells)
+    log_lr = llr_data.llrs[0]
+
+    mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
+    mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
+
+    # TODO: replace with saved list[Cells] when implemented
+    metrics = _placeholder_impression_metrics()
+
+    results_metadata = build_results_metadata_impression(
+        reference_data=reference_data,
+        llr_data=llr_data,
+        date_report=lr_input.date_report,
+        user_id=lr_input.user_id,
+        mark_type=mark_ref.mark_type,
+        score=lr_input.score,
+        n_cells=lr_input.n_cells,
+    )
+
+    save_lr_impression_plot(
+        reference_data=reference_data,
+        mark_ref=mark_ref,
+        mark_comp=mark_comp,
+        metrics=metrics,
+        metadata_reference=lr_input.metadata_reference,
+        metadata_compared=lr_input.metadata_compared,
+        results_metadata=results_metadata,
+        score=lr_input.score,
+        lr=log_lr,
+        output_path=files["lr_overview_plot"],
+    )
+
+    return log_lr
+
+
+def _placeholder_impression_metrics() -> ImpressionComparisonMetrics:
+    """Temporary hardcoded metrics until cell-level results are persisted."""
+    return ImpressionComparisonMetrics(
+        area_correlation=0.82,
+        cell_correlations=np.array([[0.75, 0.88, 0.45], [0.92, 0.31, 0.67]]),
+        cmc_score=66.7,
+        mean_square_ref=1.25,
+        mean_square_comp=1.31,
+        mean_square_of_difference=0.42,
+        has_area_results=True,
+        has_cell_results=True,
+        cell_positions_compared=np.array([
+            [10.0, 20.0],
+            [10.0, 60.0],
+            [10.0, 100.0],
+            [50.0, 20.0],
+            [50.0, 60.0],
+            [50.0, 100.0],
+        ]),
+        cell_rotations_compared=np.array([0.01, -0.02, 0.03, 0.0, -0.01, 0.02]),
+        cmc_area_fraction=55.0,
+        cutoff_low_pass=250.0,
+        cutoff_high_pass=25.0,
+        cell_size_um=300.0,
+        max_error_cell_position=50.0,
+        max_error_cell_angle=3.0,
+        cell_similarity_threshold=0.25,
+    )

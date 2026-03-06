@@ -2,9 +2,6 @@ from typing import Annotated
 from enum import StrEnum
 import json
 
-import numpy as np
-from lir import LLRData
-
 from container_models.base import (
     FloatArray2D,
 )
@@ -16,7 +13,6 @@ from pydantic import (
     AfterValidator,
     PlainSerializer,
     BeforeValidator,
-    model_validator,
 )
 from numpy import float64
 from container_models.base import (
@@ -112,49 +108,3 @@ class Mark(ConfigBaseModel):
             "meta_data": self.meta_data,
         }
         return json.dumps(data, indent=4)
-
-
-class ReferenceData(ConfigBaseModel):
-    km_model: str
-    km_scores: np.ndarray
-    km_llr_data: LLRData
-    knm_model: str
-    knm_scores: np.ndarray
-    knm_llr_data: LLRData
-
-    @model_validator(mode="after")
-    def _validate_matching_lengths(self):
-        if len(self.km_scores) != len(self.km_llr_data.llrs):
-            raise ValueError("km_scores and km_lrs must have the same length")
-        if len(self.knm_scores) != len(self.knm_llr_data.llrs):
-            raise ValueError("knm_scores and knm_lrs must have the same length")
-        return self
-
-    @property
-    def scores(self) -> np.ndarray:
-        return np.concatenate([self.km_scores, self.knm_scores])
-
-    @property
-    def llrs(self) -> np.ndarray:
-        return np.concatenate([self.km_llr_data.llrs, self.knm_llr_data.llrs])
-
-    @property
-    def labels(self) -> np.ndarray:
-        return np.concatenate(
-            [
-                np.ones(len(self.km_scores)),
-                np.zeros(len(self.knm_scores)),
-            ]
-        )
-
-    @property
-    def llrs_at5(self) -> np.ndarray:
-        km = self.km_llr_data.llr_intervals
-        knm = self.knm_llr_data.llr_intervals
-        return np.concatenate([km[:, 0], knm[:, 0]])
-
-    @property
-    def llrs_at95(self) -> np.ndarray:
-        km = self.km_llr_data.llr_intervals
-        knm = self.knm_llr_data.llr_intervals
-        return np.concatenate([km[:, 1], knm[:, 1]])

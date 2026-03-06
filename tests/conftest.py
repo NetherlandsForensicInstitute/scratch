@@ -8,7 +8,8 @@ import numpy as np
 import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType, ReferenceData
+from conversion.data_formats import Mark, MarkType
+from conversion.likelihood_ratio import ReferenceData
 from conversion.plots.data_formats import ImpressionComparisonMetrics
 from conversion.plots.utils import build_results_metadata_impression
 from fastapi.testclient import TestClient
@@ -18,7 +19,7 @@ from constants import PROJECT_ROOT
 from main import app
 from models import DirectoryAccess
 from settings import Settings
-from tests.processors.test_router import _IdentityLRSystem
+from tests.processors.conftest import _IdentityLRSystem
 
 
 @pytest.fixture(scope="session")
@@ -153,11 +154,9 @@ def results_metadata(reference_data: ReferenceData) -> dict[str, str]:
         llr_data=LLRData(features=np.array([5.19])),
         date_report=date(2023, 2, 16),
         user_id="test_user",
-        mark_type="Breech face impression",
+        mark_type=MarkType.BREECH_FACE_IMPRESSION,
         score=4,
         n_cells=6,
-        km_model="kde",
-        knm_model="kde",
     )
 
 

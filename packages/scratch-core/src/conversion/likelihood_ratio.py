@@ -1,11 +1,56 @@
 import pickle
 from pathlib import Path
+from typing import Self
 
 import numpy as np
 from lir.data.models import FeatureData, LLRData
 from lir.lrsystems import LRSystem
+from pydantic import model_validator
 
-from conversion.data_formats import ReferenceData
+from container_models.base import ConfigBaseModel
+
+
+class ReferenceData(ConfigBaseModel):
+    km_model: str
+    km_scores: np.ndarray
+    km_llr_data: LLRData
+    knm_model: str
+    knm_scores: np.ndarray
+    knm_llr_data: LLRData
+
+    @model_validator(mode="after")
+    def _validate_matching_lengths(self) -> Self:
+        if len(self.km_scores) != len(self.km_llr_data.llrs):
+            raise ValueError("km_scores and km_lrs must have the same length")
+        if len(self.knm_scores) != len(self.knm_llr_data.llrs):
+            raise ValueError("knm_scores and knm_lrs must have the same length")
+        return self
+
+    @property
+    def scores(self) -> np.ndarray:
+        return np.concatenate([self.km_scores, self.knm_scores])
+
+    @property
+    def llrs(self) -> np.ndarray:
+        return np.concatenate([self.km_llr_data.llrs, self.knm_llr_data.llrs])
+
+    @property
+    def llr_intervals(self) -> np.ndarray:
+        """Concatenated KM and KNM LLR intervals, shape (n, 2)."""
+        km = self.km_llr_data.llr_intervals
+        knm = self.knm_llr_data.llr_intervals
+        if km is None or knm is None:
+            raise ValueError("Only models with llr_intervals can be used")
+        return np.concatenate([km, knm], axis=0)
+
+    @property
+    def labels(self) -> np.ndarray:
+        return np.concatenate(
+            [
+                np.ones(len(self.km_scores), dtype=bool),
+                np.zeros(len(self.knm_scores), dtype=bool),
+            ]
+        )
 
 
 def get_lr_system(
