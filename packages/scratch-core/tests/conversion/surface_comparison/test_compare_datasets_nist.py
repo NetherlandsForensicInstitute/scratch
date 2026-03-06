@@ -15,9 +15,7 @@ import pytest
 from matplotlib import pyplot as plt
 
 from conversion.surface_comparison.cell_registration import register_cells
-from conversion.surface_comparison.cmc_classification import (
-    classify_congruent_cells,
-)
+from conversion.surface_comparison.cmc_classification import classify_congruent_cells
 from conversion.surface_comparison.models import (
     ComparisonParams,
     ComparisonResult,
@@ -42,22 +40,22 @@ def discover_test_cases() -> list[str]:
 def run_pipeline(test_case: MatlabTestCase) -> ComparisonResult:
     """Execute the simone comparison pipeline for a test case."""
     params = ComparisonParams(
-        cell_size=test_case.params.cell_size.copy(),
+        cell_size=test_case.params.cell_size,
         minimum_fill_fraction=test_case.params.minimum_fill_fraction,
         correlation_threshold=test_case.params.correlation_threshold,
-        angle_threshold=test_case.params.angle_threshold,
+        angle_deviation_threshold=test_case.params.angle_deviation_threshold,
         position_threshold=test_case.params.position_threshold,
         search_angle_min=test_case.params.search_angle_min,
         search_angle_max=test_case.params.search_angle_max,
         search_angle_step=test_case.params.search_angle_step,
     )
-    result = ComparisonResult()
-    result.cells = register_cells(
-        test_case.reference_map, test_case.comparison_map, params
+    cells = register_cells(test_case.reference_map, test_case.comparison_map, params)
+    global_center = test_case.reference_map.global_center
+    rotation_center: tuple[float, float] = (
+        float(global_center[0]),
+        float(global_center[1]),
     )
-    classify_congruent_cells(result, params, test_case.reference_map.global_center)
-    result.update_summary()
-    return result
+    return classify_congruent_cells(cells, params, rotation_center)
 
 
 def plot_rotated_squares(
@@ -163,7 +161,7 @@ class TestCompareDatasetsNISTSimone:
                             c.center_comparison[1] / comp_scale_y,
                         ),
                         (cell_w_px, cell_h_px),
-                        -np.degrees(c.registration_angle),
+                        -c.angle_deg,
                     )
                     for c in self.result.cells
                 ],

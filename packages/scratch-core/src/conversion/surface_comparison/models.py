@@ -41,7 +41,7 @@ class Cell(ConfigBaseModel):
     center_reference: tuple[float, float]
     cell_data: FloatArray2D
     fill_fraction_reference: float = Field(ge=0.0, le=1.0)
-    best_score: float = Field(ge=0.0, le=1.0)
+    best_score: float = Field(ge=-1.0, le=1.0)
     angle_deg: float = Field(ge=-180, le=180)
     center_comparison: tuple[float, float]
     is_congruent: bool
@@ -50,11 +50,11 @@ class Cell(ConfigBaseModel):
     @field_validator("fill_fraction_reference", "best_score", mode="before")
     @classmethod
     def check_upper_bound_with_tol(cls, value: float | None):
-        tol = 1e-6
+        tol_upper = 1e-6
         if value is None:
             return value
-        if value > 1.0 + tol:
-            raise ValueError(f"value must be ≤ 1.0 (+{tol} tolerance)")
+        if value > 1.0 + tol_upper:
+            raise ValueError(f"value must be ≤ 1.0 (+{tol_upper} tolerance)")
         return min(value, 1.0)  # clip value
 
 

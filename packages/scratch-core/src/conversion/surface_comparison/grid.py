@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.signal import fftconvolve
 
-from conversion.surface_comparison.models import SurfaceMap, ComparisonParams
+from container_models.scan_image import ScanImage
+from conversion.surface_comparison.models import ComparisonParams
 from conversion.surface_comparison.utils import m_to_pixels
 
 
@@ -29,9 +30,7 @@ def _axis_centers(origin_coord: float, cell_sz: float, image_sz: float) -> np.nd
     return np.array(centers)
 
 
-def _find_grid_origin(
-    reference_map: SurfaceMap, params: ComparisonParams
-) -> np.ndarray:
+def _find_grid_origin(reference_map: ScanImage, params: ComparisonParams) -> np.ndarray:
     """
     Find the grid seed [x, y] that maximises total valid-data coverage.
 
@@ -179,7 +178,7 @@ def _find_grid_origin(
 
 
 def generate_grid_centers(
-    reference_map: SurfaceMap, origin: np.ndarray, params: ComparisonParams
+    reference_map: ScanImage, origin: np.ndarray, params: ComparisonParams
 ) -> np.ndarray:
     """
     Generate center coordinates for all cells in the grid.

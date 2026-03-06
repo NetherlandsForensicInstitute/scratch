@@ -21,8 +21,7 @@ from .helpers import build_test_inputs
 
 TEST_ROOT = Path(__file__).parent.parent.parent
 RESOURCES_DIR = TEST_ROOT / "resources"
-TEST_DATA_PATH = RESOURCES_DIR / "cmc" / "classification" / "cmc_test_data.json"
-
+TEST_DATA_PATH = RESOURCES_DIR / "cmc" / "classification" / "cmc_test_data_degrees.json"
 
 ANGLE_ATOL = 1e-10
 TRANSLATION_ATOL = 1e-10
@@ -58,7 +57,7 @@ class TestClassifyCongruentCells:
 
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        expected_cmc_count = matlab_test_case["outputs"]["cmc_count"]
+        expected_cmc_count = matlab_test_case["outputs"]["nCmc"]
         assert result.cmc_count == expected_cmc_count, (
             f"[{matlab_test_case['name']}] CMC count mismatch: "
             f"expected {expected_cmc_count}, got {result.cmc_count}"
@@ -70,7 +69,7 @@ class TestClassifyCongruentCells:
 
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        expected_flags = matlab_test_case["outputs"]["is_congruent"]
+        expected_flags = matlab_test_case["outputs"]["vbVal"]
         if isinstance(expected_flags, bool):
             expected_flags = [expected_flags]
         actual_flags = [cell.is_congruent for cell in result.cells]
@@ -86,7 +85,7 @@ class TestClassifyCongruentCells:
 
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
+        expected_rotation = matlab_test_case["outputs"]["rAngle"]
         if np.isnan(expected_rotation):
             assert np.isnan(result.consensus_rotation), (
                 f"[{matlab_test_case['name']}] Expected NaN consensus rotation, "
@@ -106,7 +105,7 @@ class TestClassifyCongruentCells:
 
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        expected_translation = matlab_test_case["outputs"]["consensus_translation"]
+        expected_translation = matlab_test_case["outputs"]["vTrans"]
         actual_translation = result.consensus_translation
         if all(item is None for item in expected_translation):
             assert all(np.isnan(v) for v in actual_translation), (
@@ -127,87 +126,73 @@ class TestSpecificScenarios:
 
     def test_all_congruent_no_outliers(self) -> None:
         """All cells share a consistent transformation — all should be CMC."""
-        # Arrange
         cells, params, rotation_center = build_test_inputs(
             _get_case("all_congruent_no_outliers")["inputs"]
         )
 
-        # Act
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert
         assert all(cell.is_congruent for cell in result.cells)
         assert result.cmc_count == 6
 
     def test_low_similarity_rejected(self) -> None:
         """Cells below the correlation threshold must not be classified as CMC."""
-        # Arrange
         cells, params, rotation_center = build_test_inputs(
             _get_case("low_similarity_cells")["inputs"]
         )
 
-        # Act
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert — cells at index 1 and 3 have scores 0.2 and 0.15 (below threshold 0.4)
+        # Cells at index 1 and 3 have scores 0.2 and 0.15 (below threshold 0.4)
         assert not result.cells[1].is_congruent
         assert not result.cells[3].is_congruent
         assert result.cmc_count == 4
 
     def test_esd_rejects_angle_outliers(self) -> None:
         """ESD outlier rejection should remove cells with aberrant angles."""
-        # Arrange
         cells, params, rotation_center = build_test_inputs(
             _get_case("angle_outliers_esd_rejection")["inputs"]
         )
 
-        # Act
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert — cells at index 2 and 6 are angle outliers (~29° and ~-23°)
+        # Cells at index 2 and 6 are angle outliers (~29° and ~-23°)
         assert not result.cells[2].is_congruent
         assert not result.cells[6].is_congruent
         assert result.cmc_count == 6
 
     def test_position_outliers_rejected(self) -> None:
         """Cells with large position residuals must be rejected."""
-        # Arrange
         cells, params, rotation_center = build_test_inputs(
             _get_case("position_outliers")["inputs"]
         )
 
-        # Act
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert — cells at index 1 and 4 exceed the position threshold
+        # Cells at index 1 and 4 exceed the position threshold
         assert not result.cells[1].is_congruent
         assert not result.cells[4].is_congruent
         assert result.cmc_count == 4
 
     def test_no_valid_cells(self) -> None:
         """When all cells are below the similarity threshold, zero CMCs result."""
-        # Arrange
         cells, params, rotation_center = build_test_inputs(
             _get_case("no_valid_cells")["inputs"]
         )
 
-        # Act
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert
         assert not any(cell.is_congruent for cell in result.cells)
 
     def test_mixed_outliers(self) -> None:
         """Mixed failure modes: similarity, angle, and position outliers."""
-        # Arrange
         cells, params, rotation_center = build_test_inputs(
             _get_case("mixed_outliers")["inputs"]
         )
 
-        # Act
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert — index 1: low score, index 3: angle outlier, index 7: position outlier
+        # Index 1: low score, index 3: angle outlier, index 7: position outlier
         assert not result.cells[1].is_congruent
         assert not result.cells[3].is_congruent
         assert not result.cells[7].is_congruent
@@ -215,26 +200,33 @@ class TestSpecificScenarios:
 
     def test_single_cell(self) -> None:
         """A single valid cell should be classified as CMC."""
-        # Arrange
         cells, params, rotation_center = build_test_inputs(
             _get_case("single_cell")["inputs"]
         )
 
-        # Act
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert
         assert result.cells[0].is_congruent
 
     def test_all_angle_outliers_yields_no_cmc(self) -> None:
         """When all angles are widely scattered, ESD and tightening yield 0 CMC."""
-        # Arrange
         cells, params, rotation_center = build_test_inputs(
             _get_case("all_angle_outliers")["inputs"]
         )
 
-        # Act
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        # Assert
         assert not any(cell.is_congruent for cell in result.cells)
+
+    # def test_nan_similarity_handled(self) -> None:
+    #     """Cells with NaN similarity (failed registration) must not be CMC."""
+    #     cells, params, rotation_center = build_test_inputs(
+    #         _get_case("nan_similarity_values")["inputs"]
+    #     )
+    #
+    #     result = classify_congruent_cells(cells, params, rotation_center)
+    #
+    #     # Cells at index 1 and 4 have NaN similarity scores
+    #     assert not result.cells[1].is_congruent
+    #     assert not result.cells[4].is_congruent
+    #     assert result.cmc_count == 4

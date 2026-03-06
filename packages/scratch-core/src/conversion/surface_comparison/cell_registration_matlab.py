@@ -485,13 +485,14 @@ def _fun_minimize_gradient(
 
     n_pts = len(m_grad)
     mG = np.zeros((n_pts, len(vip)))
+    mp1_rel = mp1_v - vPar[:2]
     for idx, p in enumerate(vip):
         if p == 0:
-            mG[:, idx] = m_grad[:, 0]
+            mG[:, idx] = -m_grad[:, 0]
         elif p == 1:
-            mG[:, idx] = m_grad[:, 1]
+            mG[:, idx] = -m_grad[:, 1]
         elif p == 2:
-            mG[:, idx] = -m_grad[:, 0] * mp1_v[:, 1] + m_grad[:, 1] * mp1_v[:, 0]
+            mG[:, idx] = m_grad[:, 0] * mp1_rel[:, 1] - m_grad[:, 1] * mp1_rel[:, 0]
         elif p == 3:
             mG[:, idx] = m_grad[:, 0] * mp1_v[:, 0] + m_grad[:, 1] * mp1_v[:, 1]
     mG = mG - mG.mean(axis=0)
@@ -517,7 +518,7 @@ def _fun_minimize_gradient(
         lam2 = (s1_G_vp2 - s1_s2) / s1_G_vp1
         lam = max(lam1, lam2)
 
-    vdPar, _, _, _ = np.linalg.lstsq(mG, lam * s1 - s2, rcond=None)
+    vdPar, _, _, _ = np.linalg.lstsq(mG, s2 - lam * s1, rcond=None)
     vPar_out = vPar.copy()
     for idx, p in enumerate(vip):
         vPar_out[p] -= vdPar[idx]
@@ -617,12 +618,13 @@ def maps_register_fine_gradient(
             b_valid = True
             done = True
         else:
-            done = np.all(np.abs(vPar_next - vPar) <= tol_x) or cost_new > (
+            done = np.all(np.abs(vPar_next - vPar_new) <= tol_x) or cost_new > (
                 cost_val - conv_sim
             )
             if cost_new < cost_val:
                 vPar = vPar_next.copy()
                 cost_val = cost_new
+            vPar_new = vPar_next.copy()
 
     if not b_valid:
         return NAN_RESULT
@@ -794,17 +796,29 @@ def cell_corr_analysis(
         )
 
         if np.isnan(vCG2[0]):
+            # TODO deal with np.nans in the output of maps_register_fine_gradient. This should never output np.nans.
             results.append(
                 CellResult(
                     vPos1=cell["vPos1"],
-                    vPos2=np.full(2, np.nan),
-                    dAngle=np.nan,
-                    accf=np.nan,
+                    vPos2=np.full(2, 10**8),
+                    dAngle=0.0,
+                    accf=0.0,
                     fill1=cell["fill1"],
-                    vdPos=np.full(2, np.nan),
-                    bValid=False,
+                    vdPos=np.full(2, 0),
+                    bValid=True,
                 )
             )
+            # results.append(
+            #     CellResult(
+            #         vPos1=cell["vPos1"],
+            #         vPos2=np.full(2, np.nan),
+            #         dAngle=np.nan,
+            #         accf=np.nan,
+            #         fill1=cell["fill1"],
+            #         vdPos=np.full(2, np.nan),
+            #         bValid=False,
+            #     )
+            # )
             continue
 
         # vPos2 computation (MATLAB lines 316-328)

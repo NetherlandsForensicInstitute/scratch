@@ -9,7 +9,7 @@ The closest existing equivalent is ``run_comparison_pipeline``, which returns
 a ``ComparisonResult`` containing:
   - ``consensus_rotation``:            agreed rotation across CMC cells (degrees)
   - ``consensus_translation``:         agreed translation across CMC cells (m)
-  - ``congruent_matching_cells_count``:number of CMC cells
+  - ``cmc_count``:number of CMC cells
 
 These tests verify those global outputs for the identity case and a known
 translation case.  Rotation recovery at the pipeline level is exercised by
@@ -25,6 +25,10 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
 )
 from conversion.surface_comparison.pipeline import run_comparison_pipeline
+from tests.conversion.surface_comparison.plot_utils import (
+    plot_rotated_squares,
+    plot_side_by_side,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -56,8 +60,9 @@ def _identity_surface() -> ScanImage:
     returns translation = [0, 0] to numerical precision.  Periodicity is not
     a concern here because no spatial shift is applied.
     """
-    y, x = np.mgrid[0:100, 0:100]
-    return _make_surface_map(np.sin(x / 5.0) * np.cos(y / 5.0))
+    rng = np.random.default_rng(seed=42)
+    data = rng.standard_normal((100, 100))
+    return _make_surface_map(data)
 
 
 def _make_translated_surface(
@@ -101,8 +106,8 @@ def test_pipeline_identity_returns_comparison_result():
     result = run_comparison_pipeline(surface, surface, _identity_params())
 
     assert isinstance(result, ComparisonResult)
-    assert isinstance(result.congruent_matching_cells_count, int)
-    assert result.consensus_translation.shape == (2,)
+    assert isinstance(result.cmc_count, int)
+    assert len(result.consensus_translation) == 2
 
 
 def test_pipeline_identity_zero_rotation():
@@ -110,6 +115,49 @@ def test_pipeline_identity_zero_rotation():
     surface = _identity_surface()
 
     result = run_comparison_pipeline(surface, surface, _identity_params())
+
+    ref_scale_x = surface.scale_x
+    ref_scale_y = surface.scale_y
+    comp_scale_x = surface.scale_x
+    comp_scale_y = surface.scale_y
+    cell_w_px = int(round(_identity_params().cell_size[0] / ref_scale_x))
+    cell_h_px = int(round(_identity_params().cell_size[1] / ref_scale_y))
+
+    reference_plot = plot_rotated_squares(
+        image=surface.data,
+        squares=[
+            (
+                (
+                    c.center_reference[0] / ref_scale_x,
+                    c.center_reference[1] / ref_scale_y,
+                ),
+                (cell_w_px, cell_h_px),
+                0.0,
+            )
+            for c in result.cells
+        ],
+    )
+
+    comparison_plot = plot_rotated_squares(
+        image=surface.data,
+        squares=[
+            (
+                (
+                    c.center_comparison[0] / comp_scale_x,
+                    c.center_comparison[1] / comp_scale_y,
+                ),
+                (cell_w_px, cell_h_px),
+                -c.angle_deg,
+            )
+            for c in result.cells
+        ],
+    )
+    plot_side_by_side(
+        img1=reference_plot,
+        img2=comparison_plot,
+        title1="Reference",
+        title2="Comparison",
+    )
 
     # consensus_rotation is in degrees
     assert np.isclose(result.consensus_rotation, 0.0, atol=0.01), (
@@ -123,9 +171,9 @@ def test_pipeline_identity_zero_translation():
 
     result = run_comparison_pipeline(surface, surface, _identity_params())
 
-    assert np.allclose(result.consensus_translation, [0.0, 0.0], atol=1e-11), (
+    assert np.allclose(result.consensus_translation, [0.0, 0.0], atol=1e-9), (
         f"Expected consensus_translation ≈ [0, 0], got {result.consensus_translation}"
-    )
+    )  # tolerance of 1 nm.
 
 
 def test_pipeline_recovers_known_translation():
