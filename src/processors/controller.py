@@ -20,7 +20,10 @@ def compare_striation_marks(
         profile_compared=profile_comp,
     )
     if not mark_correlations:
-        raise HTTPException(HTTPStatus.INTERNAL_SERVER_ERROR, "No correlations were found.")
+        logger.error("profiles could not be aligned: insufficient overlap between marks")
+        raise HTTPException(
+            HTTPStatus.UNPROCESSABLE_ENTITY, "profiles could not be aligned: insufficient overlap between marks"
+        )
     logger.debug("correlations are calculated")
     return mark_correlations
 
