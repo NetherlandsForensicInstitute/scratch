@@ -114,30 +114,19 @@ class NormalizedRoughnessDifferences:
 @dataclass(frozen=True)
 class AlignmentInputs:
     """
-    Prepared inputs for the brute-force alignment search.
+    Prepared inputs for the alignment search.
 
     Created by _prepare_alignment_inputs, this dataclass bundles the
     equalized profile heights, shared pixel size, and search parameters
     so they can be passed as a single unit to _find_best_alignment.
 
-    :param heights_ref: Heights of the reference profile after pixel scale
-        equalization, as a 1D array.
-    :param heights_comp: Heights of the compared profile after pixel scale
-        equalization, as a 1D array.
-    :param pixel_size: Pixel separation after equalization in meters. Both
-        profiles share this value.
-    :param scale_factors: Array of scale factors to try during alignment.
-        Generated symmetrically so that swapping reference and compared
-        produces equivalent search coverage.
-    :param min_overlap_samples: Minimum required overlap between profiles
-        in samples, derived from AlignmentParameters.min_overlap_distance
-        and the equalized pixel_size.
-    :param pixel_size_reference: Original pixel size of the reference
-        profile before equalization, in meters. Preserved for metadata
-        in the final results.
-    :param pixel_size_compared: Original pixel size of the compared
-        profile before equalization, in meters. Preserved for metadata
-        in the final results.
+    :param heights_ref: Reference profile heights after equalization (1D array, meters).
+    :param heights_comp: Compared profile heights after equalization (1D array, meters).
+    :param pixel_size: Equalized pixel separation in meters, shared by both profiles.
+    :param scale_factors: Scale factors to try during alignment (symmetric array).
+    :param min_overlap_samples: Minimum overlap in samples, derived from min_overlap_distance.
+    :param pixel_size_reference: Original reference pixel size before equalization (meters).
+    :param pixel_size_compared: Original compared pixel size before equalization (meters).
     """
 
     heights_ref: FloatArray1D
@@ -152,33 +141,23 @@ class AlignmentInputs:
 @dataclass(frozen=True)
 class AlignmentResult:
     """
-    Result of the brute-force alignment search between two profiles.
+    Result of the alignment search between two profiles.
 
-    Contains the optimal registration parameters (shift, scale) and the
+    Contains the optimal alignment parameters (shift, scale) and the
     corresponding overlap regions extracted from the reference and compared
     profiles. All indices and lengths are in pixels (discrete array positions).
     Multiply by pixel_size to convert to meters.
 
-    :param correlation: Pearson cross-correlation coefficient at the best
-        alignment position. Higher values indicate better agreement.
-    :param shift: Optimal shift of the compared profile relative to the
-        reference, in pixels. A positive value means the overlap starts at
-        index ``shift`` in the reference and index 0 in the compared profile
-        (i.e., the compared profile aligns with a later region of the
-        reference). A negative value means the overlap starts at index 0 in
-        the reference and index ``-shift`` in the compared profile.
-    :param scale: Scale factor applied to the compared profile before
-        alignment. Values above 1.0 stretch the compared profile (more
-        pixels), below 1.0 compress it (fewer pixels). A value of 1.0
-        means no resampling.
-    :param ref_overlap: Heights of the reference profile within the
-        overlap region, as a 1D array.
-    :param comp_overlap: Heights of the scaled compared profile within the
-        overlap region, as a 1D array. Same length as ref_overlap.
-    :param idx_reference_start: Start index into the equalized reference
-        profile where the overlap region begins. Equals ``max(shift, 0)``.
-    :param idx_compared_start: Start index into the scaled compared
-        profile where the overlap region begins. Equals ``max(-shift, 0)``.
+    :param correlation: Pearson correlation at the best alignment position.
+    :param shift: Optimal shift of compared relative to reference, in pixels.
+        Positive means the overlap starts at index ``shift`` in the reference;
+        negative means it starts at index ``-shift`` in the compared profile.
+    :param scale: Scale factor applied to the compared profile before alignment.
+        Above 1.0 stretches, below 1.0 compresses, 1.0 means no resampling.
+    :param ref_overlap: Reference heights within the overlap region (1D array).
+    :param comp_overlap: Scaled compared heights within the overlap region (1D array).
+    :param idx_reference_start: Start index of the overlap in the equalized reference profile.
+    :param idx_compared_start: Start index of the overlap in the scaled compared profile.
     :param overlap_length: Number of pixels in the overlap region.
     """
 
@@ -197,90 +176,63 @@ class StriationComparisonResults:
     """
     Full comparison metrics for striated mark analysis.
 
-    This immutable dataclass contains all metrics computed during profile
-    comparison, including registration parameters, roughness measurements,
-    and normalized signature differences.
+    Metrics computed during profile comparison: alignment results, roughness and normalized signature differences.
 
     All length and height measurements are in meters (SI units).
 
     Roughness parameters use ISO 25178 naming conventions:
-    - Sa: Arithmetic mean roughness ('S' = surface, 'a' = arithmetical mean)
-    - Sq: Root-mean-square roughness ('S' = surface, 'q' = quadratic mean)
+    - Sa: Arithmetical mean height ('S' = surface, 'a' = arithmetical mean height)
+    - Sq: Root mean square height ('S' = surface, 'q' = quadratic/RMS height)
 
-    Registration
+    Alignment result
     ------------
-    :param pixel_size: Pixel separation of the equalized profile in meters.
-    :param position_shift: Shift of the compared profile relative to the
-        reference after alignment, in meters.
-    :param scale_factor: Scale factor applied to the compared profile during
-        alignment (1.0 means no scaling).
-    :param correlation_coefficient: Pearson cross-correlation coefficient
-        between the aligned overlap regions. This is both the optimization
-        target during alignment and the final similarity score.
-    :param overlap_length: Length of the overlapping region after alignment,
-        in meters.
-    :param overlap_ratio: Ratio of overlap length to the length of the
-        shorter profile (0.0–1.0).
+    :param pixel_size: Equalized pixel separation in meters.
+    :param position_shift: Shift of compared relative to reference after alignment (meters).
+    :param scale_factor: Scale factor applied to compared during alignment (1.0 = no scaling).
+    :param correlation_coefficient: Pearson correlation between aligned overlap regions.
+    :param overlap_length: Length of the overlapping region after alignment (meters).
+    :param overlap_ratio: Overlap length relative to the shorter profile (0.0–1.0).
 
     Roughness — individual profiles
     --------------------------------
-    :param sa_ref: Arithmetic mean roughness (Sa) of the reference overlap
-        region, in meters.
-    :param sq_ref: Root-mean-square roughness (Sq) of the reference overlap
-        region, in meters.
-    :param sa_comp: Arithmetic mean roughness (Sa) of the compared overlap
-        region, in meters.
-    :param sq_comp: Root-mean-square roughness (Sq) of the compared overlap
-        region, in meters.
+    :param sa_ref: Arithmetic mean roughness (Sa) of the reference overlap (meters).
+    :param sq_ref: Root-mean-square roughness (Sq) of the reference overlap (meters).
+    :param sa_comp: Arithmetic mean roughness (Sa) of the compared overlap (meters).
+    :param sq_comp: Root-mean-square roughness (Sq) of the compared overlap (meters).
 
     Roughness — difference profile
     ------------------------------
-    :param sa_diff: Arithmetic mean roughness (Sa) of the difference profile
-        (compared minus reference), in meters.
-    :param sq_diff: Root-mean-square roughness (Sq) of the difference profile
-        (compared minus reference), in meters.
+    :param sa_diff: Sa of the difference profile, compared minus reference (meters).
+    :param sq_diff: Sq of the difference profile, compared minus reference (meters).
 
     Normalized signature differences (dimensionless)
     -------------------------------------------------
-    :param ds_normalized_ref: Signature difference normalized by reference Sq,
-        computed as (sq_diff / sq_ref)².
-    :param ds_normalized_comp: Signature difference normalized by compared Sq,
-        computed as (sq_diff / sq_comp)².
-    :param ds_normalized_combined: Signature difference using geometric mean
-        normalization, computed as sq_diff² / (sq_ref * sq_comp).
+    :param ds_normalized_ref: Signature difference normalized by reference: (sq_diff / sq_ref)².
+    :param ds_normalized_comp: Signature difference normalized by compared: (sq_diff / sq_comp)².
+    :param ds_normalized_combined: Geometric mean normalization: sq_diff² / (sq_ref * sq_comp).
 
     Sample-space geometry
     ---------------------
-    :param shift_samples: Alignment shift in samples (integer). Avoids
-        back-conversion from position_shift via rounding.
+    :param shift_samples: Alignment shift in samples (avoids rounding from position_shift).
     :param overlap_samples: Number of samples in the overlap region.
-    :param idx_reference_start: Start index of the overlap within the
-        equalized reference profile.
-    :param idx_compared_start: Start index of the overlap within the
-        scaled compared profile.
-    :param len_reference_equalized: Total length of the equalized reference
-        profile in samples.
-    :param len_compared_equalized: Total length of the equalized compared
-        profile in samples (before scaling).
+    :param idx_reference_start: Start index of the overlap in the equalized reference profile.
+    :param idx_compared_start: Start index of the overlap in the scaled compared profile.
+    :param len_reference_equalized: Total length of the equalized reference profile in samples.
+    :param len_compared_equalized: Total length of the equalized compared profile in samples.
 
     Original profile metadata
     -------------------------
-    :param pixel_size_reference: Original pixel size of the reference profile
-        before equalization, in meters.
-    :param pixel_size_compared: Original pixel size of the compared profile
-        before equalization, in meters.
-    :param len_reference_original: Length of the reference profile in samples
-        as provided to correlate_profiles.
-    :param len_compared_original: Length of the compared profile in samples
-        as provided to correlate_profiles.
+    :param pixel_size_reference: Original reference pixel size before equalization (meters).
+    :param pixel_size_compared: Original compared pixel size before equalization (meters).
+    :param len_reference_original: Original reference profile length in samples.
+    :param len_compared_original: Original compared profile length in samples.
 
     Reproducibility
     ---------------
-    :param alignment_parameters: The AlignmentParameters used for this
-        comparison, stored for provenance and reproducibility.
+    :param alignment_parameters: AlignmentParameters used, stored for provenance.
     """
 
-    # Registration
+    # Alignment result
     pixel_size: float
     position_shift: float
     scale_factor: float

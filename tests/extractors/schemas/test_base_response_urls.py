@@ -208,15 +208,8 @@ class TestComparisonResponseStriation:
 
         assert url_fields <= set(data)
 
-    def test_comparison_results_present(self, striation_response: ComparisonResponseStriation) -> None:
-        """comparison_results is included in serialized output."""
-        data = striation_response.model_dump()
-
-        assert "comparison_results" in data
-        assert isinstance(data["comparison_results"], dict)
-
     def test_comparison_results_contains_expected_keys(self, striation_response: ComparisonResponseStriation) -> None:
-        """comparison_results contains all expected metric keys."""
+        """Serialized output includes comparison_results with all expected metric keys."""
         expected_keys = {
             "pixel_size",
             "position_shift",
@@ -247,6 +240,7 @@ class TestComparisonResponseStriation:
         }
         results = striation_response.model_dump()["comparison_results"]
 
+        assert isinstance(results, dict)
         assert expected_keys <= set(results.keys()), f"Missing keys: {expected_keys - set(results.keys())}"
 
     def test_default_comparison_results_is_empty_dict(self) -> None:
