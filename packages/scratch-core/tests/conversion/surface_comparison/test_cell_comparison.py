@@ -75,8 +75,8 @@ def test_register_cells_identity_angles():
     cells = register_cells(surface, surface, params)
 
     for cell in cells:
-        assert abs(cell.angle_reference) < 0.1, (
-            f"Expected angle ≈ 0°, got {cell.angle_reference:.4f}°"
+        assert abs(cell.angle_deg) < 0.1, (
+            f"Expected angle ≈ 0°, got {cell.angle_deg:.4f}°"
         )
 
 
@@ -102,8 +102,8 @@ def test_register_cells_returns_valid_cell_results():
     assert len(cells) > 0
     for cell in cells:
         assert isinstance(cell, Cell)
-        assert cell.center_reference.shape == (2,)
-        assert cell.center_comparison.shape == (2,)
+        assert len(cell.center_reference) == 2
+        assert len(cell.center_comparison) == 2
         assert -1.0 <= cell.best_score <= 1.0 + 1e-5, (
             f"Score {cell.best_score:.8f} outside [-1, 1+eps]"
         )

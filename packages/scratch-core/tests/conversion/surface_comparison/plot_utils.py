@@ -137,13 +137,15 @@ def build_impression_metrics(
             cell_correlations[row, col] = cell.best_score
 
         # Convert center_comparison from meters to µm for the plot layer
-        cell_positions_compared[flat_idx] = cell.center_comparison * 1e6
-        cell_rotations_compared[flat_idx] = cell.angle_reference
+        cell_positions_compared[flat_idx] = [
+            coord * 1e6 for coord in cell.center_comparison
+        ]
+        cell_rotations_compared[flat_idx] = cell.angle_deg
 
     # --- Scalar unit conversions ---
     cell_size_um = float(cell_size_m[0] * 1e6)  # assume square cells for display
     max_error_cell_position = float(params.position_threshold * 1e6)
-    max_error_cell_angle = float(params.angle_threshold)
+    max_error_cell_angle = float(params.angle_deviation_threshold)
     cmc_area_fraction = result.cmc_area_fraction * 100  # fraction → percentage
     cmc_score = result.cmc_fraction * 100  # fraction → percentage
 

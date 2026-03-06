@@ -13,8 +13,8 @@ The comparison surface is built from the reference by:
      then filling the wrapped border with low-amplitude noise to avoid artefacts.
 
 The test asserts that the pipeline recovers:
-  - consensus_rotation ≈ -scipy_rotation_deg  (atol = 0.05°)
-  - consensus_translation ≈ (dx_pix µm, dy_pix µm)  (atol = 0.5 µm = 0.5 px)
+  - consensus_rotation ≈ -scipy_rotation_deg  (atol = 0.01°)
+  - consensus_translation ≈ (dx_pix µm, dy_pix µm)  (atol = 0.1 µm)
 """
 
 import numpy as np
@@ -26,11 +26,11 @@ from conversion.surface_comparison.models import ComparisonParams
 from conversion.surface_comparison.pipeline import run_comparison_pipeline
 
 # ── tolerances ────────────────────────────────────────────────────────────────
-ANGLE_ATOL_DEG = 0.01  # °   – ECC fine-refines to sub-0.01° accuracy
-TRANS_ATOL_M = 1e-7  # m   – resolution sub 0.1 µm/px
+ANGLE_ATOL_DEG = 0.01  # °  – ECC fine-refines to sub-0.01° accuracy
+TRANS_ATOL_M = 1e-7  # m  – sub-0.1 µm at 1 µm/px
 
 
-# ── shared fixtures ────────────────────────────────────────────────────────────
+# ── shared helpers ─────────────────────────────────────────────────────────────
 
 
 def _reference_surface(seed: int = 7) -> np.ndarray:
@@ -51,7 +51,7 @@ def _apply_rotation(data: np.ndarray, scipy_angle_deg: float) -> np.ndarray:
 def _apply_translation(
     data: np.ndarray, dy_pix: int, dx_pix: int, noise_rng: np.random.Generator
 ) -> np.ndarray:
-    """Shift with np.roll, fill wrapped border with low-amplitude noise."""
+    """Shift with np.roll; fill the wrapped border with low-amplitude noise."""
     shifted = np.roll(np.roll(data, dy_pix, axis=0), dx_pix, axis=1)
     noise = noise_rng.standard_normal(data.shape) * data.std() * 0.05
     result = shifted.copy()
@@ -126,7 +126,10 @@ def test_ecc_recovers_translation(dy_pix, dx_pix):
     ],
 )
 def test_ecc_recovers_rotation(scipy_angle_deg):
-    """ECC converges to the correct rotation angle (pipeline sign: -scipy_angle)."""
+    """ECC converges to the correct rotation angle.
+
+    Sign convention: a scipy rotation of +θ produces consensus_rotation = -θ.
+    """
     ref_data = _reference_surface()
     comp_data = _apply_rotation(ref_data, scipy_angle_deg)
 
@@ -136,12 +139,12 @@ def test_ecc_recovers_rotation(scipy_angle_deg):
         _default_params(),
     )
 
-    expected_deg = -scipy_angle_deg  # pipeline sign convention
+    expected_deg = -scipy_angle_deg
     assert abs(result.consensus_rotation - expected_deg) <= ANGLE_ATOL_DEG, (
         f"scipy_angle={scipy_angle_deg}°: expected consensus_rotation≈{expected_deg:.1f}°, "
         f"got {result.consensus_rotation:.4f}°"
     )
-    # Also verify translation is near zero for a pure rotation about map centre
+    # A pure rotation about the map centre must produce no spurious translation.
     tx, ty = result.consensus_translation
     assert abs(tx) <= TRANS_ATOL_M, f"Pure rotation: unexpected tx={tx * 1e6:.4f}µm"
     assert abs(ty) <= TRANS_ATOL_M, f"Pure rotation: unexpected ty={ty * 1e6:.4f}µm"
