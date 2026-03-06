@@ -880,21 +880,21 @@ def cell_corr_analysis(
 # =====================================================================
 
 
-def _surface_map_to_map_struct(surface_map: ScanImage, angle: float = 0.0) -> MapStruct:
+def _surface_map_to_map_struct(image: ScanImage, angle: float = 0.0) -> MapStruct:
     """
-    Convert a SurfaceMap to a MapStruct.
+    Convert a ScanImage to a MapStruct.
 
     MATLAB convention: vCenterG and vCenterL are [row, col] in metres.
     For a full map with no rotation:
         vCenterL = vCenterG = [ceil(nrows/2) * row_sep, ceil(ncols/2) * col_sep]
 
-    :param surface_map: Application surface map.
+    :param image: Application surface map.
     :param angle: Rotation angle in radians.
     :returns: MapStruct for the MATLAB engine.
     """
-    nrows, ncols = surface_map.data.shape
+    nrows, ncols = image.data.shape
     # MATLAB: vPixSep = [row_sep, col_sep] = [scale_y, scale_x]
-    vPixSep = np.array([surface_map.scale_y, surface_map.scale_x])
+    vPixSep = np.array([image.scale_y, image.scale_x])
 
     # MATLAB: vCenterL = ceil(N/2) * vPixSep
     vCenterL = np.array(
@@ -908,7 +908,7 @@ def _surface_map_to_map_struct(surface_map: ScanImage, angle: float = 0.0) -> Ma
     vCenterG = vCenterL.copy()
 
     return MapStruct(
-        map=surface_map.data.copy(),
+        map=image.data.copy(),
         vCenterG=vCenterG,
         vCenterL=vCenterL,
         angle=angle,
@@ -927,33 +927,26 @@ def _xy_to_rc(xy: np.ndarray) -> np.ndarray:
 
 
 def register_cells(
-    reference_map: ScanImage,
-    comparison_map: ScanImage,
+    reference_image: ScanImage,
+    comparison_image: ScanImage,
     params: ComparisonParams,
 ) -> list[Cell]:
     """
-    Divide the reference into cells and register each against the comparison.
+    Run the MATLAB-faithful per-cell registration pipeline.
 
-    This replaces the previous three-stage registration pipeline with the
-    MATLAB-faithful ``cell_corr_analysis`` implementation, which performs:
+    The reference image is divided into cells; each cell is registered against
+    the comparison image via a coarse angular sweep followed by gradient-based
+    ECC fine registration.
 
-    1. Coarse angular sweep — evaluates ACCF at discrete angles.
-    2. Gradient-based ECC fine registration — refines [dx, dy, θ] iteratively.
-
-    The grid origin is determined by ``_find_grid_origin``, which maximises
-    valid-data coverage across all cells (faithfully translating MATLAB's
-    ``cell_position_optim.m``). Its result is an [x, y] first-cell centre that
-    is converted to [row, col] and passed to the MATLAB engine as
-    ``vCellPosition``.
-
-    :param reference_map: Fixed reference surface.
-    :param comparison_map: Moving comparison surface.
-    :param params: CMC algorithm parameters.
-    :returns: List of per-cell results as ``Cell`` objects.
+    :param reference_image: Fixed surface map.
+    :param comparison_image: Moving surface map.
+    :param params: Algorithm parameters.  The angular sweep runs from
+        ``search_angle_min`` to ``search_angle_max`` (in degrees).
+    :returns: Cell list for all cells that pass the fill-fraction check.
     """
     # Convert to MATLAB engine types
-    map1 = _surface_map_to_map_struct(reference_map, angle=0.0)
-    map2 = _surface_map_to_map_struct(comparison_map, angle=0.0)
+    map1 = _surface_map_to_map_struct(reference_image, angle=0.0)
+    map2 = _surface_map_to_map_struct(comparison_image, angle=0.0)
 
     # Cell size: params uses (width, height) = (x, y), engine uses [row, col]
     vCellSize = np.array([params.cell_size[1], params.cell_size[0]])
@@ -961,7 +954,7 @@ def register_cells(
     # --- Grid origin via coverage-maximising optimisation ---
     # _find_grid_origin returns the first-cell centre [x, y] in metres.
     # Convert to [row, col] for the MATLAB engine.
-    origin_xy = _find_grid_origin(reference_map, params)
+    origin_xy = _find_grid_origin(reference_image, params)
     vCellPosition = _xy_to_rc(origin_xy)
 
     # Angular search range: params uses degrees, engine uses radians
