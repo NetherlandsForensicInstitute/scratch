@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from pathlib import Path
 
+import numpy as np
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.export.mark import load_mark_from_path
 from conversion.likelihood_ratio import (
@@ -9,6 +10,7 @@ from conversion.likelihood_ratio import (
     calculate_lr_striation,
     get_lr_system,
     get_reference_data,
+    transform_ccf_scores,
 )
 from conversion.plots.data_formats import HistogramData, ImpressionComparisonMetrics, LlrTransformationData
 from conversion.plots.plot_ccf_comparison_overview import plot_ccf_comparison_overview
@@ -130,6 +132,8 @@ def save_lr_striation_plot(  # noqa: PLR0913
     metadata_compared: MarkMetadata,
     results_metadata: dict[str, str],
     score: float,
+    score_transformed: float,
+    transformed_reference_scores: np.ndarray,
     lr: float,
     output_path: Path,
 ):
@@ -161,7 +165,7 @@ def save_lr_striation_plot(  # noqa: PLR0913
         results_metadata=results_metadata,
         histogram_data=HistogramData(scores=reference_data.scores, labels=reference_data.labels, new_score=score),
         histogram_data_transformed=HistogramData(
-            scores=reference_data.scores, labels=reference_data.labels, new_score=score
+            scores=transformed_reference_scores, labels=reference_data.labels, new_score=score_transformed
         ),
         llr_data=LlrTransformationData(
             scores=reference_data.scores,
@@ -184,6 +188,9 @@ def process_lr_striation(
     llr_data = calculate_lr_striation(lr_system, lr_input.score)
     log_lr = llr_data.llrs[0]
 
+    transformed_reference_scores = transform_ccf_scores(reference_data.scores)
+    score_transformed = float(transform_ccf_scores(np.array([lr_input.score]))[0])
+
     mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
     mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
     mark_ref_aligned = load_mark_from_path(lr_input.mark_dir_ref_aligned, stem="aligned")
@@ -196,7 +203,7 @@ def process_lr_striation(
         user_id=lr_input.user_id,
         mark_type=mark_ref.mark_type,
         score=lr_input.score,
-        score_transform=lr_input.score,
+        score_transform=score_transformed,
     )
 
     save_lr_striation_plot(
@@ -209,6 +216,8 @@ def process_lr_striation(
         metadata_compared=lr_input.metadata_compared,
         results_metadata=results_metadata,
         score=lr_input.score,
+        score_transformed=score_transformed,
+        transformed_reference_scores=transformed_reference_scores,
         lr=log_lr,
         output_path=files["lr_overview_plot"],
     )

@@ -91,6 +91,8 @@ class TestSaveLrOverviewPlot:
             metadata_compared=metadata_compared,
             results_metadata=results_metadata,
             score=0.5,
+            score_transformed=0.5,
+            transformed_reference_scores=reference_data.scores,
             lr=1.2,
             output_path=output,
         )
