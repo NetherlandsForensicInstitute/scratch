@@ -116,6 +116,9 @@ class Rotate(ImageMutation):
     def __init__(self, rotation_angle: float, reverse_rotation: bool):
         """Constructor to initiating the Rotate class,
 
+        The Rotate ImageMutation is rotating the given scan_image.
+        The rotation is rotating counterclockwise, unless reverse reverse_rotation is set True.
+
         :Note:
             if reverse_rotation is True rotation_angle will be reverse (*-1)
             if rotation_angle is more then 360, it has made a full turn and raises a ValueError
