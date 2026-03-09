@@ -113,18 +113,16 @@ class Resample(ImageMutation):
 
 
 class Rotate(ImageMutation):
-    def __init__(self, rotation_angle: float, counter_clockwise_rotation: bool):
+    def __init__(self, rotation_angle: float, reverse_rotation: bool):
         """Constructor to initiating the Rotate class,
 
         :Note:
-            if counter_clockwise_rotation is False rotation_angle will be reverse (*-1)
-            if rotation_angle is more then 359, it has made a full turn and raises a ValueError
+            if reverse_rotation is True rotation_angle will be reverse (*-1)
+            if rotation_angle is more then 360, it has made a full turn and raises a ValueError
         """
-        if rotation_angle > 359 or rotation_angle < -359:
+        if rotation_angle >= 360 or rotation_angle <= -360:
             raise ValueError("Rotation angle must be between -359 and 359")
-        self.rotation_angle = (
-            rotation_angle if counter_clockwise_rotation else -rotation_angle
-        )
+        self.rotation_angle = -rotation_angle if reverse_rotation else rotation_angle
 
     @property
     def skip_predicate(self) -> bool:
@@ -135,11 +133,11 @@ class Rotate(ImageMutation):
 
         :returns: True if rotation angle is 0, False otherwise
         """
-        return True if self.rotation_angle == 0 else False
+        return True if np.isclose(self.rotation_angle, 0.0) else False
 
     @classmethod
     def from_bounding_box(
-        cls, bounding_box: BoundingBox, counter_clockwise_rotation: bool
+        cls, bounding_box: BoundingBox, reverse_rotation: bool
     ) -> Self:
         """
         Calculate the rotation angle of a rectangular crop region.
@@ -149,7 +147,7 @@ class Rotate(ImageMutation):
 
         :param bounding_box: Bounding box of a rectangular crop region. Expects pixel coordinates,
             i.e. top-left origin, in the order [x, y].
-        :param counter_clockwise_rotation: boolean True for right false for left (*-1)
+        :param reverse_rotation: boolean True for reversing the angle false for using the angle like normal.
         :return: The rotation angle in degrees, ranging from -180 to 180 (inclusive).
         """
         angles = []
@@ -162,7 +160,7 @@ class Rotate(ImageMutation):
         angle = min(angles, key=lambda x: abs(x))
         return cls(
             rotation_angle=angle,
-            counter_clockwise_rotation=counter_clockwise_rotation,
+            reverse_rotation=reverse_rotation,
         )
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
