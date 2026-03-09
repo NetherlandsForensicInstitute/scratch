@@ -184,6 +184,10 @@ class GausianRegressionFilter(ImageMutation):  # pragma: no cover
     IS_HIGHT_PASS = False
 
     def __init__(self, cutoff_length: float, regression_order: RegressionOrder) -> None:
+        """
+        :param cutoff_length: Filter cutoff wavelength in meters (m).
+        :param regression_order: Order of the local polynomial fit.
+        """
         self.cutoff_length = cutoff_length
         self.regression_order = regression_order
 
@@ -206,7 +210,8 @@ class GausianRegressionFilter(ImageMutation):  # pragma: no cover
         - Optimization:
             For **Order 0**, the operation is mathematically equivalent to a normalized convolution. This implementation
             uses FFT-based convolution for performance gains compared to pixel-wise regression.
-        :param scan_image: Gausian filter is applied on this scan_image data.
+
+        :param scan_image: Gaussian filter is applied on this scan_image data.
         :returns: ScanImage with the filtered 2D array.
         """
 

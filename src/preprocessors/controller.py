@@ -1,6 +1,8 @@
 from pathlib import Path
 
 import numpy as np
+from scipy.constants import micro
+
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox, Mark, MarkType
@@ -111,7 +113,7 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: B
             terms=edit_image_params.terms.to_surface_terms(),
         ),
         GausianRegressionFilter(
-            regression_order=edit_image_params.regression_order, cutoff_length=edit_image_params.cutoff_length
+            regression_order=edit_image_params.regression_order, cutoff_length=edit_image_params.cutoff_length * micro
         ),
     ]
     logger.debug(f"mutations to be applied on the scan image:{[item.__class__.__name__ for item in pipeline]}")
