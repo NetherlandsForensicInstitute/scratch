@@ -2,43 +2,15 @@
 
 ## 🧑‍💻 Development Environment
 
-This project uses **[devenv](https://devenv.sh/getting-started/)** for
-environment management and **[Just](https://github.com/casey/just)** as a
+This project uses **[Just](https://github.com/casey/just)** as a
 command runner. Dependencies are managed with
 **[uv](https://github.com/astral-sh/uv)**, and code quality tools are handled
 via **[pre-commit](https://pre-commit.com/)**.
 
-Using `devenv` ensures a fully reproducible development setup — including Python
-version, dependencies, and tooling — across all machines.
+### 🧰 Setup
 
-### 🚀 Recommended setup (with devenv)
-
-#### pre-requirements
-
-- [devenv](https://devenv.sh/getting-started/)
-
-```bash
-devenv shell
-```
-
-Or allow your project to start isolated shell at the point of directory entry
-
-```bash
-direnv allow
-```
-
-This will:
-
-- Enter the `devenv` shell with the correct environment
-- Automatically install **UV**
-- Sync all project dependencies
-- Install and configure **pre-commit** hooks
-
-You can now start developing right away.
-
-### 🧰 Alternative setup (without devenv)
-
-If you prefer not to use `devenv`, you can still set things up manually:
+Before continuing, make sure to have **[Just](https://github.com/casey/just)** and
+**[uv](https://github.com/astral-sh/uv)** installed.
 
 #### UV
 
@@ -59,41 +31,12 @@ uv sync
 source ./.venv/bin/activate
 ```
 
-#### pre-commit
-
-```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: "v6.0.0"
-    hooks:
-      - id: check-case-conflict
-      - id: check-merge-conflict
-      - id: check-toml
-      - id: check-yaml
-      - id: check-json
-      - id: pretty-format-json
-        args: [--autofix, --no-sort-keys]
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.14.1"
-    hooks:
-      - id: ruff-check
-        args: [--exit-non-zero-on-fix]
-      - id: ruff-format
-```
-
 ```bash
-# create and copy pre-commit-config.yaml
+# Install pre-commit
 pre-commit install
 pre-commit install-hooks
 just check-quality # will run pre-commit for all files (not required)
 ```
-
-> [!NOTE] Using `devenv` is highly recommended — it guarantees a consistent,
-> isolated, and reproducible development environment.
 
 ## Usage
 
@@ -104,7 +47,9 @@ just api
 ```
 
 ## Project Structure
-This project tree follows: [fastapi-best-pactices](https://github.com/zhanymkanov/fastapi-best-practices?tab=readme-ov-file#fastapi-best-practices-)
+
+This project tree
+follows: [fastapi-best-pactices](https://github.com/zhanymkanov/fastapi-best-practices?tab=readme-ov-file#fastapi-best-practices-)
 
 - <span style="color:#f5f5f5">grey</span> are packages
 - <span style="color:#e6f7ff">blue</span> are public modules
