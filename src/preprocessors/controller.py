@@ -115,7 +115,9 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: B
         Mask(mask=resampled_mask),
         *([CropToMask(mask=resampled_mask)] if edit_image_params.crop else []),
         LevelMap(
-            x_reference_point=reference_point_x, y_reference_point=reference_point_y, terms=edit_image_params.terms
+            x_reference_point=reference_point_x,
+            y_reference_point=reference_point_y,
+            terms=edit_image_params.terms.to_surface_terms(),
         ),
         GausianRegressionFilter(
             regression_order=edit_image_params.regression_order, cutoff_length=edit_image_params.cutoff_length

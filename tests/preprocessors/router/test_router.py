@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 from container_models.base import BinaryMask
 from conversion.data_formats import MarkType
-from conversion.leveling import SurfaceTerms
 from fastapi.testclient import TestClient
 from pydantic import HttpUrl
 from scipy.constants import micro
@@ -15,6 +14,7 @@ from utils.constants import RegressionOrder
 from constants import PreprocessorEndpoint, RoutePrefix
 from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from models import DirectoryAccess
+from preprocessors.constants import SurfaceOptions
 from preprocessors.schemas import (
     EditImage,
     MaskParameters,
@@ -271,7 +271,7 @@ def test_edit_image_returns_valid_images(
         mask_parameters=MaskParameters(shape=mask.shape),
         cutoff_length=2 * micro,
         resampling_factor=0.5,
-        terms=SurfaceTerms.PLANE,
+        terms=SurfaceOptions.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
     )
