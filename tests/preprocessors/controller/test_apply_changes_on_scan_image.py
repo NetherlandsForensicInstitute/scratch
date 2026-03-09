@@ -11,7 +11,7 @@ from utils.constants import RegressionOrder
 
 from preprocessors.constants import SurfaceOptions
 from preprocessors.controller import edit_scan_image
-from preprocessors.schemas import EditImage, MaskParameters
+from preprocessors.schemas import EditImage
 
 
 @pytest.fixture
@@ -39,7 +39,6 @@ def resample_twice_bigger(
     params = EditImage(
         project_name="test",
         scan_file=scan_file,
-        mask_parameters=MaskParameters(shape=mask.shape),
         cutoff_length=2 * micro,
         resampling_factor=0.5,
         terms=SurfaceOptions.PLANE,
@@ -71,7 +70,6 @@ def mask_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage,
     params = EditImage(
         project_name="test",
         scan_file=scan_file,
-        mask_parameters=MaskParameters(shape=mask.shape),
         cutoff_length=2 * micro,
         resampling_factor=1,
         terms=SurfaceOptions.PLANE,
@@ -102,7 +100,6 @@ def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIma
     params = EditImage(
         project_name="test",
         scan_file=scan_file,
-        mask_parameters=MaskParameters(shape=mask.shape),
         cutoff_length=2 * micro,
         resampling_factor=1,
         terms=SurfaceOptions.PLANE,
@@ -133,7 +130,6 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
     params = EditImage(
         project_name="test",
         scan_file=scan_file,
-        mask_parameters=MaskParameters(shape=mask.shape),
         cutoff_length=2 * micro,
         resampling_factor=0.5,
         terms=SurfaceOptions.PLANE,
