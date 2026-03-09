@@ -6,6 +6,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.transforms import Bbox
 
+from conversion.data_formats import MarkMetadata
 from conversion.plots.utils import (
     draw_metadata_box,
     figure_to_array,
@@ -189,30 +190,46 @@ class TestGetHeightRatios:
 
 class TestGetMetadataDimensions:
     def test_returns_rows_and_ratio(self):
-        meta = {"Key": "Value"}
+        meta = MarkMetadata(
+            case_id="V",
+            firearm_id="V",
+            specimen_id="V",
+            measurement_id="V",
+            mark_id="V",
+        )
         rows, ratio = get_metadata_dimensions(meta, meta, wrap_width=25)
         assert rows >= 1
         assert ratio >= 0.12
 
-    def test_more_keys_increase_rows(self):
-        short = {"A": "1"}
-        long = {"A": "1", "B": "2", "C": "3", "D": "4"}
-        rows_short, _ = get_metadata_dimensions(short, short, wrap_width=25)
-        rows_long, _ = get_metadata_dimensions(long, long, wrap_width=25)
-        assert rows_long > rows_short
-
     def test_uses_max_of_both_metadata(self):
-        short = {"A": "1"}
-        long = {"A": "1", "B": "2", "C": "3"}
-        rows, _ = get_metadata_dimensions(short, long, wrap_width=25)
-        rows_rev, _ = get_metadata_dimensions(long, short, wrap_width=25)
+        meta = MarkMetadata(
+            case_id="1",
+            firearm_id="2",
+            specimen_id="3",
+            measurement_id="4",
+            mark_id="5",
+        )
+        rows, _ = get_metadata_dimensions(meta, meta, wrap_width=25)
+        rows_rev, _ = get_metadata_dimensions(meta, meta, wrap_width=25)
         assert rows == rows_rev
 
     def test_wrapping_increases_rows(self):
-        short_val = {"Key": "Short"}
-        long_val = {"Key": "A" * 100}
-        rows_short, _ = get_metadata_dimensions(short_val, short_val, wrap_width=25)
-        rows_long, _ = get_metadata_dimensions(long_val, long_val, wrap_width=25)
+        short = MarkMetadata(
+            case_id="Short",
+            firearm_id="Short",
+            specimen_id="Short",
+            measurement_id="Short",
+            mark_id="Short",
+        )
+        long = MarkMetadata(
+            case_id="A" * 100,
+            firearm_id="A" * 100,
+            specimen_id="A" * 100,
+            measurement_id="A" * 100,
+            mark_id="A" * 100,
+        )
+        rows_short, _ = get_metadata_dimensions(short, short, wrap_width=25)
+        rows_long, _ = get_metadata_dimensions(long, long, wrap_width=25)
         assert rows_long > rows_short
 
 

@@ -2,6 +2,7 @@ from http import HTTPStatus
 from pathlib import Path
 
 import pytest
+from conversion.data_formats import MarkMetadata
 from fastapi.testclient import TestClient
 from pydantic import HttpUrl
 
@@ -10,9 +11,18 @@ from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
     CalculateScoreStriation,
-    StriationParameters,
+    MetadataParameters,
 )
 from tests.processors.conftest import assert_lr_response_valid
+
+
+def test_processors_placeholder(client: TestClient) -> None:
+    """Test that the processor root endpoint redirects to documentation."""
+    # Act
+    response = client.get("/processor", follow_redirects=False)
+    # Assert
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, "endpoint should redirect"
+    assert response.headers["location"] == "/docs#operations-tag-processor", "should redirect to processor docs"
 
 
 class TestMarkStriation:
@@ -46,7 +56,22 @@ class TestMarkStriation:
         json_data = CalculateScoreStriation(
             mark_dir_ref=mark_dir_ref,
             mark_dir_comp=mark_dir_comp,
-            param=StriationParameters(metadata_compared={"something": "else"}, metadata_reference={"ding": "dong"}),
+            param=MetadataParameters(
+                metadata_compared=MarkMetadata(
+                    case_id="something",
+                    firearm_id="else",
+                    specimen_id="spec_comp",
+                    measurement_id="meas_comp",
+                    mark_id="mark_comp",
+                ),
+                metadata_reference=MarkMetadata(
+                    case_id="ding",
+                    firearm_id="dong",
+                    specimen_id="spec_ref",
+                    measurement_id="meas_ref",
+                    mark_id="mark_ref",
+                ),
+            ),
         ).model_dump(mode="json")
         response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
 

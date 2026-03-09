@@ -60,6 +60,11 @@ def mask() -> BinaryMask:
     return array
 
 
+@pytest.fixture(scope="session")
+def mask_raw(mask: BinaryMask) -> bytes:
+    return mask.tobytes(order="C")
+
+
 @pytest.fixture
 def lr_system_path(tmp_path: Path) -> Path:
     """Pickle an identity LRSystem and return its path."""

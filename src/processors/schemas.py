@@ -4,6 +4,7 @@ from typing import Self
 
 import numpy as np
 from container_models.base import FloatArray1D, FloatArray2D
+from conversion.data_formats import MarkMetadata
 from pydantic import DirectoryPath, Field, FilePath, NonNegativeFloat, NonNegativeInt, PositiveInt, model_validator
 
 from models import BaseModelConfig
@@ -19,22 +20,17 @@ class MarkDirectories(BaseModelConfig):
         return "SomethingWithNoValue"
 
 
-class ImpressionParameters(BaseModelConfig):
-    metadata_reference: dict[str, str] = Field(..., description="fields needed for adding metadata to the plot")
-    metadata_compared: dict[str, str] = Field(..., description="fields needed for adding metadata to the plot")
+class MetadataParameters(BaseModelConfig):
+    metadata_reference: MarkMetadata = Field(..., description="Metadata identifying the reference mark.")
+    metadata_compared: MarkMetadata = Field(..., description="Metadata identifying the compared mark.")
 
 
 class CalculateScoreImpression(MarkDirectories):
-    param: ImpressionParameters
-
-
-class StriationParameters(BaseModelConfig):
-    metadata_reference: dict[str, str] = Field(..., description="fields needed for adding metadata to the plot")
-    metadata_compared: dict[str, str] = Field(..., description="fields needed for adding metadata to the plot")
+    param: MetadataParameters
 
 
 class CalculateScoreStriation(MarkDirectories):
-    param: StriationParameters
+    param: MetadataParameters
 
 
 class CalculateLR(MarkDirectories):
@@ -64,18 +60,21 @@ class ImpressionLRParameters(BaseModelConfig):
 
     @cached_property
     def cell_correlations_array(self) -> FloatArray2D:
+        """Return cell correlations as a 2D numpy array."""
         return np.array(self.cell_correlations)
 
     @cached_property
     def cell_positions_compared_array(self) -> FloatArray2D:
+        """Return compared cell positions as a 2D numpy array."""
         return np.array(self.cell_positions_compared)
 
     @cached_property
     def cell_rotations_compared_array(self) -> FloatArray1D:
+        """Return compared cell rotations as a 1D numpy array."""
         return np.array(self.cell_rotations_compared)
 
 
-class CalculateLRImpression(CalculateLR, StriationParameters):
+class CalculateLRImpression(CalculateLR):
     score: NonNegativeInt
     n_cells: PositiveInt
     param: ImpressionLRParameters
@@ -88,7 +87,7 @@ class CalculateLRImpression(CalculateLR, StriationParameters):
         return self
 
 
-class CalculateLRStriation(CalculateLR, StriationParameters):
+class CalculateLRStriation(CalculateLR):
     mark_dir_ref_aligned: DirectoryPath
     mark_dir_comp_aligned: DirectoryPath
     score: NonNegativeFloat

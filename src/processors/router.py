@@ -25,8 +25,7 @@ from processors.controller import (
 from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
-    CalculateScoreImpression,
-    CalculateScoreStriation,
+    CalculateScore,
 )
 
 processors = APIRouter(
@@ -63,7 +62,7 @@ async def processor_root() -> RedirectResponse:
     """,
     include_in_schema=False,
 )
-async def calculate_score_impression(impression: CalculateScoreImpression) -> ComparisonResponseImpression:
+async def calculate_score_impression(impression: CalculateScore) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
     vault = create_vault(impression.tag)
     return ComparisonResponseImpression.generate_urls(vault.access_url)
@@ -81,7 +80,7 @@ async def calculate_score_impression(impression: CalculateScoreImpression) -> Co
         422: {"description": "Profiles could not be aligned due to insufficient overlap"},
     },
 )
-async def calculate_score_striation(striation_params: CalculateScoreStriation) -> ComparisonResponseStriation:
+async def calculate_score_striation(striation_params: CalculateScore) -> ComparisonResponseStriation:
     """Compare two striation profiles."""
     logger.debug("starting calculate score striation")
     vault = create_vault(striation_params.tag)

@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from pathlib import Path
 
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkMetadata
 from conversion.export.mark import load_mark_from_path
 from conversion.likelihood_ratio import (
     ReferenceData,
@@ -47,8 +47,8 @@ def save_striation_comparison_plots(  # noqa: PLR0913
     mark_comp: Mark,
     mark_correlations: MarkCorrelationResult,
     files_to_save: dict[str, Path],
-    metadata_compared: dict[str, str],
-    metadata_reference: dict[str, str],
+    meta_data_compare: MarkMetadata,
+    meta_data_ref: MarkMetadata,
 ) -> None:
     """Create and save the plots of the processed markings."""
     plots = plot_striation_comparison_results(
@@ -59,8 +59,8 @@ def save_striation_comparison_plots(  # noqa: PLR0913
         profile_reference_aligned=mark_correlations.profile_reference_aligned,
         profile_compared_aligned=mark_correlations.profile_compared_aligned,
         metrics=mark_correlations.comparison_results,
-        metadata_reference=metadata_reference,
-        metadata_compared=metadata_compared,
+        metadata_reference=meta_data_ref,
+        metadata_compared=meta_data_compare,
     )
     logger.debug("striation comparison plots generated")
     # TODO: update this dict to a Pydantic class.
@@ -77,8 +77,8 @@ def save_lr_impression_plot(  # noqa: PLR0913
     mark_ref: Mark,
     mark_comp: Mark,
     metrics: ImpressionComparisonMetrics,
-    metadata_reference: dict[str, str],
-    metadata_compared: dict[str, str],
+    meta_data_ref: MarkMetadata,
+    meta_data_compare: MarkMetadata,
     results_metadata: dict[str, str],
     score: float,
     lr: float,
@@ -94,8 +94,8 @@ def save_lr_impression_plot(  # noqa: PLR0913
     :param mark_ref: Filtered reference mark surface.
     :param mark_comp: Filtered compared mark surface.
     :param metrics: Cell and area correlation metrics from the CMC comparison.
-    :param metadata_reference: Display metadata for the reference mark.
-    :param metadata_compared: Display metadata for the compared mark.
+    :param meta_data_ref: Display metadata for the reference mark.
+    :param meta_data_compare: Display metadata for the compared mark.
     :param results_metadata: Formatted summary of comparison results for display.
     :param score: CMC score for the current case comparison.
     :param lr: Log-likelihood ratio for the current case comparison.
@@ -105,8 +105,8 @@ def save_lr_impression_plot(  # noqa: PLR0913
         mark_reference_filtered=mark_ref,
         mark_compared_filtered=mark_comp,
         metrics=metrics,
-        metadata_reference=metadata_reference,
-        metadata_compared=metadata_compared,
+        metadata_reference=meta_data_ref,
+        metadata_compared=meta_data_compare,
         results_metadata=results_metadata,
         histogram_data=HistogramData(scores=reference_data.scores, labels=reference_data.labels, new_score=score),
         llr_data=LlrTransformationData(
@@ -126,8 +126,8 @@ def save_lr_striation_plot(  # noqa: PLR0913
     mark_comp: Mark,
     mark_ref_aligned: Mark,
     mark_comp_aligned: Mark,
-    metadata_reference: dict[str, str],
-    metadata_compared: dict[str, str],
+    meta_data_ref: MarkMetadata,
+    meta_data_compare: MarkMetadata,
     results_metadata: dict[str, str],
     score: float,
     lr: float,
@@ -144,8 +144,8 @@ def save_lr_striation_plot(  # noqa: PLR0913
     :param mark_comp: Filtered compared mark surface.
     :param mark_ref_aligned: Reference mark trimmed to the overlap region.
     :param mark_comp_aligned: Compared mark trimmed to the overlap region.
-    :param metadata_reference: Display metadata for the reference mark.
-    :param metadata_compared: Display metadata for the compared mark.
+    :param meta_data_ref: Display metadata for the reference mark.
+    :param meta_data_compare: Display metadata for the compared mark.
     :param results_metadata: Formatted summary of comparison results for display.
     :param score: CCF score for the current case comparison.
     :param lr: Log-likelihood ratio for the current case comparison.
@@ -156,8 +156,8 @@ def save_lr_striation_plot(  # noqa: PLR0913
         mark_compared_filtered=mark_comp,
         mark_reference_aligned=mark_ref_aligned,
         mark_compared_aligned=mark_comp_aligned,
-        metadata_reference=metadata_reference,
-        metadata_compared=metadata_compared,
+        metadata_reference=meta_data_ref,
+        metadata_compared=meta_data_compare,
         results_metadata=results_metadata,
         histogram_data=HistogramData(scores=reference_data.scores, labels=reference_data.labels, new_score=score),
         histogram_data_transformed=HistogramData(
@@ -205,8 +205,8 @@ def process_lr_striation(
         mark_comp=mark_comp,
         mark_ref_aligned=mark_ref_aligned,
         mark_comp_aligned=mark_comp_aligned,
-        metadata_reference=lr_input.metadata_reference,
-        metadata_compared=lr_input.metadata_compared,
+        meta_data_ref=lr_input.metadata_reference,
+        meta_data_compare=lr_input.metadata_compared,
         results_metadata=results_metadata,
         score=lr_input.score,
         lr=log_lr,
@@ -265,8 +265,8 @@ def process_lr_impression(
         mark_ref=mark_ref,
         mark_comp=mark_comp,
         metrics=metrics,
-        metadata_reference=lr_input.metadata_reference,
-        metadata_compared=lr_input.metadata_compared,
+        meta_data_ref=lr_input.metadata_reference,
+        meta_data_compare=lr_input.metadata_compared,
         results_metadata=results_metadata,
         score=lr_input.score,
         lr=log_lr,

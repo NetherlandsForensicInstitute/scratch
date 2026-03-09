@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from conversion.data_formats import MarkMetadata
 from conversion.plots.data_formats import (
     DensityData,
     HistogramData,
@@ -149,23 +150,37 @@ class TestPlotCCFComparisonOverview:
     "metadata_reference,metadata_compared,suffix",
     [
         (
-            {
-                "Collection": "firearms_extended_collection_name",
-                "Firearm ID": "firearm_1_-_known_match_with_very_long_identifier",
-                "Specimen ID": "bullet_specimen_001_reference",
-                "Measurement ID": "striated_mark_measurement_extended",
-            },
-            {
-                "Collection": "firearms_extended_collection_name",
-                "Firearm ID": "firearm_1_-_known_match_with_very_long_identifier",
-                "Specimen ID": "bullet_specimen_002_comparison",
-                "Measurement ID": "striated_mark_measurement_extended",
-            },
+            MarkMetadata(
+                case_id="firearms_extended_collection_name",
+                firearm_id="firearm_1_-_known_match_with_very_long_identifier",
+                specimen_id="bullet_specimen_001_reference",
+                measurement_id="striated_mark_measurement_extended",
+                mark_id="mark_001_ref",
+            ),
+            MarkMetadata(
+                case_id="firearms_extended_collection_name",
+                firearm_id="firearm_1_-_known_match_with_very_long_identifier",
+                specimen_id="bullet_specimen_002_comparison",
+                measurement_id="striated_mark_measurement_extended",
+                mark_id="mark_002_comp",
+            ),
             "long_metadata",
         ),
         (
-            {"ID": "A1", "Type": "ref"},
-            {"ID": "B2", "Type": "comp"},
+            MarkMetadata(
+                case_id="A1",
+                firearm_id="F1",
+                specimen_id="S1",
+                measurement_id="M1",
+                mark_id="ref",
+            ),
+            MarkMetadata(
+                case_id="B2",
+                firearm_id="F2",
+                specimen_id="S2",
+                measurement_id="M2",
+                mark_id="comp",
+            ),
             "short_metadata",
         ),
     ],
@@ -175,8 +190,8 @@ class TestMetadataVariants:
 
     def test_handles_various_metadata_lengths(
         self,
-        metadata_reference,
-        metadata_compared,
+        metadata_reference: MarkMetadata,
+        metadata_compared: MarkMetadata,
         suffix,
         striation_mark_reference,
         striation_mark_compared,

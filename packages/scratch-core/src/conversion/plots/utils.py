@@ -12,6 +12,7 @@ from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
+from conversion.data_formats import MarkMetadata
 from conversion.data_formats import MarkType
 from conversion.likelihood_ratio import ReferenceData
 
@@ -289,7 +290,7 @@ def get_height_ratios(metadata_height: float, *row_heights: float) -> list[float
 
 
 def get_metadata_dimensions(
-    metadata_compared: dict, metadata_reference: dict, wrap_width: int
+    metadata_compared: MarkMetadata, metadata_reference: MarkMetadata, wrap_width: int
 ) -> tuple[int, float]:
     """
     Calculate metadata section dimensions based on content.
@@ -306,8 +307,12 @@ def get_metadata_dimensions(
         metadata_height_ratio is the relative height for the metadata row.
     """
     # Calculate content-based heights
-    meta_reference_rows = _calculate_table_rows(metadata_reference, wrap_width)
-    meta_compared_rows = _calculate_table_rows(metadata_compared, wrap_width)
+    meta_reference_rows = _calculate_table_rows(
+        metadata_reference.to_display_dict(), wrap_width
+    )
+    meta_compared_rows = _calculate_table_rows(
+        metadata_compared.to_display_dict(), wrap_width
+    )
 
     # Row 0: based on max metadata content (with minimum for readability)
     max_metadata_rows = max(meta_reference_rows, meta_compared_rows)
