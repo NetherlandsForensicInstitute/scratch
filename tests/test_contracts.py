@@ -288,7 +288,7 @@ class TestContracts:
             "png": b"\x89PNG\r\n\x1a\n",
             "x3p": b"PK\x03\x04",
             "npz": b"PK\x03\x04",
-            "json": b"{\n",
+            "json": b"{",
         }
         assert response.status_code == HTTPStatus.OK, response.text
         assert all(HttpUrl(url) for url in response.json().values()), "all response items should be a Http url"
