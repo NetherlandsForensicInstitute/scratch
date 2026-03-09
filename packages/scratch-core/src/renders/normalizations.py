@@ -107,6 +107,10 @@ def normalize_2d_array(
     The normalization is done by the steps:
     1. apply min-max normalization to grayscale data
     2. stretch / scale the normalized data from the unit range to a specified output range
+
+    :note: If all valid pixels have the same value (no contrast), the output
+    is filled with the midpoint of the output range. NaN pixels are preserved.
+
     :param array_to_normalize: 2D array of input intensity values.
     :param scale_max: Maximum output intensity value. Default is ``255``.
     :param scale_min: Minimum output intensity value. Default is ``25``.
@@ -116,7 +120,8 @@ def normalize_2d_array(
     imax = np.nanmax(array_to_normalize.data)
 
     if imax == imin:
-        result = np.full_like(array_to_normalize, scale_min)
+        fill_value = (scale_min + scale_max) / 2
+        result = np.full_like(array_to_normalize, fill_value)
         result[np.isnan(array_to_normalize)] = np.nan
         return result
 
