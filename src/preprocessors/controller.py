@@ -1,8 +1,6 @@
 from pathlib import Path
 
 import numpy as np
-from scipy.constants import micro
-
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox, Mark, MarkType
@@ -17,6 +15,7 @@ from conversion.resample import resample_mark
 from conversion.rotate import rotate_crop_and_mask_image_by_crop
 from loguru import logger
 from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resample
+from scipy.constants import micro
 from skimage.transform import resize
 
 from constants import LIGHT_SOURCES, OBSERVER
