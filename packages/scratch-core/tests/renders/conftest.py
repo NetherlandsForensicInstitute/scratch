@@ -5,7 +5,7 @@ from container_models.base import VectorField
 from container_models.light_source import LightSource
 from container_models.scan_image import ScanImage
 from renders import compute_surface_normals
-from tests.helper_function import NoScaleScanImage
+from ..helper_function import NoScaleScanImage
 
 TEST_IMAGE_SIZE = 10
 TEST_IMAGE_CENTER = TEST_IMAGE_SIZE // 2
