@@ -62,7 +62,7 @@ def rotate_crop_and_mask_image_by_crop(
         scan_image_cropped, mask_cropped, median_factor
     )
 
-    scan_image_rotated = rotator.apply_on_image(scan_image_cleaned_and_masked)
+    scan_image_rotated = rotator(scan_image=scan_image_cleaned_and_masked).unwrap()
     mask_rotated = rotate_mask(mask=mask_cropped, rotation_angle=rotator.rotation_angle)
 
     scan_image_cropped = update_scan_image_data(
