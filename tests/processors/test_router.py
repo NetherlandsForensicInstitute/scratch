@@ -15,9 +15,8 @@ from scipy.constants import micro
 from scipy.interpolate import interp1d
 
 from constants import ProcessorEndpoint
-from processors.schemas import CalculateScore, MetadataParameters
 from extractors.schemas import ComparisonResponseStriationURL
-from processors.schemas import CalculateScoreStriation, StriationParameters
+from processors.schemas import CalculateScore, MetadataParameters
 
 
 def test_processors_placeholder(client: TestClient) -> None:
