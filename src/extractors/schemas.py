@@ -30,8 +30,6 @@ type RelativePath = Annotated[
     ),
 ]
 
-
-# F = TypeVar("F", bound=StrEnum)
 C = TypeVar("C", bound="URLContainer")
 
 
@@ -44,25 +42,6 @@ class URLContainer(BaseModel):
     ) -> C:
         """Initiate the Response model with the given files from the enum."""
         return cls(**{file.name: HttpUrl(f"{base_url}/{file.value}") for file in enum})
-
-
-def response_model_from_enum(name: str, files: type[StrEnum]) -> type[URLContainer]:
-    """Generate a Response model for the FastAPI server."""
-    return create_model(name, **{file.name: (HttpUrl, None) for file in files})  # type: ignore
-
-
-def generate_model_with_urls(
-    name: str,
-    files: type[StrEnum],
-    base_url: str,
-) -> URLContainer:
-    """Generate pydantic response model with urls initiated."""
-    data = {file.name: f"{base_url}/{file.value}" for file in files}
-    model = create_model(
-        name,
-        **{file.name: (HttpUrl, None) for file in files},  # type: ignore
-    )
-    return model.model_validate(data)
 
 
 class GeneratedImages(URLContainer):
