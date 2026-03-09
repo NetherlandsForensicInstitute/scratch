@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException
 from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import BaseModel, Json
@@ -130,7 +130,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     openapi_extra=_generate_openapi_schema(model=PrepareMarkImpression),
 )
 async def prepare_mark_impression(
-    params: Annotated[Json[PrepareMarkImpression], Form(...)], mask_data: Annotated[UploadFile, File(...)]
+    params: Annotated[Json[PrepareMarkImpression], Form(...)], mask_data: bytes = File(...)
 ) -> PrepareMarkResponseImpression:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(params.tag)
@@ -138,7 +138,7 @@ async def prepare_mark_impression(
 
     try:
         parsed_mask = parse_mask_pipeline(
-            raw_data=await mask_data.read(),
+            raw_data=mask_data,
             shape=parsed_image.data.shape,
             is_bitpacked=params.mask_is_bitpacked,
         )
@@ -176,7 +176,7 @@ async def prepare_mark_impression(
     openapi_extra=_generate_openapi_schema(model=PrepareMarkStriation),
 )
 async def prepare_mark_striation(
-    params: Annotated[Json[PrepareMarkStriation], Form(...)], mask_data: Annotated[UploadFile, File(...)]
+    params: Annotated[Json[PrepareMarkStriation], Form(...)], mask_data: bytes = File(...)
 ) -> PrepareMarkResponseStriation:
     """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(params.tag)
@@ -184,7 +184,7 @@ async def prepare_mark_striation(
 
     try:
         parsed_mask = parse_mask_pipeline(
-            raw_data=await mask_data.read(),
+            raw_data=mask_data,
             shape=parsed_image.data.shape,
             is_bitpacked=params.mask_is_bitpacked,
         )
@@ -224,9 +224,7 @@ async def prepare_mark_striation(
     },
     openapi_extra=_generate_openapi_schema(model=EditImage),
 )
-async def edit_scan(
-    params: Annotated[Json[EditImage], Form(...)], mask_data: Annotated[UploadFile, File(...)]
-) -> GeneratedImages:
+async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: bytes = File(...)) -> GeneratedImages:
     """
     Validate and parse a scan file with edit parameters and mask.
 
@@ -240,7 +238,7 @@ async def edit_scan(
 
     try:
         parsed_mask = parse_mask_pipeline(
-            raw_data=await mask_data.read(),
+            raw_data=mask_data,
             shape=parsed_image.data.shape,
             is_bitpacked=params.mask_is_bitpacked,
         )
