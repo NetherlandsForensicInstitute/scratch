@@ -1,7 +1,6 @@
 from http import HTTPStatus
 from pathlib import Path
 
-import numpy as np
 from conversion.data_formats import Mark
 from conversion.export.mark import load_mark_from_path
 from conversion.likelihood_ratio import (
@@ -230,8 +229,26 @@ def process_lr_impression(
     mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
     mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
 
-    # TODO: replace with saved list[Cells] when implemented
-    metrics = _placeholder_impression_metrics()
+    p = lr_input.param
+    metrics = ImpressionComparisonMetrics(
+        area_correlation=p.area_correlation,
+        cell_correlations=p.cell_correlations_array,
+        cmc_score=p.cmc_score,
+        mean_square_ref=p.mean_square_ref,
+        mean_square_comp=p.mean_square_comp,
+        mean_square_of_difference=p.mean_square_of_difference,
+        has_area_results=p.has_area_results,
+        has_cell_results=p.has_cell_results,
+        cell_positions_compared=p.cell_positions_compared_array,
+        cell_rotations_compared=p.cell_rotations_compared_array,
+        cmc_area_fraction=p.cmc_area_fraction,
+        cutoff_low_pass=p.cutoff_low_pass,
+        cutoff_high_pass=p.cutoff_high_pass,
+        cell_size_um=p.cell_size_um,
+        max_error_cell_position=p.max_error_cell_position,
+        max_error_cell_angle=p.max_error_cell_angle,
+        cell_similarity_threshold=p.cell_similarity_threshold,
+    )
 
     results_metadata = build_results_metadata_impression(
         reference_data=reference_data,
@@ -257,33 +274,3 @@ def process_lr_impression(
     )
 
     return log_lr
-
-
-def _placeholder_impression_metrics() -> ImpressionComparisonMetrics:
-    """Temporary hardcoded metrics until cell-level results are persisted."""
-    return ImpressionComparisonMetrics(
-        area_correlation=0.82,
-        cell_correlations=np.array([[0.75, 0.88, 0.45], [0.92, 0.31, 0.67]]),
-        cmc_score=66.7,
-        mean_square_ref=1.25,
-        mean_square_comp=1.31,
-        mean_square_of_difference=0.42,
-        has_area_results=True,
-        has_cell_results=True,
-        cell_positions_compared=np.array([
-            [10.0, 20.0],
-            [10.0, 60.0],
-            [10.0, 100.0],
-            [50.0, 20.0],
-            [50.0, 60.0],
-            [50.0, 100.0],
-        ]),
-        cell_rotations_compared=np.array([0.01, -0.02, 0.03, 0.0, -0.01, 0.02]),
-        cmc_area_fraction=55.0,
-        cutoff_low_pass=250.0,
-        cutoff_high_pass=25.0,
-        cell_size_um=300.0,
-        max_error_cell_position=50.0,
-        max_error_cell_angle=3.0,
-        cell_similarity_threshold=0.25,
-    )

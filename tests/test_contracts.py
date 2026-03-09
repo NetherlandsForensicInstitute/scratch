@@ -12,10 +12,7 @@ from requests import Response
 
 from models import DirectoryAccess
 from preprocessors.pipelines import parse_scan_pipeline
-from processors.schemas import (
-    ImpressionLRParameters,
-    StriationLRParameters,
-)
+from processors.schemas import ImpressionLRParameters
 from settings import get_settings
 
 
@@ -229,7 +226,24 @@ class TestContracts:
                 "score": 1,
                 "n_cells": 5,
                 "lr_system": lr_system,
-                "param": ImpressionLRParameters(),
+                "param": ImpressionLRParameters(
+                    area_correlation=0.0,
+                    cell_correlations=[[0.0]],
+                    cmc_score=0.0,
+                    mean_square_ref=0.0,
+                    mean_square_comp=0.0,
+                    mean_square_of_difference=0.0,
+                    has_area_results=False,
+                    has_cell_results=False,
+                    cell_positions_compared=[[0.0, 0.0]],
+                    cell_rotations_compared=[0.0],
+                    cmc_area_fraction=0.0,
+                    cutoff_low_pass=0.0,
+                    cutoff_high_pass=0.0,
+                    cell_size_um=0.0,
+                    max_error_cell_position=0.0,
+                    max_error_cell_angle=0.0,
+                ),
             },
             expected_output={
                 "urls": {"lr_overview_plot": ".png"},
@@ -251,7 +265,6 @@ class TestContracts:
                 "mark_comp": directory_access.resource_path,
                 "score": 1,
                 "lr_system_path": lr_system,
-                "param": StriationLRParameters(),
             },
             expected_output={
                 "mark_ref_surfacemap": ".png",

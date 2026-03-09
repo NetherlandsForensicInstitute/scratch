@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 
 from container_models.base import FloatArray1D, FloatArray2D, ImageRGB
-from pydantic import ConfigDict
-from pydantic.dataclasses import dataclass as pydantic_dataclass
 
 
 @dataclass
@@ -77,7 +75,7 @@ class StriationComparisonPlots:
     side_by_side_heatmap: ImageRGB
 
 
-@pydantic_dataclass(config=ConfigDict(arbitrary_types_allowed=True))
+@dataclass
 class ImpressionComparisonMetrics:
     """
     Metrics for impression comparison display.

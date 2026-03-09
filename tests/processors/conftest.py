@@ -8,7 +8,6 @@ import pytest
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.export.mark import ExportedMarkData
-from conversion.plots.data_formats import ImpressionComparisonMetrics
 from conversion.profile_correlator import Profile
 from lir import FeatureData, InstanceData, LLRData
 from lir.lrsystems import LRSystem
@@ -18,7 +17,7 @@ from scipy.constants import micro
 from scipy.interpolate import interp1d
 from starlette.testclient import TestClient
 
-from processors.schemas import ImpressionLRParameters, StriationLRParameters
+from processors.schemas import ImpressionLRParameters
 
 RESOURCES = Path(__file__).parent.parent.parent / "packages/scratch-core/tests/resources"
 
@@ -133,25 +132,24 @@ def mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
 
 
 @pytest.fixture
-def dummy_metrics() -> ImpressionComparisonMetrics:
-    return ImpressionComparisonMetrics(
+def dummy_param() -> ImpressionLRParameters:
+    return ImpressionLRParameters(
         area_correlation=0.0,
-        cell_correlations=np.zeros((1, 1)),
+        cell_correlations=[[0.0]],
         cmc_score=0.0,
         mean_square_ref=0.0,
         mean_square_comp=0.0,
         mean_square_of_difference=0.0,
         has_area_results=False,
         has_cell_results=False,
-        cell_positions_compared=np.zeros((1, 2)),
-        cell_rotations_compared=np.zeros(1),
+        cell_positions_compared=[[0.0, 0.0]],
+        cell_rotations_compared=[0.0],
         cmc_area_fraction=0.0,
         cutoff_low_pass=0.0,
         cutoff_high_pass=0.0,
         cell_size_um=0.0,
         max_error_cell_position=0.0,
         max_error_cell_angle=0.0,
-        cell_similarity_threshold=0.0,
     )
 
 
@@ -160,7 +158,7 @@ def impression_kwargs(
     mark_dir_ref: Path,
     mark_dir_comp: Path,
     lr_system_file: Path,
-    dummy_metrics: ImpressionComparisonMetrics,
+    dummy_param: ImpressionLRParameters,
 ) -> dict:
     """Return valid baseline kwargs for CalculateLRImpression."""
     return {
@@ -169,12 +167,11 @@ def impression_kwargs(
         "score": 5,
         "lr_system_path": lr_system_file,
         "n_cells": 10,
-        "param": ImpressionLRParameters(),
+        "param": dummy_param,
         "metadata_compared": {"metadata": "compared"},
         "metadata_reference": {"metadata": "reference"},
         "user_id": "AAAAA",
         "date_report": date(2000, 1, 1),
-        "metrics": dummy_metrics,
     }
 
 
@@ -192,7 +189,6 @@ def striation_kwargs(
         "mark_dir_comp_aligned": mark_dir_comp,
         "score": 0.5,
         "lr_system_path": lr_system_file,
-        "param": StriationLRParameters(),
         "user_id": "AAAAA",
         "date_report": date(2000, 1, 1),
         "metadata_compared": {"metadata": "compared"},
@@ -214,7 +210,6 @@ def striation_lr_kwargs(
         "mark_dir_comp_aligned": mark_dir_comp,
         "score": 0.5,
         "lr_system_path": lr_system_path,
-        "param": StriationLRParameters(),
         "metadata_compared": {"metadata": "compared"},
         "metadata_reference": {"metadata": "reference"},
         "user_id": "AAAAA",
@@ -226,7 +221,7 @@ def striation_lr_kwargs(
 def impression_lr_kwargs(
     lr_system_path: Path,
     mark_dirs: tuple[Path, Path],
-    dummy_metrics: ImpressionComparisonMetrics,
+    dummy_param: ImpressionLRParameters,
 ) -> dict:
     """Return valid baseline kwargs for CalculateLRImpression."""
     mark_dir_comp, mark_dir_ref = mark_dirs
@@ -236,10 +231,9 @@ def impression_lr_kwargs(
         "score": 3,
         "n_cells": 10,
         "lr_system_path": lr_system_path,
-        "param": ImpressionLRParameters(),
+        "param": dummy_param,
         "metadata_compared": {"metadata": "compared"},
         "metadata_reference": {"metadata": "reference"},
         "user_id": "AAAAA",
         "date_report": date(2000, 1, 1),
-        "metrics": dummy_metrics,
     }

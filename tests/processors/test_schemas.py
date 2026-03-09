@@ -10,7 +10,6 @@ from processors.schemas import (
     CalculateLRStriation,
     ImpressionLRParameters,
     MarkDirectories,
-    StriationLRParameters,
 )
 
 
@@ -131,7 +130,7 @@ class TestCalculateLRStriation:
     def test_should_accept_valid_input(self, striation_kwargs: dict) -> None:
         """Valid input with striation LR parameters is accepted."""
         schema = CalculateLRStriation(**striation_kwargs)
-        assert isinstance(schema.param, StriationLRParameters)
+        assert schema.score == striation_kwargs["score"]
 
     @pytest.mark.parametrize("score", [0.0, 0.5, 1.0])
     def test_should_accept_positive_float_score(self, striation_kwargs: dict, score: float) -> None:
@@ -144,9 +143,3 @@ class TestCalculateLRStriation:
         """Negative float score raises ValidationError."""
         with pytest.raises(ValidationError):
             CalculateLRStriation(**striation_kwargs | {"score": score})
-
-    def test_should_reject_missing_param(self, striation_kwargs: dict) -> None:
-        """Omitting the param field raises ValidationError."""
-        kwargs = {k: v for k, v in striation_kwargs.items() if k != "param"}
-        with pytest.raises(ValidationError):
-            CalculateLRStriation(**kwargs)  # type: ignore
