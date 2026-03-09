@@ -6,6 +6,8 @@ from container_models.light_source import LightSource
 from renders.shading import calculate_lighting
 from scipy.constants import micro
 
+from ..helper_function import assert_nan_mask_preserved
+
 
 def test_shape(
     varied_normals: VectorField,
@@ -151,3 +153,18 @@ def test_lighting_known_value(
 
     # Assert
     assert np.allclose(out, expected_constant, atol=micro)
+
+
+def test_nan_normals_produce_nan_output(
+    observer: LightSource,
+    light_source: LightSource,
+    flat_normals: VectorField,
+) -> None:
+    """Pixels with NaN normals must produce NaN lighting values."""
+    normals = flat_normals.copy()
+    normals[0, 0, :] = np.nan
+    normals[1, :, :] = np.nan  # entire row
+
+    out = calculate_lighting(light_source, observer, normals)
+
+    assert_nan_mask_preserved(normals, out)

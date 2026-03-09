@@ -114,7 +114,7 @@ def apply_multiple_lights(
     lighting_results = [
         calculate_lighting(light, observer, surface_normals) for light in light_sources
     ]
-    return np.nansum(
+    return np.sum(
         np.stack([result for result in lighting_results], axis=-1),
         axis=2,
     )
