@@ -117,7 +117,11 @@ class Rotate(ImageMutation):
         """Constructor to initiating the Rotate class,
 
         The Rotate ImageMutation is rotating the given scan_image.
-        The rotation is rotating counterclockwise, unless reverse reverse_rotation is set True.
+        The rotation is rotating with:
+            Positive rotation_angle & reverse_rotation set False counterclockwise
+            Positive rotation_angle & reverse_rotation set True clockwise
+            Negative rotation_angle & reverse_rotation set False clockwise
+            Negative rotation_angle & reverse_rotation set True counterclockwise
 
         :Note:
             if reverse_rotation is True rotation_angle will be reverse (*-1)
