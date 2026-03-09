@@ -1,5 +1,4 @@
 import datetime
-from functools import cached_property
 from typing import Self
 
 import numpy as np
@@ -60,17 +59,17 @@ class ImpressionLRParameters(BaseModelConfig):
     max_error_cell_angle: float
     cell_similarity_threshold: float = 0.25
 
-    @cached_property
+    @property
     def cell_correlations_array(self) -> FloatArray2D:
         """Return cell correlations as a 2D numpy array."""
         return np.array(self.cell_correlations)
 
-    @cached_property
+    @property
     def cell_positions_compared_array(self) -> FloatArray2D:
         """Return compared cell positions as a 2D numpy array."""
         return np.array(self.cell_positions_compared)
 
-    @cached_property
+    @property
     def cell_rotations_compared_array(self) -> FloatArray1D:
         """Return compared cell rotations as a 1D numpy array."""
         return np.array(self.cell_rotations_compared)
