@@ -4,7 +4,7 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated, TypeVar
 
-from pydantic import AfterValidator, BaseModel, Field, HttpUrl, create_model, model_serializer
+from pydantic import AfterValidator, BaseModel, Field, HttpUrl, model_serializer
 
 from models import (
     validate_file_extension,

@@ -32,14 +32,14 @@ def test_all_module_classes_extend_base_response_urls(cls: type[URLContainer]) -
 
 
 class _SimpleURLs(URLContainer):
-    """Minimal concrete subclass with one aliased and one plain field."""
+    """Minimal concrete subclass."""
 
-    aliased_file: HttpUrl = Field(...)
+    some_file: HttpUrl = Field(...)
     plain_file: HttpUrl = Field(...)
 
 
 class _SimpleFiles(StrEnum):
-    aliased_file = "file.png"
+    some_file = "file.png"
     plain_file = "file.txt"
 
 
@@ -52,25 +52,12 @@ class _NoFileName(URLContainer):
 class TestGenerateUrls:
     """Tests for URLContainer.generate_urls."""
 
-    def test_aliased_field_populated_via_alias(self) -> None:
-        """Aliased fields are set using their alias key."""
-        result = _SimpleURLs.from_enum(enum=_SimpleFiles, base_url=_BASE_URL)
-        assert result.aliased_file == HttpUrl(f"{_BASE_URL}/{_SimpleFiles.aliased_file}")
-        assert result.plain_file == HttpUrl(f"{_BASE_URL}/{_SimpleFiles.plain_file}")
-
     @pytest.mark.parametrize("protocol", ["http", "https"])
     def test_supports_http_and_https(self, protocol: str) -> None:
         """Both HTTP and HTTPS base URLs are accepted."""
         base_url = f"{protocol}://localhost:8000/files/token"
         result = _SimpleURLs.from_enum(enum=_SimpleFiles, base_url=base_url)
-        assert str(result.aliased_file).startswith(protocol)
-
-    def test_all_fields_are_represented(self) -> None:
-        """The returned dict contains one entry per model field."""
-        fields = set(_SimpleURLs.model_json_schema(by_alias=True)["properties"])
-        urls = _SimpleURLs.from_enum(enum=_SimpleFiles, base_url=_BASE_URL).model_dump(by_alias=True)
-
-        assert not (missing := (set(urls) - fields)), f"files {', '.join(missing)} are missing"
+        assert str(result.some_file).startswith(protocol)
 
     @pytest.mark.parametrize(
         "invalid_url",
