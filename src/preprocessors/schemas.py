@@ -5,7 +5,6 @@ from typing import Annotated, Any
 
 import numpy as np
 from conversion.data_formats import BoundingBox, MarkType
-from conversion.leveling.data_types import SurfaceTerms
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
 from numpy.typing import NDArray
@@ -27,6 +26,7 @@ from models import (
     ScanFile,
     SupportedScanExtension,
 )
+from preprocessors.constants import SurfaceOptions
 
 
 class BaseParameters(BaseModelConfig):
@@ -154,8 +154,8 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: SurfaceTerms = Field(
-        default=SurfaceTerms.PLANE,
+    terms: SurfaceOptions = Field(
+        ...,
         description=(
             "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
         ),
@@ -191,7 +191,7 @@ class EditImage(BaseParameters):
         attr_to_class = (
             ("scan_file", "ScanFile"),
             ("regression_order", "RegressionOrder"),
-            ("terms", "SurfaceTerms"),
+            ("terms", "SurfaceOptions"),
             ("project_name", "ProjectTag"),
         )
         for attribute, class_name in attr_to_class:
