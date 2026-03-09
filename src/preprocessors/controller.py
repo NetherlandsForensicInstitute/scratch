@@ -47,18 +47,23 @@ def _extract_mark_from_scan(
     return mark
 
 
-def _save_outputs(mark: Mark, processed_mark: Mark, working_dir: Path) -> None:
+def _save_outputs(
+    mark: Mark,
+    processed_mark: Mark,
+    working_dir: Path,
+    files: type[PrepareMarkStriationFiles | PrepareMarkImpressionFiles],
+) -> None:
     """Save surface map, preview, raw mark, and processed mark."""
     logger.info("Saving marks, surface_map.png and preview.png")
     surface_map_pipeline(
         parsed_scan=processed_mark.scan_image,
-        output_path=PrepareMarkStriationFiles.surface_map_image.get_file_path(working_dir),
+        output_path=files.surface_map_image.get_file_path(working_dir),
         observer=OBSERVER,
         light_sources=LIGHT_SOURCES,
     )
     preview_pipeline(
         parsed_scan=processed_mark.scan_image,
-        output_path=PrepareMarkStriationFiles.preview_image.get_file_path(working_dir),
+        output_path=files.preview_image.get_file_path(working_dir),
     )
     save_mark(mark, path=PrepareMarkStriationFiles.mark_data.get_file_path(working_dir))
     save_mark(processed_mark, path=PrepareMarkStriationFiles.processed_data.get_file_path(working_dir))
@@ -76,7 +81,7 @@ def process_prepare_impression_mark(  # noqa: PLR0913
     mark = _extract_mark_from_scan(scan_file, mark_type, mask, bounding_box)
     logger.info("Preparing mark")
     processed_mark, leveled_mark = preprocess_impression_mark(mark, params=preprocess_parameters)
-    _save_outputs(mark, processed_mark, working_dir)
+    _save_outputs(mark, processed_mark, working_dir, files=PrepareMarkImpressionFiles)
     save_mark(leveled_mark, path=PrepareMarkImpressionFiles.leveled_data.get_file_path(working_dir))
 
 
@@ -92,7 +97,7 @@ def process_prepare_striation_mark(  # noqa: PLR0913
     mark = _extract_mark_from_scan(scan_file, mark_type, mask, bounding_box)
     logger.info("Preparing mark")
     processed_mark, profile = preprocess_striation_mark(mark, params=preprocess_parameters)
-    _save_outputs(mark, processed_mark, working_dir)
+    _save_outputs(mark, processed_mark, working_dir, files=PrepareMarkStriationFiles)
     save_profile(profile, path=PrepareMarkStriationFiles.profile_data.get_file_path(working_dir))
 
 
