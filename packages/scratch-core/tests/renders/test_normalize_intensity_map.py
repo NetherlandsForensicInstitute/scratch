@@ -3,7 +3,7 @@ import pytest
 
 from container_models.scan_image import ScanImage
 from renders import normalize_2d_array
-from tests.helper_function import assert_nan_mask_preserved
+from ..helper_function import assert_nan_mask_preserved
 
 TEST_IMAGE_WIDTH = 10
 TEST_IMAGE_HEIGHT = 12

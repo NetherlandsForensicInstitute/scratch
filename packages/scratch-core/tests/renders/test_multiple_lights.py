@@ -7,7 +7,7 @@ from returns.pipeline import is_successful
 from container_models.base import VectorField
 from container_models.light_source import LightSource
 from renders.shading import apply_multiple_lights
-from tests.helper_function import assert_nan_mask_preserved
+from ..helper_function import assert_nan_mask_preserved
 
 no_scale_apply_multiple_lights = partial(apply_multiple_lights)
 

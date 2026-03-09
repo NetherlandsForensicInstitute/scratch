@@ -5,8 +5,9 @@ from scipy.constants import milli
 from container_models.scan_image import ScanImage
 from renders import compute_surface_normals
 from container_models.base import BinaryMask, VectorField
-from tests.renders.conftest import IMAGE_SIZE, NoScaleScanImage
+from tests.helper_function import NoScaleScanImage
 
+IMAGE_SIZE = 20
 BUMP_SIZE = 6
 BUMP_HEIGHT = 4
 BUMP_CENTER = IMAGE_SIZE // 2

@@ -1,5 +1,3 @@
-from functools import partial
-
 import numpy as np
 import pytest
 
@@ -7,11 +5,11 @@ from container_models.base import VectorField
 from container_models.light_source import LightSource
 from container_models.scan_image import ScanImage
 from renders import compute_surface_normals
+from tests.helper_function import NoScaleScanImage
 
 TEST_IMAGE_SIZE = 10
 TEST_IMAGE_CENTER = TEST_IMAGE_SIZE // 2
 IMAGE_SIZE = 20
-NoScaleScanImage = partial(ScanImage, scale_x=1, scale_y=1)
 
 
 @pytest.fixture(scope="module")
