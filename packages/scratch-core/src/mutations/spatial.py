@@ -133,7 +133,12 @@ class Rotate(ImageMutation):
 
         :returns: True if rotation angle is 0, False otherwise
         """
-        return True if np.isclose(self.rotation_angle, 0.0) else False
+        if np.isclose(self.rotation_angle, 0.0):
+            logger.info(
+                f"No rotation is needed, given rotation angle is close by 0, given angle : {self.rotation_angle}"
+            )
+            return True
+        return False
 
     @classmethod
     def from_bounding_box(
