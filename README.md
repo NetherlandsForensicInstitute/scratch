@@ -2,7 +2,7 @@
 
 ## 🧑‍💻 Development Environment
 
-This project **[Just](https://github.com/casey/just)** as a
+This project uses **[Just](https://github.com/casey/just)** as a
 command runner. Dependencies are managed with
 **[uv](https://github.com/astral-sh/uv)**, and code quality tools are handled
 via **[pre-commit](https://pre-commit.com/)**.
