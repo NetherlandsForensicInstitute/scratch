@@ -7,10 +7,6 @@ from pydantic import Field, HttpUrl, ValidationError
 import extractors.schemas as schemas_module
 from extractors.constants import LRFiles
 from extractors.schemas import (
-    BaseResponseURLs,
-    ComparisonResponseImpression,
-    ComparisonResponseStriation,
-    ComparisonResponseStriationURL,
     LRResponse,
     LRResponseURL,
     SupportedExtension,

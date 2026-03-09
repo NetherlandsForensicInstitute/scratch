@@ -191,6 +191,7 @@ class ComparisonResponseStriationURL(ComparisonResponse):
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/side_by_side_heatmap.png"],
     )
 
+
 class ComparisonResponseStriation(URLContainer):
     urls: ComparisonResponseStriationURL
     comparison_results: dict = Field(
@@ -206,6 +207,7 @@ class ComparisonResponseStriation(URLContainer):
             **data["urls"],
             "comparison_results": data["comparison_results"],
         }
+
 
 class LRResponseURL(URLContainer):
     lr_overview_plot: HttpUrl = Field(
