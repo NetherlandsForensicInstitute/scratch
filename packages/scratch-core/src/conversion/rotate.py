@@ -43,10 +43,10 @@ def rotate_crop_and_mask_image_by_crop(
     if (
         bounding_box is None
     ):  # TODO: This check should belong to higher level calls like API and determin to skip rotation
-        rotator = Rotate(rotation_angle=0.0, reverse_rotation=True)
+        rotator = Rotate(rotation_angle=0.0, reverse_rotation=False)
     else:
         rotator = Rotate.from_bounding_box(
-            bounding_box=bounding_box, reverse_rotation=False
+            bounding_box=bounding_box, reverse_rotation=True
         )
     margin = 0
     if not np.isclose(rotator.rotation_angle, 0.0):
