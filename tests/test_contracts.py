@@ -6,7 +6,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 import requests
-from container_models.base import BinaryMask
 from pydantic import BaseModel, HttpUrl
 from requests import Response
 
@@ -40,11 +39,11 @@ class EndpointContractInterface(BaseModel):
 type Interface = tuple[BaseModel, type[BaseModel]]
 
 
-def send_post_request_with_mask(endpoint: str, params: dict, mask: BinaryMask) -> Response:
+def send_post_request_with_mask(endpoint: str, params: dict, mask_raw: bytes) -> Response:
     return requests.post(
         f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{endpoint}",
         data={"params": json.dumps(params, default=str)},
-        files={"mask_data": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream")},
+        files={"mask_data": ("mask.bin", mask_raw, "application/octet-stream")},
         timeout=5,
     )
 
@@ -85,14 +84,13 @@ class TestContracts:
         )
 
     @pytest.fixture(scope="class")
-    def prepare_mark_impression(self, scan_directory: Path) -> tuple[EndpointContractInterface, BinaryMask]:
+    def prepare_mark_impression(self, scan_directory: Path, mask_raw: bytes) -> tuple[EndpointContractInterface, bytes]:
         """
         Create dummy files for the expected response.
 
         Returns the post request data, sub_route & expected response.
         """
         scan_file = scan_directory / "circle.x3p"
-        parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
         return EndpointContractInterface(
             expected_input={
                 "scan_file": str(scan_file.absolute()),
@@ -121,17 +119,16 @@ class TestContracts:
                 "leveled_data": ".npz",
                 "leveled_meta": ".json",
             },
-        ), np.ones(parsed_scan.data.shape, dtype=np.bool)
+        ), mask_raw
 
     @pytest.fixture(scope="class")
-    def prepare_mark_striation(self, scan_directory: Path) -> tuple[EndpointContractInterface, BinaryMask]:
+    def prepare_mark_striation(self, scan_directory: Path, mask_raw: bytes) -> tuple[EndpointContractInterface, bytes]:
         """
         Create dummy files for the expected response.
 
         Returns the post request data, sub_route & expected response.
         """
         scan_file = scan_directory / "circle.x3p"
-        parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
         return EndpointContractInterface(
             expected_input={
                 "scan_file": str(scan_file.absolute()),
@@ -156,10 +153,10 @@ class TestContracts:
                 "processed_meta": ".json",
                 "profile_data": ".npz",
             },
-        ), np.ones(parsed_scan.data.shape, dtype=np.bool)
+        ), mask_raw
 
     @pytest.fixture(scope="class")
-    def edit_scan(self, scan_directory: Path) -> tuple[EndpointContractInterface, BinaryMask]:
+    def edit_scan(self, scan_directory: Path) -> tuple[EndpointContractInterface, bytes]:
         """Create test data for edit-scan endpoint.
 
         Returns the post request data, expected response type, and mask bytes.
@@ -178,7 +175,7 @@ class TestContracts:
                 "preview": ".png",
                 "surface_map": ".png",
             },
-        ), np.ones(parsed_scan.data.shape, dtype=np.bool_)
+        ), np.ones(parsed_scan.data.shape, dtype=np.bool_).tobytes(order="C")
 
     @pytest.fixture(scope="class")
     def calculate_score_impression(self, directory_access: DirectoryAccess) -> EndpointContractInterface:
@@ -342,10 +339,10 @@ class TestContracts:
         self, fixture_name: str, sub_route: str, request: pytest.FixtureRequest
     ) -> None:
         """Test if preprocessor POST endpoints return expected models."""
-        data: tuple[EndpointContractInterface, BinaryMask] = request.getfixturevalue(fixture_name)
-        params, mask = data
+        data: tuple[EndpointContractInterface, bytes] = request.getfixturevalue(fixture_name)
+        params, mask_raw = data
         # Act
-        response = send_post_request_with_mask(endpoint=sub_route, params=params.expected_input, mask=mask)
+        response = send_post_request_with_mask(endpoint=sub_route, params=params.expected_input, mask_raw=mask_raw)
         # Assert
         self._assert_response_urls(data=params, response=response)
 

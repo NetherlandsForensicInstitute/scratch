@@ -49,3 +49,8 @@ def mask() -> BinaryMask:
     array = np.zeros(shape=(259, 259), dtype=np.bool_)
     array[1:259, 1:259] = True
     return array
+
+
+@pytest.fixture(scope="session")
+def mask_raw(mask: BinaryMask) -> bytes:
+    return mask.tobytes(order="C")
