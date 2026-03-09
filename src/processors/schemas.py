@@ -37,6 +37,8 @@ class CalculateLR(MarkDirectories):
     lr_system_path: FilePath
     user_id: str
     date_report: datetime.date
+    metadata_reference: MarkMetadata
+    metadata_compared: MarkMetadata
 
 
 class ImpressionLRParameters(BaseModelConfig):

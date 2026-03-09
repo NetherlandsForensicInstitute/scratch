@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkMetadata
 from conversion.likelihood_ratio import ReferenceData
 from conversion.plots.data_formats import ImpressionComparisonMetrics
 from conversion.profile_correlator import Profile
@@ -11,9 +11,6 @@ from fastapi import HTTPException
 
 from processors.controller import compare_striation_marks, save_lr_impression_plot, save_lr_striation_plot
 from tests.processors.conftest import assert_valid_png
-
-METADATA_REFERENCE = {"Case": "ref-001"}
-METADATA_COMPARED = {"Case": "comp-001"}
 
 
 class TestCompareStriationMarks:
@@ -49,6 +46,8 @@ class TestSaveLrOverviewPlot:
         reference_data: ReferenceData,
         impression_metrics: ImpressionComparisonMetrics,
         results_metadata: dict[str, str],
+        metadata_reference: MarkMetadata,
+        metadata_compared: MarkMetadata,
     ) -> None:
         """Impression LR plot is written as a valid PNG."""
         output = tmp_path / "lr_plot.png"
@@ -58,8 +57,8 @@ class TestSaveLrOverviewPlot:
             mark_ref=mark_ref,
             mark_comp=mark_comp,
             metrics=impression_metrics,
-            metadata_reference=METADATA_REFERENCE,
-            metadata_compared=METADATA_COMPARED,
+            metadata_reference=metadata_reference,
+            metadata_compared=metadata_compared,
             results_metadata=results_metadata,
             score=0.5,
             lr=1.2,
@@ -76,6 +75,8 @@ class TestSaveLrOverviewPlot:
         mark_comp: Mark,
         reference_data: ReferenceData,
         results_metadata: dict[str, str],
+        metadata_reference: MarkMetadata,
+        metadata_compared: MarkMetadata,
     ) -> None:
         """Striation LR plot is written as a valid PNG."""
         output = tmp_path / "lr_plot.png"
@@ -86,8 +87,8 @@ class TestSaveLrOverviewPlot:
             mark_comp=mark_comp,
             mark_ref_aligned=mark_ref,
             mark_comp_aligned=mark_comp,
-            metadata_reference=METADATA_REFERENCE,
-            metadata_compared=METADATA_COMPARED,
+            metadata_reference=metadata_reference,
+            metadata_compared=metadata_compared,
             results_metadata=results_metadata,
             score=0.5,
             lr=1.2,

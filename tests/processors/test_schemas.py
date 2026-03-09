@@ -1,4 +1,3 @@
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -36,14 +35,15 @@ class TestMarkDirectories:
 class TestCalculateLR:
     """Tests for the CalculateLR schema."""
 
-    def test_should_accept_valid_input(self, mark_dir_ref: Path, mark_dir_comp: Path, lr_system_file: Path) -> None:
+    def test_should_accept_valid_input(
+        self, mark_dir_ref: Path, mark_dir_comp: Path, lr_system_file: Path, base_lr_kwargs: dict
+    ) -> None:
         """Valid directories and lr_system_path file are accepted."""
         schema = CalculateLR(
             mark_dir_ref=mark_dir_ref,
             mark_dir_comp=mark_dir_comp,
             lr_system_path=lr_system_file,
-            user_id="AAAAA",
-            date_report=date(2000, 1, 1),
+            **base_lr_kwargs,
         )
         assert schema.lr_system_path == lr_system_file
 
@@ -55,7 +55,7 @@ class TestCalculateLR:
         ],
     )
     def test_should_reject_invalid_lr_system_path(
-        self, mark_dir_ref: Path, mark_dir_comp: Path, invalid_lr_system: Path
+        self, mark_dir_ref: Path, mark_dir_comp: Path, invalid_lr_system: Path, base_lr_kwargs: dict
     ) -> None:
         """Non-existent path and directory path for lr_system_path raise ValidationError."""
         with pytest.raises(ValidationError):
@@ -63,8 +63,7 @@ class TestCalculateLR:
                 mark_dir_ref=mark_dir_ref,
                 mark_dir_comp=mark_dir_comp,
                 lr_system_path=invalid_lr_system,
-                user_id="AAAAA",
-                date_report=date(2000, 1, 1),
+                **base_lr_kwargs,
             )
 
     @pytest.mark.parametrize("field", ["mark_dir_ref", "mark_dir_comp"])

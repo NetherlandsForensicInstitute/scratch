@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkMetadata, MarkType
 from conversion.export.mark import ExportedMarkData
 from conversion.profile_correlator import Profile
 from lir import FeatureData, InstanceData, LLRData
@@ -132,6 +132,29 @@ def mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
 
 
 @pytest.fixture
+def metadata_reference() -> MarkMetadata:
+    return MarkMetadata(case_id="ref-001", firearm_id="fw-1", specimen_id="sp-1", measurement_id="ms-1", mark_id="mk-1")
+
+
+@pytest.fixture
+def metadata_compared() -> MarkMetadata:
+    return MarkMetadata(
+        case_id="comp-001", firearm_id="fw-2", specimen_id="sp-2", measurement_id="ms-2", mark_id="mk-2"
+    )
+
+
+@pytest.fixture
+def base_lr_kwargs(metadata_reference: MarkMetadata, metadata_compared: MarkMetadata) -> dict:
+    """Return the common kwargs required by all CalculateLR schemas."""
+    return {
+        "user_id": "AAAAA",
+        "date_report": date(2000, 1, 1),
+        "metadata_reference": metadata_reference,
+        "metadata_compared": metadata_compared,
+    }
+
+
+@pytest.fixture
 def dummy_param() -> ImpressionLRParameters:
     return ImpressionLRParameters(
         area_correlation=0.0,
@@ -159,6 +182,7 @@ def impression_kwargs(
     mark_dir_comp: Path,
     lr_system_file: Path,
     dummy_param: ImpressionLRParameters,
+    base_lr_kwargs: dict,
 ) -> dict:
     """Return valid baseline kwargs for CalculateLRImpression."""
     return {
@@ -168,10 +192,7 @@ def impression_kwargs(
         "lr_system_path": lr_system_file,
         "n_cells": 10,
         "param": dummy_param,
-        "metadata_compared": {"metadata": "compared"},
-        "metadata_reference": {"metadata": "reference"},
-        "user_id": "AAAAA",
-        "date_report": date(2000, 1, 1),
+        **base_lr_kwargs,
     }
 
 
@@ -180,6 +201,8 @@ def striation_kwargs(
     mark_dir_ref: Path,
     mark_dir_comp: Path,
     lr_system_file: Path,
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
 ) -> dict:
     """Return valid baseline kwargs for CalculateLRStriation."""
     return {
@@ -191,8 +214,8 @@ def striation_kwargs(
         "lr_system_path": lr_system_file,
         "user_id": "AAAAA",
         "date_report": date(2000, 1, 1),
-        "metadata_compared": {"metadata": "compared"},
-        "metadata_reference": {"metadata": "reference"},
+        "metadata_reference": metadata_reference,
+        "metadata_compared": metadata_compared,
     }
 
 
@@ -200,6 +223,8 @@ def striation_kwargs(
 def striation_lr_kwargs(
     lr_system_path: Path,
     mark_dirs: tuple[Path, Path],
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
 ) -> dict:
     """Return valid baseline kwargs for CalculateLRStriation."""
     mark_dir_comp, mark_dir_ref = mark_dirs
@@ -210,8 +235,8 @@ def striation_lr_kwargs(
         "mark_dir_comp_aligned": mark_dir_comp,
         "score": 0.5,
         "lr_system_path": lr_system_path,
-        "metadata_compared": {"metadata": "compared"},
-        "metadata_reference": {"metadata": "reference"},
+        "metadata_reference": metadata_reference,
+        "metadata_compared": metadata_compared,
         "user_id": "AAAAA",
         "date_report": date(2000, 1, 1),
     }
@@ -222,6 +247,8 @@ def impression_lr_kwargs(
     lr_system_path: Path,
     mark_dirs: tuple[Path, Path],
     dummy_param: ImpressionLRParameters,
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
 ) -> dict:
     """Return valid baseline kwargs for CalculateLRImpression."""
     mark_dir_comp, mark_dir_ref = mark_dirs
@@ -232,8 +259,8 @@ def impression_lr_kwargs(
         "n_cells": 10,
         "lr_system_path": lr_system_path,
         "param": dummy_param,
-        "metadata_compared": {"metadata": "compared"},
-        "metadata_reference": {"metadata": "reference"},
+        "metadata_reference": metadata_reference,
+        "metadata_compared": metadata_compared,
         "user_id": "AAAAA",
         "date_report": date(2000, 1, 1),
     }
