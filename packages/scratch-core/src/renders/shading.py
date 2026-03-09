@@ -114,7 +114,12 @@ def apply_multiple_lights(
     lighting_results = [
         calculate_lighting(light, observer, surface_normals) for light in light_sources
     ]
-    return np.nansum(
+    combined = np.nansum(
         np.stack([result for result in lighting_results], axis=-1),
         axis=2,
     )
+
+    # Restore NaN
+    nan_mask = np.isnan(surface_normals[..., 0])
+    combined[nan_mask] = np.nan
+    return combined

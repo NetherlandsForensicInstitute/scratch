@@ -1,4 +1,5 @@
 from functools import partial
+
 import numpy as np
 import pytest
 from returns.pipeline import is_successful
@@ -6,6 +7,7 @@ from returns.pipeline import is_successful
 from container_models.base import VectorField
 from container_models.light_source import LightSource
 from renders.shading import apply_multiple_lights
+from tests.helper_function import assert_nan_mask_preserved
 
 no_scale_apply_multiple_lights = partial(apply_multiple_lights)
 
@@ -106,3 +108,10 @@ def test_spatial_variation_with_bumpy_surface(
     corner_value = light_intensities[0, 0]
     # Center and corner should have different intensities
     assert not np.isclose(center_value, corner_value)
+
+
+def test_nan_mask_preserved(normals_with_nan_background, multiple_lights, observer):
+    result = apply_multiple_lights(
+        normals_with_nan_background, multiple_lights, observer
+    ).unwrap()
+    assert_nan_mask_preserved(normals_with_nan_background, result)

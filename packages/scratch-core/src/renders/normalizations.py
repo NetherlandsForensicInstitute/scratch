@@ -102,20 +102,13 @@ def normalize_2d_array(
     scale_max: float = 255,
     scale_min: float = 25,
 ) -> FloatArray2D:
-    """
-    Normalize a 2D intensity map to a specified output range.
-
-    The normalization is done by the steps:
-    1. apply min-max normalization to grayscale data
-    2. stretch / scale the normalized data from the unit range to a specified output range
-
-    :param array_to_normalize: 2D array of input intensity values.
-    :param scale_max: Maximum output intensity value. Default is ``255``.
-    :param scale_min: Minimum output intensity value. Default is ``25``.
-
-    :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
-    """
     imin = np.nanmin(array_to_normalize.data)
     imax = np.nanmax(array_to_normalize.data)
+
+    if imax == imin:
+        result = np.full_like(array_to_normalize, scale_min)
+        result[np.isnan(array_to_normalize)] = np.nan
+        return result
+
     norm = (array_to_normalize - imin) / (imax - imin)
     return scale_min + (scale_max - scale_min) * norm
