@@ -13,7 +13,6 @@ from pydantic import (
     AfterValidator,
     PlainSerializer,
     BeforeValidator,
-    BaseModel,
 )
 from numpy import float64
 from container_models.base import (
@@ -111,7 +110,7 @@ class Mark(ConfigBaseModel):
         return json.dumps(data, indent=4)
 
 
-class MarkMetadata(BaseModel):
+class MarkMetadata(ConfigBaseModel):
     """Metadata identifying a mark and its provenance.
 
     :param case_id: Identifier for the case.
