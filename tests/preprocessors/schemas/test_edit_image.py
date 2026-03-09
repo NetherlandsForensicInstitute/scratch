@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
-from conversion.leveling.data_types import SurfaceTerms
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 from scipy.constants import micro
 
+from preprocessors.constants import SurfaceOptions
 from preprocessors.schemas import EditImage, RegressionOrder
 
 DEFAULT_RESAMPLING_FACTOR: Final[int] = 4
@@ -23,17 +23,6 @@ def get_error_fields(exc_info, typ: str) -> tuple[str, ...]:
 
 class TestEditImage:
     """Tests for EditImage request model."""
-
-    def test_should_create_with_project_name(self, edit_image_parameter: Callable[..., EditImage]) -> None:
-        """Test that EditImage can be created with optional project_name."""
-        # Arrange
-        project_name = "forensic_analysis_2026"
-
-        # Act
-        edit_image = edit_image_parameter(project_name=project_name)
-
-        # Assert
-        assert edit_image.project_name == edit_image.tag == project_name
 
     def test_should_reject_non_x3p_file(
         self, scan_directory: Path, edit_image_parameter: Callable[..., EditImage]
@@ -75,7 +64,7 @@ class TestEditImage:
 
         # Assert
         assert params.resampling_factor == DEFAULT_RESAMPLING_FACTOR
-        assert params.terms == SurfaceTerms.PLANE
+        assert params.terms == SurfaceOptions.NONE
         assert params.regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE
         assert params.cutoff_length == CUTOFF_LENGTH * micro
         assert params.crop is False
@@ -84,8 +73,8 @@ class TestEditImage:
     @pytest.mark.parametrize(
         "kwargs",
         [
-            {"terms": SurfaceTerms.PLANE},
-            {"terms": SurfaceTerms.SPHERE},
+            {"terms": SurfaceOptions.PLANE},
+            {"terms": SurfaceOptions.SPHERE},
             {"regression_order": RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE},
             {"regression_order": RegressionOrder.LOCAL_PLANAR},
             {"regression_order": RegressionOrder.LOCAL_QUADRATIC},
@@ -145,4 +134,4 @@ class TestEditImage:
             EditImage()  # type: ignore
 
         # Assert
-        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length")
+        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "terms")

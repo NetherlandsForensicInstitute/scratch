@@ -17,7 +17,7 @@ CUTOFF_LENGTH: Final[float] = 250
 def edit_image_parameter(scan_directory: Path) -> Callable[..., EditImage]:
     def wrapper(**kwargs) -> EditImage:
         return EditImage.model_validate(
-            {"scan_file": scan_directory / "circle.x3p", "cutoff_length": CUTOFF_LENGTH} | kwargs
+            {"scan_file": scan_directory / "circle.x3p", "cutoff_length": CUTOFF_LENGTH, "terms": "none"} | kwargs
         )
 
     return wrapper

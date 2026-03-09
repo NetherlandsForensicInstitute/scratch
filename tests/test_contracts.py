@@ -168,7 +168,12 @@ class TestContracts:
         scan_file = scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p"
         parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
         return EndpointContractInterface(
-            expected_input={"scan_file": scan_file, "cutoff_length": cutoff_length, "mask_is_bitpacked": False},
+            expected_input={
+                "scan_file": scan_file,
+                "cutoff_length": cutoff_length,
+                "mask_is_bitpacked": False,
+                "terms": "plane",
+            },
             expected_output={
                 "preview": ".png",
                 "surface_map": ".png",

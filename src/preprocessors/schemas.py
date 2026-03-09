@@ -5,7 +5,6 @@ from typing import Annotated, Any
 
 import numpy as np
 from conversion.data_formats import BoundingBox, MarkType
-from conversion.leveling.data_types import SurfaceTerms
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
@@ -26,6 +25,7 @@ from models import (
     ScanFile,
     SupportedScanExtension,
 )
+from preprocessors.constants import SurfaceOptions
 
 
 def _update_schema(schema: dict[str, Any], attr_to_class: tuple[tuple[str, str], ...]) -> dict[str, Any]:
@@ -177,8 +177,8 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: SurfaceTerms = Field(
-        default=SurfaceTerms.PLANE,
+    terms: SurfaceOptions = Field(
+        ...,
         description=(
             "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
         ),
@@ -212,6 +212,6 @@ class EditImage(BaseParameters):
         # Add schema for BaseParameters and EditImage to JSON model
         attr_to_class = (
             ("regression_order", "RegressionOrder"),
-            ("terms", "SurfaceTerms"),
+            ("terms", "SurfaceOptions"),
         )
         return _update_schema(schema, attr_to_class)

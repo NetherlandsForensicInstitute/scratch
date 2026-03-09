@@ -5,11 +5,11 @@ import numpy as np
 import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.leveling import SurfaceTerms
 from parsers import parse_to_x3p, save_x3p
 from scipy.constants import micro
 from utils.constants import RegressionOrder
 
+from preprocessors.constants import SurfaceOptions
 from preprocessors.controller import edit_scan_image
 from preprocessors.schemas import EditImage
 
@@ -41,7 +41,7 @@ def resample_twice_bigger(
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=0.5,
-        terms=SurfaceTerms.PLANE,
+        terms=SurfaceOptions.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=False,
     )
@@ -72,7 +72,7 @@ def mask_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage,
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=1,
-        terms=SurfaceTerms.PLANE,
+        terms=SurfaceOptions.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=False,
     )
@@ -102,7 +102,7 @@ def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIma
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=1,
-        terms=SurfaceTerms.PLANE,
+        terms=SurfaceOptions.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
     )
@@ -132,7 +132,7 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=0.5,
-        terms=SurfaceTerms.PLANE,
+        terms=SurfaceOptions.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
     )

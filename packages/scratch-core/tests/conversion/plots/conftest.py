@@ -9,7 +9,11 @@ from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
     LlrTransformationData,
 )
-from conversion.profile_correlator import StriationComparisonResults, Profile
+from conversion.profile_correlator import (
+    StriationComparisonResults,
+    Profile,
+    AlignmentParameters,
+)
 
 from .helper_functions import (
     create_synthetic_impression_data,
@@ -68,23 +72,39 @@ def striation_metrics() -> StriationComparisonResults:
     sq_comp = 0.7121 * micro
     sq_diff = 0.6138 * micro
     return StriationComparisonResults(
+        # Registration
         pixel_size=1.5625 * micro,
         position_shift=12.5 * micro,
         scale_factor=1.0,
-        similarity_value=0.85,
+        correlation_coefficient=0.85,
         overlap_length=160 * micro,
         overlap_ratio=0.804,
-        correlation_coefficient=0.85,
+        # Roughness — individual profiles
         sa_ref=0.19 * micro,
-        mean_square_ref=sq_ref,
+        sq_ref=sq_ref,
         sa_comp=0.60 * micro,
-        mean_square_comp=sq_comp,
+        sq_comp=sq_comp,
+        # Roughness — difference profile
         sa_diff=0.50 * micro,
-        mean_square_of_difference=sq_diff,
-        ds_roughness_normalized_to_reference=(sq_diff / sq_ref) ** 2,
-        ds_roughness_normalized_to_compared=(sq_diff / sq_comp) ** 2,
-        ds_roughness_normalized_to_reference_and_compared=sq_diff**2
-        / (sq_ref * sq_comp),
+        sq_diff=sq_diff,
+        # Normalized signature differences
+        ds_normalized_ref=(sq_diff / sq_ref) ** 2,
+        ds_normalized_comp=(sq_diff / sq_comp) ** 2,
+        ds_normalized_combined=sq_diff**2 / (sq_ref * sq_comp),
+        # Sample-space geometry
+        shift_samples=8,
+        overlap_samples=102,
+        idx_reference_start=8,
+        idx_compared_start=0,
+        len_reference_equalized=110,
+        len_compared_equalized=102,
+        # Original profile metadata
+        pixel_size_reference=1.5625 * micro,
+        pixel_size_compared=1.5625 * micro,
+        len_reference_original=110,
+        len_compared_original=102,
+        # Reproducibility
+        alignment_parameters=AlignmentParameters(),
     )
 
 
