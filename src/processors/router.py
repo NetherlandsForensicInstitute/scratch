@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 from conversion.export.mark import load_mark_from_path
 from conversion.export.profile import load_profile_from_path
 from fastapi import APIRouter
@@ -6,7 +8,13 @@ from loguru import logger
 
 from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
 from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
-from extractors.schemas import ComparisonResponseImpression, ComparisonResponseStriation, LRResponse, LRResponseURL
+from extractors.schemas import (
+    ComparisonResponseImpression,
+    ComparisonResponseStriation,
+    ComparisonResponseStriationURL,
+    LRResponse,
+    LRResponseURL,
+)
 from file_services import create_vault
 from models import DirectoryAccess
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
@@ -66,6 +74,9 @@ async def calculate_score_impression(impression: CalculateScoreImpression) -> Co
     performs pairwise comparison, and calculates a score (CMC).
     The score, together with plots, are saved and made available via URLs.
     """,
+    responses={
+        422: {"description": "Profiles could not be aligned due to insufficient overlap"},
+    },
 )
 async def calculate_score_striation(striation_params: CalculateScoreStriation) -> ComparisonResponseStriation:
     """Compare two striation profiles."""
@@ -74,7 +85,7 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
     mark_ref = load_mark_from_path(path=striation_params.mark_ref, stem="processed")
     mark_comp = load_mark_from_path(path=striation_params.mark_comp, stem="processed")
     profile_ref = load_profile_from_path(path=striation_params.mark_ref, stem="profile")
-    profile_comp = load_profile_from_path(path=striation_params.mark_ref, stem="profile")
+    profile_comp = load_profile_from_path(path=striation_params.mark_comp, stem="profile")
     logger.debug("marks & profiles loaded")
     comparison_result = compare_striation_marks(
         mark_ref=mark_ref, mark_comp=mark_comp, profile_ref=profile_ref, profile_comp=profile_comp
@@ -110,7 +121,10 @@ async def calculate_score_striation(striation_params: CalculateScoreStriation) -
     )
     logger.debug(f"images saved in:{vault.resource_path}")
 
-    return ComparisonResponseStriation.from_enum(enum=ComparisonStriationFiles, base_url=vault.access_url)
+    return ComparisonResponseStriation(
+        urls=ComparisonResponseStriationURL.from_enum(enum=ComparisonStriationFiles, base_url=vault.access_url),
+        comparison_results=asdict(comparison_result.comparison_results),
+    )
 
 
 @processors.post(
