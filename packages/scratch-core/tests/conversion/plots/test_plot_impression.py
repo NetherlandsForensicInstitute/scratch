@@ -3,7 +3,7 @@ import pytest
 from matplotlib import pyplot as plt
 from scipy.constants import mega, micro
 
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import (
     ImpressionComparisonMetrics,
     ImpressionComparisonPlots,
@@ -150,8 +150,8 @@ class TestPlotComparisonOverview:
         self,
         impression_sample_mark: Mark,
         impression_sample_metrics: ImpressionComparisonMetrics,
-        sample_metadata_reference: dict[str, str],
-        sample_metadata_compared: dict[str, str],
+        sample_metadata_reference: MarkMetadata,
+        sample_metadata_compared: MarkMetadata,
     ):
         result = plot_comparison_overview(
             mark_reference_leveled=impression_sample_mark,
@@ -167,8 +167,8 @@ class TestPlotComparisonOverview:
     def test_with_custom_cell_positions(
         self,
         impression_sample_mark: Mark,
-        sample_metadata_reference: dict[str, str],
-        sample_metadata_compared: dict[str, str],
+        sample_metadata_reference: MarkMetadata,
+        sample_metadata_compared: MarkMetadata,
     ):
         cell_correlations = np.array([[0.8, 0.1], [0.3, 0.6]])
         # 4 cells: hardcoded positions for the 3 CMC cells (>= 0.25), NaN for non-CMC
@@ -211,8 +211,8 @@ class TestPlotComparisonOverview:
         self,
         impression_sample_mark: Mark,
         impression_sample_cell_correlations: np.ndarray,
-        sample_metadata_reference: dict[str, str],
-        sample_metadata_compared: dict[str, str],
+        sample_metadata_reference: MarkMetadata,
+        sample_metadata_compared: MarkMetadata,
     ):
         n_cells = impression_sample_cell_correlations.size
         metrics = ImpressionComparisonMetrics(
@@ -248,8 +248,8 @@ class TestPlotComparisonOverview:
         self,
         impression_sample_mark: Mark,
         impression_sample_cell_correlations: np.ndarray,
-        sample_metadata_reference: dict[str, str],
-        sample_metadata_compared: dict[str, str],
+        sample_metadata_reference: MarkMetadata,
+        sample_metadata_compared: MarkMetadata,
     ):
         n_cells = impression_sample_cell_correlations.size
         metrics = ImpressionComparisonMetrics(
@@ -292,8 +292,8 @@ class TestPlotImpressionComparisonResults:
         impression_sample_mark_compared: Mark,
         impression_sample_mark_compared_filtered: Mark,
         impression_sample_metrics: ImpressionComparisonMetrics,
-        sample_metadata_reference: dict[str, str],
-        sample_metadata_compared: dict[str, str],
+        sample_metadata_reference: MarkMetadata,
+        sample_metadata_compared: MarkMetadata,
     ):
         result = plot_impression_comparison_results(
             mark_reference_leveled=impression_sample_mark_reference,

@@ -5,7 +5,7 @@ merging.
 
 import pytest
 
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import ImpressionComparisonMetrics
 from conversion.profile_correlator import StriationComparisonResults, Profile
 from conversion.plots.plot_impression import plot_impression_comparison_results
@@ -22,8 +22,8 @@ class TestGenerateOverview:
         self,
         impression_overview_marks: dict[str, Mark],
         impression_overview_metrics: ImpressionComparisonMetrics,
-        impression_overview_metadata_reference: dict[str, str],
-        impression_overview_metadata_compared: dict[str, str],
+        sample_metadata_reference: MarkMetadata,
+        sample_metadata_compared: MarkMetadata,
     ) -> None:
         """Produce plot_results_overview.png and verify it is a valid RGB image."""
         results = plot_impression_comparison_results(
@@ -32,8 +32,8 @@ class TestGenerateOverview:
             mark_reference_filtered=impression_overview_marks["reference_filtered"],
             mark_compared_filtered=impression_overview_marks["compared_filtered"],
             metrics=impression_overview_metrics,
-            metadata_reference=impression_overview_metadata_reference,
-            metadata_compared=impression_overview_metadata_compared,
+            metadata_reference=sample_metadata_reference,
+            metadata_compared=sample_metadata_compared,
         )
 
         overview = results.comparison_overview
@@ -48,8 +48,8 @@ class TestGenerateOverview:
         profile_reference: Profile,
         profile_compared: Profile,
         striation_metrics: StriationComparisonResults,
-        sample_metadata_reference: dict[str, str],
-        sample_metadata_compared: dict[str, str],
+        sample_metadata_reference: MarkMetadata,
+        sample_metadata_compared: MarkMetadata,
     ) -> None:
         """Produce plot_striation_overview.png and verify it is a valid RGB image."""
         results = plot_striation_comparison_results(

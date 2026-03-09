@@ -5,7 +5,7 @@ from matplotlib.image import AxesImage
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from container_models.base import ImageRGB
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import (
     HistogramData,
     ImpressionComparisonMetrics,
@@ -43,8 +43,8 @@ def plot_cmc_comparison_overview(
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
     metrics: ImpressionComparisonMetrics,
-    metadata_reference: dict[str, str],
-    metadata_compared: dict[str, str],
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
     results_metadata: dict[str, str],
     histogram_data: HistogramData,
     llr_data: LlrTransformationData,
@@ -60,8 +60,8 @@ def plot_cmc_comparison_overview(
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.
     :param metrics: Comparison metrics including correlation values.
-    :param metadata_reference: Metadata dict for reference mark display.
-    :param metadata_compared: Metadata dict for compared mark display.
+    :param metadata_reference: Metadata object for reference mark display.
+    :param metadata_compared: Metadata object for compared mark display.
     :param results_metadata: Results metadata dict for display.
     :param histogram_data: Input data for score histogram plot.
     :param llr_data: Input data for LogLR transformation plot.
@@ -83,12 +83,18 @@ def plot_cmc_comparison_overview(
     # Row 0: Metadata tables (2 equal halves)
     ax_meta_ref = fig.add_subplot(gs[0, 0:3])
     draw_metadata_box(
-        ax_meta_ref, metadata_reference, "Reference Surface (A)", wrap_width=wrap_width
+        ax_meta_ref,
+        metadata_reference.to_display_dict(),
+        "Reference Surface (A)",
+        wrap_width=wrap_width,
     )
 
     ax_meta_comp = fig.add_subplot(gs[0, 3:6])
     draw_metadata_box(
-        ax_meta_comp, metadata_compared, "Compared Surface (B)", wrap_width=wrap_width
+        ax_meta_comp,
+        metadata_compared.to_display_dict(),
+        "Compared Surface (B)",
+        wrap_width=wrap_width,
     )
 
     # Row 1: Filtered surfaces with cell overlay + results metadata (3 equal thirds)
