@@ -227,7 +227,7 @@ def striation_lr_kwargs(
     metadata_compared: MarkMetadata,
 ) -> dict:
     """Return valid baseline kwargs for CalculateLRStriation."""
-    mark_dir_comp, mark_dir_ref = mark_dirs
+    mark_dir_ref, mark_dir_comp = mark_dirs
     return {
         "mark_dir_ref": mark_dir_ref,
         "mark_dir_ref_aligned": mark_dir_ref,
@@ -251,7 +251,7 @@ def impression_lr_kwargs(
     metadata_compared: MarkMetadata,
 ) -> dict:
     """Return valid baseline kwargs for CalculateLRImpression."""
-    mark_dir_comp, mark_dir_ref = mark_dirs
+    mark_dir_ref, mark_dir_comp = mark_dirs
     return {
         "mark_dir_ref": mark_dir_ref,
         "mark_dir_comp": mark_dir_comp,

@@ -33,7 +33,7 @@ class TestMarkStriation:
         mark_dirs: tuple[Path, Path],
     ) -> None:
         """Test the whole chain of the endpoint."""
-        mark_dir_comp, mark_dir_ref = mark_dirs
+        mark_dir_ref, mark_dir_comp = mark_dirs
         expected_images = {
             "similarity_plot",
             "side_by_side_heatmap",
