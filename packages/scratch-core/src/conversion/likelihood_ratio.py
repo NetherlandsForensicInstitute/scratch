@@ -64,7 +64,13 @@ def get_lr_system(
 def get_reference_data(
     lr_system_path: Path,
 ) -> ReferenceData:  # TODO replace with lr_module_scratch
-    """Load an LR system from a pickle file."""
+    """Return hardcoded dummy reference data (KM/KNM scores and LLRs).
+
+    .. note::
+        This is a placeholder. The ``lr_system_path`` argument is accepted for
+        API compatibility but is not used; real reference data will be derived
+        from the LR system once ``lr_module_scratch`` is integrated.
+    """
     _ = get_lr_system(lr_system_path)
     return ReferenceData(
         km_model="random",
@@ -91,7 +97,6 @@ def get_reference_data(
             )
         ),
     )
-    # noqa: S301
 
 
 def calculate_lr_striation(lr_system: LRSystem, score: float) -> LLRData:

@@ -10,7 +10,7 @@ from constants import ProcessorEndpoint
 from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
-    CalculateScoreStriation,
+    CalculateScore,
     MetadataParameters,
 )
 from tests.processors.conftest import assert_lr_response_valid
@@ -53,7 +53,7 @@ class TestMarkStriation:
             "comparison_results",
         }
 
-        json_data = CalculateScoreStriation(
+        json_data = CalculateScore(
             mark_dir_ref=mark_dir_ref,
             mark_dir_comp=mark_dir_comp,
             param=MetadataParameters(

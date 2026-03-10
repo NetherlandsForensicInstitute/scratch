@@ -1,10 +1,10 @@
 import datetime
-from typing import Self
+from typing import Annotated, Self
 
 import numpy as np
 from container_models.base import FloatArray1D, FloatArray2D
 from conversion.data_formats import MarkMetadata
-from pydantic import DirectoryPath, Field, FilePath, NonNegativeFloat, NonNegativeInt, PositiveInt, model_validator
+from pydantic import DirectoryPath, Field, FilePath, NonNegativeInt, PositiveInt, model_validator
 
 from models import BaseModelConfig
 
@@ -24,23 +24,25 @@ class MetadataParameters(BaseModelConfig):
     metadata_compared: MarkMetadata = Field(..., description="Metadata identifying the compared mark.")
 
 
-class CalculateScoreImpression(MarkDirectories):
+class CalculateScore(MarkDirectories):
     param: MetadataParameters
 
 
-class CalculateScoreStriation(MarkDirectories):
-    param: MetadataParameters
-
-
-class CalculateLR(MarkDirectories):
+class CalculateLR(MarkDirectories, MetadataParameters):
     lr_system_path: FilePath
     user_id: str
     date_report: datetime.date
-    metadata_reference: MarkMetadata
-    metadata_compared: MarkMetadata
 
 
 class ImpressionLRParameters(BaseModelConfig):
+    """Impression comparison metrics as JSON-serialisable fields.
+
+    FastAPI cannot deserialise numpy arrays directly from JSON, so this class
+    mirrors :class:`~conversion.plots.data_formats.ImpressionComparisonMetrics`
+    using plain Python lists. The ``*_array`` properties convert to numpy on
+    access. Update this class whenever ``ImpressionComparisonMetrics`` changes.
+    """
+
     area_correlation: float
     cell_correlations: list[list[float]]
     cmc_score: float
@@ -91,4 +93,10 @@ class CalculateLRImpression(CalculateLR):
 class CalculateLRStriation(CalculateLR):
     mark_dir_ref_aligned: DirectoryPath
     mark_dir_comp_aligned: DirectoryPath
-    score: NonNegativeFloat
+    score: Annotated[float, Field(ge=-1, le=1)]
+
+    @property
+    def tag(self) -> str:
+        # TODO: incorporate mark_dir_ref_aligned and mark_dir_comp_aligned once
+        # the base tag implementation is finalised.
+        return super().tag

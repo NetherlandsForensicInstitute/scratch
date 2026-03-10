@@ -131,14 +131,14 @@ class TestCalculateLRStriation:
         schema = CalculateLRStriation(**striation_kwargs)
         assert schema.score == striation_kwargs["score"]
 
-    @pytest.mark.parametrize("score", [0.0, 0.5, 1.0])
-    def test_should_accept_positive_float_score(self, striation_kwargs: dict, score: float) -> None:
-        """Score accepts any non-negative float value."""
+    @pytest.mark.parametrize("score", [-1.0, -0.5, 0.0, 0.5, 1.0])
+    def test_should_accept_score_in_valid_range(self, striation_kwargs: dict, score: float) -> None:
+        """Score accepts any float value in [-1, 1] (full CCF range)."""
         schema = CalculateLRStriation(**striation_kwargs | {"score": score})
         assert schema.score == score
 
-    @pytest.mark.parametrize("score", [-1.0, -0.5, -2.0])
-    def test_should_reject_negative_float_score(self, striation_kwargs: dict, score: float) -> None:
-        """Negative float score raises ValidationError."""
+    @pytest.mark.parametrize("score", [-2.0, -1.01, 1.01, 2.0])
+    def test_should_reject_score_outside_ccf_range(self, striation_kwargs: dict, score: float) -> None:
+        """Scores outside [-1, 1] raise ValidationError."""
         with pytest.raises(ValidationError):
             CalculateLRStriation(**striation_kwargs | {"score": score})
