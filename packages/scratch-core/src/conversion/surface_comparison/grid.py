@@ -10,12 +10,17 @@ from conversion.surface_comparison.utils import convert_meters_to_pixels
 
 @dataclass(frozen=True)
 class GridCell:
-    """Container class for storing generated grid cells."""
+    """
+    Container class for storing generated grid cells.
 
-    center: tuple[
-        int, int
-    ]  # Tuple of pixel coordinates (x, y) corresponding to the reference image.
-    cell_data: FloatArray2D  # Contains the sliced image data
+    All the values of the attributes and properties are in pixel units.
+
+    :param top_left: Tuple containing the top-left pixel coordinates (x, y) corresponding to the reference image.
+    :param cell_data: 2D array containing the sliced image data from the reference image.
+    """
+
+    top_left: tuple[int, int]
+    cell_data: FloatArray2D
 
     @property
     def width(self) -> int:
@@ -26,20 +31,12 @@ class GridCell:
         return self.cell_data.shape[0]
 
     @property
-    def center_x(self) -> int:
-        return self.center[0]
-
-    @property
-    def center_y(self) -> int:
-        return self.center[1]
-
-    @property
-    def top_left(self) -> tuple[int, int]:
-        return self.center_x - self.width // 2, self.center_y - self.height // 2
+    def center(self) -> tuple[float, float]:
+        return self.top_left[0] + self.width / 2, self.top_left[1] + self.height / 2
 
     @property
     def fill_fraction(self) -> float:
-        return float(1 - np.isnan(self.cell_data).sum() / self.cell_data.size)
+        return float(np.count_nonzero(~np.isnan(self.cell_data)) / self.cell_data.size)
 
     def fill_nans(self, fill_value: float):
         self.cell_data[np.isnan(self.cell_data)] = fill_value

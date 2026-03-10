@@ -3,16 +3,26 @@ from scipy.ndimage import rotate
 import numpy as np
 
 
-def convert_meters_to_pixels(value_to_convert: float, pixel_size: float) -> int:
+def convert_meters_to_pixels(
+    coordinates: tuple[float, float], pixel_size: float
+) -> tuple[int, int]:
     """TODO: Remove this function if possible."""
-    return int(round(value_to_convert / pixel_size))
+
+    def _convert(value: float) -> int:
+        return int(round(value / pixel_size))
+
+    return _convert(coordinates[0]), _convert(coordinates[1])
 
 
 def convert_pixels_to_meters(
-    coordinates: tuple[int, int], pixel_size: tuple[float, float]
+    coordinates: tuple[float, float], pixel_size: float
 ) -> tuple[float, float]:
     """TODO: Remove this function if possible."""
-    return coordinates[0] * pixel_size[0], coordinates[1] * pixel_size[1]
+
+    def _convert(value: float) -> float:
+        return value * pixel_size
+
+    return _convert(coordinates[0]), _convert(coordinates[1])
 
 
 def rotate_scan_image(scan_image: ScanImage, angle: float) -> ScanImage:

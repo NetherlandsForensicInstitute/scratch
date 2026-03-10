@@ -18,7 +18,7 @@ def coarse_registration(
     """TODO: Implement function."""
 
     # Generate dummy output
-    pixel_size = comparison_image.scale_x, comparison_image.scale_y
+    pixel_size = comparison_image.scale_x  # Assumes isotropic image
     output = []
     for grid_cell in grid_cells:
         dummy = Cell(
@@ -30,8 +30,7 @@ def coarse_registration(
             best_score=0.0,
             angle_deg=0.0,
             center_comparison=convert_pixels_to_meters(
-                coordinates=(0, 0),
-                pixel_size=pixel_size,
+                coordinates=(0, 0), pixel_size=pixel_size
             ),
             is_congruent=False,  # TODO: We shouldn't set this here
             meta_data=CellMetaData(
