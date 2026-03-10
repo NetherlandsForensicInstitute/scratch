@@ -181,15 +181,21 @@ class LevelMap(ImageMutation):
 
 class GausianRegressionFilter(ImageMutation):  # pragma: no cover
     NAN_OUT = True
-    IS_HIGHT_PASS = False
 
-    def __init__(self, cutoff_length: float, regression_order: RegressionOrder) -> None:
+    def __init__(
+        self,
+        cutoff_length: float,
+        regression_order: RegressionOrder,
+        is_high_pass: bool,
+    ) -> None:
         """
         :param cutoff_length: Filter cutoff wavelength in meters (m).
         :param regression_order: Order of the local polynomial fit.
+        :param is_high_pass: Whether to use a high-pass filter.
         """
         self.cutoff_length = cutoff_length
         self.regression_order = regression_order
+        self.is_high_pass = is_high_pass
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
@@ -214,7 +220,7 @@ class GausianRegressionFilter(ImageMutation):  # pragma: no cover
         :param scan_image: Gaussian filter is applied on this scan_image data.
         :returns: ScanImage with the filtered 2D array.
         """
-
+        print(f"cutoff {self.cutoff_length}")
         pixel_size = (scan_image.scale_y, scan_image.scale_x)
         scan_image.data = apply_gaussian_regression_filter(
             data=scan_image.data,
@@ -222,6 +228,6 @@ class GausianRegressionFilter(ImageMutation):  # pragma: no cover
             pixel_size=pixel_size,
             regression_order=self.regression_order.value,
             nan_out=self.NAN_OUT,
-            is_high_pass=self.IS_HIGHT_PASS,
+            is_high_pass=self.is_high_pass,
         )
         return scan_image

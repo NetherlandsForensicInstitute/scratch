@@ -112,7 +112,9 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: B
             terms=edit_image_params.terms.to_surface_terms(),
         ),
         GausianRegressionFilter(
-            regression_order=edit_image_params.regression_order, cutoff_length=edit_image_params.cutoff_length * micro
+            regression_order=edit_image_params.regression_order,
+            cutoff_length=edit_image_params.cutoff_length * micro,
+            is_high_pass=True,
         ),
     ]
     logger.debug(f"mutations to be applied on the scan image:{[item.__class__.__name__ for item in pipeline]}")
