@@ -97,8 +97,8 @@ def apply_gaussian_regression_filter(
         uses FFT-based convolution for performance gains compared to pixel-wise regression.
 
     :param data: 2D input array containing float data. May contain NaNs.
-    :param cutoff_length: The filter cutoff wavelength in physical units.
-    :param pixel_size: Tuple of (y_size, x_size) in physical units.
+    :param cutoff_length: The filter cutoff wavelength in physical units. Must be in the same units as `pixel_size`.
+    :param pixel_size: Tuple of (y_size, x_size) in physical units. Must be in the same units as `cutoff_length`.
     :param regression_order: Order of the local polynomial fit (0, 1, or 2).
         0 = Gaussian weighted average.
         1 = Local planar fit (corrects for tilt).
