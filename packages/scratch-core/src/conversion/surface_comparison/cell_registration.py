@@ -80,7 +80,7 @@ def _find_best_translation(
 def _pixels_to_meters(
     coordinates: tuple[int, int], pixel_size: tuple[float, float]
 ) -> tuple[float, float]:
-    # TODO: remove this function if possible?
+    # TODO: Remove this function if possible?
     return coordinates[0] * pixel_size[0], coordinates[1] * pixel_size[1]
 
 
@@ -88,9 +88,9 @@ def coarse_registration(
     grid_cells: Iterable[GridCell],
     comparison_image: ScanImage,
     params: ComparisonParams,
-    fill_value_reference: float,
+    fill_value_reference: float,  # Fill value for NaNs in the grid cell data
 ) -> list[Cell]:
-    # TODO: Write docstring
+    # TODO: Implement this
     angle = params.search_angle_min
     fill_value_comparison = float(np.nanmean(comparison_image))
     pixel_size = comparison_image.scale_x, comparison_image.scale_y
