@@ -7,6 +7,7 @@ import pytest
 from container_models.base import BinaryMask
 from conversion.data_formats import MarkType
 from fastapi.testclient import TestClient
+from httpx import Response
 from pydantic import HttpUrl
 from scipy.constants import micro
 from utils.constants import RegressionOrder
@@ -18,13 +19,21 @@ from models import DirectoryAccess
 from preprocessors.constants import SurfaceOptions
 from preprocessors.schemas import (
     EditImage,
-    MaskParameters,
     PrepareMarkImpression,
     PrepareMarkStriation,
     PreprocessingImpressionParams,
     PreprocessingStriationParams,
 )
 from settings import get_settings
+
+
+def send_post_request_with_mask(client: TestClient, endpoint: str, params: dict, mask: BinaryMask) -> Response:
+    return client.post(
+        f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{endpoint}",
+        data={"params": json.dumps(params, default=str)},
+        files={"mask_data": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream")},
+        timeout=5,
+    )
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
@@ -98,7 +107,6 @@ class TestPrepareMarkEndpoint:
         self,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         mark_type: str,
-        mask: BinaryMask,
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
     ):
         """Generate the schema payload for the prepare-mark endpoint."""
@@ -106,7 +114,6 @@ class TestPrepareMarkEndpoint:
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
             scan_file=self.scan_file_path,
-            mask=mask.astype(float).tolist(),
             bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
             mark_parameters=mark_parameters(),  # type: ignore
         ).model_dump(mode="json")
@@ -128,12 +135,11 @@ class TestPrepareMarkEndpoint:
         payload = self.get_schema_for_endpoint(
             schema=schema,
             mark_type=mark_type,
-            mask=mask,
             mark_parameters=mark_parameters,
         )
 
         # Act
-        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
@@ -150,8 +156,8 @@ class TestPrepareMarkEndpoint:
         response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
-        mark_type: str,
         mask: BinaryMask,
+        mark_type: str,
         expected_keys: list[str],
         files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
@@ -160,11 +166,10 @@ class TestPrepareMarkEndpoint:
         payload = self.get_schema_for_endpoint(
             schema=schema,  # type: ignore
             mark_type=mark_type,
-            mask=mask,
             mark_parameters=mark_parameters,  # type: ignore
         )
         # Act
-        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
@@ -180,8 +185,8 @@ class TestPrepareMarkEndpoint:
         response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
-        mark_type: str,
         mask: BinaryMask,
+        mark_type: str,
         expected_keys: list[str],
         files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
@@ -190,12 +195,11 @@ class TestPrepareMarkEndpoint:
         payload = self.get_schema_for_endpoint(
             schema=schema,  # type: ignore
             mark_type=mark_type,
-            mask=mask,
             mark_parameters=mark_parameters,  # type: ignore
         )
 
         # Act
-        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
@@ -243,14 +247,13 @@ def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
         project_name="test_project",
         mark_type=mark_type,
         scan_file=scan_directory / "circle.x3p",
-        mask=wrong_mask.astype(float).tolist(),
         mark_parameters=mark_parameters(),  # type: ignore
         bounding_box_list=[],
     ).model_dump(mode="json")
 
     with monkeypatch.context() as mp:
         mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
-        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=wrong_mask)
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
@@ -273,24 +276,17 @@ def test_edit_image_returns_valid_images(
     params = EditImage(
         project_name="test",
         scan_file=scan_directory / "circle.x3p",
-        mask_parameters=MaskParameters(shape=mask.shape),
         cutoff_length=2 * micro,
         resampling_factor=0.5,
         terms=SurfaceOptions.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
-    )
+    ).model_dump(mode="json")
 
     # Act
     with monkeypatch.context() as mp:
         mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
-        response = client.post(
-            f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/edit-scan",
-            data={"params": json.dumps(params.model_dump(mode="json"))},
-            files={"mask_data": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream")},
-            timeout=5,
-        )
-
+        response = send_post_request_with_mask(client=client, endpoint="edit-scan", params=params, mask=mask)
     # Assert
     expected_response = GeneratedImages(
         preview_image=HttpUrl(f"{base_url}/preview.png"),

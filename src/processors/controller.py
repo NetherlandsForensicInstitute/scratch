@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from pathlib import Path
 
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from fastapi import HTTPException
@@ -36,8 +36,8 @@ def save_striation_comparison_plots(  # noqa: PLR0913
     mark_correlations: MarkCorrelationResult,
     working_dir: Path,
     files_to_save: type[ComparisonStriationFiles],
-    meta_data_compare: dict[str, str],
-    meta_data_ref: dict[str, str],
+    meta_data_compare: MarkMetadata,
+    meta_data_ref: MarkMetadata,
 ) -> None:
     """Create and save the plots of the processed markings."""
     plots = plot_striation_comparison_results(

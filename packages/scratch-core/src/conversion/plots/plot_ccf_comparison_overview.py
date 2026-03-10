@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 
 from container_models.base import ImageRGB
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import HistogramData, LlrTransformationData
 from conversion.plots.plot_score_histograms import plot_score_histograms
 from conversion.plots.plot_score_llr_transformation import plot_score_llr_transformation
@@ -44,8 +44,8 @@ def plot_ccf_comparison_overview(
     mark_compared_filtered: Mark,
     mark_reference_aligned: Mark,
     mark_compared_aligned: Mark,
-    metadata_reference: dict[str, str],
-    metadata_compared: dict[str, str],
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
     results_metadata: dict[str, str],
     histogram_data: HistogramData,
     histogram_data_transformed: HistogramData,
@@ -64,8 +64,8 @@ def plot_ccf_comparison_overview(
     :param mark_compared_filtered: Filtered compared mark.
     :param mark_reference_aligned: Aligned reference mark for side-by-side.
     :param mark_compared_aligned: Aligned compared mark for side-by-side.
-    :param metadata_reference: Metadata dict for reference profile display.
-    :param metadata_compared: Metadata dict for compared profile display.
+    :param metadata_reference: Metadata object for reference profile display.
+    :param metadata_compared: Metadata object for compared profile display.
     :param results_metadata: Results metadata dict for display.
     :param histogram_data: Input data for score histogram plot.
     :param histogram_data_transformed: Input data for transformed score histogram plot.
@@ -86,12 +86,18 @@ def plot_ccf_comparison_overview(
 
     ax_meta_ref = fig.add_subplot(gs[0, 0:6])
     draw_metadata_box(
-        ax_meta_ref, metadata_reference, "Reference Profile (A)", wrap_width=wrap_width
+        ax_meta_ref,
+        metadata_reference.to_display_dict(),
+        "Reference Profile (A)",
+        wrap_width=wrap_width,
     )
 
     ax_meta_comp = fig.add_subplot(gs[0, 6:])
     draw_metadata_box(
-        ax_meta_comp, metadata_compared, "Compared Profile (B)", wrap_width=wrap_width
+        ax_meta_comp,
+        metadata_compared.to_display_dict(),
+        "Compared Profile (B)",
+        wrap_width=wrap_width,
     )
 
     scale = mark_reference_filtered.scan_image.scale_x

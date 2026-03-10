@@ -108,3 +108,33 @@ class Mark(ConfigBaseModel):
             "meta_data": self.meta_data,
         }
         return json.dumps(data, indent=4)
+
+
+class MarkMetadata(ConfigBaseModel):
+    """Metadata identifying a mark and its provenance.
+
+    :param case_id: Identifier for the case.
+    :param firearm_id: Identifier for the firearm.
+    :param specimen_id: Identifier for the specimen.
+    :param measurement_id: Identifier for the surface measurement.
+    :param mark_id: Identifier for the mark.
+    """
+
+    case_id: str
+    firearm_id: str
+    specimen_id: str
+    measurement_id: str
+    mark_id: str
+
+    def to_display_dict(self) -> dict[str, str]:
+        """Convert to ordered dictionary with human-readable keys.
+
+        :returns: Dictionary mapping display labels to values.
+        """
+        return {
+            "Case ID": self.case_id,
+            "Firearm ID": self.firearm_id,
+            "Specimen ID": self.specimen_id,
+            "Measurement ID": self.measurement_id,
+            "Mark ID": self.mark_id,
+        }

@@ -1,4 +1,3 @@
-from http import HTTPStatus
 from pathlib import Path
 
 import numpy as np
@@ -14,30 +13,23 @@ from conversion.preprocess_striation import PreprocessingStriationParams
 from conversion.preprocess_striation.pipeline import preprocess_striation_mark
 from conversion.resample import resample_mark
 from conversion.rotate import rotate_crop_and_mask_image_by_crop
-from fastapi import HTTPException
 from loguru import logger
-from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resample
+from mutations import CropToMask, GaussianRegressionFilter, LevelMap, Mask, Resample
+from scipy.constants import micro
 from skimage.transform import resize
 
 from constants import LIGHT_SOURCES, OBSERVER
 from extractors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
-from preprocessors.pipelines import parse_scan_pipeline, preview_pipeline, surface_map_pipeline
+from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
 from preprocessors.schemas import EditImage
 
 
 def _extract_mark_from_scan(
-    scan_file: Path, mark_type: MarkType, mask: BinaryMask, bounding_box: BoundingBox | None
+    scan_image: ScanImage, mark_type: MarkType, mask: BinaryMask, bounding_box: BoundingBox | None
 ) -> Mark:
     """Parse a scan file and extract a mark by rotating, cropping, masking, and resampling."""
-    logger.info("Parsing scan image")
-    parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
-    if mask.shape != parsed_scan.data.shape:
-        raise HTTPException(
-            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-            detail=f"Mask shape {mask.shape} does not match image shape {parsed_scan.data.shape}",
-        )
     logger.info("Rotating and cropping scan image")
-    rotated_image = rotate_crop_and_mask_image_by_crop(scan_image=parsed_scan, mask=mask, bounding_box=bounding_box)
+    rotated_image = rotate_crop_and_mask_image_by_crop(scan_image=scan_image, mask=mask, bounding_box=bounding_box)
     logger.info("Transforming scan image to mark")
     mark = Mark(
         scan_image=rotated_image,
@@ -70,7 +62,7 @@ def _save_outputs(
 
 
 def process_prepare_impression_mark(  # noqa: PLR0913
-    scan_file: Path,
+    scan_image: ScanImage,
     mark_type: MarkType,
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
@@ -78,7 +70,7 @@ def process_prepare_impression_mark(  # noqa: PLR0913
     working_dir: Path,
 ) -> None:
     """Prepare impression mark data."""
-    mark = _extract_mark_from_scan(scan_file, mark_type, mask, bounding_box)
+    mark = _extract_mark_from_scan(scan_image, mark_type, mask, bounding_box)
     logger.info("Preparing mark")
     processed_mark, leveled_mark = preprocess_impression_mark(mark, params=preprocess_parameters)
     _save_outputs(mark, processed_mark, working_dir, files=PrepareMarkImpressionFiles)
@@ -86,7 +78,7 @@ def process_prepare_impression_mark(  # noqa: PLR0913
 
 
 def process_prepare_striation_mark(  # noqa: PLR0913
-    scan_file: Path,
+    scan_image: ScanImage,
     mark_type: MarkType,
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
@@ -94,7 +86,7 @@ def process_prepare_striation_mark(  # noqa: PLR0913
     working_dir: Path,
 ) -> None:
     """Prepare striation mark data."""
-    mark = _extract_mark_from_scan(scan_file, mark_type, mask, bounding_box)
+    mark = _extract_mark_from_scan(scan_image, mark_type, mask, bounding_box)
     logger.info("Preparing mark")
     processed_mark, profile = preprocess_striation_mark(mark, params=preprocess_parameters)
     _save_outputs(mark, processed_mark, working_dir, files=PrepareMarkStriationFiles)
@@ -126,8 +118,10 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: B
             y_reference_point=reference_point_y,
             terms=edit_image_params.terms.to_surface_terms(),
         ),
-        GausianRegressionFilter(
-            regression_order=edit_image_params.regression_order, cutoff_length=edit_image_params.cutoff_length
+        GaussianRegressionFilter(
+            regression_order=edit_image_params.regression_order,
+            cutoff_length=edit_image_params.cutoff_length * micro,
+            is_high_pass=True,
         ),
     ]
     logger.debug(f"mutations to be applied on the scan image:{[item.__class__.__name__ for item in pipeline]}")

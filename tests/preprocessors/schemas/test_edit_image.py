@@ -66,7 +66,7 @@ class TestEditImage:
         assert params.resampling_factor == DEFAULT_RESAMPLING_FACTOR
         assert params.terms == SurfaceOptions.NONE
         assert params.regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE
-        assert params.cutoff_length == CUTOFF_LENGTH * micro
+        assert params.cutoff_length == CUTOFF_LENGTH
         assert params.crop is False
         assert params.project_name is None
 
@@ -100,7 +100,7 @@ class TestEditImage:
         params = edit_image_parameter(cutoff_length=valid_value)
 
         # Assert
-        assert params.cutoff_length == valid_value * micro
+        assert params.cutoff_length == valid_value
 
     @given(valid_value=st.floats(min_value=micro, max_value=3, allow_nan=False, allow_infinity=False))
     def test_should_accept_positive_resampling_factor(
@@ -134,4 +134,4 @@ class TestEditImage:
             EditImage()  # type: ignore
 
         # Assert
-        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "terms", "mask_parameters")
+        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "terms")

@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
 
+from container_models.scan_image import ScanImage
 from renders import normalize_2d_array
+from ..helper_function import assert_nan_mask_preserved
 
 TEST_IMAGE_WIDTH = 10
 TEST_IMAGE_HEIGHT = 12
@@ -53,3 +55,25 @@ def test_already_normalized_image() -> None:
     assert np.allclose(image, normalized, atol=TOLERANCE), (
         "should be the same output as the already normalized input"
     )
+
+
+def test_nan_mask_preserved(image_with_nan_background: ScanImage):
+    result = normalize_2d_array(image_with_nan_background.data).unwrap()
+    assert_nan_mask_preserved(image_with_nan_background.data, result)
+
+
+def test_constant_valid_region_does_not_produce_nan(
+    image_with_nan_background: ScanImage,
+):
+    """When all valid pixels have the same value, normalization should not
+    introduce NaN via division by zero."""
+    constant_data = image_with_nan_background.data.copy()
+    constant_data[~np.isnan(constant_data)] = 42.0
+
+    result = normalize_2d_array(constant_data).unwrap()
+
+    valid_mask = ~np.isnan(constant_data)
+    assert np.all(np.isfinite(result[valid_mask])), (
+        "Constant valid region should produce finite values, not NaN"
+    )
+    assert_nan_mask_preserved(constant_data, result)
