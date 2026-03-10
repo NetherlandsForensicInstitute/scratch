@@ -238,27 +238,8 @@ def process_lr_impression(
     mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
     mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
 
-    p = lr_input.param
-    metrics = ImpressionComparisonMetrics(
-        area_correlation=p.area_correlation,
-        cell_correlations=p.cell_correlations_array,
-        cmc_score=p.cmc_score,
-        mean_square_ref=p.mean_square_ref,
-        mean_square_comp=p.mean_square_comp,
-        mean_square_of_difference=p.mean_square_of_difference,
-        has_area_results=p.has_area_results,
-        has_cell_results=p.has_cell_results,
-        cell_positions_compared=p.cell_positions_compared_array,
-        cell_rotations_compared=p.cell_rotations_compared_array,
-        cmc_area_fraction=p.cmc_area_fraction,
-        cutoff_low_pass=p.cutoff_low_pass,
-        cutoff_high_pass=p.cutoff_high_pass,
-        cell_size_um=p.cell_size_um,
-        max_error_cell_position=p.max_error_cell_position,
-        max_error_cell_angle=p.max_error_cell_angle,
-        cell_similarity_threshold=p.cell_similarity_threshold,
-    )
-
+    metrics = lr_input.param.to_metrics()
+    # TODO: check this well after the impression score calculation is done
     results_metadata = build_results_metadata_impression(
         reference_data=reference_data,
         llr_data=llr_data,

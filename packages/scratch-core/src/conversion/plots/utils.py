@@ -395,26 +395,25 @@ def draw_metadata_box(
 def _format_lr(llr_data: LLRData) -> str:
     """Format a single log-LR value with optional confidence interval."""
     if len(llr_data.llrs) != 1:
-        msg = f"expected single LR value, got {len(llr_data.llrs)}"
-        raise ValueError(msg)
+        raise ValueError(f"expected single LR value, got {len(llr_data.llrs)}")
 
     log_lr = llr_data.llrs[0]
-    intervals = llr_data.llr_intervals
+    intervals = llr_data.llr_intervals[0]
 
     if intervals is not None:
-        lower, upper = intervals[0, 0], intervals[0, 1]
+        lower, upper = intervals[0], intervals[1]
         return f"{log_lr:.2f} ({lower:.2f}, {upper:.2f})"
     return f"{log_lr:.2f}"
 
 
-def _common_metadata(
+def _common_results_metadata(
     reference_data: ReferenceData,
     llr_data: LLRData,
     date_report: datetime.date,
     user_id: str,
     mark_type: MarkType,
 ) -> dict[str, str]:
-    """Metadata fields shared across all mark types."""
+    """Results metadata fields shared across all mark types."""
     return {
         "Date report": date_report.isoformat(),
         "User ID": user_id,
@@ -435,7 +434,9 @@ def build_results_metadata_striation(
     score_transform: float,
 ) -> dict[str, str]:
     return {
-        **_common_metadata(reference_data, llr_data, date_report, user_id, mark_type),
+        **_common_results_metadata(
+            reference_data, llr_data, date_report, user_id, mark_type
+        ),
         "Score type": "CCF",
         "Score (transform)": f"{score:.2f} ({score_transform:.2f})",
     }
@@ -451,9 +452,11 @@ def build_results_metadata_impression(
     n_cells: int,
 ) -> dict[str, str]:
     return {
-        **_common_metadata(reference_data, llr_data, date_report, user_id, mark_type),
-        "KM model": reference_data.km_model,
-        "KNM model": reference_data.knm_model,
+        **_common_results_metadata(
+            reference_data, llr_data, date_report, user_id, mark_type
+        ),
+        "KM model": reference_data.km_model,  # TODO this should be replaced by the lr system path (new ticket)
+        "KNM model": reference_data.knm_model,  # TODO this should be replaced by the lr system path (new ticket)
         "Score type": "CMC",
         "Score (transform)": f"{score} of {n_cells}",
     }
