@@ -14,7 +14,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import MarkMetadata
 from conversion.data_formats import MarkType
-from conversion.likelihood_ratio import ReferenceData
+from conversion.likelihood_ratio import ModelSpecs
 
 DEFAULT_COLORMAP = "viridis"
 
@@ -394,19 +394,19 @@ def draw_metadata_box(
 
 def _format_lr(llr_data: LLRData) -> str:
     """Format a single log-LR value with optional confidence interval."""
-    if len(llr_data.llrs) != 1:
+    if len(llr_data.llrs) > 1:
         raise ValueError(f"expected single LR value, got {len(llr_data.llrs)}")
 
     log_lr = llr_data.llrs[0]
 
     if llr_data.llr_intervals is not None:
-        lower, upper = llr_data.llr_intervals[0][0], llr_data.llr_intervals[0][1]
+        lower, upper = llr_data.llr_intervals[0, 0], llr_data.llr_intervals[0, 1]
         return f"{log_lr:.2f} ({lower:.2f}, {upper:.2f})"
     return f"{log_lr:.2f}"
 
 
 def _common_results_metadata(
-    reference_data: ReferenceData,
+    reference_data: ModelSpecs,
     llr_data: LLRData,
     date_report: datetime.date,
     user_id: str,
@@ -424,7 +424,7 @@ def _common_results_metadata(
 
 
 def build_results_metadata_striation(
-    reference_data: ReferenceData,
+    reference_data: ModelSpecs,
     llr_data: LLRData,
     date_report: datetime.date,
     user_id: str,
@@ -442,7 +442,7 @@ def build_results_metadata_striation(
 
 
 def build_results_metadata_impression(
-    reference_data: ReferenceData,
+    reference_data: ModelSpecs,
     llr_data: LLRData,
     date_report: datetime.date,
     user_id: str,

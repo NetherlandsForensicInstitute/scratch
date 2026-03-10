@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 from conversion.data_formats import Mark, MarkMetadata
-from conversion.likelihood_ratio import ReferenceData
+from conversion.likelihood_ratio import ModelSpecs
 from conversion.plots.data_formats import ImpressionComparisonMetrics
 from conversion.profile_correlator import Profile
 from fastapi import HTTPException
@@ -43,7 +43,7 @@ class TestSaveLrOverviewPlot:
         tmp_path: Path,
         mark_ref: Mark,
         mark_comp: Mark,
-        reference_data: ReferenceData,
+        reference_data: ModelSpecs,
         impression_metrics: ImpressionComparisonMetrics,
         results_metadata: dict[str, str],
         metadata_reference: MarkMetadata,
@@ -73,7 +73,7 @@ class TestSaveLrOverviewPlot:
         tmp_path: Path,
         mark_ref: Mark,
         mark_comp: Mark,
-        reference_data: ReferenceData,
+        reference_data: ModelSpecs,
         results_metadata: dict[str, str],
         metadata_reference: MarkMetadata,
         metadata_compared: MarkMetadata,

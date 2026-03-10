@@ -30,7 +30,7 @@ def ccf_score_to_logodds(scores: np.ndarray) -> np.ndarray:
     eps = np.finfo(float).eps
     clipped = np.clip(scores, -1 + eps, 1 - eps)
     y = (clipped + 1) / 2
-    return np.log10(y / (1 - y))
+    return np.log10(y) - np.log10(1 - y)
 
 
 def update_scan_image_data(scan_image: ScanImage, data: DepthData) -> ScanImage:

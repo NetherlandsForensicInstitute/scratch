@@ -5,7 +5,7 @@ import numpy as np
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.export.mark import load_mark_from_path
 from conversion.likelihood_ratio import (
-    ReferenceData,
+    ModelSpecs,
     calculate_lr_impression,
     calculate_lr_striation,
     get_lr_system,
@@ -75,7 +75,7 @@ def save_striation_comparison_plots(  # noqa: PLR0913
 
 
 def save_lr_impression_plot(  # noqa: PLR0913
-    reference_data: ReferenceData,
+    reference_data: ModelSpecs,
     mark_ref: Mark,
     mark_comp: Mark,
     metrics: ImpressionComparisonMetrics,
@@ -123,7 +123,7 @@ def save_lr_impression_plot(  # noqa: PLR0913
 
 
 def save_lr_striation_plot(  # noqa: PLR0913
-    reference_data: ReferenceData,
+    reference_data: ModelSpecs,
     mark_ref: Mark,
     mark_comp: Mark,
     mark_ref_aligned: Mark,

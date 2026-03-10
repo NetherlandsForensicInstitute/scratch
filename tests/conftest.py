@@ -13,7 +13,7 @@ import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
-from conversion.likelihood_ratio import ReferenceData
+from conversion.likelihood_ratio import ModelSpecs
 from conversion.plots.data_formats import ImpressionComparisonMetrics
 from conversion.plots.utils import build_results_metadata_impression
 from fastapi.testclient import TestClient
@@ -110,27 +110,16 @@ def mark_comp(dummy_mark: Mark) -> Mark:
 
 
 @pytest.fixture
-def reference_data() -> ReferenceData:
-    return ReferenceData(
+def reference_data() -> ModelSpecs:
+    return ModelSpecs(
         km_model="random",
         km_scores=np.array([0.9, 0.85, 0.78]),
-        km_llr_data=LLRData(
-            features=np.array([
-                [2.1, 1.9, 2.3],
-                [1.8, 1.6, 2.0],
-                [1.5, 1.3, 1.7],
-            ])
-        ),
+        km_llrs=np.array([2.1, 1.8, 1.5]),
+        km_llr_intervals=np.array([[1.9, 2.3], [1.6, 2.0], [1.3, 1.7]]),
         knm_model="random",
         knm_scores=np.array([0.3, 0.25, 0.15, 0.1]),
-        knm_llr_data=LLRData(
-            features=np.array([
-                [-1.2, -1.4, -1.0],
-                [-0.9, -1.1, -0.7],
-                [-1.5, -1.7, -1.3],
-                [-2.0, -2.2, -1.8],
-            ])
-        ),
+        knm_llrs=np.array([-1.2, -0.9, -1.5, -2.0]),
+        knm_llr_intervals=np.array([[-1.4, -1.0], [-1.1, -0.7], [-1.7, -1.3], [-2.2, -1.8]]),
     )
 
 
@@ -157,7 +146,7 @@ def impression_metrics() -> ImpressionComparisonMetrics:
 
 
 @pytest.fixture
-def results_metadata(reference_data: ReferenceData) -> dict[str, str]:
+def results_metadata(reference_data: ModelSpecs) -> dict[str, str]:
     return build_results_metadata_impression(
         reference_data=reference_data,
         llr_data=LLRData(features=np.array([5.19])),
