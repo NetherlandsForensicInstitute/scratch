@@ -62,7 +62,9 @@ class TestRotate:
     ) -> None:
         # Arrange
         rotation = 90.0
-        rotator = Rotate(rotation_angle=rotation, reverse_rotation=False)
+        rotator = Rotate(
+            rotation_angle=rotation,
+        )
         # Act
         rotated_image = rotator.apply_on_image(scan_image=smal_square_scan_image)
         # Assert
@@ -71,41 +73,6 @@ class TestRotate:
             expected_scan_image=small_square_image_rotate_left_90,
             rotated_angle=rotation,
         )
-
-    def test_image_counter_rotate_to_given_angle(
-        self,
-        smal_square_scan_image: ScanImage,
-        small_sqaure_scan_image_rotate_right_90: ScanImage,
-    ) -> None:
-        # Arrange
-        rotation = 90.0
-        rotator = Rotate(rotation_angle=rotation, reverse_rotation=True)
-        # Act
-        rotated_image = rotator.apply_on_image(scan_image=smal_square_scan_image)
-        # Assert
-        self.assert_scan_image_with_expected_scan_image(
-            scan_image=rotated_image,
-            expected_scan_image=small_sqaure_scan_image_rotate_right_90,
-            rotated_angle=rotation,
-        )
-
-    @pytest.mark.parametrize(
-        "rotation",
-        [
-            pytest.param(360, id="Exactly 1 rotation"),
-            pytest.param(400, id="More then 1 rotation."),
-            pytest.param(-360, id="Negative exactly 1 rotation."),
-            pytest.param(-400, id="Negative more then 1 rotation."),
-        ],
-    )
-    def test_image_fails_when_rotating_more_then_full_circle(
-        self, smal_square_scan_image: ScanImage, rotation: int
-    ):
-        # Act/Assert
-        with pytest.raises(
-            ValueError, match="Rotation angle must be between -359 and 359"
-        ):
-            Rotate(rotation_angle=rotation, reverse_rotation=True)
 
     @pytest.mark.parametrize(
         "rotation",
@@ -124,7 +91,9 @@ class TestRotate:
         rotation: float,
     ) -> None:
         # Arrange
-        rotator = Rotate(rotation_angle=rotation, reverse_rotation=False)
+        rotator = Rotate(
+            rotation_angle=rotation,
+        )
         # Act
         rotated_image = rotator(scan_image=smal_square_scan_image).unwrap()
         # Assert
