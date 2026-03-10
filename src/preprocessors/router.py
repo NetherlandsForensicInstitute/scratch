@@ -1,10 +1,8 @@
 from http import HTTPStatus
-from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, HTTPException
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from loguru import logger
-from pydantic import BaseModel, Json
 
 from constants import (
     LIGHT_SOURCES,
@@ -109,16 +107,14 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
-async def prepare_mark_impression(
-    params: Annotated[PrepareMarkImpression, Form()], mask_data: Annotated[bytes, File()]
-) -> PrepareMarkResponseImpression:
-    """Prepare the ScanFile, save it to the vault and return the URLs to access the files."""
+async def prepare_mark_impression(params: PrepareMarkImpression = Depends()) -> PrepareMarkResponseImpression:
+    """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(params.tag)
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-
+    byte_contents = await params.mask_data.read()
     try:
         parsed_mask = parse_mask_pipeline(
-            raw_data=mask_data,
+            raw_data=byte_contents,
             shape=parsed_image.data.shape,
             is_bitpacked=params.mask_is_bitpacked,
         )
@@ -154,16 +150,14 @@ async def prepare_mark_impression(
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
-async def prepare_mark_striation(
-    params: Annotated[PrepareMarkStriation, Form()], mask_data: Annotated[bytes, File()]
-) -> PrepareMarkResponseStriation:
-    """Prepare the ScanFile, save it to the vault and return the URLs to access the files."""
+async def prepare_mark_striation(params: PrepareMarkStriation = Depends()) -> PrepareMarkResponseStriation:
+    """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(params.tag)
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-
+    byte_contents = await params.mask_data.read()
     try:
         parsed_mask = parse_mask_pipeline(
-            raw_data=mask_data,
+            raw_data=byte_contents,
             shape=parsed_image.data.shape,
             is_bitpacked=params.mask_is_bitpacked,
         )
@@ -202,7 +196,7 @@ async def prepare_mark_striation(
         },
     },
 )
-async def edit_scan(params: Annotated[EditImage, Form()], mask_data: Annotated[bytes, File()]) -> GeneratedImages:
+async def edit_scan(params: EditImage = Depends()) -> GeneratedImages:
     """
     Validate and parse a scan file with edit parameters and mask.
 
@@ -213,10 +207,10 @@ async def edit_scan(params: Annotated[EditImage, Form()], mask_data: Annotated[b
     vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-
+    byte_contents = await params.mask_data.read()
     try:
         parsed_mask = parse_mask_pipeline(
-            raw_data=mask_data,
+            raw_data=byte_contents,
             shape=parsed_image.data.shape,
             is_bitpacked=params.mask_is_bitpacked,
         )

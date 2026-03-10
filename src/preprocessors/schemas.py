@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any
+from typing import Annotated,Any
 
 import numpy as np
 from conversion.data_formats import BoundingBox, MarkType
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
+from fastapi import File, Form, UploadFile
 from pydantic import (
     Field,
     HttpUrl,
@@ -70,8 +71,8 @@ class UploadScan(BaseParameters):
 
 class PrepareMarkBase(BaseParameters):
     mark_type: MarkType = Field(..., description="Type of mark to prepare.")
-    bounding_box_list: list[list[float]] | None = Field(
-        None,
+    bounding_box_list: list[float] | None = Field(
+        default_factory=list,
         description="Bounding box corners (4 × 2 array of [x, y] coordinates) "
         "defining a rectangular crop region used to determine the rotation of the image.",
     )
@@ -93,7 +94,14 @@ class PrepareMarkBase(BaseParameters):
 
 
 class PrepareMarkStriation(PrepareMarkBase):
-    mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
+    highpass_cutoff: float = 2e-3
+    lowpass_cutoff: float = 2.5e-4
+    cut_borders_after_smoothing: bool = True
+    use_mean: bool = True
+    angle_accuracy: float = 0.1
+    max_iter: int = 25
+    subsampling_factor: int = 1
+    mask_data: UploadFile = File()
 
     @field_validator("mark_type")
     @classmethod
@@ -105,7 +113,17 @@ class PrepareMarkStriation(PrepareMarkBase):
 
 
 class PrepareMarkImpression(PrepareMarkBase):
-    mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
+    pixel_size: float | None = None
+    adjust_pixel_spacing: bool = True
+    level_offset: bool = True
+    level_tilt: bool = True
+    level_2nd: bool = True
+    interp_method: str = "cubic"
+    highpass_cutoff: float | None = 250.0e-6
+    lowpass_cutoff: float | None = 5.0e-6
+    highpass_regression_order: int = 2
+    lowpass_regression_order: int = 0
+    mask_data: UploadFile = File()
 
     @field_validator("mark_type")
     @classmethod
@@ -149,6 +167,7 @@ class EditImage(BaseParameters):
         'The expected bit-order for bit-packed arrays is "little".',
         examples=[True, False],
     )
+    mask_data: UploadFile = File()
 
     @model_validator(mode="after")
     def check_file_is_x3p(self):

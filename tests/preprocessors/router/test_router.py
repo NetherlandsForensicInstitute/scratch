@@ -31,8 +31,10 @@ from settings import get_settings
 def send_post_request_with_mask(client: TestClient, endpoint: str, params: dict, mask: BinaryMask) -> Response:
     return client.post(
         f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{endpoint}",
-        data={"params": json.dumps(params, default=str)},
-        files={"mask_data": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream")},
+        params=params,
+        files={
+            "mask_data": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream"),
+        },
         timeout=5,
     )
 
@@ -111,12 +113,11 @@ class TestPrepareMarkEndpoint:
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
     ):
         """Generate the schema payload for the prepare-mark endpoint."""
-        return schema(
+        return schema.model_construct(
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
             scan_file=self.scan_file_path,
             bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
-            mark_parameters=mark_parameters(),  # type: ignore
         ).model_dump(mode="json")
 
     def test_prepare_mark_endpoint_returns_urls(  # noqa: PLR0913
@@ -133,12 +134,12 @@ class TestPrepareMarkEndpoint:
     ) -> None:
         """Test that the prepare-mark endpoint processes the request and returns file URLs."""
         # Arrange
-        payload = self.get_schema_for_endpoint(
+        payload: dict = self.get_schema_for_endpoint(
             schema=schema,
             mark_type=mark_type,
             mark_parameters=mark_parameters,
         )
-
+        payload.pop("bounding_box_list")
         # Act
         response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
 
@@ -274,7 +275,7 @@ def test_edit_image_returns_valid_images(
     mask = np.zeros(shape=(259, 259), dtype=np.bool_)
     mask[1:259, 1:259] = True
 
-    params = EditImage(
+    params = EditImage.model_construct(
         project_name="test",
         scan_file=scan_directory / "circle.x3p",
         cutoff_length=2 * micro,
@@ -288,12 +289,13 @@ def test_edit_image_returns_valid_images(
     with monkeypatch.context() as mp:
         mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
         response = send_post_request_with_mask(client=client, endpoint="edit-scan", params=params, mask=mask)
-    # Assert
+
     expected_response = GeneratedImages(
         preview_image=HttpUrl(f"{base_url}/preview.png"),
         surface_map_image=HttpUrl(f"{base_url}/surface_map.png"),
     )
-    assert response.status_code == HTTPStatus.OK, "endpoint is alive"
+    # Assert
+    assert response.status_code == HTTPStatus.OK, response.text
     response_model = GeneratedImages.model_validate(response.json())
     assert response_model == expected_response
     assert (directory / "preview.png").exists()
