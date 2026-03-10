@@ -1,21 +1,19 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Annotated, Any
+from typing import Any
 
 import numpy as np
 from conversion.data_formats import BoundingBox, MarkType
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
-    AfterValidator,
     Field,
     PositiveFloat,
     PositiveInt,
     field_validator,
     model_validator,
 )
-from scipy.constants import micro
 from utils.constants import RegressionOrder
 
 from constants import MaskTypes
@@ -167,7 +165,7 @@ class PrepareMarkImpression(PrepareMarkBase):
 class EditImage(BaseParameters):
     """Request model for editing and transforming processed scan images."""
 
-    cutoff_length: Annotated[PositiveFloat, AfterValidator(lambda x: x * micro)] = Field(
+    cutoff_length: PositiveFloat = Field(
         description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "
         "Defines the spatial frequency threshold for surface texture analysis.",
         examples=[250, 500, 1000],

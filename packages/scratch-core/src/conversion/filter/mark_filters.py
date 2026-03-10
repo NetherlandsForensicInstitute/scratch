@@ -21,7 +21,7 @@ def apply_gaussian_filter_mark(
     Apply 2D Gaussian filter to mark data.
 
     :param mark: Input mark.
-    :param cutoff: Filter cutoff length.
+    :param cutoff: Filter cutoff length in meters.
     :param regression_order: Order of the local polynomial fit (0, 1, or 2).
     :param is_high_pass: If True, apply high-pass filter; otherwise low-pass.
     :return: Filtered mark.
