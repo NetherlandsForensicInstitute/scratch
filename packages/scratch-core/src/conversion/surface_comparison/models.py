@@ -64,13 +64,13 @@ class ComparisonResult:
     Consolidated results of the CMC pipeline.
 
     :param cells: Per-cell registration and classification results.
-    :param consensus_rotation: Rotation consensus across CMC cells (degrees).
-    :param consensus_translation: Translation consensus across CMC cells (m)
+    :param shared_rotation: Shared rotation across CMC cells (degrees).
+    :param shared_translation: Shared translation across CMC cells (m)
     """
 
     cells: Sequence[Cell]
-    consensus_rotation: float
-    consensus_translation: tuple[float, float]
+    shared_rotation: float
+    shared_translation: tuple[float, float]
 
     @property
     def cell_count(self) -> int:
@@ -105,7 +105,7 @@ class ComparisonParams(ConfigBaseModel):
     :param minimum_fill_fraction: Minimum fraction of valid pixels required in a
         reference cell for it to be processed.
     :param correlation_threshold: Minimum per-cell ACCF score for CMC classification.
-    :param angle_deviation_threshold: Maximum absolute angular deviation from consensus for CMC (degrees).
+    :param angle_deviation_threshold: Maximum absolute angular deviation from shared angle for CMC (degrees).
     :param position_threshold: Maximum positional deviation from consensus for CMC (m).
     :param search_angle_min: Lower bound of rotation search range (degrees).
     :param search_angle_max: Upper bound of rotation search range (degrees).

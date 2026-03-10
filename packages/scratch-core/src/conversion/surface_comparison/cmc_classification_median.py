@@ -9,7 +9,7 @@ from conversion.surface_comparison.models import (
 )
 
 
-def classify_congruent_cells(
+def classify_congruent_cells_median(
     cells: list[Cell],
     params: ComparisonParams,
     reference_center: tuple[float, float],
@@ -19,16 +19,16 @@ def classify_congruent_cells(
     generalized ESD outlier rejection.
 
     Steps:
-    1. **Consensus angle** — compute a circular median of all cell registration
+    1. **Median angle** — compute a circular median of all cell registration
        angles, reject statistical outliers via the generalized ESD test, tighten
        the inlier set to cells within ``2 × angle_threshold``, and recompute the
        median. Each cell's ``meta_data.is_outlier`` and
        ``meta_data.residual_angle_deg`` are set accordingly.
-    2. **Consensus translation** — rotate every reference cell center by the
-       consensus angle, then take the component-wise median of the offsets between
+    2. **Median translation** — rotate every reference cell center by the
+       median angle, then take the component-wise median of the offsets between
        rotated reference centers and comparison centres, excluding outlier cells.
        Each cell's ``meta_data.position_error`` is set to its deviation from this
-       consensus.
+       median.
     3. **Congruence labeling** — mark each cell as congruent when it meets all
        four criteria: correlation score ≥ threshold, not an angle outlier,
        ``|residual_angle_deg| ≤ angle_threshold``, and both position error
@@ -37,30 +37,30 @@ def classify_congruent_cells(
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
     :param reference_center: Global center [x, y] of the reference surface in meters,
-        used as the fixed point for the consensus rotation.
-    :returns: A :class:`ComparisonResult` containing the classified cells, consensus
-        rotation in degrees, and consensus translation in meters.
+        used as the fixed point for the median rotation.
+    :returns: A :class:`ComparisonResult` containing the classified cells, median
+        rotation in degrees, and median translation in meters.
     :raises ValueError: If ``cells`` is empty.
     :raises RuntimeError: If the ESD test rejects every cell as an angle outlier.
     """
     if not cells:
         raise ValueError("Cannot identify CMC from an empty list.")
 
-    consensus_angle = _get_consensus_angle(
+    median_angle = _get_median_angle(
         cells=cells, threshold=np.radians(params.angle_deviation_threshold)
     )
     # Rotate reference positions to compute the translation.
     # Since we rotate the reference image, the natural center for rotation
     # is the mid of the reference image defined in reference center.
-    consensus_translation = _get_consensus_translation(
-        cells=cells, angle=consensus_angle, rotation_center=reference_center
+    median_translation = _get_median_translation(
+        cells=cells, angle=median_angle, rotation_center=reference_center
     )
     _update_congruence(cells=cells, params=params)
 
     result = ComparisonResult(
         cells=cells,
-        consensus_rotation=float(np.degrees(consensus_angle)),
-        consensus_translation=consensus_translation,
+        shared_rotation=float(np.degrees(median_angle)),
+        shared_translation=median_translation,
     )
     return result
 
@@ -126,7 +126,7 @@ def _get_threshold_criterion(values: FloatArray1D, threshold: float) -> BoolArra
     Return a boolean inlier mask where ``|value| ≤ 2 * threshold``.
 
     The factor of two provides a looser tightening gate in the first pass of
-    consensus-angle estimation before the final single-threshold classification.
+    median-angle estimation before the final single-threshold classification.
 
     :param values: 1-D array of residuals to screen.
     :param threshold: Half-width of the acceptance band.
@@ -135,9 +135,9 @@ def _get_threshold_criterion(values: FloatArray1D, threshold: float) -> BoolArra
     return np.abs(values) <= 2 * threshold
 
 
-def _get_consensus_angle(cells: list[Cell], threshold: float) -> float:
+def _get_median_angle(cells: list[Cell], threshold: float) -> float:
     """
-    Estimate the consensus rotation angle across all cells using a three-step
+    Estimate the median rotation angle across all cells using a three-step
     median-and-rejection procedure.
 
     1. Compute an initial circular median of all cell angles.
@@ -152,49 +152,49 @@ def _get_consensus_angle(cells: list[Cell], threshold: float) -> float:
     :param cells: List of cells providing ``angle_deg`` measurements.
     :param threshold: Half-width acceptance band in radians (typically the
         ``angle_threshold`` parameter converted from degrees).
-    :returns: Consensus rotation angle in radians.
+    :returns: Median rotation angle in radians.
     :raises RuntimeError: If the ESD test rejects every cell.
     """
     angles = np.radians([c.angle_deg for c in cells])
 
     # Compute median from angles
-    consensus_angle = _circular_median(angles=angles)
-    angle_residuals = _wrap_angles(angles=angles - consensus_angle)
+    median_angle = _circular_median(angles=angles)
+    angle_residuals = _wrap_angles(angles=angles - median_angle)
     mask = _get_esd_criterion(values=angle_residuals)
 
     # Recompute median based on the inliers
-    consensus_angle = _circular_median(angles[mask])
-    angle_residuals = _wrap_angles(angles=angles - consensus_angle)
+    median_angle = _circular_median(angles[mask])
+    angle_residuals = _wrap_angles(angles=angles - median_angle)
 
     # Tighten: re-evaluate all cells against 2 × angle_threshold
     mask = _get_threshold_criterion(values=angle_residuals, threshold=threshold)
     if np.any(mask):
-        consensus_angle = _circular_median(angles[mask])
-        angle_residuals = _wrap_angles(angles=angles - consensus_angle)
+        median_angle = _circular_median(angles[mask])
+        angle_residuals = _wrap_angles(angles=angles - median_angle)
 
     # Update cell meta-data
     for cell, is_outlier, residual_angle in zip(cells, ~mask, angle_residuals):
         cell.meta_data.is_outlier = bool(is_outlier)
         cell.meta_data.residual_angle_deg = float(np.degrees(residual_angle))
 
-    return consensus_angle
+    return median_angle
 
 
-def _get_consensus_translation(
+def _get_median_translation(
     cells: list[Cell], angle: float, rotation_center: tuple[float, float]
 ) -> tuple[float, float]:
     """
-    Rotate reference cell centers by the consensus angle, then compute the
+    Rotate reference cell centers by the median angle, then compute the
     median positional offset between the rotated reference and comparison centers.
 
     Outlier cells are excluded from the median by NaN-masking their centers before aggregation.
     Every cell's ``meta_data.position_error`` is updated with its signed [x, y] deviation
-    from the consensus translation.
+    from the median translation.
 
     :param cells: List of cells whose ``meta_data.is_outlier`` flags are already set.
-    :param angle: Consensus rotation angle in radians.
+    :param angle: Median rotation angle in radians.
     :param rotation_center: [x, y] center of rotation in meters.
-    :returns: Consensus translation [x, y] in meters.
+    :returns: Median translation [x, y] in meters.
     """
     centers_reference = np.array([c.center_reference for c in cells])
     centers_comparison = np.array([c.center_comparison for c in cells])
@@ -206,8 +206,8 @@ def _get_consensus_translation(
     )
     # Compute residuals with respect to comparison.
     position_residuals = centers_comparison - expected_positions_on_reference
-    consensus_translation = np.nanmedian(position_residuals, axis=0)
-    position_errors = position_residuals - consensus_translation
+    median_translation = np.nanmedian(position_residuals, axis=0)
+    position_errors = position_residuals - median_translation
 
     # Update cell meta-data
     for cell, position_error in zip(cells, position_errors):
@@ -216,7 +216,7 @@ def _get_consensus_translation(
             float(position_error[1]),
         )
 
-    return float(consensus_translation[0]), float(consensus_translation[1])
+    return float(median_translation[0]), float(median_translation[1])
 
 
 def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
@@ -228,13 +228,13 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
     - ``not meta_data.is_outlier`` — not rejected as an angle outlier by ESD or
       the tightening step.
     - ``|meta_data.residual_angle_deg| ≤ angle_threshold`` — angular deviation
-      from the consensus rotation is within tolerance.
+      from the median rotation is within tolerance.
     - ``|meta_data.position_error[x]| ≤ position_threshold`` and
       ``|meta_data.position_error[y]| ≤ position_threshold`` — positional deviation
-      from the consensus translation is within tolerance in both axes.
+      from the median translation is within tolerance in both axes.
 
     :param cells: Cells whose ``meta_data`` fields have already been populated by
-        :func:`_get_consensus_angle` and :func:`_get_consensus_translation`.
+        :func:`_get_median_angle` and :func:`_get_median_translation`.
     :param params: Algorithm parameters providing the classification thresholds.
     """
     for cell in cells:

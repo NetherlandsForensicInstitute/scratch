@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from conversion.surface_comparison.cmc_classification import classify_congruent_cells
+from conversion.surface_comparison.cmc_classification import classify_congruent_cells_median
 
 from .helpers import build_test_inputs
 
@@ -56,7 +56,7 @@ class TestClassifyCongruentCells:
         """The number of CMC cells must match the MATLAB reference."""
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         expected_cmc_count = matlab_test_case["outputs"]["cmc_count"]
         assert result.cmc_count == expected_cmc_count, (
@@ -68,7 +68,7 @@ class TestClassifyCongruentCells:
         """Per-cell congruence flags must match the MATLAB reference."""
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         expected_flags = matlab_test_case["outputs"]["is_congruent"]
         if isinstance(expected_flags, bool):
@@ -84,7 +84,7 @@ class TestClassifyCongruentCells:
         """The consensus rotation must match the MATLAB reference."""
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
         if np.isnan(expected_rotation):
@@ -94,7 +94,7 @@ class TestClassifyCongruentCells:
             )
         else:
             np.testing.assert_allclose(
-                result.consensus_rotation,
+                result.shared_rotation,
                 expected_rotation,
                 atol=ANGLE_ATOL,
                 err_msg=f"[{matlab_test_case['name']}] Consensus rotation mismatch",
@@ -104,10 +104,10 @@ class TestClassifyCongruentCells:
         """The consensus translation must match the MATLAB reference."""
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         expected_translation = matlab_test_case["outputs"]["consensus_translation"]
-        actual_translation = result.consensus_translation
+        actual_translation = result.shared_translation
         if all(item is None for item in expected_translation):
             assert all(np.isnan(v) for v in actual_translation), (
                 f"[{matlab_test_case['name']}] Expected NaN translation, "
@@ -133,7 +133,7 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         # Assert
         assert all(cell.is_congruent for cell in result.cells)
@@ -147,7 +147,7 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         # Assert — cells at index 1 and 3 have scores 0.2 and 0.15 (below threshold 0.4)
         assert not result.cells[1].is_congruent
@@ -162,7 +162,7 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         # Assert — cells at index 2 and 6 are angle outliers (~29° and ~-23°)
         assert not result.cells[2].is_congruent
@@ -177,7 +177,7 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         # Assert — cells at index 1 and 4 exceed the position threshold
         assert not result.cells[1].is_congruent
@@ -192,7 +192,7 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         # Assert
         assert not any(cell.is_congruent for cell in result.cells)
@@ -205,7 +205,7 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         # Assert — index 1: low score, index 3: angle outlier, index 7: position outlier
         assert not result.cells[1].is_congruent
@@ -221,7 +221,7 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         # Assert
         assert result.cells[0].is_congruent
@@ -234,7 +234,7 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells(cells, params, rotation_center)
+        result = classify_congruent_cells_median(cells, params, rotation_center)
 
         # Assert
         assert not any(cell.is_congruent for cell in result.cells)
