@@ -27,17 +27,16 @@ class GridCell:
     """Container class for storing generated grid cells."""
 
     center: tuple[int, int]  # Tuple of pixel coordinates (x, y)
-    size: tuple[int, int]  # Tuple of cell size (width, height)
     cell_data: FloatArray2D  # Contains the sliced image data
     grid_search_params: GridSearchParams  # Params to optimize during search
 
     @property
     def width(self) -> int:
-        return self.size[0]
+        return self.cell_data.shape[1]
 
     @property
     def height(self) -> int:
-        return self.size[1]
+        return self.cell_data.shape[0]
 
     @property
     def center_x(self) -> int:
@@ -70,7 +69,6 @@ def generate_grid(scan_image: ScanImage, params: ComparisonParams) -> list[GridC
     )
     dummy = GridCell(
         center=(x, y),
-        size=(width, height),
         cell_data=scan_image.data[y : y + height, x : x + width],
         grid_search_params=GridSearchParams(),
     )
@@ -79,8 +77,8 @@ def generate_grid(scan_image: ScanImage, params: ComparisonParams) -> list[GridC
 
 def extract_patch(
     scan_image: ScanImage,
-    coordinates: tuple[int, int],  # Top-left coordinates
-    size: tuple[int, int],  # Usually a square
+    coordinates: tuple[int, int],  # Top-left (x, y) coordinates
+    size: tuple[int, int],  # Usually a square (width, height)
     fill_value: float = np.nan,
 ) -> FloatArray2D:
     """TODO: Implement function."""

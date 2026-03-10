@@ -28,7 +28,9 @@ def _find_best_translation(
     for y in range(scan_image.height - cell.height // 2):
         for x in range(scan_image.width - cell.width // 2):
             patch = extract_patch(
-                scan_image=scan_image, coordinates=(x, y), size=cell.size
+                scan_image=scan_image,
+                coordinates=(x, y),
+                size=(cell.width, cell.height),
             )
             fill_fraction = 1 - np.isnan(patch).sum() / patch.size
             if fill_fraction < min_fill_fraction:
@@ -66,7 +68,6 @@ def coarse_registration(
             # We cannot use `grid_cell` directly yet for this since we neet its fill fraction later
             cell_copy = GridCell(
                 center=grid_cell.center,
-                size=grid_cell.size,
                 cell_data=grid_cell.cell_data.copy(),
                 grid_search_params=GridSearchParams(),
             )
