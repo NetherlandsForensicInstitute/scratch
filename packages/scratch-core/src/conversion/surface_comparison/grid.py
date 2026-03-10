@@ -5,37 +5,25 @@ from conversion.surface_comparison.models import ComparisonParams
 from dataclasses import dataclass
 import numpy as np
 
-
-@dataclass(frozen=False)
-class GridSearchParams:
-    x: int = -1  # The x-coordinate to update
-    y: int = -1  # The y-coordinate to update
-    angle: float = 0.0  # The rotation angle to update
-    score: float = float("-inf")  # The NCC score to update
-
-    def update(self, x: int, y: int, angle: float, score: float):
-        self.x = x
-        self.y = y
-        self.angle = angle
-        self.score = score
+from conversion.surface_comparison.utils import convert_meters_to_pixels
 
 
 @dataclass(frozen=True)
 class GridCell:
     """Container class for storing generated grid cells."""
 
-    center: tuple[int, int]  # Tuple of pixel coordinates (x, y)
-    size: tuple[int, int]  # Tuple of cell size (width, height)
+    center: tuple[
+        int, int
+    ]  # Tuple of pixel coordinates (x, y) corresponding to the reference image.
     cell_data: FloatArray2D  # Contains the sliced image data
-    grid_search_params: GridSearchParams  # Params to optimize during search
 
     @property
     def width(self) -> int:
-        return self.size[0]
+        return self.cell_data.shape[1]
 
     @property
     def height(self) -> int:
-        return self.size[1]
+        return self.cell_data.shape[0]
 
     @property
     def center_x(self) -> int:
@@ -57,23 +45,18 @@ class GridCell:
         self.cell_data[np.isnan(self.cell_data)] = fill_value
 
 
-def _convert_meters_to_pixels(value_to_convert: float, pixel_size: float) -> int:
-    return int(round(value_to_convert / pixel_size))
-
-
 def generate_grid(scan_image: ScanImage, params: ComparisonParams) -> list[GridCell]:
+    """TODO: Implement function."""
+
     # Create a dummy cell
     x, y = (scan_image.width // 2, scan_image.height // 2)
-    width = _convert_meters_to_pixels(
+    width = convert_meters_to_pixels(
         value_to_convert=params.cell_size[0], pixel_size=scan_image.scale_x
     )
-    height = _convert_meters_to_pixels(
+    height = convert_meters_to_pixels(
         value_to_convert=params.cell_size[1], pixel_size=scan_image.scale_y
     )
     dummy = GridCell(
-        center=(x, y),
-        size=(width, height),
-        cell_data=scan_image.data[y : y + height, x : x + width],
-        grid_search_params=GridSearchParams(),
+        center=(x, y), cell_data=scan_image.data[y : y + height, x : x + width]
     )
     return [dummy]
