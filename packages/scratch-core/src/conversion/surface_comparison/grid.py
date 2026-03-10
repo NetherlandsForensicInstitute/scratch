@@ -5,6 +5,8 @@ from conversion.surface_comparison.models import ComparisonParams
 from dataclasses import dataclass
 import numpy as np
 
+from conversion.surface_comparison.utils import convert_meters_to_pixels
+
 
 @dataclass(frozen=False)
 class GridSearchParams:
@@ -57,17 +59,13 @@ class GridCell:
         self.cell_data[np.isnan(self.cell_data)] = fill_value
 
 
-def _convert_meters_to_pixels(value_to_convert: float, pixel_size: float) -> int:
-    return int(round(value_to_convert / pixel_size))
-
-
 def generate_grid(scan_image: ScanImage, params: ComparisonParams) -> list[GridCell]:
     # Create a dummy cell
     x, y = (scan_image.width // 2, scan_image.height // 2)
-    width = _convert_meters_to_pixels(
+    width = convert_meters_to_pixels(
         value_to_convert=params.cell_size[0], pixel_size=scan_image.scale_x
     )
-    height = _convert_meters_to_pixels(
+    height = convert_meters_to_pixels(
         value_to_convert=params.cell_size[1], pixel_size=scan_image.scale_y
     )
     dummy = GridCell(
@@ -77,3 +75,33 @@ def generate_grid(scan_image: ScanImage, params: ComparisonParams) -> list[GridC
         grid_search_params=GridSearchParams(),
     )
     return [dummy]
+
+
+def extract_patch(
+    scan_image: ScanImage,
+    coordinates: tuple[int, int],  # Top-left coordinates
+    size: tuple[int, int],  # Usually a square
+    fill_value: float = np.nan,
+) -> FloatArray2D:
+    """TODO: Implement function."""
+    # Compute global coordinates (of the patch in the image)
+    x1, y1 = coordinates
+    width, height = size
+    x2, y2 = x1 + width, y1 + height
+    x1, x2 = max(0, x1), min(scan_image.width, x2)
+    y1, y2 = max(0, y1), min(scan_image.height, y2)
+
+    # Extract (possibly rectangular-shaped) patch
+    patch = scan_image.data[y1:y2, x1:x2].copy()  # TODO: is copy() needed here?
+
+    # Compute local coordinates (of the patch in the cell)
+    local_x, local_y = 0, 0  # TODO: Implement this computation
+
+    # Generate (square-shaped) padded output
+    output = np.empty(shape=size, dtype=np.float64)
+    output.fill(fill_value)
+    output[local_y : local_y + patch.shape[0], local_x : local_x + patch.shape[1]] = (
+        patch
+    )
+
+    return output

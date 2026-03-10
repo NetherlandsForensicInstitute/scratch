@@ -1,49 +1,16 @@
 from collections.abc import Iterable
 
-from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
-from conversion.surface_comparison.grid import GridCell, extract_patch, GridSearchParams
+from conversion.surface_comparison.grid import GridCell, GridSearchParams, extract_patch
 from conversion.surface_comparison.models import ComparisonParams, Cell, CellMetaData
 import numpy as np
 
-from scipy.ndimage import rotate
 
 from conversion.surface_comparison.pipeline import ProcessedMark
-
-
-def _rotate_scan_image(scan_image: ScanImage, angle: float) -> ScanImage:
-    return scan_image.model_copy(
-        update={"data": rotate(scan_image.data, angle=angle, cval=np.nan)}
-    )
-
-
-def _extract_patch(
-    scan_image: ScanImage,
-    coordinates: tuple[int, int],  # Top-left coordinates
-    size: tuple[int, int],  # Usually a square
-    fill_value: float = np.nan,
-) -> FloatArray2D:
-    # Compute global coordinates (of the patch in the image)
-    x1, y1 = coordinates
-    width, height = size
-    x2, y2 = x1 + width, y1 + height
-    x1, x2 = max(0, x1), min(scan_image.width, x2)
-    y1, y2 = max(0, y1), min(scan_image.height, y2)
-
-    # Extract (possibly rectangular-shaped) patch
-    patch = scan_image.data[y1:y2, x1:x2].copy()  # TODO: is copy() needed here?
-
-    # Compute local coordinates (of the patch in the cell)
-    local_x, local_y = 0, 0  # TODO: Implement this computation
-
-    # Generate (square-shaped) padded output
-    output = np.empty(shape=size, dtype=np.float64)
-    output.fill(fill_value)
-    output[local_y : local_y + patch.shape[0], local_x : local_x + patch.shape[1]] = (
-        patch
-    )
-
-    return output
+from conversion.surface_comparison.utils import (
+    rotate_scan_image,
+    convert_pixels_to_meters,
+)
 
 
 def _find_best_translation(
@@ -77,13 +44,6 @@ def _find_best_translation(
     return max_score, best_x, best_y
 
 
-def _pixels_to_meters(
-    coordinates: tuple[int, int], pixel_size: tuple[float, float]
-) -> tuple[float, float]:
-    # TODO: Remove this function if possible?
-    return coordinates[0] * pixel_size[0], coordinates[1] * pixel_size[1]
-
-
 def coarse_registration(
     grid_cells: Iterable[GridCell],
     comparison_image: ScanImage,
@@ -98,7 +58,7 @@ def coarse_registration(
     while angle < params.search_angle_max:
         # Rotate the comparison image by `-angle` degrees.
         # This is equivalent to rotating the reference patch by `angle` degrees.
-        rotated = _rotate_scan_image(scan_image=comparison_image, angle=-angle)
+        rotated = rotate_scan_image(scan_image=comparison_image, angle=-angle)
 
         for grid_cell in grid_cells:
             # TODO: Rewrite and optimize this part
@@ -127,14 +87,14 @@ def coarse_registration(
     output = []
     for grid_cell in grid_cells:
         cell = Cell(
-            center_reference=_pixels_to_meters(
+            center_reference=convert_pixels_to_meters(
                 coordinates=grid_cell.center, pixel_size=pixel_size
             ),
             cell_data=grid_cell.cell_data,
             fill_fraction_reference=grid_cell.fill_fraction,
             best_score=grid_cell.grid_search_params.score,
             angle_deg=grid_cell.grid_search_params.angle,
-            center_comparison=_pixels_to_meters(
+            center_comparison=convert_pixels_to_meters(
                 coordinates=(
                     grid_cell.grid_search_params.x,
                     grid_cell.grid_search_params.y,

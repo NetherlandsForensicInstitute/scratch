@@ -1,5 +1,6 @@
-from dataclasses import dataclass
 import numpy as np
+from dataclasses import dataclass
+
 from conversion.data_formats import Mark
 from conversion.resample import resample_scan_image_and_mask
 from conversion.surface_comparison.cell_registration import (
@@ -8,11 +9,16 @@ from conversion.surface_comparison.cell_registration import (
 )
 from conversion.surface_comparison.cmc_classification import classify_congruent_cells
 from conversion.surface_comparison.grid import generate_grid
-from conversion.surface_comparison.models import ComparisonParams, ComparisonResult
+from conversion.surface_comparison.models import (
+    ComparisonParams,
+    ComparisonResult,
+)
 
 
 @dataclass(frozen=True)
 class ProcessedMark:
+    """Container class for storing processed `Mark` instances."""
+
     filtered_mark: Mark
     leveled_mark: Mark
 
@@ -22,6 +28,8 @@ def compare_surfaces(
     comparison_mark: ProcessedMark,
     params: ComparisonParams,
 ) -> ComparisonResult:
+    """TODO: Write docstring."""
+
     # Get the filtered images for the CMC pipeline
     reference_image = refence_mark.filtered_mark.scan_image
     comparison_image = comparison_mark.filtered_mark.scan_image
