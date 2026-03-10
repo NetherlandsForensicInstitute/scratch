@@ -1,3 +1,4 @@
+import numpy as np
 from pydantic import Field, field_validator, PositiveFloat
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -121,3 +122,37 @@ class ComparisonParams(ConfigBaseModel):
     search_angle_min: float = -180.0
     search_angle_max: float = 180.0
     search_angle_step: float = Field(default=1.0, gt=0.0)
+
+
+@dataclass(frozen=True)
+class GridCell:
+    """
+    Container class for storing generated grid cells.
+
+    All the values of the attributes and properties are in pixel units.
+
+    :param top_left: Tuple containing the top-left pixel coordinates (x, y) corresponding to the reference image.
+    :param cell_data: 2D array containing the sliced image data from the reference image.
+    """
+
+    top_left: tuple[int, int]
+    cell_data: FloatArray2D
+
+    @property
+    def width(self) -> int:
+        return self.cell_data.shape[1]
+
+    @property
+    def height(self) -> int:
+        return self.cell_data.shape[0]
+
+    @property
+    def center(self) -> tuple[float, float]:
+        return self.top_left[0] + self.width / 2, self.top_left[1] + self.height / 2
+
+    @property
+    def fill_fraction(self) -> float:
+        return float(np.count_nonzero(~np.isnan(self.cell_data)) / self.cell_data.size)
+
+    def fill_nans(self, fill_value: float):
+        self.cell_data[np.isnan(self.cell_data)] = fill_value
