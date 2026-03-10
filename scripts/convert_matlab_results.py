@@ -12,6 +12,8 @@ Usage:
 
 import argparse
 import contextlib
+import io
+import json
 import logging
 import os
 import uuid
@@ -22,6 +24,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import requests
 from parsers import load_scan_image, parse_to_x3p
 from returns.unsafe import unsafe_perform_io
@@ -139,7 +142,8 @@ def convert_mark(
     """Process a single mark: extract params, call API, download results.
 
     Reads crop info and preprocessing parameters from mark.mat, builds the
-    API request, and downloads the resulting files into the output directory.
+    API request as multipart form + file upload, and downloads the resulting
+    files into the output directory.
     """
     mark_dir = cfg.output_dir / mark_folder.relative_to(cfg.root)
 
@@ -156,15 +160,28 @@ def convert_mark(
     endpoint = f"preprocessor/prepare-mark-{'impression' if is_impression else 'striation'}"
     params = extract_impression_params(struct, mark_type) if is_impression else extract_striation_params(struct)
 
-    body = {
+    # Build the JSON params (everything except the mask binary data)
+    params_dict = {
         "scan_file": str(converted_x3p),
         "mark_type": mark_type.value,
-        "mask": mask.astype(int).tolist(),
         "mark_parameters": params,
         "bounding_box_list": bounding_box_list,
+        "mask_is_bitpacked": False,
     }
 
-    result = _post_with_retry(f"{cfg.api_url}/{endpoint}", body)
+    # Send as multipart: params as JSON form field, mask as file upload
+    mask_bytes = mask.astype(np.bool_).tobytes()
+
+    resp = requests.post(
+        f"{cfg.api_url}/{endpoint}",
+        data={"params": json.dumps(params_dict)},
+        files={"mask_data": ("mask.bin", io.BytesIO(mask_bytes), "application/octet-stream")},
+        timeout=300,
+    )
+    if resp.status_code == 422:
+        logger.error("Validation error for %s: %s", mark_folder, resp.json())
+    resp.raise_for_status()
+    result = resp.json()
 
     processed_dir = mark_dir / "processed"
     mark_dir.mkdir(parents=True, exist_ok=True)

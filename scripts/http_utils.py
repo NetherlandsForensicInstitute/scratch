@@ -12,6 +12,7 @@ def _post_with_retry(url: str, body: dict, timeout: int = 300, retries: int = 5)
         try:
             with API_SEMAPHORE:
                 resp = requests.post(url, json=body, timeout=timeout)
+                print(resp.json())
                 resp.raise_for_status()
                 return resp.json()
         except (requests.ConnectionError, OSError):
