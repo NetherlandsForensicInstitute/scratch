@@ -1,7 +1,5 @@
 import numpy as np
-from dataclasses import dataclass
 
-from conversion.data_formats import Mark
 from conversion.resample import resample_scan_image_and_mask
 from conversion.surface_comparison.cell_registration import (
     coarse_registration,
@@ -12,15 +10,8 @@ from conversion.surface_comparison.grid import generate_grid
 from conversion.surface_comparison.models import (
     ComparisonParams,
     ComparisonResult,
+    ProcessedMark,
 )
-
-
-@dataclass(frozen=True)
-class ProcessedMark:
-    """Container class for storing processed `Mark` instances."""
-
-    filtered_mark: Mark
-    leveled_mark: Mark
 
 
 def compare_surfaces(

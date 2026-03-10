@@ -1,23 +1,40 @@
+from dataclasses import dataclass
+
+import numpy as np
+
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import ComparisonParams
-
-from dataclasses import dataclass
-import numpy as np
-
-from conversion.surface_comparison.utils import convert_meters_to_pixels
+from conversion.surface_comparison.utils import (
+    convert_meters_to_pixels,
+    compute_fill_fraction,
+)
 
 
 @dataclass(frozen=False)
 class GridSearchParams:
-    x: int = -1  # The x-coordinate to update
-    y: int = -1  # The y-coordinate to update
-    angle: float = 0.0  # The rotation angle to update
-    score: float = float("-inf")  # The NCC score to update
+    """
+    Mutable container for the best registration parameters found so far for one cell.
 
-    def update(self, x: int, y: int, angle: float, score: float):
-        self.x = x
-        self.y = y
+    All positional attributes are in pixel coordinates of the (rotated) comparison image.
+
+    :param top_left_x: Top left x-coordinate of the best-matching comparison patch (pixels).
+    :param top_left_y: Top left y-coordinate of the best-matching comparison patch (pixels).
+    :param angle: Rotation angle at which the best score was found (degrees).
+    :param score: Best normalized cross-correlation score found so far.
+    """
+
+    top_left_x: int = -1
+    top_left_y: int = -1
+    angle: float = 0.0
+    score: float = float("-inf")
+
+    def update(
+        self, top_left_x: int, top_left_y: int, angle: float, score: float
+    ) -> None:
+        """Replace all fields with a new best result."""
+        self.top_left_x = top_left_x
+        self.top_left_y = top_left_y
         self.angle = angle
         self.score = score
 
@@ -25,13 +42,13 @@ class GridSearchParams:
 @dataclass(frozen=True)
 class GridCell:
     """
-    Container class for storing generated grid cells.
+    Immutable container for a single reference grid cell and its search state.
 
-    All the values of the attributes and properties are in pixel units.
+    All positional values are in pixel coordinates of the reference image.
 
-    :param top_left: Tuple containing the top-left pixel coordinates (x, y) corresponding to the reference image.
-    :param cell_data: 2D array containing the sliced image data from the reference image.
-    :param grid_search_params: Params to optimize during search
+    :param top_left: Top-left pixel coordinates (x, y) of the cell in the reference image.
+    :param cell_data: 2D array of height data extracted from the reference image; may contain NaNs.
+    :param grid_search_params: Mutable best-match state updated during coarse registration.
     """
 
     top_left: tuple[int, int]
@@ -48,24 +65,31 @@ class GridCell:
 
     @property
     def center(self) -> tuple[float, float]:
+        """Sub-pixel center derived from top-left and cell dimensions."""
         return self.top_left[0] + self.width / 2, self.top_left[1] + self.height / 2
 
     @property
     def fill_fraction(self) -> float:
-        return float(np.count_nonzero(~np.isnan(self.cell_data)) / self.cell_data.size)
+        """Fraction of valid (non-NaN) pixels in the cell."""
+        return compute_fill_fraction(self.cell_data)
 
-    def fill_nans(self, fill_value: float):
+    def fill_nans(self, fill_value: float) -> None:
+        """Replace NaN entries in ``cell_data`` in-place with ``fill_value``."""
         self.cell_data[np.isnan(self.cell_data)] = fill_value
+
+    def copy(self) -> "GridCell":
+        return GridCell(
+            top_left=self.top_left,
+            cell_data=self.cell_data.copy(),
+            grid_search_params=self.grid_search_params,
+        )
 
 
 def generate_grid(scan_image: ScanImage, params: ComparisonParams) -> list[GridCell]:
-    """TODO: Implement function."""
-
-    # Create a dummy cell
-    x, y = 0, 0  # Top-left coordinates of cell in reference image
-    pixel_size = scan_image.scale_x  # Assumes isotropic image
+    """TODO: Implement full grid generation."""
+    x, y = 0, 0
     width, height = convert_meters_to_pixels(
-        values=params.cell_size, pixel_size=pixel_size
+        values=params.cell_size, pixel_size=scan_image.scale_x
     )
     dummy = GridCell(
         top_left=(x, y),
@@ -77,29 +101,42 @@ def generate_grid(scan_image: ScanImage, params: ComparisonParams) -> list[GridC
 
 def extract_patch(
     scan_image: ScanImage,
-    coordinates: tuple[int, int],  # Top-left (x, y) coordinates
-    size: tuple[int, int],  # Usually a square (width, height)
+    top_left: tuple[int, int],
+    size: tuple[int, int],
     fill_value: float = np.nan,
 ) -> FloatArray2D:
-    """TODO: Implement function."""
-    # Compute global coordinates (of the patch in the image)
-    x1, y1 = coordinates
+    """
+    Extract a patch from ``scan_image``, padding with ``fill_value`` where the patch extends outside the image boundary.
+
+    :param scan_image: Source image to extract from.
+    :param top_left: Top-left (x, y) pixel coordinate of the desired patch.
+    :param size: Desired output patch size as (width, height) in pixels.
+    :param fill_value: Value used for out-of-bounds padding.
+    :returns: Array of shape (height, width) containing the extracted patch.
+    """
     width, height = size
+    x1, y1 = top_left
     x2, y2 = x1 + width, y1 + height
-    x1, x2 = max(0, x1), min(scan_image.width, x2)
-    y1, y2 = max(0, y1), min(scan_image.height, y2)
 
-    # Extract (possibly rectangular-shaped) patch
-    patch = scan_image.data[y1:y2, x1:x2].copy()  # TODO: is copy() needed here?
+    # Compute global coordinates (= offset with respect to the reference image) for the patch
+    x1_clamped = max(0, x1)
+    y1_clamped = max(0, y1)
+    x2_clamped = min(scan_image.width, x2)
+    y2_clamped = min(scan_image.height, y2)
 
-    # Compute local coordinates (of the patch in the cell)
-    local_x, local_y = 0, 0  # TODO: Implement this computation
+    output = np.full((height, width), fill_value=fill_value, dtype=np.float64)
 
-    # Generate (square-shaped) padded output
-    output = np.empty(shape=size, dtype=np.float64)
-    output.fill(fill_value)
-    output[local_y : local_y + patch.shape[0], local_x : local_x + patch.shape[1]] = (
-        patch
+    if x1_clamped >= x2_clamped or y1_clamped >= y2_clamped:
+        return output  # Return NaN filled array
+
+    # Compute local coordinates (= offset with respect to the patch) for the sliced data
+    local_x = x1_clamped - x1
+    local_y = y1_clamped - y1
+    valid_width = x2_clamped - x1_clamped
+    valid_height = y2_clamped - y1_clamped
+
+    output[local_y : local_y + valid_height, local_x : local_x + valid_width] = (
+        scan_image.data[y1_clamped:y2_clamped, x1_clamped:x2_clamped]
     )
 
     return output

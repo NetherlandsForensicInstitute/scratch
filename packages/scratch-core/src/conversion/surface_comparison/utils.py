@@ -1,6 +1,5 @@
-from container_models.scan_image import ScanImage
-from scipy.ndimage import rotate
 import numpy as np
+from numpy.typing import NDArray
 
 
 def convert_meters_to_pixels(
@@ -25,11 +24,6 @@ def convert_pixels_to_meters(
     return _convert(values[0]), _convert(values[1])
 
 
-def rotate_scan_image(scan_image: ScanImage, angle: float) -> ScanImage:
-    """
-    Rotate an instance of `ScanImage` by `angle` degrees.
-    Background values are filled with NaNs.
-    """
-    return scan_image.model_copy(
-        update={"data": rotate(scan_image.data, angle=angle, cval=np.nan)}
-    )
+def compute_fill_fraction(array: NDArray) -> float:
+    """Compute the fraction of valid (non-NaN) values in the array."""
+    return float(np.count_nonzero(~np.isnan(array)) / array.size)
