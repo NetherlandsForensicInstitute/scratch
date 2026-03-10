@@ -111,8 +111,8 @@ def calculate_lr_striation(lr_system: LRSystem, score: float) -> LLRData:
     :param lr_system: Trained LR system to apply.
     :param score: Correlation coefficient between two striation profiles.
     """
-    result = lr_system.apply(FeatureData(features=np.array([[score]])))
-    return result
+    log10_lr_data = lr_system.apply(FeatureData(features=np.array([[score]])))
+    return log10_lr_data
 
 
 def calculate_lr_impression(lr_system: LRSystem, score: int, n_cells: int) -> LLRData:
