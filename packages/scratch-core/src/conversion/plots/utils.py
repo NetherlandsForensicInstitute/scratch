@@ -398,10 +398,9 @@ def _format_lr(llr_data: LLRData) -> str:
         raise ValueError(f"expected single LR value, got {len(llr_data.llrs)}")
 
     log_lr = llr_data.llrs[0]
-    intervals = llr_data.llr_intervals[0]
 
-    if intervals is not None:
-        lower, upper = intervals[0], intervals[1]
+    if llr_data.llr_intervals is not None:
+        lower, upper = llr_data.llr_intervals[0][0], llr_data.llr_intervals[0][1]
         return f"{log_lr:.2f} ({lower:.2f}, {upper:.2f})"
     return f"{log_lr:.2f}"
 
