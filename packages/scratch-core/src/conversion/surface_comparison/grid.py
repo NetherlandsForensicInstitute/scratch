@@ -46,14 +46,12 @@ def generate_grid(scan_image: ScanImage, params: ComparisonParams) -> list[GridC
     """TODO: Implement function."""
 
     # Create a dummy cell
-    x, y = (scan_image.width // 2, scan_image.height // 2)
-    width = convert_meters_to_pixels(
-        value_to_convert=params.cell_size[0], pixel_size=scan_image.scale_x
-    )
-    height = convert_meters_to_pixels(
-        value_to_convert=params.cell_size[1], pixel_size=scan_image.scale_y
+    x, y = 0, 0  # Top-left coordinates of cell in reference image
+    pixel_size = scan_image.scale_x  # Assumes isotropic image
+    width, height = convert_meters_to_pixels(
+        values=params.cell_size, pixel_size=pixel_size
     )
     dummy = GridCell(
-        center=(x, y), cell_data=scan_image.data[y : y + height, x : x + width]
+        top_left=(x, y), cell_data=scan_image.data[y : y + height, x : x + width]
     )
     return [dummy]

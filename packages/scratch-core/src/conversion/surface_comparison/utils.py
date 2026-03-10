@@ -4,25 +4,25 @@ import numpy as np
 
 
 def convert_meters_to_pixels(
-    coordinates: tuple[float, float], pixel_size: float
+    values: tuple[float, float], pixel_size: float
 ) -> tuple[int, int]:
     """TODO: Remove this function if possible."""
 
     def _convert(value: float) -> int:
         return int(round(value / pixel_size))
 
-    return _convert(coordinates[0]), _convert(coordinates[1])
+    return _convert(values[0]), _convert(values[1])
 
 
 def convert_pixels_to_meters(
-    coordinates: tuple[float, float], pixel_size: float
+    values: tuple[float, float], pixel_size: float
 ) -> tuple[float, float]:
     """TODO: Remove this function if possible."""
 
     def _convert(value: float) -> float:
         return value * pixel_size
 
-    return _convert(coordinates[0]), _convert(coordinates[1])
+    return _convert(values[0]), _convert(values[1])
 
 
 def rotate_scan_image(scan_image: ScanImage, angle: float) -> ScanImage:

@@ -23,14 +23,14 @@ def coarse_registration(
     for grid_cell in grid_cells:
         dummy = Cell(
             center_reference=convert_pixels_to_meters(
-                coordinates=grid_cell.center, pixel_size=pixel_size
+                values=grid_cell.center, pixel_size=pixel_size
             ),
             cell_data=grid_cell.cell_data,
             fill_fraction_reference=grid_cell.fill_fraction,
             best_score=0.0,
             angle_deg=0.0,
             center_comparison=convert_pixels_to_meters(
-                coordinates=(0, 0), pixel_size=pixel_size
+                values=(0, 0), pixel_size=pixel_size
             ),
             is_congruent=False,  # TODO: We shouldn't set this here
             meta_data=CellMetaData(
