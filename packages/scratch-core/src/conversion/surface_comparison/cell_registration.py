@@ -55,7 +55,7 @@ def coarse_registration(
     # TODO: Implement this
     angle = params.search_angle_min
     fill_value_comparison = float(np.nanmean(comparison_image))
-    pixel_size = comparison_image.scale_x, comparison_image.scale_y
+    pixel_size = comparison_image.scale_x  # Assumes isotropic image
 
     while angle < params.search_angle_max:
         # Rotate the comparison image by `-angle` degrees.
@@ -67,7 +67,7 @@ def coarse_registration(
             # Deep copy cell and fill NaN values with numerical value
             # We cannot use `grid_cell` directly yet for this since we neet its fill fraction later
             cell_copy = GridCell(
-                center=grid_cell.center,
+                top_left=grid_cell.top_left,
                 cell_data=grid_cell.cell_data.copy(),
                 grid_search_params=GridSearchParams(),
             )
@@ -89,14 +89,14 @@ def coarse_registration(
     for grid_cell in grid_cells:
         cell = Cell(
             center_reference=convert_pixels_to_meters(
-                coordinates=grid_cell.center, pixel_size=pixel_size
+                values=grid_cell.center, pixel_size=pixel_size
             ),
             cell_data=grid_cell.cell_data,
             fill_fraction_reference=grid_cell.fill_fraction,
             best_score=grid_cell.grid_search_params.score,
             angle_deg=grid_cell.grid_search_params.angle,
             center_comparison=convert_pixels_to_meters(
-                coordinates=(
+                values=(
                     grid_cell.grid_search_params.x,
                     grid_cell.grid_search_params.y,
                 ),
