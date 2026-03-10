@@ -35,7 +35,7 @@ def compare_surfaces(
     comparison_image = comparison_mark.filtered_mark.scan_image
 
     # Step 1: Resample comparison so that both have the same pixel size
-    pixel_size = reference_image.scale_x
+    pixel_size = reference_image.scale_x  # Assumes isotropic image
     comparison_image, _ = resample_scan_image_and_mask(
         scan_image=comparison_image, target_scale=pixel_size, preserve_aspect_ratio=True
     )
