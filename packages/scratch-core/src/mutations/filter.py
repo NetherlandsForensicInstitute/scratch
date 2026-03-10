@@ -220,7 +220,6 @@ class GausianRegressionFilter(ImageMutation):  # pragma: no cover
         :param scan_image: Gaussian filter is applied on this scan_image data.
         :returns: ScanImage with the filtered 2D array.
         """
-        print(f"cutoff {self.cutoff_length}")
         pixel_size = (scan_image.scale_y, scan_image.scale_x)
         scan_image.data = apply_gaussian_regression_filter(
             data=scan_image.data,
