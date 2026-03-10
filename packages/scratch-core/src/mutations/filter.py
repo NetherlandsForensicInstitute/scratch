@@ -179,7 +179,7 @@ class LevelMap(ImageMutation):
         return scan_image
 
 
-class GausianRegressionFilter(ImageMutation):  # pragma: no cover
+class GaussianRegressionFilter(ImageMutation):  # pragma: no cover
     NAN_OUT = True
 
     def __init__(

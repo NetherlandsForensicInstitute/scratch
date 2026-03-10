@@ -14,7 +14,7 @@ from conversion.preprocess_striation.pipeline import preprocess_striation_mark
 from conversion.resample import resample_mark
 from conversion.rotate import rotate_crop_and_mask_image_by_crop
 from loguru import logger
-from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resample
+from mutations import CropToMask, GaussianRegressionFilter, LevelMap, Mask, Resample
 from scipy.constants import micro
 from skimage.transform import resize
 
@@ -111,7 +111,7 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: B
             y_reference_point=reference_point_y,
             terms=edit_image_params.terms.to_surface_terms(),
         ),
-        GausianRegressionFilter(
+        GaussianRegressionFilter(
             regression_order=edit_image_params.regression_order,
             cutoff_length=edit_image_params.cutoff_length * micro,
             is_high_pass=True,
