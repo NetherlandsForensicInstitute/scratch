@@ -43,6 +43,7 @@ def _find_best_translation(
             score = np.corrcoef(cell.cell_data, patch)
             if score > max_score:
                 best_x, best_y = x, y
+                max_score = score
     return max_score, best_x, best_y
 
 
