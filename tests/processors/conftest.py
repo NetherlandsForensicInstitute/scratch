@@ -53,6 +53,17 @@ def assert_lr_response_valid(client: TestClient, response) -> None:
     plot_response = client.get(data["lr_overview_plot"])
     assert plot_response.status_code == HTTPStatus.OK
     assert plot_response.headers["content-type"] == "image/png"
+    for key in (
+        "km_scores",
+        "knm_scores",
+        "km_llr",
+        "knm_llr",
+        "km_llr_lower_ci",
+        "km_llr_upper_ci",
+        "knm_llr_lower_ci",
+        "knm_llr_upper_ci",
+    ):
+        assert isinstance(data[key], list), f"{key} should be a list"
 
 
 def _create_dummy_profile(n_samples: int = 1000) -> Profile:

@@ -296,12 +296,23 @@ class LRResponseURL(BaseResponseURLs):
 class LRResponse(BaseModel):
     urls: LRResponseURL
     lr: float
+    km_scores: list[float]
+    knm_scores: list[float]
+    km_llr: list[float]
+    knm_llr: list[float]
+    km_llr_lower_ci: list[float]
+    km_llr_upper_ci: list[float]
+    knm_llr_lower_ci: list[float]
+    knm_llr_upper_ci: list[float]
 
     @model_serializer(mode="wrap")
     def serialize(self, handler):
         """Serialize model to flat json."""
         data = handler(self)
-        return {
-            **data["urls"],
-            "lr": data["lr"],
-        }
+        urls = data.pop("urls")
+        return {**urls, **data}
+
+
+class LRStriationResponse(LRResponse):
+    km_scores_transformed: list[float]
+    knm_scores_transformed: list[float]

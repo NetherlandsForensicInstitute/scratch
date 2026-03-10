@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from http import HTTPStatus
 from pathlib import Path
 
@@ -19,10 +20,36 @@ from conversion.plots.utils import build_results_metadata_impression, build_resu
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from conversion.utils import ccf_score_to_logodds
 from fastapi import HTTPException
+from lir.data.models import LLRData
 from loguru import logger
 from PIL import Image
 
 from processors.schemas import CalculateLRImpression, CalculateLRStriation
+
+
+@dataclass(frozen=True)
+class LRResult:
+    log_lr: float
+    km_scores: list[float]
+    knm_scores: list[float]
+    km_llr: list[float]
+    knm_llr: list[float]
+    km_llr_lower_ci: list[float]
+    km_llr_upper_ci: list[float]
+    knm_llr_lower_ci: list[float]
+    knm_llr_upper_ci: list[float]
+
+
+@dataclass(frozen=True)
+class LRStriationResult(LRResult):
+    km_scores_transformed: list[float]
+    knm_scores_transformed: list[float]
+
+
+def _extract_intervals(llr_data: LLRData) -> tuple[list[float], list[float]]:
+    if llr_data.llr_intervals is None:
+        return [], []
+    return llr_data.llr_intervals[:, 0].tolist(), llr_data.llr_intervals[:, 1].tolist()
 
 
 def compare_striation_marks(
@@ -181,7 +208,7 @@ def save_lr_striation_plot(  # noqa: PLR0913
 def process_lr_striation(
     lr_input: CalculateLRStriation,
     files: dict[str, Path],
-) -> float:
+) -> LRStriationResult:
     """Calculate LR for striation marks and save the overview plot."""
     lr_system = get_lr_system(lr_input.lr_system_path)
     reference_data = get_reference_data(lr_input.lr_system_path)
@@ -222,13 +249,28 @@ def process_lr_striation(
         output_path=files["lr_overview_plot"],
     )
 
-    return log_lr
+    n_km = len(reference_data.km_scores)
+    km_llr_lower_ci, km_llr_upper_ci = _extract_intervals(reference_data.km_llr_data)
+    knm_llr_lower_ci, knm_llr_upper_ci = _extract_intervals(reference_data.knm_llr_data)
+    return LRStriationResult(
+        log_lr=float(log_lr),
+        km_scores=reference_data.km_scores.tolist(),
+        knm_scores=reference_data.knm_scores.tolist(),
+        km_llr=reference_data.km_llr_data.llrs.tolist(),
+        knm_llr=reference_data.knm_llr_data.llrs.tolist(),
+        km_llr_lower_ci=km_llr_lower_ci,
+        km_llr_upper_ci=km_llr_upper_ci,
+        knm_llr_lower_ci=knm_llr_lower_ci,
+        knm_llr_upper_ci=knm_llr_upper_ci,
+        km_scores_transformed=transformed_reference_scores[:n_km].tolist(),
+        knm_scores_transformed=transformed_reference_scores[n_km:].tolist(),
+    )
 
 
 def process_lr_impression(
     lr_input: CalculateLRImpression,
     files: dict[str, Path],
-) -> float:
+) -> LRResult:
     """Calculate LR for impression marks and save the overview plot."""
     lr_system = get_lr_system(lr_input.lr_system_path)
     reference_data = get_reference_data(lr_input.lr_system_path)
@@ -263,4 +305,16 @@ def process_lr_impression(
         output_path=files["lr_overview_plot"],
     )
 
-    return log_lr
+    km_llr_lower_ci, km_llr_upper_ci = _extract_intervals(reference_data.km_llr_data)
+    knm_llr_lower_ci, knm_llr_upper_ci = _extract_intervals(reference_data.knm_llr_data)
+    return LRResult(
+        log_lr=float(log_lr),
+        km_scores=reference_data.km_scores.tolist(),
+        knm_scores=reference_data.knm_scores.tolist(),
+        km_llr=reference_data.km_llr_data.llrs.tolist(),
+        knm_llr=reference_data.knm_llr_data.llrs.tolist(),
+        km_llr_lower_ci=km_llr_lower_ci,
+        km_llr_upper_ci=km_llr_upper_ci,
+        knm_llr_lower_ci=knm_llr_lower_ci,
+        knm_llr_upper_ci=knm_llr_upper_ci,
+    )
