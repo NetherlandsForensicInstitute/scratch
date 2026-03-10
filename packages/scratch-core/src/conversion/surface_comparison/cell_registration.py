@@ -114,5 +114,5 @@ def coarse_registration(
 def fine_registration(
     comparison_mark: ProcessedMark, cells: Iterable[Cell]
 ) -> list[Cell]:
-    # TODO: Implement this
+    """TODO: Implement function."""
     return list(cells)
