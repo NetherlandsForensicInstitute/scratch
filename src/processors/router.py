@@ -1,6 +1,6 @@
 from dataclasses import asdict
 
-from conversion.export.mark import load_mark_from_path
+from conversion.export.mark import load_mark_from_path, save_mark
 from conversion.export.profile import load_profile_from_path
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
@@ -15,9 +15,13 @@ from extractors.schemas import (
     LRResponseURL,
 )
 from file_services import create_vault
-from models import DirectoryAccess
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
-from processors.controller import compare_striation_marks, save_striation_comparison_plots
+from processors.controller import (
+    compare_striation_marks,
+    process_lr_impression,
+    process_lr_striation,
+    save_striation_comparison_plots,
+)
 from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
@@ -60,7 +64,7 @@ async def processor_root() -> RedirectResponse:
 )
 async def calculate_score_impression(impression: CalculateScore) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
-    vault = DirectoryAccess()  # type: ignore
+    vault = create_vault(impression.tag)
     return ComparisonResponseImpression.generate_urls(vault.access_url)
 
 
@@ -81,10 +85,10 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     logger.debug("starting calculate score striation")
     vault = create_vault(striation_params.tag)
     expected_files = ComparisonResponseStriationURL.get_files(vault.resource_path)
-    mark_ref = load_mark_from_path(path=striation_params.mark_ref, stem="processed")
-    mark_comp = load_mark_from_path(path=striation_params.mark_comp, stem="processed")
-    profile_ref = load_profile_from_path(path=striation_params.mark_ref, stem="profile")
-    profile_comp = load_profile_from_path(path=striation_params.mark_comp, stem="profile")
+    mark_ref = load_mark_from_path(path=striation_params.mark_dir_ref, stem="processed")
+    mark_comp = load_mark_from_path(path=striation_params.mark_dir_comp, stem="processed")
+    profile_ref = load_profile_from_path(path=striation_params.mark_dir_ref, stem="profile")
+    profile_comp = load_profile_from_path(path=striation_params.mark_dir_comp, stem="profile")
     logger.debug("marks & profiles loaded")
     comparison_result = compare_striation_marks(
         mark_ref=mark_ref, mark_comp=mark_comp, profile_ref=profile_ref, profile_comp=profile_comp
@@ -94,9 +98,11 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
         mark_comp=mark_comp,
         mark_correlations=comparison_result,
         files_to_save=expected_files,
-        meta_data_ref=striation_params.param.metadata_reference,
-        meta_data_compare=striation_params.param.metadata_compared,
+        metadata_reference=striation_params.param.metadata_reference,
+        metadata_compared=striation_params.param.metadata_compared,
     )
+    save_mark(comparison_result.mark_reference_aligned, path=expected_files["mark_reference_aligned_data"])
+    save_mark(comparison_result.mark_compared_aligned, path=expected_files["mark_compared_aligned_data"])
     surface_map_pipeline(
         comparison_result.mark_reference_aligned.scan_image,
         expected_files["mark_ref_surfacemap"],
@@ -128,35 +134,15 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     The LR value, together with plots, are saved and made available via URLs.
     """,
 )
-async def calculate_lr_impression(impression: CalculateLRImpression) -> LRResponse:
+async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse:
     """Calculate likelihood ratio for impression mark comparison."""
-    vault = DirectoryAccess()  # type: ignore
-    # TODO::
-    # - create controllers module
-    # - This section below need to be moved to controllers.py
-    #
-    # controllers.py
-    # def compute_n_plot_lr(ref: Mark, comp: Mark, score: int: lr_system: Path) -> float:
-    #     system=get_lr_system(lr_system)
-    #     lr = calculate_lr(
-    #       score,
-    #       striation.n_cells,
-    #       use_intervals=bool,
-    #       lr_system=system,
-    #     )
-    #     plot_lr_result(system, *read_mark_file(mark_ref, mark_comp), striation.score)
-    #     return lr
-    #
-    # return LRResponse.generate_urls(
-    #     vault.access_url,
-    #     lr=controllers.comupute_lr(
-    #         impression.mark_ref,
-    #         impression.mark_comp,
-    #         impression.score,
-    #         impression.lr_system,
-    #     )
-    # )
-    return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=42)
+    vault = create_vault(lr_input.tag)
+    files = LRResponseURL.get_files(vault.resource_path)
+    log_lr = process_lr_impression(lr_input=lr_input, files=files)
+    return LRResponse(
+        urls=LRResponseURL.generate_urls(vault.access_url),
+        lr=log_lr,
+    )
 
 
 @processors.post(
@@ -168,16 +154,12 @@ async def calculate_lr_impression(impression: CalculateLRImpression) -> LRRespon
     The LR value, together with plots, are saved and made available via URLs.
     """,
 )
-async def calculate_lr_striation(striation: CalculateLRStriation) -> LRResponse:
-    """TODO."""
-    vault = DirectoryAccess()  # type: ignore
-    # return LRResponse.generate_urls(
-    #     vault.access_url,
-    #     lr=controllers.compute_n_plot_lr(
-    #         striation.mark_ref,
-    #         striation.mark_comp,
-    #         striation.score,
-    #         striation.lr_system,
-    #     )
-    # )
-    return LRResponse(urls=LRResponseURL.generate_urls(vault.access_url), lr=42)
+async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
+    """Calculate likelihood ratio for striation mark comparison."""
+    vault = create_vault(lr_input.tag)
+    files = LRResponseURL.get_files(vault.resource_path)
+    log_lr = process_lr_striation(lr_input=lr_input, files=files)
+    return LRResponse(
+        urls=LRResponseURL.generate_urls(vault.access_url),
+        lr=log_lr,
+    )
