@@ -22,29 +22,25 @@ def compare_surfaces(
 
     Executes the five-step pipeline:
 
-    1. **Resample** — the comparison image is resampled to match the pixel size
-       of the reference image so both share a common coordinate grid.
-    2. **Generate grid** — a centered rectangular grid of cells is placed over the
-       reference image; cells with insufficient valid data are discarded.
-    3. **Coarse registration** — each reference cell is matched against the
-       comparison image over a configurable angle sweep to find the best-scoring
-       translation and rotation.
-    4. **Fine registration** — currently a pass-through stub; intended for
-       sub-pixel refinement.
-    5. **CMC classification** — consensus angle and translation are estimated
-       across all cells and each cell is labeled as congruent or not.
+    1. **Resample** — the comparison image is resampled to match the pixel size of the reference image so both
+        share a common coordinate grid.
+    2. **Generate grid** — a centered rectangular grid of cells is placed over the reference image; cells with
+        insufficient valid data are discarded.
+    3. **Coarse registration** — each reference cell is matched against the comparison image over a configurable
+        angle sweep to find the best-scoring translation and rotation.
+    4. **Fine registration** — currently a pass-through stub; intended for sub-pixel refinement.
+    5. **CMC classification** — consensus angle and translation are estimated across all cells and each cell is
+        labeled as congruent or not.
 
-    Both marks are expected to have already been pre-processed (leveled and
-    band-pass filtered); only the ``filtered_mark`` image is currently used by the pipeline.
+    Both marks are expected to have already been pre-processed (leveled and band-pass filtered);
+    only the ``filtered_mark`` image is currently used by the pipeline.
 
-    :param refence_mark: Pre-processed reference mark; its filtered scan image
-        defines the grid and coordinate system.
-    :param comparison_mark: Pre-processed comparison mark to register against the
-        reference.
-    :param params: Algorithm parameters controlling cell size, fill-fraction
-        thresholds, angle sweep, and CMC classification thresholds.
-    :returns: A :class:`ComparisonResult` containing per-cell registration results,
-        the consensus rotation and translation, and CMC counts.
+    :param refence_mark: Pre-processed reference mark; its filtered scan image defines the grid and coordinate system.
+    :param comparison_mark: Pre-processed comparison mark to register against the reference.
+    :param params: Algorithm parameters controlling cell size, fill-fraction thresholds, angle sweep, and CMC
+        classification thresholds.
+    :returns: A :class:`ComparisonResult` containing per-cell registration results, the consensus rotation and
+        translation, and CMC counts.
     """
 
     # Get the filtered images for the CMC pipeline
