@@ -40,8 +40,8 @@ def pad_image_array(
     array: FloatArray2D, pad_width: int, pad_height: int, fill_value: float = np.nan
 ) -> FloatArray2D:
     """TODO: Write docstring."""
-    rows, cols = array.shape
-    new_shape = rows + 2 * pad_height, cols + 2 * pad_width
+    height, width = array.shape
+    new_shape = height + 2 * pad_height, width + 2 * pad_width
     output = np.full(shape=new_shape, fill_value=fill_value, dtype=array.dtype)
-    output[pad_height : pad_height + rows, pad_width : pad_width + cols] = array
+    output[pad_height : pad_height + height, pad_width : pad_width + width] = array
     return output
