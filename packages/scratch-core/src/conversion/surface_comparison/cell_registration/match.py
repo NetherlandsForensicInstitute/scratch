@@ -86,8 +86,8 @@ def match_cells(
         angle += params.search_angle_step
 
     output = [
-        convert_grid_cell_to_cell(grid_cell=c, pixel_size=pixel_size)
-        for c in grid_cells
+        convert_grid_cell_to_cell(grid_cell=cell, pixel_size=pixel_size)
+        for cell in grid_cells
     ]
 
     return output
