@@ -5,9 +5,8 @@ from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.mask import crop_to_mask
-from conversion.remove_needles import mask_and_remove_needles
 from conversion.utils import update_scan_image_data
-from mutations.spatial import Rotate
+from mutations import Mask, Rotate
 
 # Number of iterations to dilate a mask before it is rotated
 DILATE_STEPS = 3
@@ -17,7 +16,6 @@ def rotate_crop_and_mask_image_by_crop(
     scan_image: ScanImage,
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
-    median_factor: float = 15,
 ) -> ScanImage:
     """
     Rotates, crops and masks a scan image based on the given mask and rectangle.
@@ -37,7 +35,6 @@ def rotate_crop_and_mask_image_by_crop(
     :param mask: Binary mask array.
     :param bounding_box: Bounding box of a rectangular crop region used to determine the rotation of an
         image, or None. Expects pixel coordinates, i.e. top-left origin.
-    :param median_factor: Parameter used to determine what is considered an outlier when removing outliers/needles.
     :return: The cropped, rotated and masked scan image.
     """
     if (
@@ -52,16 +49,10 @@ def rotate_crop_and_mask_image_by_crop(
         # Define a margin to reverse dilation later on
         margin = DILATE_STEPS + 2
 
-    scan_image_cropped, mask_cropped = crop_image_and_mask_to_mask(
-        scan_image, mask, margin
-    )
+    scan_image_masked = Mask(mask=mask, remove_needles=True)(scan_image).unwrap()
 
-    scan_image_cleaned_and_masked = mask_and_remove_needles(
-        scan_image_cropped, mask_cropped, median_factor
-    )
-
-    scan_image_rotated = rotator(scan_image=scan_image_cleaned_and_masked).unwrap()
-    mask_rotated = rotate_mask(mask=mask_cropped, rotation_angle=rotator.rotation_angle)
+    scan_image_rotated = rotator(scan_image=scan_image_masked).unwrap()
+    mask_rotated = rotate_mask(mask=mask, rotation_angle=rotator.rotation_angle)
 
     scan_image_cropped = update_scan_image_data(
         scan_image, crop_to_mask(scan_image_rotated.data, mask_rotated, margin)

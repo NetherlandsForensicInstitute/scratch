@@ -11,14 +11,15 @@ import numpy as np
 import pytest
 from scipy.constants import micro
 
-from container_models.base import FloatArray2D, BinaryMask
+from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import get_rotation_angle, rotate_crop_and_mask_image_by_crop
+
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
 )
 
 
@@ -149,7 +150,6 @@ def run_python_preprocessing(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
         bounding_box=test_case.rectangle,
-        median_factor=test_case.times_median,
     )
     return data_out.data
 

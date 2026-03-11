@@ -2,8 +2,9 @@ from typing import NamedTuple
 
 import numpy as np
 from loguru import logger
+from scipy.ndimage import generic_filter
 
-from container_models.base import FloatArray1D, FloatArray2D, BinaryMask
+from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.filter import apply_gaussian_regression_filter
 from conversion.leveling.data_types import SurfaceTerms
@@ -12,6 +13,7 @@ from conversion.leveling.solver.grid import get_2d_grid
 from conversion.leveling.solver.transforms import normalize_coordinates
 from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
+from mutations.spatial import Resample
 from utils.constants import RegressionOrder
 
 
@@ -30,13 +32,20 @@ class Mask(ImageMutation):
     `True` remain unchanged.
     """
 
-    def __init__(self, mask: BinaryMask) -> None:
+    TARGET_SCALE = 7e-5
+    MEDIAN_FILTER_SIZE = 5
+    SMALL_STRIP_THRESHOLD = 20
+    MEDIAN_FACTOR_CORRECTION_FACTOR = 6
+    MEDIAN_FACTOR = 15.0
+
+    def __init__(self, mask: BinaryMask, remove_needles: bool = False) -> None:
         """
         Initialize the Mask mutation.
 
         :param mask: Binary mask indicating which pixels should be kept (`True`)
             or masked (`False`).
         """
+        self.remove_needles = remove_needles
         self.mask = mask
 
     @property
@@ -56,6 +65,146 @@ class Mask(ImageMutation):
             return True
         return False
 
+    @staticmethod
+    def apply_median_filter(scan_image: ScanImage, filter_size: int) -> ScanImage:
+        """
+        Apply a median filter with NaN handling to scan_image.data.
+
+        This function computes the median value within a sliding window for each pixel, ignoring NaN values in the
+        computation. Pixels near image boundaries are handled by padding with NaN values, which are also ignored during
+        median calculation.
+
+        Median filters conventionally use odd-sized windows, thus the filter_size is corrected to be an odd number
+        for the following reasons:
+        - Odd dimensions ensure a clear center pixel with equal numbers of neighbors on all sides.
+        - Even filter sizes would produce asymmetric filtering with bias toward upper-left pixels, leading to unexpected and
+        inconsistent results.
+
+        :param scan_image: The scan image to filter.
+        :param filter_size: Size of the square median filter window. Will be adjusted to the next odd
+            integer if an even value is provided (e.g., 4 becomes 5, 6 becomes 7).
+            Must be positive.
+        :return: Scan image with filtered data, with same shape and scales as input data
+        """
+        if filter_size % 2 == 0:
+            filter_size += 1
+
+        filtered_image = generic_filter(
+            scan_image.data,
+            np.nanmedian,
+            size=filter_size,
+            mode="constant",
+            cval=np.nan,
+        ).astype(np.float64)
+
+        return ScanImage(
+            data=filtered_image,
+            scale_x=scan_image.scale_x,
+            scale_y=scan_image.scale_y,
+        )
+
+    def apply_median_filter_to_large_image(
+        self, subsample_factor: float, scan_image: ScanImage
+    ) -> ScanImage:
+        """
+        Downsample the data before applying median filter and upsample back after filtering.
+
+        :param subsample_factor: Factor used to downsample with. The inverse is used to upsample the image after filtering.
+        :param scan_image: Scan image to downsample, filter and upsample.
+        :return: Filtered scan image.
+        """
+        downsampled = Resample(
+            target_shape=(
+                int(scan_image.height / subsample_factor),
+                int(scan_image.width / subsample_factor),
+            )
+        )(scan_image).unwrap()
+
+        scan_image_downsampled_filtered = self.apply_median_filter(
+            scan_image=downsampled, filter_size=self.MEDIAN_FILTER_SIZE
+        )
+
+        scan_image_filtered = Resample(
+            target_shape=(
+                scan_image.height,
+                scan_image.width,
+            )
+        )(
+            scan_image=scan_image_downsampled_filtered,
+        ).unwrap()
+
+        return scan_image_filtered
+
+    def get_residual_image(self, scan_image: ScanImage) -> FloatArray2D:
+        """
+        Apply median filtering to smooth the image and compute residuals as the difference between the input scan image and
+        the median filtered image.
+
+        If the image is large, it is downsampled before filtering and upsampled afterwards.
+        If the image is a small strip of data (width or height <= SMALL_STRIP_THRESHOLD), the filter size is reduced to
+        avoid too extensive smoothing.
+
+        :param scan_image: Scan image to calculate residual image for.
+        :return: Array of differences between the input scan_image.data and median filter smoothed version of that image.
+        """
+        # Check if the image is a small strip of data
+        is_small_strip = (
+            scan_image.width <= self.SMALL_STRIP_THRESHOLD
+            or scan_image.height <= self.SMALL_STRIP_THRESHOLD
+        )
+        # Calculate subsampling factor for computational efficiency using the given TARGET_SCALE and the desired
+        # MEDIAN_FILTER_SIZE
+        subsample_factor = int(
+            np.ceil(self.TARGET_SCALE / self.MEDIAN_FILTER_SIZE / scan_image.scale_x)
+        )
+        if not is_small_strip and subsample_factor > 1:
+            scan_image_filtered = self.apply_median_filter_to_large_image(
+                subsample_factor, scan_image
+            )
+
+        else:
+            scan_image_filtered = self.apply_median_filter(
+                scan_image=scan_image,
+                filter_size=int(np.round(np.sqrt(self.MEDIAN_FILTER_SIZE)))
+                if is_small_strip
+                else self.MEDIAN_FILTER_SIZE,
+            )
+
+        # Use slicing since the shape may deviate slightly after down- and upsampling
+        residual_image = (
+            scan_image.data
+            - scan_image_filtered.data[: scan_image.height, : scan_image.width]
+        )
+        return residual_image
+
+    def get_and_remove_needles(self, scan_image: ScanImage) -> ScanImage:
+        """
+        Mark points as needles where residuals exceed a threshold and set marked needle points to NaN in scan image.
+        The threshold is set to `the median of the absolute residuals * median_factor * MEDIAN_FACTOR_CORRECTION_FACTOR`.
+
+        :param scan_image: ScanImage to remove needles from.
+        :param residual_image: Array of differences between an image and its smoothed image.
+        :param median_factor: Parameter to help determine the needle threshold.
+        :return: ScanImage where any needles are replaced with nan.
+        """
+        median_factor = self.MEDIAN_FACTOR * self.MEDIAN_FACTOR_CORRECTION_FACTOR
+        logger.info(f"median factor: {median_factor}")
+        residual_image = self.get_residual_image(scan_image)
+        # Find needles: points where |residual| > threshold
+        median_residual = np.nanmedian(np.abs(residual_image))
+        threshold = median_factor * median_residual
+        needles_mask = np.abs(residual_image) > threshold
+
+        # Remove needles from the image by setting them to NaN
+        data_without_needles = scan_image.data.copy()
+        data_without_needles[needles_mask] = np.nan
+
+        return ScanImage(
+            data=data_without_needles,
+            scale_x=scan_image.scale_x,
+            scale_y=scan_image.scale_y,
+        )
+
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
         Apply the mask to the image.
@@ -70,7 +219,11 @@ class Mask(ImageMutation):
             )
         logger.info("Applying mask to scan_image")
         scan_image.data[~self.mask] = np.nan
-        return scan_image
+        return (
+            scan_image
+            if not self.remove_needles
+            else self.get_and_remove_needles(scan_image)
+        )
 
 
 class LevelMap(ImageMutation):
