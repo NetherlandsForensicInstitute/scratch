@@ -49,7 +49,7 @@ def match_cells(
             order=0,
             resize=False,
         )
-        # Get the mask of valid pictures for the rotated image
+        # Get the mask of valid pixels for the rotated image
         valid_mask = ~np.isnan(rotated)
         # Compute the fill fraction mask based on the valid pixels mask
         fill_fraction_map = _get_fill_fraction_map(
