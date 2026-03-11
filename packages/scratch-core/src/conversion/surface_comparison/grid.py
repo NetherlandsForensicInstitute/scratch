@@ -97,10 +97,13 @@ def extract_patch(
 
 
 def _tile_axis(image_size: int, cell_size: int) -> list[int]:
-    """Generate top-left coordinates for cells along one axis.
+    """
+    Generate top-left coordinates for cells along one axis.
+
     Places cells symmetrically around the midpoint of the image. When an
     odd number of cells fits, one cell is centered on the midpoint. When
     even, two cells straddle it.
+
     :param image_size: image size in pixels along the axis
     :param cell_size: cell size in pixels along the axis
     :return: sorted list of top-left coordinates
