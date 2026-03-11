@@ -1,9 +1,13 @@
+import logging
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from conversion.data_formats import MarkType
 from scipy import io as sio
+
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def _scalar(value: Any) -> Any:
@@ -58,24 +62,10 @@ def _parse_rectangle(raw: Any) -> np.ndarray:
     return np.asarray(raw[0], dtype=float)
 
 
-def extract_mask_and_bounding_box(
-    struct: np.ndarray,
-    size_x: int,
-    size_y: int,
-) -> tuple[np.ndarray, list | None]:
-    """Extract a boolean mask and optional bounding box from crop_info in a MATLAB struct.
-
-    Uses the first crop item. For ellipse/circle crops the bounding_box is None.
-    For rectangle crops the bounding_box is a (4, 2) float corners array.
-
-    :returns: (mask, bounding_box) or None if no valid crop info found.
-    """
-    crop_raw = _scalar(struct["crop_info"])
-    while isinstance(crop_raw, np.ndarray) and crop_raw.dtype == object and crop_raw.size == 1:
-        crop_raw = crop_raw.flat[0]
-
-    crop_type = str(_scalar(crop_raw[0]))
-    raw_params = _scalar(crop_raw[1])
+def _parse_crop_item(crop_item: np.ndarray, size_x: int, size_y: int) -> tuple[np.ndarray, list | None]:
+    """Parse the crop item."""
+    crop_type = str(_scalar(crop_item[0]))
+    raw_params = _scalar(crop_item[1])
 
     if crop_type in ("ellipse", "circle"):
         p = _parse_circle(raw_params) if crop_type == "circle" else _parse_ellipse(raw_params)
@@ -97,6 +87,38 @@ def extract_mask_and_bounding_box(
         return mask, corners.tolist()
 
     raise ValueError(f"Unknown crop type: {crop_type}")
+
+
+def extract_mask_and_bounding_box(
+    struct: np.ndarray,
+    size_x: int,
+    size_y: int,
+) -> tuple[np.ndarray, list | None]:
+    """Extract a boolean mask and optional bounding box from crop_info in a MATLAB struct.
+
+    Uses the first crop item. For ellipse/circle crops the bounding_box is None.
+    For rectangle crops the bounding_box is a (4, 2) float corners array.
+
+    :returns: (mask, bounding_box) or None if no valid crop info found.
+    """
+    crop_raw = _scalar(struct["crop_info"])
+    while isinstance(crop_raw, np.ndarray) and crop_raw.dtype == object and crop_raw.size == 1:
+        crop_raw = crop_raw.flat[0]
+
+    # Handle both (3,) single crop and (N, 3) multiple crops
+    if crop_raw.ndim == 2:  # noqa: PLR2004
+        crop_items = [crop_raw[i] for i in range(crop_raw.shape[0])]
+    else:
+        crop_items = [crop_raw]
+
+    # Try each crop item, return the first that produces a non-empty mask
+    for crop_item in crop_items:
+        mask, bbox = _parse_crop_item(crop_item, size_x, size_y)
+        if mask.any():
+            return mask, bbox
+
+    logger.warning("All crop items produced empty masks, using last one")
+    raise ValueError("All crop items produced empty masks, using last one")
 
 
 def extract_mark_type(struct: np.ndarray) -> MarkType:
@@ -130,3 +152,19 @@ def extract_striation_params(struct: np.ndarray) -> dict[str, Any]:
         "angle_accuracy": float(_data_param_field(struct, "angle_accuracy", 0.1)),
         "subsampling_factor": int(_scalar(struct["subsampling"]) or 1),
     }
+
+
+def unwrap_path(value: Any) -> str | None:
+    """Recursively unwrap a MATLAB path value to a plain string.
+
+    MATLAB paths from ``loadmat`` may arrive as nested object arrays,
+    e.g. ``array([array(['tool-entries/...'], dtype='<U64')])``.
+
+    :param value: raw value from loadmat.
+    :returns: plain string or ``None`` if empty.
+    """
+    while isinstance(value, np.ndarray):
+        if value.size == 0:
+            return None
+        value = value.flat[0]
+    return str(value) if value is not None else None

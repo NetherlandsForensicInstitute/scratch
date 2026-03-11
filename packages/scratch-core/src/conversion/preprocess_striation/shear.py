@@ -38,7 +38,7 @@ def shear_data_by_shifting_profiles(
     """
     # Skip shear for angles smaller than ~0.1° (0.00175 rad)
     if abs(angle_rad) <= 0.00175:
-        return depth_data.astype(np.floating).copy()
+        return depth_data.astype(np.float64).copy()
 
     height, width = depth_data.shape
     center_x, center_y = width / 2, height / 2
