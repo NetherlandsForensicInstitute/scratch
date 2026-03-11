@@ -9,6 +9,8 @@ from conversion.surface_comparison.models import GridCell, ComparisonParams, Cel
 import numpy as np
 from skimage.transform import rotate
 
+from scipy.signal import correlate
+
 
 def match_cells(
     grid_cells: Iterable[GridCell],
@@ -18,6 +20,27 @@ def match_cells(
     **kwargs,
     # Add unused args to make it compatible with the implementation in `match.py`
 ) -> list[Cell]:
+    """
+    Find the best-matching position and angle for each grid cell using NaN-aware NCC.
+
+    Implements the MATLAB ``xcorr2_similarity`` approach: for each angle in the configured sweep the padded
+    comparison image is rotated, then a sliding-window Pearson r score map is computed per cell via
+    :func:`_nan_aware_ncc_map`. NaN pixels in both the template and the rotated image are excluded from every
+    per-position correlation, so no fill value is needed. Positions where the number of jointly valid pixels
+    falls below ``min_overlap`` are scored as 0.
+
+    The comparison image is padded by half a cell in each direction before the search so that cells whose reference
+    top-left lies near the image boundary can still be matched. The padding offset is subtracted back when the best
+    position is recorded, so all stored coordinates are in the original (unpadded) pixel space.
+
+    Extra positional and keyword arguments are accepted but ignored so that this function can be used as a drop-in
+    replacement for the ``match.py`` implementation.
+
+    :param grid_cells: Reference grid cells to register; all cells must have the same size.
+    :param comparison_image: Comparison scan image to search over; may contain NaN values.
+    :param params: Algorithm parameters (angle sweep, fill-fraction thresholds).
+    :returns: List of :class:`Cell` objects with the best registration result per grid cell.
+    """
     grid_cells = list(grid_cells)
     if not grid_cells:
         return []
@@ -77,22 +100,18 @@ def _nan_aware_ncc_map(
     """
     NaN-aware normalized cross-correlation map, matching MATLAB's xcorr2_similarity.
 
-    Computes the sliding-window Pearson r between `template` and every same-sized
-    patch of `image`, counting only jointly valid (non-NaN) pixels at each shift.
-    Positions with fewer than `min_overlap` jointly valid pixels are set to 0.0.
+    Computes the sliding-window Pearson r between `template` and every same-sized patch of `image`, counting only
+    jointly valid (non-NaN) pixels at each shift. Positions with fewer than `min_overlap` jointly valid pixels are
+    set to 0.0.
 
     Runs in O(N log N) via 6 FFT cross-correlations, all in float64.
     No NaN filling is performed — NaN pixels are excluded per-position.
 
-    Output shape: (H - h + 1, W - w + 1), values clipped to [-1, 1], dtype float32.
-
     :param image: (H, W) float64 array, NaN where invalid.
     :param template: (h, w) float64 array, NaN where invalid.
     :param min_overlap: Minimum jointly valid pixels required; matches MATLAB nOverlapMin.
-    :returns: Score map as float32.
+    :returns: Score map as float32. Output shape: (H - h + 1, W - w + 1), values clipped to [-1, 1], dtype float32.
     """
-    th, tw = template.shape
-
     T_valid = ~np.isnan(template)
     I_valid = ~np.isnan(image)
 
@@ -102,8 +121,6 @@ def _nan_aware_ncc_map(
     I = np.where(I_valid, image, 0.0)  # noqa
     Tm = T_valid.astype(np.float64)  # 1 where template is valid, 0 elsewhere
     Im = I_valid.astype(np.float64)  # 1 where image is valid, 0 elsewhere
-
-    from scipy.signal import correlate
 
     def _xcorr_valid(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         """

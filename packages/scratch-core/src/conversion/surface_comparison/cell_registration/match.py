@@ -23,7 +23,25 @@ def match_cells(
     params: ComparisonParams,
     fill_value_reference: float,
 ) -> list[Cell]:
-    """TODO: Write docstring."""
+    """
+    Find the best-matching position and angle for each grid cell in the comparison image.
+
+    For each angle in the configured sweep, the padded comparison image is rotated and a normalized
+    cross-correlation score map is computed per cell using ``cv2.TM_CCOEFF_NORMED``. Positions whose
+    comparison-patch fill fraction falls below ``params.minimum_fill_fraction`` are masked out.
+    The rotation that yields the highest unmasked score is stored in each cell's :class:`GridSearchParams`.
+
+    The comparison image is padded by half a cell in each direction before the search so that cells whose
+    reference top-left lies near the image boundary can still be matched. The padding offset is subtracted
+    back when the best position is recorded, so all stored coordinates are in the original (unpadded) pixel space.
+
+    :param grid_cells: Reference grid cells to register; all cells must have the same size.
+    :param comparison_image: Comparison scan image to search over.
+    :param params: Algorithm parameters (angle sweep bounds, step, fill-fraction threshold).
+    :param fill_value_reference: Value used to replace NaNs in the reference templates before passing them
+        to ``cv2.matchTemplate``.
+    :returns: List of :class:`Cell` objects with the best registration result per grid cell.
+    """
     grid_cells = list(grid_cells)
     if not grid_cells:
         return []
@@ -62,7 +80,7 @@ def match_cells(
             cell_width=cell_width,
             cell_height=cell_height,
         )
-        # TODO: Do we need a different fill fraction for comparison?
+        # TODO: Do we need a different fill fraction here for comparison?
         fill_fraction_mask = fill_fraction_map >= params.minimum_fill_fraction
         # Now that we computed the fill fraction mask, we can safely replace NaN values in the rotated image
         rotated[~valid_mask] = fill_value_comparison
@@ -102,16 +120,14 @@ def _get_fill_fraction_map(
     cell_width: int,
 ) -> FloatArray2D:
     """
-    Compute a 2D map where each entry [y, x] is the fill fraction of a
-    cell-sized window with its **top-left corner** at pixel (x, y), matching
-    the indexing convention of ``cv2.matchTemplate``.
+    Compute a 2D map where each entry [y, x] is the fill fraction of a cell-sized window with its
+    **top-left corner** at pixel (x, y), matching the indexing convention of ``cv2.matchTemplate``.
 
     :param valid_pixel_mask: Boolean array (H, W); True where image data is valid.
     :param cell_height: Height of the cell window in pixels.
     :param cell_width: Width of the cell window in pixels.
-    :returns: Float64 array (H, W) with fill fractions in [0, 1], top-left indexed.
-              Entries near the bottom-right boundary are underestimates and will
-              be rejected by the fill-fraction gate.
+    :returns: Float64 array (H, W) with fill fractions in [0, 1], top-left indexed. Entries near the
+        bottom-right boundary are underestimates and will be rejected by the fill-fraction gate.
     """
     kernel = np.ones((cell_height, cell_width), dtype=np.float32) / (
         cell_height * cell_width
@@ -129,7 +145,17 @@ def _get_fill_fraction_map(
 def _get_score_map(
     comparison_array_filled: FloatArray2D, cell: GridCell
 ) -> FloatArray2D:
-    """TODO: Write docstring."""
+    """
+    Compute a normalized cross-correlation score map for one reference cell.
+
+    Slides the cell template over the comparison array using ``cv2.TM_CCOEFF_NORMED``, which computes
+    the Pearson correlation coefficient between the template and every same-sized patch. NaN values must
+    have been replaced in both arrays before calling this function.
+
+    :param comparison_array_filled: NaN-free float32-compatible comparison image, padded by half a cell on each side.
+    :param cell: Reference grid cell whose ``cell_data`` is used as the template; must contain no NaN values.
+    :returns: Float64 score map of shape ``(H - cell_height + 1, W - cell_width + 1)`` with values in ``[-1, 1]``.
+    """
     score_map = cv2.matchTemplate(
         image=comparison_array_filled.astype(np.float32),
         templ=cell.cell_data.astype(np.float32),
@@ -139,7 +165,16 @@ def _get_score_map(
 
 
 def _build_templates(grid_cells: list[GridCell], fill_value: float) -> list[GridCell]:
-    """TODO: Write docstring."""
+    """
+    Build NaN-free copies of grid cells for use as ``cv2.matchTemplate`` templates.
+
+    Creates a deep copy of each cell and replaces any NaN values with ``fill_value`` so the data is
+    valid float32 input for OpenCV. The original grid cells are not modified.
+
+    :param grid_cells: Source grid cells; may contain NaN values.
+    :param fill_value: Replacement value for NaN pixels, typically the global mean of the reference image.
+    :returns: List of copied grid cells with NaNs filled, in the same order as the input.
+    """
     templates = []
     for grid_cell in grid_cells:
         # Deep copy cell and fill NaN values with numerical value
