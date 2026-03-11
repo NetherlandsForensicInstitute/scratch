@@ -51,11 +51,13 @@ def _get_fill_fraction_map(
 def _get_score_map(
     comparison_array_filled: FloatArray2D, cell: GridCell
 ) -> FloatArray2D:
-    score_map = cv2.matchTemplate(
-        image=comparison_array_filled.astype(np.float32),
-        templ=cell.cell_data.astype(np.float32),
-        method=cv2.TM_CCOEFF_NORMED,
-    )
+    from skimage.feature import match_template
+    score_map = match_template(image=comparison_array_filled, template=cell.cell_data, pad_input=False)
+    # score_map = cv2.matchTemplate(
+    #     image=comparison_array_filled.astype(np.float32),
+    #     templ=cell.cell_data.astype(np.float32),
+    #     method=cv2.TM_CCOEFF_NORMED,
+    # )
     return score_map
 
 
@@ -122,7 +124,7 @@ def coarse_registration(
         # TODO: use different fill fraction for comparison?
         fill_fraction_mask = fill_fraction_map >= params.minimum_fill_fraction
         rotated[~valid_mask] = fill_value_comparison
-
+        # rotated[~valid_mask] = np.random.normal(fill_value_comparison, 1e-6, size=(~valid_mask).sum())
         for grid_cell, template in zip(grid_cells, templates):
             score_map = _get_score_map(
                 comparison_array_filled=rotated,
@@ -135,28 +137,29 @@ def coarse_registration(
             score = float(masked_scores.flat[best_flat_index])
             if angle == 0.0:
                 import matplotlib.pyplot as plt
+
                 # Maak een figuur met 1 rij en 2 kolommen
                 fig, ax = plt.subplots(2, 2, figsize=(10, 5))
 
                 # Toon de eerste afbeelding in de linker subplot
                 ax[0][0].imshow(rotated)
-                ax[0][0].set_title('rotated')
-                ax[0][0].axis('off')  # Verberg de assen
+                ax[0][0].set_title("rotated")
+                ax[0][0].axis("off")  # Verberg de assen
 
                 # Toon de tweede afbeelding in de rechter subplot
                 ax[0][1].imshow(template.cell_data)
-                ax[0][1].set_title('template')
-                ax[0][1].axis('off')  # Verberg de assen
+                ax[0][1].set_title("template")
+                ax[0][1].axis("off")  # Verberg de assen
 
                 # Toon de eerste afbeelding in de linker subplot
                 ax[1][0].imshow(score_map)
-                ax[1][0].set_title('score_map')
-                ax[1][0].axis('off')  # Verberg de assen
+                ax[1][0].set_title("score_map")
+                ax[1][0].axis("off")  # Verberg de assen
 
                 # Toon de tweede afbeelding in de rechter subplot
                 ax[1][1].imshow(valid_mask)
-                ax[1][1].set_title('valid_mask')
-                ax[1][1].axis('off')  # Verberg de assen
+                ax[1][1].set_title("valid_mask")
+                ax[1][1].axis("off")  # Verberg de assen
 
                 plt.tight_layout()  # Optimaliseer de tussenruimte
                 plt.show()

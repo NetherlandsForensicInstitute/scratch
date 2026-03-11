@@ -1,3 +1,4 @@
+import numpy as np
 from pydantic import Field, field_validator, PositiveFloat
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -130,3 +131,70 @@ class ComparisonParams(ConfigBaseModel):
     search_angle_min: float = -180.0
     search_angle_max: float = 180.0
     search_angle_step: float = Field(default=1.0, gt=0.0)
+
+
+@dataclass(frozen=False)
+class GridSearchParams:
+    """
+    Mutable container for the best registration parameters found so far for one cell.
+    All positional attributes are in pixel coordinates of the (rotated) comparison image.
+    :param top_left_x: Top left x-coordinate of the best-matching comparison patch (pixels).
+    :param top_left_y: Top left y-coordinate of the best-matching comparison patch (pixels).
+    :param angle: Rotation angle at which the best score was found (degrees).
+    :param score: Best normalized cross-correlation score found so far.
+    """
+
+    top_left_x: int = -1
+    top_left_y: int = -1
+    angle: float = 0.0
+    score: float = float("-inf")
+
+    def update(
+        self, top_left_x: int, top_left_y: int, angle: float, score: float
+    ) -> None:
+        """Replace all fields with a new best result."""
+        self.top_left_x = top_left_x
+        self.top_left_y = top_left_y
+        self.angle = angle
+        self.score = score
+
+@dataclass(frozen=True)
+class GridCell:
+    """
+    Container class for storing generated grid cells.
+
+    All the values of the attributes and properties are in pixel units.
+
+    :param top_left: Tuple containing the top-left pixel coordinates (x, y) corresponding to the reference image.
+    :param cell_data: 2D array containing the sliced image data from the reference image.
+    """
+
+    top_left: tuple[int, int]
+    cell_data: FloatArray2D
+    grid_search_params: GridSearchParams
+
+    @property
+    def width(self) -> int:
+        return self.cell_data.shape[1]
+
+    @property
+    def height(self) -> int:
+        return self.cell_data.shape[0]
+
+    @property
+    def center(self) -> tuple[float, float]:
+        return self.top_left[0] + self.width / 2, self.top_left[1] + self.height / 2
+
+    @property
+    def fill_fraction(self) -> float:
+        return float(np.count_nonzero(~np.isnan(self.cell_data)) / self.cell_data.size)
+
+    def fill_nans(self, fill_value: float):
+        self.cell_data[np.isnan(self.cell_data)] = fill_value
+
+    def copy(self) -> "GridCell":
+        return GridCell(
+            top_left=self.top_left,
+            cell_data=self.cell_data.copy(),
+            grid_search_params=self.grid_search_params,
+        )

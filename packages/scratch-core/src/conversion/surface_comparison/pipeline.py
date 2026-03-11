@@ -1,5 +1,6 @@
 import numpy as np
 
+
 from conversion.resample import resample_scan_image_and_mask
 from conversion.surface_comparison.cell_registration import (
     coarse_registration,
@@ -32,7 +33,11 @@ def compare_surfaces(
     )
 
     # Step 2: Generate grid cells
-    grid_cells = generate_grid(scan_image=reference_image, params=params)
+    grid_cells = generate_grid(
+        scan_image=reference_image,
+        cell_size=params.cell_size,
+        minimum_fill_fraction=params.minimum_fill_fraction,
+    )
 
     # Step 3: Coarse registration
     fill_value_reference = float(np.nanmean(reference_image.data))
@@ -40,7 +45,7 @@ def compare_surfaces(
         grid_cells=grid_cells,
         comparison_image=comparison_image,
         params=params,
-        fill_value_reference=fill_value_reference,
+        fill_value_reference=fill_value_reference
     )
 
     # Step 4: Fine registration

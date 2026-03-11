@@ -878,22 +878,23 @@ class TestMarkCenter:
         # height, width = scan_image.height, scan_image.width
         from scipy.io import loadmat
 
-        data = mat['data_struct'][0, 0]['depth_data'].astype(np.float64)
+        data = mat["data_struct"][0, 0]["depth_data"].astype(np.float64)
         # data = scan_image.data
+        f = 3
         impression_mark = make_mark(
-            data,
-            scale_x=scan_image.scale_x,
-            scale_y=scan_image.scale_y,
+            data[::f, ::f],
+            scale_x=scan_image.scale_x * f,
+            scale_y=scan_image.scale_y * f,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
 
         # assert impression_mark.center == (101.5, 50.5)
 
-
         # TODO: REMOVE
         p1 = ProcessedMark(filtered_mark=impression_mark, leveled_mark=impression_mark)
         params = ComparisonParams(
-            cell_size=(100 * scan_image.scale_x, 100 * scan_image.scale_y)
+            cell_size=(100 * impression_mark.scan_image.scale_x, 100 * impression_mark.scan_image.scale_y),
+            search_angle_min=-60, search_angle_max=60, search_angle_step=1.5
         )
         result = compare_surfaces(refence_mark=p1, comparison_mark=p1, params=params)
         print(result)
