@@ -2,10 +2,13 @@ from collections.abc import Iterable
 
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.grid import GridCell
-from conversion.surface_comparison.models import ComparisonParams, Cell, CellMetaData
+from conversion.surface_comparison.models import (
+    ComparisonParams,
+    Cell,
+    CellMetaData,
+    ProcessedMark,
+)
 
-
-from conversion.surface_comparison.pipeline import ProcessedMark
 from conversion.surface_comparison.utils import convert_pixels_to_meters
 
 

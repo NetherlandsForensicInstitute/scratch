@@ -2,6 +2,15 @@ from pydantic import Field, field_validator, PositiveFloat
 from collections.abc import Sequence
 from dataclasses import dataclass
 from container_models.base import ConfigBaseModel, FloatArray2D
+from conversion.data_formats import Mark
+
+
+@dataclass(frozen=True)
+class ProcessedMark:
+    """Container class for storing processed `Mark` instances."""
+
+    filtered_mark: Mark
+    leveled_mark: Mark
 
 
 class CellMetaData(ConfigBaseModel):
