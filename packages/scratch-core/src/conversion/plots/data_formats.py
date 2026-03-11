@@ -32,9 +32,9 @@ class HistogramData:
 
     scores: FloatArray1D
     labels: FloatArray1D
-    bins: int | None
-    densities: DensityData | None
-    new_score: float | None
+    bins: int | None = None
+    densities: DensityData | None = None
+    new_score: float | None = None
 
 
 @dataclass
