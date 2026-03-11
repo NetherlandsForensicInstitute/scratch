@@ -139,4 +139,5 @@ directory = "htmlcov"
 output = "coverage.xml"
 
 [tool.deptry.per_rule_ignores]
+DEP002 = ["opencv-python"] # import cv2 is not recognized as opencv-python
 DEP003 = ["mutations"]   # part of scratch-core

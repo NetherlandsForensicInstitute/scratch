@@ -28,7 +28,6 @@ def match_cells(
     if not grid_cells:
         return []
 
-    angle = params.search_angle_min
     fill_value_comparison = float(np.nanmean(comparison_image.data))
     pixel_size = comparison_image.scale_x  # Assumes isotropic image
 
