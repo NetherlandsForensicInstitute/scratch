@@ -6,9 +6,9 @@ from conversion.surface_comparison.models import (
     Cell,
     CellMetaData,
     GridCell,
+    ProcessedMark,
 )
 
-from conversion.surface_comparison.pipeline import ProcessedMark
 from conversion.surface_comparison.utils import convert_pixels_to_meters
 
 
