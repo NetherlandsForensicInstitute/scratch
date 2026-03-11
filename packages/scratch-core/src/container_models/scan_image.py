@@ -41,3 +41,9 @@ class ScanImage(ConfigBaseModel):
         valid_data = self.data[self.valid_mask]
         valid_data.setflags(write=False)
         return valid_data
+
+    @property
+    def center_meters(self) -> tuple[float, float]:
+        """Get the image center in meters."""
+        # TODO: Can we remove this?
+        return self.width / 2 * self.scale_x, self.height / 2 * self.scale_y

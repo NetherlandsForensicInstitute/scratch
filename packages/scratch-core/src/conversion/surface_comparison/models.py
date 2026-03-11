@@ -2,6 +2,15 @@ from pydantic import Field, field_validator, PositiveFloat
 from collections.abc import Sequence
 from dataclasses import dataclass
 from container_models.base import ConfigBaseModel, FloatArray2D
+from conversion.data_formats import Mark
+
+
+@dataclass(frozen=True)
+class ProcessedMark:
+    """Container class for storing processed `Mark` instances."""
+
+    filtered_mark: Mark
+    leveled_mark: Mark
 
 
 class CellMetaData(ConfigBaseModel):
@@ -114,6 +123,7 @@ class ComparisonParams(ConfigBaseModel):
 
     cell_size: tuple[PositiveFloat, PositiveFloat] = (1e-3, 1e-3)
     minimum_fill_fraction: float = Field(default=0.5, ge=0.0, le=1.0)
+    # TODO: minimum fill fraction is different for reference and comparison?
     correlation_threshold: float = Field(default=0.4, ge=-1.0, le=1.0)
     angle_deviation_threshold: float = Field(default=2.0, gt=0.0)
     position_threshold: float = Field(default=100e-6, gt=0.0)

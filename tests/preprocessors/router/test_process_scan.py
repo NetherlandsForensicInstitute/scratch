@@ -79,9 +79,9 @@ class TestProcessScan:
 
         # Assert
         expected_response = ProcessedDataAccess(
-            scan=HttpUrl(f"{base_url}/scan.x3p"),
-            preview=HttpUrl(f"{base_url}/preview.png"),
-            surface_map=HttpUrl(f"{base_url}/surface_map.png"),
+            scan_image=HttpUrl(f"{base_url}/scan.x3p"),
+            preview_image=HttpUrl(f"{base_url}/preview.png"),
+            surface_map_image=HttpUrl(f"{base_url}/surface_map.png"),
         )
 
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"
