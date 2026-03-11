@@ -33,10 +33,10 @@ class MatlabTestCase:
     output_data: FloatArray2D
     output_mask: BinaryMask
 
+    rectangle: BoundingBox
     input_xdim: float = 3.5 * micro
     input_ydim: float = 3.5 * micro
     crop_type: str = "rectangle"
-    rectangle: BoundingBox | None = None
     crop_foreground: bool = True
     times_median: float = 15.0
     has_holes: bool = False
@@ -48,10 +48,8 @@ class MatlabTestCase:
             meta = json.load(f)
 
         # Load crop corners if present
-        crop_corners = None
         crop_corners_path = case_dir / "crop_corners.npy"
-        if crop_corners_path.exists():
-            crop_corners = np.load(crop_corners_path)
+        crop_corners = np.load(crop_corners_path)
 
         return cls(
             name=case_dir.name,

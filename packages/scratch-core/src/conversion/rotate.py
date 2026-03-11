@@ -1,4 +1,5 @@
 import numpy as np
+from loguru import logger
 from scipy.ndimage import binary_dilation, rotate
 
 from container_models.base import BinaryMask
@@ -9,14 +10,11 @@ from conversion.utils import update_scan_image_data
 from mutations import Mask, Rotate
 from mutations.spatial import CropToMask
 
-# Number of iterations to dilate a mask before it is rotated
-DILATE_STEPS = 3
-
 
 def rotate_crop_and_mask_image_by_crop(
     scan_image: ScanImage,
     mask: BinaryMask,
-    bounding_box: BoundingBox | None,
+    bounding_box: BoundingBox,
 ) -> ScanImage:
     """
     Rotates, crops and masks a scan image based on the given mask and rectangle.
@@ -38,24 +36,22 @@ def rotate_crop_and_mask_image_by_crop(
         image, or None. Expects pixel coordinates, i.e. top-left origin.
     :return: The cropped, rotated and masked scan image.
     """
-    if (
-        bounding_box is None
-    ):  # TODO: This check should belong to higher level calls like API and determin to skip rotation
-        scan_image_masked = Mask(mask=mask, remove_needles=True)(scan_image).unwrap()
-        return CropToMask(mask=mask).apply_on_image(scan_image_masked)
-    else:
-        rotator = Rotate.from_bounding_box(bounding_box=bounding_box)
-        scan_image_masked = Mask(mask=mask, remove_needles=True)(scan_image).unwrap()
-        margin = 0
-        if not np.isclose(rotator.rotation_angle, 0.0):
-            mask = binary_dilation(mask, iterations=DILATE_STEPS).astype(bool)
-            # Define a margin to reverse dilation later on
-            margin = DILATE_STEPS + 2
-        scan_image_rotated = rotator(scan_image=scan_image_masked).unwrap()
-        mask_rotated = rotate_mask(mask=mask, rotation_angle=rotator.rotation_angle)
-        return CropToMask(mask=mask_rotated, margin=margin).apply_on_image(
-            scan_image_rotated
+    logger.info("Masking image and removing needles")
+    scan_image = Mask(mask=mask, remove_needles=True)(scan_image).unwrap()
+    margin = 0
+    rotator = Rotate.from_bounding_box(bounding_box=bounding_box)
+    if not np.isclose(rotator.rotation_angle, 0.0):
+        dilate_steps = 3
+        margin = dilate_steps + 2
+        logger.debug("Rotating mask")
+        mask = rotate_mask(
+            mask=binary_dilation(mask, iterations=dilate_steps).astype(bool),
+            rotation_angle=rotator.rotation_angle,
         )
+        logger.info("Rotating image")
+        scan_image = rotator(scan_image=scan_image).unwrap()
+    logger.info(f"Cropping image with margin: {margin}")
+    return CropToMask(mask=mask, margin=margin)(scan_image).unwrap()
 
 
 def get_rotation_angle(bounding_box: BoundingBox) -> float:
