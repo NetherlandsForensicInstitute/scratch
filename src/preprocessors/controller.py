@@ -29,7 +29,11 @@ def _extract_mark_from_scan(
 ) -> Mark:
     """Parse a scan file and extract a mark by rotating, cropping, masking, and resampling."""
     logger.info("Rotating and cropping scan image")
-    rotated_image = rotate_crop_and_mask_image_by_crop(scan_image=scan_image, mask=mask, bounding_box=bounding_box)
+    if not bounding_box:
+        scan_image_masked = Mask(mask=mask, remove_needles=True)(scan_image).unwrap()
+        rotated_image = CropToMask(mask=mask)(scan_image_masked).unwrap()
+    else:
+        rotated_image = rotate_crop_and_mask_image_by_crop(scan_image=scan_image, mask=mask, bounding_box=bounding_box)
     logger.info("Transforming scan image to mark")
     mark = Mark(
         scan_image=rotated_image,
