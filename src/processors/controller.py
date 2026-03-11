@@ -188,8 +188,11 @@ def process_lr_striation(
     llr_data = calculate_lr_striation(lr_system, lr_input.score)
     log_lr = llr_data.llrs[0]
 
+    # CCF scores in [-1, +1] are rescaled to [0, 1] before the log-odds transform.
+    # The rescaled values happen to be valid inputs for probability_to_logodds,
+    # but they are not probabilities — this is purely a convenient mathematical identity.
     transformed_reference_scores = probability_to_logodds((reference_data.scores + 1) / 2)
-    score_transformed = float(probability_to_logodds((np.array([lr_input.score]) + 1) / 2)[0])
+    score_transformed = float(probability_to_logodds((lr_input.score + 1) / 2))
 
     mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
     mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
