@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
@@ -18,7 +17,7 @@ import cv2
 
 
 def match_cells(
-    grid_cells: Iterable[GridCell],
+    grid_cells: list[GridCell],
     comparison_image: ScanImage,
     params: ComparisonParams,
     fill_value_reference: float,
@@ -42,7 +41,6 @@ def match_cells(
         to ``cv2.matchTemplate``.
     :returns: List of :class:`Cell` objects with the best registration result per grid cell.
     """
-    grid_cells = list(grid_cells)
     if not grid_cells:
         return []
 

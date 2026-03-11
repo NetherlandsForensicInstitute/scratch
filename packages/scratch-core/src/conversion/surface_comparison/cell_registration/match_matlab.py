@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cell_registration.utils import (
@@ -13,7 +12,7 @@ from scipy.signal import correlate
 
 
 def match_cells(
-    grid_cells: Iterable[GridCell],
+    grid_cells: list[GridCell],
     comparison_image: ScanImage,
     params: ComparisonParams,
     *args,
@@ -41,7 +40,6 @@ def match_cells(
     :param params: Algorithm parameters (angle sweep, fill-fraction thresholds).
     :returns: List of :class:`Cell` objects with the best registration result per grid cell.
     """
-    grid_cells = list(grid_cells)
     if not grid_cells:
         return []
 

@@ -12,7 +12,7 @@ import numpy as np
 
 
 def coarse_registration(
-    grid_cells: Iterable[GridCell],
+    grid_cells: list[GridCell],
     reference_image: ScanImage,
     comparison_image: ScanImage,
     params: ComparisonParams,
