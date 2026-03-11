@@ -110,11 +110,11 @@ ci job="":
     [ -z "{{ job }}" ] && act --list || act --job {{ job }} --quiet
 
 # run coverage difference between current branch and main
-cov-diff:
+cov-diff base_branch="origin/main":
     [ -f coverage.xml ] || just test xml
-    @just log "Getting coverage difference against main"
+    @just log "Getting coverage difference against {{ base_branch }}"
     uv run diff-cover coverage.xml \
-       --compare-branch {{base_branch}} \
+       --compare-branch {{ base_branch }} \
        --diff-range-notation '..' \
        --fail-under 80 \
        --format markdown:diff_coverage.md
