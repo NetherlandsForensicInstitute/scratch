@@ -26,8 +26,6 @@ from conversion.preprocess_impression.center import (
     compute_center_local,
 )
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
-from conversion.surface_comparison.models import ComparisonParams
-from conversion.surface_comparison.pipeline import ProcessedMark, compare_surfaces
 from .helper_functions import make_mark
 
 
@@ -870,31 +868,15 @@ class TestMarkCenter:
 
         assert mark.center == (42.0, 17.0)
 
-    def test_center_with_odd_dimensions(
-        self, scan_image_rectangular_with_nans: ScanImage, scan_image: ScanImage
-    ):
+    def test_center_with_odd_dimensions(self):
         """Verify center calculation with odd dimensions."""
-        scan_image = scan_image_rectangular_with_nans
-        # height, width = scan_image.height, scan_image.width
-        from scipy.io import loadmat
-
-        data = mat["data_struct"][0, 0]["depth_data"].astype(np.float64)
-        # data = scan_image.data
-        f = 3
+        height, width = 101, 203
+        data = np.zeros((height, width))
         impression_mark = make_mark(
-            data[::f, ::f],
-            scale_x=scan_image.scale_x * f,
-            scale_y=scan_image.scale_y * f,
+            data,
+            scale_x=4 * micro,
+            scale_y=4 * micro,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
 
-        # assert impression_mark.center == (101.5, 50.5)
-
-        # TODO: REMOVE
-        p1 = ProcessedMark(filtered_mark=impression_mark, leveled_mark=impression_mark)
-        params = ComparisonParams(
-            cell_size=(100 * impression_mark.scan_image.scale_x, 100 * impression_mark.scan_image.scale_y),
-            search_angle_min=-60, search_angle_max=60, search_angle_step=1.5
-        )
-        result = compare_surfaces(refence_mark=p1, comparison_mark=p1, params=params)
-        print(result)
+        assert impression_mark.center == (101.5, 50.5)

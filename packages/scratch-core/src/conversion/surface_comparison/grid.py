@@ -5,7 +5,9 @@ import numpy as np
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import GridCell, GridSearchParams
-from conversion.surface_comparison.utils import convert_meters_to_pixels
+from conversion.surface_comparison.utils import (
+    convert_meters_to_pixels,
+)
 
 
 def generate_grid(
@@ -35,7 +37,11 @@ def generate_grid(
                 patch_size=(cell_width, cell_height),
                 fill_value=np.nan,
             )
-            cell = GridCell(top_left=(x, y), cell_data=cell_data, grid_search_params=GridSearchParams())
+            cell = GridCell(
+                top_left=(x, y),
+                cell_data=cell_data,
+                grid_search_params=GridSearchParams(),
+            )
             if cell.fill_fraction < minimum_fill_fraction:
                 continue
             output.append(cell)
@@ -92,11 +98,9 @@ def extract_patch(
 
 def _tile_axis(image_size: int, cell_size: int) -> list[int]:
     """Generate top-left coordinates for cells along one axis.
-
     Places cells symmetrically around the midpoint of the image. When an
     odd number of cells fits, one cell is centered on the midpoint. When
     even, two cells straddle it.
-
     :param image_size: image size in pixels along the axis
     :param cell_size: cell size in pixels along the axis
     :return: sorted list of top-left coordinates

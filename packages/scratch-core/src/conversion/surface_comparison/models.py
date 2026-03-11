@@ -132,6 +132,10 @@ class ComparisonParams(ConfigBaseModel):
     search_angle_max: float = 180.0
     search_angle_step: float = Field(default=1.0, gt=0.0)
 
+    # TODO: Do we need these MATLAB parameters for cell registration? Now used only in `core_matlab.py`
+    cell_fill_reduction_max: float = Field(default=0.50, ge=0.0, le=1.0)
+    minimum_fill_fraction_comparison: float = Field(default=0.25, ge=0.0, le=1.0)
+
 
 @dataclass(frozen=False)
 class GridSearchParams:
@@ -157,6 +161,7 @@ class GridSearchParams:
         self.top_left_y = top_left_y
         self.angle = angle
         self.score = score
+
 
 @dataclass(frozen=True)
 class GridCell:
