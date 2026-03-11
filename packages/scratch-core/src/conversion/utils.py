@@ -1,4 +1,5 @@
 import numpy as np
+from lir.util import probability_to_logodds
 from returns.io import IOResultE, IOSuccess
 from returns.result import ResultE, Success
 
@@ -16,21 +17,19 @@ def unwrap_result[T](result: IOResultE[T] | ResultE[T]) -> T:
 
 def ccf_score_to_logodds(scores: np.ndarray) -> np.ndarray:
     """
-    Transform CCF scores from [-1, +1] to [-inf, +inf] using a log10 logit.
+    Transform CCF scores from [-1, +1] to log-odds using :func:`lir.util.probability_to_logodds`.
 
-    Rescales to [0, 1] then applies log-odds (base 10):
-        y = (score + 1) / 2
-        transformed = log10(y / (1 - y))
+    CCF scores are first rescaled to probabilities in [0, 1] via ``y = (score + 1) / 2``,
+    then converted to log10 log-odds. Boundary values (±1) are clipped by one ULP before
+    rescaling to keep the result finite.
 
-    Boundary values are clipped by one ULP to avoid infinite results.
-
-    :param scores: 1-D array of raw CCF scores in [-1, +1].
-    :returns: 1-D array of transformed scores.
+    :param scores: 1-D array of CCF scores in [-1, +1].
+    :returns: 1-D array of log10 log-odds values in (-inf, +inf).
     """
     eps = np.finfo(float).eps
     clipped = np.clip(scores, -1 + eps, 1 - eps)
     y = (clipped + 1) / 2
-    return np.log10(y) - np.log10(1 - y)
+    return probability_to_logodds(y)
 
 
 def update_scan_image_data(scan_image: ScanImage, data: DepthData) -> ScanImage:
