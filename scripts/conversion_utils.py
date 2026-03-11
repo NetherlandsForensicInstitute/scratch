@@ -1,6 +1,7 @@
 """Shared utilities for conversion scripts."""
 
 import json
+import logging
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -10,7 +11,8 @@ from typing import Any
 from conversion.data_formats import MarkType
 from tqdm import tqdm
 
-from scripts.convert_scores import logger
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
 @dataclass
