@@ -12,7 +12,6 @@ import pytest
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cell_registration.match import (
     match_cells,
-    _build_templates,
     _get_fill_fraction_map,
     _get_score_map,
 )
@@ -45,10 +44,7 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=grid_cells,
-            comparison_image=comparison_image,
-            params=params,
-            fill_value_reference=float(np.nanmean(comparison_image.data)),
+            grid_cells=grid_cells, comparison_image=comparison_image, params=params
         )
 
         # Assert
@@ -63,10 +59,7 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=grid_cells,
-            comparison_image=comparison_image,
-            params=params,
-            fill_value_reference=float(np.nanmean(comparison_image.data)),
+            grid_cells=grid_cells, comparison_image=comparison_image, params=params
         )
 
         # Assert
@@ -81,10 +74,7 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=grid_cells,
-            comparison_image=comparison_image,
-            params=params,
-            fill_value_reference=float(np.nanmean(comparison_image.data)),
+            grid_cells=grid_cells, comparison_image=comparison_image, params=params
         )
 
         # Assert
@@ -99,10 +89,7 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=grid_cells,
-            comparison_image=comparison_image,
-            params=params,
-            fill_value_reference=float(np.nanmean(comparison_image.data)),
+            grid_cells=grid_cells, comparison_image=comparison_image, params=params
         )
 
         # Assert
@@ -115,10 +102,7 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=[],
-            comparison_image=comparison_image,
-            params=params,
-            fill_value_reference=0.0,
+            grid_cells=[], comparison_image=comparison_image, params=params
         )
 
         # Assert
@@ -155,39 +139,14 @@ class TestGetScoreMap:
             CELL_TOP_LEFT[1] : CELL_TOP_LEFT[1] + CELL_SIZE,
             CELL_TOP_LEFT[0] : CELL_TOP_LEFT[0] + CELL_SIZE,
         ]
-        grid_cell = make_grid_cell(data=np.nan_to_num(cell_data, nan=mean_val))
+        grid_cell = make_grid_cell(data=cell_data)
 
         # Act
-        score_map = _get_score_map(comparison_array_filled=filled, cell=grid_cell)
+        score_map = _get_score_map(
+            comparison_array=filled, template=grid_cell.cell_data_filled
+        )
 
         # Assert
         peak_row, peak_col = np.unravel_index(np.argmax(score_map), score_map.shape)
         assert peak_row == CELL_TOP_LEFT[1]
         assert peak_col == CELL_TOP_LEFT[0]
-
-
-class TestBuildTemplates:
-    def test_build_templates_fills_nans(self):
-        # Arrange
-        data = make_surface(height=CELL_SIZE, width=CELL_SIZE)
-        data[0, 0] = np.nan
-        grid_cell = make_grid_cell(data=data)
-        fill_value = 0.0
-
-        # Act
-        templates = _build_templates(grid_cells=[grid_cell], fill_value=fill_value)
-
-        # Assert
-        assert not np.any(np.isnan(templates[0].cell_data))
-
-    def test_build_templates_does_not_mutate_original(self):
-        # Arrange
-        data = make_surface(height=CELL_SIZE, width=CELL_SIZE)
-        data[0, 0] = np.nan
-        grid_cell = make_grid_cell(data=data)
-
-        # Act
-        _build_templates(grid_cells=[grid_cell], fill_value=0.0)
-
-        # Assert — original cell_data must still contain the NaN
-        assert np.isnan(grid_cell.cell_data[0, 0])

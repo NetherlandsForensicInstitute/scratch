@@ -1,3 +1,5 @@
+from functools import cached_property
+
 import numpy as np
 from pydantic import Field, field_validator, PositiveFloat
 from collections.abc import Sequence
@@ -173,11 +175,13 @@ class GridCell:
     :param top_left: Tuple containing the top-left pixel coordinates (x, y) corresponding to the reference image.
     :param cell_data: 2D array containing the sliced image data from the reference image.
     :param grid_search_params: An instance of `GridSearchParams` for keeping track of intermediate search results.
+    :param nan_fill_value: (Optional) A sentinel value for replacing NaN values.
     """
 
     top_left: tuple[int, int]
     cell_data: FloatArray2D
     grid_search_params: GridSearchParams
+    nan_fill_value: float = np.nan
 
     @property
     def width(self) -> int:
@@ -195,12 +199,12 @@ class GridCell:
     def fill_fraction(self) -> float:
         return float(np.count_nonzero(~np.isnan(self.cell_data)) / self.cell_data.size)
 
-    def fill_nans(self, fill_value: float):
-        self.cell_data[np.isnan(self.cell_data)] = fill_value
+    @cached_property
+    def cell_data_filled(self) -> FloatArray2D:
+        """Cell data where NaN values are replaced with the sentinel value."""
+        if self.nan_fill_value is np.nan:
+            return self.cell_data
 
-    def copy(self) -> "GridCell":
-        return GridCell(
-            top_left=self.top_left,
-            cell_data=self.cell_data.copy(),
-            grid_search_params=self.grid_search_params,
-        )
+        data = np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
+        data.setflags(write=False)
+        return data

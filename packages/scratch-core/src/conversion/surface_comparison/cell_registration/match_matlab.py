@@ -11,12 +11,7 @@ from scipy.signal import correlate
 
 
 def match_cells(
-    grid_cells: list[GridCell],
-    comparison_image: ScanImage,
-    params: ComparisonParams,
-    *args,
-    **kwargs,
-    # Add unused args to make it compatible with the implementation in `match.py`
+    grid_cells: list[GridCell], comparison_image: ScanImage, params: ComparisonParams
 ) -> list[Cell]:
     """
     Find the best-matching position and angle for each grid cell using NaN-aware NCC.
@@ -42,9 +37,9 @@ def match_cells(
     if not grid_cells:
         return []
 
-    pad_width, pad_height = grid_cells[0].width // 2, grid_cells[0].height // 2
+    cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
     comparison_data = pad_image_array(
-        comparison_image.data, pad_width=pad_width, pad_height=pad_height
+        comparison_image.data, pad_width=cell_width, pad_height=cell_height
     )
 
     pixel_size = comparison_image.scale_x
@@ -82,11 +77,11 @@ def match_cells(
                 grid_cell.grid_search_params.update(
                     score=score,
                     angle=angle,
-                    top_left_x=int(col) - pad_width,
-                    top_left_y=int(row) - pad_height,
+                    top_left_x=int(col) - cell_width,
+                    top_left_y=int(row) - cell_height,
                 )
 
-    return [convert_grid_cell_to_cell(c, pixel_size) for c in grid_cells]
+    return [convert_grid_cell_to_cell(cell, pixel_size) for cell in grid_cells]
 
 
 def _nan_aware_ncc_map(

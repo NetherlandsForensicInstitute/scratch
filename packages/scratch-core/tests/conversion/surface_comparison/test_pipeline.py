@@ -53,7 +53,6 @@ def test_coarse_registration_runs(
 ):
     cells = coarse_registration(
         grid_cells=[grid_cell],
-        reference_image=scan_image,
         comparison_image=scan_image,
         params=params,
     )

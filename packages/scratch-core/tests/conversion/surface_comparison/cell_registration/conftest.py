@@ -3,6 +3,7 @@ from _pytest.fixtures import SubRequest
 
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import GridCell, ComparisonParams
+import numpy as np
 
 from .helpers import (
     make_scan_image,
@@ -14,6 +15,7 @@ from .helpers import (
 
 IMAGE_HEIGHT = 980
 IMAGE_WIDTH = 720
+IMAGE_NAN_RATIO = 0.15
 CELL_SIZE = 54
 PIXEL_SIZE = 1e-6
 CELL_TOP_LEFT = (350, 436)
@@ -35,12 +37,16 @@ def identical_match_inputs(
         width=IMAGE_WIDTH,
         pixel_size=PIXEL_SIZE,
         scale=scale,
+        nan_ratio=IMAGE_NAN_RATIO,
     )
     cell_data = scan_image.data[
         CELL_TOP_LEFT[1] : CELL_TOP_LEFT[1] + CELL_SIZE,
         CELL_TOP_LEFT[0] : CELL_TOP_LEFT[0] + CELL_SIZE,
     ]
-    grid_cell = make_grid_cell(data=cell_data, top_left=CELL_TOP_LEFT)
+    nan_fill_value = float(np.nanmean(scan_image.data))  # TODO: Do we want this value?
+    grid_cell = make_grid_cell(
+        data=cell_data, top_left=CELL_TOP_LEFT, nan_fill_value=nan_fill_value
+    )
     params = identity_params(cell_size_px=CELL_SIZE, pixel_size=PIXEL_SIZE)
     return [grid_cell], scan_image, params
 

@@ -8,12 +8,10 @@ from conversion.surface_comparison.models import (
     Cell,
     ProcessedMark,
 )
-import numpy as np
 
 
 def coarse_registration(
     grid_cells: list[GridCell],
-    reference_image: ScanImage,
     comparison_image: ScanImage,
     params: ComparisonParams,
 ) -> list[Cell]:
@@ -24,17 +22,13 @@ def coarse_registration(
     to find the best-matching position and angle for every cell via a coarse angle sweep.
 
     :param grid_cells: Reference grid cells to register.
-    :param reference_image: Reference scan image; used only to derive the NaN fill value.
     :param comparison_image: Comparison scan image to search over.
     :param params: Algorithm parameters controlling the angle sweep and fill-fraction thresholds.
     :returns: List of :class:`Cell` objects with the best registration result per grid cell.
     """
-    fill_value_reference = float(np.nanmean(reference_image.data))
+    # TODO: Merge this with `match.py` when deprecating the MATLAB implementation.
     matched_cells = match_cells(
-        grid_cells=grid_cells,
-        comparison_image=comparison_image,
-        params=params,
-        fill_value_reference=fill_value_reference,
+        grid_cells=grid_cells, comparison_image=comparison_image, params=params
     )
     return matched_cells
 

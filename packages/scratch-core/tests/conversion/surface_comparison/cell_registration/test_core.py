@@ -28,7 +28,6 @@ def test_coarse_registration_returns_one_cell_per_grid_cell(
     # Act
     cells = coarse_registration(
         grid_cells=grid_cells,
-        reference_image=reference_image,
         comparison_image=comparison_image,
         params=params,
     )
@@ -47,7 +46,6 @@ def test_coarse_registration_self_match_score_near_one(
     # Act
     cells = coarse_registration(
         grid_cells=grid_cells,
-        reference_image=reference_image,
         comparison_image=comparison_image,
         params=params,
     )
@@ -66,7 +64,6 @@ def test_coarse_registration_self_match_angle_is_zero(
     # Act
     cells = coarse_registration(
         grid_cells=grid_cells,
-        reference_image=reference_image,
         comparison_image=comparison_image,
         params=params,
     )

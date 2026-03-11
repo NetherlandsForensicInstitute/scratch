@@ -28,6 +28,8 @@ def generate_grid(
     xs = _tile_axis(scan_image.width, cell_width)
     ys = _tile_axis(scan_image.height, cell_height)
 
+    nan_fill_value = float(np.nanmean(scan_image.data))  # TODO: Do we want this value?
+
     output = []
     for y in ys:
         for x in xs:
@@ -41,6 +43,7 @@ def generate_grid(
                 top_left=(x, y),
                 cell_data=cell_data,
                 grid_search_params=GridSearchParams(),
+                nan_fill_value=nan_fill_value,
             )
             if cell.fill_fraction < minimum_fill_fraction:
                 continue

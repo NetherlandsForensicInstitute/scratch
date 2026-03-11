@@ -19,6 +19,7 @@ def make_surface(
     height: int,
     width: int,
     scale: float = 1.0,
+    nan_ratio: float = 0.0,
     seed: int = 0,
 ) -> DepthData:
     """
@@ -31,6 +32,7 @@ def make_surface(
     :param width: Number of columns.
     :param scale: Multiplicative scale applied to the whole array — use e.g.
         ``1e-6`` to simulate µm-scale surface data.
+    :param nan_ratio: The ratio of NaN values randomly generated.
     :param seed: Random seed for the small noise component.
     :returns: ``(height, width)`` float64 array.
     """
@@ -44,6 +46,8 @@ def make_surface(
         + np.exp(-2.0 * X) * np.sin(5.123 * Y)
         + rng.standard_normal((height, width)) * 0.05
     )
+    if 0.0 < nan_ratio < 1:
+        surface[np.random.uniform(size=surface.shape) < nan_ratio] = np.nan
     return (surface * scale).astype(np.float64)
 
 
@@ -52,22 +56,27 @@ def make_scan_image(
     width: int,
     pixel_size: float = 1e-6,
     scale: float = 1.0,
+    nan_ratio: float = 0.0,
     seed: int = 0,
 ) -> ScanImage:
     """Construct a :class:`ScanImage` wrapping :func:`make_surface` output."""
-    data = make_surface(height=height, width=width, scale=scale, seed=seed)
+    data = make_surface(
+        height=height, width=width, scale=scale, nan_ratio=nan_ratio, seed=seed
+    )
     return ScanImage(data=data, scale_x=pixel_size, scale_y=pixel_size)
 
 
 def make_grid_cell(
     data: FloatArray2D,
     top_left: tuple[int, int] = (0, 0),
+    nan_fill_value: float = np.nan,
 ) -> GridCell:
     """Wrap a 2-D array in a :class:`GridCell` with a fresh :class:`GridSearchParams`."""
     return GridCell(
         top_left=top_left,
         cell_data=data.copy(),
         grid_search_params=GridSearchParams(),
+        nan_fill_value=nan_fill_value,
     )
 
 

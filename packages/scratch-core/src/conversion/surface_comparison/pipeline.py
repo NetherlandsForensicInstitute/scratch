@@ -65,7 +65,6 @@ def compare_surfaces(
     # Step 3: Coarse registration
     cells = coarse_registration(
         grid_cells=grid_cells,
-        reference_image=reference_image,
         comparison_image=comparison_image,
         params=params,
     )
