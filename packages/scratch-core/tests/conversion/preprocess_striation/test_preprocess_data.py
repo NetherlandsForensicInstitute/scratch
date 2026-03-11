@@ -246,6 +246,17 @@ def test_rotate_data_by_shifting_profiles():
     assert np.std(max_positions) > 0
 
 
+def test_shear_near_zero_angle_returns_copy():
+    """Shearing with near-zero angle returns a float64 copy unchanged."""
+    data = np.array([[1.0, 2.0], [3.0, 4.0]])
+    result = shear_data_by_shifting_profiles(
+        data, angle_rad=0.001, cut_y_after_shift=False
+    )
+    np.testing.assert_array_equal(result, data)
+    assert result.dtype == np.float64
+    assert result is not data
+
+
 def test_detect_striation_angle():
     """Test gradient-based striation angle detection."""
     np.random.seed(42)
