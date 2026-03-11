@@ -203,6 +203,4 @@ class GridCell:
     @cached_property
     def cell_data_filled(self) -> FloatArray2D:
         """Cell data where NaN values are replaced with the sentinel value."""
-        output = np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
-        output.setflags(write=False)
-        return output
+        return np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
