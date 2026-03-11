@@ -7,6 +7,7 @@ from conversion.data_formats import BoundingBox
 from conversion.mask import crop_to_mask
 from conversion.utils import update_scan_image_data
 from mutations import Mask, Rotate
+from mutations.spatial import CropToMask
 
 # Number of iterations to dilate a mask before it is rotated
 DILATE_STEPS = 3
@@ -40,24 +41,21 @@ def rotate_crop_and_mask_image_by_crop(
     if (
         bounding_box is None
     ):  # TODO: This check should belong to higher level calls like API and determin to skip rotation
-        rotator = Rotate(rotation_angle=0.0)
+        scan_image_masked = Mask(mask=mask, remove_needles=True)(scan_image).unwrap()
+        return CropToMask(mask=mask).apply_on_image(scan_image_masked)
     else:
         rotator = Rotate.from_bounding_box(bounding_box=bounding_box)
-    margin = 0
-    if not np.isclose(rotator.rotation_angle, 0.0):
-        mask = binary_dilation(mask, iterations=DILATE_STEPS).astype(bool)
-        # Define a margin to reverse dilation later on
-        margin = DILATE_STEPS + 2
-
-    scan_image_masked = Mask(mask=mask, remove_needles=True)(scan_image).unwrap()
-
-    scan_image_rotated = rotator(scan_image=scan_image_masked).unwrap()
-    mask_rotated = rotate_mask(mask=mask, rotation_angle=rotator.rotation_angle)
-
-    scan_image_cropped = update_scan_image_data(
-        scan_image, crop_to_mask(scan_image_rotated.data, mask_rotated, margin)
-    )
-    return scan_image_cropped
+        scan_image_masked = Mask(mask=mask, remove_needles=True)(scan_image).unwrap()
+        margin = 0
+        if not np.isclose(rotator.rotation_angle, 0.0):
+            mask = binary_dilation(mask, iterations=DILATE_STEPS).astype(bool)
+            # Define a margin to reverse dilation later on
+            margin = DILATE_STEPS + 2
+        scan_image_rotated = rotator(scan_image=scan_image_masked).unwrap()
+        mask_rotated = rotate_mask(mask=mask, rotation_angle=rotator.rotation_angle)
+        return CropToMask(mask=mask_rotated, margin=margin).apply_on_image(
+            scan_image_rotated
+        )
 
 
 def get_rotation_angle(bounding_box: BoundingBox) -> float:

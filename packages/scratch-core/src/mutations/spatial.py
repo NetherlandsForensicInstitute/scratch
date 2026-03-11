@@ -38,10 +38,11 @@ from mutations.base import ImageMutation
 
 
 class CropToMask(ImageMutation):
-    def __init__(self, mask: BinaryMask) -> None:
+    def __init__(self, mask: BinaryMask, margin: int = 0) -> None:
         if not np.any(mask):
             raise ValueError("Can't crop to a mask where there are only 0/False")
         self.mask = mask
+        self.margin = margin
 
     @property
     def skip_predicate(self) -> bool:
@@ -52,7 +53,10 @@ class CropToMask(ImageMutation):
 
         :returns: True if the crop is empty, False otherwise
         """
-        return bool(self.mask.all())
+        if bool(self.mask.all()):
+            logger.info("Skipping crop, mask is empty (containing only 1")
+            return True
+        return False
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
@@ -63,7 +67,7 @@ class CropToMask(ImageMutation):
             raise ImageShapeMismatchError(
                 f"image shape: {scan_image.data.shape} and crop shape: {self.mask.shape} are not equal"
             )
-        y_slice, x_slice = get_bounding_box(self.mask)
+        y_slice, x_slice = get_bounding_box(self.mask, margin=self.margin)
         scan_image.data = scan_image.data[y_slice, x_slice]
         return scan_image
 
