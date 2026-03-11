@@ -17,8 +17,8 @@ from conversion.plots.plot_cmc_comparison_overview import plot_cmc_comparison_ov
 from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.plots.utils import build_results_metadata_impression, build_results_metadata_striation
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
-from conversion.utils import ccf_score_to_logodds
 from fastapi import HTTPException
+from lir.util import probability_to_logodds
 from loguru import logger
 from PIL import Image
 
@@ -188,8 +188,8 @@ def process_lr_striation(
     llr_data = calculate_lr_striation(lr_system, lr_input.score)
     log_lr = llr_data.llrs[0]
 
-    transformed_reference_scores = ccf_score_to_logodds(reference_data.scores)
-    score_transformed = float(ccf_score_to_logodds(np.array([lr_input.score]))[0])
+    transformed_reference_scores = probability_to_logodds((reference_data.scores + 1) / 2)
+    score_transformed = float(probability_to_logodds((np.array([lr_input.score]) + 1) / 2)[0])
 
     mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
     mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
