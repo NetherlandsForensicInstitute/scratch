@@ -39,7 +39,13 @@ def match_cells(
     )
     templates = _build_templates(grid_cells=grid_cells, fill_value=fill_value_reference)
 
-    while angle < params.search_angle_max:
+    angles = np.arange(
+        params.search_angle_min, params.search_angle_max, params.search_angle_step
+    )
+
+    for angle in angles:
+        angle = float(angle)
+
         # Rotate the comparison image by `-angle` degrees.
         # This is equivalent to rotating the reference patch by `angle` degrees.
         rotated = rotate(
@@ -82,8 +88,6 @@ def match_cells(
                     top_left_x=int(x) - pad_width,
                     top_left_y=int(y) - pad_height,
                 )
-
-        angle += params.search_angle_step
 
     output = [
         convert_grid_cell_to_cell(grid_cell=cell, pixel_size=pixel_size)
