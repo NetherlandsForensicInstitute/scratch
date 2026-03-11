@@ -79,11 +79,13 @@ def match_cells(
                 template=grid_cell.cell_data_filled,
             )
             # Make sure the shape of `score_map` and the `fill_fraction_mask` match
-            sliced_mask = fill_fraction_mask[: score_map.shape[0], : score_map.shape[1]]
+            valid_positions = fill_fraction_mask[
+                : score_map.shape[0], : score_map.shape[1]
+            ]
             # Replace non-valid values (where fill fraction is below threshold) with -inf
-            masked_scores = np.where(sliced_mask, score_map, -np.inf)
+            masked_scores = np.where(valid_positions, score_map, -np.inf)
             # Compute the best x, y position from the score map
-            best_flat_index = int(np.argmax(masked_scores))
+            best_flat_index = np.argmax(masked_scores)
             score = float(masked_scores.flat[best_flat_index])
             if score > grid_cell.grid_search_params.score:
                 y, x = np.unravel_index(best_flat_index, masked_scores.shape)
@@ -94,12 +96,10 @@ def match_cells(
                     top_left_y=int(y) - cell_height,
                 )
 
-    output = [
-        convert_grid_cell_to_cell(grid_cell=cell, pixel_size=pixel_size)
-        for cell in grid_cells
+    return [
+        convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
+        for grid_cell in grid_cells
     ]
-
-    return output
 
 
 def _get_fill_fraction_map(

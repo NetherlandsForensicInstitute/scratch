@@ -69,7 +69,7 @@ def match_cells(
                 min_overlap=min_overlap,
             )
 
-            best_flat = int(np.argmax(score_map))
+            best_flat = np.argmax(score_map)
             score = float(score_map.flat[best_flat])
 
             if score > grid_cell.grid_search_params.score:
@@ -81,7 +81,10 @@ def match_cells(
                     top_left_y=int(row) - cell_height,
                 )
 
-    return [convert_grid_cell_to_cell(cell, pixel_size) for cell in grid_cells]
+    return [
+        convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
+        for grid_cell in grid_cells
+    ]
 
 
 def _nan_aware_ncc_map(
