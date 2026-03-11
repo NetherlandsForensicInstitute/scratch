@@ -1,4 +1,3 @@
-
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.grid import GridCell

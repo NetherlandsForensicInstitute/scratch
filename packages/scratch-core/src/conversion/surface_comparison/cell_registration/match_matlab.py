@@ -1,4 +1,3 @@
-
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cell_registration.utils import (
     pad_image_array,

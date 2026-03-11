@@ -172,6 +172,7 @@ class GridCell:
 
     :param top_left: Tuple containing the top-left pixel coordinates (x, y) corresponding to the reference image.
     :param cell_data: 2D array containing the sliced image data from the reference image.
+    :param grid_search_params: An instance of `GridSearchParams` for keeping track of intermediate search results.
     """
 
     top_left: tuple[int, int]
