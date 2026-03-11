@@ -175,7 +175,8 @@ class GridCell:
     :param top_left: Tuple containing the top-left pixel coordinates (x, y) corresponding to the reference image.
     :param cell_data: 2D array containing the sliced image data from the reference image.
     :param grid_search_params: An instance of `GridSearchParams` for keeping track of intermediate search results.
-    :param nan_fill_value: (Optional) A sentinel value for replacing NaN values.
+    :param nan_fill_value: (Optional) A sentinel value for replacing NaN values. The cell data with the NaN
+        values replaced is stored in the `cell_data_filled` attribute.
     """
 
     top_left: tuple[int, int]
@@ -202,9 +203,6 @@ class GridCell:
     @cached_property
     def cell_data_filled(self) -> FloatArray2D:
         """Cell data where NaN values are replaced with the sentinel value."""
-        if self.nan_fill_value is np.nan:
-            return self.cell_data
-
-        data = np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
-        data.setflags(write=False)
-        return data
+        output = np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
+        output.setflags(write=False)
+        return output
