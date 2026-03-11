@@ -16,7 +16,7 @@ def match_cells(
     params: ComparisonParams,
     *args,
     **kwargs,
-    # Add unused args to make it compatible with the implementation in `core.py`
+    # Add unused args to make it compatible with the implementation in `match.py`
 ) -> list[Cell]:
     grid_cells = list(grid_cells)
     if not grid_cells:
