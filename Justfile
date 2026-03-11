@@ -114,6 +114,7 @@ cov-diff:
     [ -f coverage.xml ] || just test xml
     @just log "Getting coverage difference against main"
     uv run diff-cover coverage.xml \
+       --compare-branch {{base_branch}} \
        --diff-range-notation '..' \
        --fail-under 80 \
        --format markdown:diff_coverage.md
