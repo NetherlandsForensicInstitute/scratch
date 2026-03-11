@@ -170,6 +170,30 @@ class ComparisonResponseImpression(ComparisonResponse):
 
 
 class ComparisonResponseStriationURL(ComparisonResponse):
+    mark_reference_aligned_data: HttpUrl = Field(
+        ...,
+        description="Aligned reference mark.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_reference_aligned.npz"],
+        json_schema_extra={"file_name": "mark_reference_aligned.npz"},
+    )
+    mark_reference_aligned_meta: HttpUrl = Field(
+        ...,
+        description="meta data from the aligned reference mark data.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_reference_aligned.json"],
+        json_schema_extra={"file_name": "mark_reference_aligned.json"},
+    )
+    mark_compared_aligned_data: HttpUrl = Field(
+        ...,
+        description="Aligned compared mark.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_compared_aligned.npz"],
+        json_schema_extra={"file_name": "mark_compared_aligned.npz"},
+    )
+    mark_compared_aligned_meta: HttpUrl = Field(
+        ...,
+        description="meta data from the aligned compared mark data.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_compared_aligned.json"],
+        json_schema_extra={"file_name": "mark_compared_aligned.json"},
+    )
     mark_ref_preview: HttpUrl = Field(
         description="",
         examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_preview.png"],
