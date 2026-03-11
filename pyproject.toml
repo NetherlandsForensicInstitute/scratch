@@ -26,6 +26,7 @@ dependencies = [
   "pydantic-settings>=2.0.0",
   "uvicorn>=0.38.0",
   "scratch-core",
+  "lir>=1.4.0",
   "returns>=0.26.0",
   "numpy>=2.3.5",
   "scipy>=1.16.3",

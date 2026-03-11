@@ -1,14 +1,13 @@
 import numpy as np
-
 import pytest
 
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import (
-    get_rotation_angle,
     crop_image_and_mask_to_mask,
-    rotate_mask_and_scan_image,
+    get_rotation_angle,
+    rotate_mask,
 )
 
 
@@ -103,15 +102,10 @@ class TestRotateMaskAndScanImage:
 
     def test_zero_rotation_returns_unchanged(self):
         """Test that zero rotation returns original data."""
-        data = np.array([[1, 2], [3, 4]], dtype=float)
         mask = np.array([[True, True], [True, False]])
-        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
 
-        result_image, result_mask = rotate_mask_and_scan_image(
-            scan_image, mask, rotation_angle=0
-        )
+        result_mask = rotate_mask(mask, rotation_angle=0)
 
-        np.testing.assert_array_equal(result_image.data, data)
         np.testing.assert_array_equal(result_mask, mask)
 
     def test_non_zero_rotation_applies_rotation(self):
@@ -119,15 +113,12 @@ class TestRotateMaskAndScanImage:
         data = np.ones((10, 10), dtype=float)
         mask = np.zeros((10, 10), dtype=bool)
         mask[3:7, 3:7] = True
-        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
 
-        result_image, result_mask = rotate_mask_and_scan_image(
-            scan_image, mask, rotation_angle=45
-        )
+        result_mask = rotate_mask(mask, rotation_angle=45)
 
         # After rotation, shape should change due to reshape=True
-        assert result_image.data.shape != data.shape or not np.array_equal(
-            result_image.data, data
+        assert result_mask.shape != data.shape or not np.array_equal(
+            result_mask.data, mask
         )
 
     def test_rotation_handles_nan_values(self):
@@ -135,25 +126,8 @@ class TestRotateMaskAndScanImage:
         data = np.ones((10, 10), dtype=float)
         data[0:2, 0:2] = np.nan
         mask = np.ones((10, 10), dtype=bool)
-        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
 
-        result_image, result_mask = rotate_mask_and_scan_image(
-            scan_image, mask, rotation_angle=30
-        )
+        result_mask = rotate_mask(mask, rotation_angle=30)
 
         # Should not raise error and should handle NaNs
-        assert isinstance(result_image, ScanImage)
         assert isinstance(result_mask, np.ndarray)
-
-    def test_preserves_scale_after_rotation(self):
-        """Test that scale values are preserved after rotation."""
-        data = np.ones((10, 10), dtype=float)
-        mask = np.ones((10, 10), dtype=bool)
-        scan_image = ScanImage(data=data, scale_x=2.0, scale_y=3.0)
-
-        result_image, result_mask = rotate_mask_and_scan_image(
-            scan_image, mask, rotation_angle=15
-        )
-
-        assert result_image.scale_x == 2.0
-        assert result_image.scale_y == 3.0
