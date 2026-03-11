@@ -57,8 +57,8 @@ def _save_outputs(
         parsed_scan=processed_mark.scan_image,
         output_path=files.preview_image.get_file_path(working_dir),
     )
-    save_mark(mark, path=PrepareMarkStriationFiles.mark_data.get_file_path(working_dir))
-    save_mark(processed_mark, path=PrepareMarkStriationFiles.processed_data.get_file_path(working_dir))
+    save_mark(mark, path=files.mark_data.get_file_path(working_dir))
+    save_mark(processed_mark, path=files.processed_data.get_file_path(working_dir))
 
 
 def process_prepare_impression_mark(  # noqa: PLR0913
