@@ -136,8 +136,8 @@ def extract_impression_params(struct: np.ndarray, mark_type: MarkType) -> dict[s
         "level_tilt": bool(_data_param_field(struct, "bLevelTilt", 1)),
         "level_2nd": bool(_data_param_field(struct, "bLevel2nd", 1)),
         "interp_method": _data_param_field(struct, "intMeth", "cubic"),
-        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 250.0e-6,
-        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 5.0e-6,
+        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 400.0e-6,
+        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 25e-6,
     }
 
 
@@ -145,11 +145,11 @@ def extract_striation_params(struct: np.ndarray) -> dict[str, Any]:
     """Extract preprocessing parameters for striation marks from a MATLAB struct."""
     hi, lo = _scalar(struct["cutoff_hi"]), _scalar(struct["cutoff_lo"])
     return {
-        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 2e-3,
-        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 2.5e-4,
+        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 250e-6,
+        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 5e-6,
         "cut_borders_after_smoothing": bool(_data_param_field(struct, "cut_borders_after_smoothing", 1)),
         "use_mean": bool(_data_param_field(struct, "use_mean", 1)),
-        "angle_accuracy": float(_data_param_field(struct, "angle_accuracy", 0.1)),
+        "angle_accuracy": float(_data_param_field(struct, "angle_accuracy", 90)),
         "subsampling_factor": int(_scalar(struct["subsampling"]) or 1),
     }
 
