@@ -24,11 +24,11 @@ from .helpers import (
 )
 
 
-IMAGE_HEIGHT = 950
-IMAGE_WIDTH = 800
-CELL_SIZE = 80
+IMAGE_HEIGHT = 95
+IMAGE_WIDTH = 80
+CELL_SIZE = 20
 PIXEL_SIZE = 1e-6
-CELL_TOP_LEFT = (30, 30)
+CELL_TOP_LEFT = (30, 46)
 SCORE_TOLERANCE = 0.05
 NAN_FILL_ROWS = 4  # number of rows set to NaN in partial-NaN tests
 MIN_OVERLAP = 10
@@ -89,10 +89,7 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=grid_cells,
-            comparison_image=comparison_image,
-            params=params,
-            fill_value_reference=float(np.nanmean(comparison_image.data)),
+            grid_cells=grid_cells, comparison_image=comparison_image, params=params
         )
 
         # Assert
