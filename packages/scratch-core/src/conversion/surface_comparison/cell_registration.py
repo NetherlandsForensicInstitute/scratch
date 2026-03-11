@@ -133,6 +133,34 @@ def coarse_registration(
             masked_scores = np.where(sliced_mask, score_map, -np.inf)
             best_flat_index = int(np.argmax(masked_scores))
             score = float(masked_scores.flat[best_flat_index])
+            if angle == 0.0:
+                import matplotlib.pyplot as plt
+                # Maak een figuur met 1 rij en 2 kolommen
+                fig, ax = plt.subplots(2, 2, figsize=(10, 5))
+
+                # Toon de eerste afbeelding in de linker subplot
+                ax[0][0].imshow(rotated)
+                ax[0][0].set_title('rotated')
+                ax[0][0].axis('off')  # Verberg de assen
+
+                # Toon de tweede afbeelding in de rechter subplot
+                ax[0][1].imshow(template.cell_data)
+                ax[0][1].set_title('template')
+                ax[0][1].axis('off')  # Verberg de assen
+
+                # Toon de eerste afbeelding in de linker subplot
+                ax[1][0].imshow(score_map)
+                ax[1][0].set_title('score_map')
+                ax[1][0].axis('off')  # Verberg de assen
+
+                # Toon de tweede afbeelding in de rechter subplot
+                ax[1][1].imshow(valid_mask)
+                ax[1][1].set_title('valid_mask')
+                ax[1][1].axis('off')  # Verberg de assen
+
+                plt.tight_layout()  # Optimaliseer de tussenruimte
+                plt.show()
+                pass
             if score > grid_cell.grid_search_params.score:
                 y, x = np.unravel_index(best_flat_index, masked_scores.shape)
                 grid_cell.grid_search_params.update(

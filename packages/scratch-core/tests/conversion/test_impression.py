@@ -871,12 +871,15 @@ class TestMarkCenter:
         assert mark.center == (42.0, 17.0)
 
     def test_center_with_odd_dimensions(
-        self, scan_image_rectangular_with_nans: ScanImage, scan_image_replica: ScanImage
+        self, scan_image_rectangular_with_nans: ScanImage, scan_image: ScanImage
     ):
         """Verify center calculation with odd dimensions."""
-        scan_image = scan_image_replica  # scan_image_rectangular_with_nans
+        scan_image = scan_image_rectangular_with_nans
         # height, width = scan_image.height, scan_image.width
-        data = scan_image.data
+        from scipy.io import loadmat
+
+        data = mat['data_struct'][0, 0]['depth_data'].astype(np.float64)
+        # data = scan_image.data
         impression_mark = make_mark(
             data,
             scale_x=scan_image.scale_x,
@@ -885,6 +888,7 @@ class TestMarkCenter:
         )
 
         # assert impression_mark.center == (101.5, 50.5)
+
 
         # TODO: REMOVE
         p1 = ProcessedMark(filtered_mark=impression_mark, leveled_mark=impression_mark)
