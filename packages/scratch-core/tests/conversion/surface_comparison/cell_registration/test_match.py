@@ -146,7 +146,10 @@ class TestGetScoreMap:
             comparison_array=filled, template=grid_cell.cell_data_filled
         )
 
-        # Assert
+        # Asserts
         peak_row, peak_col = np.unravel_index(np.argmax(score_map), score_map.shape)
         assert peak_row == CELL_TOP_LEFT[1]
         assert peak_col == CELL_TOP_LEFT[0]
+        assert score_map[peak_row, peak_col] == pytest.approx(1.0)
+        assert score_map.shape[0] == data.shape[0] - grid_cell.height + 1
+        assert score_map.shape[1] == data.shape[1] - grid_cell.width + 1

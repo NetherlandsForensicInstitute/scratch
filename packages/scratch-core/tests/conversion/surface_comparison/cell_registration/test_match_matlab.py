@@ -5,6 +5,8 @@ yield a score near 1.0 at the correct position.  Both unit-scale and µm-scale
 inputs are exercised so numerical robustness across orders of magnitude is
 confirmed.  A dedicated test for _nan_aware_ncc_map ensures NaN regions in
 the template do not produce spurious scores.
+
+TODO: Remove this file when the MATLAB implementation can be deprecated.
 """
 
 import numpy as np
