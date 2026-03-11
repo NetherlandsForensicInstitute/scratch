@@ -34,6 +34,10 @@ class ComparisonStriationFiles(UrlFiles):
     similarity_plot = "similarity_plot.png"
     filtered_compared_heatmap = "filtered_compared_heatmap.png"
     side_by_side_heatmap = "side_by_side_heatmap.png"
+    mark_compared_aligned_data = "mark_compared_aligned.npz"
+    mark_compared_aligned_meta = "mark_compared_aligned.json"
+    mark_reference_aligned_data = "mark_reference_aligned.npz"
+    mark_reference_aligned_meta = "mark_reference_aligned.json"
 
 
 class PrepareMarkImpressionFiles(UrlFiles):

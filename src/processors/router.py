@@ -102,8 +102,14 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
         metadata_reference=striation_params.param.metadata_reference,
         metadata_compared=striation_params.param.metadata_compared,
     )
-    save_mark(comparison_result.mark_reference_aligned, path=expected_files["mark_reference_aligned_data"])
-    save_mark(comparison_result.mark_compared_aligned, path=expected_files["mark_compared_aligned_data"])
+    save_mark(
+        comparison_result.mark_reference_aligned,
+        path=ComparisonStriationFiles.mark_reference_aligned_data.get_file_path(vault.resource_path),
+    )
+    save_mark(
+        comparison_result.mark_compared_aligned,
+        path=ComparisonStriationFiles.mark_compared_aligned_data.get_file_path(vault.resource_path),
+    )
     surface_map_pipeline(
         comparison_result.mark_reference_aligned.scan_image,
         ComparisonStriationFiles.mark_ref_surfacemap.get_file_path(vault.resource_path),
@@ -144,9 +150,8 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
 async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse:
     """Calculate likelihood ratio for impression mark comparison."""
     vault = create_vault(lr_input.tag)
-    log_lr = process_lr_impression(lr_input=lr_input, files=LRFiles)
+    log_lr = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
     return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url), lr=log_lr)
-
 
 
 @processors.post(
@@ -161,5 +166,5 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
 async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     """Calculate likelihood ratio for striation mark comparison."""
     vault = create_vault(lr_input.tag)
-    log_lr = process_lr_striation(lr_input=lr_input, files=LRFiles)
+    log_lr = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
     return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url), lr=log_lr)
