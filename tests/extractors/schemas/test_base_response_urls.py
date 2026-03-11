@@ -296,6 +296,10 @@ class TestComparisonResponseStriation:
                 "filtered_compared_heatmap",
                 "side_by_side_heatmap",
                 "wavedlength_plot",
+                "mark_reference_aligned_meta",
+                "mark_reference_aligned_data",
+                "mark_compared_aligned_data",
+                "mark_compared_aligned_meta",
             },
             id=ComparisonResponseStriation.__name__,
         ),
@@ -326,5 +330,4 @@ class TestBaseResponseUrlsChildren:
         func = getattr(klass, method)
         items = func(tmp_path) if method == "get_files" else func(_BASE_URL).model_dump(by_alias=True)
 
-        missing = set(items) - fields
         assert not (missing := (set(items) - fields)), f"files {', '.join(missing)} are missing"
