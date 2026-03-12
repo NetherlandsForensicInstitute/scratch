@@ -14,7 +14,7 @@ def generate_grid(
     scan_image: ScanImage, cell_size: tuple[float, float], minimum_fill_fraction: float
 ) -> list[GridCell]:
     """
-    Generate a centered grid of cells covering the image.
+    Generate a centered grid of cells covering the image. The image is assumed to be isotropic.
 
     The grid is symmetrically centered on the image using the MATLAB even/odd
     seed logic. Cells with insufficient valid data are filtered out.
@@ -57,11 +57,12 @@ def extract_patch(
     patch_size: tuple[int, int],
     fill_value: float = np.nan,
 ) -> FloatArray2D:
-    """Extract a rectangular patch from a scan image, padding with fill_value
+    """
+    Extract a rectangular patch from a scan image, padding with fill_value
     where the patch extends beyond the image boundaries.
 
     :param scan_image: source image to extract from
-    :param coordinates: (x, y) top-left corner of the patch, may be negative
+    :param coordinates: (x, y) top-left corner of the patch, may be negative, in pixel coordinates
     :param patch_size: (width, height) of the output patch
     :param fill_value: value to use for out-of-bounds pixels
     :return: 2D array of shape (height, width)
@@ -112,12 +113,6 @@ def _tile_axis(image_size: int, cell_size: int) -> list[int]:
     :return: sorted list of top-left coordinates
     """
     n = math.ceil(image_size / cell_size)
-    if n % 2 == 1:
-        anchor = image_size / 2
-    else:
-        anchor = image_size / 2 - cell_size / 2
-
-    offsets = np.arange(n) - (n - 1) // 2
-    top_lefts = np.round(anchor - cell_size / 2 + offsets * cell_size).astype(int)
-
+    offsets = np.arange(n) - n / 2
+    top_lefts = np.round(offsets * cell_size + image_size / 2).astype(int)
     return top_lefts.tolist()
