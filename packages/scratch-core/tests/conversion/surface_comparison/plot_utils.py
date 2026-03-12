@@ -13,6 +13,7 @@ def plot_rotated_squares(
     titles: list[str],
     congruents: list[bool],
 ) -> np.ndarray:
+    # TODO: Change plot API to accept `Cell` instances instead
     """Plots rotated squares on a float-based image."""
     # 1. Normalize the 1e-6 data to 0-255 range for visualization
     img_min, img_max = np.nanmin(image), np.nanmax(image)
