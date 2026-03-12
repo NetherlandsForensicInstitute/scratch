@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Sequence
 
 import matplotlib.pyplot as plt
 from scipy.constants import mega
@@ -25,20 +26,15 @@ from conversion.plots.utils import (
     plot_depth_map_on_axes,
     plot_depth_map_with_axes,
 )
+from conversion.surface_comparison.models import Cell
+from conversion.surface_comparison.utils import _cells_to_grid
 
 
-def compute_cell_size_um(
-    data_shape: tuple[int, ...],
-    scale: float,
-    cell_grid_shape: tuple[int, ...],
-) -> tuple[float, float]:
-    """Derive (width, height) cell size in µm from reference surface dimensions."""
-    height, width = data_shape
-    n_rows, n_cols = cell_grid_shape
-    return (
-        width * scale * mega / n_cols,
-        height * scale * mega / n_rows,
-    )
+def compute_cell_size_um(cell: Cell, scale: float) -> tuple[float, float]:
+    """Derive (width, height) cell size in µm from cell data dimensions."""
+    cell_h_px, cell_w_px = cell.cell_data.shape
+    scale_um = scale * mega
+    return cell_w_px * scale_um, cell_h_px * scale_um
 
 
 def plot_impression_comparison_results(
@@ -46,7 +42,7 @@ def plot_impression_comparison_results(
     mark_compared_leveled: Mark,
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
-    metrics: ImpressionComparisonMetrics,
+    cells: Sequence[Cell],
     metadata_reference: MarkMetadata,
     metadata_compared: MarkMetadata,
 ) -> ImpressionComparisonPlots:
@@ -57,7 +53,7 @@ def plot_impression_comparison_results(
     :param mark_compared_leveled: Compared mark after leveling.
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.
-    :param metrics: Comparison metrics including correlation values.
+    :param cells: Cells to plot.
     :param metadata_reference: Metadata dict for reference mark display.
     :param metadata_compared: Metadata dict for compared mark display.
     :returns: ImpressionComparisonPlots with all rendered images.
@@ -87,35 +83,28 @@ def plot_impression_comparison_results(
     # Cell/CMC-based plots
     scale = mark_reference_filtered.scan_image.scale_x
     cell_size_um = compute_cell_size_um(
-        mark_reference_filtered.scan_image.data.shape,
+        cells[0],
         scale,
-        metrics.cell_correlations.shape,
     )
     cell_ref = plot_cell_grid_overlay(
         data=mark_reference_filtered.scan_image.data,
         scale=scale,
-        cell_correlations=metrics.cell_correlations,
+        cells=cells,
         cell_label_prefix="A",
-        cell_similarity_threshold=metrics.cell_similarity_threshold,
     )
     cell_comp = plot_cell_grid_overlay(
         data=mark_compared_filtered.scan_image.data,
         scale=mark_compared_filtered.scan_image.scale_x,
-        cell_correlations=metrics.cell_correlations,
+        cells=cells,
         cell_label_prefix="B",
-        cell_similarity_threshold=metrics.cell_similarity_threshold,
         show_all_cells=False,
-        cell_positions=metrics.cell_positions_compared,
-        cell_rotations=metrics.cell_rotations_compared,
         cell_size_um=cell_size_um
-        if metrics.cell_positions_compared is not None
-        else None,
     )
     cell_overlay = plot_cell_grid_overlay(
         data=mark_reference_filtered.scan_image.data,
         scale=scale,
-        cell_correlations=metrics.cell_correlations,
-        cell_similarity_threshold=metrics.cell_similarity_threshold,
+        cells=cells,
+        cell_size_um=cell_size_um
     )
     ref_data = mark_reference_filtered.scan_image.data
     surface_extent_um = (
@@ -123,7 +112,7 @@ def plot_impression_comparison_results(
         ref_data.shape[0] * scale * mega,
     )
     cell_correlation = plot_cell_correlation_heatmap(
-        cell_correlations=metrics.cell_correlations,
+        cells=cells,
         surface_extent_um=surface_extent_um,
     )
 
@@ -153,12 +142,9 @@ def plot_impression_comparison_results(
 def plot_cell_grid_overlay(
     data: FloatArray2D,
     scale: float,
-    cell_correlations: FloatArray2D,
+    cells: Sequence[Cell],
     cell_label_prefix: str = "A",
-    cell_similarity_threshold: float = 0.25,
     show_all_cells: bool = True,
-    cell_positions: np.ndarray | None = None,
-    cell_rotations: np.ndarray | None = None,
     cell_size_um: tuple[float, float] | None = None,
 ) -> ImageRGB:
     """
@@ -169,12 +155,9 @@ def plot_cell_grid_overlay(
 
     :param data: Surface data in meters.
     :param scale: Pixel scale in meters.
-    :param cell_correlations: Grid of per-cell correlation values.
+    :param cells: Cells to plot.
     :param cell_label_prefix: Label prefix for cells ("A" for reference, "B" for compared).
-    :param cell_similarity_threshold: Minimum correlation for a cell to be considered CMC.
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
-    :param cell_positions: (n_cells, 2) array of (x, y) positions in µm, row-major order.
-    :param cell_rotations: (n_cells,) array of rotation angles in radians, row-major order.
     :param cell_size_um: (width, height) of a cell in µm (required when cell_positions is set).
     :returns: RGB image as uint8 array.
     """
@@ -186,12 +169,9 @@ def plot_cell_grid_overlay(
         ax,
         data,
         scale,
-        cell_correlations,
+        cells=cells,
         cell_label_prefix=cell_label_prefix,
-        cell_similarity_threshold=cell_similarity_threshold,
         show_all_cells=show_all_cells,
-        cell_positions=cell_positions,
-        cell_rotations=cell_rotations,
         cell_size_um=cell_size_um,
     )
     ax.set_title("Cell Grid Overlay", fontsize=12, fontweight="bold")
@@ -207,19 +187,19 @@ def plot_cell_grid_overlay(
 
 
 def plot_cell_correlation_heatmap(
-    cell_correlations: FloatArray2D,
+    cells: Sequence[Cell],
     surface_extent_um: tuple[float, float],
 ) -> ImageRGB:
     """
     Plot heatmap of per-cell correlation values.
 
-    :param cell_correlations: Grid of per-cell correlation values.
+    :param cells: Cell results from the CMC pipeline.
     :param surface_extent_um: (width, height) of the surface in µm.
     :returns: RGB image as uint8 array.
     """
+    cell_correlations, _, _ = _cells_to_grid(cells)
     n_rows, n_cols = cell_correlations.shape
 
-    # Calculate figure size based on grid dimensions
     base_size = 6
     aspect = n_cols / n_rows
     if aspect > 1:
@@ -231,7 +211,7 @@ def plot_cell_correlation_heatmap(
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
-    _plot_cell_heatmap_on_axes(ax, fig, cell_correlations, surface_extent_um)
+    _plot_cell_heatmap_on_axes(ax, fig, cells=cells, cell_correlations=cell_correlations, surface_extent_um=surface_extent_um)
 
     fig.tight_layout()
     arr = figure_to_array(fig)
@@ -244,7 +224,7 @@ def plot_comparison_overview(
     mark_compared_leveled: Mark,
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
-    metrics: ImpressionComparisonMetrics,
+    cells: Sequence[Cell],
     metadata_reference: MarkMetadata,
     metadata_compared: MarkMetadata,
     wrap_width: int = 25,
@@ -259,7 +239,7 @@ def plot_comparison_overview(
     :param mark_compared_leveled: Compared mark after leveling.
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.
-    :param metrics: Comparison metrics including correlation values.
+    :param cells: Cells to plot.
     :param metadata_reference: Metadata object for reference mark display.
     :param metadata_compared: Metadata object for compared mark display.
     :param wrap_width: Maximum characters per line before wrapping.
@@ -388,13 +368,9 @@ def plot_comparison_overview(
         mark_compared_filtered.scan_image.scale_x,
         metrics.cell_correlations,
         cell_label_prefix="B",
-        cell_similarity_threshold=metrics.cell_similarity_threshold,
+        cells=cells,
         show_all_cells=False,
-        cell_positions=metrics.cell_positions_compared,
-        cell_rotations=metrics.cell_rotations_compared,
         cell_size_um=cell_size_um
-        if metrics.cell_positions_compared is not None
-        else None,
     )
     ax_filtered_comp.set_title(
         "Filtered Compared Surface B", fontsize=12, fontweight="bold"
@@ -414,10 +390,10 @@ def plot_comparison_overview(
     _plot_cell_heatmap_on_axes(
         ax_heatmap,
         fig,
-        metrics.cell_correlations,
+        cells=cells,
+        cell_correlations=metrics.cell_correlations,
         surface_extent_um=heatmap_extent_um,
         cell_label_prefix="A",
-        cell_similarity_threshold=metrics.cell_similarity_threshold,
     )
 
     fig.tight_layout(pad=0.8, h_pad=1.2, w_pad=0.8)
@@ -442,12 +418,9 @@ def _get_grid_positions(
 
 def _draw_cell_labels(
     ax: Axes,
-    cell_correlations: FloatArray2D,
-    positions: np.ndarray,
-    rotations: np.ndarray,
+    cells: Sequence[Cell],
     cell_size: tuple[float, float],
     cell_label_prefix: str,
-    cell_similarity_threshold: float,
     show_all_cells: bool,
 ) -> None:
     """
@@ -457,37 +430,19 @@ def _draw_cell_labels(
     CMC cells are drawn first so red outlines are not hidden by adjacent borders.
 
     :param ax: Matplotlib axes to draw on.
-    :param cell_correlations: Grid of per-cell correlation values.
-    :param positions: (n_cells, 2) array of (x, y) center positions in µm.
-    :param rotations: (n_cells,) array of rotation angles in radians.
+    :param cells: cells to draw
     :param cell_size: (width, height) of a cell in µm.
     :param cell_label_prefix: Label prefix for cells ("A" or "B").
-    :param cell_similarity_threshold: Minimum correlation for CMC.
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
     """
-    n_rows, n_cols = cell_correlations.shape
+    cmc_cells: list[tuple[int, Cell]] = []
+    non_cmc_cells: list[tuple[int, Cell]] = []
 
-    cmc_cells: list[tuple[int, int, int]] = []
-    non_cmc_cells: list[tuple[int, int, int]] = []
-
-    cell_index = 0
-    for i in range(n_rows):
-        for j in range(n_cols):
-            cell_index += 1
-            corr_val = cell_correlations[i, j]
-
-            if np.isnan(corr_val):
-                continue
-
-            is_cmc = corr_val >= cell_similarity_threshold
-
-            if not is_cmc and not show_all_cells:
-                continue
-
-            if is_cmc:
-                cmc_cells.append((i, j, cell_index))
-            else:
-                non_cmc_cells.append((i, j, cell_index))
+    for idx, cell in enumerate(cells, start=1):
+        if cell.is_congruent:
+            cmc_cells.append((idx, cell))
+        elif show_all_cells:
+            non_cmc_cells.append((idx, cell))
 
     w, h = cell_size
     half_w, half_h = w / 2, h / 2
@@ -495,17 +450,12 @@ def _draw_cell_labels(
         [[-half_w, -half_h], [half_w, -half_h], [half_w, half_h], [-half_w, half_h]]
     )
 
-    for color, cells in [("black", cmc_cells), ("red", non_cmc_cells)]:
-        for i, j, idx in cells:
-            flat_index = i * n_cols + j
+    for color, labeled_cells in [("black", cmc_cells), ("red", non_cmc_cells)]:
+        for idx, cell in labeled_cells:
+            cx = cell.center_comparison[0] * 1e6
+            cy = cell.center_comparison[1] * 1e6
 
-            cx = float(positions[flat_index, 0])
-            cy = float(positions[flat_index, 1])
-
-            if np.isnan(cx) or np.isnan(cy):
-                continue
-
-            angle = float(rotations[flat_index])
+            angle = np.deg2rad(cell.angle_deg)
             cos_a, sin_a = np.cos(angle), np.sin(angle)
             rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
             corners = base_corners @ rot.T
@@ -533,13 +483,10 @@ def plot_cell_overlay_on_axes(
     ax: Axes,
     data: FloatArray2D,
     scale: float,
-    cell_correlations: FloatArray2D,
+    cells: Sequence[Cell],
+    cell_size_um: tuple[float, float],
     cell_label_prefix: str = "A",
-    cell_similarity_threshold: float = 0.25,
     show_all_cells: bool = True,
-    cell_positions: np.ndarray | None = None,
-    cell_rotations: np.ndarray | None = None,
-    cell_size_um: tuple[float, float] | None = None,
 ) -> AxesImage:
     """
     Plot surface with cell grid overlay on given axes.
@@ -557,16 +504,12 @@ def plot_cell_overlay_on_axes(
     :param ax: Matplotlib axes to plot on.
     :param data: Surface data in meters.
     :param scale: Pixel scale in meters.
-    :param cell_correlations: Grid of per-cell correlation values.
+    :param cells: cells to plot
+    :param cell_size_um: (width, height) of a cell in µm.
     :param cell_label_prefix: Label prefix for cells ("A" for reference, "B" for compared).
-    :param cell_similarity_threshold: Minimum correlation for a cell to be considered CMC.
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
-    :param cell_positions: (n_cells, 2) array of (x, y) positions in µm, row-major order.
-    :param cell_rotations: (n_cells,) array of rotation angles in radians, row-major order.
-    :param cell_size_um: (width, height) of a cell in µm (required when cell_positions is set).
     """
     height, width = data.shape
-    n_rows, n_cols = cell_correlations.shape
 
     # Plot the surface
     extent = (0, width * scale * mega, 0, height * scale * mega)
@@ -579,29 +522,11 @@ def plot_cell_overlay_on_axes(
     )
 
     # Cell size in µm
-    cell_w_um = width * scale * mega / n_cols
-    cell_h_um = height * scale * mega / n_rows
-
-    positions = (
-        cell_positions
-        if cell_positions is not None
-        else _get_grid_positions(n_rows, n_cols, cell_w_um, cell_h_um)
-    )
-    rotations = (
-        cell_rotations
-        if cell_rotations is not None
-        else np.zeros(n_rows * n_cols, dtype=np.float64)
-    )
-    cell_size = cell_size_um or (cell_w_um, cell_h_um)
-
     _draw_cell_labels(
         ax,
-        cell_correlations=cell_correlations,
-        positions=positions,
-        rotations=rotations,
-        cell_size=cell_size,
+        cells=cells,
+        cell_size=cell_size_um,
         cell_label_prefix=cell_label_prefix,
-        cell_similarity_threshold=cell_similarity_threshold,
         show_all_cells=show_all_cells,
     )
 
@@ -616,21 +541,20 @@ def _plot_cell_heatmap_on_axes(
     ax: Axes,
     fig: Figure,
     cell_correlations: FloatArray2D,
+    cells: Sequence[Cell],
     surface_extent_um: tuple[float, float],
     cell_label_prefix: str = "A",
-    cell_similarity_threshold: float = 0.25,
 ) -> None:
     """
     Plot cell correlation heatmap on given axes.
 
     :param ax: Matplotlib axes to plot on.
     :param fig: Figure (needed for colorbar).
-    :param cell_correlations: Grid of per-cell correlation values.
+    :param cell_correlations: Grid of per-cell correlation values (n_rows, n_cols).
+    :param cells: Cell results from the CMC pipeline.
     :param surface_extent_um: (width, height) of the surface in µm.
     :param cell_label_prefix: Prefix for cell labels.
-    :param cell_similarity_threshold: Minimum correlation for CMC.
     """
-    n_rows, n_cols = cell_correlations.shape
     w_um, h_um = surface_extent_um
 
     im = ax.imshow(
@@ -643,32 +567,24 @@ def _plot_cell_heatmap_on_axes(
         vmax=1,
     )
 
-    cell_w = w_um / n_cols
-    cell_h = h_um / n_rows
+    for idx, cell in enumerate(cells, start=1):
+        if np.isnan(cell.best_score):
+            continue
 
-    cell_index = 0
-    for i in range(n_rows):
-        for j in range(n_cols):
-            cell_index += 1
-            val = cell_correlations[i, j]
-            if np.isnan(val):
-                continue
+        cx = cell.center_reference[0] * 1e6
+        cy = cell.center_reference[1] * 1e6
+        color = "blue" if cell.is_congruent else "red"
 
-            cx = (j + 0.5) * cell_w
-            cy = (n_rows - 1 - i + 0.5) * cell_h
-            is_cmc = val >= cell_similarity_threshold
-            color = "blue" if is_cmc else "red"
-
-            ax.text(
-                cx,
-                cy,
-                f"{cell_label_prefix}{cell_index}",
-                ha="center",
-                va="center",
-                fontsize=9,
-                color=color,
-                fontweight="bold",
-            )
+        ax.text(
+            cx,
+            cy,
+            f"{cell_label_prefix}{idx}",
+            ha="center",
+            va="center",
+            fontsize=9,
+            color=color,
+            fontweight="bold",
+        )
 
     ax.set_title("Cell ACCF Distribution", fontsize=12, fontweight="bold")
     ax.tick_params(labelsize=10)

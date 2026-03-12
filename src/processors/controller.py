@@ -3,7 +3,6 @@ from http import HTTPStatus
 from pathlib import Path
 
 import numpy as np
-from container_models.base import FloatArray1D, FloatArray2D
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.export.mark import load_mark_from_path
 from conversion.likelihood_ratio import (
@@ -26,6 +25,7 @@ from lir.util import probability_to_logodds
 from loguru import logger
 from PIL import Image
 
+from conversion.surface_comparison.utils import _cells_to_grid
 from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from processors.schemas import CalculateLRImpression, CalculateLRStriation
 
@@ -80,46 +80,6 @@ def save_striation_comparison_plots(  # noqa: PLR0913
     Image.fromarray(plots.filtered_reference_heatmap).save(
         files_to_save.filtered_reference_heatmap.get_file_path(working_dir)
     )
-
-
-def _cells_to_grid(
-    cells: Sequence[Cell],
-) -> tuple[FloatArray2D, FloatArray2D, FloatArray1D]:
-    """
-    Map unordered cells onto a row-major grid.
-
-    Grid dimensions and spacing are inferred from the cell center positions.
-
-    :param cells: Unordered cell results from the CMC pipeline.
-    :return: cell_correlations (n_rows, n_cols),
-             cell_positions_compared (n_rows * n_cols, 2) in µm,
-             cell_rotations_compared (n_rows * n_cols,) in radians.
-    """
-    centers = np.array([c.center_reference for c in cells])
-
-    unique_x = np.unique(np.round(centers[:, 0], decimals=9))
-    unique_y = np.unique(np.round(centers[:, 1], decimals=9))
-    step_x = np.diff(unique_x).min() if len(unique_x) > 1 else 1.0
-    step_y = np.diff(unique_y).min() if len(unique_y) > 1 else 1.0
-
-    col_indices = np.round((centers[:, 0] - unique_x[0]) / step_x).astype(int)
-    row_indices = np.round((centers[:, 1] - unique_y[0]) / step_y).astype(int)
-
-    n_rows = row_indices.max() + 1
-    n_cols = col_indices.max() + 1
-
-    cell_correlations = np.full((n_rows, n_cols), np.nan)
-    cell_positions = np.full((n_rows * n_cols, 2), np.nan)
-    cell_rotations = np.full(n_rows * n_cols, np.nan)
-
-    for k, cell in enumerate(cells):
-        r, c = row_indices[k], col_indices[k]
-        flat = r * n_cols + c
-        cell_correlations[r, c] = cell.best_score
-        cell_positions[flat] = np.array(cell.center_comparison) * 1e6
-        cell_rotations[flat] = np.deg2rad(cell.angle_deg)
-
-    return cell_correlations, cell_positions, cell_rotations
 
 
 def build_impression_metrics(
@@ -193,7 +153,7 @@ def save_lr_impression_plot(  # noqa: PLR0913
     reference_data: ModelSpecs,
     mark_ref: Mark,
     mark_comp: Mark,
-    metrics: ImpressionComparisonMetrics,
+    cells: Sequence[Cell],
     metadata_reference: MarkMetadata,
     metadata_compared: MarkMetadata,
     results_metadata: dict[str, str],
@@ -210,7 +170,7 @@ def save_lr_impression_plot(  # noqa: PLR0913
     :param reference_data: Reference population data with KM/KNM scores and LLRs.
     :param mark_ref: Filtered reference mark surface.
     :param mark_comp: Filtered compared mark surface.
-    :param metrics: Cell and area correlation metrics from the CMC comparison.
+    :param cells: Cells to plot.
     :param metadata_reference: Display metadata for the reference mark.
     :param metadata_compared: Display metadata for the compared mark.
     :param results_metadata: Formatted summary of comparison results for display.
@@ -221,7 +181,7 @@ def save_lr_impression_plot(  # noqa: PLR0913
     plot = plot_cmc_comparison_overview(
         mark_reference_filtered=mark_ref,
         mark_compared_filtered=mark_comp,
-        metrics=metrics,
+        cells=cells,
         metadata_reference=metadata_reference,
         metadata_compared=metadata_compared,
         results_metadata=results_metadata,
