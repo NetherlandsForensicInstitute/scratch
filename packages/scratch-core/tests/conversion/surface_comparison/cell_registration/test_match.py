@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from container_models.scan_image import ScanImage
-from conversion.surface_comparison.cell_registration.match import (
+from conversion.surface_comparison.cell_registration.coarse import (
     match_cells,
     _get_fill_fraction_map,
     _get_score_map,
