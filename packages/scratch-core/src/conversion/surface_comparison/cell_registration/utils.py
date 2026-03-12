@@ -2,7 +2,6 @@ from container_models.base import FloatArray2D
 from conversion.surface_comparison.models import Cell, GridCell, CellMetaData
 
 import numpy as np
-from numpy.typing import NDArray
 
 from conversion.surface_comparison.utils import convert_pixels_to_meters
 
@@ -32,11 +31,6 @@ def convert_grid_cell_to_cell(grid_cell: GridCell, pixel_size: float) -> Cell:
         ),  # TODO: We shouldn't set this here?
     )
     return cell
-
-
-def compute_fill_fraction(array: NDArray) -> float:
-    """Compute the fraction of valid (non-NaN) values in the array."""
-    return float(np.count_nonzero(~np.isnan(array)) / array.size)
 
 
 def pad_image_array(

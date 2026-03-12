@@ -1,11 +1,3 @@
-"""Tests for conversion.surface_comparison.cell_registration.match.
-
-Each test uses an identical reference and comparison image so the expected
-best score is ~1.0 and the best position coincides with the cell's own
-top-left corner.  Two magnitude scales are exercised (unit-scale and µm-scale)
-to confirm numerical robustness.
-"""
-
 import numpy as np
 import pytest
 

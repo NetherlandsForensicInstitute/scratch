@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from conversion.surface_comparison.cell_registration.utils import (
-    compute_fill_fraction,
     convert_grid_cell_to_cell,
     pad_image_array,
 )
@@ -60,29 +59,6 @@ class TestPadImageArray:
             PAD_HEIGHT : PAD_HEIGHT + IMAGE_HEIGHT, PAD_WIDTH : PAD_WIDTH + IMAGE_WIDTH
         ]
         np.testing.assert_array_equal(interior, array)
-
-
-class TestComputeFillFraction:
-    def test_compute_fill_fraction_fully_valid(self):
-        # Arrange
-        array = make_surface(height=CELL_SIZE, width=CELL_SIZE)
-
-        # Act
-        fraction = compute_fill_fraction(array)
-
-        # Assert
-        assert fraction == pytest.approx(1.0)
-
-    def test_compute_fill_fraction_half_nan(self):
-        # Arrange
-        array = make_surface(height=CELL_SIZE, width=CELL_SIZE)
-        array[: CELL_SIZE // 2, :] = np.nan
-
-        # Act
-        fraction = compute_fill_fraction(array)
-
-        # Assert
-        assert fraction == pytest.approx(0.5)
 
 
 class TestConvertGridCellToCell:
