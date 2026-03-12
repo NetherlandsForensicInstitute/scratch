@@ -144,23 +144,23 @@ class GridSearchParams:
     """
     Mutable container for the best registration parameters found so far for one cell.
     All positional attributes are in pixel coordinates of the (rotated) comparison image.
-    :param top_left_x: Top left x-coordinate of the best-matching comparison patch (pixels).
-    :param top_left_y: Top left y-coordinate of the best-matching comparison patch (pixels).
+    :param center_x: Center x-coordinate of the best-matching comparison patch (pixels).
+    :param center_y: Center y-coordinate of the best-matching comparison patch (pixels).
     :param angle: Rotation angle at which the best score was found (degrees).
     :param score: Best normalized cross-correlation score found so far.
     """
 
-    top_left_x: int = -1
-    top_left_y: int = -1
+    center_x: float = -1.0
+    center_y: float = -1.0
     angle: float = 0.0
     score: float = float("-inf")
 
     def update(
-        self, top_left_x: int, top_left_y: int, angle: float, score: float
+        self, center_x: float, center_y: float, angle: float, score: float
     ) -> None:
         """Replace all fields with a new best result."""
-        self.top_left_x = top_left_x
-        self.top_left_y = top_left_y
+        self.center_x = center_x
+        self.center_y = center_y
         self.angle = angle
         self.score = score
 

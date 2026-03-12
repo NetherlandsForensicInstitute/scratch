@@ -19,8 +19,8 @@ def convert_grid_cell_to_cell(grid_cell: GridCell, pixel_size: float) -> Cell:
         angle_deg=grid_cell.grid_search_params.angle,
         center_comparison=convert_pixels_to_meters(
             values=(
-                grid_cell.grid_search_params.top_left_x + grid_cell.width / 2,
-                grid_cell.grid_search_params.top_left_y + grid_cell.height / 2,
+                grid_cell.grid_search_params.center_x,  # + grid_cell.width / 2,
+                grid_cell.grid_search_params.center_y,  # + grid_cell.height / 2,
             ),
             pixel_size=pixel_size,
         ),

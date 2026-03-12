@@ -14,6 +14,8 @@ from conversion.surface_comparison.cell_registration.utils import (
 
 import cv2
 
+from conversion.surface_comparison.utils import rotate_points
+
 
 def match_cells(
     grid_cells: list[GridCell], comparison_image: ScanImage, params: ComparisonParams
@@ -50,7 +52,6 @@ def match_cells(
 
     for angle in angles:
         angle = float(angle)
-
         # Rotate the comparison image by `-angle` degrees.
         # This is equivalent to rotating the reference patch by `angle` degrees.
         rotated = rotate(
@@ -68,32 +69,32 @@ def match_cells(
             cell_width=cell_width,
             cell_height=cell_height,
         )
-        # TODO: Do we need a different fill fraction here for comparison?
         fill_fraction_mask = fill_fraction_map >= params.minimum_fill_fraction
         # Now that we computed the fill fraction mask, we can safely replace NaN values in the rotated image
         rotated[~valid_mask] = fill_value_comparison
+        global_center_x, global_center_y = rotated.shape[1] / 2, rotated.shape[0] / 2
 
         for grid_cell in grid_cells:
             score_map = _get_score_map(
                 comparison_array=rotated,
                 template=grid_cell.cell_data_filled,
             )
-            # Make sure the shape of `score_map` and the `fill_fraction_mask` match
-            valid_positions = fill_fraction_mask[
-                : score_map.shape[0], : score_map.shape[1]
-            ]
-            # Replace non-valid values (where fill fraction is below threshold) with -inf
-            masked_scores = np.where(valid_positions, score_map, -np.inf)
-            # Compute the best x, y position from the score map
-            best_flat_index = np.argmax(masked_scores)
-            score = float(masked_scores.flat[best_flat_index])
+            score, x, y = _compute_best_score_from_maps(
+                score_map=score_map, fill_fraction_mask=fill_fraction_mask
+            )
             if score > grid_cell.grid_search_params.score:
-                y, x = np.unravel_index(best_flat_index, masked_scores.shape)
+                # Compute the center coordinates of the cell on the (original) unrotated image
+                center_x, center_y = _undo_rotation(
+                    vector=(x, y),
+                    angle=angle,
+                    pad_size=(cell_width, cell_height),
+                    center=(global_center_x, global_center_y),
+                )
                 grid_cell.grid_search_params.update(
                     score=score,
                     angle=angle,
-                    top_left_x=int(x) - cell_width,
-                    top_left_y=int(y) - cell_height,
+                    center_x=center_x,
+                    center_y=center_y,
                 )
 
     return [
@@ -130,6 +131,48 @@ def _get_fill_fraction_map(
     return np.asarray(filtered, dtype=np.float64)
 
 
+def _undo_rotation(
+    vector: tuple[float, float],
+    angle: float,
+    pad_size: tuple[int, int],
+    center: tuple[float, float],
+):
+    # Undo the -angle rotation that was applied to the padded comparison image.
+    angle_rad = np.radians(-angle)
+    pad_x, pad_y = pad_size
+    x_rotated, y_rotated = rotate_points(
+        points=np.array([vector]), center=center, angle=angle_rad
+    )[0]
+    # Remove the padding (one full cell on each side)
+    top_left_x = x_rotated - pad_x
+    top_left_y = y_rotated - pad_y
+    # Compute the original center coordinates from the top-left coordinates and the angle
+    center_x, center_y = rotate_points(
+        points=np.array([(pad_x / 2, pad_y / 2)]), angle=angle_rad, center=(0, 0)
+    )[0]
+    center_x += top_left_x
+    center_y += top_left_y
+    return center_x, center_y
+
+
+def _compute_best_score_from_maps(
+    score_map: FloatArray2D, fill_fraction_mask: BinaryMask
+) -> tuple[float, int, int]:
+    """
+    Compute the highest correlation score and the corresponding x, y coordinates
+    from the score and fill fraction maps.
+    """
+    # Make sure the shape of `score_map` and the `fill_fraction_mask` match
+    valid_positions = fill_fraction_mask[: score_map.shape[0], : score_map.shape[1]]
+    # Replace non-valid values (where fill fraction is below threshold) with -inf
+    masked_scores = np.where(valid_positions, score_map, -np.inf)
+    # Compute the best x, y position from the score map
+    best_flat_index = np.argmax(masked_scores)
+    score = masked_scores.flat[best_flat_index]
+    y, x = np.unravel_index(best_flat_index, masked_scores.shape)
+    return float(score), int(x), int(y)
+
+
 def _get_score_map(
     comparison_array: FloatArray2D, template: FloatArray2D
 ) -> FloatArray2D:
@@ -144,6 +187,7 @@ def _get_score_map(
     :param template: Reference grid cell whose ``cell_data`` is used as the template; must contain no NaN values.
     :returns: Float64 score map of shape ``(H - cell_height + 1, W - cell_width + 1)`` with values in ``[-1, 1]``.
     """
+
     score_map = cv2.matchTemplate(
         image=comparison_array.astype(np.float32),
         templ=template.astype(np.float32),
