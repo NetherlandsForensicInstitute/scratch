@@ -5,6 +5,7 @@ import numpy as np
 from container_models.base import FloatArray1D, FloatArray2D
 from conversion.data_formats import MarkMetadata
 from conversion.plots.data_formats import ImpressionComparisonMetrics
+from conversion.surface_comparison.models import ComparisonParams
 from pydantic import DirectoryPath, Field, FilePath, NonNegativeInt, PositiveInt, model_validator
 
 from models import BaseModelConfig
@@ -27,6 +28,10 @@ class MetadataParameters(BaseModelConfig):
 
 class CalculateScore(MarkDirectories):
     param: MetadataParameters
+
+
+class CalculateScoreImpression(CalculateScore):
+    comparison_params: ComparisonParams
 
 
 class CalculateLR(MarkDirectories, MetadataParameters):
@@ -80,19 +85,11 @@ class ImpressionLRParameters(BaseModelConfig):
     def to_metrics(self) -> ImpressionComparisonMetrics:
         """Convert to ImpressionComparisonMetrics with numpy arrays."""
         return ImpressionComparisonMetrics(
-            area_correlation=self.area_correlation,
             cell_correlations=self.cell_correlations_array,
             cmc_score=self.cmc_score,
-            mean_square_ref=self.mean_square_ref,
-            mean_square_comp=self.mean_square_comp,
-            mean_square_of_difference=self.mean_square_of_difference,
-            has_area_results=self.has_area_results,
-            has_cell_results=self.has_cell_results,
             cell_positions_compared=self.cell_positions_compared_array,
             cell_rotations_compared=self.cell_rotations_compared_array,
             cmc_area_fraction=self.cmc_area_fraction,
-            cutoff_low_pass=self.cutoff_low_pass,
-            cutoff_high_pass=self.cutoff_high_pass,
             cell_size_um=self.cell_size_um,
             max_error_cell_position=self.max_error_cell_position,
             max_error_cell_angle=self.max_error_cell_angle,

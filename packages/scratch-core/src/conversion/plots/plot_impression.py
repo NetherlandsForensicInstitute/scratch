@@ -274,26 +274,20 @@ def plot_comparison_overview(
     scale_x_um = mark_reference_filtered.scan_image.scale_x * mega
     scale_y_um = mark_reference_filtered.scan_image.scale_y * mega
 
-    results_items: dict[str, str] = {
+    results_items = {
         "Date report": datetime.now().strftime("%Y-%m-%d"),
         "Mark type": mark_reference_leveled.mark_type.value,
         "Number of Cells": str(n_cells),
         "Number of CMCs": str(n_cmc),
         "CMC fraction": f"{cmc_fraction:.2f} %",
+        "CMC area fraction": f"{metrics.cmc_area_fraction:.2f} %",
+        "Data spacing (X)": f"{scale_x_um:.4f} µm",
+        "Data spacing (Y)": f"{scale_y_um:.4f} µm",
+        "Cell Size": f"{metrics.cell_size_um:.0f} µm",
+        "Minimum cell similarity": f"{metrics.cell_similarity_threshold}",
+        "Max error cell position": f"{metrics.max_error_cell_position:.0f} µm",
+        "Max error cell angle": f"{metrics.max_error_cell_angle:.0f} degree",
     }
-    results_items["CMC area fraction"] = f"{metrics.cmc_area_fraction:.2f} %"
-    results_items["Data spacing (X)"] = f"{scale_x_um:.4f} µm"
-    results_items["Data spacing (Y)"] = f"{scale_y_um:.4f} µm"
-    results_items["Cutoff length low-pass filter"] = f"{metrics.cutoff_low_pass:.0f} µm"
-    results_items["Cutoff length high-pass filter"] = (
-        f"{metrics.cutoff_high_pass:.0f} µm"
-    )
-    results_items["Cell Size"] = f"{metrics.cell_size_um:.0f} µm"
-    results_items["Minimum cell similarity"] = f"{metrics.cell_similarity_threshold}"
-    results_items["Max error cell position"] = (
-        f"{metrics.max_error_cell_position:.0f} µm"
-    )
-    results_items["Max error cell angle"] = f"{metrics.max_error_cell_angle:.0f} degree"
 
     max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
         metadata_compared, metadata_reference, wrap_width

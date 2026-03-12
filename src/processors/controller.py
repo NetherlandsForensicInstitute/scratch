@@ -1,7 +1,9 @@
+from collections.abc import Sequence
 from http import HTTPStatus
 from pathlib import Path
 
 import numpy as np
+from container_models.base import FloatArray1D, FloatArray2D
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.export.mark import load_mark_from_path
 from conversion.likelihood_ratio import (
@@ -14,15 +16,17 @@ from conversion.likelihood_ratio import (
 from conversion.plots.data_formats import HistogramData, ImpressionComparisonMetrics, LlrTransformationData
 from conversion.plots.plot_ccf_comparison_overview import plot_ccf_comparison_overview
 from conversion.plots.plot_cmc_comparison_overview import plot_cmc_comparison_overview
+from conversion.plots.plot_impression import plot_impression_comparison_results
 from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.plots.utils import build_results_metadata_impression, build_results_metadata_striation
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
+from conversion.surface_comparison.models import Cell, ComparisonParams, ComparisonResult, ProcessedMark
 from fastapi import HTTPException
 from lir.util import probability_to_logodds
 from loguru import logger
 from PIL import Image
 
-from extractors.constants import ComparisonStriationFiles, LRFiles
+from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from processors.schemas import CalculateLRImpression, CalculateLRStriation
 
 
@@ -76,6 +80,113 @@ def save_striation_comparison_plots(  # noqa: PLR0913
     Image.fromarray(plots.filtered_reference_heatmap).save(
         files_to_save.filtered_reference_heatmap.get_file_path(working_dir)
     )
+
+
+def _cells_to_grid(
+    cells: Sequence[Cell],
+) -> tuple[FloatArray2D, FloatArray2D, FloatArray1D]:
+    """
+    Map unordered cells onto a row-major grid.
+
+    Grid dimensions and spacing are inferred from the cell center positions.
+
+    :param cells: Unordered cell results from the CMC pipeline.
+    :return: cell_correlations (n_rows, n_cols),
+             cell_positions_compared (n_rows * n_cols, 2) in µm,
+             cell_rotations_compared (n_rows * n_cols,) in radians.
+    """
+    centers = np.array([c.center_reference for c in cells])
+
+    unique_x = np.unique(np.round(centers[:, 0], decimals=9))
+    unique_y = np.unique(np.round(centers[:, 1], decimals=9))
+    step_x = np.diff(unique_x).min() if len(unique_x) > 1 else 1.0
+    step_y = np.diff(unique_y).min() if len(unique_y) > 1 else 1.0
+
+    col_indices = np.round((centers[:, 0] - unique_x[0]) / step_x).astype(int)
+    row_indices = np.round((centers[:, 1] - unique_y[0]) / step_y).astype(int)
+
+    n_rows = row_indices.max() + 1
+    n_cols = col_indices.max() + 1
+
+    cell_correlations = np.full((n_rows, n_cols), np.nan)
+    cell_positions = np.full((n_rows * n_cols, 2), np.nan)
+    cell_rotations = np.full(n_rows * n_cols, np.nan)
+
+    for k, cell in enumerate(cells):
+        r, c = row_indices[k], col_indices[k]
+        flat = r * n_cols + c
+        cell_correlations[r, c] = cell.best_score
+        cell_positions[flat] = np.array(cell.center_comparison) * 1e6
+        cell_rotations[flat] = np.deg2rad(cell.angle_deg)
+
+    return cell_correlations, cell_positions, cell_rotations
+
+
+def build_impression_metrics(
+    cmc_result: ComparisonResult,
+    comparison_params: ComparisonParams,
+) -> ImpressionComparisonMetrics:
+    """
+    Build impression comparison metrics from CMC pipeline results.
+
+    :param cmc_result: Consolidated CMC pipeline output.
+    :param comparison_params: CMC algorithm parameters.
+    :param cutoff_low_pass: Low-pass filter cutoff in µm.
+    :param cutoff_high_pass: High-pass filter cutoff in µm.
+    """
+    cell_correlations, cell_positions, cell_rotations = _cells_to_grid(cmc_result.cells)
+
+    return ImpressionComparisonMetrics(
+        cell_correlations=cell_correlations,
+        cmc_score=cmc_result.cmc_fraction * 100,
+        cell_positions_compared=cell_positions,
+        cell_rotations_compared=cell_rotations,
+        cmc_area_fraction=cmc_result.cmc_area_fraction * 100,
+        cell_size_um=comparison_params.cell_size[0] * 1e6,
+        max_error_cell_position=comparison_params.position_threshold * 1e6,
+        max_error_cell_angle=comparison_params.angle_deviation_threshold,
+        cell_similarity_threshold=comparison_params.correlation_threshold,
+    )
+
+
+def save_impression_comparison_plots(  # noqa: PLR0913
+    mark_ref: ProcessedMark,
+    mark_comp: ProcessedMark,
+    impression_metrics: ImpressionComparisonMetrics,
+    working_dir: Path,
+    files_to_save: type[ComparisonImpressionFiles],
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
+) -> None:
+    """Create and save the plots of the processed markings."""
+    plots = plot_impression_comparison_results(
+        mark_reference_leveled=mark_ref.leveled_mark,
+        mark_compared_leveled=mark_comp.leveled_mark,
+        mark_reference_filtered=mark_ref.filtered_mark,
+        mark_compared_filtered=mark_ref.filtered_mark,
+        metrics=impression_metrics,
+        metadata_reference=metadata_reference,
+        metadata_compared=metadata_compared,
+    )
+
+    logger.debug("impression comparison plots generated")
+    Image.fromarray(plots.comparison_overview).save(files_to_save.comparison_overview.get_file_path(working_dir))
+    Image.fromarray(plots.leveled_reference_heatmap).save(
+        files_to_save.leveled_reference_heatmap.get_file_path(working_dir)
+    )
+    Image.fromarray(plots.leveled_compared_heatmap).save(
+        files_to_save.leveled_compared_heatmap.get_file_path(working_dir)
+    )
+    Image.fromarray(plots.filtered_reference_heatmap).save(
+        files_to_save.filtered_reference_heatmap.get_file_path(working_dir)
+    )
+    Image.fromarray(plots.filtered_compared_heatmap).save(
+        files_to_save.filtered_compared_heatmap.get_file_path(working_dir)
+    )
+    Image.fromarray(plots.cell_reference_heatmap).save(files_to_save.cell_reference_heatmap.get_file_path(working_dir))
+    Image.fromarray(plots.cell_compared_heatmap).save(files_to_save.cell_compared_heatmap.get_file_path(working_dir))
+    Image.fromarray(plots.cell_overlay).save(files_to_save.cell_overlay.get_file_path(working_dir))
+    Image.fromarray(plots.cell_cross_correlation).save(files_to_save.cell_cross_correlation.get_file_path(working_dir))
 
 
 def save_lr_impression_plot(  # noqa: PLR0913

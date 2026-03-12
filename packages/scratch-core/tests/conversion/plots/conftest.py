@@ -14,7 +14,6 @@ from conversion.profile_correlator import (
     Profile,
     AlignmentParameters,
 )
-
 from .helper_functions import (
     create_synthetic_impression_data,
     create_synthetic_impression_mark,
@@ -90,7 +89,7 @@ def striation_metrics() -> StriationComparisonResults:
         # Normalized signature differences
         ds_normalized_ref=(sq_diff / sq_ref) ** 2,
         ds_normalized_comp=(sq_diff / sq_comp) ** 2,
-        ds_normalized_combined=sq_diff**2 / (sq_ref * sq_comp),
+        ds_normalized_combined=sq_diff ** 2 / (sq_ref * sq_comp),
         # Sample-space geometry
         shift_samples=8,
         overlap_samples=102,
@@ -141,11 +140,6 @@ def impression_sample_mark() -> Mark:
 
 
 @pytest.fixture
-def impression_sample_mark_reference() -> Mark:
-    return create_synthetic_impression_mark(height=100, width=120, seed=42)
-
-
-@pytest.fixture
 def impression_sample_mark_compared() -> Mark:
     return create_synthetic_impression_mark(
         height=100,
@@ -162,50 +156,6 @@ def impression_sample_mark_compared_filtered() -> Mark:
         width=120,
         seed=43,
         rotation_mask_deg=15,
-    )
-
-
-@pytest.fixture
-def impression_sample_cell_correlations() -> np.ndarray:
-    """4x5 grid of cell correlation values."""
-    return np.random.default_rng(42).random((4, 5))
-
-
-@pytest.fixture
-def impression_sample_metrics(
-    impression_sample_cell_correlations: np.ndarray,
-) -> ImpressionComparisonMetrics:
-    n_rows, n_cols = impression_sample_cell_correlations.shape
-    n_cells = impression_sample_cell_correlations.size
-    # Surface: 100x120 pixels at 1.5 * micro m/px = 150x180 µm
-    height_um, width_um = 150.0, 180.0
-    cell_w_um = width_um / n_cols
-    cell_h_um = height_um / n_rows
-    rng = np.random.default_rng(42)
-    positions = np.empty((n_cells, 2), dtype=np.float64)
-    for i in range(n_rows):
-        for j in range(n_cols):
-            flat = i * n_cols + j
-            positions[flat, 0] = (j + 0.5) * cell_w_um + rng.uniform(-2, 2)
-            positions[flat, 1] = (n_rows - 1 - i + 0.5) * cell_h_um + rng.uniform(-2, 2)
-    rotations = rng.uniform(-0.05, 0.05, n_cells)
-    return ImpressionComparisonMetrics(
-        area_correlation=0.85,
-        cell_correlations=impression_sample_cell_correlations,
-        cmc_score=75.0,
-        mean_square_ref=1.5,
-        mean_square_comp=1.6,
-        mean_square_of_difference=0.4,
-        has_area_results=True,
-        has_cell_results=True,
-        cell_positions_compared=positions,
-        cell_rotations_compared=rotations,
-        cmc_area_fraction=16.04,
-        cutoff_low_pass=5.0,
-        cutoff_high_pass=250.0,
-        cell_size_um=125.0,
-        max_error_cell_position=75.0,
-        max_error_cell_angle=6.0,
     )
 
 
@@ -297,20 +247,12 @@ def impression_overview_metrics() -> ImpressionComparisonMetrics:
             rotations[flat] = global_angle + angle_noise
 
     return ImpressionComparisonMetrics(
-        area_correlation=0.4123,
         cell_correlations=cell_correlations,
         cmc_score=cmc_score,
-        mean_square_ref=0.1234,
-        mean_square_comp=0.1456,
-        mean_square_of_difference=0.0567,
-        has_area_results=True,
-        has_cell_results=True,
         cell_positions_compared=positions,
         cell_rotations_compared=rotations,
         cell_similarity_threshold=cell_similarity_threshold,
         cmc_area_fraction=16.04,
-        cutoff_low_pass=5.0,
-        cutoff_high_pass=250.0,
         cell_size_um=125.0,
         max_error_cell_position=75.0,
         max_error_cell_angle=6.0,
@@ -360,7 +302,7 @@ def ccf_histogram_data_transformed(ccf_histogram_data: HistogramData) -> Histogr
 
 @pytest.fixture
 def ccf_llr_data(
-    ccf_histogram_data_transformed: HistogramData,
+        ccf_histogram_data_transformed: HistogramData,
 ) -> LlrTransformationData:
     scores_t = ccf_histogram_data_transformed.scores
     score_grid = np.linspace(scores_t.min(), scores_t.max(), 100)
@@ -376,7 +318,7 @@ def ccf_llr_data(
 
 @pytest.fixture
 def cmc_results_metadata(
-    impression_overview_metrics: ImpressionComparisonMetrics,
+        impression_overview_metrics: ImpressionComparisonMetrics,
 ) -> dict[str, str]:
     metrics = impression_overview_metrics
     n_cell_rows, n_cell_cols = metrics.cell_correlations.shape

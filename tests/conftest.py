@@ -126,22 +126,15 @@ def reference_data() -> ModelSpecs:
 @pytest.fixture
 def impression_metrics() -> ImpressionComparisonMetrics:
     return ImpressionComparisonMetrics(
-        area_correlation=0.82,
         cell_correlations=np.array([[0.75, 0.88], [0.92, 0.31]]),
         cmc_score=66.7,
-        mean_square_ref=1.25,
-        mean_square_comp=1.31,
-        mean_square_of_difference=0.42,
-        has_area_results=True,
-        has_cell_results=True,
         cell_positions_compared=np.array([[10.0, 20.0], [10.0, 60.0], [50.0, 20.0], [50.0, 60.0]]),
         cell_rotations_compared=np.array([0.01, -0.02, 0.0, -0.01]),
         cmc_area_fraction=55.0,
-        cutoff_low_pass=250.0,
-        cutoff_high_pass=25.0,
         cell_size_um=300.0,
         max_error_cell_position=50.0,
         max_error_cell_angle=3.0,
+        cell_similarity_threshold=0.4,
     )
 
 
