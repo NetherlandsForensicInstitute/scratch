@@ -7,7 +7,9 @@ with NPZ binary data, and load them back into memory.
 
 from pathlib import Path
 from typing import Annotated, Any
+
 from pydantic import Field
+
 from container_models.base import ConfigBaseModel
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
