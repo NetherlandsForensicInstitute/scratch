@@ -26,7 +26,8 @@ def match_cells(
     For each angle in the configured sweep, the padded comparison image is rotated and a normalized
     cross-correlation score map is computed per cell using ``cv2.TM_CCOEFF_NORMED``. Positions whose
     comparison-patch fill fraction falls below ``params.minimum_fill_fraction`` are masked out.
-    The rotation that yields the highest unmasked score is stored in each cell's :class:`GridSearchParams`.
+    Per rotation angle, the highest score with its corresponding translation is stored.
+    The rotation that yields the highest unmasked score will be stored in each cell's :class:`GridSearchParams`.
 
     The comparison image is padded by half a cell in each direction before the search so that cells whose
     reference top-left lies near the image boundary can still be matched. The padding offset is subtracted
@@ -115,8 +116,9 @@ def _get_fill_fraction_map(
     :param valid_pixel_mask: Boolean array (H, W); True where image data is valid.
     :param cell_height: Height of the cell window in pixels.
     :param cell_width: Width of the cell window in pixels.
-    :returns: Float64 array (H, W) with fill fractions in [0, 1], top-left indexed. Entries near the
-        bottom-right boundary are underestimates and will be rejected by the fill-fraction gate.
+    :returns: Float64 array (H, W) with fill fractions in [0, 1], top-left indexed.
+        Entries near the bottom-right boundary are underestimates and will be rejected by the fill-fraction gate.
+        Since the image is padded with NaNs before calling this function, this does not matter.
     """
     kernel = np.ones((cell_height, cell_width), dtype=np.float32) / (
         cell_height * cell_width
