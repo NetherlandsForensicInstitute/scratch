@@ -162,6 +162,3 @@ class GridCell:
     @property
     def fill_fraction(self) -> float:
         return float(np.count_nonzero(~np.isnan(self.cell_data)) / self.cell_data.size)
-
-    def fill_nans(self, fill_value: float):
-        self.cell_data[np.isnan(self.cell_data)] = fill_value

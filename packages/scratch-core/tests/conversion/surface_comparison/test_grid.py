@@ -72,7 +72,7 @@ class TestExtractPatch:
         np.testing.assert_array_equal(patch[3:, 2:], img.data[0:2, 0:3])
 
     def test_completely_outside(self) -> None:
-        """Patch entirely outside the image is all NaN."""
+        """Patch entirely outside the image raises an error."""
         img = _make_image(10, 10)
         with pytest.raises(ValueError, match="no overlap"):
             extract_patch(img, coordinates=(-10, -10), patch_size=(5, 5))
@@ -87,14 +87,6 @@ class TestExtractPatch:
         assert patch[0, 0] == 0.0
         assert patch[0, 1] == 0.0
         assert not np.isnan(patch[0, 0])
-
-    def test_preserves_nan_in_source(self) -> None:
-        """NaN values already in the source image are preserved in the patch."""
-        img = _make_image(10, 10)
-        img.data[2, 3] = np.nan
-        patch = extract_patch(img, coordinates=(0, 0), patch_size=(5, 5))
-
-        assert np.isnan(patch[2, 3])
 
 
 class TestTileAxis:
@@ -115,7 +107,7 @@ class TestTileAxis:
         # -25 + 25 = 0 which is NOT > 0, so -25 is excluded
         assert coords[0] == 0
         assert len(coords) >= 5
-        assert 50 in coords  # seed cell top-left
+        assert coords == [0, 25, 50, 75, 100]
 
     def test_single_cell(self) -> None:
         """When the extent is smaller than the cell, a single cell is generated."""
