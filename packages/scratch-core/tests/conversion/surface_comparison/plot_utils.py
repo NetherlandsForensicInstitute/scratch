@@ -49,7 +49,7 @@ def plot_rotated_squares(
             (20, 17, 198),
             2,
         )
-    return color_img
+    return np.asarray(color_img, dtype=np.uint8)
 
 
 def plot_side_by_side(
