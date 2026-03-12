@@ -72,7 +72,7 @@ def match_cells(
         fill_fraction_mask = fill_fraction_map >= params.minimum_fill_fraction
         # Now that we computed the fill fraction mask, we can safely replace NaN values in the rotated image
         rotated[~valid_mask] = fill_value_comparison
-        global_center_x, global_center_y = rotated.shape[1] / 2, rotated.shape[0] / 2
+        global_center_x, global_center_y = rotated.shape[1] / 2, rotated.shape[0] / 2  # type: ignore
 
         for grid_cell in grid_cells:
             score_map = _get_score_map(

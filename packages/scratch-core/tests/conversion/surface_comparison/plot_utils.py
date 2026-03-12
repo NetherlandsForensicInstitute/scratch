@@ -37,7 +37,7 @@ def plot_rotated_squares(
             color = (255, 0, 0)  # red
 
         # Draw the contour (Green, thickness 2)
-        cv2.drawContours(color_img, [box_points], 0, color, 2)
+        cv2.drawContours(color_img, [box_points], 0, color, 2)  # type: ignore
 
         cv2.putText(
             color_img,
