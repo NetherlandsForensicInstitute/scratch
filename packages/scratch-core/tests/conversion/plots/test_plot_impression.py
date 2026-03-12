@@ -36,9 +36,9 @@ class TestPlotCellGridOverlay:
         assert_valid_rgb_image(result)
 
     def test_with_custom_positions_and_rotations(
-            self,
-            impression_sample_depth_data: np.ndarray,
-            impression_overview_metrics: ImpressionComparisonMetrics,
+        self,
+        impression_sample_depth_data: np.ndarray,
+        impression_overview_metrics: ImpressionComparisonMetrics,
     ):
         cell_correlations = impression_overview_metrics.cell_correlations
         n_rows, n_cols = cell_correlations.shape
@@ -68,9 +68,9 @@ class TestPlotCellGridOverlay:
         assert_valid_rgb_image(result)
 
     def test_show_only_cmc_cells(
-            self,
-            impression_sample_depth_data: np.ndarray,
-            impression_overview_metrics: ImpressionComparisonMetrics,
+        self,
+        impression_sample_depth_data: np.ndarray,
+        impression_overview_metrics: ImpressionComparisonMetrics,
     ):
         result = plot_cell_grid_overlay(
             data=impression_sample_depth_data,
@@ -118,7 +118,9 @@ class TestPlotCellGridOverlay:
 class TestPlotCellCorrelationHeatmap:
     """Tests for plot_cell_correlation_heatmap function."""
 
-    def test_returns_rgb_image(self, impression_overview_metrics: ImpressionComparisonMetrics):
+    def test_returns_rgb_image(
+        self, impression_overview_metrics: ImpressionComparisonMetrics
+    ):
         result = plot_cell_correlation_heatmap(
             cell_correlations=impression_overview_metrics.cell_correlations,
             surface_extent_um=(300.0, 200.0),
@@ -201,15 +203,17 @@ class TestPlotComparisonOverview:
         assert_valid_rgb_image(result)
 
     def test_handles_all_nan_positions(
-            self,
-            impression_sample_mark: Mark,
-            impression_overview_metrics: ImpressionComparisonMetrics,
-            sample_metadata_reference: MarkMetadata,
-            sample_metadata_compared: MarkMetadata,
+        self,
+        impression_sample_mark: Mark,
+        impression_overview_metrics: ImpressionComparisonMetrics,
+        sample_metadata_reference: MarkMetadata,
+        sample_metadata_compared: MarkMetadata,
     ):
         n_cells = impression_overview_metrics.cell_correlations.size
         impression_overview_metrics.cmc_score = 0.0
-        impression_overview_metrics.cell_positions_compared = np.full((n_cells, 2), np.nan)
+        impression_overview_metrics.cell_positions_compared = np.full(
+            (n_cells, 2), np.nan
+        )
         impression_overview_metrics.cell_rotations_compared = np.full(n_cells, np.nan)
         impression_overview_metrics.cmc_area_fraction = 0.0
 
@@ -264,7 +268,8 @@ class TestPlotCellHeatmapOnAxes:
     """Tests for _plot_cell_heatmap_on_axes helper."""
 
     def test_with_surface_extent(
-            self, impression_overview_metrics: ImpressionComparisonMetrics,
+        self,
+        impression_overview_metrics: ImpressionComparisonMetrics,
     ):
         fig, ax = plt.subplots()
         _plot_cell_heatmap_on_axes(

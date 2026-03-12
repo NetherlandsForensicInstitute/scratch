@@ -89,7 +89,7 @@ def striation_metrics() -> StriationComparisonResults:
         # Normalized signature differences
         ds_normalized_ref=(sq_diff / sq_ref) ** 2,
         ds_normalized_comp=(sq_diff / sq_comp) ** 2,
-        ds_normalized_combined=sq_diff ** 2 / (sq_ref * sq_comp),
+        ds_normalized_combined=sq_diff**2 / (sq_ref * sq_comp),
         # Sample-space geometry
         shift_samples=8,
         overlap_samples=102,
@@ -302,7 +302,7 @@ def ccf_histogram_data_transformed(ccf_histogram_data: HistogramData) -> Histogr
 
 @pytest.fixture
 def ccf_llr_data(
-        ccf_histogram_data_transformed: HistogramData,
+    ccf_histogram_data_transformed: HistogramData,
 ) -> LlrTransformationData:
     scores_t = ccf_histogram_data_transformed.scores
     score_grid = np.linspace(scores_t.min(), scores_t.max(), 100)
@@ -318,7 +318,7 @@ def ccf_llr_data(
 
 @pytest.fixture
 def cmc_results_metadata(
-        impression_overview_metrics: ImpressionComparisonMetrics,
+    impression_overview_metrics: ImpressionComparisonMetrics,
 ) -> dict[str, str]:
     metrics = impression_overview_metrics
     n_cell_rows, n_cell_cols = metrics.cell_correlations.shape
