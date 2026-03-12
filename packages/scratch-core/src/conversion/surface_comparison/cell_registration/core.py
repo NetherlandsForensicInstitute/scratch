@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cell_registration.coarse import match_cells
@@ -33,8 +32,6 @@ def coarse_registration(
     return matched_cells
 
 
-def fine_registration(
-    comparison_mark: ProcessedMark, cells: Iterable[Cell]
-) -> list[Cell]:
+def fine_registration(comparison_mark: ProcessedMark, cells: list[Cell]) -> list[Cell]:
     """TODO: Implement this function."""
-    return list(cells)
+    return cells
