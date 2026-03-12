@@ -51,27 +51,6 @@ def identical_match_inputs(
     return [grid_cell], scan_image, params
 
 
-@pytest.fixture(params=[1.0, 1e-6], ids=["unit_scale", "micron_scale"])
-def identical_registration_inputs(
-    request: SubRequest,
-) -> tuple[list[GridCell], ScanImage, ComparisonParams]:
-    """Reference image, grid cell, and params at two magnitude scales."""
-    scale = request.param
-    reference_image = make_scan_image(
-        height=IMAGE_HEIGHT,
-        width=IMAGE_WIDTH,
-        pixel_size=PIXEL_SIZE,
-        scale=scale,
-    )
-    cell_data = reference_image.data[
-        CELL_TOP_LEFT[1] : CELL_TOP_LEFT[1] + CELL_SIZE,
-        CELL_TOP_LEFT[0] : CELL_TOP_LEFT[0] + CELL_SIZE,
-    ]
-    grid_cell = make_grid_cell(data=cell_data, top_left=CELL_TOP_LEFT)
-    params = identity_params(cell_size_px=CELL_SIZE, pixel_size=PIXEL_SIZE)
-    return [grid_cell], reference_image, params
-
-
 @pytest.fixture
 def fully_valid_grid_cell() -> GridCell:
     data = make_surface(height=CELL_SIZE, width=CELL_SIZE, scale=1e-6)

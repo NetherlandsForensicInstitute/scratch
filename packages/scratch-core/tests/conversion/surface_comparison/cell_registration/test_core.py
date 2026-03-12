@@ -20,11 +20,10 @@ SCORE_TOLERANCE = 0.05
 
 
 def test_coarse_registration_returns_one_cell_per_grid_cell(
-    identical_registration_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
+    identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
 ):
     # Arrange
-    grid_cells, reference_image, params = identical_registration_inputs
-    comparison_image = reference_image  # identical images
+    grid_cells, comparison_image, params = identical_match_inputs
 
     # Act
     cells = coarse_registration(
@@ -38,11 +37,10 @@ def test_coarse_registration_returns_one_cell_per_grid_cell(
 
 
 def test_coarse_registration_self_match_score_near_one(
-    identical_registration_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
+    identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
 ):
     # Arrange
-    grid_cells, reference_image, params = identical_registration_inputs
-    comparison_image = reference_image
+    grid_cells, comparison_image, params = identical_match_inputs
 
     # Act
     cells = coarse_registration(
@@ -56,11 +54,10 @@ def test_coarse_registration_self_match_score_near_one(
 
 
 def test_coarse_registration_self_match_angle_is_zero(
-    identical_registration_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
+    identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
 ):
     # Arrange
-    grid_cells, reference_image, params = identical_registration_inputs
-    comparison_image = reference_image
+    grid_cells, comparison_image, params = identical_match_inputs
 
     # Act
     cells = coarse_registration(
@@ -75,12 +72,12 @@ def test_coarse_registration_self_match_angle_is_zero(
 
 @pytest.mark.parametrize("angle", [0, 60, -40])
 def test_coarse_registration_self_match_angle_is_found(
-    identical_registration_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
+    identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
     angle: float,
 ):
     # Arrange
     angle_min, angle_max, angle_step = -80, 80, 20
-    grid_cells, reference_image, params = identical_registration_inputs
+    grid_cells, reference_image, params = identical_match_inputs
     rotated = rotate(
         reference_image.data,
         angle=angle,
