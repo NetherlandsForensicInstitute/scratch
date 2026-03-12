@@ -76,5 +76,5 @@ def identical_registration_inputs(
 def fully_valid_grid_cell() -> GridCell:
     data = make_surface(height=CELL_SIZE, width=CELL_SIZE, scale=1e-6)
     cell = make_grid_cell(data=data, top_left=(10, 10))
-    cell.grid_search_params.update(top_left_x=10, top_left_y=10, angle=0.0, score=0.95)
+    cell.grid_search_params.update(center_x=30, center_y=30, angle=0.0, score=0.95)
     return cell
