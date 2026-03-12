@@ -22,6 +22,7 @@ from lir.util import probability_to_logodds
 from loguru import logger
 from PIL import Image
 
+from extractors.constants import ComparisonStriationFiles, LRFiles
 from processors.schemas import CalculateLRImpression, CalculateLRStriation
 
 
@@ -48,7 +49,8 @@ def save_striation_comparison_plots(  # noqa: PLR0913
     mark_ref: Mark,
     mark_comp: Mark,
     mark_correlations: MarkCorrelationResult,
-    files_to_save: dict[str, Path],
+    working_dir: Path,
+    files_to_save: type[ComparisonStriationFiles],
     metadata_reference: MarkMetadata,
     metadata_compared: MarkMetadata,
 ) -> None:
@@ -65,13 +67,15 @@ def save_striation_comparison_plots(  # noqa: PLR0913
         metadata_compared=metadata_compared,
     )
     logger.debug("striation comparison plots generated")
-    # TODO: update this dict to a Pydantic class.
-    #  so plots.attribute is linked to get_file_path(ComparisonResponse.attribute)
-    Image.fromarray(plots.similarity_plot).save(files_to_save["similarity_plot"])
-    Image.fromarray(plots.side_by_side_heatmap).save(files_to_save["side_by_side_heatmap"])
-    Image.fromarray(plots.comparison_overview).save(files_to_save["comparison_overview"])
-    Image.fromarray(plots.filtered_compared_heatmap).save(files_to_save["filtered_compared_heatmap"])
-    Image.fromarray(plots.filtered_reference_heatmap).save(files_to_save["filtered_reference_heatmap"])
+    Image.fromarray(plots.similarity_plot).save(files_to_save.similarity_plot.get_file_path(working_dir))
+    Image.fromarray(plots.side_by_side_heatmap).save(files_to_save.side_by_side_heatmap.get_file_path(working_dir))
+    Image.fromarray(plots.comparison_overview).save(files_to_save.comparison_overview.get_file_path(working_dir))
+    Image.fromarray(plots.filtered_compared_heatmap).save(
+        files_to_save.filtered_compared_heatmap.get_file_path(working_dir)
+    )
+    Image.fromarray(plots.filtered_reference_heatmap).save(
+        files_to_save.filtered_reference_heatmap.get_file_path(working_dir)
+    )
 
 
 def save_lr_impression_plot(  # noqa: PLR0913
@@ -178,10 +182,7 @@ def save_lr_striation_plot(  # noqa: PLR0913
     Image.fromarray(plot).save(output_path)
 
 
-def process_lr_striation(
-    lr_input: CalculateLRStriation,
-    files: dict[str, Path],
-) -> float:
+def process_lr_striation(lr_input: CalculateLRStriation, working_dir: Path) -> float:
     """Calculate LR for striation marks and save the overview plot."""
     lr_system = get_lr_system(lr_input.lr_system_path)
     reference_data = get_reference_data(lr_input.lr_system_path)
@@ -222,16 +223,13 @@ def process_lr_striation(
         score_transformed=score_transformed,
         transformed_reference_scores=transformed_reference_scores,
         lr=log_lr,
-        output_path=files["lr_overview_plot"],
+        output_path=LRFiles.lr_overview_plot.get_file_path(working_dir),
     )
 
     return log_lr
 
 
-def process_lr_impression(
-    lr_input: CalculateLRImpression,
-    files: dict[str, Path],
-) -> float:
+def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) -> float:
     """Calculate LR for impression marks and save the overview plot."""
     lr_system = get_lr_system(lr_input.lr_system_path)
     reference_data = get_reference_data(lr_input.lr_system_path)
@@ -263,7 +261,7 @@ def process_lr_impression(
         results_metadata=results_metadata,
         score=lr_input.score,
         lr=log_lr,
-        output_path=files["lr_overview_plot"],
+        output_path=LRFiles.lr_overview_plot.get_file_path(working_dir),
     )
 
     return log_lr
