@@ -7,11 +7,7 @@ from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
-from conversion.export.mark import (
-    ExportedMarkData,
-    load_mark_from_path,
-    save_mark,
-)
+from conversion.export.mark import ExportedMarkData, load_mark_from_path, save_mark
 
 
 @pytest.fixture()
