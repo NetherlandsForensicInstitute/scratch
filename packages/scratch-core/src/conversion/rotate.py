@@ -1,3 +1,4 @@
+from mutations.filter import FilterNeedles
 import numpy as np
 from loguru import logger
 from scipy.ndimage import binary_dilation, rotate
@@ -36,8 +37,10 @@ def rotate_crop_and_mask_image_by_crop(
         image, or None. Expects pixel coordinates, i.e. top-left origin.
     :return: The cropped, rotated and masked scan image.
     """
-    logger.info("Masking image and removing needles")
-    scan_image = Mask(mask=mask, remove_needles=True)(scan_image).unwrap()
+    logger.debug("Masking image")
+    scan_image = Mask(mask=mask)(scan_image).unwrap()
+    logger.debug("Removing needles")
+    scan_image = FilterNeedles()(scan_image).unwrap()
     margin = 0
     rotator = Rotate.from_bounding_box(bounding_box=bounding_box)
     if not np.isclose(rotator.rotation_angle, 0.0):
@@ -48,9 +51,9 @@ def rotate_crop_and_mask_image_by_crop(
             mask=binary_dilation(mask, iterations=dilate_steps).astype(bool),
             rotation_angle=rotator.rotation_angle,
         )
-        logger.info("Rotating image")
+        logger.debug("Rotating image")
         scan_image = rotator(scan_image=scan_image).unwrap()
-    logger.info(f"Cropping image with margin: {margin}")
+    logger.debug(f"Cropping image with margin: {margin}")
     return CropToMask(mask=mask, margin=margin)(scan_image).unwrap()
 
 
