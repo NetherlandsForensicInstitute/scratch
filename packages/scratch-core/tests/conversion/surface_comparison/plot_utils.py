@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-from container_models.base import FloatArray2D
+from container_models.base import FloatArray2D, ImageRGB
 
 import cv2
 
@@ -12,7 +12,7 @@ def plot_rotated_squares(
     squares: list[tuple[tuple[float, float], tuple[float, float], float]],
     titles: list[str],
     congruents: list[bool],
-) -> np.ndarray:
+) -> ImageRGB:
     # TODO: Change plot API to accept `Cell` instances instead
     """Plots rotated squares on a float-based image."""
     # 1. Normalize the 1e-6 data to 0-255 range for visualization
@@ -53,7 +53,7 @@ def plot_rotated_squares(
 
 
 def plot_side_by_side(
-    img1: np.ndarray, img2: np.ndarray, title1: str = "Image 1", title2: str = "Image 2"
+    img1: ImageRGB, img2: ImageRGB, title1: str = "Image 1", title2: str = "Image 2"
 ) -> None:
     # Create a figure with 1 row and 2 columns
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
