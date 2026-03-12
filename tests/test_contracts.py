@@ -74,9 +74,9 @@ class TestContracts:
                 "step_size": "1",
             },
             expected_output={
-                "preview": ".png",
-                "surface_map": ".png",
-                "scan": ".x3p",
+                "preview_image": ".png",
+                "surface_map_image": ".png",
+                "scan_image": ".x3p",
             },
         )
 
@@ -107,8 +107,8 @@ class TestContracts:
                 },
             },
             expected_output={
-                "preview": ".png",
-                "surface_map": ".png",
+                "preview_image": ".png",
+                "surface_map_image": ".png",
                 "mark_data": ".npz",
                 "mark_meta": ".json",
                 "processed_data": ".npz",
@@ -142,8 +142,8 @@ class TestContracts:
                 },
             },
             expected_output={
-                "preview": ".png",
-                "surface_map": ".png",
+                "preview_image": ".png",
+                "surface_map_image": ".png",
                 "mark_data": ".npz",
                 "mark_meta": ".json",
                 "processed_data": ".npz",
@@ -169,8 +169,8 @@ class TestContracts:
                 "terms": "plane",
             },
             expected_output={
-                "preview": ".png",
-                "surface_map": ".png",
+                "preview_image": ".png",
+                "surface_map_image": ".png",
             },
         ), np.ones(parsed_scan.data.shape, dtype=np.bool_).tobytes(order="C")
 

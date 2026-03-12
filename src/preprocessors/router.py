@@ -13,7 +13,17 @@ from constants import (
     RoutePrefix,
 )
 from extractors import ProcessedDataAccess
-from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
+from extractors.constants import (
+    GeneratedImageFiles,
+    PrepareMarkImpressionFiles,
+    PrepareMarkStriationFiles,
+    ProcessFiles,
+)
+from extractors.schemas import (
+    GeneratedImages,
+    PrepareMarkResponseImpression,
+    PrepareMarkResponseStriation,
+)
 from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
@@ -102,13 +112,14 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     """
     vault = create_vault(upload_scan.tag)
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
-    files = ProcessedDataAccess.get_files(vault.resource_path)
-    x3p_pipeline(parsed_scan, files["scan"])
-    surface_map_pipeline(parsed_scan, files["surface_map"], LIGHT_SOURCES, OBSERVER)
-    preview_pipeline(parsed_scan, files["preview"])
+    x3p_pipeline(parsed_scan, ProcessFiles.scan_image.get_file_path(vault.resource_path))
+    surface_map_pipeline(
+        parsed_scan, ProcessFiles.surface_map_image.get_file_path(vault.resource_path), LIGHT_SOURCES, OBSERVER
+    )
+    preview_pipeline(parsed_scan, ProcessFiles.preview_image.get_file_path(vault.resource_path))
 
     logger.info(f"Generated files saved to {vault}")
-    return ProcessedDataAccess.model_validate(ProcessedDataAccess.generate_urls(vault.access_url))
+    return ProcessedDataAccess.from_enum(enum=ProcessFiles, base_url=vault.access_url)
 
 
 @preprocessor_route.post(
@@ -146,15 +157,15 @@ async def prepare_mark_impression(
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
 
     process_prepare_impression_mark(
-        files=PrepareMarkResponseImpression.get_files(vault.resource_path),
         scan_image=parsed_image,
         mark_type=params.mark_type,
         mask=parsed_mask,
         bounding_box=params.bounding_box,
         preprocess_parameters=params.mark_parameters,
+        working_dir=vault.resource_path,
     )
     logger.info(f"Generated files saved to {vault}")
-    return PrepareMarkResponseImpression.generate_urls(vault.access_url)
+    return PrepareMarkResponseImpression.from_enum(enum=PrepareMarkImpressionFiles, base_url=vault.access_url)
 
 
 @preprocessor_route.post(
@@ -192,7 +203,7 @@ async def prepare_mark_striation(
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
 
     process_prepare_striation_mark(
-        files=PrepareMarkResponseStriation.get_files(vault.resource_path),
+        working_dir=vault.resource_path,
         scan_image=parsed_image,
         mark_type=params.mark_type,
         mask=parsed_mask,
@@ -200,7 +211,7 @@ async def prepare_mark_striation(
         preprocess_parameters=params.mark_parameters,
     )
     logger.info(f"Generated files saved to {vault}")
-    return PrepareMarkResponseStriation.generate_urls(vault.access_url)
+    return PrepareMarkResponseStriation.from_enum(enum=PrepareMarkStriationFiles, base_url=vault.access_url)
 
 
 @preprocessor_route.post(
@@ -242,17 +253,19 @@ async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: by
             shape=parsed_image.data.shape,
             is_bitpacked=params.mask_is_bitpacked,
         )
+
     except ArrayShapeMismatchError as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
 
-    files = GeneratedImages.get_files(vault.resource_path)
     edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
-    preview_pipeline(parsed_scan=edited_scan_image, output_path=files["preview"])
+    preview_pipeline(
+        parsed_scan=edited_scan_image, output_path=GeneratedImageFiles.preview_image.get_file_path(vault.resource_path)
+    )
     surface_map_pipeline(
         parsed_scan=edited_scan_image,
-        output_path=files["surface_map"],
+        output_path=GeneratedImageFiles.surface_map_image.get_file_path(vault.resource_path),
         light_sources=LIGHT_SOURCES,
         observer=OBSERVER,
     )
     logger.info(f"Generated files saved to {vault}")
-    return GeneratedImages.generate_urls(vault.access_url)
+    return GeneratedImages.from_enum(enum=GeneratedImageFiles, base_url=vault.access_url)
