@@ -24,7 +24,6 @@ def coarse_registration(
     :param params: Algorithm parameters controlling the angle sweep and fill-fraction thresholds.
     :returns: List of :class:`Cell` objects with the best registration result per grid cell.
     """
-    # TODO: Merge this with `match.py` when deprecating the MATLAB implementation.
     matched_cells = match_cells(
         grid_cells=grid_cells, comparison_image=comparison_image, params=params
     )
