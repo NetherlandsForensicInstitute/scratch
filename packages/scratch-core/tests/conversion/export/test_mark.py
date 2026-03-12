@@ -1,5 +1,5 @@
 import json
-from pathlib import PosixPath
+from pathlib import PosixPath, Path
 
 import numpy as np
 import pytest
@@ -7,7 +7,12 @@ from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
-from conversion.export.mark import ExportedMarkData, load_mark_from_path, save_mark
+from conversion.export.mark import (
+    ExportedMarkData,
+    load_mark_from_path,
+    save_mark,
+    load_mark_from_mat_file,
+)
 
 
 @pytest.fixture()
@@ -264,3 +269,9 @@ class TestSaveAndLoadMark:
         assert loaded_mark2.mark_type == MarkType.CHAMBER_IMPRESSION
         assert loaded_mark1.meta_data["id"] == 1
         assert loaded_mark2.meta_data["id"] == 2
+
+    def test_load_mark_from_mat_file(self, tmp_path: PosixPath, scan_image: ScanImage):
+        """Test that we can build a `Mark` instance from a .mat file."""
+        path = Path("TODO: some file path")
+        mark1 = load_mark_from_mat_file(path)
+        pass
