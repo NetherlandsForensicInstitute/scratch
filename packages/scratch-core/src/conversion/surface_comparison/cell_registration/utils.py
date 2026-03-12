@@ -14,13 +14,14 @@ def convert_grid_cell_to_cell(grid_cell: GridCell, pixel_size: float) -> Cell:
             values=grid_cell.center, pixel_size=pixel_size
         ),
         cell_data=grid_cell.cell_data,
+        # TODO: add cell size in meters here
         fill_fraction_reference=grid_cell.fill_fraction,
         best_score=grid_cell.grid_search_params.score,
         angle_deg=grid_cell.grid_search_params.angle,
         center_comparison=convert_pixels_to_meters(
             values=(
-                grid_cell.grid_search_params.center_x,  # + grid_cell.width / 2,
-                grid_cell.grid_search_params.center_y,  # + grid_cell.height / 2,
+                grid_cell.grid_search_params.center_x,
+                grid_cell.grid_search_params.center_y,
             ),
             pixel_size=pixel_size,
         ),
