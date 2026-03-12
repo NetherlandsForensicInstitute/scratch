@@ -15,6 +15,7 @@ from conversion.resample import resample_mark
 from conversion.rotate import rotate_crop_and_mask_image_by_crop
 from loguru import logger
 from mutations import CropToMask, GaussianRegressionFilter, LevelMap, Mask, Resample
+from mutations.filter import FilterNeedles
 from scipy.constants import micro
 from skimage.transform import resize
 
@@ -28,11 +29,13 @@ def _extract_mark_from_scan(
     scan_image: ScanImage, mark_type: MarkType, mask: BinaryMask, bounding_box: BoundingBox | None
 ) -> Mark:
     """Parse a scan file and extract a mark by rotating, cropping, masking, and resampling."""
-    logger.info("Rotating and cropping scan image")
-    if not bounding_box:
-        scan_image_masked = Mask(mask=mask, remove_needles=True)(scan_image).unwrap()
-        rotated_image = CropToMask(mask=mask)(scan_image_masked).unwrap()
+    if bounding_box is None:
+        logger.info("Masking and Cropping scan image")
+        scan_image_masked = Mask(mask=mask)(scan_image).unwrap()
+        scan_image_cleaned = FilterNeedles()(scan_image_masked).unwrap()
+        rotated_image = CropToMask(mask=mask)(scan_image_cleaned).unwrap()
     else:
+        logger.info("Rotating Masking and Cropping scan image")
         rotated_image = rotate_crop_and_mask_image_by_crop(scan_image=scan_image, mask=mask, bounding_box=bounding_box)
     logger.info("Transforming scan image to mark")
     mark = Mark(
