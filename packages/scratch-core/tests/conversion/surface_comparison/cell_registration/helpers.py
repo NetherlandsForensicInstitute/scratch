@@ -94,8 +94,6 @@ def identity_params(
     return ComparisonParams(
         cell_size=(cell_size_m, cell_size_m),
         minimum_fill_fraction=0.5,
-        minimum_fill_fraction_comparison=0.25,
-        cell_fill_reduction_max=0.50,
         correlation_threshold=0.5,
         search_angle_min=-60.0,
         search_angle_max=60.0,
