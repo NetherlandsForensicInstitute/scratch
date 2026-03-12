@@ -85,7 +85,7 @@ def match_cells(
             )
             if score > grid_cell.grid_search_params.score:
                 # Compute the center coordinates of the cell on the (original) unrotated image
-                center_x, center_y = _undo_rotation(
+                center_x, center_y = _compute_cell_center_from_rotated_vector(
                     vector=(x, y),
                     angle=angle,
                     pad_size=(cell_width, cell_height),
@@ -133,7 +133,7 @@ def _get_fill_fraction_map(
     return np.asarray(filtered, dtype=np.float64)
 
 
-def _undo_rotation(
+def _compute_cell_center_from_rotated_vector(
     vector: tuple[float, float],
     angle: float,
     pad_size: tuple[int, int],
@@ -164,11 +164,12 @@ def _compute_best_score_from_maps(
     Compute the highest correlation score and the corresponding x, y coordinates
     from the score and fill fraction maps.
     """
-    # Make sure the shape of `score_map` and the `fill_fraction_mask` match
+    # Make sure the shape of `score_map` and the `fill_fraction_mask` match, and
+    # discard irrelevant fill fraction mask positions at the bottom right.
     valid_positions = fill_fraction_mask[: score_map.shape[0], : score_map.shape[1]]
     # Replace non-valid values (where fill fraction is below threshold) with -inf
     masked_scores = np.where(valid_positions, score_map, -np.inf)
-    # Compute the best x, y position from the score map
+    # Compute the best score and x, y position from the score map
     best_flat_index = np.argmax(masked_scores)
     score = masked_scores.flat[best_flat_index]
     y, x = np.unravel_index(best_flat_index, masked_scores.shape)
