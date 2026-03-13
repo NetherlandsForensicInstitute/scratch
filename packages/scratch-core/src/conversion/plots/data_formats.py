@@ -76,49 +76,6 @@ class StriationComparisonPlots:
 
 
 @dataclass
-class ImpressionComparisonMetrics:
-    """
-    Metrics for impression comparison display.
-
-    :param area_correlation: Areal correlation coefficient (from area-based comparison).
-    :param cell_correlations: Grid of per-cell correlation values (shape: n_rows x n_cols).
-    :param cmc_score: Congruent Matching Cells score (percentage of cells above threshold).
-    :param mean_square_ref: Mean square roughness (Sq) of reference surface in µm.
-    :param mean_square_comp: Mean square roughness (Sq) of compared surface in µm.
-    :param mean_square_of_difference: Mean square roughness (Sq) of difference (comp - ref) in µm.
-    :param has_area_results: Whether area-based results were computed.
-    :param has_cell_results: Whether cell/CMC-based results were computed.
-    :param cell_positions_compared: (n_cells, 2) matched positions on compared surface in µm, row-major order.
-    :param cell_rotations_compared: (n_cells,) rotation angles in radians, row-major order.
-    :param cmc_area_fraction: Percentage of total surface area covered by CMC cells.
-    :param cutoff_low_pass: Cutoff length low-pass filter in µm.
-    :param cutoff_high_pass: Cutoff length high-pass filter in µm.
-    :param cell_size_um: Cell size in µm.
-    :param max_error_cell_position: Max error cell position in µm.
-    :param max_error_cell_angle: Max error cell angle in degrees.
-    :param cell_similarity_threshold: Minimum correlation for a cell to be CMC (default 0.25).
-    """
-
-    area_correlation: float
-    cell_correlations: FloatArray2D
-    cmc_score: float
-    mean_square_ref: float
-    mean_square_comp: float
-    mean_square_of_difference: float
-    has_area_results: bool
-    has_cell_results: bool
-    cell_positions_compared: FloatArray2D
-    cell_rotations_compared: FloatArray1D
-    cmc_area_fraction: float
-    cutoff_low_pass: float
-    cutoff_high_pass: float
-    cell_size_um: float
-    max_error_cell_position: float
-    max_error_cell_angle: float
-    cell_similarity_threshold: float = 0.25
-
-
-@dataclass
 class ImpressionComparisonPlots:
     """
     Results from impression mark comparison visualization.
