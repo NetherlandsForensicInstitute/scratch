@@ -15,6 +15,9 @@ from conversion.surface_comparison.cell_registration.core import (
     coarse_registration,
 )
 from conversion.surface_comparison.models import GridCell, ComparisonParams
+from tests.conversion.surface_comparison.cell_registration.helpers import (
+    plot_cell_registration_results,
+)
 
 SCORE_TOLERANCE = 0.05
 
@@ -74,10 +77,11 @@ def test_coarse_registration_self_match_angle_is_zero(
 def test_coarse_registration_self_match_angle_is_found(
     identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
     angle: float,
+    plot: bool = False,
 ):
     # Arrange
     angle_min, angle_max, angle_step = -80, 80, 20
-    grid_cells, reference_image, params = identical_match_inputs
+    grid_cells, reference_image, _ = identical_match_inputs
     rotated = rotate(
         reference_image.data,
         angle=angle,
@@ -97,6 +101,13 @@ def test_coarse_registration_self_match_angle_is_found(
             search_angle_step=angle_step,
         ),
     )
+
+    if plot:
+        plot_cell_registration_results(
+            reference_image=reference_image,
+            comparison_image=comparison_image,
+            cells=cells,
+        )
 
     # Assert
     assert cells[0].angle_deg == pytest.approx(angle)

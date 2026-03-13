@@ -12,6 +12,11 @@ from conversion.surface_comparison.models import (
     ComparisonParams,
     GridCell,
     GridSearchParams,
+    Cell,
+)
+from tests.conversion.surface_comparison.cell_registration.plot_utils import (
+    plot_rotated_squares,
+    plot_side_by_side,
 )
 
 
@@ -98,4 +103,24 @@ def identity_params(
         search_angle_min=-60.0,
         search_angle_max=60.0,
         search_angle_step=60.0,
+    )
+
+
+def plot_cell_registration_results(
+    reference_image: ScanImage, comparison_image: ScanImage, cells: list[Cell]
+):
+    ref_plot = plot_rotated_squares(
+        image=reference_image.data,
+        cells=cells,
+        pixel_size=reference_image.scale_x,
+        mode="reference",
+    )
+    comp_plot = plot_rotated_squares(
+        image=comparison_image.data,
+        cells=cells,
+        pixel_size=comparison_image.scale_x,
+        mode="comparison",
+    )
+    plot_side_by_side(
+        img1=ref_plot, title1="Reference", img2=comp_plot, title2="Comparison"
     )
