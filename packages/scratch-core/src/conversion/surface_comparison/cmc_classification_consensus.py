@@ -1,7 +1,5 @@
 import numpy as np
-from scipy.stats import t
 
-from container_models.base import Points2D, FloatArray1D, BoolArray1D
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonResult,
@@ -42,20 +40,21 @@ def classify_congruent_cells_consensus(
     filtered_cells = _filter_cells(cells, params.minimum_fill_fraction)
     n_filtered_cells = len(filtered_cells)
 
-    max_distance = params.position_threshold          # in meters
+    max_distance = params.position_threshold  # in meters
     max_abs_angle_distance = params.angle_deviation_threshold  # in degrees
 
     # initialize solution: default to first cell as sole CMC
     best_inliers_idx: list[int] = [0]
     criterion = np.inf
 
-    if n_filtered_cells <= 1 or (np.isinf(max_distance) and max_abs_angle_distance == 180):
+    if n_filtered_cells <= 1 or (
+        np.isinf(max_distance) and max_abs_angle_distance == 180
+    ):
         # All cells are CMC — skip pair search
         best_inliers_idx = list(range(n_filtered_cells))
     else:
         for idx_1 in range(n_filtered_cells):
             for idx_2 in range(idx_1 + 1, n_filtered_cells):
-
                 # --- Seed: evaluate two-cell pair solution ---
                 cell_distances, cell_angle_distances = _get_cmc_consensus(
                     [idx_1, idx_2], filtered_cells, reference_center
@@ -66,8 +65,11 @@ def classify_congruent_cells_consensus(
                 )[0].tolist()
 
                 criterion_current = _calculate_criterion(
-                    inliers_idx_current, cell_distances, cell_angle_distances,
-                    max_distance, max_abs_angle_distance,
+                    inliers_idx_current,
+                    cell_distances,
+                    cell_angle_distances,
+                    max_distance,
+                    max_abs_angle_distance,
                 )
 
                 if 2 < len(inliers_idx_current) < n_filtered_cells:
@@ -85,8 +87,11 @@ def classify_congruent_cells_consensus(
                         )[0].tolist()
 
                         criterion_candidate = _calculate_criterion(
-                            inliers_idx_candidate, cell_distances, cell_angle_distances,
-                            max_distance, max_abs_angle_distance,
+                            inliers_idx_candidate,
+                            cell_distances,
+                            cell_angle_distances,
+                            max_distance,
+                            max_abs_angle_distance,
                         )
 
                         # Accept if strictly more inliers, or same count with lower criterion
@@ -117,9 +122,7 @@ def classify_congruent_cells_consensus(
         best_inliers_idx = [int(np.argmax(best_scores))]
 
     # --- Mark cells as congruent ---
-    congruent_set = set(
-        filtered_cells[i] for i in best_inliers_idx
-    )
+    congruent_set = set(filtered_cells[i] for i in best_inliers_idx)
     # We need original cell indices; map filtered back via identity
     updated_cells = []
     for cell in cells:
@@ -135,9 +138,16 @@ def classify_congruent_cells_consensus(
         consensus_rotation_deg = float(np.degrees(consensus_rotation_rad))
     else:
         # then pick rotation and translation of the single is_congruent cell
-        cell = [cell for cell in cells if cell.is_congruent == True][0]
+        cell = [cell for cell in cells if cell.is_congruent][0]
         consensus_rotation_deg = cell.angle_deg
-        consensus_translation = rotate(cell.center_reference) - cell.center_comparison
+        center_of_rotation_comparison = reference_center
+        consensus_translation = (
+            np.array(cell.center_comparison)
+            - np.array(center_of_rotation_comparison)
+            - _rotate_using_angle_deg(
+                cell.center_reference, cell.angle_deg, reference_center
+            )
+        )
 
     return ComparisonResult(
         cells=updated_cells,
@@ -146,9 +156,7 @@ def classify_congruent_cells_consensus(
     )
 
 
-def _filter_cells(
-    cells: list[Cell], minimum_fill_fraction: float
-) -> list[Cell]:
+def _filter_cells(cells: list[Cell], minimum_fill_fraction: float) -> list[Cell]:
     """Keep cells that have fill_fraction_reference >= minimum_fill_fraction.
 
     :param cells: a list of Cells to filter
@@ -156,8 +164,7 @@ def _filter_cells(
     :returns: filtered_cells, a list of filtered cells
     """
     filtered_cells = [
-        cell for cell in cells
-        if cell.fill_fraction_reference >= minimum_fill_fraction
+        cell for cell in cells if cell.fill_fraction_reference >= minimum_fill_fraction
     ]
     return filtered_cells
 
@@ -205,7 +212,10 @@ def _get_cmc_consensus(
         cells_for_least_squares, reference_center
     )
     cell_distances, cell_angle_distances = _get_distances(
-        cells, consensus_translation, consensus_rotation_rad
+        cells,
+        consensus_translation,
+        consensus_rotation_rad,
+        rotation_center=reference_center,
     )
     return cell_distances, cell_angle_distances
 
@@ -231,26 +241,43 @@ def _find_consensus_parameters(
     if len(cells) == 0:
         raise ValueError("No cells found")
 
-    centers_reference = np.array([cell.center_reference for cell in cells], dtype=float)   # (N, 2)
-    centers_comparison = np.array([cell.center_comparison for cell in cells], dtype=float)  # (N, 2)
-    center_of_rotation_reference = np.array(reference_center, dtype=float)                  # (2,)
-    center_of_rotation_comparison = center_of_rotation_reference # we assume the same image_size and center.
+    centers_reference = np.array(
+        [cell.center_reference for cell in cells], dtype=float
+    )  # (N, 2)
+    centers_comparison = np.array(
+        [cell.center_comparison for cell in cells], dtype=float
+    )  # (N, 2)
+    center_of_rotation_reference = np.array(reference_center, dtype=float)  # (2,)
+    center_of_rotation_comparison = (
+        center_of_rotation_reference  # we assume the same image_size and center.
+    )
 
     # Remove non_valid cells
-    valid = ~(np.any(np.isnan(centers_reference), axis=1) | np.any(np.isnan(centers_comparison), axis=1))
+    valid = ~(
+        np.any(np.isnan(centers_reference), axis=1)
+        | np.any(np.isnan(centers_comparison), axis=1)
+    )
     centers_reference = centers_reference[valid]
     centers_comparison = centers_comparison[valid]
 
     # Compute centroids
-    mean_cell_centers_reference = centers_reference.mean(axis=0)   # mean of reference positions
-    mean_cell_centers_comparison = centers_comparison.mean(axis=0)   # mean of comparison positions
+    mean_cell_centers_reference = centers_reference.mean(
+        axis=0
+    )  # mean of reference positions
+    mean_cell_centers_comparison = centers_comparison.mean(
+        axis=0
+    )  # mean of comparison positions
 
-    centers_reference_centered = centers_reference - center_of_rotation_reference       # centred reference positions
-    centers_comparison_centered = centers_comparison - center_of_rotation_comparison       # centred comparison positions
+    centers_reference_centered = (
+        centers_reference - center_of_rotation_reference
+    )  # centred reference positions
+    centers_comparison_centered = (
+        centers_comparison - center_of_rotation_comparison
+    )  # centred comparison positions
 
     # SVD for best-fit rotation (no reflection)
     # M = centers_reference_centered^T * centers_comparison_centered
-    M = centers_reference_centered.T @ centers_comparison_centered       # (2, 2)
+    M = centers_reference_centered.T @ centers_comparison_centered  # (2, 2)
     U, _, Vt = np.linalg.svd(M)
     rotation_matrix = U @ Vt  # (2, 2)
 
@@ -260,19 +287,36 @@ def _find_consensus_parameters(
         rotation_matrix = U @ Vt
 
     # 'comparison' = 'rotated_reference' + translation, -> translation = 'comparison' - 'rotated_reference'.
-    consensus_translation = (
-        mean_cell_centers_comparison - center_of_rotation_comparison
-        - (mean_cell_centers_reference - center_of_rotation_reference) @ rotation_matrix
+    consensus_translation = mean_cell_centers_comparison - _rotate_with_rotation_matrix(
+        data=mean_cell_centers_reference,
+        center=center_of_rotation_reference,
+        rotation_matrix=rotation_matrix,
     )
 
     # --- Rotation angle: atan2(-T[0,1], T[0,0])  (matches MATLAB atan2(-mT(1,2), mT(1,1))) ---
-    consensus_rotation_rad = float(np.arctan2(-rotation_matrix[0, 1], rotation_matrix[0, 0]))
-    consensus_translation = (float(consensus_translation[0]), float(consensus_translation[1]))
+    consensus_rotation_rad = float(
+        np.arctan2(-rotation_matrix[0, 1], rotation_matrix[0, 0])
+    )
+    consensus_translation = (
+        float(consensus_translation[0]),
+        float(consensus_translation[1]),
+    )
 
     return consensus_translation, consensus_rotation_rad
 
-def _rotate_using_rotation_matrix(data: np.array, center: np.array, rotation_matrix: np.array) -> np.array:
-    rotated = (data - center) @ rotation_matrix
+
+def _rotate_with_rotation_matrix(
+    data: np.ndarray, center: np.ndarray, rotation_matrix: np.ndarray
+) -> np.ndarray:
+    """Rotate data around center.
+
+    :param data: data to be rotated, shape (n ,m), n cases with m features
+    :param center: center of rotation, shape (1 ,m)
+    :param rotation_matrix: rotation matrix, shape (m, m)
+    :returns rotated data, shape (n ,m)
+    """
+
+    rotated = (data - center) @ rotation_matrix + center
 
     return rotated
 
@@ -281,6 +325,7 @@ def _get_distances(
     cells: list[Cell],
     consensus_translation: tuple[float, float],
     consensus_rotation_rad: float,
+    rotation_center: tuple[float, float],
 ) -> tuple[np.ndarray, np.ndarray]:
     """Get distances and abs_angle_distances of cell locations/rotations versus
     consensus_translation and consensus_rotation_rad.
@@ -289,13 +334,16 @@ def _get_distances(
     :param consensus_translation: (tx, ty) translation in meters (applied after rotation)
     :param consensus_rotation_rad: rotation in radians (used to predict comparison positions
         AND to compute angle residuals after converting to degrees)
+    :param rotation_center: center of rotation, shape (1 ,m)
     :returns: distances (meters) as np.ndarray, abs_angle_distances (unsigned degrees) as np.ndarray
     """
-    predicted_positions = _predict_positions(cells, consensus_translation, consensus_rotation_rad)
+    predicted_positions = _predict_positions(
+        cells, consensus_translation, consensus_rotation_rad, rotation_center
+    )
     distances = np.array(_get_distances_meters(cells, predicted_positions))
 
     consensus_rotation_deg = float(np.degrees(consensus_rotation_rad))
-    # angle_deg on each cell is already the angle difference (angle2 - angle1 in MATLAB).
+
     # The absolute residual is |cell.angle_deg - consensus_rotation_deg|.
     abs_angle_distances = np.array(
         [abs(cell.angle_deg - consensus_rotation_deg) for cell in cells]
@@ -304,11 +352,46 @@ def _get_distances(
     return distances, abs_angle_distances
 
 
+def _rotate_using_angle_deg(
+    xy_data: np.ndarray, angle_deg: float, reference_center: np.ndarray
+) -> np.ndarray:
+    """Rotate data around center.
+
+    :param xy_data: data to be rotated, shape (n ,m), n cases with m features
+    :param angle_deg: angle in degrees
+    :param reference_center: center of rotation, shape (1 ,m)
+    :returns rotated data, shape (n ,m)
+    """
+
+    angle_rad = np.radians(angle_deg)
+    rotation_matrix = _build_2d_rotation_matrix(angle_rad)
+
+    return _rotate_with_rotation_matrix(
+        data=xy_data, center=reference_center, rotation_matrix=rotation_matrix
+    )
+
+
+def _build_2d_rotation_matrix(angle_rad: float) -> np.ndarray:
+    """Build 2d rotation matrix from angle_rad.
+
+     2-D rotation matrix  [[ cos, -sin], [sin,  cos]]
+     R for angle θ is [row1, row2] = [[cos, sin], [-sin, cos]]  → x' = x*cos + y*-sin
+
+    :param angle_rad: angle in radians
+    :returns: 2d rotation matrix, shape (2,2).
+    """
+    cos_a = np.cos(angle_rad)
+    sin_a = np.sin(angle_rad)
+    rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
+
+    return rotation_matrix
+
+
 def _predict_positions(
     cells: list[Cell],
     consensus_translation: tuple[float, float],
     consensus_rotation_rad: float,
-    rotation_center: tuple[float, float]
+    rotation_center: tuple[float, float],
 ) -> np.ndarray:
     """Predict reference_positions of cells in comparison frame after rotation and translation by consensus values.
 
@@ -318,21 +401,21 @@ def _predict_positions(
     :param rotation_center: center of rotation, it is assumed the same for reference and comparison frame
     :returns: predicted_positions list of (x, y) in meters
     """
-    cos_a = np.cos(consensus_rotation_rad)
-    sin_a = np.sin(consensus_rotation_rad)
 
-    # 2-D rotation matrix  [[ cos, -sin], [sin,  cos]]
-    # MATLAB convention: atan2(-mT(1,2), mT(1,1)) with mT = V*U'
-    # coord_pred = coord_pred * R  (row-vector convention) + vTrans
-    # R for angle θ is [[cos, sin], [-sin, cos]]  → x' = x*cos + y*-sin
-    rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
-    rotation_center = np.array(rotation_center).reshape(1,2)
-    consensus_translation = np.array(consensus_translation).reshape(1,2)
-    cell_centers_reference = np.array([cell.center_reference for cell in cells]) # (n, 2)
-    reference_rotated = _rotate_using_rotation_matrix(cell_centers_reference, rotation_center, rotation_matrix)
+    rotation_matrix = _build_2d_rotation_matrix(consensus_rotation_rad)
+    rotation_center = np.array(rotation_center).reshape(1, 2)
+    consensus_translation = np.array(consensus_translation).reshape(1, 2)
+    cell_centers_reference = np.array(
+        [cell.center_reference for cell in cells]
+    )  # (n, 2)
+    references_rotated = _rotate_with_rotation_matrix(
+        data=cell_centers_reference,
+        center=rotation_center,
+        rotation_matrix=rotation_matrix,
+    )
 
-    # predicted position in comparison frame = translation + rotation_center + rotation
-    predicted_positions = consensus_translation + rotation_center + reference_rotated
+    # predicted position in comparison frame = translation + rotation
+    predicted_positions = consensus_translation + references_rotated
 
     return predicted_positions
 
@@ -348,10 +431,12 @@ def _get_distances_meters(
     :returns: list of Euclidean distances in meters
     """
     distances = [
-        float(np.sqrt(
-            (cell.center_comparison[0] - pred[0]) ** 2
-            + (cell.center_comparison[1] - pred[1]) ** 2
-        ))
+        float(
+            np.sqrt(
+                (cell.center_comparison[0] - pred[0]) ** 2
+                + (cell.center_comparison[1] - pred[1]) ** 2
+            )
+        )
         for cell, pred in zip(cells, predicted_positions)
     ]
     return distances
