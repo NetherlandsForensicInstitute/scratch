@@ -206,7 +206,10 @@ class TestContracts:
                     "measurement_id": "measurement_1",
                     "mark_id": "mark_2",
                 },
-                "comparison_params": {},
+                "comparison_params": {
+                    "cell_size": [25e-6, 25e-6],
+                    "minimum_fill_fraction": 0.1,
+                },
             },
             expected_urls={
                 "comparison_overview": ".png",
