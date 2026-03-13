@@ -5,9 +5,7 @@ import numpy as np
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import GridCell, GridSearchParams
-from conversion.surface_comparison.utils import (
-    convert_meters_to_pixels,
-)
+from conversion.surface_comparison.utils import convert_meters_to_pixels
 
 
 def generate_grid(
