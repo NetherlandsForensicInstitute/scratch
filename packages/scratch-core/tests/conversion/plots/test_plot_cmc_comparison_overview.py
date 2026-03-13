@@ -1,13 +1,15 @@
+from typing import Sequence
+
 import numpy as np
 import pytest
 
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import (
     HistogramData,
-    ImpressionComparisonMetrics,
     LlrTransformationData,
 )
 from conversion.plots.plot_cmc_comparison_overview import plot_cmc_comparison_overview
+from conversion.surface_comparison.models import Cell
 
 from .helper_functions import assert_valid_rgb_image
 
@@ -19,14 +21,13 @@ class TestPlotCmcComparisonOverview:
     def test_returns_valid_rgb_image(
         self,
         impression_overview_marks: dict[str, Mark],
-        impression_overview_metrics: ImpressionComparisonMetrics,
+        impression_overview_cells: Sequence[Cell],
         sample_metadata_reference: MarkMetadata,
         sample_metadata_compared: MarkMetadata,
         cmc_results_metadata: dict[str, str],
         cmc_histogram_data: HistogramData,
         cmc_llr_data: LlrTransformationData,
     ) -> None:
-        cmc_score = impression_overview_metrics.cmc_score
         llr_scores = cmc_llr_data.scores
         llrs = cmc_llr_data.llrs
 
@@ -35,20 +36,20 @@ class TestPlotCmcComparisonOverview:
             labels=cmc_histogram_data.labels,
             bins=cmc_histogram_data.bins,
             densities=cmc_histogram_data.densities,
-            new_score=cmc_score,
+            new_score=5,
         )
         llr_data = LlrTransformationData(
             scores=cmc_llr_data.scores,
             llrs=cmc_llr_data.llrs,
             llrs_at5=cmc_llr_data.llrs_at5,
             llrs_at95=cmc_llr_data.llrs_at95,
-            score_llr_point=(cmc_score, float(np.interp(cmc_score, llr_scores, llrs))),
+            score_llr_point=(5, float(np.interp(5, llr_scores, llrs))),
         )
 
         result = plot_cmc_comparison_overview(
             mark_reference_filtered=impression_overview_marks["reference_filtered"],
             mark_compared_filtered=impression_overview_marks["compared_filtered"],
-            metrics=impression_overview_metrics,
+            cells=impression_overview_cells,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
             results_metadata=cmc_results_metadata,
