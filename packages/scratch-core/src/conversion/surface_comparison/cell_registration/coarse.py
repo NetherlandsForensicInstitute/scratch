@@ -148,7 +148,7 @@ def _compute_unrotated_cell_center(
     # Remove the padding (one full cell on each side)
     top_left_x = x_original - pad_x
     top_left_y = y_original - pad_y
-    # Compute the original center coordinates from the top-left coordinates and the angle
+    # Compute the original center coordinates from the unrotated top-left coordinates and the angle
     center_x, center_y = rotate_points(
         points=np.array([(pad_x / 2, pad_y / 2)]), angle=angle_rad, center=(0, 0)
     )[0]
