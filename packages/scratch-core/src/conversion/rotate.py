@@ -7,50 +7,6 @@ from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.mask import crop_to_mask
 from conversion.utils import update_scan_image_data
-from mutations import Mask, Rotate
-from mutations.filter import FilterNeedles
-from mutations.spatial import CropToMask
-
-
-def rotate_and_crop_by_mask_crop(
-    scan_image: ScanImage,
-    mask: BinaryMask,
-    bounding_box: BoundingBox,
-) -> ScanImage:
-    """
-    Rotates, crops and masks a scan image based on the given mask and rectangle.
-
-    Implements the following flow:
-    - Determine the rotation angle for the image and mask by the bounding box of rectangle, if a rectangle is given.
-        Otherwise, the rotation angle is 0.
-    - If the rotation angle is not 0, the mask is binary dilated using DILATE_STEPS iterations to correct for
-        imperfections when rotating. A margin is determined to reduce the final image to compensate for the dilation.
-    - The mask and image are cropped to the bounds of the mask.
-    - The scan image is masked using the cropped mask and cleaned of needles (i.e. steep slopes). The parameter
-        `times_median` is used to determine the threshold to find outliers.
-    - The image and mask are rotated by rotation_angle.
-    - The rotated image is cropped to the bounds of the rotated mask, using margin to compensate for dilation.
-
-    :param scan_image: Scan image to rotate, mask and crop.
-    :param mask: Binary mask array.
-    :param bounding_box: Bounding box of a rectangular crop region used to determine the rotation of an
-        image, or None. Expects pixel coordinates, i.e. top-left origin.
-    :return: The cropped, rotated and masked scan image.
-    """
-    margin = 0
-    rotator = Rotate.from_bounding_box(bounding_box=bounding_box)
-    if not np.isclose(rotator.rotation_angle, 0.0):
-        dilate_steps = 3
-        margin = dilate_steps + 2
-        logger.debug("Rotating mask")
-        mask = rotate_mask(
-            mask=binary_dilation(mask, iterations=dilate_steps).astype(bool),
-            rotation_angle=rotator.rotation_angle,
-        )
-        logger.debug("Rotating image")
-        scan_image = rotator(scan_image=scan_image).unwrap()
-    logger.debug(f"Cropping image with margin: {margin}")
-    return CropToMask(mask=mask, margin=margin)(scan_image).unwrap()
 
 
 def get_rotation_angle(bounding_box: BoundingBox) -> float:

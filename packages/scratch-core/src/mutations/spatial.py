@@ -26,13 +26,14 @@ from typing import Self
 
 import numpy as np
 from loguru import logger
-from scipy.ndimage import rotate
+from scipy.ndimage import binary_dilation, rotate
 from skimage.transform import resize
 
 from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
+from conversion.rotate import rotate_mask
 from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
 
@@ -57,6 +58,19 @@ class CropToMask(ImageMutation):
             logger.info("Skipping crop, mask is empty (containing only 1")
             return True
         return False
+
+    @classmethod
+    def from_rotation(
+        cls, rotation_angle: float, mask_before_rotation: BinaryMask
+    ) -> Self:
+        if np.isclose(rotation_angle, 0.0):
+            return cls(mask=mask_before_rotation, margin=0)
+        else:
+            mask = rotate_mask(
+                mask=binary_dilation(mask_before_rotation, iterations=3).astype(bool),
+                rotation_angle=rotation_angle,
+            )
+            return cls(mask=mask, margin=5)
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """

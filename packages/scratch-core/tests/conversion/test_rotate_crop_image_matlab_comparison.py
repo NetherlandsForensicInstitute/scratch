@@ -9,12 +9,13 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from preprocessors.controller import _scan_image_to_mark
 from scipy.constants import micro
 
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
-from conversion.rotate import get_rotation_angle, rotate_and_crop_by_mask_crop
+from conversion.rotate import get_rotation_angle
 
 from .helper_functions import (
     _compute_correlation,
@@ -144,7 +145,7 @@ def run_python_preprocessing(
         scale_y=test_case.input_ydim,
     )
 
-    data_out = rotate_and_crop_by_mask_crop(
+    data_out = _scan_image_to_mark(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
         bounding_box=test_case.rectangle,
