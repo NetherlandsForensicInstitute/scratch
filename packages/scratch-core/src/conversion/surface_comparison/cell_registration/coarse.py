@@ -151,7 +151,7 @@ def _compute_unrotated_cell_center(
         center=center,
         angle=np.radians(-angle),
     )[0]
-    # Compute the original cell center coordinates by removing the padding (one full cell on each side)
+    # Compute the original cell center coordinates by removing the padding
     center_x = unrotated_x - pad_size[0]
     center_y = unrotated_y - pad_size[1]
     # Return the coordinates of the cell center on the original image
