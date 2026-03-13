@@ -87,18 +87,18 @@ def match_cells(
             )
             if score > grid_cell.grid_search_params.score:
                 # Compute the center coordinates of the cell on the (original) unrotated image
-                center_x, center_y = _compute_unrotated_cell_center(
-                    rotated_top_left=(x, y),
+                cell_center = (x + cell_width / 2, y + cell_height / 2)
+                original_center_x, original_center_y = _unrotate_point(
+                    rotated_point=cell_center,
                     angle=angle,
                     pad_size=(pad_with, pad_height),
-                    cell_size=(cell_width, cell_height),
-                    center=(global_center_x, global_center_y),
+                    center_of_rotation=(global_center_x, global_center_y),
                 )
                 grid_cell.grid_search_params.update(
                     score=score,
                     angle=angle,
-                    center_x=center_x,
-                    center_y=center_y,
+                    center_x=original_center_x,
+                    center_y=original_center_y,
                 )
 
     return [
@@ -136,25 +136,22 @@ def _get_fill_fraction_map(
     return np.asarray(filtered, dtype=np.float64)
 
 
-def _compute_unrotated_cell_center(
-    rotated_top_left: tuple[float, float],
+def _unrotate_point(
+    rotated_point: tuple[float, float],
     angle: float,
     pad_size: tuple[int, int],
-    cell_size: tuple[int, int],
-    center: tuple[float, float],
+    center_of_rotation: tuple[float, float],
 ):
-    rotated_center_x = rotated_top_left[0] + cell_size[0] / 2
-    rotated_center_y = rotated_top_left[1] + cell_size[1] / 2
     # Undo the -angle rotation that was applied to the padded comparison image
     unrotated_x, unrotated_y = rotate_points(
-        points=np.array([(rotated_center_x, rotated_center_y)]),
-        center=center,
+        points=np.array([rotated_point]),
+        center=center_of_rotation,
         angle=np.radians(-angle),
     )[0]
-    # Compute the original cell center coordinates by removing the padding
-    center_x = unrotated_x - pad_size[0]
-    center_y = unrotated_y - pad_size[1]
-    return center_x, center_y
+    # Compute the original coordinates by removing the padding
+    original_x = unrotated_x - pad_size[0]
+    original_y = unrotated_y - pad_size[1]
+    return original_x, original_y
 
 
 def _compute_best_score_from_maps(
