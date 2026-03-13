@@ -15,7 +15,7 @@ from conversion.surface_comparison.cell_registration.core import (
     coarse_registration,
 )
 from conversion.surface_comparison.models import GridCell, ComparisonParams
-from tests.conversion.surface_comparison.cell_registration.helpers import (
+from .helpers import (
     plot_cell_registration_results,
 )
 
