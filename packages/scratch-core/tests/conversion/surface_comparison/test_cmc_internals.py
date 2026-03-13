@@ -15,7 +15,7 @@ from conversion.surface_comparison.cmc_classification import (
     _rotate_points,
     _wrap_angles,
 )
-from .helpers import _make_cell
+from ..helper_functions import make_cell
 
 
 class TestWrapAngles:
@@ -256,7 +256,7 @@ class TestGetConsensusAngle:
         """When all cells share the same angle the consensus must equal that angle."""
         # Arrange
         angle_deg = 15.0
-        cells = [_make_cell(angle_deg=angle_deg) for _ in range(6)]
+        cells = [make_cell(angle_deg=angle_deg) for _ in range(6)]
         threshold = np.radians(2.0)
 
         # Act
@@ -269,8 +269,8 @@ class TestGetConsensusAngle:
         """One extreme angle must be rejected so the consensus stays near the cluster."""
         # Arrange
         inlier_angle = 10.0
-        cells = [_make_cell(angle_deg=inlier_angle) for _ in range(7)]
-        cells.append(_make_cell(angle_deg=170.0))  # extreme outlier
+        cells = [make_cell(angle_deg=inlier_angle) for _ in range(7)]
+        cells.append(make_cell(angle_deg=170.0))  # extreme outlier
         threshold = np.radians(2.0)
 
         # Act
@@ -282,8 +282,8 @@ class TestGetConsensusAngle:
     def test_outlier_cells_are_flagged_in_meta_data(self) -> None:
         """Cells outside the acceptance band must have is_outlier set to True."""
         # Arrange
-        cells = [_make_cell(angle_deg=5.0) for _ in range(6)]
-        cells.append(_make_cell(angle_deg=170.0))  # will be rejected
+        cells = [make_cell(angle_deg=5.0) for _ in range(6)]
+        cells.append(make_cell(angle_deg=170.0))  # will be rejected
         threshold = np.radians(2.0)
 
         # Act
@@ -296,7 +296,7 @@ class TestGetConsensusAngle:
     def test_residual_angle_deg_populated_for_all_cells(self) -> None:
         """residual_angle_deg must be set on every cell after the call."""
         # Arrange
-        cells = [_make_cell(angle_deg=float(a)) for a in [1.0, 2.0, 1.5, 1.8, 1.2]]
+        cells = [make_cell(angle_deg=float(a)) for a in [1.0, 2.0, 1.5, 1.8, 1.2]]
         threshold = np.radians(2.0)
 
         # Act
@@ -314,10 +314,11 @@ class TestGetConsensusTranslation:
         """When reference and comparison centers coincide the consensus translation must be zero."""
         # Arrange
         cells = [
-            _make_cell(
+            make_cell(
                 angle_deg=0.0,
                 center_reference=(float(x), float(y)),
                 center_comparison=(float(x), float(y)),
+                is_outlier=False,
             )
             for x, y in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
         ]
@@ -337,10 +338,11 @@ class TestGetConsensusTranslation:
         offset = (0.5, -0.3)
         centers = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
         cells = [
-            _make_cell(
+            make_cell(
                 angle_deg=0.0,
                 center_reference=c,
                 center_comparison=(c[0] + offset[0], c[1] + offset[1]),
+                is_outlier=False,
             )
             for c in centers
         ]
@@ -360,15 +362,16 @@ class TestGetConsensusTranslation:
         good_offset = (0.2, 0.1)
         centers = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
         cells = [
-            _make_cell(
+            make_cell(
                 angle_deg=0.0,
                 center_reference=c,
                 center_comparison=(c[0] + good_offset[0], c[1] + good_offset[1]),
+                is_outlier=False,
             )
             for c in centers
         ]
         # Add an outlier cell with a wildly different offset
-        outlier = _make_cell(
+        outlier = make_cell(
             angle_deg=0.0,
             center_reference=(2.0, 2.0),
             center_comparison=(2.0 + 999.0, 2.0 + 999.0),
@@ -389,10 +392,11 @@ class TestGetConsensusTranslation:
         """position_error must be populated for every cell after the call."""
         # Arrange
         cells = [
-            _make_cell(
+            make_cell(
                 angle_deg=0.0,
                 center_reference=(float(i), 0.0),
                 center_comparison=(float(i) + 0.1, 0.0),
+                is_outlier=False,
             )
             for i in range(5)
         ]
