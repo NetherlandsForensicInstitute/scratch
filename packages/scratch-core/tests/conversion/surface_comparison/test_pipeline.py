@@ -92,11 +92,6 @@ def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = False):
         search_angle_step=30,
         minimum_fill_fraction=0.5,
     )
-    grid_cells = generate_grid(
-        scan_image=reference_image,
-        cell_size=params.cell_size,
-        minimum_fill_fraction=params.minimum_fill_fraction,
-    )
     rotated = rotate(
         image=image_data,
         angle=angle,
@@ -107,6 +102,11 @@ def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = False):
     comparison_image = reference_image.model_copy(update={"data": rotated})
 
     # Act
+    grid_cells = generate_grid(
+        scan_image=reference_image,
+        cell_size=params.cell_size,
+        minimum_fill_fraction=params.minimum_fill_fraction,
+    )
     cells = coarse_registration(
         grid_cells=grid_cells,
         comparison_image=comparison_image,
