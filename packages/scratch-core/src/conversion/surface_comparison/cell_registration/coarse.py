@@ -44,8 +44,10 @@ def match_cells(
     fill_value_comparison = float(np.nanmean(comparison_image.data))
     pixel_size = comparison_image.scale_x  # Assumes isotropic image
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
+    pad_with, pad_height = cell_width, cell_height  # Set pad size to cell size
+
     comparison_data = pad_image_array(
-        comparison_image.data, pad_width=cell_width, pad_height=cell_height
+        comparison_image.data, pad_width=pad_with, pad_height=pad_height
     )
     angles = np.arange(
         params.search_angle_min, params.search_angle_max, params.search_angle_step
@@ -88,7 +90,8 @@ def match_cells(
                 center_x, center_y = _compute_unrotated_cell_center(
                     rotated_top_left=(x, y),
                     angle=angle,
-                    pad_size=(cell_width, cell_height),
+                    pad_size=(pad_with, pad_height),
+                    cell_size=(cell_width, cell_height),
                     center=(global_center_x, global_center_y),
                 )
                 grid_cell.grid_search_params.update(
@@ -137,24 +140,27 @@ def _compute_unrotated_cell_center(
     rotated_top_left: tuple[float, float],
     angle: float,
     pad_size: tuple[int, int],
+    cell_size: tuple[int, int],
     center: tuple[float, float],
 ):
-    # Undo the -angle rotation that was applied to the padded comparison image.
+    pad_width, pad_height = pad_size
+    cell_width, cell_height = cell_size
     angle_rad = np.radians(-angle)
-    pad_x, pad_y = pad_size
-    x_original, y_original = rotate_points(
+    # Undo the -angle rotation that was applied to the padded comparison image
+    x_unrotated, y_unrotated = rotate_points(
         points=np.array([rotated_top_left]), center=center, angle=angle_rad
     )[0]
     # Remove the padding (one full cell on each side)
-    top_left_x = x_original - pad_x
-    top_left_y = y_original - pad_y
-    # Compute the original center coordinates from the unrotated top-left coordinates and the angle
+    top_left_x = x_unrotated - pad_width
+    top_left_y = y_unrotated - pad_height
+    # Compute the original cell center coordinates from the cell size and the angle
     center_x, center_y = rotate_points(
-        points=np.array([(pad_x / 2, pad_y / 2)]), angle=angle_rad, center=(0, 0)
+        points=np.array([(cell_width / 2, cell_height / 2)]),
+        angle=angle_rad,
+        center=(0, 0),
     )[0]
-    center_x += top_left_x
-    center_y += top_left_y
-    return center_x, center_y
+    # Return the coordinates of the cell center on the original image
+    return top_left_x + center_x, top_left_y + center_y
 
 
 def _compute_best_score_from_maps(
