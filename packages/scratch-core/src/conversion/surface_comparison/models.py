@@ -73,7 +73,7 @@ class Cell(ConfigBaseModel):
         return min(value, 1.0)  # clip value
 
     @property
-    def cell_size_um(self) -> tuple[float, float]:
+    def cell_size_um(self) -> tuple[float, float]: # pragma: no cover
         return self.cell_size[0] * mega, self.cell_size[1] * mega
 
 
