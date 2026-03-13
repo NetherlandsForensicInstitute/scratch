@@ -226,7 +226,8 @@ def _find_consensus_parameters(
     cells: list[Cell],
     reference_center: tuple[float, float],
 ) -> tuple[tuple[float, float], float]:
-    """Least-squares 'Procrustes' translation and rotation fit find consensus parameters.
+    """Least-squares 'Procrustes' rotation fit to find consensus rotation and translation parameters.
+
     Explanation of the method:
     Say we have two coordinate-pair lists [X] and [Y] where X_i is coupled with Y_i. And we want to find the rotation for which:
     ||(X - rotation_center_X) R - (Y - rotation_center_Y)||F_2 is minimal. i.e. the Frobenius norm (the sum of squared distances between the transformed sets of points and a target set of points) is minimal.
@@ -295,10 +296,9 @@ def _find_consensus_parameters(
         rotation_matrix=rotation_matrix,
     )
 
-    # --- Rotation angle: atan2(-T[0,1], T[0,0])  (matches MATLAB atan2(-mT(1,2), mT(1,1))) ---
-    consensus_rotation_rad = float(
-        np.arctan2(-rotation_matrix[0, 1], rotation_matrix[0, 0])
-    )
+    # Rotation angle: atan2(sin/cos)
+    (cos, sin) = tuple(rotation_matrix[0])
+    consensus_rotation_rad = float(np.arctan2(sin, cos))
     consensus_translation = (
         float(consensus_translation[0]),
         float(consensus_translation[1]),
