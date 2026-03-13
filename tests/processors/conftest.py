@@ -73,7 +73,7 @@ def base_kwargs(metadata_reference: MarkMetadata, metadata_compared: MarkMetadat
 
 @pytest.fixture
 def striation_kwargs(
-    lr_system_path: Path,
+    striation_lr_system_path: Path,
     mark_dirs: tuple[Path, Path],
     base_kwargs: dict,
 ) -> dict:
@@ -84,14 +84,14 @@ def striation_kwargs(
         "mark_dir_comp": mark_dir_comp,
         "mark_dir_comp_aligned": mark_dir_comp,
         "score": 0.5,
-        "lr_system_path": lr_system_path,
+        "lr_system_path": striation_lr_system_path,
         **base_kwargs,
     }
 
 
 @pytest.fixture
 def impression_kwargs(
-    lr_system_path: Path,
+    impression_lr_system_path: Path,
     mark_dirs: tuple[Path, Path],
     base_kwargs: dict,
 ) -> dict:
@@ -101,7 +101,7 @@ def impression_kwargs(
         "mark_dir_comp": mark_dir_comp,
         "score": 3,
         "n_cells": 10,
-        "lr_system_path": lr_system_path,
+        "lr_system_path": impression_lr_system_path,
         "cells": [
             make_cell(
                 center_reference=(i * 1e-3, 0.0),

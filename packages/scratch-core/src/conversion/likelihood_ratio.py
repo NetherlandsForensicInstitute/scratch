@@ -1,6 +1,6 @@
-import pickle
 from pathlib import Path
 from typing import Self
+from lrmodule import get_lr_system, get_reference_data
 
 import numpy as np
 from lir.data.models import FeatureData, LLRData
@@ -16,21 +16,17 @@ class ModelSpecs(ConfigBaseModel):
     Holds scores and LLR data for two populations: known matches (KM) and
     known non-matches (KNM), along with the model name used to produce each.
 
-    :param km_model: Identifier of the model used for KM scores.
     :param km_scores: Similarity scores for the KM population.
     :param km_llrs: Log-likelihood ratios for the KM population.
     :param km_llr_intervals: LLR confidence intervals for the KM population, shape (n, 2), or None.
-    :param knm_model: Identifier of the model used for KNM scores.
     :param knm_scores: Similarity scores for the KNM population.
     :param knm_llrs: Log-likelihood ratios for the KNM population.
     :param knm_llr_intervals: LLR confidence intervals for the KNM population, shape (n, 2), or None.
     """
 
-    km_model: str
     km_scores: np.ndarray
     km_llrs: np.ndarray
     km_llr_intervals: np.ndarray | None
-    knm_model: str
     knm_scores: np.ndarray
     knm_llrs: np.ndarray
     knm_llr_intervals: np.ndarray | None
@@ -71,36 +67,48 @@ class ModelSpecs(ConfigBaseModel):
         )
 
 
-def get_lr_system(
+def get_lr_system_from_path(
     lr_system_path: Path,
-) -> LRSystem:  # TODO replace with lr_module_scratch
+) -> LRSystem:
     """Load an LR system from a pickle file."""
-    with lr_system_path.open("rb") as f:
-        return pickle.load(f)  # noqa: S301
+    return get_lr_system(lr_system_path)
 
 
-def get_reference_data(
+def get_reference_data_from_path(
     lr_system_path: Path,
-) -> ModelSpecs:  # TODO replace with lr_module_scratch
-    """Return hardcoded dummy reference data (KM/KNM scores and LLRs).
+) -> ModelSpecs:
+    """Return the reference data of a specific LR system."""
+    lr_system = get_lr_system_from_path(lr_system_path)
+    reference_data = get_reference_data(lr_system_path)
+    if reference_data.labels is None:
+        raise ValueError("reference data must have labels")
 
-    .. note::
-        This is a placeholder. The ``lr_system_path`` argument is accepted for
-        API compatibility but is not used; real reference data will be derived
-        from the LR system once ``lr_module_scratch`` is integrated.
-    """
-    _ = get_lr_system(lr_system_path)
+    mask = reference_data.labels == 1
+    km_scores = FeatureData(
+        features=reference_data.features[mask],
+        labels=reference_data.labels[mask],
+        source_ids=reference_data.source_ids[mask]
+        if reference_data.source_ids is not None
+        else None,
+    )
+    km_llr_data = lr_system.apply(km_scores)
+
+    mask = reference_data.labels == 0
+    knm_scores = FeatureData(
+        features=reference_data.features[mask],
+        labels=reference_data.labels[mask],
+        source_ids=reference_data.source_ids[mask]
+        if reference_data.source_ids is not None
+        else None,
+    )
+    knm_llr_data = lr_system.apply(knm_scores)
     return ModelSpecs(
-        km_model="random",
-        km_scores=np.array([0.9, 0.85, 0.78]),
-        km_llrs=np.array([2.1, 1.8, 1.5]),
-        km_llr_intervals=np.array([[1.9, 2.3], [1.6, 2.0], [1.3, 1.7]]),
-        knm_model="random",
-        knm_scores=np.array([0.3, 0.25, 0.15, 0.1]),
-        knm_llrs=np.array([-1.2, -0.9, -1.5, -2.0]),
-        knm_llr_intervals=np.array(
-            [[-1.4, -1.0], [-1.1, -0.7], [-1.7, -1.3], [-2.2, -1.8]]
-        ),
+        km_scores=km_scores.features,
+        km_llrs=km_llr_data.llrs,
+        km_llr_intervals=km_llr_data.llr_intervals,
+        knm_scores=knm_scores.features,
+        knm_llrs=knm_llr_data.llrs,
+        knm_llr_intervals=knm_llr_data.llr_intervals,
     )
 
 
@@ -123,5 +131,5 @@ def calculate_lr_impression(lr_system: LRSystem, score: int, n_cells: int) -> LL
     :param score: CMC count (number of matching cells).
     :param n_cells: Total number of cells analyzed.
     """
-    result = lr_system.apply(FeatureData(features=np.array([[score, n_cells]])))
+    result = lr_system.apply(FeatureData(features=np.array([[0, score, n_cells]])))
     return result

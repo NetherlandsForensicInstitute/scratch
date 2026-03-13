@@ -53,14 +53,14 @@ class TestCalculateLR:
     @pytest.mark.parametrize(
         "invalid_lr_system",
         [
-            pytest.param(Path() / "nonexistent.bin", id="nonexistent"),
-            pytest.param(Path(__file__).parent, id="directory"),
+            pytest.param(Path() / "nonexistent", id="nonexistent"),
+            pytest.param(Path(__file__), id="file"),
         ],
     )
     def test_should_reject_invalid_lr_system_path(
         self, mark_dirs: tuple[Path, Path], invalid_lr_system: Path, base_kwargs: dict
     ) -> None:
-        """Non-existent path and directory path for lr_system_path raise ValidationError."""
+        """Non-existent path and file path for lr_system_path raise ValidationError."""
         mark_dir_ref, mark_dir_comp = mark_dirs
         with pytest.raises(ValidationError):
             CalculateLR(
@@ -70,16 +70,18 @@ class TestCalculateLR:
                 **base_kwargs,
             )
 
-    @pytest.mark.parametrize("field", ["mark_dir_ref", "mark_dir_comp"])
+    @pytest.mark.parametrize("field", ["mark_dir_ref", "mark_dir_comp", "lr_system_path"])
     @pytest.mark.parametrize("invalid_path", [Path() / "nonexistent", Path(__file__)])
     def test_should_reject_invalid_directory_path(
         self, field: str, invalid_path: Path, mark_dirs: tuple[Path, Path], lr_system_path: Path
     ) -> None:
-        """Non-existent paths and file paths for mark directories raise ValidationError."""
+        """Non-existent paths and file paths for directory fields raise ValidationError."""
         mark_dir_ref, mark_dir_comp = mark_dirs
-        fields = {"mark_dir_ref": mark_dir_ref, "mark_dir_comp": mark_dir_comp, "lr_system_path": lr_system_path} | {
-            field: invalid_path
-        }
+        fields = {
+            "mark_dir_ref": mark_dir_ref,
+            "mark_dir_comp": mark_dir_comp,
+            "lr_system_path": lr_system_path,
+        } | {field: invalid_path}
         with pytest.raises(ValidationError):
             CalculateLR.model_validate(fields)
 

@@ -49,6 +49,7 @@ dev = [
   "diff-cover>=9.7.1",
   "hypothesis>=6.148.2",
   "ipykernel>=7.0.0",
+  "lr_module_scratch @ git+https://github.com/NetherlandsForensicInstitute/lr_module_scratch.git@v0.1",
   "pre-commit>=4.3.0",
   "pyinstaller>=6.16.0",
   "pytest>=8.4.2",
