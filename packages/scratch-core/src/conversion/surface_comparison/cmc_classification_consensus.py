@@ -145,7 +145,9 @@ def classify_congruent_cells_consensus(
             np.array(cell.center_comparison)
             - np.array(center_of_rotation_comparison)
             - _rotate_using_angle_deg(
-                cell.center_reference, cell.angle_deg, reference_center
+                np.array(cell.center_reference).reshape(1, -1),
+                cell.angle_deg,
+                np.array(reference_center),
             )
         )
 
@@ -359,10 +361,10 @@ def _rotate_using_angle_deg(
 
     :param xy_data: data to be rotated, shape (n ,m), n cases with m features
     :param angle_deg: angle in degrees
-    :param reference_center: center of rotation, shape (1 ,m)
+    :param reference_center: center of rotation, shape (m)
     :returns rotated data, shape (n ,m)
     """
-
+    reference_center = reference_center.reshape(1, -1)
     angle_rad = np.radians(angle_deg)
     rotation_matrix = _build_2d_rotation_matrix(angle_rad)
 
