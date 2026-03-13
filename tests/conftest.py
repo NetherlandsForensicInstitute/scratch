@@ -6,16 +6,16 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from fastapi.testclient import TestClient
-from lir import LLRData
-
-from constants import PROJECT_ROOT
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.likelihood_ratio import ModelSpecs
 from conversion.plots.utils import build_results_metadata_impression
 from conversion.profile_correlator import Profile
+from fastapi.testclient import TestClient
+from lir import LLRData
+
+from constants import PROJECT_ROOT
 from main import app
 from models import DirectoryAccess
 from settings import Settings
@@ -35,8 +35,8 @@ def tmp_dir_api(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
     temp_dir = tmp_path_factory.mktemp("temp_dir_api")
 
     with patch(
-            "settings.get_settings",
-            return_value=Settings.model_construct(STORAGE=temp_dir),
+        "settings.get_settings",
+        return_value=Settings.model_construct(STORAGE=temp_dir),
     ):
         yield
 

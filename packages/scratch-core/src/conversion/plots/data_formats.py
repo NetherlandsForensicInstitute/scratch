@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from container_models.base import FloatArray1D, ImageRGB, FloatArray2D
+from container_models.base import FloatArray1D, ImageRGB
 
 
 @dataclass
