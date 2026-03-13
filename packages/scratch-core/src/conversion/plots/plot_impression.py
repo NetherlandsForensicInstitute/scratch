@@ -50,8 +50,8 @@ def plot_impression_comparison_results(
     :param mark_compared_leveled: Compared mark after leveling.
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.
-    :param cmc_result: ...
-    :param comparison_params: ...
+    :param cmc_result: Result of the CMC algorithm
+    :param comparison_params: Parameters for the CMC algorithm.
     :param metadata_reference: Metadata dict for reference mark display.
     :param metadata_compared: Metadata dict for compared mark display.
     :returns: ImpressionComparisonPlots with all rendered images.
