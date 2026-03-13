@@ -28,7 +28,7 @@ def coarse_registration(
             center_reference=convert_pixels_to_meters(
                 values=grid_cell.center, pixel_size=pixel_size
             ),
-            cell_data=grid_cell.cell_data,
+            cell_size=(0, 0),
             fill_fraction_reference=grid_cell.fill_fraction,
             best_score=0.0,
             angle_deg=0.0,

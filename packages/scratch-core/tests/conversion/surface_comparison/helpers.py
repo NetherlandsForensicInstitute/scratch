@@ -7,7 +7,7 @@ import numpy as np
 from conversion.surface_comparison.models import Cell, CellMetaData, ComparisonParams
 
 # Placeholder cell data: a minimal 2x2 height map, unused by the classifier.
-_PLACEHOLDER_CELL_DATA = np.array([[0.0, 0.0], [0.1, 0.1]])
+_PLACEHOLDER_CELL_SIZE = (1e-3, 1e-3)
 
 # Default CellMetaData used before the classifier has run.
 _DEFAULT_META_DATA = CellMetaData(
@@ -41,7 +41,7 @@ def build_cells(inputs: dict) -> list[Cell]:
 
     return [
         Cell(
-            cell_data=_PLACEHOLDER_CELL_DATA,
+            cell_size=_PLACEHOLDER_CELL_SIZE,
             center_reference=(
                 float(centers_reference[i, 0]),
                 float(centers_reference[i, 1]),
@@ -81,29 +81,3 @@ def build_test_inputs(
     rotation_center = (float(rotation_center_list[0]), float(rotation_center_list[1]))
 
     return cells, params, rotation_center
-
-
-def _make_cell(
-    angle_deg: float,
-    center_reference: tuple[float, float] = (0.0, 0.0),
-    center_comparison: tuple[float, float] = (0.0, 0.0),
-    best_score: float = 0.8,
-    is_outlier: bool = False,
-    residual_angle_deg: float = 0.0,
-    position_error: tuple[float, float] = (0.0, 0.0),
-) -> Cell:
-    """Construct a minimal Cell with sensible defaults for unit testing."""
-    return Cell(
-        center_reference=center_reference,
-        cell_data=np.zeros((4, 4)),
-        fill_fraction_reference=1.0,
-        best_score=best_score,
-        angle_deg=angle_deg,
-        center_comparison=center_comparison,
-        is_congruent=False,
-        meta_data=CellMetaData(
-            is_outlier=is_outlier,
-            residual_angle_deg=residual_angle_deg,
-            position_error=position_error,
-        ),
-    )

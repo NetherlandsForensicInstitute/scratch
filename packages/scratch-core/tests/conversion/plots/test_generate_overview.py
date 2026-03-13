@@ -6,10 +6,13 @@ merging.
 import pytest
 
 from conversion.data_formats import Mark, MarkMetadata
-from conversion.plots.data_formats import ImpressionComparisonMetrics
 from conversion.profile_correlator import StriationComparisonResults, Profile
 from conversion.plots.plot_impression import plot_impression_comparison_results
 from conversion.plots.plot_striation import plot_striation_comparison_results
+from conversion.surface_comparison.models import (
+    ComparisonResult,
+    ComparisonParams,
+)
 
 from .helper_functions import assert_valid_rgb_image
 
@@ -21,7 +24,8 @@ class TestGenerateOverview:
     def test_generates_overview_png(
         self,
         impression_overview_marks: dict[str, Mark],
-        impression_overview_metrics: ImpressionComparisonMetrics,
+        impression_overview_cmc_result: ComparisonResult,
+        impression_overview_comparison_params: ComparisonParams,
         sample_metadata_reference: MarkMetadata,
         sample_metadata_compared: MarkMetadata,
     ) -> None:
@@ -31,7 +35,8 @@ class TestGenerateOverview:
             mark_compared_leveled=impression_overview_marks["compared_leveled"],
             mark_reference_filtered=impression_overview_marks["reference_filtered"],
             mark_compared_filtered=impression_overview_marks["compared_filtered"],
-            metrics=impression_overview_metrics,
+            cmc_result=impression_overview_cmc_result,
+            comparison_params=impression_overview_comparison_params,
             metadata_reference=sample_metadata_reference,
             metadata_compared=sample_metadata_compared,
         )

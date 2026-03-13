@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from container_models.base import FloatArray1D, FloatArray2D, ImageRGB
+from container_models.base import FloatArray1D, ImageRGB
 
 
 @dataclass
@@ -73,33 +73,6 @@ class StriationComparisonPlots:
     filtered_reference_heatmap: ImageRGB
     filtered_compared_heatmap: ImageRGB
     side_by_side_heatmap: ImageRGB
-
-
-@dataclass
-class ImpressionComparisonMetrics:
-    """
-    Metrics for impression comparison display.
-
-    :param cell_correlations: Grid of per-cell correlation values (shape: n_rows x n_cols).
-    :param cmc_score: Congruent Matching Cells score (percentage of cells above threshold).
-    :param cell_positions_compared: (n_cells, 2) matched positions on compared surface in µm, row-major order.
-    :param cell_rotations_compared: (n_cells,) rotation angles in radians, row-major order.
-    :param cmc_area_fraction: Percentage of total surface area covered by CMC cells.
-    :param cell_size_um: Cell size in µm.
-    :param max_error_cell_position: Max error cell position in µm.
-    :param max_error_cell_angle: Max error cell angle in degrees.
-    :param cell_similarity_threshold: Minimum correlation for a cell to be CMC (default 0.25).
-    """
-
-    cell_correlations: FloatArray2D
-    cmc_score: float
-    cell_positions_compared: FloatArray2D
-    cell_rotations_compared: FloatArray1D
-    cmc_area_fraction: float
-    cell_size_um: float
-    max_error_cell_position: float
-    max_error_cell_angle: float
-    cell_similarity_threshold: float
 
 
 @dataclass

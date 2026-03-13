@@ -11,7 +11,6 @@ from matplotlib.image import AxesImage
 from container_models.base import FloatArray2D, ImageRGB
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import (
-    ImpressionComparisonMetrics,
     ImpressionComparisonPlots,
 )
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -26,15 +25,12 @@ from conversion.plots.utils import (
     plot_depth_map_on_axes,
     plot_depth_map_with_axes,
 )
-from conversion.surface_comparison.models import Cell
+from conversion.surface_comparison.models import (
+    Cell,
+    ComparisonResult,
+    ComparisonParams,
+)
 from conversion.surface_comparison.utils import _cells_to_grid
-
-
-def compute_cell_size_um(cell: Cell, scale: float) -> tuple[float, float]:
-    """Derive (width, height) cell size in µm from cell data dimensions."""
-    cell_h_px, cell_w_px = cell.cell_data.shape
-    scale_um = scale * mega
-    return cell_w_px * scale_um, cell_h_px * scale_um
 
 
 def plot_impression_comparison_results(
@@ -42,7 +38,8 @@ def plot_impression_comparison_results(
     mark_compared_leveled: Mark,
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
-    cells: Sequence[Cell],
+    cmc_result: ComparisonResult,
+    comparison_params: ComparisonParams,
     metadata_reference: MarkMetadata,
     metadata_compared: MarkMetadata,
 ) -> ImpressionComparisonPlots:
@@ -53,7 +50,8 @@ def plot_impression_comparison_results(
     :param mark_compared_leveled: Compared mark after leveling.
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.
-    :param cells: Cells to plot.
+    :param cmc_result: ...
+    :param comparison_params: ...
     :param metadata_reference: Metadata dict for reference mark display.
     :param metadata_compared: Metadata dict for compared mark display.
     :returns: ImpressionComparisonPlots with all rendered images.
@@ -82,29 +80,23 @@ def plot_impression_comparison_results(
 
     # Cell/CMC-based plots
     scale = mark_reference_filtered.scan_image.scale_x
-    cell_size_um = compute_cell_size_um(
-        cells[0],
-        scale,
-    )
     cell_ref = plot_cell_grid_overlay(
         data=mark_reference_filtered.scan_image.data,
         scale=scale,
-        cells=cells,
+        cells=cmc_result.cells,
         cell_label_prefix="A",
     )
     cell_comp = plot_cell_grid_overlay(
         data=mark_compared_filtered.scan_image.data,
         scale=mark_compared_filtered.scan_image.scale_x,
-        cells=cells,
+        cells=cmc_result.cells,
         cell_label_prefix="B",
         show_all_cells=False,
-        cell_size_um=cell_size_um
     )
     cell_overlay = plot_cell_grid_overlay(
         data=mark_reference_filtered.scan_image.data,
         scale=scale,
-        cells=cells,
-        cell_size_um=cell_size_um
+        cells=cmc_result.cells,
     )
     ref_data = mark_reference_filtered.scan_image.data
     surface_extent_um = (
@@ -112,7 +104,7 @@ def plot_impression_comparison_results(
         ref_data.shape[0] * scale * mega,
     )
     cell_correlation = plot_cell_correlation_heatmap(
-        cells=cells,
+        cells=cmc_result.cells,
         surface_extent_um=surface_extent_um,
     )
 
@@ -121,7 +113,8 @@ def plot_impression_comparison_results(
         mark_compared_leveled=mark_compared_leveled,
         mark_reference_filtered=mark_reference_filtered,
         mark_compared_filtered=mark_compared_filtered,
-        metrics=metrics,
+        cmc_result=cmc_result,
+        comparison_params=comparison_params,
         metadata_reference=metadata_reference,
         metadata_compared=metadata_compared,
     )
@@ -145,7 +138,6 @@ def plot_cell_grid_overlay(
     cells: Sequence[Cell],
     cell_label_prefix: str = "A",
     show_all_cells: bool = True,
-    cell_size_um: tuple[float, float] | None = None,
 ) -> ImageRGB:
     """
     Plot surface with cell grid overlay showing cell names and CMC status.
@@ -158,7 +150,6 @@ def plot_cell_grid_overlay(
     :param cells: Cells to plot.
     :param cell_label_prefix: Label prefix for cells ("A" for reference, "B" for compared).
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
-    :param cell_size_um: (width, height) of a cell in µm (required when cell_positions is set).
     :returns: RGB image as uint8 array.
     """
     height, width = data.shape
@@ -172,7 +163,6 @@ def plot_cell_grid_overlay(
         cells=cells,
         cell_label_prefix=cell_label_prefix,
         show_all_cells=show_all_cells,
-        cell_size_um=cell_size_um,
     )
     ax.set_title("Cell Grid Overlay", fontsize=12, fontweight="bold")
     divider = make_axes_locatable(ax)
@@ -211,7 +201,13 @@ def plot_cell_correlation_heatmap(
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
-    _plot_cell_heatmap_on_axes(ax, fig, cells=cells, cell_correlations=cell_correlations, surface_extent_um=surface_extent_um)
+    _plot_cell_heatmap_on_axes(
+        ax,
+        fig,
+        cells=cells,
+        cell_correlations=cell_correlations,
+        surface_extent_um=surface_extent_um,
+    )
 
     fig.tight_layout()
     arr = figure_to_array(fig)
@@ -224,7 +220,8 @@ def plot_comparison_overview(
     mark_compared_leveled: Mark,
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
-    cells: Sequence[Cell],
+    cmc_result: ComparisonResult,
+    comparison_params: ComparisonParams,
     metadata_reference: MarkMetadata,
     metadata_compared: MarkMetadata,
     wrap_width: int = 25,
@@ -245,11 +242,8 @@ def plot_comparison_overview(
     :param wrap_width: Maximum characters per line before wrapping.
     :returns: RGB image as uint8 array.
     """
-    # Build results metadata matching MATLAB nfi_nist_plot_cmc style
-    n_cell_rows, n_cell_cols = metrics.cell_correlations.shape
-    n_cells = n_cell_rows * n_cell_cols
-    n_cmc = int(np.sum(metrics.cell_correlations >= metrics.cell_similarity_threshold))
-    cmc_fraction = n_cmc / n_cells * 100 if n_cells > 0 else 0.0
+    cells = cmc_result.cells
+    cell_correlations, _, _ = _cells_to_grid(cells)
 
     scale_x_um = mark_reference_filtered.scan_image.scale_x * mega
     scale_y_um = mark_reference_filtered.scan_image.scale_y * mega
@@ -257,16 +251,16 @@ def plot_comparison_overview(
     results_items = {
         "Date report": datetime.now().strftime("%Y-%m-%d"),
         "Mark type": mark_reference_leveled.mark_type.value,
-        "Number of Cells": str(n_cells),
-        "Number of CMCs": str(n_cmc),
-        "CMC fraction": f"{cmc_fraction:.2f} %",
-        "CMC area fraction": f"{metrics.cmc_area_fraction:.2f} %",
+        "Number of Cells": str(cmc_result.cell_count),
+        "Number of CMCs": str(cmc_result.cmc_count),
+        "CMC fraction": f"{cmc_result.cmc_fraction * 100:.2f} %",
+        "CMC area fraction": f"{cmc_result.cmc_area_fraction * 100:.2f} %",
         "Data spacing (X)": f"{scale_x_um:.4f} µm",
         "Data spacing (Y)": f"{scale_y_um:.4f} µm",
-        "Cell Size": f"{metrics.cell_size_um:.0f} µm",
-        "Minimum cell similarity": f"{metrics.cell_similarity_threshold}",
-        "Max error cell position": f"{metrics.max_error_cell_position:.0f} µm",
-        "Max error cell angle": f"{metrics.max_error_cell_angle:.0f} degree",
+        "Cell Size": f"{cells[0].cell_size_um[0]:.0f} µm",
+        "Minimum cell similarity": f"{comparison_params.correlation_threshold}",
+        "Max error cell position": f"{comparison_params.position_threshold * 1e6:.0f} µm",
+        "Max error cell angle": f"{comparison_params.angle_deviation_threshold:.0f} degree",
     }
 
     max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
@@ -342,9 +336,8 @@ def plot_comparison_overview(
         ax_filtered_ref,
         mark_reference_filtered.scan_image.data,
         mark_reference_filtered.scan_image.scale_x,
-        metrics.cell_correlations,
+        cells=cells,
         cell_label_prefix="A",
-        cell_similarity_threshold=metrics.cell_similarity_threshold,
         show_all_cells=True,
     )
     ax_filtered_ref.set_title(
@@ -356,21 +349,13 @@ def plot_comparison_overview(
     cbar_ref.ax.tick_params(labelsize=9)
 
     ax_filtered_comp = fig.add_subplot(gs[2, 1])
-    cell_size_um = compute_cell_size_um(
-        mark_reference_filtered.scan_image.data.shape,
-        mark_reference_filtered.scan_image.scale_x,
-        metrics.cell_correlations.shape,
-    )
-
     im_comp = plot_cell_overlay_on_axes(
         ax_filtered_comp,
         mark_compared_filtered.scan_image.data,
         mark_compared_filtered.scan_image.scale_x,
-        metrics.cell_correlations,
-        cell_label_prefix="B",
         cells=cells,
+        cell_label_prefix="B",
         show_all_cells=False,
-        cell_size_um=cell_size_um
     )
     ax_filtered_comp.set_title(
         "Filtered Compared Surface B", fontsize=12, fontweight="bold"
@@ -391,7 +376,7 @@ def plot_comparison_overview(
         ax_heatmap,
         fig,
         cells=cells,
-        cell_correlations=metrics.cell_correlations,
+        cell_correlations=cell_correlations,
         surface_extent_um=heatmap_extent_um,
         cell_label_prefix="A",
     )
@@ -403,23 +388,9 @@ def plot_comparison_overview(
     return arr
 
 
-def _get_grid_positions(
-    n_rows: int, n_cols: int, cell_w_um: float, cell_h_um: float
-) -> np.ndarray:
-    """Return (n_rows * n_cols, 2) array of cell center positions in µm."""
-    positions = np.empty((n_rows * n_cols, 2), dtype=np.float64)
-    for i in range(n_rows):
-        for j in range(n_cols):
-            flat = i * n_cols + j
-            positions[flat, 0] = (j + 0.5) * cell_w_um
-            positions[flat, 1] = (n_rows - 1 - i + 0.5) * cell_h_um
-    return positions
-
-
 def _draw_cell_labels(
     ax: Axes,
     cells: Sequence[Cell],
-    cell_size: tuple[float, float],
     cell_label_prefix: str,
     show_all_cells: bool,
 ) -> None:
@@ -431,7 +402,6 @@ def _draw_cell_labels(
 
     :param ax: Matplotlib axes to draw on.
     :param cells: cells to draw
-    :param cell_size: (width, height) of a cell in µm.
     :param cell_label_prefix: Label prefix for cells ("A" or "B").
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
     """
@@ -444,7 +414,7 @@ def _draw_cell_labels(
         elif show_all_cells:
             non_cmc_cells.append((idx, cell))
 
-    w, h = cell_size
+    w, h = cells[0].cell_size_um
     half_w, half_h = w / 2, h / 2
     base_corners = np.array(
         [[-half_w, -half_h], [half_w, -half_h], [half_w, half_h], [-half_w, half_h]]
@@ -484,7 +454,6 @@ def plot_cell_overlay_on_axes(
     data: FloatArray2D,
     scale: float,
     cells: Sequence[Cell],
-    cell_size_um: tuple[float, float],
     cell_label_prefix: str = "A",
     show_all_cells: bool = True,
 ) -> AxesImage:
@@ -505,7 +474,6 @@ def plot_cell_overlay_on_axes(
     :param data: Surface data in meters.
     :param scale: Pixel scale in meters.
     :param cells: cells to plot
-    :param cell_size_um: (width, height) of a cell in µm.
     :param cell_label_prefix: Label prefix for cells ("A" for reference, "B" for compared).
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
     """
@@ -525,7 +493,6 @@ def plot_cell_overlay_on_axes(
     _draw_cell_labels(
         ax,
         cells=cells,
-        cell_size=cell_size_um,
         cell_label_prefix=cell_label_prefix,
         show_all_cells=show_all_cells,
     )

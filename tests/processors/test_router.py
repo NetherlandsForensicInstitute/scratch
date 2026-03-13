@@ -11,7 +11,6 @@ from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
     CalculateScore,
-    MetadataParameters,
 )
 from tests.processors.conftest import assert_lr_response_valid
 
@@ -56,21 +55,19 @@ class TestMarkStriation:
         json_data = CalculateScore(
             mark_dir_ref=mark_dir_ref,
             mark_dir_comp=mark_dir_comp,
-            param=MetadataParameters(
-                metadata_compared=MarkMetadata(
-                    case_id="something",
-                    firearm_id="else",
-                    specimen_id="spec_comp",
-                    measurement_id="meas_comp",
-                    mark_id="mark_comp",
-                ),
-                metadata_reference=MarkMetadata(
-                    case_id="ding",
-                    firearm_id="dong",
-                    specimen_id="spec_ref",
-                    measurement_id="meas_ref",
-                    mark_id="mark_ref",
-                ),
+            metadata_compared=MarkMetadata(
+                case_id="something",
+                firearm_id="else",
+                specimen_id="spec_comp",
+                measurement_id="meas_comp",
+                mark_id="mark_comp",
+            ),
+            metadata_reference=MarkMetadata(
+                case_id="ding",
+                firearm_id="dong",
+                specimen_id="spec_ref",
+                measurement_id="meas_ref",
+                mark_id="mark_ref",
             ),
         ).model_dump(mode="json")
         response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
@@ -94,10 +91,10 @@ class TestCalculateLRImpression:
         self,
         client: TestClient,
         tmp_dir_api: None,
-        impression_lr_kwargs: dict,
+        impression_kwargs: dict,
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
-        json_data = CalculateLRImpression(**impression_lr_kwargs).model_dump(mode="json")
+        json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
         response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
         assert_lr_response_valid(client, response)
 
@@ -108,9 +105,9 @@ class TestCalculateLRStriation:
         self,
         client: TestClient,
         tmp_dir_api: None,
-        striation_lr_kwargs: dict,
+        striation_kwargs: dict,
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
-        json_data = CalculateLRStriation(**striation_lr_kwargs).model_dump(mode="json")
+        json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
         response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
         assert_lr_response_valid(client, response)

@@ -10,11 +10,9 @@ from container_models.base import ImageRGB
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import (
     HistogramData,
-    ImpressionComparisonMetrics,
     LlrTransformationData,
 )
 from conversion.plots.plot_impression import (
-    compute_cell_size_um,
     plot_cell_overlay_on_axes,
 )
 from conversion.plots.plot_score_histograms import plot_score_histograms
@@ -101,18 +99,12 @@ def plot_cmc_comparison_overview(
     )
 
     # Row 1: Filtered surfaces with cell overlay + results metadata (3 equal thirds)
-    cell_size_um = compute_cell_size_um(
-        cell=cells[0],
-        scale=mark_reference_filtered.scan_image.scale_x
-    )
-
     ax_filtered_ref = fig.add_subplot(gs[1, 0:2])
     im_ref = plot_cell_overlay_on_axes(
         ax_filtered_ref,
         mark_reference_filtered.scan_image.data,
         mark_reference_filtered.scan_image.scale_x,
         cells=cells,
-        cell_size_um=cell_size_um,
         cell_label_prefix="A",
         show_all_cells=True,
     )
@@ -129,7 +121,6 @@ def plot_cmc_comparison_overview(
         cells=cells,
         cell_label_prefix="B",
         show_all_cells=False,
-        cell_size_um=cell_size_um
     )
     _plot_surface_with_colorbar(
         fig, ax_filtered_comp, im_comp, "Filtered, Moved Compared Surface B"

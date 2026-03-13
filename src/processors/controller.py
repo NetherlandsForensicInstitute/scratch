@@ -12,20 +12,19 @@ from conversion.likelihood_ratio import (
     get_lr_system,
     get_reference_data,
 )
-from conversion.plots.data_formats import HistogramData, ImpressionComparisonMetrics, LlrTransformationData
+from conversion.plots.data_formats import HistogramData, LlrTransformationData
 from conversion.plots.plot_ccf_comparison_overview import plot_ccf_comparison_overview
 from conversion.plots.plot_cmc_comparison_overview import plot_cmc_comparison_overview
 from conversion.plots.plot_impression import plot_impression_comparison_results
 from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.plots.utils import build_results_metadata_impression, build_results_metadata_striation
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
-from conversion.surface_comparison.models import Cell, ComparisonParams, ComparisonResult, ProcessedMark
+from conversion.surface_comparison.models import Cell, ProcessedMark
 from fastapi import HTTPException
 from lir.util import probability_to_logodds
 from loguru import logger
 from PIL import Image
 
-from conversion.surface_comparison.utils import _cells_to_grid
 from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from processors.schemas import CalculateLRImpression, CalculateLRStriation
 
@@ -82,37 +81,11 @@ def save_striation_comparison_plots(  # noqa: PLR0913
     )
 
 
-def build_impression_metrics(
-    cmc_result: ComparisonResult,
-    comparison_params: ComparisonParams,
-) -> ImpressionComparisonMetrics:
-    """
-    Build impression comparison metrics from CMC pipeline results.
-
-    :param cmc_result: Consolidated CMC pipeline output.
-    :param comparison_params: CMC algorithm parameters.
-    :param cutoff_low_pass: Low-pass filter cutoff in µm.
-    :param cutoff_high_pass: High-pass filter cutoff in µm.
-    """
-    cell_correlations, cell_positions, cell_rotations = _cells_to_grid(cmc_result.cells)
-
-    return ImpressionComparisonMetrics(
-        cell_correlations=cell_correlations,
-        cmc_score=cmc_result.cmc_fraction * 100,
-        cell_positions_compared=cell_positions,
-        cell_rotations_compared=cell_rotations,
-        cmc_area_fraction=cmc_result.cmc_area_fraction * 100,
-        cell_size_um=comparison_params.cell_size[0] * 1e6,
-        max_error_cell_position=comparison_params.position_threshold * 1e6,
-        max_error_cell_angle=comparison_params.angle_deviation_threshold,
-        cell_similarity_threshold=comparison_params.correlation_threshold,
-    )
-
-
 def save_impression_comparison_plots(  # noqa: PLR0913
     mark_ref: ProcessedMark,
     mark_comp: ProcessedMark,
-    impression_metrics: ImpressionComparisonMetrics,
+    cmc_result,
+    comparison_params,
     working_dir: Path,
     files_to_save: type[ComparisonImpressionFiles],
     metadata_reference: MarkMetadata,
@@ -124,7 +97,8 @@ def save_impression_comparison_plots(  # noqa: PLR0913
         mark_compared_leveled=mark_comp.leveled_mark,
         mark_reference_filtered=mark_ref.filtered_mark,
         mark_compared_filtered=mark_ref.filtered_mark,
-        metrics=impression_metrics,
+        cmc_result=cmc_result,
+        comparison_params=comparison_params,
         metadata_reference=metadata_reference,
         metadata_compared=metadata_compared,
     )
@@ -227,6 +201,8 @@ def save_lr_striation_plot(  # noqa: PLR0913
     :param metadata_compared: Display metadata for the compared mark.
     :param results_metadata: Formatted summary of comparison results for display.
     :param score: CCF score for the current case comparison.
+    :param score_transformed: Log odds transformed score for the current case comparison.
+    :param transformed_reference_scores: Log odds transformed reference scores.
     :param lr: Log-likelihood ratio for the current case comparison.
     :param output_path: Path to save the output PNG image.
     """
@@ -310,7 +286,6 @@ def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) ->
     mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
     mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
 
-    metrics = lr_input.param.to_metrics()
     # TODO: check this well after the impression score calculation is done
     results_metadata = build_results_metadata_impression(
         reference_data=reference_data,
@@ -326,7 +301,7 @@ def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) ->
         reference_data=reference_data,
         mark_ref=mark_ref,
         mark_comp=mark_comp,
-        metrics=metrics,
+        cells=lr_input.cells,
         metadata_reference=lr_input.metadata_reference,
         metadata_compared=lr_input.metadata_compared,
         results_metadata=results_metadata,

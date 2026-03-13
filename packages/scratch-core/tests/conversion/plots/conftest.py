@@ -1,18 +1,23 @@
 import numpy as np
 import pytest
-from scipy.constants import mega, micro
+from scipy.constants import micro
 
 from container_models.base import FloatArray2D
 from conversion.data_formats import Mark, MarkType, MarkMetadata
 from conversion.plots.data_formats import (
     HistogramData,
-    ImpressionComparisonMetrics,
     LlrTransformationData,
 )
 from conversion.profile_correlator import (
     StriationComparisonResults,
     Profile,
     AlignmentParameters,
+)
+from conversion.surface_comparison.models import (
+    Cell,
+    CellMetaData,
+    ComparisonParams,
+    ComparisonResult,
 )
 from .helper_functions import (
     create_synthetic_impression_data,
@@ -202,8 +207,8 @@ def impression_overview_marks() -> dict[str, Mark]:
 
 
 @pytest.fixture
-def impression_overview_metrics() -> ImpressionComparisonMetrics:
-    """Metrics for a 3x4 cell grid with 2 CMC cells and custom positions."""
+def impression_overview_cells() -> list[Cell]:
+    """3x4 cell grid with 2 CMC cells and custom positions."""
     cell_similarity_threshold = 0.25
     cell_correlations = np.array(
         [
@@ -219,43 +224,84 @@ def impression_overview_metrics() -> ImpressionComparisonMetrics:
     scale_y = 1.5675 * micro
 
     n_cell_rows, n_cell_cols = cell_correlations.shape
-    n_cells = n_cell_rows * n_cell_cols
-    n_cmc = int(np.sum(cell_correlations >= cell_similarity_threshold))
-    cmc_score = n_cmc / n_cells * 100
-
-    surface_w_um = cols * scale_x * mega
-    surface_h_um = rows * scale_y * mega
-    cell_w_um = surface_w_um / n_cell_cols
-    cell_h_um = surface_h_um / n_cell_rows
+    surface_w_m = cols * scale_x
+    surface_h_m = rows * scale_y
+    cell_w_m = surface_w_m / n_cell_cols
+    cell_h_m = surface_h_m / n_cell_rows
 
     rng = np.random.default_rng(42)
-    positions = np.full((n_cells, 2), np.nan, dtype=np.float64)
-    rotations = np.full(n_cells, np.nan, dtype=np.float64)
-    global_dx, global_dy = 8.0, -6.0
-    global_angle = np.deg2rad(2.5)
+    global_dx_m, global_dy_m = 8e-6, -6e-6
+    global_angle_deg = 2.5
 
+    cells: list[Cell] = []
     for r in range(n_cell_rows):
         for c in range(n_cell_cols):
-            if cell_correlations[r, c] < cell_similarity_threshold:
-                continue
-            flat = r * n_cell_cols + c
-            grid_cx = (c + 0.5) * cell_w_um
-            grid_cy = (n_cell_rows - 1 - r + 0.5) * cell_h_um
-            positions[flat, 0] = grid_cx + global_dx + rng.normal(0, 3)
-            positions[flat, 1] = grid_cy + global_dy + rng.normal(0, 3)
-            angle_noise = rng.normal(0, np.deg2rad(1.5)) * (1 - cell_correlations[r, c])
-            rotations[flat] = global_angle + angle_noise
+            score = float(cell_correlations[r, c])
+            is_cmc = score >= cell_similarity_threshold
 
-    return ImpressionComparisonMetrics(
-        cell_correlations=cell_correlations,
-        cmc_score=cmc_score,
-        cell_positions_compared=positions,
-        cell_rotations_compared=rotations,
-        cell_similarity_threshold=cell_similarity_threshold,
-        cmc_area_fraction=16.04,
-        cell_size_um=125.0,
-        max_error_cell_position=75.0,
-        max_error_cell_angle=6.0,
+            center_ref = (
+                (c + 0.5) * cell_w_m,
+                (n_cell_rows - 1 - r + 0.5) * cell_h_m,
+            )
+
+            if is_cmc:
+                center_comp = (
+                    center_ref[0] + global_dx_m + rng.normal(0, 3e-6),
+                    center_ref[1] + global_dy_m + rng.normal(0, 3e-6),
+                )
+                angle_noise = rng.normal(0, 1.5) * (1 - score)
+                angle_deg = global_angle_deg + angle_noise
+            else:
+                center_comp = center_ref
+                angle_deg = 0.0
+                angle_noise = 0.0
+
+            cells.append(
+                Cell(
+                    center_reference=center_ref,
+                    cell_size=(cell_w_m, cell_h_m),
+                    fill_fraction_reference=rng.uniform(0.7, 1.0),
+                    best_score=score,
+                    angle_deg=angle_deg,
+                    center_comparison=center_comp,
+                    is_congruent=is_cmc,
+                    meta_data=CellMetaData(
+                        is_outlier=not is_cmc,
+                        residual_angle_deg=angle_noise,
+                        position_error=(
+                            (
+                                center_comp[0] - center_ref[0],
+                                center_comp[1] - center_ref[1],
+                            )
+                            if is_cmc
+                            else (0.0, 0.0)
+                        ),
+                    ),
+                )
+            )
+
+    return cells
+
+
+@pytest.fixture
+def impression_overview_comparison_params() -> ComparisonParams:
+    return ComparisonParams(
+        cell_size=(1e-3, 1e-3),
+        minimum_fill_fraction=0.5,
+        correlation_threshold=0.25,
+        angle_deviation_threshold=6.0,
+        position_threshold=75e-6,
+    )
+
+
+@pytest.fixture
+def impression_overview_cmc_result(
+    impression_overview_cells: list[Cell],
+) -> ComparisonResult:
+    return ComparisonResult(
+        cells=impression_overview_cells,
+        consensus_rotation=2.5,
+        consensus_translation=(8e-6, -6e-6),
     )
 
 
@@ -318,12 +364,10 @@ def ccf_llr_data(
 
 @pytest.fixture
 def cmc_results_metadata(
-    impression_overview_metrics: ImpressionComparisonMetrics,
+    impression_overview_cells: list[Cell],
 ) -> dict[str, str]:
-    metrics = impression_overview_metrics
-    n_cell_rows, n_cell_cols = metrics.cell_correlations.shape
-    n_cells = n_cell_rows * n_cell_cols
-    n_cmc = int(np.sum(metrics.cell_correlations >= metrics.cell_similarity_threshold))
+    n_cells = len(impression_overview_cells)
+    n_cmc = sum(c.is_congruent for c in impression_overview_cells)
     return {
         "Date report": "2023-02-16",
         "User ID": "test_user",
