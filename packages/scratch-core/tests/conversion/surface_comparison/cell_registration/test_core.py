@@ -73,7 +73,7 @@ def test_coarse_registration_self_match_angle_is_zero(
     assert cells[0].angle_deg == pytest.approx(0.0)
 
 
-def test_coarse_registration_self_match_translation(
+def test_coarse_registration_matches_translation(
     identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
     plot: bool = False,
 ):
@@ -100,7 +100,7 @@ def test_coarse_registration_self_match_translation(
 
 
 @pytest.mark.parametrize("angle", [0, 60, -40])
-def test_coarse_registration_self_match_angle_is_found(
+def test_coarse_registration_matches_angle(
     identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
     angle: float,
     plot: bool = False,
