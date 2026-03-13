@@ -73,6 +73,32 @@ def test_coarse_registration_self_match_angle_is_zero(
     assert cells[0].angle_deg == pytest.approx(0.0)
 
 
+def test_coarse_registration_self_match_translation(
+    identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
+    plot: bool = False,
+):
+    """At angle=0 with identical images, center_comparison must equal center_reference."""
+    # Arrange
+    grid_cells, reference_image, params = identical_match_inputs
+
+    # Act
+    cells = coarse_registration(
+        grid_cells=grid_cells,
+        comparison_image=reference_image,
+        params=params,
+    )
+
+    if plot:
+        plot_cell_registration_results(
+            reference_image=reference_image,
+            comparison_image=reference_image,
+            cells=cells,
+        )
+
+    # Assert
+    assert cells[0].center_comparison == pytest.approx(cells[0].center_reference)
+
+
 @pytest.mark.parametrize("angle", [0, 60, -40])
 def test_coarse_registration_self_match_angle_is_found(
     identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],

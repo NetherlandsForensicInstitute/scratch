@@ -143,24 +143,19 @@ def _compute_unrotated_cell_center(
     cell_size: tuple[int, int],
     center: tuple[float, float],
 ):
-    pad_width, pad_height = pad_size
-    cell_width, cell_height = cell_size
-    angle_rad = np.radians(-angle)
+    rotated_center_x = rotated_top_left[0] + cell_size[0] / 2
+    rotated_center_y = rotated_top_left[1] + cell_size[1] / 2
     # Undo the -angle rotation that was applied to the padded comparison image
-    x_unrotated, y_unrotated = rotate_points(
-        points=np.array([rotated_top_left]), center=center, angle=angle_rad
+    unrotated_x, unrotated_y = rotate_points(
+        points=np.array([(rotated_center_x, rotated_center_y)]),
+        center=center,
+        angle=np.radians(-angle),
     )[0]
-    # Remove the padding (one full cell on each side)
-    top_left_x = x_unrotated - pad_width
-    top_left_y = y_unrotated - pad_height
-    # Compute the original cell center coordinates from the cell size and the angle
-    center_x, center_y = rotate_points(
-        points=np.array([(cell_width / 2, cell_height / 2)]),
-        angle=angle_rad,
-        center=(0, 0),
-    )[0]
+    # Compute the original cell center coordinates by removing the padding (one full cell on each side)
+    center_x = unrotated_x - pad_size[0]
+    center_y = unrotated_y - pad_size[1]
     # Return the coordinates of the cell center on the original image
-    return top_left_x + center_x, top_left_y + center_y
+    return center_x, center_y
 
 
 def _compute_best_score_from_maps(
