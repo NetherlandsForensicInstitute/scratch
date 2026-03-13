@@ -1,9 +1,8 @@
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
-from conversion.surface_comparison.grid import GridCell
 from conversion.surface_comparison.models import (
     ComparisonParams,
-    Cell,
+    Cell, GridCell,
 )
 import numpy as np
 from skimage.transform import rotate
@@ -29,7 +28,7 @@ def match_cells(
     Per rotation angle, the highest score with its corresponding translation is stored.
     The rotation that yields the highest unmasked score will be stored in each cell's :class:`GridSearchParams`.
 
-    The comparison image is padded by half a cell in each direction before the search so that cells whose
+    The comparison image is padded by a full cell in each direction before the search so that cells whose
     reference top-left lies near the image boundary can still be matched. The padding offset is subtracted
     back when the best position is recorded, so all stored coordinates are in the original (unpadded) pixel space.
 
@@ -50,7 +49,7 @@ def match_cells(
         comparison_image.data, pad_width=pad_width, pad_height=pad_height
     )
     angles = np.arange(
-        params.search_angle_min, params.search_angle_max, params.search_angle_step
+        params.search_angle_min, params.search_angle_max + params.search_angle_step, params.search_angle_step
     )
 
     for angle in angles:
@@ -141,7 +140,7 @@ def _unrotate_point(
     angle: float,
     pad_size: tuple[int, int],
     rotation_center: tuple[float, float],
-):
+) -> tuple[float, float]:
     # Undo the -angle rotation that was applied to the padded comparison image
     unrotated_x, unrotated_y = rotate_points(
         points=np.array([rotated_point]),
