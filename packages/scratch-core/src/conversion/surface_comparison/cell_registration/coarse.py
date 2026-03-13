@@ -85,8 +85,8 @@ def match_cells(
             )
             if score > grid_cell.grid_search_params.score:
                 # Compute the center coordinates of the cell on the (original) unrotated image
-                center_x, center_y = _compute_cell_center_from_rotated_vector(
-                    vector=(x, y),
+                center_x, center_y = _compute_unrotated_cell_center(
+                    rotated_top_left=(x, y),
                     angle=angle,
                     pad_size=(cell_width, cell_height),
                     center=(global_center_x, global_center_y),
@@ -133,8 +133,8 @@ def _get_fill_fraction_map(
     return np.asarray(filtered, dtype=np.float64)
 
 
-def _compute_cell_center_from_rotated_vector(
-    vector: tuple[float, float],
+def _compute_unrotated_cell_center(
+    rotated_top_left: tuple[float, float],
     angle: float,
     pad_size: tuple[int, int],
     center: tuple[float, float],
@@ -142,12 +142,12 @@ def _compute_cell_center_from_rotated_vector(
     # Undo the -angle rotation that was applied to the padded comparison image.
     angle_rad = np.radians(-angle)
     pad_x, pad_y = pad_size
-    x_rotated, y_rotated = rotate_points(
-        points=np.array([vector]), center=center, angle=angle_rad
+    x_original, y_original = rotate_points(
+        points=np.array([rotated_top_left]), center=center, angle=angle_rad
     )[0]
     # Remove the padding (one full cell on each side)
-    top_left_x = x_rotated - pad_x
-    top_left_y = y_rotated - pad_y
+    top_left_x = x_original - pad_x
+    top_left_y = y_original - pad_y
     # Compute the original center coordinates from the top-left coordinates and the angle
     center_x, center_y = rotate_points(
         points=np.array([(pad_x / 2, pad_y / 2)]), angle=angle_rad, center=(0, 0)
