@@ -44,10 +44,10 @@ def match_cells(
     fill_value_comparison = float(np.nanmean(comparison_image.data))
     pixel_size = comparison_image.scale_x  # Assumes isotropic image
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
-    pad_with, pad_height = cell_width, cell_height  # Set pad size to cell size
+    pad_width, pad_height = cell_width, cell_height  # Set pad size to cell size
 
     comparison_data = pad_image_array(
-        comparison_image.data, pad_width=pad_with, pad_height=pad_height
+        comparison_image.data, pad_width=pad_width, pad_height=pad_height
     )
     angles = np.arange(
         params.search_angle_min, params.search_angle_max, params.search_angle_step
@@ -91,7 +91,7 @@ def match_cells(
                 original_center_x, original_center_y = _unrotate_point(
                     rotated_point=cell_center,
                     angle=angle,
-                    pad_size=(pad_with, pad_height),
+                    pad_size=(pad_width, pad_height),
                     rotation_center=(global_center_x, global_center_y),
                 )
                 grid_cell.grid_search_params.update(
