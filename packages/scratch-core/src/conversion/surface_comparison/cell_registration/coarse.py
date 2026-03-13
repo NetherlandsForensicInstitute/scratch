@@ -2,7 +2,8 @@ from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
     ComparisonParams,
-    Cell, GridCell,
+    Cell,
+    GridCell,
 )
 import numpy as np
 from skimage.transform import rotate
@@ -49,7 +50,9 @@ def match_cells(
         comparison_image.data, pad_width=pad_width, pad_height=pad_height
     )
     angles = np.arange(
-        params.search_angle_min, params.search_angle_max + params.search_angle_step, params.search_angle_step
+        params.search_angle_min,
+        params.search_angle_max + params.search_angle_step,
+        params.search_angle_step,
     )
 
     for angle in angles:
