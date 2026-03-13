@@ -92,7 +92,7 @@ def match_cells(
                     rotated_point=cell_center,
                     angle=angle,
                     pad_size=(pad_with, pad_height),
-                    center_of_rotation=(global_center_x, global_center_y),
+                    rotation_center=(global_center_x, global_center_y),
                 )
                 grid_cell.grid_search_params.update(
                     score=score,
@@ -140,12 +140,12 @@ def _unrotate_point(
     rotated_point: tuple[float, float],
     angle: float,
     pad_size: tuple[int, int],
-    center_of_rotation: tuple[float, float],
+    rotation_center: tuple[float, float],
 ):
     # Undo the -angle rotation that was applied to the padded comparison image
     unrotated_x, unrotated_y = rotate_points(
         points=np.array([rotated_point]),
-        center=center_of_rotation,
+        center=rotation_center,
         angle=np.radians(-angle),
     )[0]
     # Compute the original coordinates by removing the padding
