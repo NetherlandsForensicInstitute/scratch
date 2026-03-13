@@ -5,7 +5,7 @@ import numpy as np
 def convert_meters_to_pixels(
     values: tuple[float, float], pixel_size: float
 ) -> tuple[int, int]:
-    """TODO: Remove this function if possible."""
+    """Convert x,y coordinates in meters into pixel coordinates."""
 
     def _convert(value: float) -> int:
         return int(round(value / pixel_size))
@@ -16,7 +16,7 @@ def convert_meters_to_pixels(
 def convert_pixels_to_meters(
     values: tuple[float, float], pixel_size: float
 ) -> tuple[float, float]:
-    """TODO: Remove this function if possible."""
+    """Convert x,y pixel coordinates into physical coordinates."""
 
     def _convert(value: float) -> float:
         return value * pixel_size
