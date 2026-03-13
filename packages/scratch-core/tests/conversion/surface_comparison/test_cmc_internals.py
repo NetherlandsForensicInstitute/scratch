@@ -12,7 +12,7 @@ from conversion.surface_comparison.cmc_classification import (
     _get_threshold_criterion,
     _outliers_gesd,
     _rosner_critical_value,
-    _rotate_points,
+    rotate_points,
     _wrap_angles,
 )
 from ..helper_functions import make_cell
@@ -92,7 +92,7 @@ class TestRotatePoints:
         center = 0.0, 0.0
 
         # Act
-        result = _rotate_points(points, angle=0.0, center=center)
+        result = rotate_points(points, angle=0.0, center=center)
 
         # Assert
         np.testing.assert_allclose(result, points, atol=1e-12)
@@ -104,7 +104,7 @@ class TestRotatePoints:
         center = 0.0, 0.0
 
         # Act
-        result = _rotate_points(points, angle=np.pi / 2, center=center)
+        result = rotate_points(points, angle=np.pi / 2, center=center)
 
         # Assert
         np.testing.assert_allclose(result, [[0.0, 1.0]], atol=1e-12)
@@ -116,7 +116,7 @@ class TestRotatePoints:
         center = 3.0, 4.0
 
         # Act
-        result = _rotate_points(points, angle=np.pi, center=center)
+        result = rotate_points(points, angle=np.pi, center=center)
 
         # Assert
         np.testing.assert_allclose(result, points, atol=1e-12)
