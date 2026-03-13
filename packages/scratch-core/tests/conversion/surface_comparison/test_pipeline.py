@@ -59,5 +59,9 @@ def test_coarse_registration_runs(
 
 
 def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
-    cells = generate_grid(scan_image=scan_image, params=params)
+    cells = generate_grid(
+        scan_image=scan_image,
+        cell_size=params.cell_size,
+        minimum_fill_fraction=params.minimum_fill_fraction,
+    )
     assert cells
