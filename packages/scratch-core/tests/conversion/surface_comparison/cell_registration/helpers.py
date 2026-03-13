@@ -14,7 +14,7 @@ from conversion.surface_comparison.models import (
     GridSearchParams,
     Cell,
 )
-from tests.conversion.surface_comparison.cell_registration.plot_utils import (
+from .plot_utils import (
     plot_rotated_squares,
     plot_side_by_side,
 )
