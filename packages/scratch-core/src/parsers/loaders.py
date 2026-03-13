@@ -22,6 +22,14 @@ FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
 
 
 @lru_cache(maxsize=1)
+def _load_surface(scan_file: Path) -> Surface:
+    """Cache the scan file to a Surface
+    :param scan_file: The path to the file containing the scanned image data.
+    :returns: An instance of `Surface`.
+    """
+    return Surface.load(scan_file)
+
+
 @log_railway_function(
     "Failed to load image file",
     "Successfully loaded scan file",
@@ -33,7 +41,7 @@ def load_scan_image(scan_file: Path) -> ScanImage:
     :param scan_file: The path to the file containing the scanned image data.
     :returns: An instance of `ScanImage`.
     """
-    surface = Surface.load(scan_file)
+    surface = _load_surface(scan_file)
     data = np.asarray(surface.data, dtype=np.float64) * micro
     step_x = surface.step_x * micro
     step_y = surface.step_y * micro
