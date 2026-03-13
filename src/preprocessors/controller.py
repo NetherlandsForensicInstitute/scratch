@@ -12,7 +12,7 @@ from conversion.preprocess_impression.preprocess_impression import preprocess_im
 from conversion.preprocess_striation import PreprocessingStriationParams
 from conversion.preprocess_striation.pipeline import preprocess_striation_mark
 from conversion.resample import resample_mark
-from conversion.rotate import rotate_crop_and_mask_image_by_crop
+from conversion.rotate import rotate_and_crop_by_mask_crop
 from loguru import logger
 from mutations import CropToMask, GaussianRegressionFilter, LevelMap, Mask, Resample
 from mutations.filter import FilterNeedles
@@ -35,8 +35,12 @@ def _extract_mark_from_scan(
         scan_image_cleaned = FilterNeedles()(scan_image_masked).unwrap()
         rotated_image = CropToMask(mask=mask)(scan_image_cleaned).unwrap()
     else:
+        logger.debug("Masking image")
+        scan_image = Mask(mask=mask)(scan_image).unwrap()
+        logger.debug("Removing needles")
+        scan_image = FilterNeedles()(scan_image).unwrap()
         logger.info("Rotating Masking and Cropping scan image")
-        rotated_image = rotate_crop_and_mask_image_by_crop(scan_image=scan_image, mask=mask, bounding_box=bounding_box)
+        rotated_image = rotate_and_crop_by_mask_crop(scan_image=scan_image, mask=mask, bounding_box=bounding_box)
     logger.info("Transforming scan image to mark")
     mark = Mark(
         scan_image=rotated_image,

@@ -14,7 +14,7 @@ from scipy.constants import micro
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
-from conversion.rotate import get_rotation_angle, rotate_crop_and_mask_image_by_crop
+from conversion.rotate import get_rotation_angle, rotate_and_crop_by_mask_crop
 
 from .helper_functions import (
     _compute_correlation,
@@ -144,7 +144,7 @@ def run_python_preprocessing(
         scale_y=test_case.input_ydim,
     )
 
-    data_out = rotate_crop_and_mask_image_by_crop(
+    data_out = rotate_and_crop_by_mask_crop(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
         bounding_box=test_case.rectangle,
