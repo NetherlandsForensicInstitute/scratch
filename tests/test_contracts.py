@@ -2,17 +2,20 @@ import json
 from enum import StrEnum
 from http import HTTPStatus
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 import requests
-from pydantic import BaseModel, HttpUrl
+from conversion.data_formats import Mark
+from conversion.profile_correlator import Profile
+from pydantic import BaseModel, Field, HttpUrl
 from requests import Response
 
 from models import DirectoryAccess
 from preprocessors.pipelines import parse_scan_pipeline
-from processors.schemas import ImpressionLRParameters, MetadataParameters
 from settings import get_settings
+from tests.helper_function import _save_impression_mark, _save_striation_mark_and_profile, make_cell
 
 
 class RoutePrefix(StrEnum):
@@ -23,14 +26,15 @@ class RoutePrefix(StrEnum):
 
 
 class TemplateResponse(BaseModel):
-    """Simple template response,."""
+    """Simple template response."""
 
     message: str
 
 
 class EndpointContractInterface(BaseModel):
     expected_input: dict
-    expected_output: dict
+    expected_urls: dict[str, str] = Field(default_factory=dict)
+    expected_fields: dict[str, Any] = Field(default_factory=dict)
 
 
 type Interface = tuple[BaseModel, type[BaseModel]]
@@ -73,12 +77,34 @@ class TestContracts:
                 "scale_y": "1",
                 "step_size": "1",
             },
-            expected_output={
+            expected_urls={
                 "preview_image": ".png",
                 "surface_map_image": ".png",
                 "scan_image": ".x3p",
             },
         )
+
+    @pytest.fixture(scope="class")
+    def edit_scan(self, scan_directory: Path) -> tuple[EndpointContractInterface, bytes]:
+        """Create test data for edit-scan endpoint.
+
+        Returns the post request data, expected response type, and mask bytes.
+        """
+        cutoff_length = 250
+        scan_file = scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p"
+        parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
+        return EndpointContractInterface(
+            expected_input={
+                "scan_file": scan_file,
+                "cutoff_length": cutoff_length,
+                "mask_is_bitpacked": False,
+                "terms": "plane",
+            },
+            expected_urls={
+                "preview_image": ".png",
+                "surface_map_image": ".png",
+            },
+        ), np.ones(parsed_scan.data.shape, dtype=np.bool_).tobytes(order="C")
 
     @pytest.fixture(scope="class")
     def prepare_mark_impression(self, scan_directory: Path, mask_raw: bytes) -> tuple[EndpointContractInterface, bytes]:
@@ -106,7 +132,7 @@ class TestContracts:
                     "lowpass_regression_order": 0,
                 },
             },
-            expected_output={
+            expected_urls={
                 "preview_image": ".png",
                 "surface_map_image": ".png",
                 "mark_data": ".npz",
@@ -141,7 +167,7 @@ class TestContracts:
                     "subsampling_factor": 1,
                 },
             },
-            expected_output={
+            expected_urls={
                 "preview_image": ".png",
                 "surface_map_image": ".png",
                 "mark_data": ".npz",
@@ -152,77 +178,101 @@ class TestContracts:
             },
         ), mask_raw
 
-    @pytest.fixture(scope="class")
-    def edit_scan(self, scan_directory: Path) -> tuple[EndpointContractInterface, bytes]:
-        """Create test data for edit-scan endpoint.
-
-        Returns the post request data, expected response type, and mask bytes.
-        """
-        cutoff_length = 250
-        scan_file = scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p"
-        parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
-        return EndpointContractInterface(
-            expected_input={
-                "scan_file": scan_file,
-                "cutoff_length": cutoff_length,
-                "mask_is_bitpacked": False,
-                "terms": "plane",
-            },
-            expected_output={
-                "preview_image": ".png",
-                "surface_map_image": ".png",
-            },
-        ), np.ones(parsed_scan.data.shape, dtype=np.bool_).tobytes(order="C")
-
-    @pytest.fixture(scope="class")
-    def calculate_score_impression(self, directory_access: DirectoryAccess) -> EndpointContractInterface:
+    @pytest.fixture
+    def calculate_score_impression(
+        self, directory_access: DirectoryAccess, dummy_mark: Mark
+    ) -> EndpointContractInterface:
         """
         Create test data for calculate-score-impression endpoint.
 
         Returns the post request data and expected response type.
         """
+        _save_impression_mark(directory_access.resource_path, dummy_mark)
         return EndpointContractInterface(
             expected_input={
-                "mark_ref": str(directory_access.resource_path),
-                "mark_comp": str(directory_access.resource_path),
-                "param": {},
+                "mark_dir_ref": str(directory_access.resource_path),
+                "mark_dir_comp": str(directory_access.resource_path),
+                "metadata_reference": {
+                    "case_id": "case_1",
+                    "firearm_id": "firearm_1",
+                    "specimen_id": "specimen_1",
+                    "measurement_id": "measurement_1",
+                    "mark_id": "mark_1",
+                },
+                "metadata_compared": {
+                    "case_id": "case_1",
+                    "firearm_id": "firearm_1",
+                    "specimen_id": "specimen_1",
+                    "measurement_id": "measurement_1",
+                    "mark_id": "mark_2",
+                },
+                "comparison_params": {},
             },
-            expected_output={
-                "urls": {"lr_overview_plot": ".png"},
-                "lr": 0,
+            expected_urls={
+                "comparison_overview": ".png",
+                "leveled_reference_heatmap": ".png",
+                "leveled_compared_heatmap": ".png",
+                "filtered_reference_heatmap": ".png",
+                "filtered_compared_heatmap": ".png",
+                "cell_reference_heatmap": ".png",
+                "cell_compared_heatmap": ".png",
+                "cell_overlay": ".png",
+                "cell_cross_correlation": ".png",
+            },
+            expected_fields={
+                "cells": list,
             },
         )
 
-    @pytest.fixture(scope="class")
-    def calculate_score_striation(self, directory_access: DirectoryAccess) -> EndpointContractInterface:
+    @pytest.fixture
+    def calculate_score_striation(
+        self, directory_access: DirectoryAccess, dummy_profile: Profile, dummy_mark: Mark
+    ) -> EndpointContractInterface:
         """
         Create test data for calculate-score-striation endpoint.
 
         Returns the post request data and expected response type.
         """
+        _save_striation_mark_and_profile(directory_access.resource_path, profile=dummy_profile, mark=dummy_mark)
         return EndpointContractInterface(
             expected_input={
-                "mark_ref": str(directory_access.resource_path),
-                "mark_comp": str(directory_access.resource_path),
-                "param": {},
+                "mark_dir_ref": str(directory_access.resource_path),
+                "mark_dir_comp": str(directory_access.resource_path),
+                "metadata_reference": {
+                    "case_id": "case_1",
+                    "firearm_id": "firearm_1",
+                    "specimen_id": "specimen_1",
+                    "measurement_id": "measurement_1",
+                    "mark_id": "mark_1",
+                },
+                "metadata_compared": {
+                    "case_id": "case_1",
+                    "firearm_id": "firearm_1",
+                    "specimen_id": "specimen_1",
+                    "measurement_id": "measurement_1",
+                    "mark_id": "mark_2",
+                },
             },
-            expected_output={
+            expected_urls={
                 "mark_ref_surfacemap": ".png",
                 "mark_comp_surfacemap": ".png",
                 "filtered_reference_heatmap": ".png",
                 "comparison_overview": ".png",
-                "mark_ref_filtered_moved_surfacemap": ".png",
-                "mark_ref_filtered_bb_surfacemap": ".png",
-                "mark_comp_filtered_bb_surfacemap": ".png",
-                "mark_comp_filtered_all_bb_surfacemap": ".png",
-                "cell_accf_distribution": ".png",
+                "mark_reference_aligned_data": ".npz",
+                "mark_reference_aligned_meta": ".json",
+                "mark_compared_aligned_data": ".npz",
+                "mark_compared_aligned_meta": ".json",
+                "mark_ref_preview": ".png",
+                "mark_comp_preview": ".png",
+                "similarity_plot": ".png",
+                "filtered_compared_heatmap": ".png",
+                "side_by_side_heatmap": ".png",
             },
+            expected_fields={"comparison_results": dict},
         )
 
-    @pytest.fixture(scope="class")
-    def calculate_lr_impression(
-        self, directory_access: DirectoryAccess, tmp_path: Path, sample_metadata_parameters: MetadataParameters
-    ) -> EndpointContractInterface:
+    @pytest.fixture
+    def calculate_lr_impression(self, directory_access: DirectoryAccess, tmp_path: Path) -> EndpointContractInterface:
         """
         Create test data for calculate-score-impression endpoint.
 
@@ -231,39 +281,45 @@ class TestContracts:
         (lr_system := tmp_path / "lr_system").touch()
         return EndpointContractInterface(
             expected_input={
-                "mark_ref": directory_access.resource_path,
-                "mark_comp": directory_access.resource_path,
+                "mark_dir_ref": str(directory_access.resource_path),
+                "mark_dir_comp": str(directory_access.resource_path),
+                "metadata_reference": {
+                    "case_id": "case_1",
+                    "firearm_id": "firearm_1",
+                    "specimen_id": "specimen_1",
+                    "measurement_id": "measurement_1",
+                    "mark_id": "mark_1",
+                },
+                "metadata_compared": {
+                    "case_id": "case_1",
+                    "firearm_id": "firearm_1",
+                    "specimen_id": "specimen_1",
+                    "measurement_id": "measurement_1",
+                    "mark_id": "mark_2",
+                },
+                "lr_system_path": str(lr_system),
+                "user_id": "ABCDE",
+                "date_report": "2000-01-01",
                 "score": 1,
                 "n_cells": 5,
-                "lr_system": lr_system,
-                "param": ImpressionLRParameters(
-                    area_correlation=0.0,
-                    cell_correlations=[[0.0]],
-                    cmc_score=0.0,
-                    mean_square_ref=0.0,
-                    mean_square_comp=0.0,
-                    mean_square_of_difference=0.0,
-                    has_area_results=False,
-                    has_cell_results=False,
-                    cell_positions_compared=[[0.0, 0.0]],
-                    cell_rotations_compared=[0.0],
-                    cmc_area_fraction=0.0,
-                    cutoff_low_pass=0.0,
-                    cutoff_high_pass=0.0,
-                    cell_size_um=0.0,
-                    max_error_cell_position=0.0,
-                    max_error_cell_angle=0.0,
-                ),
+                "cells": [
+                    make_cell(
+                        center_reference=(i * 1e-3, 0.0),
+                        best_score=0.3,
+                        cell_size=(1e-3, 1e-3),
+                    ).model_dump()
+                    for i in range(5)
+                ],
             },
-            expected_output={
-                "urls": {"lr_overview_plot": ".png"},
-                "lr": 0,
-            },
+            expected_urls={"lr_overview_plot": ".png"},
+            expected_fields={"lr": 0},
         )
 
-    @pytest.fixture(scope="class")
+    @pytest.fixture
     def calculate_lr_striation(
-        self, directory_access: DirectoryAccess, tmp_path: Path, sample_metadata_parameters: MetadataParameters
+        self,
+        directory_access: DirectoryAccess,
+        tmp_path: Path,
     ) -> EndpointContractInterface:
         """
         Create test data for calculate-score-striation endpoint.
@@ -273,24 +329,31 @@ class TestContracts:
         (lr_system := tmp_path / "lr_system").touch()
         return EndpointContractInterface(
             expected_input={
-                "mark_ref": directory_access.resource_path,
-                "mark_comp": directory_access.resource_path,
-                "score": 1,
-                "lr_system": lr_system,
-                "param": sample_metadata_parameters,
-                "lr_system_path": lr_system,
+                "mark_dir_ref": str(directory_access.resource_path),
+                "mark_dir_comp": str(directory_access.resource_path),
+                "metadata_reference": {
+                    "case_id": "case_1",
+                    "firearm_id": "firearm_1",
+                    "specimen_id": "specimen_1",
+                    "measurement_id": "measurement_1",
+                    "mark_id": "mark_1",
+                },
+                "metadata_compared": {
+                    "case_id": "case_1",
+                    "firearm_id": "firearm_1",
+                    "specimen_id": "specimen_1",
+                    "measurement_id": "measurement_1",
+                    "mark_id": "mark_2",
+                },
+                "lr_system_path": str(lr_system),
+                "user_id": "ABCDE",
+                "date_report": "2000-01-01",
+                "mark_dir_ref_aligned": str(directory_access.resource_path),
+                "mark_dir_comp_aligned": str(directory_access.resource_path),
+                "score": 0.5,
             },
-            expected_output={
-                "mark_ref_surfacemap": ".png",
-                "mark_comp_surfacemap": ".png",
-                "mark_ref_filtered_surfacemap": ".png",
-                "comparison_overview": ".png",
-                "mark_ref_depthmap": ".png",
-                "mark_comp_depthmap": ".png",
-                "similarity_plot": ".png",
-                "mark_comp_filtered_surfacemap": ".png",
-                "mark1_vs_moved_mark2": ".png",
-            },
+            expected_urls={"lr_overview_plot": ".png"},
+            expected_fields={"lr": 0},
         )
 
     @pytest.mark.parametrize(
@@ -308,31 +371,32 @@ class TestContracts:
         expected_location = f"/docs#operations-tag-{route.lstrip('/')}"
         assert response.headers["location"] == expected_location, f"should redirect to {expected_location}"
 
-    def _assert_response_urls(self, response: Response, data: EndpointContractInterface):
-        """Test the response urls if they are live urls pointing to a file from the key."""
+    def _assert_response(self, response: Response, data: EndpointContractInterface):
         files = {
             "png": b"\x89PNG\r\n\x1a\n",
             "x3p": b"PK\x03\x04",
             "npz": b"PK\x03\x04",
             "json": b"{",
         }
+        body = response.json()
         assert response.status_code == HTTPStatus.OK, response.text
-        assert all(HttpUrl(url) for url in response.json().values()), "all response items should be a Http url"
-        for response_key, url in response.json().items():
+
+        expected_keys = data.expected_urls.keys() | data.expected_fields.keys()
+        assert expected_keys == body.keys(), "response keys should match expected keys"
+
+        for key, expected_type in data.expected_fields.items():
+            assert isinstance(body[key], expected_type), f"{key}: expected {expected_type}, got {type(body[key])}"
+
+        for key, expected_ext in data.expected_urls.items():
+            url = body[key]
+            assert HttpUrl(url), f"{key} should be a valid URL"
             file_response = requests.get(url, timeout=10)
-            assert file_response.status_code == HTTPStatus.OK, f"all urls should point to a live url {response.text}"
-            assert (
-                file_response.headers["content-type"] == "image/png"
-                or file_response.headers["content-type"] == "application/octet-stream"
-            ), "we should receive a file from the url"
+            assert file_response.status_code == HTTPStatus.OK, f"{key} URL should be reachable"
             file_type = file_response.url.split("/")[-1].split(".")[-1]
-            assert data.expected_output[response_key] == f".{file_type}", (
-                f"with key:{response_key} should have file type:{data.expected_output[response_key]}"
-            )
+            assert expected_ext == f".{file_type}", f"{key}: expected {expected_ext}, got .{file_type}"
             assert file_response.content[: len(files[file_type])] == files[file_type], (
-                f"file content should start with: {files[file_type]}"
+                f"{key}: file content should start with {files[file_type]}"
             )
-        assert data.expected_output.keys() == response.json().keys(), "all file keys are pressent"
 
     def test_pre_processor_post_requests_process_scan(self, request: pytest.FixtureRequest) -> None:
         """Test if preprocessor POST endpoint return expected models."""
@@ -344,7 +408,7 @@ class TestContracts:
             timeout=20,
         )
         # Assert
-        self._assert_response_urls(data=data, response=response)
+        self._assert_response(data=data, response=response)
 
     @pytest.mark.parametrize(
         ("fixture_name", "sub_route"),
@@ -363,9 +427,8 @@ class TestContracts:
         # Act
         response = send_post_request_with_mask(endpoint=sub_route, params=params.expected_input, mask_raw=mask_raw)
         # Assert
-        self._assert_response_urls(data=params, response=response)
+        self._assert_response(data=params, response=response)
 
-    @pytest.mark.xfail
     @pytest.mark.parametrize(
         ("fixture_name", "sub_route"),
         [
@@ -383,11 +446,13 @@ class TestContracts:
                 "calculate_lr_impression",
                 "calculate-lr-impression",
                 id="calculate_lr_impression",
+                marks=pytest.mark.xfail(reason="requires valid LR system"),
             ),
             pytest.param(
                 "calculate_lr_striation",
                 "calculate-lr-striation",
                 id="calculate_lr_striation",
+                marks=pytest.mark.xfail(reason="requires valid LR system"),
             ),
         ],
     )
@@ -402,7 +467,7 @@ class TestContracts:
         )
         # Assert
         assert response.status_code == HTTPStatus.OK
-        self._assert_response_urls(data=data, response=response)
+        self._assert_response(data=data, response=response)
 
     def test_extractor_get_file_endpoint(self, directory_access: DirectoryAccess) -> None:
         """

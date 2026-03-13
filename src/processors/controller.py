@@ -15,16 +15,17 @@ from conversion.likelihood_ratio import (
 from conversion.plots.data_formats import HistogramData, LlrTransformationData
 from conversion.plots.plot_ccf_comparison_overview import plot_ccf_comparison_overview
 from conversion.plots.plot_cmc_comparison_overview import plot_cmc_comparison_overview
+from conversion.plots.plot_impression import plot_impression_comparison_results
 from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.plots.utils import build_results_metadata_impression, build_results_metadata_striation
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
-from conversion.surface_comparison.models import Cell, CellMetaData
+from conversion.surface_comparison.models import Cell, ProcessedMark
 from fastapi import HTTPException
 from lir.util import probability_to_logodds
 from loguru import logger
 from PIL import Image
 
-from extractors.constants import ComparisonStriationFiles, LRFiles
+from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from processors.schemas import CalculateLRImpression, CalculateLRStriation
 
 
@@ -78,6 +79,48 @@ def save_striation_comparison_plots(  # noqa: PLR0913
     Image.fromarray(plots.filtered_reference_heatmap).save(
         files_to_save.filtered_reference_heatmap.get_file_path(working_dir)
     )
+
+
+def save_impression_comparison_plots(  # noqa: PLR0913
+    mark_ref: ProcessedMark,
+    mark_comp: ProcessedMark,
+    cmc_result,
+    comparison_params,
+    working_dir: Path,
+    files_to_save: type[ComparisonImpressionFiles],
+    metadata_reference: MarkMetadata,
+    metadata_compared: MarkMetadata,
+) -> None:
+    """Create and save the plots of the processed markings."""
+    plots = plot_impression_comparison_results(
+        mark_reference_leveled=mark_ref.leveled_mark,
+        mark_compared_leveled=mark_comp.leveled_mark,
+        mark_reference_filtered=mark_ref.filtered_mark,
+        mark_compared_filtered=mark_ref.filtered_mark,
+        cmc_result=cmc_result,
+        comparison_params=comparison_params,
+        metadata_reference=metadata_reference,
+        metadata_compared=metadata_compared,
+    )
+
+    logger.debug("impression comparison plots generated")
+    Image.fromarray(plots.comparison_overview).save(files_to_save.comparison_overview.get_file_path(working_dir))
+    Image.fromarray(plots.leveled_reference_heatmap).save(
+        files_to_save.leveled_reference_heatmap.get_file_path(working_dir)
+    )
+    Image.fromarray(plots.leveled_compared_heatmap).save(
+        files_to_save.leveled_compared_heatmap.get_file_path(working_dir)
+    )
+    Image.fromarray(plots.filtered_reference_heatmap).save(
+        files_to_save.filtered_reference_heatmap.get_file_path(working_dir)
+    )
+    Image.fromarray(plots.filtered_compared_heatmap).save(
+        files_to_save.filtered_compared_heatmap.get_file_path(working_dir)
+    )
+    Image.fromarray(plots.cell_reference_heatmap).save(files_to_save.cell_reference_heatmap.get_file_path(working_dir))
+    Image.fromarray(plots.cell_compared_heatmap).save(files_to_save.cell_compared_heatmap.get_file_path(working_dir))
+    Image.fromarray(plots.cell_overlay).save(files_to_save.cell_overlay.get_file_path(working_dir))
+    Image.fromarray(plots.cell_cross_correlation).save(files_to_save.cell_cross_correlation.get_file_path(working_dir))
 
 
 def save_lr_impression_plot(  # noqa: PLR0913
@@ -158,6 +201,8 @@ def save_lr_striation_plot(  # noqa: PLR0913
     :param metadata_compared: Display metadata for the compared mark.
     :param results_metadata: Formatted summary of comparison results for display.
     :param score: CCF score for the current case comparison.
+    :param score_transformed: Log odds transformed score for the current case comparison.
+    :param transformed_reference_scores: Log odds transformed reference scores.
     :param lr: Log-likelihood ratio for the current case comparison.
     :param output_path: Path to save the output PNG image.
     """
@@ -256,23 +301,7 @@ def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) ->
         reference_data=reference_data,
         mark_ref=mark_ref,
         mark_comp=mark_comp,
-        cells=[
-            Cell(
-                center_reference=(i * 100e-6, 0.0),
-                center_comparison=(i * 100e-6, 0.0),
-                cell_size=(100e-6, 100e-6),
-                fill_fraction_reference=0.9,
-                best_score=0.5,
-                angle_deg=0.0,
-                is_congruent=False,
-                meta_data=CellMetaData(
-                    is_outlier=False,
-                    residual_angle_deg=0.0,
-                    position_error=(0.0, 0.0),
-                ),
-            )
-            for i in range(5)
-        ],  # todo add actual cells in next PR
+        cells=lr_input.cells,
         metadata_reference=lr_input.metadata_reference,
         metadata_compared=lr_input.metadata_compared,
         results_metadata=results_metadata,

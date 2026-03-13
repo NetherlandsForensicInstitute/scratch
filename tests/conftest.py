@@ -1,4 +1,12 @@
 import matplotlib
+from conversion.profile_correlator import Profile
+
+from tests.helper_function import (
+    _create_dummy_profile,
+    _save_striation_mark_and_profile,
+    _shift_profile,
+    _striation_mark,
+)
 
 matplotlib.use("Agg")
 
@@ -77,16 +85,6 @@ def lr_system_path(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
-    """Create empty mark directories."""
-    ref = tmp_path / "mark_ref"
-    comp = tmp_path / "mark_comp"
-    ref.mkdir()
-    comp.mkdir()
-    return ref, comp
-
-
-@pytest.fixture
 def dummy_mark() -> Mark:
     return Mark(
         scan_image=ScanImage(
@@ -96,6 +94,11 @@ def dummy_mark() -> Mark:
         ),
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
     )
+
+
+@pytest.fixture
+def dummy_profile() -> Profile:
+    return Profile(heights=np.random.default_rng(42).random(1000), pixel_size=1e-6)
 
 
 @pytest.fixture
@@ -136,21 +139,19 @@ def results_metadata(reference_data: ModelSpecs) -> dict[str, str]:
 
 
 @pytest.fixture
-def mark_dir_ref(tmp_path: Path) -> Path:
-    directory = tmp_path / "mark_ref"
-    directory.mkdir()
-    return directory
+def mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
+    """Prepare directories with striation mark and profile files."""
+    ref_path = tmp_path / "ref_mark"
+    comp_path = tmp_path / "comp_mark"
+    ref_path.mkdir()
+    comp_path.mkdir()
 
+    profile_ref = _create_dummy_profile()
+    profile_comp = _shift_profile(profile_ref, 10.0)
+    mark_ref = _striation_mark(profile_ref)
+    mark_comp = _striation_mark(profile_comp)
 
-@pytest.fixture
-def mark_dir_comp(tmp_path: Path) -> Path:
-    directory = tmp_path / "mark_comp"
-    directory.mkdir()
-    return directory
+    _save_striation_mark_and_profile(ref_path, profile_ref, mark_ref)
+    _save_striation_mark_and_profile(comp_path, profile_comp, mark_comp)
 
-
-@pytest.fixture
-def lr_system_file(tmp_path: Path) -> Path:
-    f = tmp_path / "lr_system.bin"
-    f.touch()
-    return f
+    return ref_path, comp_path

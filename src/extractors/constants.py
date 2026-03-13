@@ -13,15 +13,15 @@ class UrlFiles(StrEnum):
 
 
 class ComparisonImpressionFiles(UrlFiles):
-    mark_ref_surfacemap = "mark_ref_surfacemap.png"
-    mark_comp_surfacemap = "mark_comp_surfacemap.png"
-    filtered_reference_heatmap = "filtered_reference_heatmap.png"
     comparison_overview = "comparison_overview.png"
-    mark_ref_filtered_moved_surfacemap = "mark_ref_filtered_moved_surfacemap.png"
-    mark_ref_filtered_bb_surfacemap = "mark_ref_filtered_bb_surfacemap.png"
-    mark_comp_filtered_bb_surfacemap = "mark_comp_filtered_bb_surfacemap.png"
-    mark_comp_filtered_all_bb_surfacemap = "mark_comp_filtered_all_bb_surfacemap.png"
-    cell_accf_distribution = "cell_accf_distribution.png"
+    leveled_reference_heatmap = "leveled_reference_heatmap.png"
+    leveled_compared_heatmap = "leveled_compared_heatmap.png"
+    filtered_reference_heatmap = "filtered_reference_heatmap.png"
+    filtered_compared_heatmap = "filtered_compared_heatmap.png"
+    cell_reference_heatmap = "cell_reference_heatmap.png"
+    cell_compared_heatmap = "cell_compared_heatmap.png"
+    cell_overlay = "cell_overlay.png"
+    cell_cross_correlation = "cell_cross_correlation.png"
 
 
 class ComparisonStriationFiles(UrlFiles):

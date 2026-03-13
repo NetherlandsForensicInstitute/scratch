@@ -118,14 +118,6 @@ class PrepareMarkResponseImpression(PrepareMarkResponse):
 class ComparisonResponse(URLContainer):
     """Response model for comparison data access."""
 
-    mark_ref_surfacemap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_surfacemap.json"],
-    )
-    mark_comp_surfacemap: HttpUrl = Field(
-        description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_comp_surfacemap.json"],
-    )
     filtered_reference_heatmap: HttpUrl = Field(
         description="",
         examples=[
@@ -138,38 +130,63 @@ class ComparisonResponse(URLContainer):
     )
 
 
-class ComparisonResponseImpression(ComparisonResponse):
-    mark_ref_filtered_moved_surfacemap: HttpUrl = Field(
+class ComparisonResponseImpressionURL(ComparisonResponse):
+    leveled_reference_heatmap: HttpUrl = Field(
         description="",
-        examples=[
-            "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_filtered_moved_surfacemap.png"
-        ],
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/leveled_reference_heatmap.png"],
     )
-    mark_ref_filtered_bb_surfacemap: HttpUrl = Field(
+    leveled_compared_heatmap: HttpUrl = Field(
         description="",
-        examples=[
-            "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_filtered_bb_surfacemap.png"
-        ],
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/leveled_compared_heatmap.png"],
     )
-    mark_comp_filtered_bb_surfacemap: HttpUrl = Field(
+    filtered_compared_heatmap: HttpUrl = Field(
         description="",
-        examples=[
-            "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_comp_filtered_bb_surfacemap.png"
-        ],
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/filtered_compared_heatmap.png"],
     )
-    mark_comp_filtered_all_bb_surfacemap: HttpUrl = Field(
+    cell_reference_heatmap: HttpUrl = Field(
         description="",
-        examples=[
-            "http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_comp_filtered_all_bb_surfacemap.png"
-        ],
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/cell_reference_heatmap.png"],
     )
-    cell_accf_distribution: HttpUrl = Field(
+    cell_compared_heatmap: HttpUrl = Field(
         description="",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/cell_accf_distribution.png"],
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/cell_compared_heatmap.png"],
     )
+    cell_overlay: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/cell_overlay.png"],
+    )
+    cell_cross_correlation: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/cell_cross_correlation.png"],
+    )
+
+
+class ComparisonResponseImpression(URLContainer):
+    urls: ComparisonResponseImpressionURL
+    cells: list[dict] = Field(
+        default_factory=list,
+        description="Per-cell CMC results for use in LR calculation.",
+    )
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        """Serialize model to flat json."""
+        data = handler(self)
+        return {
+            **data["urls"],
+            "cells": data["cells"],
+        }
 
 
 class ComparisonResponseStriationURL(ComparisonResponse):
+    mark_ref_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_ref_surfacemap.json"],
+    )
+    mark_comp_surfacemap: HttpUrl = Field(
+        description="",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/mark_comp_surfacemap.json"],
+    )
     mark_reference_aligned_data: HttpUrl = Field(
         ...,
         description="Aligned reference mark.",

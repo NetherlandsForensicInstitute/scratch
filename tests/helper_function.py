@@ -1,4 +1,14 @@
+from pathlib import Path
+
+import numpy as np
+from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark, MarkType
+from conversion.export.mark import save_mark
+from conversion.export.profile import save_profile
+from conversion.profile_correlator import Profile
 from conversion.surface_comparison.models import Cell, CellMetaData
+from scipy.constants import micro
+from scipy.interpolate import interp1d
 
 
 def make_cell(  # noqa: PLR0913
@@ -34,3 +44,56 @@ def make_cell(  # noqa: PLR0913
             position_error=position_error,
         ),
     )
+
+
+def _save_impression_mark(dir_path: Path, mark: Mark) -> None:
+    """Save mark files to a directory in the format load_mark_from_path expects."""
+    for stem in ("processed", "leveled", "aligned"):
+        save_mark(mark, dir_path / stem)
+
+
+def _create_dummy_profile(n_samples: int = 1000) -> Profile:
+    """Create a synthetic striation profile for testing."""
+    n_striations = 20
+    amplitude_um = 0.5
+    noise_level = 0.05
+    pixel_size_m = 0.5 * micro
+
+    x = np.linspace(0, n_striations * 2 * np.pi, n_samples)
+    data = np.sin(x) * amplitude_um * micro
+    data += np.sin(2 * x) * amplitude_um * 0.3 * micro
+    data += np.sin(0.5 * x) * amplitude_um * 0.5 * micro
+
+    rng = np.random.default_rng()
+    data += rng.normal(0, amplitude_um * noise_level * micro, n_samples)
+
+    return Profile(heights=data, pixel_size=pixel_size_m)
+
+
+def _shift_profile(profile: Profile, shift_samples: float) -> Profile:
+    """Create a shifted version of a profile."""
+    data = profile.heights
+    n = len(data)
+    x_orig = np.arange(n)
+    interpolator = interp1d(x_orig, data, kind="linear", fill_value=0, bounds_error=False)
+    x_new = x_orig + shift_samples
+    new_data = interpolator(x_new)
+
+    rng = np.random.default_rng()
+    new_data += rng.normal(0, np.nanstd(data) * 0.01, n)
+
+    return Profile(heights=new_data, pixel_size=profile.pixel_size)
+
+
+def _striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
+    """Build a striation Mark by tiling a profile across columns."""
+    data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
+    scan_image = ScanImage(data=data, scale_x=profile.pixel_size, scale_y=profile.pixel_size)
+    return Mark(scan_image=scan_image, mark_type=MarkType.BULLET_GEA_STRIATION, center=None)
+
+
+def _save_striation_mark_and_profile(dir_path: Path, profile: Profile, mark: Mark) -> None:
+    """Save mark and profile files to a directory."""
+    for stem in ("processed", "aligned"):
+        save_mark(mark, dir_path / stem)
+    save_profile(profile, dir_path / "profile")
