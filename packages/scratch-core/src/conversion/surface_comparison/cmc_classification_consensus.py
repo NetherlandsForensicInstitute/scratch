@@ -37,27 +37,36 @@ def classify_congruent_cells_consensus(
     if not cells:
         raise ValueError("Cannot identify CMC from an empty list.")
 
-    filtered_cells = _filter_cells(cells, params.minimum_fill_fraction)
+    minimum_fill_fraction = params.minimum_fill_fraction
+    filtered_cells = _filter_cells(cells, minimum_fill_fraction)
+
+    if not filtered_cells:
+        raise ValueError(
+            f"Cannot identify CMC. There are no cells with fill fraction >= {minimum_fill_fraction}."
+        )
+
     n_filtered_cells = len(filtered_cells)
 
     max_distance = params.position_threshold  # in meters
     max_abs_angle_distance = params.angle_deviation_threshold  # in degrees
 
     # initialize solution: default to first cell as sole CMC
-    best_inliers_idx: list[int] = [0]
+
     criterion = np.inf
 
-    if n_filtered_cells <= 1 or (
+    if n_filtered_cells == 1 or (
         np.isinf(max_distance) and max_abs_angle_distance == 180
     ):
-        # All cells are CMC — skip pair search
-        best_inliers_idx = list(range(n_filtered_cells))
+        # Then all filtered cells are congruent
+        congruent_set = set(filtered_cells)
+        best_inliers_idx = range(n_filtered_cells)
+
     else:
         for idx_1 in range(n_filtered_cells):
             for idx_2 in range(idx_1 + 1, n_filtered_cells):
-                # --- Seed: evaluate two-cell pair solution ---
+                # Seed: evaluate two-cell pair solution ---
                 cell_distances, cell_angle_distances = _get_cmc_consensus(
-                    [idx_1, idx_2], filtered_cells, reference_center
+                    [idx_1, idx_2], filtered_cells
                 )
                 inliers_idx_current = np.where(
                     (cell_distances <= max_distance)
@@ -73,13 +82,13 @@ def classify_congruent_cells_consensus(
                 )
 
                 if 2 < len(inliers_idx_current) < n_filtered_cells:
-                    # --- Refinement: iteratively re-fit using all inliers ---
+                    # Refinement: iteratively re-fit using all inliers ---
                     # make while loop pass for seed
                     inliers_idx_candidate = inliers_idx_current
 
                     while len(inliers_idx_candidate) == len(inliers_idx_current):
                         cell_distances, cell_angle_distances = _get_cmc_consensus(
-                            inliers_idx_current, filtered_cells, reference_center
+                            inliers_idx_current, filtered_cells
                         )
                         inliers_idx_candidate = np.where(
                             (cell_distances <= max_distance)
@@ -102,10 +111,10 @@ def classify_congruent_cells_consensus(
                             criterion_current = criterion_candidate
                             inliers_idx_current = inliers_idx_candidate
                         else:
-                            # make while loop break, also for len(inliers_idx_candidate) == len(inliers_idx_current)
+                            # break while loop, also for len(inliers_idx_candidate) == len(inliers_idx_current) and criterion did not improve
                             break
 
-                # --- Accept global best if this pair solution is better ---
+                # --- Accept global best if the current solution is better ---
                 if len(inliers_idx_current) > len(best_inliers_idx) or (
                     len(inliers_idx_current) == len(best_inliers_idx)
                     and criterion_current < criterion
@@ -116,40 +125,36 @@ def classify_congruent_cells_consensus(
             if len(best_inliers_idx) == n_filtered_cells:
                 break  # outer loop short-circuit
 
-    # --- Pick the single highest-scoring cell if no pair improved things ---
-    if len(best_inliers_idx) == 1:
-        best_scores = [filtered_cells[i].best_score for i in range(n_filtered_cells)]
-        best_inliers_idx = [int(np.argmax(best_scores))]
+        # --- Mark cells as congruent ---
+        congruent_set = set(filtered_cells[i] for i in best_inliers_idx)
 
-    # --- Mark cells as congruent ---
-    congruent_set = set(filtered_cells[i] for i in best_inliers_idx)
-    # We need original cell indices; map filtered back via identity
+    # Update is_congruent labels based on congruent_set
     updated_cells = []
     for cell in cells:
         is_congruent = cell in congruent_set
         updated_cells.append(cell.model_copy(update={"is_congruent": is_congruent}))
 
-    # --- Estimate shared transformation from CMC inliers ---
+    # --- Estimate shared rotation and transformation
     if len(best_inliers_idx) > 1:
+        # From CMC inliers
         cmc_cells = [filtered_cells[i] for i in best_inliers_idx]
-        consensus_translation, consensus_rotation_rad = _find_consensus_parameters(
-            cmc_cells, reference_center
+        consensus_translation, consensus_rotation_rad, _ = _find_consensus_parameters(
+            cmc_cells
         )
         consensus_rotation_deg = float(np.degrees(consensus_rotation_rad))
+        consensus_translation = (consensus_translation[0], consensus_translation[1])
     else:
-        # then pick rotation and translation of the single is_congruent cell
-        cell = [cell for cell in cells if cell.is_congruent][0]
-        consensus_rotation_deg = cell.angle_deg
-        center_of_rotation_comparison = reference_center
-        consensus_translation = (
-            np.array(cell.center_comparison)
-            - np.array(center_of_rotation_comparison)
-            - _rotate_using_angle_deg(
-                np.array(cell.center_reference).reshape(1, -1),
-                cell.angle_deg,
-                np.array(reference_center),
-            )
+        # There was only one filtered_cell
+        congruent_cell = filtered_cells[0]
+        consensus_translation = tuple(
+            [
+                c - r
+                for c, r in zip(
+                    congruent_cell.center_comparison, congruent_cell.center_reference
+                )
+            ]
         )
+        consensus_rotation_deg = congruent_cell.angle_deg
 
     return ComparisonResult(
         cells=updated_cells,
@@ -199,47 +204,46 @@ def _calculate_criterion(
 def _get_cmc_consensus(
     included_idx: list[int],
     cells: list[Cell],
-    reference_center: tuple[float, float],
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate cell_distances and cell_angle_distances for all cells after finding consensus parameters.
 
     :param included_idx: a list of included cell indices (used for least-squares fit)
     :param cells: a list of all filtered cells
-    :param reference_center: global center [x, y] used as the fixed rotation point (meters)
+    :param reference_rotation_center: global center [x, y] used as the fixed rotation point (meters)
     :returns: cell_distances (meters), cell_angle_distances in absolute degrees — both as np.ndarray of length len(cells)
     """
     cells_for_least_squares = [cells[idx] for idx in included_idx]
-    consensus_translation, consensus_rotation_rad = _find_consensus_parameters(
-        cells_for_least_squares, reference_center
+    consensus_translation, consensus_rotation_rad, reference_rotation_center = (
+        _find_consensus_parameters(cells_for_least_squares)
     )
     cell_distances, cell_angle_distances = _get_distances(
         cells,
         consensus_translation,
         consensus_rotation_rad,
-        rotation_center=reference_center,
+        rotation_center=reference_rotation_center,
     )
     return cell_distances, cell_angle_distances
 
 
 def _find_consensus_parameters(
     cells: list[Cell],
-    reference_center: tuple[float, float],
-) -> tuple[tuple[float, float], float]:
+) -> tuple[tuple[float, float], float, tuple[float, float]]:
     """Least-squares 'Procrustes' rotation fit to find consensus rotation and translation parameters.
 
     Explanation of the method:
-    Say we have two coordinate-pair lists [X] and [Y] where X_i is coupled with Y_i. And we want to find the rotation for which:
-    ||(X - rotation_center_X) R - (Y - rotation_center_Y)||F_2 is minimal. i.e. the Frobenius norm (the sum of squared distances between the transformed sets of points and a target set of points) is minimal.
-    Now, we already know the rotation center for the reference grid X is and for the comparison grid Y: it is the center of the image, what we used to find the individual cell's rotations and centers. Normally, in Procrustes rotation we calculate the centers based on means of the data, but since in the end we want to compare the consensus rotation angle to the cell's rotation angle i think it's better to use the known rotation centers (contrary to what Matlab does). The rotation center for the comparison_grid Y is the mean of the centers_comparison of the cells . The optimal rotation can be found by completing the square in the Frobenius norm and observing that only the linear term
+    Say we have two coordinate-pair lists [X] and [Y] where X_i is coupled with Y_i. And we want to find the rotation matrix R and translation of X to Y for which:
+    ||(X - rotation_center_X) R - (Y - rotation_center_Y)||F_2 is minimal. i.e. the Frobenius norm (the sum of squared distances between a linearly transformed set of points and a target set of points) is minimal.
+    The rotation_centra yielding minimum Frobenius norm for the rotation operation are the coordinate means of X and Y. Note that this is a different coordinate system than the one used to find the rotation of individual cells during registration but this does not matter since optimal rotation angle is independent of coordinate system. We just want to find this rotation by minimizing the Frobenius norm and this minimizes the norm.
+    It immediately follows that optimal translation in this coordinate system is rotation_center_Y - rotation_center_X.
+    The optimal rotation can be found by completing the square in the Frobenius norm and observing that only the linear term
     -2trace(R^T X_centered^T Y_centered) depends on R. Therefore, this term should be minimal. Now, regard X_centered^T Y_centered = M with singular_value_decomposition(M) = U Sigma V^T, with U and V orthonormal basis and SIgma a diagonal eigenvalue matrix.
     For trace(R^T U Sigma V^T) to be maximal, since R, U and V are orthonormal matrices, you want: trace(R^T U Sigma V^T) = trace(Sigma). In order to achieve this (using the cyclic property of trace):
     trace(R^T U Sigma V^T) = trace(V^T R^T U Sigma), so R^T = V U^T, so R = U V^T.
     One last thing: since R is the collection of rotations and reflections, and physically we do not want reflections, we constrain the solution to reflections only be solving the above eigenvalue problem and, in case of reflection (determinant(R) = -1), reflecting the last axis (with the smallest eigenvalue, therefore yielding the minimal Frobenius norm given this contraint).
 
     :param cells: cells whose (center_reference, center_comparison) pairs are used for fitting
-    :param reference_center: global center of rotation (x, y) in meters, used for rotation center of reference and comparison
-    :returns: consensus_translation = 'comparison' - 'transformed_reference' (x, y) in meters, consensus_rotation_rad (float) in radians
+    :returns: consensus_translation = 'comparison' - 'rotated_reference' (x, y) in meters; consensus_rotation_rad of reference (float) in radians, rotation_center_reference
     """
     if len(cells) == 0:
         raise ValueError("No cells found")
@@ -250,10 +254,6 @@ def _find_consensus_parameters(
     centers_comparison = np.array(
         [cell.center_comparison for cell in cells], dtype=float
     )  # (N, 2)
-    center_of_rotation_reference = np.array(reference_center, dtype=float)  # (2,)
-    center_of_rotation_comparison = (
-        center_of_rotation_reference  # we assume the same image_size and center.
-    )
 
     # Remove non_valid cells
     valid = ~(
@@ -264,18 +264,18 @@ def _find_consensus_parameters(
     centers_comparison = centers_comparison[valid]
 
     # Compute centroids
-    mean_cell_centers_reference = centers_reference.mean(
+    rotation_center_reference = centers_reference.mean(
         axis=0
-    )  # mean of reference positions
-    mean_cell_centers_comparison = centers_comparison.mean(
+    )  # mean of reference positions (2,)
+    rotation_center_comparison = centers_comparison.mean(
         axis=0
-    )  # mean of comparison positions
+    )  # mean of comparison positions (2,)
 
     centers_reference_centered = (
-        centers_reference - center_of_rotation_reference
+        centers_reference - rotation_center_reference
     )  # centred reference positions
     centers_comparison_centered = (
-        centers_comparison - center_of_rotation_comparison
+        centers_comparison - rotation_center_comparison
     )  # centred comparison positions
 
     # SVD for best-fit rotation (no reflection)
@@ -284,17 +284,14 @@ def _find_consensus_parameters(
     U, _, Vt = np.linalg.svd(M)
     rotation_matrix = U @ Vt  # (2, 2)
 
-    # If det == -1 we have an unintended reflection; correct it by changing sign of lst column of U.
+    # If det == -1 we have an unintended reflection; correct it by changing sign of last column of U.
     if np.linalg.det(rotation_matrix) == -1:
         U[:, -1] *= -1
         rotation_matrix = U @ Vt
 
     # 'comparison' = 'rotated_reference' + translation, -> translation = 'comparison' - 'rotated_reference'.
-    consensus_translation = mean_cell_centers_comparison - _rotate_with_rotation_matrix(
-        data=mean_cell_centers_reference,
-        center=center_of_rotation_reference,
-        rotation_matrix=rotation_matrix,
-    )
+    # Using the cell_means as rotation centra ensures that the translation minimizes the Frobenius norm of the cell clusters after rotation.
+    consensus_translation = rotation_center_comparison - rotation_center_reference
 
     # Rotation angle: atan2(sin/cos)
     (cos, sin) = tuple(rotation_matrix[0])
@@ -304,21 +301,22 @@ def _find_consensus_parameters(
         float(consensus_translation[1]),
     )
 
-    return consensus_translation, consensus_rotation_rad
+    return consensus_translation, consensus_rotation_rad, rotation_center_reference
 
 
-def _rotate_with_rotation_matrix(
+def _rotation_component_with_rotation_matrix(
     data: np.ndarray, center: np.ndarray, rotation_matrix: np.ndarray
 ) -> np.ndarray:
-    """Rotate data around center.
+    """Rotate data around center, return only rotation component (no offset by center).
 
     :param data: data to be rotated, shape (n ,m), n cases with m features
     :param center: center of rotation, shape (1 ,m)
     :param rotation_matrix: rotation matrix, shape (m, m)
-    :returns rotated data, shape (n ,m)
+
+    :returns rotated data minus center, shape (n ,m)
     """
 
-    rotated = (data - center) @ rotation_matrix + center
+    rotated = (data - center) @ rotation_matrix
 
     return rotated
 
@@ -368,7 +366,7 @@ def _rotate_using_angle_deg(
     angle_rad = np.radians(angle_deg)
     rotation_matrix = _build_2d_rotation_matrix(angle_rad)
 
-    return _rotate_with_rotation_matrix(
+    return _rotation_component_with_rotation_matrix(
         data=xy_data, center=reference_center, rotation_matrix=rotation_matrix
     )
 
@@ -410,7 +408,7 @@ def _predict_positions(
     cell_centers_reference = np.array(
         [cell.center_reference for cell in cells]
     )  # (n, 2)
-    references_rotated = _rotate_with_rotation_matrix(
+    references_rotated = _rotation_component_with_rotation_matrix(
         data=cell_centers_reference,
         center=rotation_center,
         rotation_matrix=rotation_matrix,
