@@ -1,16 +1,16 @@
 from math import ceil
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 from returns.pipeline import is_successful
 from scipy.constants import micro
 from surfalize import Surface
-from unittest.mock import patch
 
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, subsample_scan_image
-from parsers.loaders import make_isotropic
+from parsers.loaders import _load_surface, make_isotropic
 
 from ..helper_function import unwrap_result
 
@@ -54,7 +54,7 @@ class TestLoadScanImageCaching:
 
     @pytest.fixture(autouse=True)
     def empty_cache_for_test(self):
-        load_scan_image.cache_clear()
+        _load_surface.cache_clear()
         yield
 
     def test_load_scan_image_is_cached(self, tmp_path: Path) -> None:
@@ -68,7 +68,9 @@ class TestLoadScanImageCaching:
             image_2 = load_scan_image(scan_file)
 
         # Assert
-        assert image_1 is image_2, "same object expected due to caching"
+        assert image_1 is not image_2, (
+            "Same data should be cached, but new object should be created."
+        )
         assert mock_load.call_count == 1, (
             "Surface.load should be called only once due to caching"
         )
@@ -91,7 +93,7 @@ class TestLoadScanImageCaching:
             _image_3 = load_scan_image(scan_file_2)
 
         # Assert
-        info = load_scan_image.cache_info()
+        info = _load_surface.cache_info()
         assert info.hits == 1, "one cache hit expected"
         assert info.misses == 2, "two different files loaded"
         assert info.currsize == 1, "Cache should only hold one item"

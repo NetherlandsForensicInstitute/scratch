@@ -11,9 +11,10 @@ from conversion.preprocess_impression.preprocess_impression import preprocess_im
 from conversion.preprocess_striation import PreprocessingStriationParams
 from conversion.preprocess_striation.pipeline import preprocess_striation_mark
 from conversion.resample import resample_mark
-from conversion.rotate import rotate_crop_and_mask_image_by_crop
 from loguru import logger
-from mutations import CropToMask, GaussianRegressionFilter, LevelMap, Mask, Resample
+from mutations import CropToMask, GaussianRegressionFilter, LevelMap, Mask, Resample, Rotate
+from mutations.base import ImageMutation
+from mutations.filter import FilterNeedles
 from scipy.constants import micro
 from skimage.transform import resize
 
@@ -23,15 +24,35 @@ from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
 from preprocessors.schemas import EditImage
 
 
+def _scan_image_to_mark(mask: BinaryMask, bounding_box: BoundingBox | None, scan_image: ScanImage) -> ScanImage:
+    if bounding_box is None:
+        logger.info("No bounding_box given. skipping rotating image.")
+        masking = Mask(mask=mask)
+        filtering = FilterNeedles()
+        cropping = CropToMask(mask=mask)
+        pipeline: list[ImageMutation] = [masking, filtering, cropping]
+    else:
+        masking = Mask(mask=mask)
+        filtering = FilterNeedles()
+        rotating = Rotate.from_bounding_box(bounding_box=bounding_box)
+        cropping = CropToMask.from_rotation(mask_before_rotation=mask, rotation_angle=rotating.rotation_angle)
+        pipeline: list[ImageMutation] = [masking, filtering, rotating, cropping]
+
+    for image_mutation in pipeline:
+        logger.info(f"mutating scan_image with : {image_mutation.__class__.__name__}")
+        scan_image = image_mutation(scan_image).unwrap()
+    return scan_image
+
+
 def _extract_mark_from_scan(
     scan_image: ScanImage, mark_type: MarkType, mask: BinaryMask, bounding_box: BoundingBox | None
 ) -> Mark:
     """Parse a scan file and extract a mark by rotating, cropping, masking, and resampling."""
-    logger.info("Rotating and cropping scan image")
-    rotated_image = rotate_crop_and_mask_image_by_crop(scan_image=scan_image, mask=mask, bounding_box=bounding_box)
+    logger.debug("mutating scan_image with given parameters")
+    scan_image = _scan_image_to_mark(mask=mask, bounding_box=bounding_box, scan_image=scan_image)
     logger.info("Transforming scan image to mark")
     mark = Mark(
-        scan_image=rotated_image,
+        scan_image=scan_image,
         mark_type=mark_type,
     )
     mark = resample_mark(mark)
