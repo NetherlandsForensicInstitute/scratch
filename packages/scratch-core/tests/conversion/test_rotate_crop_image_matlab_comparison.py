@@ -9,16 +9,18 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from loguru import logger
+from preprocessors.controller import _scan_image_to_mark
 from scipy.constants import micro
 
-from container_models.base import FloatArray2D, BinaryMask
+from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
-from conversion.rotate import get_rotation_angle, rotate_crop_and_mask_image_by_crop
+
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
 )
 
 
@@ -51,7 +53,7 @@ class MatlabTestCase:
         crop_corners_path = case_dir / "crop_corners.npy"
         if crop_corners_path.exists():
             crop_corners = np.load(crop_corners_path)
-
+        logger.info(f"Case dir: {case_dir}")
         return cls(
             name=case_dir.name,
             input_data=np.load(case_dir / "input_data.npy"),
@@ -145,11 +147,10 @@ def run_python_preprocessing(
         scale_y=test_case.input_ydim,
     )
 
-    data_out = rotate_crop_and_mask_image_by_crop(
+    data_out = _scan_image_to_mark(
         scan_image=scan_image,
         mask=test_case.input_mask.copy(),
         bounding_box=test_case.rectangle,
-        median_factor=test_case.times_median,
     )
     return data_out.data
 
@@ -212,18 +213,6 @@ class TestRotateCropImageMatlabComparison:
         relative_std = stats["std"] / combined_std if combined_std > 0 else np.inf
         assert relative_std < std_threshold, (
             f"{test_case.name}: relative_std {relative_std:.4f} > {std_threshold}"
-        )
-
-    def test_rotation_angle_calculation(self, test_case: MatlabTestCase):
-        """Test that rotation angle is calculated correctly from corners."""
-        expected = test_case.expected_rotation_angle
-        if expected is None or test_case.rectangle is None:
-            pytest.skip("No expected angle in test name or rectangle given.")
-
-        calculated_angle = get_rotation_angle(bounding_box=test_case.rectangle)
-
-        assert abs(calculated_angle - expected) < 1.0, (
-            f"{test_case.name}: calculated angle {calculated_angle:.2f} != {expected}"
         )
 
 

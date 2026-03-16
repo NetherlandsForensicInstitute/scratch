@@ -2,8 +2,12 @@ from functools import cached_property
 
 import numpy as np
 from pydantic import Field, field_validator, PositiveFloat
+
 from collections.abc import Sequence
 from dataclasses import dataclass
+
+from scipy.constants import mega
+
 from container_models.base import ConfigBaseModel, FloatArray2D
 from conversion.data_formats import Mark
 
@@ -38,7 +42,7 @@ class Cell(ConfigBaseModel):
     Per-cell registration result and CMC classification outcome.
 
     :param center_reference: Cell center on the reference image [x, y] in meters.
-    :param cell_data: Height data of the cell in meters.
+    :param cell_size: Cell size on the reference image [width, height] in meters.
     :param fill_fraction_reference: Fraction of valid pixels in this cell relative
         to the nominal cell area (0 = empty, 1 = fully filled).
     :param best_score: Best ACCF cross-correlation score achieved for this cell.
@@ -51,7 +55,7 @@ class Cell(ConfigBaseModel):
     """
 
     center_reference: tuple[float, float]
-    cell_data: FloatArray2D
+    cell_size: tuple[float, float]
     fill_fraction_reference: float = Field(ge=0.0, le=1.0)
     best_score: float = Field(ge=0.0, le=1.0)
     angle_deg: float = Field(ge=-180, le=180)
@@ -68,6 +72,10 @@ class Cell(ConfigBaseModel):
         if value > 1.0 + tol:
             raise ValueError(f"value must be ≤ 1.0 (+{tol} tolerance)")
         return min(value, 1.0)  # clip value
+
+    @property
+    def cell_size_um(self) -> tuple[float, float]:
+        return self.cell_size[0] * mega, self.cell_size[1] * mega
 
 
 @dataclass

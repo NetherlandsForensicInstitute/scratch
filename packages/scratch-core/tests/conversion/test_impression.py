@@ -6,26 +6,27 @@ from scipy.constants import micro
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
+from conversion.filter.mark_filters import _apply_anti_aliasing
+from conversion.preprocess_impression.center import (
+    _compute_map_center,
+    _fit_circle_ransac,
+    _get_bounding_box_center,
+    _get_mask_inner_edge_points,
+    _points_are_collinear,
+    compute_center_local,
+)
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.preprocess_impression import (
     preprocess_impression_mark,
 )
 from conversion.preprocess_impression.resample import needs_resampling
-from conversion.filter.mark_filters import _apply_anti_aliasing
-from conversion.preprocess_impression.utils import update_mark_data
 from conversion.preprocess_impression.tilt import (
+    _adjust_for_plane_tilt,
     _estimate_plane_tilt,
     _get_valid_coordinates,
-    _adjust_for_plane_tilt,
 )
-from conversion.preprocess_impression.center import (
-    _get_mask_inner_edge_points,
-    _points_are_collinear,
-    _fit_circle_ransac,
-    _get_bounding_box_center,
-    _compute_map_center,
-    compute_center_local,
-)
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+from conversion.preprocess_impression.utils import update_mark_data
+
 from .helper_functions import make_mark
 
 

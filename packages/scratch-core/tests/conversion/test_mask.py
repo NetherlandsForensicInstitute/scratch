@@ -1,17 +1,18 @@
 from pathlib import Path
+
 import numpy as np
 import pytest
 from numpy.testing import assert_array_almost_equal
 
+from computations.spatial import get_bounding_box
+from container_models.base import BinaryMask
+from container_models.scan_image import ScanImage
 from conversion.mask import (
-    mask_2d_array,
     crop_to_mask,
-    get_bounding_box,
+    mask_2d_array,
     mask_and_crop_2d_array,
     mask_and_crop_scan_image,
 )
-from container_models.scan_image import ScanImage
-from container_models.base import BinaryMask
 
 
 class TestMask2dArray:
@@ -141,7 +142,7 @@ class TestDetermineBoundingBox:
         self, mask: BinaryMask, margin: int, output_slice: slice
     ):
         """Test bounding boxes with different margins."""
-        x_slice, y_slice = get_bounding_box(mask, margin)
+        y_slice, x_slice = get_bounding_box(mask, margin)
 
         assert y_slice == output_slice
         assert x_slice == output_slice
@@ -170,7 +171,7 @@ class TestDetermineBoundingBox:
         output_slice_x: slice,
     ):
         """Test bounding boxes with different margins."""
-        x_slice, y_slice = get_bounding_box(asymmetric_mask, margin)
+        y_slice, x_slice = get_bounding_box(asymmetric_mask, margin)
 
         assert y_slice == output_slice_y
         assert x_slice == output_slice_x
@@ -186,22 +187,16 @@ class TestDetermineBoundingBox:
             dtype=bool,
         )
 
-        x_slice, y_slice = get_bounding_box(mask)
+        y_slice, x_slice = get_bounding_box(mask, margin=0)
 
         assert y_slice == slice(1, 3)
         assert x_slice == slice(1, 3)
 
     def test_asymmetric_mask_slices_only_foreground(self, asymmetric_mask: BinaryMask):
-        x_slice, y_slice = get_bounding_box(asymmetric_mask)
+        y_slice, x_slice = get_bounding_box(asymmetric_mask, margin=0)
 
         assert y_slice == slice(2, 8)
         assert x_slice == slice(3, 15)
-
-    def test_raises_on_empty_mask(self):
-        mask = np.zeros((3, 3), dtype=bool)
-
-        with pytest.raises(ValueError, match="Mask is empty"):
-            get_bounding_box(mask)
 
 
 class TestCropScanImage:

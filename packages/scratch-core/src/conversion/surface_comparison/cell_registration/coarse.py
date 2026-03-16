@@ -29,9 +29,14 @@ def match_cells(
     Per rotation angle, the highest score with its corresponding translation is stored.
     The rotation that yields the highest unmasked score will be stored in each cell's :class:`GridSearchParams`.
 
-    The comparison image is padded by a full cell in each direction before the search so that cells whose
-    reference top-left lies near the image boundary can still be matched. The padding offset is subtracted
-    back when the best position is recorded, so all stored coordinates are in the original (unpadded) pixel space.
+    The comparison image is padded by a full cell in each direction before the search so that cells that
+    lie near the image boundary can still be matched. The padding offset is subtracted back when the best
+    position is recorded, so all stored coordinates are in the original (unpadded) pixel space.
+
+    The rotation uses ``resize=True``, so no content is clipped for any angle or aspect ratio. Because
+    ``resize=True`` shifts the rotation center in the output image, the original center is recomputed
+    analytically and is used to map the matched coordinates back to the original (unpadded) comparison
+    image space.
 
     :param grid_cells: Reference grid cells to register; all cells must have the same size.
     :param comparison_image: Comparison scan image to search over.
