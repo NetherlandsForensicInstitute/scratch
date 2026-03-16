@@ -1,6 +1,8 @@
 from pathlib import Path
 
 import pytest
+
+from conversion.likelihood_ratio import get_lr_system_from_path
 from conversion.surface_comparison.models import Cell
 from pydantic import ValidationError
 
@@ -38,17 +40,17 @@ class TestCalculateLR:
     """Tests for the CalculateLR schema."""
 
     def test_should_accept_valid_input(
-        self, mark_dirs: tuple[Path, Path], lr_system_path: Path, base_kwargs: dict
+        self, mark_dirs: tuple[Path, Path], striation_lr_system_path: Path, base_kwargs: dict
     ) -> None:
         """Valid directories and lr_system_path file are accepted."""
         mark_dir_ref, mark_dir_comp = mark_dirs
         schema = CalculateLR(
             mark_dir_ref=mark_dir_ref,
             mark_dir_comp=mark_dir_comp,
-            lr_system_path=lr_system_path,
+            lr_system_path=striation_lr_system_path,
             **base_kwargs,
         )
-        assert schema.lr_system_path == lr_system_path
+        assert schema.lr_system_path == striation_lr_system_path
 
     @pytest.mark.parametrize(
         "invalid_lr_system",
@@ -73,14 +75,14 @@ class TestCalculateLR:
     @pytest.mark.parametrize("field", ["mark_dir_ref", "mark_dir_comp", "lr_system_path"])
     @pytest.mark.parametrize("invalid_path", [Path() / "nonexistent", Path(__file__)])
     def test_should_reject_invalid_directory_path(
-        self, field: str, invalid_path: Path, mark_dirs: tuple[Path, Path], lr_system_path: Path
+        self, field: str, invalid_path: Path, mark_dirs: tuple[Path, Path], striation_lr_system_path: Path
     ) -> None:
         """Non-existent paths and file paths for directory fields raise ValidationError."""
         mark_dir_ref, mark_dir_comp = mark_dirs
         fields = {
             "mark_dir_ref": mark_dir_ref,
             "mark_dir_comp": mark_dir_comp,
-            "lr_system_path": lr_system_path,
+            "lr_system_path": striation_lr_system_path,
         } | {field: invalid_path}
         with pytest.raises(ValidationError):
             CalculateLR.model_validate(fields)

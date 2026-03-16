@@ -6,6 +6,9 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+from confidence import Configuration, loadf
+from lir.main import initialize_experiments
+
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
@@ -28,6 +31,8 @@ from tests.helper_function import (
     _striation_mark,
 )
 
+TEST_ROOT = Path(__file__).parent
+RESOURCES_DIR = TEST_ROOT / "resources"
 
 @pytest.fixture(scope="session")
 def tmp_dir_api(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
@@ -156,112 +161,12 @@ def mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
     return ref_path, comp_path
 
 
-def _to_context_aware(d: dict, context: list[str]) -> ContextAwareDict:
-    """Recursively convert nested dicts to ContextAwareDict."""
-    converted = {k: _to_context_aware(v, context + [str(k)]) if isinstance(v, dict) else v for k, v in d.items()}
-    return ContextAwareDict(context, **converted)
+
+@pytest.fixture(scope='session')
+def impression_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return RESOURCES_DIR / 'impression'
 
 
-def _build_lr_system(config: dict, output_dir: Path) -> ParsedLRSystem:
-    cad = _to_context_aware(config, ["test"])
-    return parse_lrsystem(cad, output_dir)
-
-
-STRIATION_CONFIG = {
-    "architecture": "specific_source",
-    "modules": {
-        "method": "bootstrap",
-        "n_bootstraps": 400,
-        "seed": 0,
-        "points": "data",
-        "steps": {
-            "kde": {"method": "kde", "bandwidth": "silverman"},
-            "elub": "elub_bounder",
-        },
-    },
-}
-
-IMPRESSION_CONFIG = {
-    "architecture": "specific_source",
-    "modules": {
-        "steps": {
-            "select": {
-                "method": "lrmodule.helpers.select_marktype_cmc",
-            },
-            "transform": {
-                "method": "lrmodule.helpers.transform_marktype_rel_cmc",
-            },
-            "bootstrap": {
-                "method": "bootstrap",
-                "n_bootstraps": 400,
-                "seed": 0,
-                "points": "data",
-                "steps": {
-                    "kde": {"method": "kde", "bandwidth": "silverman"},
-                    "elub": "elub_bounder",
-                },
-            },
-        },
-    },
-}
-
-
-def _write_lr_system_dir(tmp_path: Path, config: dict, features: np.ndarray, labels: np.ndarray) -> Path:
-    training_data = FeatureData(features=features, labels=labels)
-
-    lr_system = _build_lr_system(config, tmp_path)
-    lr_system.fit(training_data)
-
-    with (tmp_path / "model.pkl").open("wb") as f:
-        pickle.dump(lr_system, f)
-
-    n_features = features.shape[1] if features.ndim > 1 else 1
-    feature_cols = ",".join(f"feature_{i}" for i in range(n_features))
-    fmt = ["%d"] + ["%.18e"] * n_features
-    data = np.column_stack([labels, features])
-    np.savetxt(
-        tmp_path / "reference_data.csv",
-        data,
-        delimiter=",",
-        header=f"hypothesis,{feature_cols}",
-        comments="",
-        fmt=fmt,
-    )
-
-    return tmp_path
-
-
-@pytest.fixture
-def striation_lr_system_path(tmp_path: Path) -> Path:
-    """Directory with a fitted striation LR system and reference data."""
-    rng = np.random.default_rng(42)
-    km_features = np.clip(rng.normal(loc=0.8, scale=0.1, size=(50, 1)), -0.99, 0.99)
-    knm_features = np.clip(rng.normal(loc=0.3, scale=0.1, size=(50, 1)), -0.99, 0.99)
-    features = np.vstack([km_features, knm_features])
-    labels = np.concatenate([np.ones(50), np.zeros(50)])
-    return _write_lr_system_dir(tmp_path, STRIATION_CONFIG, features, labels)
-
-
-@pytest.fixture
-def impression_lr_system_path(tmp_path: Path) -> Path:
-    """Directory with a fitted impression LR system and reference data."""
-    rng = np.random.default_rng(42)
-    n_cells = 30
-    km_features = np.column_stack([
-        np.zeros(50),  # dummy (column 0, unused)
-        rng.integers(15, n_cells, size=50).astype(float),  # cmc (column 1)
-        np.full(50, n_cells, dtype=float),  # n (column 2)
-    ])
-    knm_features = np.column_stack([
-        np.zeros(50),
-        rng.integers(0, 10, size=50).astype(float),
-        np.full(50, n_cells, dtype=float),
-    ])
-    features = np.vstack([km_features, knm_features])
-    labels = np.concatenate([np.ones(50), np.zeros(50)])
-    return _write_lr_system_dir(tmp_path, IMPRESSION_CONFIG, features, labels)
-
-
-@pytest.fixture
-def lr_system_path(striation_lr_system_path: Path) -> Path:
-    return striation_lr_system_path
+@pytest.fixture(scope='session')
+def striation_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return RESOURCES_DIR / 'striation'

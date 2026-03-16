@@ -454,7 +454,7 @@ class TestContracts:
                 "calculate_lr_impression",
                 "calculate-lr-impression",
                 id="calculate_lr_impression",
-                # marks=pytest.mark.xfail(reason="requires valid LR system"),
+                # marks=pytest.mark.xfail(reason="requirest valid LR system"),
             ),
             pytest.param(
                 "calculate_lr_striation",
