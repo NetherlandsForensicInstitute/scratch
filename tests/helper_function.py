@@ -111,6 +111,20 @@ def _striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
     return Mark(scan_image=scan_image, mark_type=MarkType.BULLET_GEA_STRIATION, center=None)
 
 
+def _impression_mark(data: np.ndarray) -> Mark:
+    """Create an impression mark from 2D surface data."""
+    return Mark(
+        scan_image=ScanImage(data=data, scale_x=micro, scale_y=micro),
+        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+    )
+
+
+def _save_impression_marks(dir_path: Path, mark: Mark) -> None:
+    """Save mark and profile files to a directory."""
+    for stem in ("processed", "leveled"):
+        save_mark(mark, dir_path / stem)
+
+
 def _save_striation_mark_and_profile(dir_path: Path, profile: Profile, mark: Mark) -> None:
     """Save mark and profile files to a directory."""
     for stem in ("processed", "aligned"):

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from conversion.data_formats import MarkMetadata
+from conversion.surface_comparison.models import ComparisonParams
 from fastapi.testclient import TestClient
 from pydantic import HttpUrl
 
@@ -11,6 +12,7 @@ from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
     CalculateScore,
+    CalculateScoreImpression,
 )
 
 from ..helper_function import assert_lr_response_valid
@@ -78,6 +80,81 @@ class TestMarkStriation:
         assert response_data.keys() == (expected_images | expected_data)
 
         url_keys = (expected_images | expected_data) - {"comparison_results"}
+        urls = {k: v for k, v in response_data.items() if k in url_keys}
+        assert all(HttpUrl(url) for url in urls.values())
+        assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
+
+        for key in expected_images:
+            assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
+
+
+class TestMarkImpression:
+    @pytest.mark.integration
+    def test_calculate_impression_mark(
+        self,
+        client: TestClient,
+        impression_mark_dirs: tuple[Path, Path],
+    ) -> None:
+        """Test the whole chain of the impression comparison endpoint."""
+        mark_dir_ref, mark_dir_comp = impression_mark_dirs
+        expected_images = {
+            "comparison_overview",
+            "leveled_reference_heatmap",
+            "leveled_compared_heatmap",
+            "filtered_reference_heatmap",
+            "filtered_compared_heatmap",
+            "cell_reference_heatmap",
+            "cell_compared_heatmap",
+            "cell_overlay",
+            "cell_cross_correlation",
+        }
+        expected_data = {
+            "cells",
+        }
+
+        json_data = CalculateScoreImpression(
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
+            comparison_params=ComparisonParams(
+                cell_size=(50e-6, 50e-6),
+                search_angle_min=-5.0,
+                search_angle_max=5.0,
+                search_angle_step=5.0,
+                correlation_threshold=0.2,
+                minimum_fill_fraction=0.1,
+                angle_deviation_threshold=10.0,
+                position_threshold=0.001,
+            ),
+            metadata_reference=MarkMetadata(
+                case_id="case_ref",
+                firearm_id="firearm_ref",
+                specimen_id="spec_ref",
+                measurement_id="meas_ref",
+                mark_id="mark_ref",
+            ),
+            metadata_compared=MarkMetadata(
+                case_id="case_comp",
+                firearm_id="firearm_comp",
+                specimen_id="spec_comp",
+                measurement_id="meas_comp",
+                mark_id="mark_comp",
+            ),
+        ).model_dump(mode="json")
+
+        response = client.post(
+            "/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION,
+            json=json_data,
+        )
+
+        assert response.status_code == HTTPStatus.OK, response.json()
+        response_data = response.json()
+        assert response_data.keys() == (expected_images | expected_data)
+
+        # Verify cells exist
+        assert len(response_data["cells"]) > 0
+
+        # Verify image URLs
+        url_keys = expected_images
         urls = {k: v for k, v in response_data.items() if k in url_keys}
         assert all(HttpUrl(url) for url in urls.values())
         assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
