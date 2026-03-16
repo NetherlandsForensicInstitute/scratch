@@ -35,7 +35,7 @@ def match_cells(
 
     The rotation uses ``resize=True``, so no content is clipped for any angle or aspect ratio. Because
     ``resize=True`` shifts the rotation center in the output image, the original center is recomputed
-    analytically and is used to map the matched coordinates back to  the original (unpadded) comparison
+    analytically and is used to map the matched coordinates back to the original (unpadded) comparison
     image space.
 
     :param grid_cells: Reference grid cells to register; all cells must have the same size.
