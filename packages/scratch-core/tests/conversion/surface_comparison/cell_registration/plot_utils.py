@@ -43,7 +43,9 @@ def plot_rotated_squares(
             angle = -cell.angle_deg
         else:
             raise ValueError(f"mode {mode} not supported")
-        height, width = cell.cell_data.shape
+        width, height = convert_meters_to_pixels(
+            values=cell.cell_size, pixel_size=pixel_size
+        )
         rect = (center_x, center_y), (width, height), angle
         color = (0, 255, 0) if cell.is_congruent else (255, 0, 0)  # Green / Red
         text = str(i)
