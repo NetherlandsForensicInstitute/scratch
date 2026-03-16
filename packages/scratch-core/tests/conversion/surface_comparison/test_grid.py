@@ -165,7 +165,7 @@ class TestGenerateGrid:
         """A circular mask results in fewer cells than a full image."""
         data = np.ones((120, 120), dtype=np.float64)
         yy, xx = np.mgrid[:120, :120]
-        data[((xx - 60) ** 2 + (yy - 60) ** 2) > 50 ** 2] = np.nan
+        data[((xx - 60) ** 2 + (yy - 60) ** 2) > 50**2] = np.nan
         img = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
         full_img = _make_image(120, 120)
@@ -184,8 +184,8 @@ class TestGenerateGrid:
         img = ScanImage(data=data, scale_x=1e-6, scale_y=1e-6)
 
         assert (
-                generate_grid(img, cell_size=(25e-6, 25e-6), minimum_fill_fraction=0.5)
-                == []
+            generate_grid(img, cell_size=(25e-6, 25e-6), minimum_fill_fraction=0.5)
+            == []
         )
 
     def test_cell_centers_are_symmetric(self) -> None:

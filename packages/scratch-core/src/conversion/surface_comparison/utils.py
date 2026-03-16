@@ -1,4 +1,3 @@
-
 from container_models.base import Points2D
 from typing import Sequence
 
