@@ -3,6 +3,7 @@ Unit tests for the private helper functions in cmc_classification.
 """
 
 import numpy as np
+import pytest
 
 from conversion.surface_comparison.cmc_classification import (
     _circular_median,
@@ -15,7 +16,28 @@ from conversion.surface_comparison.cmc_classification import (
     rotate_points,
     _wrap_angles,
 )
+from conversion.surface_comparison.models import Cell, CellMetaData
 from ..helper_functions import make_cell
+
+
+def test_cell_size_um_converts_meters_to_micrometers():
+    cell = Cell(
+        center_reference=(0.0, 0.0),
+        cell_size=(50e-6, 100e-6),
+        fill_fraction_reference=1.0,
+        best_score=0.5,
+        angle_deg=0.0,
+        center_comparison=(0.0, 0.0),
+        is_congruent=False,
+        meta_data=CellMetaData(
+            is_outlier=False, residual_angle_deg=0, position_error=(0, 0)
+        ),
+    )
+
+    width_um, height_um = cell.cell_size_um
+
+    assert width_um == pytest.approx(50.0)
+    assert height_um == pytest.approx(100.0)
 
 
 class TestWrapAngles:
