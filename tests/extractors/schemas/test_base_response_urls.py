@@ -116,8 +116,8 @@ class TestLRResponse:
         with pytest.raises(ValidationError):
             LRResponse(
                 urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL),
-                lr="not-a-number",
-                **_EMPTY_LR_STATS,  # pyright: ignore[reportArgumentType]
+                lr="not-a-number",  # pyright: ignore[reportArgumentType]
+                **_EMPTY_LR_STATS,
             )
 
 
