@@ -1,4 +1,3 @@
-import pickle
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -6,9 +5,6 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from confidence import Configuration, loadf
-from lir.main import initialize_experiments
-
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
@@ -16,9 +12,7 @@ from conversion.likelihood_ratio import ModelSpecs
 from conversion.plots.utils import build_results_metadata_impression
 from conversion.profile_correlator import Profile
 from fastapi.testclient import TestClient
-from lir import FeatureData, LLRData
-from lir.config.base import ContextAwareDict
-from lir.config.lrsystem_architectures import ParsedLRSystem, parse_lrsystem
+from lir import LLRData
 
 from constants import PROJECT_ROOT
 from main import app
@@ -33,6 +27,7 @@ from tests.helper_function import (
 
 TEST_ROOT = Path(__file__).parent
 RESOURCES_DIR = TEST_ROOT / "resources"
+
 
 @pytest.fixture(scope="session")
 def tmp_dir_api(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
@@ -161,12 +156,11 @@ def mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
     return ref_path, comp_path
 
 
-
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def impression_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return RESOURCES_DIR / 'impression'
+    return RESOURCES_DIR / "impression"
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def striation_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return RESOURCES_DIR / 'striation'
+    return RESOURCES_DIR / "striation"

@@ -1,8 +1,6 @@
 from pathlib import Path
 
 import pytest
-
-from conversion.likelihood_ratio import get_lr_system_from_path
 from conversion.surface_comparison.models import Cell
 from pydantic import ValidationError
 

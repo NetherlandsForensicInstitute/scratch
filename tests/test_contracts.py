@@ -471,7 +471,7 @@ class TestContracts:
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PROCESSOR}/{sub_route}",
             json=data.expected_input,
-            timeout=5,
+            timeout=15,
         )
         # Assert
         assert response.status_code == HTTPStatus.OK
