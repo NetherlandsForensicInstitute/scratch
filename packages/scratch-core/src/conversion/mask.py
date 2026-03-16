@@ -37,7 +37,7 @@ def crop_to_mask(
     :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box
     :return: Cropped image containing only the masked region
     """
-    x_slice, y_slice = get_bounding_box(mask, margin)
+    y_slice, x_slice = get_bounding_box(mask, margin)
     return image[y_slice, x_slice]
 
 

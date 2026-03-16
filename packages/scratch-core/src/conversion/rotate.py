@@ -2,10 +2,6 @@ import numpy as np
 from scipy.ndimage import rotate
 
 from container_models.base import BinaryMask
-from container_models.scan_image import ScanImage
-from conversion.data_formats import BoundingBox
-from conversion.mask import crop_to_mask
-from conversion.utils import update_scan_image_data
 
 
 def rotate_mask(mask: BinaryMask, rotation_angle: float) -> BinaryMask:
