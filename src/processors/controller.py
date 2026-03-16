@@ -21,6 +21,7 @@ from conversion.plots.utils import build_results_metadata_impression, build_resu
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from conversion.surface_comparison.models import Cell, CellMetaData
 from fastapi import HTTPException
+from lir import LLRData
 from lir.util import probability_to_logodds
 from loguru import logger
 from PIL import Image
@@ -55,7 +56,7 @@ def compare_striation_marks(
     return mark_correlations
 
 
-def _build_lr_result(llr_data) -> LRResult:
+def _build_lr_result(llr_data: LLRData) -> LRResult:
     lower = float(llr_data.llr_intervals[0, 0]) if llr_data.llr_intervals is not None else None
     upper = float(llr_data.llr_intervals[0, 1]) if llr_data.llr_intervals is not None else None
     return LRResult(log_lr=float(llr_data.llrs[0]), log_lr_lower_ci=lower, log_lr_upper_ci=upper)
