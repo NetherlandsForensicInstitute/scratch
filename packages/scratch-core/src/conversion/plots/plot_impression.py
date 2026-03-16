@@ -30,7 +30,7 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
     ComparisonParams,
 )
-from conversion.surface_comparison.utils import _cells_to_grid
+from conversion.surface_comparison.utils import _cells_correlation_to_grid
 
 
 def plot_impression_comparison_results(
@@ -187,7 +187,7 @@ def plot_cell_correlation_heatmap(
     :param surface_extent_um: (width, height) of the surface in µm.
     :returns: RGB image as uint8 array.
     """
-    cell_correlations, _, _ = _cells_to_grid(cells)
+    cell_correlations = _cells_correlation_to_grid(cells)
     n_rows, n_cols = cell_correlations.shape
 
     base_size = 6
@@ -243,7 +243,7 @@ def plot_comparison_overview(
     :returns: RGB image as uint8 array.
     """
     cells = cmc_result.cells
-    cell_correlations, _, _ = _cells_to_grid(cells)
+    cell_correlations = _cells_correlation_to_grid(cells)
 
     scale_x_um = mark_reference_filtered.scan_image.scale_x * mega
     scale_y_um = mark_reference_filtered.scan_image.scale_y * mega
