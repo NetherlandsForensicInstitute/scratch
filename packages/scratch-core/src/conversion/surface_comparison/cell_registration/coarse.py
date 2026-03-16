@@ -176,7 +176,9 @@ def _unrotate_point(
         center=rotation_center,
         angle=np.radians(-angle),
     )[0]
-    # The unrotated point is relative to cx_out/cy_out; shift to padded image space
+    # After unrotating around `rotation_center`, the result is still in output image pixel
+    # coordinates. `rotation_center` in the output corresponds to `padded_center` in the input,
+    # so shift by their difference to move from output space into padded input space.
     x_padded = unrotated_x + (center_padded_x - rotation_center[0])
     y_padded = unrotated_y + (center_padded_y - rotation_center[1])
     # Remove padding to recover comparison image coordinates
