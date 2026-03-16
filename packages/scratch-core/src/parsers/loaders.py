@@ -23,7 +23,8 @@ FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
 
 @lru_cache(maxsize=1)
 def _load_surface(scan_file: Path) -> Surface:
-    """Cache the scan file to a Surface
+    """
+    Cache scan file as a Surface.
     :param scan_file: The path to the file containing the scanned image data.
     :returns: An instance of `Surface`.
     """
