@@ -50,7 +50,10 @@ def match_cells(
     comparison_data = pad_image_array(
         comparison_image.data, pad_width=pad_width, pad_height=pad_height
     )
-    padded_width, padded_height = (comparison_data.shape[1], comparison_data.shape[0])
+    padded_center_x, padded_center_y = (
+        (comparison_data.shape[1] - 1) / 2,
+        (comparison_data.shape[0] - 1) / 2,
+    )
 
     angles = np.arange(
         params.search_angle_min,
@@ -92,11 +95,14 @@ def match_cells(
             if score > grid_cell.grid_search_params.score:
                 # Compute the center coordinates of the cell on the (original) unrotated image
                 cell_center = (x + cell_width / 2, y + cell_height / 2)
-                rotated_width, rotated_height = (rotated.shape[1], rotated.shape[0])  # type: ignore
+                rotated_center_x, rotated_center_y = (
+                    (rotated.shape[1] - 1) / 2,  # type: ignore
+                    (rotated.shape[0] - 1) / 2,
+                )
                 original_center_x, original_center_y = _unrotate_point(
                     rotated_point=cell_center,
-                    original_image_size=(padded_width, padded_height),
-                    rotated_image_size=(rotated_width, rotated_height),
+                    original_image_center=(padded_center_x, padded_center_y),
+                    rotated_image_center=(rotated_center_x, rotated_center_y),
                     angle_deg=angle,
                 )
                 # Update parameters
@@ -115,27 +121,21 @@ def match_cells(
 
 def _unrotate_point(
     rotated_point: tuple[float, float],
-    original_image_size: tuple[float, float],
-    rotated_image_size: tuple[float, float],
+    original_image_center: tuple[float, float],
+    rotated_image_center: tuple[float, float],
     angle_deg: float,
 ) -> tuple[float, float]:
     """
     Map a match coordinate from the rotated output back to the original comparison image.
 
     :param rotated_point: The (x, y) coordinates of the point in the rotated image.
-    :param original_image_size: The size (width, height) of the original unrotated image.
-    :param rotated_image_size: The size (width, height) of the rotated image.
+    :param original_image_center: The center (x, y) coordinates of the original unrotated image.
+    :param rotated_image_center: The center (x, y) coordinates  of the rotated image.
     :param angle_deg: The rotation angle in degrees for the rotated point.
     """
-    width, height = original_image_size
-    rotated_width, rotated_height = rotated_image_size
+    x_center, y_center = original_image_center
+    x_center_rotated, y_center_rotated = rotated_image_center
     x_rotated, y_rotated = rotated_point
-    # Compute global image centers
-    x_center, y_center = (width - 1) / 2, (height - 1) / 2
-    x_center_rotated, y_center_rotated = (
-        (rotated_width - 1) / 2,
-        (rotated_height - 1) / 2,
-    )
     # Shift the coordinate relative to the center of the rotated image
     dx, dy = x_rotated - x_center_rotated, y_rotated - y_center_rotated
     # Unrotate vector
