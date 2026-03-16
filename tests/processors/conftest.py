@@ -1,6 +1,5 @@
 import json
 from datetime import date
-from http import HTTPStatus
 from pathlib import Path
 
 import numpy as np
@@ -11,11 +10,8 @@ from conversion.export.mark import ExportedMarkData
 from conversion.profile_correlator import Profile
 from lir import FeatureData, InstanceData, LLRData
 from lir.lrsystems import LRSystem
-from PIL import Image
-from pydantic import HttpUrl
 from scipy.constants import micro
 from scipy.interpolate import interp1d
-from starlette.testclient import TestClient
 
 from processors.schemas import ImpressionLRParameters
 
@@ -28,11 +24,6 @@ def random_lr_system_path() -> Path:
     return RESOURCES / "random_lr_system.pkl"
 
 
-def assert_valid_png(path: Path) -> None:
-    assert path.exists()
-    assert Image.open(path).format == "PNG"
-
-
 class _IdentityLRSystem(LRSystem):
     """Minimal LRSystem that returns the input score as the LLR."""
 
@@ -42,28 +33,6 @@ class _IdentityLRSystem(LRSystem):
     def apply(self, instances: InstanceData) -> LLRData:
         assert isinstance(instances, FeatureData)
         return LLRData(features=instances.features[:, 0])
-
-
-def assert_lr_response_valid(client: TestClient, response) -> None:
-    """Assert that an LR endpoint response contains a valid LR and reachable PNG plot."""
-    assert response.status_code == HTTPStatus.OK, response.json()
-    data = response.json()
-    assert isinstance(data["lr"], float)
-    assert HttpUrl(data["lr_overview_plot"])
-    plot_response = client.get(data["lr_overview_plot"])
-    assert plot_response.status_code == HTTPStatus.OK
-    assert plot_response.headers["content-type"] == "image/png"
-    for key in (
-        "km_scores",
-        "knm_scores",
-        "km_llr",
-        "knm_llr",
-        "km_llr_lower_ci",
-        "km_llr_upper_ci",
-        "knm_llr_lower_ci",
-        "knm_llr_upper_ci",
-    ):
-        assert isinstance(data[key], list), f"{key} should be a list"
 
 
 def _create_dummy_profile(n_samples: int = 1000) -> Profile:
