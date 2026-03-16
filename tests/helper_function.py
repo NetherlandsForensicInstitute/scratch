@@ -1,10 +1,15 @@
+from http import HTTPStatus
+from pathlib import Path
+
 from conversion.surface_comparison.models import Cell, CellMetaData
+from PIL import Image
+from pydantic import HttpUrl
+from starlette.testclient import TestClient
 
 
 def make_cell(  # noqa: PLR0913
     center_reference: tuple[float, float] = (0.0, 0.0),
     best_score: float = 0.8,
-    *,
     is_congruent: bool = False,
     angle_deg: float = 0.0,
     center_comparison: tuple[float, float] | None = None,
@@ -34,3 +39,19 @@ def make_cell(  # noqa: PLR0913
             position_error=position_error,
         ),
     )
+
+
+def assert_valid_png(path: Path) -> None:
+    assert path.exists()
+    assert Image.open(path).format == "PNG"
+
+
+def assert_lr_response_valid(client: TestClient, response) -> None:
+    """Assert that an LR endpoint response contains a valid LR and reachable PNG plot."""
+    assert response.status_code == HTTPStatus.OK, response.json()
+    data = response.json()
+    assert isinstance(data["lr"], float)
+    assert HttpUrl(data["lr_overview_plot"])
+    plot_response = client.get(data["lr_overview_plot"])
+    assert plot_response.status_code == HTTPStatus.OK
+    assert plot_response.headers["content-type"] == "image/png"

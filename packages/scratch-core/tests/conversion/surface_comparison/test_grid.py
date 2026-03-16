@@ -6,7 +6,7 @@ import pytest
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.grid import extract_patch, _tile_axis, generate_grid
 from conversion.surface_comparison.utils import _cells_correlation_to_grid
-from tests.conversion.helper_functions import make_cell
+from ..helper_functions import make_cell
 
 
 def _make_image(height: int, width: int, scale: float = 1e-6) -> ScanImage:
