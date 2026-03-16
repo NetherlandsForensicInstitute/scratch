@@ -112,7 +112,6 @@ def assert_plot_is_valid_image(fig: Figure, tmp_path: Path) -> None:
 def make_cell(
     center_reference: tuple[float, float] = (0.0, 0.0),
     best_score: float = 0.8,
-    *,
     is_congruent: bool = False,
     angle_deg: float = 0.0,
     center_comparison: tuple[float, float] | None = None,

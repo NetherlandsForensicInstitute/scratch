@@ -9,8 +9,8 @@ from conversion.profile_correlator import Profile
 from fastapi import HTTPException
 
 from processors.controller import compare_striation_marks, save_lr_impression_plot, save_lr_striation_plot
-from tests.helper_function import make_cell
-from tests.processors.conftest import assert_valid_png
+
+from ..helper_function import assert_valid_png, make_cell
 
 
 class TestCompareStriationMarks:
