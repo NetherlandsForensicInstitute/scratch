@@ -14,10 +14,12 @@ from conversion.preprocess_striation.pipeline import preprocess_striation_mark
 from conversion.resample import resample_mark
 from conversion.rotate import rotate_crop_and_mask_image_by_crop
 from loguru import logger
-from mutations import CropToMask, GausianRegressionFilter, LevelMap, Mask, Resample
+from mutations import CropToMask, GaussianRegressionFilter, LevelMap, Mask, Resample
+from scipy.constants import micro
 from skimage.transform import resize
 
 from constants import LIGHT_SOURCES, OBSERVER
+from extractors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
 from preprocessors.schemas import EditImage
 
@@ -37,18 +39,26 @@ def _extract_mark_from_scan(
     return mark
 
 
-def _save_outputs(mark: Mark, processed_mark: Mark, files: dict[str, Path]) -> None:
+def _save_outputs(
+    mark: Mark,
+    processed_mark: Mark,
+    working_dir: Path,
+    files: type[PrepareMarkStriationFiles | PrepareMarkImpressionFiles],
+) -> None:
     """Save surface map, preview, raw mark, and processed mark."""
     logger.info("Saving marks, surface_map.png and preview.png")
     surface_map_pipeline(
         parsed_scan=processed_mark.scan_image,
-        output_path=files["surface_map"],
+        output_path=files.surface_map_image.get_file_path(working_dir),
         observer=OBSERVER,
         light_sources=LIGHT_SOURCES,
     )
-    preview_pipeline(parsed_scan=processed_mark.scan_image, output_path=files["preview"])
-    save_mark(mark, path=files["mark_data"])
-    save_mark(processed_mark, path=files["processed_data"])
+    preview_pipeline(
+        parsed_scan=processed_mark.scan_image,
+        output_path=files.preview_image.get_file_path(working_dir),
+    )
+    save_mark(mark, path=files.mark_data.get_file_path(working_dir))
+    save_mark(processed_mark, path=files.processed_data.get_file_path(working_dir))
 
 
 def process_prepare_impression_mark(  # noqa: PLR0913
@@ -57,15 +67,14 @@ def process_prepare_impression_mark(  # noqa: PLR0913
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
     preprocess_parameters: PreprocessingImpressionParams,
-    files: dict[str, Path],
-) -> dict[str, Path]:
+    working_dir: Path,
+) -> None:
     """Prepare impression mark data."""
     mark = _extract_mark_from_scan(scan_image, mark_type, mask, bounding_box)
     logger.info("Preparing mark")
     processed_mark, leveled_mark = preprocess_impression_mark(mark, params=preprocess_parameters)
-    _save_outputs(mark, processed_mark, files)
-    save_mark(leveled_mark, path=files["leveled_data"])
-    return files
+    _save_outputs(mark, processed_mark, working_dir, files=PrepareMarkImpressionFiles)
+    save_mark(leveled_mark, path=PrepareMarkImpressionFiles.leveled_data.get_file_path(working_dir))
 
 
 def process_prepare_striation_mark(  # noqa: PLR0913
@@ -74,15 +83,14 @@ def process_prepare_striation_mark(  # noqa: PLR0913
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
     preprocess_parameters: PreprocessingStriationParams,
-    files: dict[str, Path],
-) -> dict[str, Path]:
+    working_dir: Path,
+) -> None:
     """Prepare striation mark data."""
     mark = _extract_mark_from_scan(scan_image, mark_type, mask, bounding_box)
     logger.info("Preparing mark")
     processed_mark, profile = preprocess_striation_mark(mark, params=preprocess_parameters)
-    _save_outputs(mark, processed_mark, files)
-    save_profile(profile, path=files["profile_data"])
-    return files
+    _save_outputs(mark, processed_mark, working_dir, files=PrepareMarkStriationFiles)
+    save_profile(profile, path=PrepareMarkStriationFiles.profile_data.get_file_path(working_dir))
 
 
 def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: BinaryMask) -> ScanImage:
@@ -110,8 +118,10 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: B
             y_reference_point=reference_point_y,
             terms=edit_image_params.terms.to_surface_terms(),
         ),
-        GausianRegressionFilter(
-            regression_order=edit_image_params.regression_order, cutoff_length=edit_image_params.cutoff_length
+        GaussianRegressionFilter(
+            regression_order=edit_image_params.regression_order,
+            cutoff_length=edit_image_params.cutoff_length * micro,
+            is_high_pass=True,
         ),
     ]
     logger.debug(f"mutations to be applied on the scan image:{[item.__class__.__name__ for item in pipeline]}")
