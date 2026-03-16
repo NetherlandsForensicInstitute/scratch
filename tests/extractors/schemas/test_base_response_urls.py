@@ -16,14 +16,8 @@ from extractors.schemas import (
 )
 
 _EMPTY_LR_STATS = {
-    "km_scores": [],
-    "knm_scores": [],
-    "km_llr": [],
-    "knm_llr": [],
-    "km_llr_lower_ci": [],
-    "km_llr_upper_ci": [],
-    "knm_llr_lower_ci": [],
-    "knm_llr_upper_ci": [],
+    "lr_lower_ci": None,
+    "lr_upper_ci": None,
 }
 
 _CONCRETE_CLASSES = [

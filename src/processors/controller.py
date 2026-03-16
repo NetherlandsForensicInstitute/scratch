@@ -19,7 +19,6 @@ from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.plots.utils import build_results_metadata_impression, build_results_metadata_striation
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from fastapi import HTTPException
-from lir.data.models import LLRData
 from lir.util import probability_to_logodds
 from loguru import logger
 from PIL import Image
@@ -31,26 +30,8 @@ from processors.schemas import CalculateLRImpression, CalculateLRStriation
 @dataclass(frozen=True)
 class LRResult:
     log_lr: float
-    km_scores: list[float]
-    knm_scores: list[float]
-    km_llr: list[float]
-    knm_llr: list[float]
-    km_llr_lower_ci: list[float]
-    km_llr_upper_ci: list[float]
-    knm_llr_lower_ci: list[float]
-    knm_llr_upper_ci: list[float]
-
-
-@dataclass(frozen=True)
-class LRStriationResult(LRResult):
-    km_scores_transformed: list[float]
-    knm_scores_transformed: list[float]
-
-
-def _extract_intervals(llr_data: LLRData) -> tuple[list[float], list[float]]:
-    if llr_data.llr_intervals is None:
-        return [], []
-    return llr_data.llr_intervals[:, 0].tolist(), llr_data.llr_intervals[:, 1].tolist()
+    log_lr_lower_ci: float | None
+    log_lr_upper_ci: float | None
 
 
 def compare_striation_marks(
@@ -70,6 +51,12 @@ def compare_striation_marks(
         )
     logger.debug("correlations are calculated")
     return mark_correlations
+
+
+def _build_lr_result(llr_data) -> LRResult:
+    lower = float(llr_data.llr_intervals[0, 0]) if llr_data.llr_intervals is not None else None
+    upper = float(llr_data.llr_intervals[0, 1]) if llr_data.llr_intervals is not None else None
+    return LRResult(log_lr=float(llr_data.llrs[0]), log_lr_lower_ci=lower, log_lr_upper_ci=upper)
 
 
 def save_striation_comparison_plots(  # noqa: PLR0913
@@ -183,6 +170,8 @@ def save_lr_striation_plot(  # noqa: PLR0913
     :param metadata_compared: Display metadata for the compared mark.
     :param results_metadata: Formatted summary of comparison results for display.
     :param score: CCF score for the current case comparison.
+    :param score_transformed: Log-odds transformed CCF score for the current case comparison.
+    :param transformed_reference_scores: Log-odds transformed CCF scores for the reference population.
     :param lr: Log-likelihood ratio for the current case comparison.
     :param output_path: Path to save the output PNG image.
     """
@@ -212,7 +201,7 @@ def save_lr_striation_plot(  # noqa: PLR0913
 def process_lr_striation(
     lr_input: CalculateLRStriation,
     working_dir: Path,
-) -> LRStriationResult:
+) -> LRResult:
     """Calculate LR for striation marks and save the overview plot."""
     lr_system = get_lr_system(lr_input.lr_system_path)
     reference_data = get_reference_data(lr_input.lr_system_path)
@@ -256,22 +245,7 @@ def process_lr_striation(
         output_path=LRFiles.lr_overview_plot.get_file_path(working_dir),
     )
 
-    n_km = len(reference_data.km_scores)
-    km_llr_lower_ci, km_llr_upper_ci = _extract_intervals(reference_data.km_llr_data)
-    knm_llr_lower_ci, knm_llr_upper_ci = _extract_intervals(reference_data.knm_llr_data)
-    return LRStriationResult(
-        log_lr=float(log_lr),
-        km_scores=reference_data.km_scores.tolist(),
-        knm_scores=reference_data.knm_scores.tolist(),
-        km_llr=reference_data.km_llr_data.llrs.tolist(),
-        knm_llr=reference_data.knm_llr_data.llrs.tolist(),
-        km_llr_lower_ci=km_llr_lower_ci,
-        km_llr_upper_ci=km_llr_upper_ci,
-        knm_llr_lower_ci=knm_llr_lower_ci,
-        knm_llr_upper_ci=knm_llr_upper_ci,
-        km_scores_transformed=transformed_reference_scores[:n_km].tolist(),
-        knm_scores_transformed=transformed_reference_scores[n_km:].tolist(),
-    )
+    return _build_lr_result(llr_data)
 
 
 def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) -> LRResult:
@@ -309,16 +283,4 @@ def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) ->
         output_path=LRFiles.lr_overview_plot.get_file_path(working_dir),
     )
 
-    km_llr_lower_ci, km_llr_upper_ci = _extract_intervals(reference_data.km_llr_data)
-    knm_llr_lower_ci, knm_llr_upper_ci = _extract_intervals(reference_data.knm_llr_data)
-    return LRResult(
-        log_lr=float(log_lr),
-        km_scores=reference_data.km_scores.tolist(),
-        knm_scores=reference_data.knm_scores.tolist(),
-        km_llr=reference_data.km_llr_data.llrs.tolist(),
-        knm_llr=reference_data.knm_llr_data.llrs.tolist(),
-        km_llr_lower_ci=km_llr_lower_ci,
-        km_llr_upper_ci=km_llr_upper_ci,
-        knm_llr_lower_ci=knm_llr_lower_ci,
-        knm_llr_upper_ci=knm_llr_upper_ci,
-    )
+    return _build_lr_result(llr_data)

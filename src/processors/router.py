@@ -14,7 +14,6 @@ from extractors.schemas import (
     ComparisonResponseStriationURL,
     LRResponse,
     LRResponseURL,
-    LRStriationResponse,
 )
 from file_services import create_vault
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
@@ -155,14 +154,8 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
         lr=result.log_lr,
-        km_scores=result.km_scores,
-        knm_scores=result.knm_scores,
-        km_llr=result.km_llr,
-        knm_llr=result.knm_llr,
-        km_llr_lower_ci=result.km_llr_lower_ci,
-        km_llr_upper_ci=result.km_llr_upper_ci,
-        knm_llr_lower_ci=result.knm_llr_lower_ci,
-        knm_llr_upper_ci=result.knm_llr_upper_ci,
+        lr_lower_ci=result.log_lr_lower_ci,
+        lr_upper_ci=result.log_lr_upper_ci,
     )
 
 
@@ -175,21 +168,13 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
     The LR value, together with plots, are saved and made available via URLs.
     """,
 )
-async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRStriationResponse:
+async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     """Calculate likelihood ratio for striation mark comparison."""
     vault = create_vault(lr_input.tag)
     result = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
-    return LRStriationResponse(
+    return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
         lr=result.log_lr,
-        km_scores=result.km_scores,
-        knm_scores=result.knm_scores,
-        km_llr=result.km_llr,
-        knm_llr=result.knm_llr,
-        km_llr_lower_ci=result.km_llr_lower_ci,
-        km_llr_upper_ci=result.km_llr_upper_ci,
-        knm_llr_lower_ci=result.knm_llr_lower_ci,
-        knm_llr_upper_ci=result.knm_llr_upper_ci,
-        km_scores_transformed=result.km_scores_transformed,
-        knm_scores_transformed=result.knm_scores_transformed,
+        lr_lower_ci=result.log_lr_lower_ci,
+        lr_upper_ci=result.log_lr_upper_ci,
     )
