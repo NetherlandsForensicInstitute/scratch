@@ -72,7 +72,7 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
 
 
 @pytest.mark.integration
-def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = False):
+def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = True):
     # Arrange
     scale = 1e-6
     nan_fraction = 0.15

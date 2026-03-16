@@ -185,11 +185,16 @@ def _get_consensus_translation(
     outliers = np.array([c.meta_data.is_outlier for c in cells])
     centers_reference[outliers] = np.nan
     centers_comparison[outliers] = np.nan
-    expected_positions_on_reference = rotate_points(
-        points=centers_reference, angle=angle, center=rotation_center
+    centers_reference_temp = centers_reference.copy()
+    centers_reference_temp[:, 1] *= -1
+    rotation_center_temp = list(rotation_center)
+    rotation_center_temp[1] *= -1
+    expected_positions_in_comparison_frame = rotate_points(
+        points=centers_reference_temp, angle=angle, center=tuple(rotation_center_temp)
     )
+    expected_positions_in_comparison_frame[:, 1] *= -1
     # Compute residuals with respect to comparison.
-    position_residuals = centers_comparison - expected_positions_on_reference
+    position_residuals = centers_comparison - expected_positions_in_comparison_frame
     consensus_translation = np.nanmedian(position_residuals, axis=0)
     position_errors = position_residuals - consensus_translation
 

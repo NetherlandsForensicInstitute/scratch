@@ -14,7 +14,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cmc_classification import classify_congruent_cells
+from .cell_registration.helpers import plot_cell_registration_results
 
 from .helpers import build_test_inputs
 
@@ -52,12 +54,26 @@ def _get_case(name: str) -> dict:
 class TestClassifyCongruentCells:
     """Test classify_congruent_cells against MATLAB cell_cmc_median procedure 6."""
 
-    def test_cmc_count(self, matlab_test_case: dict) -> None:
+    def test_cmc_count(self, matlab_test_case: dict, plot=True) -> None:
         """The number of CMC cells must match the MATLAB reference."""
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
         result = classify_congruent_cells(cells, params, rotation_center)
 
+        if plot:
+            plot_cell_registration_results(
+                reference_image=ScanImage(
+                    data=np.zeros(shape=(400, 400), dtype=np.float64),
+                    scale_x=1e-5,
+                    scale_y=1e-5,
+                ),
+                comparison_image=ScanImage(
+                    data=np.zeros(shape=(400, 400), dtype=np.float64),
+                    scale_x=1e-5,
+                    scale_y=1e-5,
+                ),
+                cells=cells,
+            )
         expected_cmc_count = matlab_test_case["outputs"]["cmc_count"]
         assert result.cmc_count == expected_cmc_count, (
             f"[{matlab_test_case['name']}] CMC count mismatch: "
