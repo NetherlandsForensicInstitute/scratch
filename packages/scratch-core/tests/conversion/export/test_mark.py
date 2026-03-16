@@ -270,8 +270,16 @@ class TestSaveAndLoadMark:
         assert loaded_mark1.meta_data["id"] == 1
         assert loaded_mark2.meta_data["id"] == 2
 
-    def test_load_mark_from_mat_file(self, tmp_path: PosixPath, scan_image: ScanImage):
+    def test_load_mark_from_mat_file(self, tmp_path: PosixPath, matlab_marks_dir: Path):
         """Test that we can build a `Mark` instance from a .mat file."""
-        path = Path("TODO: some file path")
-        mark1 = load_mark_from_mat_file(path)
-        pass
+        # Arrange
+        path = matlab_marks_dir / "processed.mat"
+        # Act
+        mark = load_mark_from_mat_file(path)
+        # Asserts
+        assert mark.mark_type == MarkType.BREECH_FACE_IMPRESSION
+        assert mark.meta_data
+        assert mark.scan_image.scale_x == pytest.approx(3.5e-6)
+        assert mark.scan_image.scale_y == pytest.approx(3.5e-6)
+        assert (mark.scan_image.width, mark.scan_image.height) == (1060, 1060)
+        assert np.any(mark.scan_image.valid_mask)
