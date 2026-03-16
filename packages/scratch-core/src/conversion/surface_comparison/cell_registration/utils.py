@@ -12,9 +12,10 @@ def convert_grid_cell_to_cell(grid_cell: GridCell, pixel_size: float) -> Cell:
         center_reference=convert_pixels_to_meters(
             values=grid_cell.center, pixel_size=pixel_size
         ),
-        cell_data=grid_cell.cell_data,
-        # TODO: Do we actually need cell data here?
-        # TODO: Add the cell size in meters as well
+        cell_size=convert_pixels_to_meters(
+            values=(grid_cell.cell_data.shape[1], grid_cell.cell_data.shape[0]),
+            pixel_size=pixel_size,
+        ),
         fill_fraction_reference=grid_cell.fill_fraction,
         best_score=grid_cell.grid_search_params.score,
         angle_deg=grid_cell.grid_search_params.angle,
