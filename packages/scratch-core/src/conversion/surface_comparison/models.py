@@ -1,9 +1,11 @@
-from collections.abc import Sequence
-from dataclasses import dataclass
 from functools import cached_property
 
 import numpy as np
 from pydantic import Field, field_validator, PositiveFloat
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+
 from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
@@ -72,7 +74,7 @@ class Cell(ConfigBaseModel):
         return min(value, 1.0)  # clip value
 
     @property
-    def cell_size_um(self) -> tuple[float, float]:  # pragma: no cover
+    def cell_size_um(self) -> tuple[float, float]:
         return self.cell_size[0] * mega, self.cell_size[1] * mega
 
 

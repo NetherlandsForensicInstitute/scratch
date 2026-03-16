@@ -5,6 +5,8 @@ import pytest
 
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.grid import extract_patch, _tile_axis, generate_grid
+from conversion.surface_comparison.utils import _cells_correlation_to_grid
+from ..helper_functions import make_cell
 
 
 def _make_image(height: int, width: int, scale: float = 1e-6) -> ScanImage:
@@ -219,3 +221,81 @@ class TestGenerateGrid:
 
         for cell in cells:
             assert cell.cell_data.shape == (25, 25)
+
+
+class TestCellsToGrid:
+    """Tests for _cells_to_grid."""
+
+    def test_single_cell(self):
+        """A single cell should produce a 1x1 grid."""
+        cells = [make_cell(center_reference=(0.0, 0.0), best_score=0.8)]
+
+        correlations = _cells_correlation_to_grid(cells)
+
+        assert correlations.shape == (1, 1)
+        assert correlations[0, 0] == pytest.approx(0.8)
+
+    def test_2x2_grid(self):
+        """Four cells on a regular 2x2 grid."""
+        step = 50e-6
+        cells = [
+            make_cell(center_reference=(0.0, 0.0), best_score=0.1),
+            make_cell(center_reference=(step, 0.0), best_score=0.2),
+            make_cell(center_reference=(0.0, step), best_score=0.3),
+            make_cell(center_reference=(step, step), best_score=0.4),
+        ]
+
+        correlations = _cells_correlation_to_grid(cells)
+
+        assert correlations.shape == (2, 2)
+        assert correlations[0, 0] == pytest.approx(0.1)
+        assert correlations[0, 1] == pytest.approx(0.2)
+        assert correlations[1, 0] == pytest.approx(0.3)
+        assert correlations[1, 1] == pytest.approx(0.4)
+
+    def test_unordered_input(self):
+        """Cells passed in arbitrary order should produce the same grid."""
+        step = 50e-6
+        cells_ordered = [
+            make_cell(center_reference=(0.0, 0.0), best_score=0.1),
+            make_cell(center_reference=(step, 0.0), best_score=0.2),
+            make_cell(center_reference=(0.0, step), best_score=0.3),
+            make_cell(center_reference=(step, step), best_score=0.4),
+        ]
+        cells_shuffled = [
+            cells_ordered[3],
+            cells_ordered[0],
+            cells_ordered[2],
+            cells_ordered[1],
+        ]
+
+        corr_ordered = _cells_correlation_to_grid(cells_ordered)
+        corr_shuffled = _cells_correlation_to_grid(cells_shuffled)
+
+        np.testing.assert_array_equal(corr_ordered, corr_shuffled)
+
+    def test_3x1_single_row(self):
+        """Three cells in a row should produce a (1, 3) grid."""
+        step = 50e-6
+        cells = [
+            make_cell(center_reference=(0.0, 0.0), best_score=0.1),
+            make_cell(center_reference=(step, 0.0), best_score=0.2),
+            make_cell(center_reference=(2 * step, 0.0), best_score=0.3),
+        ]
+
+        correlations = _cells_correlation_to_grid(cells)
+
+        assert correlations.shape == (1, 3)
+
+    def test_1x3_single_column(self):
+        """Three cells in a column should produce a (3, 1) grid."""
+        step = 50e-6
+        cells = [
+            make_cell(center_reference=(0.0, 0.0), best_score=0.1),
+            make_cell(center_reference=(0.0, step), best_score=0.2),
+            make_cell(center_reference=(0.0, 2 * step), best_score=0.3),
+        ]
+
+        correlations = _cells_correlation_to_grid(cells)
+
+        assert correlations.shape == (3, 1)
