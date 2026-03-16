@@ -19,7 +19,7 @@ from conversion.plots.plot_impression import plot_impression_comparison_results
 from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.plots.utils import build_results_metadata_impression, build_results_metadata_striation
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
-from conversion.surface_comparison.models import Cell, ProcessedMark
+from conversion.surface_comparison.models import Cell, ComparisonParams, ComparisonResult, ProcessedMark
 from fastapi import HTTPException
 from lir.util import probability_to_logodds
 from loguru import logger
@@ -84,8 +84,8 @@ def save_striation_comparison_plots(  # noqa: PLR0913
 def save_impression_comparison_plots(  # noqa: PLR0913
     mark_ref: ProcessedMark,
     mark_comp: ProcessedMark,
-    cmc_result,
-    comparison_params,
+    cmc_result: ComparisonResult,
+    comparison_params: ComparisonParams,
     working_dir: Path,
     files_to_save: type[ComparisonImpressionFiles],
     metadata_reference: MarkMetadata,
