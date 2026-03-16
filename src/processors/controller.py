@@ -96,7 +96,7 @@ def save_impression_comparison_plots(  # noqa: PLR0913
         mark_reference_leveled=mark_ref.leveled_mark,
         mark_compared_leveled=mark_comp.leveled_mark,
         mark_reference_filtered=mark_ref.filtered_mark,
-        mark_compared_filtered=mark_ref.filtered_mark,
+        mark_compared_filtered=mark_comp.filtered_mark,
         cmc_result=cmc_result,
         comparison_params=comparison_params,
         metadata_reference=metadata_reference,
