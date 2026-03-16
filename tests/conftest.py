@@ -14,7 +14,6 @@ from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.likelihood_ratio import ModelSpecs
-from conversion.plots.data_formats import ImpressionComparisonMetrics
 from conversion.plots.utils import build_results_metadata_impression
 from fastapi.testclient import TestClient
 from lir import LLRData
@@ -120,28 +119,6 @@ def reference_data() -> ModelSpecs:
         knm_scores=np.array([0.3, 0.25, 0.15, 0.1]),
         knm_llrs=np.array([-1.2, -0.9, -1.5, -2.0]),
         knm_llr_intervals=np.array([[-1.4, -1.0], [-1.1, -0.7], [-1.7, -1.3], [-2.2, -1.8]]),
-    )
-
-
-@pytest.fixture
-def impression_metrics() -> ImpressionComparisonMetrics:
-    return ImpressionComparisonMetrics(
-        area_correlation=0.82,
-        cell_correlations=np.array([[0.75, 0.88], [0.92, 0.31]]),
-        cmc_score=66.7,
-        mean_square_ref=1.25,
-        mean_square_comp=1.31,
-        mean_square_of_difference=0.42,
-        has_area_results=True,
-        has_cell_results=True,
-        cell_positions_compared=np.array([[10.0, 20.0], [10.0, 60.0], [50.0, 20.0], [50.0, 60.0]]),
-        cell_rotations_compared=np.array([0.01, -0.02, 0.0, -0.01]),
-        cmc_area_fraction=55.0,
-        cutoff_low_pass=250.0,
-        cutoff_high_pass=25.0,
-        cell_size_um=300.0,
-        max_error_cell_position=50.0,
-        max_error_cell_angle=3.0,
     )
 
 
