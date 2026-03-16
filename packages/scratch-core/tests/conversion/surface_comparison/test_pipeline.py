@@ -72,7 +72,8 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
 
 
 @pytest.mark.integration
-def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = False):
+@pytest.mark.parametrize("angle", [0, 60, -90])
+def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
     # Arrange
     scale = 1e-6
     nan_fraction = 0.15
@@ -80,7 +81,10 @@ def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = False):
     image_size = (150, 450)
     rng = np.random.default_rng(seed=1234)
     image_data = rng.uniform(size=image_size)
+    # Add noisy NaN values to simulate measurement artifacts
     image_data[rng.uniform(size=image_data.shape) < nan_fraction] = np.nan
+    # Remove a rectangular part of the image to simulate masking
+    image_data[52:112, 157:278] = np.nan
     reference_image = ScanImage(
         data=image_data * scale,
         scale_x=scale,

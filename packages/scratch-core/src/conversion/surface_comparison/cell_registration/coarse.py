@@ -27,11 +27,11 @@ def match_cells(
     cross-correlation score map is computed per cell using ``cv2.TM_CCOEFF_NORMED``. Positions whose
     comparison-patch fill fraction falls below ``params.minimum_fill_fraction`` are masked out.
     Per rotation angle, the highest score with its corresponding translation is stored.
-    The rotation that yields the highest unmasked score will be stored in each cell's :class:`GridSearchParams`.
+    The rotation that yields the highest unmasked score will be stored in each cell's
+    :class:`GridSearchParams`.
 
-    The comparison image is padded by a full cell in each direction before the search so that cells whose
-    reference top-left lies near the image boundary can still be matched. The padding offset is subtracted
-    back when the best position is recorded, so all stored coordinates are in the original (unpadded) pixel space.
+    The comparison image is padded by one full cell on each side before the search so that cells
+    whose reference top-left lies near the image boundary can still be matched.
 
     :param grid_cells: Reference grid cells to register; all cells must have the same size.
     :param comparison_image: Comparison scan image to search over.
@@ -44,15 +44,14 @@ def match_cells(
     fill_value_comparison = float(np.nanmean(comparison_image.data))
     pixel_size = comparison_image.scale_x  # Assumes isotropic image
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
-
-    # Pad the comparison image
-    pad_width, pad_height = _get_padding_size(
-        cell_size=(cell_width, cell_height),
-        image_size=(comparison_image.width, comparison_image.height),
-    )
+    # Pad by one full cell on each side so that reference cells near the image
+    # boundary always have a valid search window in the comparison image.
+    pad_width, pad_height = cell_width, cell_height
     comparison_data = pad_image_array(
         comparison_image.data, pad_width=pad_width, pad_height=pad_height
     )
+    padded_width, padded_height = comparison_data.shape[1], comparison_data.shape[0]
+    padded_center = (padded_width / 2, padded_height / 2)
 
     angles = np.arange(
         params.search_angle_min,
@@ -62,14 +61,15 @@ def match_cells(
 
     for angle in angles:
         angle = float(angle)
-        # Rotate the comparison image by `-angle` degrees.
-        # This is equivalent to rotating the reference patch by `angle` degrees.
+
+        # Rotate the comparison image by `-angle` degrees with resize=True so that
+        # no content is clipped regardless of image shape or rotation angle.
         rotated = rotate(
             image=comparison_data,
             angle=-angle,
             cval=np.nan,  # type: ignore
             order=0,
-            resize=False,
+            resize=True,
         )
         # Get the mask of valid pixels for the rotated image
         valid_mask = ~np.isnan(rotated)
@@ -80,9 +80,8 @@ def match_cells(
             cell_height=cell_height,
         )
         fill_fraction_mask = fill_fraction_map >= params.minimum_fill_fraction
-        # Now that we computed the fill fraction mask, we can safely replace NaN values in the rotated image
+        # Now that we computed the fill fraction mask, we can safely replace NaN values
         rotated[~valid_mask] = fill_value_comparison
-        global_center_x, global_center_y = rotated.shape[1] / 2, rotated.shape[0] / 2  # type: ignore
 
         for grid_cell in grid_cells:
             score_map = _get_score_map(
@@ -93,13 +92,18 @@ def match_cells(
                 score_map=score_map, fill_fraction_mask=fill_fraction_mask
             )
             if score > grid_cell.grid_search_params.score:
-                # Compute the center coordinates of the cell on the (original) unrotated image
+                # With resize=True, the input center maps to a shifted pixel in the output.
+                # Compute that shift so `_unrotate_point` can invert the transform correctly.
+                rotation_center = _compute_rotation_center(
+                    padded_size=(padded_width, padded_height), angle=angle
+                )
                 cell_center = (x + cell_width / 2, y + cell_height / 2)
                 original_center_x, original_center_y = _unrotate_point(
                     rotated_point=cell_center,
                     angle=angle,
                     pad_size=(pad_width, pad_height),
-                    rotation_center=(global_center_x, global_center_y),
+                    padded_center=padded_center,
+                    rotation_center=rotation_center,
                 )
                 grid_cell.grid_search_params.update(
                     score=score,
@@ -114,18 +118,69 @@ def match_cells(
     ]
 
 
-def _get_padding_size(
-    cell_size: tuple[int, int], image_size: tuple[int, int]
-) -> tuple[int, int]:
-    cell_width, cell_height = cell_size
-    image_width, image_height = image_size
-    # Set padding size to cell size
-    pad_width, pad_height = cell_width, cell_height
-    # Add extra padding so that rotate(..., resize=False) never clips for any angle
-    image_diagonal = np.sqrt(image_height**2 + image_width**2)
-    pad_width += int(np.ceil((image_diagonal - image_width) / 2))
-    pad_height += int(np.ceil((image_diagonal - image_height) / 2))
-    return pad_width, pad_height
+def _compute_rotation_center(
+    padded_size: tuple[int, int], angle: float
+) -> tuple[float, float]:
+    """
+    Compute where the padded image center maps to in the ``resize=True`` rotated output.
+
+    The inner rotation uses ``resize=True`` so that no content is clipped regardless of the
+    image's aspect ratio or the magnitude of the rotation angle.  Because ``resize=True`` shifts
+    the rotation center in the output image, we have to compute that shift analytically and pass
+    it to :func:`_unrotate_point`, which maps each match coordinate back to the original (unpadded)
+    comparison image space.
+
+    :param padded_size: ``(width, height)`` of the padded input image.
+    :param angle: Search angle in degrees.
+    :returns: Pixel coordinates (x, y) of the rotation center in the output.
+    """
+    width, height = padded_size
+    center_x, center_y = width / 2, height / 2
+    angle_rad = np.radians(angle)
+    cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
+    corners = np.array([[0, 0], [width, 0], [width, height], [0, height]], dtype=float)
+    rotation_matrix = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+    rotated_corners = (corners - [center_x, center_y]) @ rotation_matrix.T + [
+        center_x,
+        center_y,
+    ]
+    min_x = rotated_corners[:, 0].min()
+    min_y = rotated_corners[:, 1].min()
+    return center_x - min_x, center_y - min_y
+
+
+def _unrotate_point(
+    rotated_point: tuple[float, float],
+    angle: float,
+    pad_size: tuple[int, int],
+    padded_center: tuple[float, float],
+    rotation_center: tuple[float, float],
+) -> tuple[float, float]:
+    """
+    Map a match coordinate from the rotated output back to the original comparison image.
+
+    :param rotated_point: ``(x, y)`` in the rotated output image.
+    :param angle: Search angle in degrees (same sign convention as the sweep).
+    :param pad_size: ``(width, height)`` of the padding size.
+        This will be subtracted to go from padded → comparison space.
+    :param padded_center: ``(x, y)`` coordinates denoting the center of the padded input image.
+    :param rotation_center_output: The (x, y) coordinates of the rotation center in the output image.
+    :returns: The pixel coordinates ``(x, y)`` of the center in the original (unpadded) comparison image.
+    """
+    center_padded_x, center_padded_y = padded_center
+    pad_width, pad_height = pad_size
+
+    # Rotate the point in the opposite direction to undo the rotation.
+    unrotated_x, unrotated_y = rotate_points(
+        points=np.array([rotated_point]),
+        center=rotation_center,
+        angle=np.radians(-angle),
+    )[0]
+    # The unrotated point is relative to cx_out/cy_out; shift to padded image space
+    x_padded = unrotated_x + (center_padded_x - rotation_center[0])
+    y_padded = unrotated_y + (center_padded_y - rotation_center[1])
+    # Remove padding to recover comparison image coordinates
+    return x_padded - pad_width, y_padded - pad_height
 
 
 def _get_fill_fraction_map(
@@ -141,8 +196,9 @@ def _get_fill_fraction_map(
     :param cell_height: Height of the cell window in pixels.
     :param cell_width: Width of the cell window in pixels.
     :returns: Float64 array (H, W) with fill fractions in [0, 1], top-left indexed.
-        Entries near the bottom-right boundary are underestimates and will be rejected by the fill-fraction gate.
-        Since the image is padded with NaNs before calling this function, this does not matter.
+        Entries near the bottom-right boundary are underestimates and will be rejected by the
+        fill-fraction gate. Since the image is padded with NaNs before calling this function,
+        this does not matter.
     """
     kernel = np.ones((cell_height, cell_width), dtype=np.float32) / (
         cell_height * cell_width
@@ -157,37 +213,22 @@ def _get_fill_fraction_map(
     return np.asarray(filtered, dtype=np.float64)
 
 
-def _unrotate_point(
-    rotated_point: tuple[float, float],
-    angle: float,
-    pad_size: tuple[int, int],
-    rotation_center: tuple[float, float],
-) -> tuple[float, float]:
-    # Undo the -angle rotation that was applied to the padded comparison image
-    unrotated_x, unrotated_y = rotate_points(
-        points=np.array([rotated_point]),
-        center=rotation_center,
-        angle=np.radians(-angle),
-    )[0]
-    # Compute the original coordinates by removing the padding
-    original_x = unrotated_x - pad_size[0]
-    original_y = unrotated_y - pad_size[1]
-    return original_x, original_y
-
-
 def _compute_best_score_from_maps(
     score_map: FloatArray2D, fill_fraction_mask: BinaryMask
 ) -> tuple[float, int, int]:
     """
-    Compute the highest correlation score and the corresponding x, y coordinates
-    from the score and fill fraction maps.
+    Return the highest valid correlation score and its (x, y) top-left coordinates.
+
+    Positions where the comparison patch fill fraction falls below the threshold are
+    masked to ``-inf`` so they can never win the ``argmax``.
+
+    :param score_map: Float64 score map from ``cv2.matchTemplate``.
+    :param fill_fraction_mask: Boolean mask; True where the comparison patch has
+        sufficient valid pixels.
+    :returns: ``(score, x, y)`` — best score and its top-left pixel coordinates.
     """
-    # Make sure the shape of `score_map` and the `fill_fraction_mask` match, and
-    # discard irrelevant fill fraction mask positions at the bottom right.
     valid_positions = fill_fraction_mask[: score_map.shape[0], : score_map.shape[1]]
-    # Replace non-valid values (where fill fraction is below threshold) with -inf
     masked_scores = np.where(valid_positions, score_map, -np.inf)
-    # Compute the best score and x, y position from the score map
     best_flat_index = np.argmax(masked_scores)
     score = masked_scores.flat[best_flat_index]
     y, x = np.unravel_index(best_flat_index, masked_scores.shape)
@@ -200,15 +241,16 @@ def _get_score_map(
     """
     Compute a normalized cross-correlation score map for one reference cell.
 
-    Slides the cell template over the comparison array using ``cv2.TM_CCOEFF_NORMED``, which computes
-    the Pearson correlation coefficient between the template and every same-sized patch. NaN values must
-    have been replaced in both arrays before calling this function.
+    Slides the cell template over the comparison array using ``cv2.TM_CCOEFF_NORMED``, which
+    computes the Pearson correlation coefficient between the template and every same-sized patch.
+    NaN values must have been replaced in both arrays before calling this function.
 
-    :param comparison_array: NaN-free float32-compatible comparison image, padded by a full cell on each side.
-    :param template: Reference grid cell whose ``cell_data`` is used as the template; must contain no NaN values.
-    :returns: Float64 score map of shape ``(H - cell_height + 1, W - cell_width + 1)`` with values in ``[-1, 1]``.
+    :param comparison_array: NaN-free float32-compatible comparison image, padded by a full cell
+        on each side.
+    :param template: Reference cell data used as the template; must contain no NaN values.
+    :returns: Float64 score map of shape ``(H − cell_height + 1, W − cell_width + 1)`` with
+        values in ``[−1, 1]``.
     """
-
     score_map = cv2.matchTemplate(
         image=comparison_array.astype(np.float32),
         templ=template.astype(np.float32),
