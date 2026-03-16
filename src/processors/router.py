@@ -150,8 +150,13 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
 async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse:
     """Calculate likelihood ratio for impression mark comparison."""
     vault = create_vault(lr_input.tag)
-    log_lr = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
-    return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url), lr=log_lr)
+    result = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
+    return LRResponse(
+        urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
+        lr=result.log_lr,
+        lr_lower_ci=result.log_lr_lower_ci,
+        lr_upper_ci=result.log_lr_upper_ci,
+    )
 
 
 @processors.post(
@@ -166,5 +171,10 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
 async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     """Calculate likelihood ratio for striation mark comparison."""
     vault = create_vault(lr_input.tag)
-    log_lr = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
-    return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url), lr=log_lr)
+    result = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
+    return LRResponse(
+        urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
+        lr=result.log_lr,
+        lr_lower_ci=result.log_lr_lower_ci,
+        lr_upper_ci=result.log_lr_upper_ci,
+    )
