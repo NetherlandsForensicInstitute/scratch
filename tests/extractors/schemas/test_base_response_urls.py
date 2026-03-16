@@ -115,8 +115,10 @@ class TestLRResponse:
         """ValidationError is raised when lr cannot be coerced to float."""
         with pytest.raises(ValidationError):
             LRResponse(
-                urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL), lr="not-a-number", **_EMPTY_LR_STATS
-            )  # type: ignore
+                urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL),
+                lr="not-a-number",
+                **_EMPTY_LR_STATS,  # pyright: ignore[reportArgumentType]
+            )
 
 
 class TestComparisonResponseStriation:
