@@ -135,14 +135,10 @@ def _compute_rotation_center(
     """
     width, height = padded_size
     center_x, center_y = width / 2, height / 2
-    angle_rad = np.radians(angle)
-    cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
     corners = np.array([[0, 0], [width, 0], [width, height], [0, height]], dtype=float)
-    rotation_matrix = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-    rotated_corners = (corners - [center_x, center_y]) @ rotation_matrix.T + [
-        center_x,
-        center_y,
-    ]
+    rotated_corners = rotate_points(
+        points=corners, angle=np.radians(angle), center=(center_x, center_y)
+    )
     min_x = rotated_corners[:, 0].min()
     min_y = rotated_corners[:, 1].min()
     return center_x - min_x, center_y - min_y
