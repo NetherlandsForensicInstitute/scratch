@@ -6,7 +6,6 @@ from conversion.surface_comparison.cell_registration.coarse import (
     match_cells,
     _get_fill_fraction_map,
     _get_score_map,
-    _compute_rotation_center,
     _unrotate_point,
 )
 from conversion.surface_comparison.models import GridCell, ComparisonParams
@@ -26,13 +25,6 @@ PIXEL_SIZE = 1e-6
 CELL_TOP_LEFT = (40, 30)
 SCORE_TOLERANCE = 0.05
 FILL_FRACTION_THRESHOLD = 0.5
-
-# Constants used by _compute_rotation_center and _unrotate_point tests
-PADDED_WIDTH = 160
-PADDED_HEIGHT = 120
-PAD_WIDTH = 20
-PAD_HEIGHT = 20
-PADDED_CENTER = (PADDED_WIDTH / 2, PADDED_HEIGHT / 2)
 
 
 class TestMatch:
@@ -156,87 +148,56 @@ class TestGetScoreMap:
         assert score_map.shape[1] == data.shape[1] - grid_cell.width + 1
 
 
-class TestComputeRotationCenter:
-    def test_angle_zero_returns_padded_center(self):
-        # Arrange / Act
-        cx, cy = _compute_rotation_center(
-            padded_size=(PADDED_WIDTH, PADDED_HEIGHT), angle=0.0
-        )
-
-        # Assert — at zero rotation the center is unchanged
-        assert cx == pytest.approx(PADDED_WIDTH / 2)
-        assert cy == pytest.approx(PADDED_HEIGHT / 2)
-
-    @pytest.mark.parametrize("angle", [30.0, 60.0, 90.0, 145.0])
-    def test_rotation_center_lies_within_output_image(self, angle: float):
-        # Arrange
-        padded = np.zeros((PADDED_HEIGHT, PADDED_WIDTH))
-        rotated = rotate(padded, angle=-angle, cval=0, order=0, resize=True)
-        out_h, out_w = rotated.shape  # type: ignore
-
-        # Act
-        cx, cy = _compute_rotation_center(
-            padded_size=(PADDED_WIDTH, PADDED_HEIGHT), angle=angle
-        )
-
-        # Assert — the output rotation center must be inside the rotated canvas
-        assert 0.0 <= cx <= out_w
-        assert 0.0 <= cy <= out_h
-
-
 class TestUnrotatePoint:
-    def test_angle_zero_removes_padding_only(self):
-        # Arrange
-        rotation_center = _compute_rotation_center(
-            padded_size=(PADDED_WIDTH, PADDED_HEIGHT), angle=0.0
-        )
-        rotated_point = (90.0, 70.0)  # arbitrary point in the rotated (=padded) image
+    PADDED_WIDTH = 200
+    PADDED_HEIGHT = 160
+    ROTATED_WIDTH = 200  # same as padded at angle=0
+    ROTATED_HEIGHT = 160
+    POINT_IN_PADDED = (70.0, 40.0)  # a known point in the padded image
+
+    def test_angle_zero_is_identity(self):
+        # Arrange — at angle=0 the rotated image has the same shape as the input,
+        # so unrotate should return the input point unchanged.
+        rotated_point = self.POINT_IN_PADDED
 
         # Act
         x, y = _unrotate_point(
             rotated_point=rotated_point,
-            angle=0.0,  # at angle=0 unrotate just strips padding
-            pad_size=(PAD_WIDTH, PAD_HEIGHT),
-            padded_center=PADDED_CENTER,
-            rotation_center=rotation_center,
+            original_image_size=(self.PADDED_WIDTH, self.PADDED_HEIGHT),
+            rotated_image_size=(self.ROTATED_WIDTH, self.ROTATED_HEIGHT),
+            angle_deg=0.0,
         )
 
         # Assert
-        assert x == pytest.approx(rotated_point[0] - PAD_WIDTH)
-        assert y == pytest.approx(rotated_point[1] - PAD_HEIGHT)
+        assert x == pytest.approx(rotated_point[0])
+        assert y == pytest.approx(rotated_point[1])
 
-    @pytest.mark.parametrize("angle", [45.0, 60.0, 120.0])
-    def test_round_trip_recovers_original_comparison_coordinate(self, angle: float):
-        # Arrange — construct the forward-rotated position analytically from a known
-        # original comparison coordinate, then verify unrotate recovers it exactly.
-        original_x, original_y = 60.0, 40.0
-        padded_x = original_x + PAD_WIDTH
-        padded_y = original_y + PAD_HEIGHT
+    @pytest.mark.parametrize("angle", [30.0, 60.0, 90.0])
+    def test_round_trip_recovers_original_point(self, angle: float):
+        # Arrange
+        padded = np.zeros((self.PADDED_HEIGHT, self.PADDED_WIDTH))
+        rotated = rotate(padded, angle=-angle, cval=0, order=0, resize=True)
+        rot_h, rot_w = rotated.shape  # type: ignore
 
-        rotation_center = _compute_rotation_center(
-            padded_size=(PADDED_WIDTH, PADDED_HEIGHT), angle=angle
-        )
-        cx_rc, cy_rc = rotation_center
-        cx_pc, cy_pc = PADDED_CENTER
+        cx_pad = (self.PADDED_WIDTH - 1) / 2
+        cy_pad = (self.PADDED_HEIGHT - 1) / 2
+        cx_rot = (rot_w - 1) / 2
+        cy_rot = (rot_h - 1) / 2
 
-        # Forward map: rotated = R(-angle)*(padded - padded_center) + rotation_center
-        a = np.radians(-angle)
-        rotated_x = (
-            np.cos(a) * (padded_x - cx_pc) - np.sin(a) * (padded_y - cy_pc) + cx_rc
-        )
-        rotated_y = (
-            np.sin(a) * (padded_x - cx_pc) + np.cos(a) * (padded_y - cy_pc) + cy_rc
-        )
+        px, py = self.POINT_IN_PADDED
+        a = np.radians(angle)
+        # Forward: R(+angle) around padded center, then shift origin to rotated center
+        fwd_x = np.cos(a) * (px - cx_pad) - np.sin(a) * (py - cy_pad) + cx_rot
+        fwd_y = np.sin(a) * (px - cx_pad) + np.cos(a) * (py - cy_pad) + cy_rot
 
         # Act
         recovered_x, recovered_y = _unrotate_point(
-            rotated_point=(rotated_x, rotated_y),
-            angle=angle,
-            pad_size=(PAD_WIDTH, PAD_HEIGHT),
-            padded_center=PADDED_CENTER,
-            rotation_center=rotation_center,
+            rotated_point=(fwd_x, fwd_y),
+            original_image_size=(self.PADDED_WIDTH, self.PADDED_HEIGHT),
+            rotated_image_size=(rot_w, rot_h),
+            angle_deg=angle,
         )
 
         # Assert
-        assert recovered_x == pytest.approx(original_x, abs=1e-6)
-        assert recovered_y == pytest.approx(original_y, abs=1e-6)
+        assert recovered_x == pytest.approx(px, abs=1e-6)
+        assert recovered_y == pytest.approx(py, abs=1e-6)
