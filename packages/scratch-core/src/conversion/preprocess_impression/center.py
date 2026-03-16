@@ -84,7 +84,7 @@ def _get_bounding_box_center(mask: BinaryMask) -> Point2D:
     :param mask: Boolean mask array.
     :return: Center (x, y) in pixel coordinates.
     """
-    x_slice, y_slice = get_bounding_box(mask, margin=0)
+    y_slice, x_slice = get_bounding_box(mask, margin=0)
     return (
         (x_slice.start + x_slice.stop) / 2,
         (y_slice.start + y_slice.stop) / 2,

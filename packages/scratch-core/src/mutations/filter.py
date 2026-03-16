@@ -134,11 +134,7 @@ class FilterNeedles(ImageMutation):
         for mutation in filter_median_pipeline:
             scan_image = mutation(scan_image).unwrap()
         # Use slicing since the shape may deviate slightly after down- and upsampling
-        residual_image = (
-            original_scan_image.data
-            - scan_image.data[: original_scan_image.height, : original_scan_image.width]
-        )
-        return residual_image
+        return original_scan_image.data - scan_image.data
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
