@@ -31,16 +31,16 @@ class FilterMedian(ImageMutation):
         """
         Apply the median filter to the image.
 
-        :params scan_image: Input scan image to which the mask is applied.
+        :params scan_image: Input scan image to filter
         :return: The filtered scan image.
         """
-        if self.filter_size % 2 == 0:
-            self.filter_size += 1
-
+        filter_size = (
+            self.filter_size if (self.filter_size % 2) else self.filter_size + 1
+        )
         filtered_image = generic_filter(
             scan_image.data,
             np.nanmedian,
-            size=self.filter_size,
+            size=filter_size,
             mode="constant",
             cval=np.nan,
         ).astype(np.float64)
@@ -55,6 +55,7 @@ class FilterMedian(ImageMutation):
 class FilterNeedles(ImageMutation):
     TARGET_SCALE = 7e-5
     MEDIAN_FILTER_SIZE = 5
+    SMALL_STRIP_FILTER_SIZE = int(np.round(np.sqrt(MEDIAN_FILTER_SIZE)))
     SMALL_STRIP_THRESHOLD = 20
     MEDIAN_FACTOR_CORRECTION_FACTOR = 6
     MEDIAN_FACTOR = 15.0
@@ -67,7 +68,7 @@ class FilterNeedles(ImageMutation):
         :return: int of the subsampling factor
         """
         return int(
-            np.ceil(self.TARGET_SCALE / self.MEDIAN_FILTER_SIZE / scan_image_scale)
+            np.ceil((self.TARGET_SCALE / self.MEDIAN_FILTER_SIZE) / scan_image_scale)
         )
 
     def _image_is_small_strip(self, image_width: int, image_height: int) -> bool:
@@ -95,14 +96,14 @@ class FilterNeedles(ImageMutation):
         :return: Array of differences between the input scan_image.data and median filter smoothed version of that image.
         """
         # Check if the image is a small strip of data
-        original_data = scan_image
+        original_scan_image = scan_image
         is_small_strip = self._image_is_small_strip(
             image_width=scan_image.width, image_height=scan_image.height
         )
         subsample_factor = self._calculate_subsampling_factor(scan_image.scale_x)
         filter_size = self.MEDIAN_FILTER_SIZE
         if is_small_strip:
-            filter_size = int(np.round(np.sqrt(self.MEDIAN_FILTER_SIZE)))
+            filter_size = self.SMALL_STRIP_FILTER_SIZE
             logger.debug(
                 f"scan image is a small strip of data, updated filter_size to :{filter_size}"
             )
@@ -134,8 +135,8 @@ class FilterNeedles(ImageMutation):
             scan_image = mutation(scan_image).unwrap()
         # Use slicing since the shape may deviate slightly after down- and upsampling
         residual_image = (
-            original_data.data
-            - scan_image.data[: original_data.height, : original_data.width]
+            original_scan_image.data
+            - scan_image.data[: original_scan_image.height, : original_scan_image.width]
         )
         return residual_image
 
