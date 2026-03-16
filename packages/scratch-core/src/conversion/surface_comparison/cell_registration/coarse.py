@@ -45,9 +45,7 @@ def match_cells(
     fill_value_comparison = float(np.nanmean(comparison_image.data))
     pixel_size = comparison_image.scale_x  # Assumes isotropic image
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
-    # Pad by one full cell on each side so that reference cells near the image
-    # boundary always have a valid search window in the comparison image.
-    pad_width, pad_height = cell_width, cell_height
+    pad_width, pad_height = cell_width, cell_height  # Set pad size to cell size
     comparison_data = pad_image_array(
         comparison_image.data, pad_width=pad_width, pad_height=pad_height
     )
@@ -91,7 +89,7 @@ def match_cells(
                 score_map=score_map, fill_fraction_mask=fill_fraction_mask
             )
             if score > grid_cell.grid_search_params.score:
-                # Compute the center coordinates of the cell on the original comparison image
+                # Compute the center coordinates of the cell on the (original) unrotated image
                 cell_center = (x + cell_width / 2, y + cell_height / 2)
                 rotated_width, rotated_height = (rotated.shape[1], rotated.shape[0])  # type: ignore
                 original_center_x, original_center_y = _unrotate_point(
