@@ -1,8 +1,10 @@
+import datetime
 import textwrap
 from typing import Literal, cast
 
 import numpy as np
 import matplotlib.pyplot as plt
+from lir import LLRData
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -10,6 +12,9 @@ from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
+from conversion.data_formats import MarkMetadata
+from conversion.data_formats import MarkType
+from conversion.likelihood_ratio import ModelSpecs
 
 DEFAULT_COLORMAP = "viridis"
 
@@ -285,7 +290,7 @@ def get_height_ratios(metadata_height: float, *row_heights: float) -> list[float
 
 
 def get_metadata_dimensions(
-    metadata_compared: dict, metadata_reference: dict, wrap_width: int
+    metadata_compared: MarkMetadata, metadata_reference: MarkMetadata, wrap_width: int
 ) -> tuple[int, float]:
     """
     Calculate metadata section dimensions based on content.
@@ -302,8 +307,12 @@ def get_metadata_dimensions(
         metadata_height_ratio is the relative height for the metadata row.
     """
     # Calculate content-based heights
-    meta_reference_rows = _calculate_table_rows(metadata_reference, wrap_width)
-    meta_compared_rows = _calculate_table_rows(metadata_compared, wrap_width)
+    meta_reference_rows = _calculate_table_rows(
+        metadata_reference.to_display_dict(), wrap_width
+    )
+    meta_compared_rows = _calculate_table_rows(
+        metadata_compared.to_display_dict(), wrap_width
+    )
 
     # Row 0: based on max metadata content (with minimum for readability)
     max_metadata_rows = max(meta_reference_rows, meta_compared_rows)
@@ -381,3 +390,72 @@ def draw_metadata_box(
         table[i, 0].PAD = 0.02
         table[i, 1].set_text_props(ha="left")
         table[i, 1].PAD = 0.02
+
+
+def _format_lr(llr_data: LLRData) -> str:
+    """Format a single log-LR value with optional confidence interval."""
+    if len(llr_data.llrs) > 1:
+        raise ValueError(f"expected single LR value, got {len(llr_data.llrs)}")
+
+    log_lr = llr_data.llrs[0]
+
+    if llr_data.llr_intervals is not None:
+        lower, upper = llr_data.llr_intervals[0, 0], llr_data.llr_intervals[0, 1]
+        return f"{log_lr:.2f} ({lower:.2f}, {upper:.2f})"
+    return f"{log_lr:.2f}"
+
+
+def _common_results_metadata(
+    reference_data: ModelSpecs,
+    llr_data: LLRData,
+    date_report: datetime.date,
+    user_id: str,
+    mark_type: MarkType,
+) -> dict[str, str]:
+    """Results metadata fields shared across all mark types."""
+    return {
+        "Date report": date_report.isoformat(),
+        "User ID": user_id,
+        "Mark type": mark_type.value,
+        "LogLR (5%, 95%)": _format_lr(llr_data),
+        "# of KM scores": str(len(reference_data.km_scores)),
+        "# of KNM scores": str(len(reference_data.knm_scores)),
+    }
+
+
+def build_results_metadata_striation(
+    reference_data: ModelSpecs,
+    llr_data: LLRData,
+    date_report: datetime.date,
+    user_id: str,
+    mark_type: MarkType,
+    score: float,
+    score_transform: float,
+) -> dict[str, str]:
+    return {
+        **_common_results_metadata(
+            reference_data, llr_data, date_report, user_id, mark_type
+        ),
+        "Score type": "CCF",
+        "Score (transform)": f"{score:.2f} ({score_transform:.2f})",
+    }
+
+
+def build_results_metadata_impression(
+    reference_data: ModelSpecs,
+    llr_data: LLRData,
+    date_report: datetime.date,
+    user_id: str,
+    mark_type: MarkType,
+    score: int,
+    n_cells: int,
+) -> dict[str, str]:
+    return {
+        **_common_results_metadata(
+            reference_data, llr_data, date_report, user_id, mark_type
+        ),
+        "KM model": reference_data.km_model,  # TODO this should be replaced by the lr system path (new ticket)
+        "KNM model": reference_data.knm_model,  # TODO this should be replaced by the lr system path (new ticket)
+        "Score type": "CMC",
+        "Score (transform)": f"{score} of {n_cells}",
+    }

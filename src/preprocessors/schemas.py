@@ -1,23 +1,19 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Annotated, Any
+from typing import Any
 
 import numpy as np
 from conversion.data_formats import BoundingBox, MarkType
-from conversion.leveling.data_types import SurfaceTerms
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
-from numpy.typing import NDArray
 from pydantic import (
-    AfterValidator,
     Field,
     PositiveFloat,
     PositiveInt,
     field_validator,
     model_validator,
 )
-from scipy.constants import micro
 from utils.constants import RegressionOrder
 
 from constants import MaskTypes
@@ -27,6 +23,18 @@ from models import (
     ScanFile,
     SupportedScanExtension,
 )
+from preprocessors.constants import SurfaceOptions
+
+
+def _update_schema(schema: dict[str, Any], attr_to_class: tuple[tuple[str, str], ...]) -> dict[str, Any]:
+    """Update the model JSON schema for correctly rendering the `openapi_extra` fields."""
+    for attribute, class_name in attr_to_class:
+        updated = schema["$defs"][class_name]
+        for key in ("examples", "description"):
+            if value := schema["properties"][attribute].get(key):
+                updated[key] = value
+        schema["properties"][attribute] = updated
+    return schema
 
 
 class BaseParameters(BaseModelConfig):
@@ -49,6 +57,16 @@ class BaseParameters(BaseModelConfig):
     def tag(self) -> str:
         """Get the tag to use for directory naming."""
         return self.project_name or self.scan_file.stem
+
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (
+            ("scan_file", "ScanFile"),
+            ("project_name", "ProjectTag"),
+        )
+        return _update_schema(schema, attr_to_class)
 
 
 class UploadScan(BaseParameters):
@@ -79,23 +97,15 @@ class CropInfo(BaseModelConfig):
 
 class PrepareMarkBase(BaseParameters):
     mark_type: MarkType = Field(..., description="Type of mark to prepare.")
-    mask: list[list[float]] = Field(
-        ...,
-        description="2D boolean array representing the mask for the mark. Must have exactly the same shape"
-        " (height × width) as the scan image.",
-    )
     bounding_box_list: list[list[float]] | None = Field(
         None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
     )
-
-    @cached_property
-    def mask_array(self) -> NDArray:
-        """
-        Convert the mask tuple to a numpy boolean array.
-
-        :return: 2D numpy array of boolean values representing the mask
-        """
-        return np.array(self.mask, np.bool_)
+    mask_is_bitpacked: bool = Field(
+        default=False,
+        description="Whether the bytes in the mask are bit-packed. "
+        'The expected bit-order for bit-packed arrays is "little".',
+        examples=[True, False],
+    )
 
     @cached_property
     def bounding_box(self) -> BoundingBox | None:
@@ -105,6 +115,13 @@ class PrepareMarkBase(BaseParameters):
         :return: 2D numpy array of float values representing the bounding box
         """
         return np.array(self.bounding_box_list) if self.bounding_box_list is not None else None
+
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (("mark_type", "MarkType"),)
+        return _update_schema(schema, attr_to_class)
 
 
 class PrepareMarkStriation(PrepareMarkBase):
@@ -118,6 +135,13 @@ class PrepareMarkStriation(PrepareMarkBase):
             raise ValueError(f"{v} is not a striation mark")
         return v
 
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (("mark_parameters", "PreprocessingStriationParams"),)
+        return _update_schema(schema, attr_to_class)
+
 
 class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
@@ -130,21 +154,18 @@ class PrepareMarkImpression(PrepareMarkBase):
             raise ValueError(f"{v} is not an impression mark")
         return v
 
-
-class MaskParameters(BaseModelConfig):
-    shape: tuple[PositiveInt, PositiveInt] = Field(
-        ...,
-        examples=[[100, 100], [250, 150]],
-        description="Shape (height, width) of the 2D mask array. Must exactly match the shape of the parsed scan"
-        " image.",
-    )
-    is_bitpacked: bool = Field(default=False, examples=[False, True], description="Whether the mask is bit-packed.")
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (("mark_parameters", "PreprocessingImpressionParams"),)
+        return _update_schema(schema, attr_to_class)
 
 
 class EditImage(BaseParameters):
     """Request model for editing and transforming processed scan images."""
 
-    cutoff_length: Annotated[PositiveFloat, AfterValidator(lambda x: x * micro)] = Field(
+    cutoff_length: PositiveFloat = Field(
         description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "
         "Defines the spatial frequency threshold for surface texture analysis.",
         examples=[250, 500, 1000],
@@ -154,8 +175,8 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: SurfaceTerms = Field(
-        default=SurfaceTerms.PLANE,
+    terms: SurfaceOptions = Field(
+        ...,
         description=(
             "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
         ),
@@ -168,10 +189,11 @@ class EditImage(BaseParameters):
         default=False,
         description="Whether to crop the image to the non-masked region.",
     )
-    mask_parameters: MaskParameters = Field(
-        ...,
-        description="Mask parameters.",
-        # TODO: change this field to `mask_shape: tuple[PositiveInt, PositiveInt]`
+    mask_is_bitpacked: bool = Field(
+        default=False,
+        description="Whether the bytes in the mask are bit-packed. "
+        'The expected bit-order for bit-packed arrays is "little".',
+        examples=[True, False],
     )
 
     @model_validator(mode="after")
@@ -185,20 +207,9 @@ class EditImage(BaseParameters):
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
         """Override the base method."""
         schema = super().model_json_schema(*args, **kwargs)
-        # Add schema for mask parameters to JSON model
-        schema["properties"]["mask_parameters"] = MaskParameters.model_json_schema(*args, **kwargs)
         # Add schema for BaseParameters and EditImage to JSON model
         attr_to_class = (
-            ("scan_file", "ScanFile"),
             ("regression_order", "RegressionOrder"),
-            ("terms", "SurfaceTerms"),
-            ("project_name", "ProjectTag"),
+            ("terms", "SurfaceOptions"),
         )
-        for attribute, class_name in attr_to_class:
-            updated = schema["$defs"][class_name]
-            for key in ("examples", "description"):
-                if value := schema["properties"][attribute].get(key):
-                    updated[key] = value
-            schema["properties"][attribute] = updated
-
-        return schema
+        return _update_schema(schema, attr_to_class)

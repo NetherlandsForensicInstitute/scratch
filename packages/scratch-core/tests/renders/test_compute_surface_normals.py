@@ -1,4 +1,3 @@
-from functools import partial
 import numpy as np
 import pytest
 from scipy.constants import milli
@@ -6,13 +5,13 @@ from scipy.constants import milli
 from container_models.scan_image import ScanImage
 from renders import compute_surface_normals
 from container_models.base import BinaryMask, VectorField
+from ..helper_function import NoScaleScanImage
 
 IMAGE_SIZE = 20
 BUMP_SIZE = 6
 BUMP_HEIGHT = 4
 BUMP_CENTER = IMAGE_SIZE // 2
 BUMP_SLICE = slice(BUMP_CENTER - BUMP_SIZE // 2, BUMP_CENTER + BUMP_SIZE // 2)
-NoScaleScanImage = partial(ScanImage, scale_x=1, scale_y=1)
 
 
 @pytest.fixture

@@ -50,11 +50,14 @@ check-static:
 
 # Run all Project tests with coverage report if given
 test $report="":
-    uv run pytest -m 'not contract_testing and not lfs and not integration' ${report:+--cov --cov-report $report}
+    uv run pytest -m 'not contract_testing and not lfs' ${report:+--cov --cov-report $report}
 
 # Run integration tests with optional coverage (appends to existing coverage data)
 test-integration $report="":
     uv run pytest -m 'integration' ${report:+--cov --cov-append --cov-report $report}
+
+unit-test $report="":
+    uv run pytest -m 'not lfs and not integration' ${report:+--cov --cov-append --cov-report $report}
 
 # test-contract REST API
 test-contract: (log "Running contract tests...")
@@ -107,10 +110,11 @@ ci job="":
     [ -z "{{ job }}" ] && act --list || act --job {{ job }} --quiet
 
 # run coverage difference between current branch and main
-cov-diff:
+cov-diff base_branch="origin/main":
     [ -f coverage.xml ] || just test xml
-    @just log "Getting coverage difference against main"
+    @just log "Getting coverage difference against {{ base_branch }}"
     uv run diff-cover coverage.xml \
+       --compare-branch {{ base_branch }} \
        --diff-range-notation '..' \
        --fail-under 80 \
        --format markdown:diff_coverage.md

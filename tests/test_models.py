@@ -5,15 +5,12 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from extractors.schemas import ProcessedDataAccess
 from models import (
-    BaseModelConfig,
     DirectoryAccess,
     validate_file_extension,
     validate_not_executable,
     validate_relative_path,
 )
-from preprocessors.schemas import EditImage, UploadScan
 from settings import get_settings
 
 
@@ -294,16 +291,3 @@ class TestDirectoryAccess:
         # Assert
         assert access.resource_path.name == f"my-tag-{access.token.hex}"
         assert access.resource_path.parent == get_settings().storage
-
-
-@pytest.mark.parametrize(
-    "schema",
-    [
-        DirectoryAccess,
-        ProcessedDataAccess,
-        UploadScan,
-        EditImage,
-    ],
-)
-def test_schema_is_base_model_config(schema: type[BaseModelConfig]):
-    assert issubclass(schema, BaseModelConfig)

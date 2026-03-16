@@ -3,10 +3,13 @@ import pytest
 
 from container_models.base import VectorField
 from container_models.light_source import LightSource
-
+from container_models.scan_image import ScanImage
+from renders import compute_surface_normals
+from ..helper_function import NoScaleScanImage
 
 TEST_IMAGE_SIZE = 10
 TEST_IMAGE_CENTER = TEST_IMAGE_SIZE // 2
+IMAGE_SIZE = 20
 
 
 @pytest.fixture(scope="module")
@@ -45,3 +48,15 @@ def flat_normals() -> VectorField:
         ],
         axis=-1,
     )
+
+
+@pytest.fixture
+def image_with_nan_background() -> ScanImage:
+    data = np.full((IMAGE_SIZE, IMAGE_SIZE), np.nan)
+    data[4:-4, 4:-4] = np.random.default_rng(42).uniform(0, 10, (12, 12))
+    return NoScaleScanImage(data=data)
+
+
+@pytest.fixture
+def normals_with_nan_background(image_with_nan_background) -> VectorField:
+    return compute_surface_normals(image_with_nan_background).unwrap()
