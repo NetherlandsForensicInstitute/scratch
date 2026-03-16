@@ -1,10 +1,10 @@
 import numpy as np
 from scipy.ndimage import binary_erosion
-from skimage.measure import ransac, CircleModel
+from skimage.measure import CircleModel, ransac
 
+from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask, FloatArray2D
 from conversion.data_formats import Mark, MarkType
-from conversion.mask import get_bounding_box
 from conversion.preprocess_impression.utils import Point2D
 
 RANDOM_SEED = 1234
@@ -84,7 +84,7 @@ def _get_bounding_box_center(mask: BinaryMask) -> Point2D:
     :param mask: Boolean mask array.
     :return: Center (x, y) in pixel coordinates.
     """
-    x_slice, y_slice = get_bounding_box(mask)
+    y_slice, x_slice = get_bounding_box(mask, margin=0)
     return (
         (x_slice.start + x_slice.stop) / 2,
         (y_slice.start + y_slice.stop) / 2,
