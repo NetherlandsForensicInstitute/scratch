@@ -1,6 +1,5 @@
 import numpy as np
-from loguru import logger
-from scipy.ndimage import binary_dilation, rotate
+from scipy.ndimage import rotate
 
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage

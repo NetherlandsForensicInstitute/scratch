@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from loguru import logger
 from preprocessors.controller import _scan_image_to_mark
 from scipy.constants import micro
 
@@ -34,10 +35,10 @@ class MatlabTestCase:
     output_data: FloatArray2D
     output_mask: BinaryMask
 
-    rectangle: BoundingBox
     input_xdim: float = 3.5 * micro
     input_ydim: float = 3.5 * micro
     crop_type: str = "rectangle"
+    rectangle: BoundingBox | None = None
     crop_foreground: bool = True
     times_median: float = 15.0
     has_holes: bool = False
@@ -49,9 +50,11 @@ class MatlabTestCase:
             meta = json.load(f)
 
         # Load crop corners if present
+        crop_corners = None
         crop_corners_path = case_dir / "crop_corners.npy"
-        crop_corners = np.load(crop_corners_path)
-
+        if crop_corners_path.exists():
+            crop_corners = np.load(crop_corners_path)
+        logger.info(case_dir)
         return cls(
             name=case_dir.name,
             input_data=np.load(case_dir / "input_data.npy"),
