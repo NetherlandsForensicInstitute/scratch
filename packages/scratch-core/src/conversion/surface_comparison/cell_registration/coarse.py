@@ -46,6 +46,7 @@ def match_cells(
     pixel_size = comparison_image.scale_x  # Assumes isotropic image
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
     pad_width, pad_height = cell_width, cell_height  # Set pad size to cell size
+
     comparison_data = pad_image_array(
         comparison_image.data, pad_width=pad_width, pad_height=pad_height
     )
