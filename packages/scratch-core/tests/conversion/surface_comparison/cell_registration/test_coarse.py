@@ -172,7 +172,7 @@ class TestComputeRotationCenter:
         # Arrange
         padded = np.zeros((PADDED_HEIGHT, PADDED_WIDTH))
         rotated = rotate(padded, angle=-angle, cval=0, order=0, resize=True)
-        out_h, out_w = rotated.shape
+        out_h, out_w = rotated.shape  # type: ignore
 
         # Act
         cx, cy = _compute_rotation_center(
