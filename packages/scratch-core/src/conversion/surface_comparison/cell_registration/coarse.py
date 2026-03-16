@@ -61,8 +61,8 @@ def match_cells(
 
     for angle in angles:
         angle = float(angle)
-        # Rotate the comparison image by `-angle` degrees with resize=True so that
-        # no content is clipped regardless of image shape or rotation angle.
+        # Rotate the comparison image by `-angle` degrees.
+        # This is equivalent to rotating the reference patch by `angle` degrees.
         rotated = rotate(
             image=comparison_data,
             angle=-angle,
