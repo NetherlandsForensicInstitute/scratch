@@ -18,8 +18,8 @@ from processors.controller import (
     save_lr_striation_plot,
     save_striation_comparison_plots,
 )
-from tests.helper_function import make_cell
-from tests.processors.conftest import assert_valid_png
+
+from ..helper_function import assert_valid_png, make_cell
 
 
 class TestCompareStriationMarks:

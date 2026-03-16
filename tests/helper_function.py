@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from pathlib import Path
 
 import numpy as np
@@ -7,14 +8,16 @@ from conversion.export.mark import save_mark
 from conversion.export.profile import save_profile
 from conversion.profile_correlator import Profile
 from conversion.surface_comparison.models import Cell, CellMetaData
+from PIL import Image
+from pydantic import HttpUrl
 from scipy.constants import micro
 from scipy.interpolate import interp1d
+from starlette.testclient import TestClient
 
 
 def make_cell(  # noqa: PLR0913
     center_reference: tuple[float, float] = (0.0, 0.0),
     best_score: float = 0.8,
-    *,
     is_congruent: bool = False,
     angle_deg: float = 0.0,
     center_comparison: tuple[float, float] | None = None,
@@ -68,6 +71,22 @@ def _create_dummy_profile(n_samples: int = 1000) -> Profile:
     data += rng.normal(0, amplitude_um * noise_level * micro, n_samples)
 
     return Profile(heights=data, pixel_size=pixel_size_m)
+
+
+def assert_valid_png(path: Path) -> None:
+    assert path.exists()
+    assert Image.open(path).format == "PNG"
+
+
+def assert_lr_response_valid(client: TestClient, response) -> None:
+    """Assert that an LR endpoint response contains a valid LR and reachable PNG plot."""
+    assert response.status_code == HTTPStatus.OK, response.json()
+    data = response.json()
+    assert isinstance(data["lr"], float)
+    assert HttpUrl(data["lr_overview_plot"])
+    plot_response = client.get(data["lr_overview_plot"])
+    assert plot_response.status_code == HTTPStatus.OK
+    assert plot_response.headers["content-type"] == "image/png"
 
 
 def _shift_profile(profile: Profile, shift_samples: float) -> Profile:

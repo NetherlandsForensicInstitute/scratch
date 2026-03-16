@@ -2,6 +2,7 @@ from functools import cached_property
 
 import numpy as np
 from pydantic import Field, field_validator, PositiveFloat
+
 from collections.abc import Sequence
 from dataclasses import dataclass
 

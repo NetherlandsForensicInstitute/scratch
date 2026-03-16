@@ -12,7 +12,8 @@ from processors.schemas import (
     CalculateLRStriation,
     CalculateScore,
 )
-from tests.processors.conftest import assert_lr_response_valid
+
+from ..helper_function import assert_lr_response_valid
 
 
 def test_processors_placeholder(client: TestClient) -> None:

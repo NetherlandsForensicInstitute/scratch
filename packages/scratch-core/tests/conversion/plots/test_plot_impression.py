@@ -22,7 +22,7 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
     ComparisonParams,
 )
-from conversion.surface_comparison.utils import _cells_to_grid
+from conversion.surface_comparison.utils import _cells_correlation_to_grid
 
 from .helper_functions import assert_valid_rgb_image
 from ..helper_functions import make_cell
@@ -177,7 +177,7 @@ class TestPlotCellHeatmapOnAxes:
         self,
         impression_overview_cells: list[Cell],
     ):
-        cell_correlations, _, _ = _cells_to_grid(impression_overview_cells)
+        cell_correlations = _cells_correlation_to_grid(impression_overview_cells)
 
         fig, ax = plt.subplots()
         _plot_cell_heatmap_on_axes(
