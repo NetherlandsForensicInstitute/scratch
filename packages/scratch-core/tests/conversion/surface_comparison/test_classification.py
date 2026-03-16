@@ -14,9 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cmc_classification import classify_congruent_cells
-from .cell_registration.helpers import plot_cell_registration_results
 
 from .helpers import build_test_inputs
 
@@ -54,26 +52,12 @@ def _get_case(name: str) -> dict:
 class TestClassifyCongruentCells:
     """Test classify_congruent_cells against MATLAB cell_cmc_median procedure 6."""
 
-    def test_cmc_count(self, matlab_test_case: dict, plot=True) -> None:
+    def test_cmc_count(self, matlab_test_case: dict) -> None:
         """The number of CMC cells must match the MATLAB reference."""
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
         result = classify_congruent_cells(cells, params, rotation_center)
 
-        if plot:
-            plot_cell_registration_results(
-                reference_image=ScanImage(
-                    data=np.zeros(shape=(400, 400), dtype=np.float64),
-                    scale_x=1e-5,
-                    scale_y=1e-5,
-                ),
-                comparison_image=ScanImage(
-                    data=np.zeros(shape=(400, 400), dtype=np.float64),
-                    scale_x=1e-5,
-                    scale_y=1e-5,
-                ),
-                cells=cells,
-            )
         expected_cmc_count = matlab_test_case["outputs"]["cmc_count"]
         assert result.cmc_count == expected_cmc_count, (
             f"[{matlab_test_case['name']}] CMC count mismatch: "
@@ -118,12 +102,16 @@ class TestClassifyCongruentCells:
 
     def test_consensus_translation(self, matlab_test_case: dict) -> None:
         """The consensus translation must match the MATLAB reference."""
+        """The matlab code works with a left-handed coordinate system, while our pipeline works with a right-handed coordinate system. Therefore, we reflect the y-axis, the y-coordinate of the rotation center and the resulting y-translation. In order to reproduce the Matlab results.
+        """
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
         result = classify_congruent_cells(cells, params, rotation_center)
 
         expected_translation = matlab_test_case["outputs"]["consensus_translation"]
         actual_translation = result.consensus_translation
+        actual_translation = list(actual_translation)
+        actual_translation = (actual_translation[0], -1 * actual_translation[1])
         if all(item is None for item in expected_translation):
             assert all(np.isnan(v) for v in actual_translation), (
                 f"[{matlab_test_case['name']}] Expected NaN translation, "

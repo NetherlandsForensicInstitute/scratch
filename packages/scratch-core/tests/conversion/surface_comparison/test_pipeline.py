@@ -1,6 +1,7 @@
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.surface_comparison.cell_registration.core import coarse_registration
+from conversion.surface_comparison.cmc_classification import classify_congruent_cells
 from conversion.surface_comparison.grid import GridCell, generate_grid
 from conversion.surface_comparison.models import ComparisonParams, GridSearchParams
 from conversion.surface_comparison.pipeline import compare_surfaces, ProcessedMark
@@ -73,7 +74,7 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
 
 @pytest.mark.integration
 @pytest.mark.parametrize("angle", [0, 60, -90])
-def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
+def test_coarse_registration_finds_angle(angle: float, plot: bool = True):
     # Arrange
     scale = 1e-6
     nan_fraction = 0.15
@@ -117,6 +118,13 @@ def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
         comparison_image=comparison_image,
         params=params,
     )
+
+    classification = classify_congruent_cells(
+        cells=cells, params=params, reference_center=reference_image.center_meters
+    )
+
+    if classification.cells:
+        assert (cell.is_congruent for cell in classification.cells)
 
     if plot:
         plot_cell_registration_results(

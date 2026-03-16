@@ -226,8 +226,8 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
         :func:`_get_consensus_angle` and :func:`_get_consensus_translation`.
     :param params: Algorithm parameters providing the classification thresholds.
     """
-    for cell in cells:
-        cell.is_congruent = bool(
+    for i, cell in enumerate(cells):
+        congruent = bool(
             cell.best_score >= params.correlation_threshold
             and not cell.meta_data.is_outlier
             and np.abs(cell.meta_data.residual_angle_deg)
@@ -236,6 +236,7 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
                 np.abs(cell.meta_data.position_error) <= params.position_threshold
             )
         )
+        cell.is_congruent = congruent
 
 
 def _rosner_critical_value(n_remaining: int, alpha: float) -> float:

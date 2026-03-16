@@ -24,9 +24,15 @@ def build_cells(inputs: dict) -> list[Cell]:
     The angle stored on each Cell is the delta ``angles_comparison - angles_reference``.
     In all current test cases ``angles_reference`` is zero, so the delta equals
     ``angles_comparison`` directly.
+    Reflect y-coordinates since matlab uses mathematical coordinates and our pipeline uses image_coordinates
     """
     centers_reference = np.array(inputs["centers_reference"])
     centers_comparison = np.array(inputs["centers_comparison"])
+    if centers_reference.ndim == 1:
+        centers_reference = centers_reference.reshape(1, -1)
+        centers_comparison = centers_comparison.reshape(1, -1)
+    centers_reference[:, 1] *= -1
+    centers_comparison[:, 1] *= -1
     angles_reference = np.atleast_1d(np.array(inputs["angles_reference"], dtype=float))
     angles_comparison = np.atleast_1d(
         np.array(inputs["angles_comparison"], dtype=float)
@@ -66,7 +72,7 @@ def build_test_inputs(
     """
     Build the full set of inputs for ``classify_congruent_cells`` from a test-case
     input dict.
-
+    Reflect y-coordinate of rotation_center since matlab uses 'mathematical coordinates and our pipeline uses image_coordinates
     Returns ``(cells, params, rotation_center)``.
     """
     cells = build_cells(inputs)
@@ -78,7 +84,7 @@ def build_test_inputs(
     )
 
     rotation_center_list = inputs["rotation_center"]
-    rotation_center = (float(rotation_center_list[0]), float(rotation_center_list[1]))
+    rotation_center = (float(rotation_center_list[0]), -float(rotation_center_list[1]))
 
     return cells, params, rotation_center
 
