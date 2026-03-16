@@ -163,7 +163,7 @@ def _unrotate_point(
     :param pad_size: ``(width, height)`` of the padding size.
         This will be subtracted to go from padded → comparison space.
     :param padded_center: ``(x, y)`` coordinates denoting the center of the padded input image.
-    :param rotation_center: The (x, y) coordinates of the rotation center in the output image.
+    :param rotation_center: The (x, y) coordinates of the rotation center.
     :returns: The pixel coordinates ``(x, y)`` of the center in the original (unpadded) comparison image.
     """
     center_padded_x, center_padded_y = padded_center
