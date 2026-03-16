@@ -52,7 +52,7 @@ def baseline_images_dir() -> Path:
 
 @pytest.fixture(scope="session")
 def matlab_marks_dir() -> Path:
-    """Path to resources baseline images directory."""
+    """Path to `Mark` instances saved as .mat file."""
     return TEST_ROOT / "resources" / "matlab_marks"
 
 
