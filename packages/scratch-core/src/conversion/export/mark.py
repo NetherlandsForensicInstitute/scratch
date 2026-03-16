@@ -56,7 +56,7 @@ def load_mark_from_mat_file(path: Path) -> Mark:
 
     def _try_parse_dict(array: NDArray) -> dict:
         try:
-            keys = tuple(array.dtype.fields)
+            keys = tuple(array.dtype.fields)  # type: ignore
             return {key: array[key][0, 0][0] for key in keys}
         except Exception:
             return {}
