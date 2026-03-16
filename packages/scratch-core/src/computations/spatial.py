@@ -10,8 +10,8 @@ def get_bounding_box(mask: BinaryMask, margin: int) -> tuple[slice, slice]:
     Finds the smallest axis-aligned rectangle containing all non-zero (or True) values.
 
     :param mask: 2D mask (non-zero/True values indicate the region of interest)
-    :param margin: adds a margin around the boundingbox
-    :returns: Tuple (y_slice, x_slice) as slices for NumPy indexing, covering all mask pixels
+    :param margin: Margin around the bounding box to either crop (positive) or extend (negative) the bounding box
+    :returns: Tuple (y_slice, x_slice) as slices for bounding_box.
     """
     y_coords, x_coords = np.nonzero(mask)
     y_min = max(0, y_coords.min() + margin)
