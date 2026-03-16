@@ -27,11 +27,11 @@ def match_cells(
     cross-correlation score map is computed per cell using ``cv2.TM_CCOEFF_NORMED``. Positions whose
     comparison-patch fill fraction falls below ``params.minimum_fill_fraction`` are masked out.
     Per rotation angle, the highest score with its corresponding translation is stored.
-    The rotation that yields the highest unmasked score will be stored in each cell's
-    :class:`GridSearchParams`.
+    The rotation that yields the highest unmasked score will be stored in each cell's :class:`GridSearchParams`.
 
-    The comparison image is padded by one full cell on each side before the search so that cells
-    whose reference top-left lies near the image boundary can still be matched.
+    The comparison image is padded by a full cell in each direction before the search so that cells whose
+    reference top-left lies near the image boundary can still be matched. The padding offset is subtracted
+    back when the best position is recorded, so all stored coordinates are in the original (unpadded) pixel space.
 
     :param grid_cells: Reference grid cells to register; all cells must have the same size.
     :param comparison_image: Comparison scan image to search over.
@@ -61,7 +61,6 @@ def match_cells(
 
     for angle in angles:
         angle = float(angle)
-
         # Rotate the comparison image by `-angle` degrees with resize=True so that
         # no content is clipped regardless of image shape or rotation angle.
         rotated = rotate(
@@ -80,7 +79,7 @@ def match_cells(
             cell_height=cell_height,
         )
         fill_fraction_mask = fill_fraction_map >= params.minimum_fill_fraction
-        # Now that we computed the fill fraction mask, we can safely replace NaN values
+        # Now that we computed the fill fraction mask, we can safely replace NaN values in the rotated image
         rotated[~valid_mask] = fill_value_comparison
 
         for grid_cell in grid_cells:
@@ -164,7 +163,7 @@ def _unrotate_point(
     :param pad_size: ``(width, height)`` of the padding size.
         This will be subtracted to go from padded → comparison space.
     :param padded_center: ``(x, y)`` coordinates denoting the center of the padded input image.
-    :param rotation_center_output: The (x, y) coordinates of the rotation center in the output image.
+    :param rotation_center: The (x, y) coordinates of the rotation center in the output image.
     :returns: The pixel coordinates ``(x, y)`` of the center in the original (unpadded) comparison image.
     """
     center_padded_x, center_padded_y = padded_center
@@ -196,9 +195,8 @@ def _get_fill_fraction_map(
     :param cell_height: Height of the cell window in pixels.
     :param cell_width: Width of the cell window in pixels.
     :returns: Float64 array (H, W) with fill fractions in [0, 1], top-left indexed.
-        Entries near the bottom-right boundary are underestimates and will be rejected by the
-        fill-fraction gate. Since the image is padded with NaNs before calling this function,
-        this does not matter.
+        Entries near the bottom-right boundary are underestimates and will be rejected by the fill-fraction gate.
+        Since the image is padded with NaNs before calling this function, this does not matter.
     """
     kernel = np.ones((cell_height, cell_width), dtype=np.float32) / (
         cell_height * cell_width
@@ -217,18 +215,15 @@ def _compute_best_score_from_maps(
     score_map: FloatArray2D, fill_fraction_mask: BinaryMask
 ) -> tuple[float, int, int]:
     """
-    Return the highest valid correlation score and its (x, y) top-left coordinates.
-
-    Positions where the comparison patch fill fraction falls below the threshold are
-    masked to ``-inf`` so they can never win the ``argmax``.
-
-    :param score_map: Float64 score map from ``cv2.matchTemplate``.
-    :param fill_fraction_mask: Boolean mask; True where the comparison patch has
-        sufficient valid pixels.
-    :returns: ``(score, x, y)`` — best score and its top-left pixel coordinates.
+    Compute the highest correlation score and the corresponding x, y coordinates
+    from the score and fill fraction maps.
     """
+    # Make sure the shape of `score_map` and the `fill_fraction_mask` match, and
+    # discard irrelevant fill fraction mask positions at the bottom right.
     valid_positions = fill_fraction_mask[: score_map.shape[0], : score_map.shape[1]]
+    # Replace non-valid values (where fill fraction is below threshold) with -inf
     masked_scores = np.where(valid_positions, score_map, -np.inf)
+    # Compute the best score and x, y position from the score map
     best_flat_index = np.argmax(masked_scores)
     score = masked_scores.flat[best_flat_index]
     y, x = np.unravel_index(best_flat_index, masked_scores.shape)
@@ -241,16 +236,15 @@ def _get_score_map(
     """
     Compute a normalized cross-correlation score map for one reference cell.
 
-    Slides the cell template over the comparison array using ``cv2.TM_CCOEFF_NORMED``, which
-    computes the Pearson correlation coefficient between the template and every same-sized patch.
-    NaN values must have been replaced in both arrays before calling this function.
+    Slides the cell template over the comparison array using ``cv2.TM_CCOEFF_NORMED``, which computes
+    the Pearson correlation coefficient between the template and every same-sized patch. NaN values must
+    have been replaced in both arrays before calling this function.
 
-    :param comparison_array: NaN-free float32-compatible comparison image, padded by a full cell
-        on each side.
-    :param template: Reference cell data used as the template; must contain no NaN values.
-    :returns: Float64 score map of shape ``(H − cell_height + 1, W − cell_width + 1)`` with
-        values in ``[−1, 1]``.
+    :param comparison_array: NaN-free float32-compatible comparison image, padded by a full cell on each side.
+    :param template: Reference grid cell whose ``cell_data`` is used as the template; must contain no NaN values.
+    :returns: Float64 score map of shape ``(H - cell_height + 1, W - cell_width + 1)`` with values in ``[-1, 1]``.
     """
+
     score_map = cv2.matchTemplate(
         image=comparison_array.astype(np.float32),
         templ=template.astype(np.float32),
