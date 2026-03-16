@@ -4,11 +4,6 @@ Convert MATLAB result folders to Python by calling the preprocessor API.
 Walks a nested folder structure, converts x3p files, extracts crop and
 preprocessing parameters from .mat files, and calls the local preprocessor
 API to regenerate marks.
-
-Usage::
-
-    python convert_matlab_results.py /path/to/root output/
-    python convert_matlab_results.py /path/to/root output/ --api-url http://localhost:8000
 """
 
 import argparse

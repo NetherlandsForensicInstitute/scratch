@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 from conversion.data_formats import MarkType
 from scipy import io as sio
+from scipy.constants import micro
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -117,8 +118,8 @@ def extract_mask_and_bounding_box(
         if mask.any():
             return mask, bbox
 
-    logger.warning("All crop items produced empty masks, using last one")
-    raise ValueError("All crop items produced empty masks, using last one")
+    logger.warning("All crop items produced empty masks")
+    raise ValueError("All crop items produced empty masks")
 
 
 def extract_mark_type(struct: np.ndarray) -> MarkType:
@@ -136,8 +137,8 @@ def extract_impression_params(struct: np.ndarray, mark_type: MarkType) -> dict[s
         "level_tilt": bool(_data_param_field(struct, "bLevelTilt", 1)),
         "level_2nd": bool(_data_param_field(struct, "bLevel2nd", 1)),
         "interp_method": _data_param_field(struct, "intMeth", "cubic"),
-        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 400.0e-6,
-        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 25e-6,
+        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 400.0 * micro,
+        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 25 * micro,
     }
 
 

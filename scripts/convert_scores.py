@@ -9,11 +9,6 @@ Two modes of operation:
 2. **Generated pairs** (``--generate``): discovers all processed marks in
    the output directory, groups them by firearm, and generates all
    same-source pairs plus an equal number of random different-source pairs.
-
-Usage::
-
-    python convert_scores.py /path/to/root output/
-    python convert_scores.py /path/to/root output/ --generate --same-source-only
 """
 
 import argparse
@@ -58,7 +53,7 @@ def extract_comparisons(
     refs = rt["pathReference"]
     comps = rt["pathCompare"]
 
-    if refs.shape[0] <= 1:
+    if refs.shape[0] == 1:
         raise ValueError(f"Unexpected results_table layout in {mat_path}: refs shape {refs.shape}")
 
     return [
