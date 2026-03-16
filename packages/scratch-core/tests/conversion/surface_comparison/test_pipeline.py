@@ -78,8 +78,9 @@ def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = False):
     nan_fraction = 0.15
     cell_size = (50, 50)
     image_size = (150, 450)
-    image_data = np.random.uniform(size=image_size)
-    image_data[np.random.uniform(size=image_data.shape) < nan_fraction] = np.nan
+    rng = np.random.default_rng(seed=1234)
+    image_data = rng.uniform(size=image_size)
+    image_data[rng.uniform(size=image_data.shape) < nan_fraction] = np.nan
     reference_image = ScanImage(
         data=image_data * scale,
         scale_x=scale,
@@ -96,7 +97,7 @@ def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = False):
         image=image_data,
         angle=angle,
         order=0,
-        resize=True,  # resize=False would clip the content on rectangular images
+        resize=True,
         cval=np.nan,  # type: ignore
     )
     comparison_image = reference_image.model_copy(update={"data": rotated})
