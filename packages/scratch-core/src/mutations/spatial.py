@@ -54,8 +54,8 @@ class CropToMask(ImageMutation):
 
         :returns: True if the crop is empty, False otherwise
         """
-        if bool(self.mask.all()):
-            logger.info("Skipping crop, mask is empty (containing only 1")
+        if self.mask.all():
+            logger.info("Skipping crop, mask is empty (containing only 1's")
             return True
         return False
 
@@ -63,6 +63,17 @@ class CropToMask(ImageMutation):
     def from_rotation(
         cls, rotation_angle: float, mask_before_rotation: BinaryMask
     ) -> Self:
+        """
+        Create a ``CropToMask`` instance for an image that will be rotated.
+
+        The mask is first dilated and then rotated to match the rotated image.
+        An additional margin is added to compensate for the dilation and
+        rotation operations (margin = iterations + 2).
+
+        :param rotation_angle: Rotation angle that will be applied to the scan image.
+        :param mask_before_rotation: Mask corresponding to the image before rotation.
+        :return: A ``CropToMask`` instance with the rotated mask and adjusted margin.
+        """
         if np.isclose(rotation_angle, 0.0):
             return cls(mask=mask_before_rotation, margin=0)
         else:
