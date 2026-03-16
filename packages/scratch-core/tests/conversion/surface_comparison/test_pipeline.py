@@ -72,12 +72,12 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
 
 
 @pytest.mark.integration
-def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = False):
+def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = True):
     # Arrange
     scale = 1e-6
     nan_fraction = 0.15
     cell_size = (50, 50)
-    image_size = (300, 300)
+    image_size = (150, 450)
     image_data = np.random.uniform(size=image_size)
     image_data[np.random.uniform(size=image_data.shape) < nan_fraction] = np.nan
     reference_image = ScanImage(
@@ -96,7 +96,7 @@ def test_coarse_registration_finds_angle(angle: float = 60, plot: bool = False):
         image=image_data,
         angle=angle,
         order=0,
-        resize=True,
+        resize=True,  # resize=False would clip the content on rectangular images
         cval=np.nan,  # type: ignore
     )
     comparison_image = reference_image.model_copy(update={"data": rotated})
