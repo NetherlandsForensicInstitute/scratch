@@ -1,14 +1,14 @@
-from re import compile, escape
 from pathlib import Path
+from re import compile, escape
 from unittest.mock import patch
 
 import pytest
-from returns.io import IOSuccess, IOFailure
+from returns.io import IOFailure, IOSuccess
 from returns.result import Failure
+from x3p import X3Pfile
 
 from container_models.scan_image import ScanImage
 from parsers import parse_to_x3p, save_x3p
-from x3p import X3Pfile
 
 
 def is_good_fail_logs(message: str, log: str) -> bool:
@@ -55,7 +55,7 @@ class TestParseToX3PFailure:
 class TestX3PSave:
     @pytest.fixture(scope="class")
     def x3p(self, scan_image: ScanImage) -> X3Pfile:
-        return parse_to_x3p(scan_image).unwrap()
+        return parse_to_x3p(scan_image)
 
     def test_save_to_x3p_returns_failure_when_write_fails(self, x3p: X3Pfile):
         """Test that save returns IOFailure when write operation fails."""
@@ -109,7 +109,7 @@ def test_parse_to_x3p_on_success(
         result = parse_to_x3p(scan_image)
 
     # TODO: How do I test that X3P is a valid object?
-    assert isinstance(result.unwrap(), X3Pfile)
+    assert isinstance(result, X3Pfile)
 
 
 def test_parse_to_x3p_logs_on_success(

@@ -6,11 +6,9 @@ from typing import NamedTuple
 import numpy as np
 from returns.pipeline import flow
 from x3p import X3Pfile
-from returns.result import safe
-from returns.io import impure_safe
-from container_models.scan_image import ScanImage
-from utils.logger import log_railway_function
 from x3p._x3pfileclasses import Ax
+
+from container_models.scan_image import ScanImage
 
 
 class X3PMetaData(NamedTuple):
@@ -73,11 +71,6 @@ def _set_record3_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
     return x3p
 
 
-@log_railway_function(
-    "Failed to parse image X3P",
-    "Successfully parse array to x3p",
-)
-@safe
 def parse_to_x3p(image: ScanImage) -> X3Pfile:
     """Convert ScanImage to X3Pfile using a functional approach."""
     return flow(
@@ -89,11 +82,6 @@ def parse_to_x3p(image: ScanImage) -> X3Pfile:
     )
 
 
-@log_railway_function(
-    "Failed to write X3P file",
-    "Successfully written X3P",
-)
-@impure_safe
 def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
     """
     Save an X3P file to disk.
