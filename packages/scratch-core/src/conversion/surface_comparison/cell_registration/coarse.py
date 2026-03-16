@@ -45,14 +45,11 @@ def match_cells(
     pixel_size = comparison_image.scale_x  # Assumes isotropic image
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
 
-    # Set padding size to cell size
-    pad_width, pad_height = cell_width, cell_height
-    # Add extra padding so that rotate(..., resize=False) never clips for any angle
-    image_height, image_width = comparison_image.data.shape
-    image_diagonal = np.sqrt(image_height**2 + image_width**2)
-    pad_width += int(np.ceil((image_diagonal - image_width) / 2))
-    pad_height += int(np.ceil((image_diagonal - image_height) / 2))
     # Pad the comparison image
+    pad_width, pad_height = _get_padding_size(
+        cell_size=(cell_width, cell_height),
+        image_size=(comparison_image.width, comparison_image.height),
+    )
     comparison_data = pad_image_array(
         comparison_image.data, pad_width=pad_width, pad_height=pad_height
     )
@@ -115,6 +112,20 @@ def match_cells(
         convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
         for grid_cell in grid_cells
     ]
+
+
+def _get_padding_size(
+    cell_size: tuple[int, int], image_size: tuple[int, int]
+) -> tuple[int, int]:
+    cell_width, cell_height = cell_size
+    image_width, image_height = image_size
+    # Set padding size to cell size
+    pad_width, pad_height = cell_width, cell_height
+    # Add extra padding so that rotate(..., resize=False) never clips for any angle
+    image_diagonal = np.sqrt(image_height**2 + image_width**2)
+    pad_width += int(np.ceil((image_diagonal - image_width) / 2))
+    pad_height += int(np.ceil((image_diagonal - image_height) / 2))
+    return pad_width, pad_height
 
 
 def _get_fill_fraction_map(
