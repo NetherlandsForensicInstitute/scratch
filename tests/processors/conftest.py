@@ -68,7 +68,7 @@ def impression_kwargs(
                 center_reference=(i * 1e-3, 0.0),
                 best_score=0.3,
                 cell_size=(1e-3, 1e-3),
-            ).model_dump()
+            )
             for i in range(5)
         ],
         **base_kwargs,
