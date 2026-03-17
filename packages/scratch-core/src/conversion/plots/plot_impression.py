@@ -25,6 +25,7 @@ from conversion.plots.utils import (
     plot_depth_map_on_axes,
     plot_depth_map_with_axes,
 )
+
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonResult,
