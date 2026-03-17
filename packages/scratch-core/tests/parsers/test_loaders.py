@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from math import ceil
 from pathlib import Path
 from unittest.mock import patch
@@ -42,11 +43,18 @@ class TestLoadScanImage:
 
 
 class TestLoadScanImageCaching:
+    @dataclass
     class FakeSurfaceOne:
-        pass
+        data = np.zeros((2, 2))
+        step_x = 1
+        step_y = 1
+        metadata = {"some_data": "data"}
 
     class FakeSurfaceTwo:
-        pass
+        data = np.zeros((2, 2))
+        step_x = 1
+        step_y = 1
+        metadata = {"some_data": "data"}
 
     @pytest.fixture(autouse=True)
     def empty_cache_for_test(self):

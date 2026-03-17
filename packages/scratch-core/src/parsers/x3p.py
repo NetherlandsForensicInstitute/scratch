@@ -1,10 +1,8 @@
 import datetime as dt
-from functools import partial
 from pathlib import Path
 from typing import NamedTuple
 
 import numpy as np
-from returns.pipeline import flow
 from x3p import X3Pfile
 from x3p._x3pfileclasses import Ax
 
@@ -72,14 +70,12 @@ def _set_record3_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
 
 
 def parse_to_x3p(image: ScanImage) -> X3Pfile:
-    """Convert ScanImage to X3Pfile using a functional approach."""
-    return flow(
-        X3Pfile(),
-        partial(_set_record1_entries, image=image),
-        partial(_set_record2_entries, meta_data=X3PMetaData()),
-        partial(_set_binary_data, image=image),
-        partial(_set_record3_entries, image=image),
-    )
+    """Convert ScanImage to X3Pfile."""
+    file = X3Pfile()
+    file = _set_record1_entries(file, image=image)
+    file = _set_record2_entries(file, meta_data=X3PMetaData())
+    file = _set_binary_data(file, image=image)
+    return _set_record3_entries(file, image=image)
 
 
 def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
