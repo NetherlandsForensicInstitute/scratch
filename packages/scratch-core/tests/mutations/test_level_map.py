@@ -14,12 +14,6 @@ class TestLevelMapIntegration:
         Path(__file__).parent.parent / "conversion" / "leveling" / "resources"
     )
 
-    def compute_image_center(self, scan_image: ScanImage) -> tuple[float, float]:
-        """Compute the centerpoint (Y, X) of a scan image in physical coordinate space."""
-        center_x = (scan_image.width - 1) * scan_image.scale_x * 0.5
-        center_y = (scan_image.height - 1) * scan_image.scale_y * 0.5
-        return center_y, center_x
-
     @pytest.mark.parametrize(
         "terms, verified_file_name",
         [
@@ -35,7 +29,6 @@ class TestLevelMapIntegration:
     ):
         # Arrange
         verified = np.load(self.RESOURCES_DIR / verified_file_name)
-        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(terms=terms)
         # Act
         result = level_map_mutator(scan_image_with_nans)
@@ -44,14 +37,14 @@ class TestLevelMapIntegration:
 
     def test_map_level_none(self, scan_image_with_nans: ScanImage):
         # Arrange
-        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(terms=SurfaceTerms.NONE)
+        # Act
         result = level_map_mutator(scan_image_with_nans)
+        # Assert
         assert np.allclose(result.data, scan_image_with_nans.data, equal_nan=True)
 
     def test_map_level_offset(self, scan_image_with_nans: ScanImage):
         # Arrange
-        y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(terms=SurfaceTerms.OFFSET)
         # Act
         result = level_map_mutator(scan_image_with_nans)
