@@ -59,10 +59,10 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
 
     unique_x = np.unique(np.round(centers[:, 0], decimals=9))
     unique_y = np.unique(np.round(centers[:, 1], decimals=9))
-    min_x = np.min(unique_x)
-    min_y = np.min(unique_y)
-    max_x = np.max(unique_x)
-    max_y = np.max(unique_y)
+    min_x = unique_x[0]
+    min_y = unique_y[0]
+    max_x = unique_x[-1]
+    max_y = unique_y[-1]
     step_x = (max_x - min_x) / (len(unique_x) - 1) if len(unique_x) > 1 else 1.0
     step_y = (max_y - min_y) / (len(unique_y) - 1) if len(unique_y) > 1 else 1.0
 
