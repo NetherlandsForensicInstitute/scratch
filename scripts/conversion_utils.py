@@ -173,17 +173,22 @@ def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
     processed_ref = str(entry.mark_dir_ref / "processed")
     processed_comp = str(entry.mark_dir_comp / "processed")
 
+    metadata = {
+        "metadata_reference": _extract_metadata(entry.mark_dir_ref),
+        "metadata_compared": _extract_metadata(entry.mark_dir_comp),
+    }
     if entry.mark_type.is_striation():
         return {
             "mark_dir_ref": processed_ref,
             "mark_dir_comp": processed_comp,
-            "param": {
-                "metadata_reference": _extract_metadata(entry.mark_dir_ref),
-                "metadata_compared": _extract_metadata(entry.mark_dir_comp),
-            },
+            "param": metadata,
         }
-    # TODO: update with actual CalculateScoreImpression fields
-    return {"mark_dir_ref": processed_ref, "mark_dir_comp": processed_comp}
+    return {
+        "mark_dir_ref": processed_ref,
+        "mark_dir_comp": processed_comp,
+        **metadata,
+        "comparison_params": {},
+    }
 
 
 def _save_result(entry: ComparisonEntry, result: dict[str, Any] | None = None, error: str | None = None) -> None:

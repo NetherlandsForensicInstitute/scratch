@@ -132,14 +132,14 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
     """
 
-    cell_size: tuple[PositiveFloat, PositiveFloat] = (1e-3, 1e-3)
-    minimum_fill_fraction: float = Field(default=0.5, ge=0.0, le=1.0)
-    correlation_threshold: float = Field(default=0.4, ge=-1.0, le=1.0)
-    angle_deviation_threshold: float = Field(default=2.0, gt=0.0)
-    position_threshold: float = Field(default=100e-6, gt=0.0)
+    cell_size: tuple[PositiveFloat, PositiveFloat] = (450e-6, 450e-6)
+    minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
+    correlation_threshold: float = Field(default=0.25, ge=-1.0, le=1.0)
+    angle_deviation_threshold: float = Field(default=6.0, gt=0.0)
+    position_threshold: float = Field(default=75e-6, gt=0.0)
     search_angle_min: float = -180.0
     search_angle_max: float = 180.0
-    search_angle_step: float = Field(default=1.0, gt=0.0)
+    search_angle_step: float = Field(default=5.0, gt=0.0)
 
 
 @dataclass(frozen=False)
