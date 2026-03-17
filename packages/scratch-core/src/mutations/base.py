@@ -52,7 +52,6 @@ High-level Design
 Example
 -------
 
-    from returns.pipeline import pipe
     from numpy import ones, float64
     from mutations import (
         Resample,
@@ -67,7 +66,7 @@ Example
         scale_y=1,
     )
 
-    edit_image_pipeline = pipe(
+    edit_image_pipeline = (
         Resample(factors=Point(2, 2)),
         Mask(mask=np.zeros((5, 5), dtype=bool)),
         LevelMap(
@@ -80,13 +79,13 @@ Example
             regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         ),
     )
-
-    result = edit_image_pipeline(scan_image)
+    for mutation in edit_image_pipeline:
+        scan_image = mutation(scan_image)
 """
 
 from abc import ABC, abstractmethod
+
 from container_models.scan_image import ScanImage
-from returns.result import safe
 
 
 class ImageMutation(ABC):
@@ -94,7 +93,7 @@ class ImageMutation(ABC):
     Represents a single mutation applied to a `ScanImage`.
 
     After one `ImageMutation`, the resulting `ScanImage` must be valid
-    input for another mutation. This enables safe chaining in pipelines.
+    input for another mutation.
 
     Validation or skipping logic (for example: skipping resampling when
     scale factors are `(1, 1)`) can be implemented via `skip_predicate`.
@@ -117,7 +116,6 @@ class ImageMutation(ABC):
         """
         return False
 
-    @safe
     def __call__(self, scan_image: ScanImage) -> ScanImage:
         """
         Callable interface used by pipelines (e.g. `pipe(...)` from

@@ -20,7 +20,6 @@ from pathlib import Path
 import numpy as np
 import requests
 from parsers import load_scan_image, parse_to_x3p
-from returns.unsafe import unsafe_perform_io
 from tqdm import tqdm
 
 from scripts.conversion_utils import ConversionConfig, run_parallel
@@ -39,8 +38,8 @@ logger = logging.getLogger(__name__)
 
 def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
     """Load an X3P from path, parse it, and write the result."""
-    scan = unsafe_perform_io(load_scan_image(input_path).unwrap())
-    x3p = parse_to_x3p(scan).unwrap()
+    scan = load_scan_image(input_path)
+    x3p = parse_to_x3p(scan)
 
     tmp = output_path.with_stem(f".{uuid.uuid4().hex}.tmp")
     try:

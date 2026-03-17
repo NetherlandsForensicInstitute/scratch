@@ -8,7 +8,7 @@ from scipy.constants import micro
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from exceptions import ImageShapeMismatchError
-from mutations.filter import Mask, FilterMedian, FilterNeedles
+from mutations.filter import FilterMedian, FilterNeedles, Mask
 
 
 class TestMask2dArray:
@@ -60,7 +60,7 @@ class TestMask2dArray:
         mask = np.ones((2, 2), dtype=bool)
         masking_mutator = Mask(mask=mask)
         # Act
-        result = masking_mutator(scan_image=scan_image).unwrap()
+        result = masking_mutator(scan_image=scan_image)
         # Assert
         assert np.array_equal(result.data, scan_image.data, equal_nan=True)
         assert (
@@ -74,7 +74,7 @@ class TestMask2dArray:
         # Arrange
         mask = np.zeros((2, 2), dtype=bool)
         masking_mutator = Mask(mask=mask)
-        result = masking_mutator(scan_image=scan_image).unwrap()
+        result = masking_mutator(scan_image=scan_image)
 
         assert np.all(np.isnan(result.data))
         assert "Applying mask to scan_image" in caplog.messages
@@ -109,7 +109,7 @@ class TestMaskAndRemoveNeedles:
 
     def test_basic_functionality_no_needles(self, simple_scan_image: ScanImage):
         """Test that data without needles remains mostly unchanged."""
-        result = FilterNeedles()(simple_scan_image).unwrap()
+        result = FilterNeedles()(simple_scan_image)
 
         # Result should have same shape
         assert result.data.shape == simple_scan_image.data.shape
@@ -155,7 +155,7 @@ class TestMaskAndRemoveNeedles:
         data = np.full((50, 50), np.nan)
         scan_image = ScanImage(data=data, scale_x=micro, scale_y=micro)
 
-        result = FilterNeedles()(scan_image).unwrap()
+        result = FilterNeedles()(scan_image)
 
         # Should return all NaN
         assert np.all(np.isnan(result.data))
@@ -179,7 +179,7 @@ class TestMaskAndRemoveNeedles:
         spike_position = (25, 25)
         simple_scan_image.data[spike_position] = 1000.0
 
-        result = FilterNeedles()(simple_scan_image).unwrap()
+        result = FilterNeedles()(simple_scan_image)
 
         # Result should have correct shape
         assert result.data.shape == simple_scan_image.data.shape
@@ -198,7 +198,7 @@ class TestMaskAndRemoveNeedles:
         scan_image.data[10, 10] = 1000.0
         scan_image.data[40, 40] = -500.0
 
-        result = FilterNeedles()(scan_image).unwrap()
+        result = FilterNeedles()(scan_image)
 
         # Count NaN values (should be minimal, just the outliers)
         nan_count = np.sum(np.isnan(result.data))
@@ -309,7 +309,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
         # Verify output shape matches input
         assert result.data.shape == input_image.shape
         # Verify output is float type
@@ -329,12 +329,12 @@ class TestApplyMedianFilter(unittest.TestCase):
         # Test with even filter_size (should become 5)
         result_even = FilterMedian(filter_size=4)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         # Test with odd filter_size (should stay 5)
         result_odd = FilterMedian(filter_size=5)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         # Both should produce same result since 4 -> 5
         assert result_even.data.shape == input_image.shape
@@ -348,7 +348,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         # With NaN padding, edge pixels use fewer valid values in their neighborhood
         assert result.data.shape == input_image.shape
@@ -366,7 +366,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         # All pixels should be 10.0 since NaN padding is ignored
         assert result.data.shape == input_image.shape
@@ -378,7 +378,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=7)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         assert result.data.shape == input_image.shape
 
@@ -388,7 +388,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=15)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         assert result.data.shape == input_image.shape
 
@@ -398,7 +398,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         assert result.data.shape == (1, 1)
         # With NaN padding, the single pixel should remain unchanged
@@ -410,7 +410,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         assert result.data.shape == input_image.shape
 
@@ -420,7 +420,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         # Output should be all NaN (NaN input + NaN padding = all NaN)
         assert result.data.shape == input_image.shape
@@ -441,7 +441,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         # Center spike should be filtered out
         assert result.data[2, 2] < 10.0  # Should be close to 5.0, not 100.0
@@ -461,7 +461,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         assert result.data.shape == input_image.shape
         # Corner values should be computed from fewer valid neighbors
@@ -482,7 +482,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         assert result.data.shape == input_image.shape
 
@@ -492,7 +492,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         # MATLAB function converts to double at the end
         assert result.data.dtype == np.float64
@@ -503,7 +503,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=5)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         assert result.data.shape == input_image.shape
 
@@ -516,7 +516,7 @@ class TestApplyMedianFilter(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         # Result should still be smooth and monotonic
         assert result.data.shape == input_image.shape
@@ -533,7 +533,7 @@ class TestEdgeCases(unittest.TestCase):
 
         result = FilterMedian(filter_size=11)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         # Should still return same shape
         assert result.data.shape == input_image.shape
@@ -546,6 +546,6 @@ class TestEdgeCases(unittest.TestCase):
 
         result = FilterMedian(filter_size=3)(
             ScanImage(data=input_image, scale_x=1.0, scale_y=1.0)
-        ).unwrap()
+        )
 
         assert result.data.shape == input_image.shape

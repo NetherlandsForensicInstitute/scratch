@@ -3,24 +3,23 @@ name = "scratch-core"
 version = "0.0.1"
 description = "Scratch core libraries"
 authors = [
-  { name = "Netherlands Forensic Institute - CFS R&D Data", email = "cfs_rd_data@nfi.nl" },
-  { name = "Sharlon N. Regales", email = "s.regales@nfi.nl" },
-  { name = "Raymond Houwing", email = "r.houwing@nfi.nl" },
+    { name = "Netherlands Forensic Institute - CFS R&D Data", email = "cfs_rd_data@nfi.nl" },
+    { name = "Sharlon N. Regales", email = "s.regales@nfi.nl" },
+    { name = "Raymond Houwing", email = "r.houwing@nfi.nl" },
 ]
 readme = "README.md"
 
 dependencies = [
-  "lir>=1.4.0",
-  "loguru>=0.7.3",
-  "matplotlib>=3.10.7",
-  "numpy>=2.3.4",
-  "pillow>=12.0.0",
-  "pydantic>=2.12.4",
-  "returns>=0.26.0",
-  "scikit-image>=0.25.2",
-  "scipy>=1.16.3",
-  "surfalize~=0.16.6",
-  "x3p @ git+https://github.com/giacomomarchioro/pyx3p.git#81c0f764cf321e56dc41e9e3c71d14e97d5bc3ae",
+    "lir>=1.4.0",
+    "loguru>=0.7.3",
+    "matplotlib>=3.10.7",
+    "numpy>=2.3.4",
+    "pillow>=12.0.0",
+    "pydantic>=2.12.4",
+    "scikit-image>=0.25.2",
+    "scipy>=1.16.3",
+    "surfalize~=0.16.6",
+    "x3p @ git+https://github.com/giacomomarchioro/pyx3p.git#81c0f764cf321e56dc41e9e3c71d14e97d5bc3ae",
 ]
 
 [tool.ruff.lint.per-file-ignores]

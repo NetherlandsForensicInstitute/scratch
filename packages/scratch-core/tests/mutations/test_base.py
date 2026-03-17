@@ -1,8 +1,8 @@
-from returns.pipeline import is_successful
-from container_models.scan_image import ScanImage
-import pytest
-from mutations.base import ImageMutation
 import numpy as np
+import pytest
+
+from container_models.scan_image import ScanImage
+from mutations.base import ImageMutation
 
 
 class TestBaseMutations:
@@ -34,7 +34,7 @@ class TestBaseMutations:
                 id="apply_on_image",
             ),
             pytest.param(
-                lambda mutation, scan_image: mutation(scan_image).unwrap(),
+                lambda mutation, scan_image: mutation(scan_image),
                 id="call_interface",
             ),
         ],
@@ -49,32 +49,9 @@ class TestBaseMutations:
         assert result.scale_x == updated_variable
         assert result.scale_y == updated_variable
 
-    def test_call_returns_success(self, scan_image: ScanImage):
-        # Arrange
-        mutation = self.FakeMutation(var=2)
-        # Act
-        result = mutation(scan_image)
-        # Assert
-        assert is_successful(result)
-
-    def test_call_wraps_exception_in_failure(
-        self, scan_image: ScanImage, monkeypatch: pytest.MonkeyPatch
-    ):
-        # Arrange
-        def raise_error(_):
-            raise RuntimeError("boom")
-
-        monkeypatch.setattr(self.FakeMutation, "apply_on_image", raise_error)
-        mutation = self.FakeMutation(var=2)
-
-        # Act
-        result = mutation(scan_image)
-        # Assert
-        assert not is_successful(result)
-
     def test_interface_skips_edit_image_with_predicate(self, scan_image: ScanImage):
         mutation = self.FakeMutation(var=3)
         # Act
-        resulting_scan_image = mutation(scan_image=scan_image).unwrap()
+        resulting_scan_image = mutation(scan_image=scan_image)
         # Assert
         assert resulting_scan_image == scan_image, "Mutation should be skipped."

@@ -3,6 +3,7 @@ import pytest
 
 from container_models.scan_image import ScanImage
 from renders import normalize_2d_array
+
 from ..helper_function import assert_nan_mask_preserved
 
 TEST_IMAGE_WIDTH = 10
@@ -25,9 +26,7 @@ def test_bigger_numbers(start_value: int, slope: float) -> None:
     max_val = 255
     min_val = 20
     # Act
-    normalized_image = normalize_2d_array(
-        image, scale_max=max_val, scale_min=min_val
-    ).unwrap()
+    normalized_image = normalize_2d_array(image, scale_max=max_val, scale_min=min_val)
 
     # Assert
     assert normalized_image.max() <= max_val
@@ -47,7 +46,7 @@ def test_already_normalized_image() -> None:
     # Act
     normalized = normalize_2d_array(
         array_to_normalize=image, scale_max=max_value, scale_min=min_val
-    ).unwrap()
+    )
 
     # Assert
     assert np.all(normalized >= min_val)
@@ -58,7 +57,7 @@ def test_already_normalized_image() -> None:
 
 
 def test_nan_mask_preserved(image_with_nan_background: ScanImage):
-    result = normalize_2d_array(image_with_nan_background.data).unwrap()
+    result = normalize_2d_array(image_with_nan_background.data)
     assert_nan_mask_preserved(image_with_nan_background.data, result)
 
 
@@ -70,7 +69,7 @@ def test_constant_valid_region_does_not_produce_nan(
     constant_data = image_with_nan_background.data.copy()
     constant_data[~np.isnan(constant_data)] = 42.0
 
-    result = normalize_2d_array(constant_data).unwrap()
+    result = normalize_2d_array(constant_data)
 
     valid_mask = ~np.isnan(constant_data)
     assert np.all(np.isfinite(result[valid_mask])), (

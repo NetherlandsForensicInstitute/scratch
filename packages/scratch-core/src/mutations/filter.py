@@ -132,7 +132,7 @@ class FilterNeedles(ImageMutation):
             ]
 
         for mutation in filter_median_pipeline:
-            scan_image = mutation(scan_image).unwrap()
+            scan_image = mutation(scan_image)
         # Use slicing since the shape may deviate slightly after down- and upsampling
         return original_scan_image.data - scan_image.data
 
@@ -152,7 +152,7 @@ class FilterNeedles(ImageMutation):
         needles_mask = np.abs(residual_image) > threshold
 
         logger.info("Removing needles from scan image with a mask.")
-        return Mask(mask=~needles_mask)(scan_image).unwrap()
+        return Mask(mask=~needles_mask)(scan_image)
 
 
 class Mask(ImageMutation):
