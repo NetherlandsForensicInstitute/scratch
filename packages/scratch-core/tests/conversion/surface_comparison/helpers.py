@@ -4,6 +4,7 @@ Test helpers for cmc_classification tests.
 
 import numpy as np
 
+from container_models.base import FloatArray2D
 from conversion.surface_comparison.models import Cell, CellMetaData, ComparisonParams
 
 # Placeholder cell data: a minimal 2x2 height map, unused by the classifier.
@@ -17,14 +18,15 @@ _DEFAULT_META_DATA = CellMetaData(
 )
 
 
-def _reflect_y_axis(coordinates: np.ndarray) -> np.ndarray:
+def _reflect_y_axis(coordinates: FloatArray2D) -> np.ndarray:
     """
-    Reflect y-axis by multiplying data with reflection matrix.
+    Reflect y-axis of coordinates.
+
+    :param coordinates: coordinate array, rows are coordinates (2 columns)
     """
 
-    reflection_matrix = np.array([[1, 0], [0, -1]]).transpose()
-
-    return coordinates @ reflection_matrix
+    coordinates[:, 1] *= -1
+    return coordinates
 
 
 def build_cells(inputs: dict) -> list[Cell]:
@@ -34,12 +36,15 @@ def build_cells(inputs: dict) -> list[Cell]:
     The angle stored on each Cell is the delta ``angles_comparison - angles_reference``.
     In all current test cases ``angles_reference`` is zero, so the delta equals
     ``angles_comparison`` directly.
-    Reflect y-coordinates since matlab uses mathematical coordinates and our pipeline uses image_coordinates
+    The y-coordinates are reflected since MATLAB uses mathematical coordinates while our pipeline uses image coordinates.
     """
     centers_reference = np.array(inputs["centers_reference"])
     centers_comparison = np.array(inputs["centers_comparison"])
 
-    # also works when ndim = 1
+    if centers_reference.ndim == 1:
+        centers_reference = centers_reference.reshape(1, -1)
+        centers_comparison = centers_comparison.reshape(1, -1)
+
     centers_reference = _reflect_y_axis(centers_reference)
     centers_comparison = _reflect_y_axis(centers_comparison)
 
@@ -50,10 +55,6 @@ def build_cells(inputs: dict) -> list[Cell]:
     correlation_scores = np.atleast_1d(
         np.array(inputs["correlation_scores"], dtype=float)
     )
-
-    if centers_reference.ndim == 1:
-        centers_reference = centers_reference.reshape(1, -1)
-        centers_comparison = centers_comparison.reshape(1, -1)
 
     return [
         Cell(
@@ -82,7 +83,8 @@ def build_test_inputs(
     """
     Build the full set of inputs for ``classify_congruent_cells`` from a test-case
     input dict.
-    Reflect y-coordinate of rotation_center since matlab uses 'mathematical coordinates and our pipeline uses image_coordinates
+    The y-coordinate of the rotation center is reflected over the x-axis since MATLAB uses mathematical coordinates while our pipeline uses image coordinates
+
     Returns ``(cells, params, rotation_center)``.
     """
     cells = build_cells(inputs)
@@ -94,6 +96,7 @@ def build_test_inputs(
     )
 
     rotation_center_list = inputs["rotation_center"]
+    # Reflect the rotation_center about the y-axis in order to comply with to image_coordinates
     rotation_center = (float(rotation_center_list[0]), -float(rotation_center_list[1]))
 
     return cells, params, rotation_center

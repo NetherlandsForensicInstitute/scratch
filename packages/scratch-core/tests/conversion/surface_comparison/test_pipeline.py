@@ -145,6 +145,8 @@ def test_coarse_registration_finds_angle(
         params=params,
     )
 
+    # TODO implement run fine_registration when implmemented
+
     classification = classification_function(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
@@ -157,7 +159,5 @@ def test_coarse_registration_finds_angle(
         )
 
     # Assert
-    if classification.cells:
-        assert all(cell.is_congruent for cell in classification.cells)
-
+    assert all(cell.is_congruent for cell in classification.cells)
     assert all(c.angle_deg == pytest.approx(angle) for c in cells)

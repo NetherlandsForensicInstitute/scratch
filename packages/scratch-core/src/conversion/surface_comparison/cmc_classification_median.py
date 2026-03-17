@@ -171,8 +171,6 @@ def _get_median_translation(
     Rotate reference cell centers by the median angle, then compute the
     median positional offset between the rotated reference and comparison centers.
 
-    Y-axis is reflected since we need coordinate system to change from 'image-coordinates' to 'mathematical coordinate-system'
-
     Outlier cells are excluded from the median by NaN-masking their centers before aggregation.
     Every cell's ``meta_data.position_error`` is updated with its signed [x, y] deviation
     from the median translation.
@@ -188,7 +186,7 @@ def _get_median_translation(
     centers_reference[outliers] = np.nan
     centers_comparison[outliers] = np.nan
 
-    # rotate by -angle since y-axis increases downwards for pixel coordinates
+    # rotate by -angle to match the `skimage.transform.rotate` convention that rotate counter-clockwise with respect to image coordinates (where the rows increase downwards) .
     expected_positions_in_comparison_frame = rotate_points(
         points=centers_reference, angle=-angle, center=rotation_center
     )
