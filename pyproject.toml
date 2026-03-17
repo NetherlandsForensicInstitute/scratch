@@ -2,11 +2,6 @@
 name = "scratch"
 version = "0.0.1"
 description = "Scratch"
-authors = [
-  { name = "Netherlands Forensic Institute - CFS R&D Data", email = "cfs_rd_data@nfi.nl" },
-  { name = "Sharlon N. Regales", email = "s.regales@nfi.nl" },
-  { name = "Raymond Houwing", email = "r.houwing@nfi.nl" },
-]
 readme = "README.md"
 classifiers = [
   'Development Status :: 4 - Beta',
