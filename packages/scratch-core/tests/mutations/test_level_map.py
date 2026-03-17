@@ -1,9 +1,11 @@
 from pathlib import Path
-from mutations.filter import LevelMap
-import pytest
+
 import numpy as np
+import pytest
+
 from container_models.scan_image import ScanImage
 from conversion.leveling.data_types import SurfaceTerms
+from mutations.filter import LevelMap
 
 
 @pytest.mark.integration
@@ -36,7 +38,7 @@ class TestLevelMapIntegration:
         y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(terms=terms)
         # Act
-        result = level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(scan_image_with_nans)
         # Assert
         assert np.allclose(result.data, verified, equal_nan=True)
 
@@ -52,7 +54,7 @@ class TestLevelMapIntegration:
         y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(terms=SurfaceTerms.OFFSET)
         # Act
-        result = level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(scan_image_with_nans)
         # Assert
         assert np.isclose(np.nanmean(result.data), 0.0)
         assert np.allclose(

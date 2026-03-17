@@ -1,8 +1,8 @@
-from mutations.spatial import Resample
 import numpy as np
 import pytest
 
 from container_models.scan_image import ScanImage
+from mutations.spatial import Resample
 
 
 @pytest.fixture
@@ -75,7 +75,7 @@ class TestResampleScanImage:
         )
         resampling = Resample(target_shape=expected_resampled_output_shape)
         # Act
-        result = resampling(simple_scan_image).unwrap()
+        result = resampling(simple_scan_image)
         # Assert
         assert result.data.shape[0] == round(expected_shape[0], 0)
         assert result.data.shape[1] == round(expected_shape[1], 0)
@@ -108,7 +108,7 @@ class TestResampleScanImage:
         resampling = Resample(target_shape=expected_resampled_output_shape)
 
         # Act
-        result = resampling(simple_scan_image).unwrap()
+        result = resampling(simple_scan_image)
 
         # Assert
         assert result.scale_x == original_scale_x * x_factor
@@ -126,7 +126,7 @@ class TestResampleScanImage:
         resampling = Resample(target_shape=expected_resampled_output_shape)
 
         # Act
-        result = resampling(simple_scan_image).unwrap()
+        result = resampling(simple_scan_image)
 
         # Assert
         assert result.data.dtype == original_dtype
@@ -149,7 +149,7 @@ class TestResampleScanImage:
         )
         resampling = Resample(target_shape=expected_resampled_output_shape)
         # Act
-        result = resampling(scan_image).unwrap()
+        result = resampling(scan_image)
 
         # Assert
         assert result.data.shape == (5, 5)

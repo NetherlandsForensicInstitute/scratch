@@ -40,7 +40,7 @@ def _scan_image_to_mark(mask: BinaryMask, bounding_box: BoundingBox | None, scan
 
     for image_mutation in pipeline:
         logger.info(f"mutating scan_image with : {image_mutation.__class__.__name__}")
-        scan_image = image_mutation(scan_image).unwrap()
+        scan_image = image_mutation(scan_image)
     return scan_image
 
 
@@ -142,5 +142,5 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: B
     logger.debug(f"mutations to be applied on the scan image:{[item.__class__.__name__ for item in pipeline]}")
     for mutation in pipeline:
         logger.debug(f"Mutating the image with: {mutation.__class__.__name__}")
-        scan_image = mutation(scan_image).unwrap()
+        scan_image = mutation(scan_image)
     return scan_image
