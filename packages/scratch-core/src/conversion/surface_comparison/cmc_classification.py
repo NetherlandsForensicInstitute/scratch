@@ -187,15 +187,12 @@ def _get_consensus_translation(
     outliers = np.array([c.meta_data.is_outlier for c in cells])
     centers_reference[outliers] = np.nan
     centers_comparison[outliers] = np.nan
-    centers_reference = _reflect_y_axis(centers_reference)
-    rotation_center_np = _reflect_y_axis(np.array(rotation_center))
-    rotation_center = (float(rotation_center_np[0]), float(rotation_center_np[1]))
+
+    # rotate by -angle since y-axis increases downwards for pixel coordinates
     expected_positions_in_comparison_frame = rotate_points(
-        points=centers_reference, angle=angle, center=rotation_center
+        points=centers_reference, angle=-angle, center=rotation_center
     )
-    expected_positions_in_comparison_frame = _reflect_y_axis(
-        expected_positions_in_comparison_frame
-    )
+
     # Compute residuals with respect to comparison.
     position_residuals = centers_comparison - expected_positions_in_comparison_frame
     consensus_translation = np.nanmedian(position_residuals, axis=0)
@@ -209,16 +206,6 @@ def _get_consensus_translation(
         )
 
     return float(consensus_translation[0]), float(consensus_translation[1])
-
-
-def _reflect_y_axis(coordinates: np.ndarray) -> np.ndarray:
-    """
-    Reflect y-axis by multiplying data with reflection matrix.
-    """
-
-    reflection_matrix = np.array([[1, 0], [0, -1]]).transpose()
-
-    return coordinates @ reflection_matrix
 
 
 def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
@@ -239,7 +226,7 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
         :func:`_get_consensus_angle` and :func:`_get_consensus_translation`.
     :param params: Algorithm parameters providing the classification thresholds.
     """
-    for i, cell in enumerate(cells):
+    for cell in cells:
         congruent = bool(
             cell.best_score >= params.correlation_threshold
             and not cell.meta_data.is_outlier

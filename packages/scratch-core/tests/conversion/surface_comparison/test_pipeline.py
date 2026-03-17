@@ -123,9 +123,6 @@ def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
 
-    if classification.cells:
-        assert (cell.is_congruent for cell in classification.cells)
-
     if plot:
         plot_cell_registration_results(
             reference_image=reference_image,
@@ -134,4 +131,7 @@ def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
         )
 
     # Assert
+    if classification.cells:
+        assert all(cell.is_congruent for cell in classification.cells)
+
     assert all(c.angle_deg == pytest.approx(angle) for c in cells)
