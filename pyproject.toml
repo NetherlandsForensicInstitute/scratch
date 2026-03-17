@@ -21,12 +21,12 @@ classifiers = [
 requires-python = ">=3.13"
 dependencies = [
   "fastapi[standard]>=0.119.0",
+  "lir>=1.4.0",
   "loguru>=0.7.3",
   "pydantic>=2.12.4",
   "pydantic-settings>=2.0.0",
   "uvicorn>=0.38.0",
   "scratch-core",
-  "lir>=1.4.0",
   "returns>=0.26.0",
   "numpy>=2.3.5",
   "scipy>=1.16.3",
