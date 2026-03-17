@@ -5,6 +5,7 @@ from container_models.base import VectorField
 from container_models.light_source import LightSource
 from container_models.scan_image import ScanImage
 from renders import compute_surface_normals
+
 from ..helper_function import NoScaleScanImage
 
 TEST_IMAGE_SIZE = 10
@@ -59,4 +60,4 @@ def image_with_nan_background() -> ScanImage:
 
 @pytest.fixture
 def normals_with_nan_background(image_with_nan_background) -> VectorField:
-    return compute_surface_normals(image_with_nan_background).unwrap()
+    return compute_surface_normals(image_with_nan_background)
