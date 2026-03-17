@@ -30,13 +30,9 @@ def match_cells(
     The rotation that yields the highest unmasked score will be stored in each cell's :class:`GridSearchParams`.
 
     The comparison image is padded by a full cell in each direction before the search so that cells that
-    lie near the image boundary can still be matched. The padding offset is subtracted back when the best
-    position is recorded, so all stored coordinates are in the original (unpadded) pixel space.
-
-    The rotation uses ``resize=True``, so no content is clipped for any angle or aspect ratio. Because
-    ``resize=True`` shifts the rotation center in the output image, the original center is recomputed
-    analytically and is used to map the matched coordinates back to the original (unpadded) comparison
-    image space.
+    lie near the image boundary can still be matched. After unrotating the cell center, the padding offset
+    is subtracted back when the best position is recorded, so all stored coordinates are in the original
+    (unpadded) pixel space.
 
     :param grid_cells: Reference grid cells to register; all cells must have the same size.
     :param comparison_image: Comparison scan image to search over.
@@ -49,14 +45,15 @@ def match_cells(
     fill_value_comparison = float(np.nanmean(comparison_image.data))
     pixel_size = comparison_image.scale_x  # Assumes isotropic image
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
-    # Pad by one full cell on each side so that reference cells near the image
-    # boundary always have a valid search window in the comparison image.
-    pad_width, pad_height = cell_width, cell_height
+    pad_width, pad_height = cell_width, cell_height  # Set pad size to cell size
+
     comparison_data = pad_image_array(
         comparison_image.data, pad_width=pad_width, pad_height=pad_height
     )
-    padded_width, padded_height = comparison_data.shape[1], comparison_data.shape[0]
-    padded_center = (padded_width / 2, padded_height / 2)
+    padded_center_x, padded_center_y = (
+        (comparison_data.shape[1] - 1) / 2,
+        (comparison_data.shape[0] - 1) / 2,
+    )
 
     angles = np.arange(
         params.search_angle_min,
@@ -96,24 +93,24 @@ def match_cells(
                 score_map=score_map, fill_fraction_mask=fill_fraction_mask
             )
             if score > grid_cell.grid_search_params.score:
-                # With resize=True, the input center maps to a shifted pixel in the output.
-                # Compute that shift so `_unrotate_point` can invert the transform correctly.
-                rotation_center = _compute_rotation_center(
-                    padded_size=(padded_width, padded_height), angle=angle
-                )
+                # Compute the center coordinates of the cell on the (original) unrotated image
                 cell_center = (x + cell_width / 2, y + cell_height / 2)
+                rotated_center_x, rotated_center_y = (
+                    (rotated.shape[1] - 1) / 2,  # type: ignore
+                    (rotated.shape[0] - 1) / 2,
+                )
                 original_center_x, original_center_y = _unrotate_point(
                     rotated_point=cell_center,
-                    angle=angle,
-                    pad_size=(pad_width, pad_height),
-                    padded_center=padded_center,
-                    rotation_center=rotation_center,
+                    original_image_center=(padded_center_x, padded_center_y),
+                    rotated_image_center=(rotated_center_x, rotated_center_y),
+                    angle_deg=angle,
                 )
+                # Update parameters
                 grid_cell.grid_search_params.update(
                     score=score,
                     angle=angle,
-                    center_x=original_center_x,
-                    center_y=original_center_y,
+                    center_x=original_center_x - pad_width,  # Undo the padding
+                    center_y=original_center_y - pad_height,  # Undo the padding
                 )
 
     return [
@@ -122,65 +119,31 @@ def match_cells(
     ]
 
 
-def _compute_rotation_center(
-    padded_size: tuple[int, int], angle: float
-) -> tuple[float, float]:
-    """
-    Compute where the padded image center maps to in the ``resize=True`` rotated output.
-
-    The inner rotation uses ``resize=True`` so that no content is clipped regardless of the
-    image's aspect ratio or the magnitude of the rotation angle.  Because ``resize=True`` shifts
-    the rotation center in the output image, we have to compute that shift analytically and pass
-    it to :func:`_unrotate_point`, which maps each match coordinate back to the original (unpadded)
-    comparison image space.
-
-    :param padded_size: ``(width, height)`` of the padded input image.
-    :param angle: Search angle in degrees.
-    :returns: Pixel coordinates (x, y) of the rotation center in the output.
-    """
-    width, height = padded_size
-    center_x, center_y = width / 2, height / 2
-    corners = np.array([[0, 0], [width, 0], [width, height], [0, height]], dtype=float)
-    rotated_corners = rotate_points(
-        points=corners, angle=np.radians(angle), center=(center_x, center_y)
-    )
-    min_x = rotated_corners[:, 0].min()
-    min_y = rotated_corners[:, 1].min()
-    return center_x - min_x, center_y - min_y
-
-
 def _unrotate_point(
     rotated_point: tuple[float, float],
-    angle: float,
-    pad_size: tuple[int, int],
-    padded_center: tuple[float, float],
-    rotation_center: tuple[float, float],
+    original_image_center: tuple[float, float],
+    rotated_image_center: tuple[float, float],
+    angle_deg: float,
 ) -> tuple[float, float]:
     """
     Map a match coordinate from the rotated output back to the original comparison image.
 
-    :param rotated_point: ``(x, y)`` in the rotated output image.
-    :param angle: Search angle in degrees (same sign convention as the sweep).
-    :param pad_size: ``(width, height)`` of the padding size.
-        This will be subtracted to go from padded → comparison space.
-    :param padded_center: ``(x, y)`` coordinates denoting the center of the padded input image.
-    :param rotation_center: The (x, y) coordinates of the rotation center.
-    :returns: The pixel coordinates ``(x, y)`` of the center in the original (unpadded) comparison image.
+    :param rotated_point: The (x, y) coordinates of the point in the rotated image.
+    :param original_image_center: The center (x, y) coordinates of the original unrotated image.
+    :param rotated_image_center: The center (x, y) coordinates  of the rotated image.
+    :param angle_deg: The rotation angle in degrees for the rotated point.
     """
-    center_padded_x, center_padded_y = padded_center
-    pad_width, pad_height = pad_size
-
-    # Rotate the point in the opposite direction to undo the rotation.
-    unrotated_x, unrotated_y = rotate_points(
-        points=np.array([rotated_point]),
-        center=rotation_center,
-        angle=np.radians(-angle),
+    x_center, y_center = original_image_center
+    x_center_rotated, y_center_rotated = rotated_image_center
+    x_rotated, y_rotated = rotated_point
+    # Shift the coordinate relative to the center of the rotated image
+    dx, dy = x_rotated - x_center_rotated, y_rotated - y_center_rotated
+    # Unrotate vector
+    x, y = rotate_points(
+        points=np.array([(dx, dy)]), center=(0, 0), angle=-np.radians(angle_deg)
     )[0]
-    # The unrotated point is relative to cx_out/cy_out; shift to padded image space
-    x_padded = unrotated_x + (center_padded_x - rotation_center[0])
-    y_padded = unrotated_y + (center_padded_y - rotation_center[1])
-    # Remove padding to recover comparison image coordinates
-    return x_padded - pad_width, y_padded - pad_height
+    # Shift the coordinates relative to the top-left of the original image.
+    return x_center + x, y_center + y
 
 
 def _get_fill_fraction_map(
