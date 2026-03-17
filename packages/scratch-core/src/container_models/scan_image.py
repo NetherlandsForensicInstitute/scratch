@@ -1,7 +1,12 @@
 from functools import cached_property
+from pathlib import Path
+from typing import Self
 
 import numpy as np
 from pydantic import Field
+from scipy.constants import micro
+
+from parsers.loaders import _load_surface
 from .base import ConfigBaseModel, BinaryMask, FloatArray1D, DepthData
 
 
@@ -47,3 +52,22 @@ class ScanImage(ConfigBaseModel):
         """Get the image center in meters."""
         # TODO: Can we remove this?
         return self.width / 2 * self.scale_x, self.height / 2 * self.scale_y
+
+    @classmethod
+    def from_file(cls, scan_file: Path) -> Self:
+        """
+        Load a scan image from a file. Parsed values will be converted to meters (m).
+        :param scan_file: The path to the file containing the scanned image data.
+        :returns: An instance of `ScanImage`.
+        """
+        surface = _load_surface(scan_file)
+        data = np.asarray(surface.data, dtype=np.float64) * micro
+        step_x = surface.step_x * micro
+        step_y = surface.step_y * micro
+
+        return cls(
+            data=data,
+            scale_x=step_x,
+            scale_y=step_y,
+            meta_data=surface.metadata,
+        )

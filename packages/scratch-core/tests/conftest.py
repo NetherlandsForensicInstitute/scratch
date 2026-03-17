@@ -11,7 +11,6 @@ from container_models.base import BinaryMask, DepthData
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.profile_correlator import Profile
-from parsers.loaders import load_scan_image
 
 from .conversion.helper_functions import make_mark
 
@@ -66,7 +65,7 @@ def scan_image(scan_image_array: DepthData) -> ScanImage:
 @pytest.fixture(scope="session")
 def scan_image_replica(scans_dir: Path) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return load_scan_image(
+    return ScanImage.from_file(
         scans_dir / "Klein_non_replica_mode.al3d",
     )
 

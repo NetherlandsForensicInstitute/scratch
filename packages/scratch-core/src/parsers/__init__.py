@@ -35,14 +35,10 @@ Notes
 - Custom file format support can be added via surfalize FileHandler registration
 """
 
-from .loaders import load_scan_image, make_isotropic, subsample_scan_image
 from .x3p import X3PMetaData, parse_to_x3p, save_x3p
 
 __all__ = (
-    "load_scan_image",
     "parse_to_x3p",
     "save_x3p",
-    "subsample_scan_image",
-    "make_isotropic",
     "X3PMetaData",
 )
