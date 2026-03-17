@@ -1,26 +1,7 @@
-from pathlib import Path
-
 import numpy as np
-from PIL.Image import Image, fromarray
 
-from container_models.base import FloatArray, FloatArray2D, ImageRGBA
+from container_models.base import FloatArray
 from container_models.scan_image import ScanImage
-
-
-def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
-    """
-    Convert a 2D grayscale array to an 8-bit RGBA array.
-
-    The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
-    NaN values will be converted to black pixels with 100% transparency.
-
-    :param scan_data: The grayscale image data to be converted to an 8-bit RGBA image.
-    :returns: Array with the image data in 8-bit RGBA format.
-    """
-    gray_uint8 = np.nan_to_num(scan_data, nan=0.0).astype(np.uint8)
-    rgba = np.repeat(gray_uint8[..., np.newaxis], 4, axis=-1)
-    rgba[..., 3] = (~np.isnan(scan_data)).astype(np.uint8) * 255
-    return rgba
 
 
 def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArray:
@@ -69,16 +50,3 @@ def get_scan_image_for_display(
         scale_x=scan_image.scale_x,
         scale_y=scan_image.scale_y,
     )
-
-
-def scan_to_image(scan_image: ScanImage) -> Image:
-    return fromarray(grayscale_to_rgba(scan_data=scan_image.data))
-
-
-def grayscale_to_image(grayscale: FloatArray2D) -> Image:
-    return fromarray(grayscale_to_rgba(scan_data=grayscale))
-
-
-def save_image(image: Image, output_path: Path) -> Path:
-    image.save(output_path)
-    return output_path

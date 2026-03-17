@@ -11,9 +11,6 @@ from renders import (
     apply_multiple_lights,
     compute_surface_normals,
     get_scan_image_for_display,
-    grayscale_to_image,
-    save_image,
-    scan_to_image,
 )
 from renders.normalizations import normalize_2d_array
 
@@ -81,9 +78,10 @@ def surface_map_pipeline(  # noqa
         light_sources=light_sources,
         observer=observer,
     )
+    # TODO: Conversion should be made inside a ImageMutation. Then we can call `scan_image.save_image`
     scan_image = normalize_2d_array(scan_image)
-    scan_image = grayscale_to_image(scan_image)
-    return save_image(scan_image, output_path=output_path)
+    parsed_scan.data = scan_image
+    return parsed_scan.export_to_png(output_path=output_path)
 
 
 def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
@@ -94,5 +92,5 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     :param output_path: The file path where the preview image will be saved.
     :return: The path to the saved preview image file.
     """
-    scan_image = scan_to_image(get_scan_image_for_display(parsed_scan))
-    return save_image(scan_image, output_path=output_path)
+    scan_image = get_scan_image_for_display(parsed_scan)
+    return scan_image.export_to_png(output_path=output_path)

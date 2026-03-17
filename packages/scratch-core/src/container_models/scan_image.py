@@ -3,13 +3,14 @@ from pathlib import Path
 from typing import Self
 
 import numpy as np
+from PIL.Image import Image, fromarray
 from pydantic import Field
 from scipy.constants import micro
 
 from parsers import convert_to_x3p, save_x3p
 from parsers.loaders import _load_surface
 
-from .base import BinaryMask, ConfigBaseModel, DepthData, FloatArray1D
+from .base import BinaryMask, ConfigBaseModel, DepthData, FloatArray1D,    FloatArray2D,ImageRGBA
 
 
 class ScanImage(ConfigBaseModel):
@@ -82,3 +83,34 @@ class ScanImage(ConfigBaseModel):
         :param output_path: The file path where the X3P file will be saved.
         """
         save_x3p(convert_to_x3p(self), output_path=output_path)
+
+    @property
+    def _image(self) -> Image:
+        """Get a rgba image from the scan data."""
+        return fromarray(grayscale_to_rgba(scan_data=self.data))
+
+    def export_to_png(self, output_path: Path) -> Path:
+        """
+        Convert ScanImage data to an Image and save it to the given output_path.
+
+        :param output_path: the given path to save the scan data. this expects to be an 'png'.
+        :return: the output path to where the image is saved.
+        """
+        self._image.save(output_path)
+        return output_path
+
+
+def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
+    """
+    Convert a 2D grayscale array to an 8-bit RGBA array.
+
+    The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
+    NaN values will be converted to black pixels with 100% transparency.
+
+    :param scan_data: The grayscale image data to be converted to an 8-bit RGBA image.
+    :returns: Array with the image data in 8-bit RGBA format.
+    """
+    gray_uint8 = np.nan_to_num(scan_data, nan=0.0).astype(np.uint8)
+    rgba = np.repeat(gray_uint8[..., np.newaxis], 4, axis=-1)
+    rgba[..., 3] = (~np.isnan(scan_data)).astype(np.uint8) * 255
+    return rgba
