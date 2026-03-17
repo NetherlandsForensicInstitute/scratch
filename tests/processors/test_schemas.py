@@ -1,13 +1,13 @@
 from pathlib import Path
 
 import pytest
+from conversion.surface_comparison.models import Cell
 from pydantic import ValidationError
 
 from processors.schemas import (
     CalculateLR,
     CalculateLRImpression,
     CalculateLRStriation,
-    ImpressionLRParameters,
     MarkDirectories,
 )
 
@@ -15,8 +15,9 @@ from processors.schemas import (
 class TestMarkDirectories:
     """Tests for the MarkDirectories schema."""
 
-    def test_should_accept_valid_directories(self, mark_dir_ref: Path, mark_dir_comp: Path) -> None:
+    def test_should_accept_valid_directories(self, mark_dirs: tuple[Path, Path]) -> None:
         """Valid existing directories are accepted."""
+        mark_dir_ref, mark_dir_comp = mark_dirs
         schema = MarkDirectories(mark_dir_ref=mark_dir_ref, mark_dir_comp=mark_dir_comp)
         assert schema.mark_dir_ref == mark_dir_ref
         assert schema.mark_dir_comp == mark_dir_comp
@@ -24,9 +25,10 @@ class TestMarkDirectories:
     @pytest.mark.parametrize("field", ["mark_dir_ref", "mark_dir_comp"])
     @pytest.mark.parametrize("invalid_path", [Path() / "nonexistent", Path(__file__)])
     def test_should_reject_invalid_directory_path(
-        self, field: str, invalid_path: Path, mark_dir_ref: Path, mark_dir_comp: Path
+        self, field: str, invalid_path: Path, mark_dirs: tuple[Path, Path]
     ) -> None:
         """Non-existent paths and file paths raise ValidationError."""
+        mark_dir_ref, mark_dir_comp = mark_dirs
         fields = {"mark_dir_ref": mark_dir_ref, "mark_dir_comp": mark_dir_comp} | {field: invalid_path}
         with pytest.raises(ValidationError):
             MarkDirectories.model_validate(fields)
@@ -36,16 +38,17 @@ class TestCalculateLR:
     """Tests for the CalculateLR schema."""
 
     def test_should_accept_valid_input(
-        self, mark_dir_ref: Path, mark_dir_comp: Path, lr_system_file: Path, base_lr_kwargs: dict
+        self, mark_dirs: tuple[Path, Path], lr_system_path: Path, base_kwargs: dict
     ) -> None:
         """Valid directories and lr_system_path file are accepted."""
+        mark_dir_ref, mark_dir_comp = mark_dirs
         schema = CalculateLR(
             mark_dir_ref=mark_dir_ref,
             mark_dir_comp=mark_dir_comp,
-            lr_system_path=lr_system_file,
-            **base_lr_kwargs,
+            lr_system_path=lr_system_path,
+            **base_kwargs,
         )
-        assert schema.lr_system_path == lr_system_file
+        assert schema.lr_system_path == lr_system_path
 
     @pytest.mark.parametrize(
         "invalid_lr_system",
@@ -55,24 +58,26 @@ class TestCalculateLR:
         ],
     )
     def test_should_reject_invalid_lr_system_path(
-        self, mark_dir_ref: Path, mark_dir_comp: Path, invalid_lr_system: Path, base_lr_kwargs: dict
+        self, mark_dirs: tuple[Path, Path], invalid_lr_system: Path, base_kwargs: dict
     ) -> None:
         """Non-existent path and directory path for lr_system_path raise ValidationError."""
+        mark_dir_ref, mark_dir_comp = mark_dirs
         with pytest.raises(ValidationError):
             CalculateLR(
                 mark_dir_ref=mark_dir_ref,
                 mark_dir_comp=mark_dir_comp,
                 lr_system_path=invalid_lr_system,
-                **base_lr_kwargs,
+                **base_kwargs,
             )
 
     @pytest.mark.parametrize("field", ["mark_dir_ref", "mark_dir_comp"])
     @pytest.mark.parametrize("invalid_path", [Path() / "nonexistent", Path(__file__)])
     def test_should_reject_invalid_directory_path(
-        self, field: str, invalid_path: Path, mark_dir_ref: Path, mark_dir_comp: Path, lr_system_file: Path
+        self, field: str, invalid_path: Path, mark_dirs: tuple[Path, Path], lr_system_path: Path
     ) -> None:
         """Non-existent paths and file paths for mark directories raise ValidationError."""
-        fields = {"mark_dir_ref": mark_dir_ref, "mark_dir_comp": mark_dir_comp, "lr_system_path": lr_system_file} | {
+        mark_dir_ref, mark_dir_comp = mark_dirs
+        fields = {"mark_dir_ref": mark_dir_ref, "mark_dir_comp": mark_dir_comp, "lr_system_path": lr_system_path} | {
             field: invalid_path
         }
         with pytest.raises(ValidationError):
@@ -85,7 +90,7 @@ class TestCalculateLRImpression:
     def test_should_accept_valid_input(self, impression_kwargs: dict) -> None:
         """Valid input including score, n_cells, and impression LR parameters is accepted."""
         schema = CalculateLRImpression(**impression_kwargs)
-        assert isinstance(schema.param, ImpressionLRParameters)
+        assert isinstance(schema.cells[0], Cell)
 
     @pytest.mark.parametrize("score", [0, 1, 100])
     def test_should_accept_score_within_n_cells(self, impression_kwargs: dict, score: int) -> None:
@@ -118,7 +123,7 @@ class TestCalculateLRImpression:
 
     def test_should_reject_missing_param(self, impression_kwargs: dict) -> None:
         """Omitting the param field raises ValidationError."""
-        kwargs = {k: v for k, v in impression_kwargs.items() if k != "param"}
+        kwargs = {k: v for k, v in impression_kwargs.items() if k != "cells"}
         with pytest.raises(ValidationError):
             CalculateLRImpression(**kwargs)  # type: ignore
 
