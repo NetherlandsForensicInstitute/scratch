@@ -55,7 +55,7 @@ def classify_congruent_cells_consensus(
         np.isinf(max_distance) and max_abs_angle_distance == 180
     ):
         # Then all filtered cells are inliers
-        best_inliers_idx = range(n_filtered_cells)
+        best_inliers_idx = list(range(n_filtered_cells))
 
     else:
         for idx_1 in range(n_filtered_cells):
@@ -209,17 +209,16 @@ def _get_cmc_consensus(
     """
     cells_for_least_squares = [cells[idx] for idx in included_idx]
     (
-        consensus_translation,
+        _,
         consensus_rotation_rad,
         reference_rotation_center,
         comparison_rotation_center,
     ) = _find_consensus_parameters(cells_for_least_squares)
     cell_distances, cell_angle_distances = _get_distances(
         cells,
-        consensus_translation,
         consensus_rotation_rad,
-        rotation_center=reference_rotation_center,
-        comparison_origin=comparison_rotation_center,
+        rotation_center_reference=reference_rotation_center,
+        rotation_center_comparison=comparison_rotation_center,
     )
     return cell_distances, cell_angle_distances
 
@@ -241,7 +240,7 @@ def _find_consensus_parameters(
     One last thing: since R is the collection of rotations and reflections, and physically we do not want reflections, we constrain the solution to reflections only be solving the above eigenvalue problem and, in case of reflection (determinant(R) = -1), reflecting the last axis (with the smallest eigenvalue, therefore yielding the minimal Frobenius norm given this contraint).
 
     :param cells: cells whose (center_reference, center_comparison) pairs are used for fitting
-    :returns: consensus_translation = 'comparison' - 'rotated_reference' (x, y) in meters; consensus_rotation_rad of reference (float) in radians, rotation_center_reference, rotation_center_comparison
+    :returns: consensus_translation, consensus_rotation_rad of reference (float) in radians, rotation_center_reference, rotation_center_comparison
     """
     if len(cells) == 0:
         raise ValueError("No cells found")
@@ -287,17 +286,11 @@ def _find_consensus_parameters(
         U[:, -1] *= -1
         rotation_matrix = U @ Vt
 
-    # 'comparison' = 'rotated_reference' + translation, -> translation = 'comparison' - 'rotated_reference'.
-    # Using the cell_means as rotation centra ensures that the translation minimizes the Frobenius norm of the cell clusters after rotation.
-    consensus_translation = rotation_center_comparison - rotation_center_reference
-
     # Rotation angle: atan2(sin/cos)
     (cos, sin) = tuple(rotation_matrix[0])
     consensus_rotation_rad = float(np.arctan2(sin, cos))
-    consensus_translation = (
-        float(consensus_translation[0]),
-        float(consensus_translation[1]),
-    )
+
+    consensus_translation = rotation_center_comparison - rotation_center_reference
 
     return (
         consensus_translation,
@@ -326,27 +319,25 @@ def _rotation_component_with_rotation_matrix(
 
 def _get_distances(
     cells: list[Cell],
-    consensus_translation: tuple[float, float],
     consensus_rotation_rad: float,
-    rotation_center: tuple[float, float],
-    comparison_origin: tuple[float, float],
+    rotation_center_reference: tuple[float, float],
+    rotation_center_comparison: tuple[float, float],
 ) -> tuple[np.ndarray, np.ndarray]:
     """Get distances and abs_angle_distances of cell locations/rotations versus
     consensus_translation and consensus_rotation_rad.
 
     :param cells: a list of cells
-    :param consensus_translation: (tx, ty) translation in meters (applied after rotation)
     :param consensus_rotation_rad: rotation in radians (used to predict comparison positions
         AND to compute angle residuals after converting to degrees)
-    :param rotation_center: center of rotation, shape (1 ,m)
+    :param rotation_center_reference: center of rotation in reference frame, shape (1 ,m)
+    :param rotation_center_comparison: center of rotation in comparison frame, shape (1 ,m)
     :returns: distances (meters) as np.ndarray, abs_angle_distances (unsigned degrees) as np.ndarray
     """
     predicted_positions = _predict_positions(
         cells,
-        consensus_translation,
         consensus_rotation_rad,
-        rotation_center,
-        comparison_origin,
+        rotation_center_reference,
+        rotation_center_comparison,
     )
     distances = np.array(_get_distances_meters(cells, predicted_positions))
 
@@ -397,24 +388,21 @@ def _build_2d_rotation_matrix(angle_rad: float) -> np.ndarray:
 
 def _predict_positions(
     cells: list[Cell],
-    consensus_translation: tuple[float, float],
     consensus_rotation_rad: float,
-    rotation_center: tuple[float, float],
-    comparison_origin: tuple[float, float],
+    rotation_center_reference: tuple[float, float],
+    rotation_center_comparison: tuple[float, float],
 ) -> np.ndarray:
     """Predict reference_positions of cells in comparison frame after rotation and translation by consensus values.
 
     :param cells: a list of cells
-    :param consensus_translation: (tx, ty) translation in meters after rotation
     :param consensus_rotation_rad: rotation angle in radians
-    :param rotation_center: center of rotation, it is assumed the same for reference and comparison frame
-    :param comparison_origin: comparison frame origin
+    :param rotation_center_reference:
+    :param rotation_center_comparison:
     :returns: predicted_positions list of (x, y) in meters
     """
 
     rotation_matrix = _build_2d_rotation_matrix(consensus_rotation_rad)
-    rotation_center = np.array(rotation_center).reshape(1, 2)
-    consensus_translation = np.array(consensus_translation).reshape(1, 2)
+    rotation_center = np.array(rotation_center_reference).reshape(1, 2)
     cell_centers_reference = np.array(
         [cell.center_reference for cell in cells]
     )  # (n, 2)
@@ -424,8 +412,8 @@ def _predict_positions(
         rotation_matrix=rotation_matrix,
     )
 
-    # predicted position in comparison frame = translation + rotation
-    predicted_positions = consensus_translation + references_rotated + comparison_origin
+    # predicted position in comparison frame = rotation + center
+    predicted_positions = references_rotated + rotation_center_comparison
 
     return predicted_positions
 
