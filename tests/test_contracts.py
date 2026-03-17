@@ -317,7 +317,7 @@ class TestContracts:
                 ],
             },
             expected_urls={"lr_overview_plot": ".png"},
-            expected_fields={"lr": float},
+            expected_fields={"lr": float, "lr_lower_ci": float, "lr_upper_ci": float},
         )
 
     @pytest.fixture
@@ -361,7 +361,7 @@ class TestContracts:
                 "score": 0.5,
             },
             expected_urls={"lr_overview_plot": ".png"},
-            expected_fields={"lr": float},
+            expected_fields={"lr": float, "lr_lower_ci": float, "lr_upper_ci": float},
         )
 
     @pytest.mark.parametrize(

@@ -3,43 +3,10 @@ from pathlib import Path
 
 import pytest
 from conversion.data_formats import MarkMetadata
-from lir import FeatureData, InstanceData, LLRData
-from lir.lrsystems import LRSystem
-from PIL import Image
-from pydantic import HttpUrl
-from starlette.testclient import TestClient
 
 from tests.helper_function import make_cell
 
 RESOURCES = Path(__file__).parent.parent.parent / "packages/scratch-core/tests/resources"
-
-
-@pytest.fixture
-def random_lr_system_path() -> Path:
-    """Path to the pre-built random LR system pickle in test resources."""
-    return RESOURCES / "random_lr_system.pkl"
-
-
-class _IdentityLRSystem(LRSystem):
-    """Minimal LRSystem that returns the input score as the LLR."""
-
-    def __init__(self) -> None:
-        pass
-
-    def apply(self, instances: InstanceData) -> LLRData:
-        assert isinstance(instances, FeatureData)
-        return LLRData(features=instances.features[:, 0])
-
-
-def assert_lr_response_valid(client: TestClient, response) -> None:
-    """Assert that an LR endpoint response contains a valid LR and reachable PNG plot."""
-    assert response.status_code == HTTPStatus.OK, response.json()
-    data = response.json()
-    assert isinstance(data["lr"], float)
-    assert HttpUrl(data["lr_overview_plot"])
-    plot_response = client.get(data["lr_overview_plot"])
-    assert plot_response.status_code == HTTPStatus.OK
-    assert plot_response.headers["content-type"] == "image/png"
 
 
 @pytest.fixture

@@ -1,5 +1,4 @@
 from collections.abc import Iterator
-import pickle
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -21,6 +20,8 @@ from models import DirectoryAccess
 from settings import Settings
 from tests.helper_function import (
     _create_dummy_profile,
+    _impression_mark,
+    _save_impression_marks,
     _save_striation_mark_and_profile,
     _shift_profile,
     _striation_mark,
@@ -165,6 +166,7 @@ def impression_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(scope="session")
 def striation_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return RESOURCES_DIR / "striation"
+
 
 def _create_dummy_impression_surface(rows: int = 100, cols: int = 100) -> np.ndarray:
     """Create a surface with enough variation for CMC to find cells."""

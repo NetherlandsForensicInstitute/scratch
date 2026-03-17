@@ -1,11 +1,3 @@
-from pathlib import Path
-
-import numpy as np
-from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
-from conversion.export.mark import save_mark
-from conversion.export.profile import save_profile
-from conversion.profile_correlator import Profile
 from http import HTTPStatus
 from pathlib import Path
 
@@ -16,8 +8,6 @@ from conversion.export.mark import save_mark
 from conversion.export.profile import save_profile
 from conversion.profile_correlator import Profile
 from conversion.surface_comparison.models import Cell, CellMetaData
-from scipy.constants import micro
-from scipy.interpolate import interp1d
 from PIL import Image
 from pydantic import HttpUrl
 from scipy.constants import micro
