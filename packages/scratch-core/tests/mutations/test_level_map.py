@@ -1,9 +1,11 @@
 from pathlib import Path
-from mutations.filter import LevelMap
-import pytest
+
 import numpy as np
+import pytest
+
 from container_models.scan_image import ScanImage
 from conversion.leveling.data_types import SurfaceTerms
+from mutations.filter import LevelMap
 
 
 @pytest.mark.integration
@@ -38,7 +40,7 @@ class TestLevelMapIntegration:
             x_reference_point=x_center, y_reference_point=y_center, terms=terms
         )
         # Act
-        result = level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(scan_image_with_nans)
         # Assert
         assert np.allclose(result.data, verified, equal_nan=True)
 
@@ -50,7 +52,7 @@ class TestLevelMapIntegration:
             y_reference_point=y_center,
             terms=SurfaceTerms.NONE,
         )
-        result = level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(scan_image_with_nans)
         assert np.allclose(result.data, scan_image_with_nans.data, equal_nan=True)
 
     def test_map_level_offset(self, scan_image_with_nans: ScanImage):
@@ -62,7 +64,7 @@ class TestLevelMapIntegration:
             terms=SurfaceTerms.OFFSET,
         )
         # Act
-        result = level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(scan_image_with_nans)
         # Assert
         assert np.isclose(np.nanmean(result.data), 0.0)
         assert np.allclose(
@@ -94,7 +96,7 @@ class TestLevelMapIntegration:
             x_reference_point=ref_point[0], y_reference_point=ref_point[1], terms=terms
         )
         # Act
-        result_centered = level_map_mutator(scan_image_with_nans).unwrap()
-        result_ref = Level_map_ref(scan_image_with_nans).unwrap()
+        result_centered = level_map_mutator(scan_image_with_nans)
+        result_ref = Level_map_ref(scan_image_with_nans)
         # Assert
         assert np.allclose(result_centered.data, result_ref.data, equal_nan=True)

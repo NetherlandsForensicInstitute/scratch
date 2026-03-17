@@ -4,29 +4,25 @@ Convert MATLAB result folders to Python by calling the preprocessor API.
 Walks a nested folder structure, converts x3p files, extracts crop and
 preprocessing parameters from .mat files, and calls the local preprocessor
 API to regenerate marks.
-
-Usage:
-    python convert_matlab_results.py /path/to/root output/
-    python convert_matlab_results.py /path/to/root output/ --api-url http://localhost:8000
 """
 
 import argparse
 import contextlib
+import io
+import json
 import logging
 import os
 import uuid
-from collections.abc import Callable, Iterable, Iterator
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
+import numpy as np
 import requests
 from parsers import load_scan_image, parse_to_x3p
-from returns.unsafe import unsafe_perform_io
 from tqdm import tqdm
 
+from scripts.conversion_utils import ConversionConfig, run_parallel
 from scripts.http_utils import _post_with_retry
 from scripts.matlab_utils import (
     extract_impression_params,
@@ -40,23 +36,10 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class ConversionConfig:
-    """Shared configuration for the conversion pipeline."""
-
-    root: Path
-    output_dir: Path
-    api_url: str
-    force: bool = False
-
-    def __post_init__(self) -> None:
-        self.api_url = self.api_url.rstrip("/")
-
-
 def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
-    """Load an X3P from path and parse it with the pipelines and write the result."""
-    scan = unsafe_perform_io(load_scan_image(input_path).unwrap())
-    x3p = parse_to_x3p(scan).unwrap()
+    """Load an X3P from path, parse it, and write the result."""
+    scan = load_scan_image(input_path)
+    x3p = parse_to_x3p(scan)
 
     tmp = output_path.with_stem(f".{uuid.uuid4().hex}.tmp")
     try:
@@ -139,7 +122,8 @@ def convert_mark(
     """Process a single mark: extract params, call API, download results.
 
     Reads crop info and preprocessing parameters from mark.mat, builds the
-    API request, and downloads the resulting files into the output directory.
+    API request as multipart form + file upload, and downloads the resulting
+    files into the output directory.
     """
     mark_dir = cfg.output_dir / mark_folder.relative_to(cfg.root)
 
@@ -156,15 +140,20 @@ def convert_mark(
     endpoint = f"preprocessor/prepare-mark-{'impression' if is_impression else 'striation'}"
     params = extract_impression_params(struct, mark_type) if is_impression else extract_striation_params(struct)
 
-    body = {
+    params_dict = {
         "scan_file": str(converted_x3p),
         "mark_type": mark_type.value,
-        "mask": mask.astype(int).tolist(),
         "mark_parameters": params,
         "bounding_box_list": bounding_box_list,
+        "mask_is_bitpacked": False,
     }
 
-    result = _post_with_retry(f"{cfg.api_url}/{endpoint}", body)
+    mask_bytes = mask.astype(np.bool_).tobytes()
+    result = _post_with_retry(
+        f"{cfg.api_url}/{endpoint}",
+        data={"params": json.dumps(params_dict)},
+        files={"mask_data": ("mask.bin", io.BytesIO(mask_bytes), "application/octet-stream")},
+    )
 
     processed_dir = mark_dir / "processed"
     mark_dir.mkdir(parents=True, exist_ok=True)
@@ -179,26 +168,6 @@ def convert_mark(
         resp = requests.get(url, timeout=60)
         resp.raise_for_status()
         (dest / filename).write_bytes(resp.content)
-
-
-def _run_parallel(
-    tasks: Iterable[tuple[Any, Callable, tuple]],
-    workers: int,
-    desc: str,
-    unit: str,
-) -> dict[Any, Any]:
-    """Run tasks in parallel with a progress bar.
-
-    :param tasks: iterable of (key, fn, args) tuples.
-    :returns: dict of {key: result}.
-    """
-    task_list = list(tasks)
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(fn, *args): key for key, fn, args in task_list}
-        results = {}
-        for future in tqdm(as_completed(futures), total=len(futures), desc=desc, unit=unit):
-            results[futures[future]] = future.result()
-    return results
 
 
 def main() -> None:
@@ -222,14 +191,14 @@ def main() -> None:
     logger.info(f"Found {len(marks)} marks")
 
     unique_measurements = list({mf for mf, _ in marks})
-    converted_x3ps = _run_parallel(
+    converted_x3ps = run_parallel(
         ((mf, convert_measurement_x3p, (mf, cfg)) for mf in unique_measurements),
         args.workers,
         "Converting x3p",
         " files",
     )
 
-    _run_parallel(
+    run_parallel(
         ((mf, convert_mark, (mf, *converted_x3ps[meas], cfg)) for meas, mf in marks),
         args.workers,
         "Converting marks",
