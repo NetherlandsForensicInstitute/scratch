@@ -93,7 +93,7 @@ class ImageMutation(ABC):
     Represents a single mutation applied to a `ScanImage`.
 
     After one `ImageMutation`, the resulting `ScanImage` must be valid
-    input for another mutation. This enables safe chaining in pipelines.
+    input for another mutation.
 
     Validation or skipping logic (for example: skipping resampling when
     scale factors are `(1, 1)`) can be implemented via `skip_predicate`.

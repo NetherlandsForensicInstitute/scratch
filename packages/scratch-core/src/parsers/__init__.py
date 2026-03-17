@@ -3,8 +3,7 @@ File parsing and serialization utilities for scan image data.
 
 This module provides functions for loading, parsing, and saving scan image data
 in various file formats, with automatic conversion to and from the internal
-ScanImage container model. All parsers are designed to work within railway-oriented
-programming pipelines, returning Result/IOResult containers for safe error handling.
+ScanImage container model.
 
 The module handles two primary workflows:
 1. **Loading**: Parse external file formats into ScanImage containers
@@ -36,8 +35,8 @@ Notes
 - Custom file format support can be added via surfalize FileHandler registration
 """
 
-from .loaders import load_scan_image, subsample_scan_image, make_isotropic
-from .x3p import X3PMetaData, save_x3p, parse_to_x3p
+from .loaders import load_scan_image, make_isotropic, subsample_scan_image
+from .x3p import X3PMetaData, parse_to_x3p, save_x3p
 
 __all__ = (
     "load_scan_image",
