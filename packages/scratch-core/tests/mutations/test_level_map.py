@@ -46,7 +46,7 @@ class TestLevelMapIntegration:
         # Arrange
         y_center, x_center = self.compute_image_center(scan_image=scan_image_with_nans)
         level_map_mutator = LevelMap(terms=SurfaceTerms.NONE)
-        result = level_map_mutator(scan_image_with_nans).unwrap()
+        result = level_map_mutator(scan_image_with_nans)
         assert np.allclose(result.data, scan_image_with_nans.data, equal_nan=True)
 
     def test_map_level_offset(self, scan_image_with_nans: ScanImage):
