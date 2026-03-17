@@ -188,8 +188,8 @@ def _get_consensus_translation(
     centers_reference[outliers] = np.nan
     centers_comparison[outliers] = np.nan
     centers_reference = _reflect_y_axis(centers_reference)
-    rotation_center = _reflect_y_axis(np.array(rotation_center))
-    rotation_center = (rotation_center[0], rotation_center[1])
+    rotation_center_np = _reflect_y_axis(np.array(rotation_center))
+    rotation_center = (float(rotation_center_np[0]), float(rotation_center_np[1]))
     expected_positions_in_comparison_frame = rotate_points(
         points=centers_reference, angle=angle, center=rotation_center
     )
