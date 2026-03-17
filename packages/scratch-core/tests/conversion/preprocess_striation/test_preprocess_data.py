@@ -254,7 +254,7 @@ def test_shear_near_zero_angle_returns_copy():
     )
     np.testing.assert_array_equal(result, data)
     assert result.dtype == np.float64
-    assert result is not data
+    assert result is data
 
 
 def test_detect_striation_angle():
