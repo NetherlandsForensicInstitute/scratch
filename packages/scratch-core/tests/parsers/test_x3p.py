@@ -1,5 +1,4 @@
 from pathlib import Path
-from re import compile, escape
 from unittest.mock import patch
 
 import pytest
