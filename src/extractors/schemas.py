@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, TypeVar
 
-from pydantic import AfterValidator, BaseModel, Field, HttpUrl, model_serializer
-from pydantic_core.core_schema import SerializerFunctionWrapHandler
+from pydantic import AfterValidator, BaseModel, Field, HttpUrl, SerializerFunctionWrapHandler, model_serializer
 
 from models import (
     validate_file_extension,
@@ -179,7 +178,7 @@ class ComparisonResponseImpression(URLContainer):
     )
 
     @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
         """Serialize model to flat json."""
         data = handler(self)
         return {
@@ -262,7 +261,7 @@ class ComparisonResponseStriation(URLContainer):
     )
 
     @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
         """Serialize model to flat json."""
         data = handler(self)
         return {
@@ -282,12 +281,12 @@ class LRResponseURL(URLContainer):
 class LRResponse(BaseModel):
     urls: LRResponseURL
     lr: float
+    lr_lower_ci: float | None
+    lr_upper_ci: float | None
 
     @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
         """Serialize model to flat json."""
         data = handler(self)
-        return {
-            **data["urls"],
-            "lr": data["lr"],
-        }
+        urls = data.pop("urls")
+        return {**urls, **data}
