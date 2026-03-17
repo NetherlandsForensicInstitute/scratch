@@ -1,20 +1,36 @@
-from container_models.base import BinaryMask, FloatArray2D
+from container_models.base import BinaryMask, FloatArray2D, FloatArray1D
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
     ComparisonParams,
     Cell,
     GridCell,
 )
+from collections.abc import Sequence
 import numpy as np
 from skimage.transform import rotate
 from conversion.surface_comparison.cell_registration.utils import (
     convert_grid_cell_to_cell,
     pad_image_array,
 )
-
+from multiprocessing import Pool
+from os import cpu_count
 import cv2
-
+from dataclasses import dataclass
 from conversion.surface_comparison.utils import rotate_points
+
+N_PROCESSES = cpu_count()
+
+
+@dataclass(frozen=True)
+class _WorkerTask:
+    angles: FloatArray1D
+    grid_cells: list[GridCell]
+    comparison_data: FloatArray2D
+    cell_size: tuple[int, int]
+    minimum_fill_fraction: float
+    fill_value: float
+    padded_center: tuple[float, float]
+    pad_size: tuple[int, int]
 
 
 def match_cells(
@@ -50,23 +66,60 @@ def match_cells(
     comparison_data = pad_image_array(
         comparison_image.data, pad_width=pad_width, pad_height=pad_height
     )
-    padded_center_x, padded_center_y = (
+    padded_center = (
         (comparison_data.shape[1] - 1) / 2,
         (comparison_data.shape[0] - 1) / 2,
     )
 
+    # Build the worker tasks for parallel processing
     angles = np.arange(
-        params.search_angle_min,
-        params.search_angle_max + params.search_angle_step,
-        params.search_angle_step,
+        params.search_angle_min, params.search_angle_max, params.search_angle_step
     )
+    tasks = [
+        _WorkerTask(
+            angles=chunk,
+            grid_cells=[cell.copy() for cell in grid_cells],
+            comparison_data=comparison_data,
+            cell_size=(cell_width, cell_height),
+            minimum_fill_fraction=params.minimum_fill_fraction,
+            fill_value=fill_value_comparison,
+            padded_center=padded_center,
+            pad_size=(pad_width, pad_height),
+        )
+        for chunk in np.array_split(angles, N_PROCESSES)  # type: ignore
+    ]
+    # Apply the map-reduce paradigm
+    with Pool(N_PROCESSES) as pool:
+        per_worker_results = pool.map(_run_iteration, tasks)
+    best_cells = _reduce(per_worker_results)
 
-    for angle in angles:
+    return [
+        convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
+        for grid_cell in best_cells
+    ]
+
+
+def _reduce(results: Sequence[Sequence[GridCell]]) -> list[GridCell]:
+    sort_key = "top_left"
+    reduced = {}
+    for grid_cells in results:
+        for grid_cell in grid_cells:
+            key = getattr(grid_cell, sort_key)
+            score = grid_cell.grid_search_params.score
+            if key not in reduced or score > reduced[key].grid_search_params.score:
+                reduced[key] = grid_cell
+    return sorted(reduced.values(), key=lambda cell: getattr(cell, sort_key))
+
+
+def _run_iteration(task: _WorkerTask) -> Sequence[GridCell]:
+    cell_width, cell_height = task.cell_size
+    pad_width, pad_height = task.pad_size
+    for angle in task.angles:
         angle = float(angle)
         # Rotate the comparison image by `-angle` degrees.
         # This is equivalent to rotating the reference patch by `angle` degrees.
         rotated = rotate(
-            image=comparison_data,
+            image=task.comparison_data,
             angle=-angle,
             cval=np.nan,  # type: ignore
             order=0,
@@ -80,11 +133,11 @@ def match_cells(
             cell_width=cell_width,
             cell_height=cell_height,
         )
-        fill_fraction_mask = fill_fraction_map >= params.minimum_fill_fraction
+        fill_fraction_mask = fill_fraction_map >= task.minimum_fill_fraction
         # Now that we computed the fill fraction mask, we can safely replace NaN values in the rotated image
-        rotated[~valid_mask] = fill_value_comparison
+        rotated[~valid_mask] = task.fill_value
 
-        for grid_cell in grid_cells:
+        for grid_cell in task.grid_cells:
             score_map = _get_score_map(
                 comparison_array=rotated,
                 template=grid_cell.cell_data_filled,
@@ -101,7 +154,7 @@ def match_cells(
                 )
                 original_center_x, original_center_y = _unrotate_point(
                     rotated_point=cell_center,
-                    original_image_center=(padded_center_x, padded_center_y),
+                    original_image_center=task.padded_center,
                     rotated_image_center=(rotated_center_x, rotated_center_y),
                     angle_deg=angle,
                 )
@@ -112,11 +165,7 @@ def match_cells(
                     center_x=original_center_x - pad_width,  # Undo the padding
                     center_y=original_center_y - pad_height,  # Undo the padding
                 )
-
-    return [
-        convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
-        for grid_cell in grid_cells
-    ]
+    return task.grid_cells
 
 
 def _unrotate_point(

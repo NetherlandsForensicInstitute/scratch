@@ -57,7 +57,7 @@ class Cell(ConfigBaseModel):
     center_reference: tuple[float, float]
     cell_size: tuple[float, float]
     fill_fraction_reference: float = Field(ge=0.0, le=1.0)
-    best_score: float = Field(ge=0.0, le=1.0)
+    best_score: float = Field(ge=-1.0, le=1.0)
     angle_deg: float = Field(ge=-180, le=180)
     center_comparison: tuple[float, float]
     is_congruent: bool
@@ -207,3 +207,17 @@ class GridCell:
     def cell_data_filled(self) -> FloatArray2D:
         """Cell data where NaN values are replaced with the sentinel value."""
         return np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
+
+    def copy(self) -> "GridCell":
+        """Make a deep copy of this cell."""
+        return GridCell(
+            top_left=self.top_left,
+            cell_data=self.cell_data.copy(),
+            grid_search_params=GridSearchParams(
+                center_x=self.grid_search_params.center_x,
+                center_y=self.grid_search_params.center_y,
+                angle=self.grid_search_params.angle,
+                score=self.grid_search_params.score,
+            ),
+            nan_fill_value=self.nan_fill_value,
+        )
