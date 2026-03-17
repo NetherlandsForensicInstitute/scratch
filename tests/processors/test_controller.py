@@ -185,7 +185,7 @@ class TestSaveLrOverviewPlot:
             results_metadata=results_metadata,
             score=0.5,
             score_transformed=0.5,
-            transformed_reference_scores=reference_data.scores,
+            reference_scores_transformed=reference_data.scores,
             lr=1.2,
             output_path=output,
         )

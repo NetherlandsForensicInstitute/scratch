@@ -182,7 +182,7 @@ def save_lr_striation_plot(  # noqa: PLR0913
     results_metadata: dict[str, str],
     score: float,
     score_transformed: float,
-    transformed_reference_scores: np.ndarray,
+    reference_scores_transformed: np.ndarray,
     lr: float,
     output_path: Path,
 ):
@@ -202,7 +202,7 @@ def save_lr_striation_plot(  # noqa: PLR0913
     :param results_metadata: Formatted summary of comparison results for display.
     :param score: CCF score for the current case comparison.
     :param score_transformed: Log odds transformed score for the current case comparison.
-    :param transformed_reference_scores: Log odds transformed reference scores.
+    :param reference_scores_transformed: Log odds transformed reference scores.
     :param lr: Log-likelihood ratio for the current case comparison.
     :param output_path: Path to save the output PNG image.
     """
@@ -216,7 +216,7 @@ def save_lr_striation_plot(  # noqa: PLR0913
         results_metadata=results_metadata,
         histogram_data=HistogramData(scores=reference_data.scores, labels=reference_data.labels, new_score=score),
         histogram_data_transformed=HistogramData(
-            scores=transformed_reference_scores, labels=reference_data.labels, new_score=score_transformed
+            scores=reference_scores_transformed, labels=reference_data.labels, new_score=score_transformed
         ),
         llr_data=LlrTransformationData(
             scores=reference_data.scores,
@@ -268,7 +268,7 @@ def process_lr_striation(lr_input: CalculateLRStriation, working_dir: Path) -> f
         results_metadata=results_metadata,
         score=lr_input.score,
         score_transformed=score_transformed,
-        transformed_reference_scores=transformed_reference_scores,
+        reference_scores_transformed=transformed_reference_scores,
         lr=log_lr,
         output_path=LRFiles.lr_overview_plot.get_file_path(working_dir),
     )

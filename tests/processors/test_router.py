@@ -42,10 +42,10 @@ class TestMarkStriation:
             "comparison_overview",
             "filtered_compared_heatmap",
             "filtered_reference_heatmap",
-            "mark_ref_surfacemap",
-            "mark_ref_preview",
-            "mark_comp_surfacemap",
-            "mark_comp_preview",
+            "mark_reference_aligned_surfacemap",
+            "mark_reference_aligned_preview",
+            "mark_compared_aligned_surfacemap",
+            "mark_compared_aligned_preview",
         }
         expected_data = {
             "mark_reference_aligned_meta",
