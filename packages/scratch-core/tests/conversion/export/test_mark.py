@@ -278,7 +278,6 @@ class TestSaveAndLoadMark:
         mark = load_mark_from_mat_file(path)
         # Asserts
         assert mark.mark_type == MarkType.BREECH_FACE_IMPRESSION
-        assert mark.meta_data
         assert mark.scan_image.scale_x == pytest.approx(3.5e-6)
         assert mark.scan_image.scale_y == pytest.approx(3.5e-6)
         assert (mark.scan_image.width, mark.scan_image.height) == (1060, 1060)

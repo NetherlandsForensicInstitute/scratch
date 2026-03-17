@@ -5,7 +5,6 @@ This module provides functionality to save Mark objects as JSON metadata
 with NPZ binary data, and load them back into memory.
 """
 
-from numpy.typing import NDArray
 from pathlib import Path
 from typing import Annotated, Any
 import numpy as np
@@ -53,14 +52,6 @@ def save_mark(mark: Mark, path: Path) -> None:
 
 def load_mark_from_mat_file(path: Path) -> Mark:
     """Load a `Mark` object from a .mat file."""
-
-    def _try_parse_dict(array: NDArray) -> dict:
-        try:
-            keys = tuple(array.dtype.fields)  # type: ignore
-            return {key: array[key][0, 0][0] for key in keys}
-        except Exception:
-            return {}
-
     parsed = loadmat(str(path))
     container = parsed["data_struct"][0, 0]
     mark = Mark(
@@ -70,9 +61,7 @@ def load_mark_from_mat_file(path: Path) -> Mark:
             scale_y=float(container["ydim"][0]),
         ),
         mark_type=MarkType(str(container["mark_type"][0]).lower()),
-        meta_data=_try_parse_dict(container["additional_info"]["meta"][0, 0]),
-        # TODO: Do we need more meta_data?
-        # TODO: Parse `center` from data struct
+        # TODO: Parse `center` and `meta_data` from data struct
     )
     return mark
 
