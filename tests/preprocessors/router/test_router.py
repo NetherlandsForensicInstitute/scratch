@@ -1,20 +1,39 @@
-import os
+import json
 from http import HTTPStatus
 from pathlib import Path
 
+import numpy as np
 import pytest
+from container_models.base import BinaryMask
+from conversion.data_formats import MarkType
 from fastapi.testclient import TestClient
-from loguru import logger
+from httpx import Response
+from pydantic import HttpUrl
+from scipy.constants import micro
+from utils.constants import RegressionOrder
 
-from constants import ImpressionMarks, MaskTypes, PreprocessorEndpoint, RoutePrefix, StriationMarks
+from constants import PreprocessorEndpoint, RoutePrefix
+from extractors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
+from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from models import DirectoryAccess
+from preprocessors.constants import SurfaceOptions
 from preprocessors.schemas import (
-    CropInfo,
+    EditImage,
     PrepareMarkImpression,
     PrepareMarkStriation,
     PreprocessingImpressionParams,
     PreprocessingStriationParams,
 )
+from settings import get_settings
+
+
+def send_post_request_with_mask(client: TestClient, endpoint: str, params: dict, mask: BinaryMask) -> Response:
+    return client.post(
+        f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{endpoint}",
+        data={"params": json.dumps(params, default=str)},
+        files={"mask_data": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream")},
+        timeout=5,
+    )
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
@@ -30,33 +49,35 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize(
-    ("endpoint", "schema", "mark_parameters", "mark_type", "expected_files"),
+    ("endpoint", "schema", "response_schema", "mark_parameters", "mark_type", "expected_keys", "files"),
     [
         pytest.param(
             PreprocessorEndpoint.PREPARE_MARK_STRIATION,
             PrepareMarkStriation,
+            PrepareMarkResponseStriation,
             PreprocessingStriationParams,
-            StriationMarks.APERTURE_SHEAR,
+            MarkType.APERTURE_SHEAR_STRIATION,
             [
-                "preview",
-                "surface_map",
+                "preview_image",
+                "surface_map_image",
                 "mark_data",
                 "mark_meta",
                 "processed_data",
                 "processed_meta",
                 "profile_data",
-                "profile_meta",
             ],
+            PrepareMarkStriationFiles,
             id="striation mark",
         ),
         pytest.param(
             PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
             PrepareMarkImpression,
+            PrepareMarkResponseImpression,
             PreprocessingImpressionParams,
-            ImpressionMarks.CHAMBER,
+            MarkType.CHAMBER_IMPRESSION,
             [
-                "preview",
-                "surface_map",
+                "preview_image",
+                "surface_map_image",
                 "mark_data",
                 "mark_meta",
                 "processed_data",
@@ -64,6 +85,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
                 "leveled_data",
                 "leveled_meta",
             ],
+            PrepareMarkImpressionFiles,
             id="impression mark",
         ),
     ],
@@ -92,9 +114,7 @@ class TestPrepareMarkEndpoint:
             project_name="test_project",
             mark_type=mark_type,  # type: ignore
             scan_file=self.scan_file_path,
-            mask_array=[[0, 1], [1, 0]],
-            crop_info=CropInfo(type=MaskTypes.CIRCLE, data={}, is_foreground=False),
-            rotation_angle=15,
+            bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
             mark_parameters=mark_parameters(),  # type: ignore
         ).model_dump(mode="json")
 
@@ -103,9 +123,12 @@ class TestPrepareMarkEndpoint:
         client: TestClient,
         endpoint: PreprocessorEndpoint,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
+        response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
         mark_type: str,
-        expected_files: list[str],
+        mask: BinaryMask,
+        expected_keys: list[str],
+        files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
         """Test that the prepare-mark endpoint processes the request and returns file URLs."""
         # Arrange
@@ -116,13 +139,13 @@ class TestPrepareMarkEndpoint:
         )
 
         # Act
-        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
         json_response = response.json()
 
-        for key in expected_files:
+        for key in expected_keys:
             assert key in json_response, f"Response should contain URL for {key}"
 
     def test_prepare_mark_endpoint_has_made_files_in_vault(  # noqa: PLR0913
@@ -130,10 +153,13 @@ class TestPrepareMarkEndpoint:
         client: TestClient,
         directory_access: DirectoryAccess,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
+        response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
+        mask: BinaryMask,
         mark_type: str,
-        expected_files: list[str],
+        expected_keys: list[str],
+        files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
         """Test that the prepare-mark endpoint creates files in the vault."""
         # Arrange
@@ -143,26 +169,26 @@ class TestPrepareMarkEndpoint:
             mark_parameters=mark_parameters,  # type: ignore
         )
         # Act
-        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
-        vault_path = directory_access.resource_path
-        pytest.xfail("Endpoint not implemented yet")  # TODO: Remove when endpoint is implemented
-        for filename in expected_files:
-            file_path = os.path.join(vault_path, filename)
-            logger.info(f"Checking for file: {file_path}")
-            assert os.path.exists(file_path), f"Expected file {filename} to be created in the vault"
+        expected_absolute_file_paths = [file.get_file_path(directory_access.resource_path) for file in files]
+        missing = {path.name for path in expected_absolute_file_paths if not path.exists()}
+        assert not missing, f"Expected: {', '.join(missing)} to be created"
 
     def test_prepare_mark_endpoint_response_url_matches_folder_location(  # noqa: PLR0913
         self,
         client: TestClient,
         directory_access: DirectoryAccess,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
+        response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         endpoint: PreprocessorEndpoint,
         mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
+        mask: BinaryMask,
         mark_type: str,
-        expected_files: list[str],
+        expected_keys: list[str],
+        files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
         """Test that the URLs in the prepare-mark endpoint response match the vault folder location."""
         # Arrange
@@ -173,7 +199,7 @@ class TestPrepareMarkEndpoint:
         )
 
         # Act
-        response = client.post(f"/{RoutePrefix.PREPROCESSOR}/{endpoint}", json=payload)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
@@ -183,3 +209,91 @@ class TestPrepareMarkEndpoint:
             expected_url_start = base_url
             assert url.startswith(directory_access.access_url), f"URL for {key} should start with {expected_url_start}"
             # TODO: retrieve tag and token from url and find file in vault to ensure correctness
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "schema", "mark_parameters", "mark_type"),
+    [
+        pytest.param(
+            PreprocessorEndpoint.PREPARE_MARK_STRIATION,
+            PrepareMarkStriation,
+            PreprocessingStriationParams,
+            MarkType.APERTURE_SHEAR_STRIATION,
+            id="striation mark",
+        ),
+        pytest.param(
+            PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
+            PrepareMarkImpression,
+            PreprocessingImpressionParams,
+            MarkType.CHAMBER_IMPRESSION,
+            id="impression mark",
+        ),
+    ],
+)
+def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: PreprocessorEndpoint,
+    schema: type[PrepareMarkImpression | PrepareMarkStriation],
+    mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+    mark_type: MarkType,
+) -> None:
+    """Test that a 422 is returned when the mask shape does not match the scan image shape."""
+    wrong_mask = np.zeros(shape=(2, 2), dtype=np.bool_)  # 2x2, won't match the scan shape
+
+    payload = schema(
+        project_name="test_project",
+        mark_type=mark_type,
+        scan_file=scan_directory / "circle.x3p",
+        mark_parameters=mark_parameters(),  # type: ignore
+        bounding_box_list=[],
+    ).model_dump(mode="json")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=wrong_mask)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.usefixtures("tmp_dir_api")
+def test_edit_image_returns_valid_images(
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tests if the endpoint gives back the expected outcome."""
+    # Arrange
+    base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
+    directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
+
+    mask = np.zeros(shape=(259, 259), dtype=np.bool_)
+    mask[1:259, 1:259] = True
+
+    params = EditImage(
+        project_name="test",
+        scan_file=scan_directory / "circle.x3p",
+        cutoff_length=2 * micro,
+        resampling_factor=0.5,
+        terms=SurfaceOptions.PLANE,
+        regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
+        crop=True,
+    ).model_dump(mode="json")
+
+    # Act
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        response = send_post_request_with_mask(client=client, endpoint="edit-scan", params=params, mask=mask)
+    # Assert
+    expected_response = GeneratedImages(
+        preview_image=HttpUrl(f"{base_url}/preview.png"),
+        surface_map_image=HttpUrl(f"{base_url}/surface_map.png"),
+    )
+    assert response.status_code == HTTPStatus.OK, "endpoint is alive"
+    response_model = GeneratedImages.model_validate(response.json())
+    assert response_model == expected_response
+    assert (directory / "preview.png").exists()
+    assert (directory / "surface_map.png").exists()

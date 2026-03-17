@@ -1,14 +1,10 @@
 from collections.abc import Callable
 from http import HTTPStatus
-from io import BytesIO
 from pathlib import Path
 
-import numpy as np
 import pytest
-from container_models.light_source import LightSource
 from fastapi.testclient import TestClient
 from httpx import Response
-from PIL import Image
 from pydantic import HttpUrl
 
 from constants import PreprocessorEndpoint, RoutePrefix
@@ -59,56 +55,6 @@ class TestProcessScanEndpoint:
         # Assert - verify response status codes
         assert all(download.status_code == HTTPStatus.OK for download in downloads)
 
-    def test_process_scan_with_custom_light_sources(
-        self, post_process_scan, upload_scan: UploadScan, client: TestClient
-    ) -> None:
-        """Test that custom light sources produce different surface maps with varying brightness."""
-        # Arrange
-        single_light = LightSource(azimuth=90, elevation=45)
-        observer = LightSource(azimuth=0, elevation=90)
-
-        # Control: one light source
-        control_data = UploadScan(  # type:ignore
-            scan_file=upload_scan.scan_file,
-            light_sources=(single_light,),
-            observer=observer,
-        )
-
-        # Result: same light source doubled
-        request_data = UploadScan(  # type: ignore
-            scan_file=upload_scan.scan_file,
-            light_sources=(single_light, LightSource(azimuth=180, elevation=45)),
-            observer=observer,
-        )
-
-        # Act I
-        control_response = post_process_scan(control_data)
-        response = post_process_scan(request_data)
-
-        # Assert
-        assert control_response.status_code == HTTPStatus.OK
-        assert response.status_code == HTTPStatus.OK
-        result_location = ProcessedDataAccess.model_validate(response.json())
-        control_location = ProcessedDataAccess.model_validate(control_response.json())
-
-        # Act II
-        control = client.get(str(control_location.surface_map_image))
-        result = client.get(str(result_location.surface_map_image))
-
-        # Assert - verify that the two surface_maps are not the same
-        assert control.status_code == HTTPStatus.OK
-        assert result.status_code == HTTPStatus.OK
-        assert control.content != result.content, "Surfacemaps should differ with different light sources"
-
-        # Calculate average brightness for each image
-        control_brightness = np.array(Image.open(BytesIO(control.content))).mean()
-        result_brightness = np.array(Image.open(BytesIO(result.content))).mean()
-
-        assert result_brightness > control_brightness, (
-            f"Result brightness ({result_brightness:.2f}) with two light sources should be greater than "
-            f"control brightness ({control_brightness:.2f}) with one light source"
-        )
-
 
 @pytest.mark.usefixtures("tmp_dir_api")
 @pytest.mark.integration
@@ -133,9 +79,9 @@ class TestProcessScan:
 
         # Assert
         expected_response = ProcessedDataAccess(
-            scan=HttpUrl(f"{base_url}/scan.x3p"),
-            preview=HttpUrl(f"{base_url}/preview.png"),
-            surface_map=HttpUrl(f"{base_url}/surface_map.png"),
+            scan_image=HttpUrl(f"{base_url}/scan.x3p"),
+            preview_image=HttpUrl(f"{base_url}/preview.png"),
+            surface_map_image=HttpUrl(f"{base_url}/surface_map.png"),
         )
 
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"

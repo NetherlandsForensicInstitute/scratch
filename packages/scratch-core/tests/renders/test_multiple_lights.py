@@ -1,11 +1,13 @@
 from functools import partial
+
 import numpy as np
 import pytest
-from returns.pipeline import is_successful
 
 from container_models.base import VectorField
 from container_models.light_source import LightSource
 from renders.shading import apply_multiple_lights
+
+from ..helper_function import assert_nan_mask_preserved
 
 no_scale_apply_multiple_lights = partial(apply_multiple_lights)
 
@@ -26,10 +28,8 @@ def test_empty_light_list_returns_failure(
 ) -> None:
     """Test that an empty light list returns a Failure result."""
     # Act
-    result = no_scale_apply_multiple_lights(flat_normals, [], observer)
-
-    # Assert
-    assert not is_successful(result)
+    with pytest.raises(ValueError):
+        no_scale_apply_multiple_lights(flat_normals, [], observer)
 
 
 def test_constant_normals_give_constant_output(
@@ -42,7 +42,7 @@ def test_constant_normals_give_constant_output(
     result = no_scale_apply_multiple_lights(flat_normals, multiple_lights, observer)
 
     # Assert
-    scan_image = result.unwrap()
+    scan_image = result
     # All pixels should have the same value
     assert np.allclose(scan_image.data, scan_image.data[0, 0])
 
@@ -60,8 +60,8 @@ def test_more_lights_increase_brightness(
     result_two = no_scale_apply_multiple_lights(flat_normals, multiple_lights, observer)
 
     # Assert
-    brightness_one = np.mean(result_one.unwrap())
-    brightness_two = np.mean(result_two.unwrap())
+    brightness_one = np.mean(result_one)
+    brightness_two = np.mean(result_two)
     assert brightness_two > brightness_one
 
 
@@ -80,7 +80,7 @@ def test_light_from_opposing_sides(
     result = no_scale_apply_multiple_lights(flat_normals, lights_opposite, observer)
 
     # Assert
-    light_intensities = result.unwrap()
+    light_intensities = result
     # For flat surface normals pointing up, opposite lights should contribute equally
     assert np.all(light_intensities >= 0)
 
@@ -101,8 +101,15 @@ def test_spatial_variation_with_bumpy_surface(
     result = no_scale_apply_multiple_lights(normals, (light_source,), observer)
 
     # Assert
-    light_intensities = result.unwrap()
+    light_intensities = result
     center_value = light_intensities[center, center]
     corner_value = light_intensities[0, 0]
     # Center and corner should have different intensities
     assert not np.isclose(center_value, corner_value)
+
+
+def test_nan_mask_preserved(normals_with_nan_background, multiple_lights, observer):
+    result = apply_multiple_lights(
+        normals_with_nan_background, multiple_lights, observer
+    )
+    assert_nan_mask_preserved(normals_with_nan_background, result)

@@ -2,11 +2,14 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Final
 
+import numpy as np
 import pytest
 
-from preprocessors.schemas import EditImage, Mask, UploadScan
+from preprocessors.schemas import EditImage, UploadScan
 
-MASK: Final[Mask] = ((1, 0, 1), (0, 1, 0))  # type: ignore
+MASK = np.array([[True, False, True], [False, True, False]], dtype=np.bool_)
+MASK_BYTES = MASK.tobytes(order="C")
+MASK_SHAPE = MASK.shape
 CUTOFF_LENGTH: Final[float] = 250
 
 
@@ -14,7 +17,7 @@ CUTOFF_LENGTH: Final[float] = 250
 def edit_image_parameter(scan_directory: Path) -> Callable[..., EditImage]:
     def wrapper(**kwargs) -> EditImage:
         return EditImage.model_validate(
-            {"scan_file": scan_directory / "circle.x3p", "mask": MASK, "cutoff_length": CUTOFF_LENGTH} | kwargs
+            {"scan_file": scan_directory / "circle.x3p", "cutoff_length": CUTOFF_LENGTH, "terms": "none"} | kwargs
         )
 
     return wrapper
@@ -22,11 +25,7 @@ def edit_image_parameter(scan_directory: Path) -> Callable[..., EditImage]:
 
 @pytest.fixture(scope="module")
 def edit_image(scan_directory: Path) -> EditImage:
-    return EditImage(
-        scan_file=scan_directory / "circle.x3p",
-        mask=MASK,
-        cutoff_length=CUTOFF_LENGTH,
-    )  # type: ignore
+    return EditImage(scan_file=scan_directory / "circle.x3p", cutoff_length=CUTOFF_LENGTH)  # type: ignore
 
 
 @pytest.fixture(scope="module")

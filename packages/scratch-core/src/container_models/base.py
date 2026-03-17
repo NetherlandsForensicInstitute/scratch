@@ -1,8 +1,8 @@
 from collections.abc import Sequence
 from functools import partial
 from typing import Annotated, TypeAlias
-
-from numpy import array, bool_, floating, number, uint8
+from functools import cached_property
+from numpy import array, bool_, floating, float64, number, uint8
 from numpy.typing import DTypeLike, NDArray
 from pydantic import (
     AfterValidator,
@@ -51,7 +51,7 @@ UInt8Array: TypeAlias = Annotated[
 ]
 FloatArray: TypeAlias = Annotated[
     NDArray[floating],
-    BeforeValidator(partial(coerce_to_array, floating)),
+    BeforeValidator(partial(coerce_to_array, float64)),
     PlainSerializer(serialize_ndarray),
 ]
 BoolArray: TypeAlias = Annotated[
@@ -76,6 +76,9 @@ FloatArray3D: TypeAlias = Annotated[
 FloatArray4D: TypeAlias = Annotated[
     FloatArray, AfterValidator(partial(validate_shape, 4))
 ]
+BoolArray1D: TypeAlias = Annotated[
+    BoolArray, AfterValidator(partial(validate_shape, 1))
+]
 BoolArray2D: TypeAlias = Annotated[
     BoolArray, AfterValidator(partial(validate_shape, 2))
 ]
@@ -87,7 +90,8 @@ UnitVector: TypeAlias = FloatArray1D  # Shape: (3,)
 DepthData: TypeAlias = FloatArray2D  # Shape: (H, W)
 BinaryMask: TypeAlias = BoolArray2D  # Shape: (H, W)
 VectorField: TypeAlias = FloatArray3D  # Shape (H, W, 3)
-StriationProfile: TypeAlias = FloatArray2D  # Shape (N, 1)
+StriationProfile: TypeAlias = FloatArray1D  # Shape (N,)
+Points2D: TypeAlias = FloatArray2D  # Shape (N, 2)
 
 
 class ConfigBaseModel(BaseModel):
@@ -98,4 +102,22 @@ class ConfigBaseModel(BaseModel):
         extra="forbid",
         arbitrary_types_allowed=True,
         regex_engine="rust-regex",
+        revalidate_instances="always",
     )
+
+    def model_copy(self, *, update=None, deep=False):
+        copy = super().model_copy(update=update, deep=deep)
+        if update:
+            # Invalidate cached properties when any field changes
+            self._clear_cached_properties(copy)
+            # Validate model after updating
+            copy = self.model_validate(copy, by_alias=True, by_name=True)
+        return copy
+
+    @staticmethod
+    def _clear_cached_properties(instance: BaseModel):
+        """Dynamically find and clear all cached_property values from instance."""
+        for name in dir(type(instance)):
+            attr = getattr(type(instance), name, None)
+            if isinstance(attr, cached_property):
+                instance.__dict__.pop(name, None)

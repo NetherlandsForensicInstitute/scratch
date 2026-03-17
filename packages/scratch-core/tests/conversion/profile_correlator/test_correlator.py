@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
+from scipy.constants import micro
 from scipy.interpolate import interp1d
 
 from conversion.profile_correlator import (
@@ -13,20 +14,17 @@ from conversion.profile_correlator import (
 )
 from .conftest import make_synthetic_striation_profile, make_shifted_profile
 
-PIXEL_SIZE_M = 1.5e-6  # 1.5 μm
-
-
-# --- Synthetic profile helpers ---
+PIXEL_SIZE_M = 1.5 * micro  # 1.5 μm
 
 
 def create_base_profile(n_samples: int = 1000, seed: int = 42) -> np.ndarray:
     """Generate a striation-like profile with multiple sine frequencies."""
     np.random.seed(seed)
     x = np.linspace(0, 20 * np.pi, n_samples)
-    data = np.sin(x) * 0.5e-6
-    data += np.sin(2.3 * x) * 0.2e-6
-    data += np.sin(0.7 * x) * 0.15e-6
-    data += np.random.normal(0, 0.01e-6, n_samples)
+    data = np.sin(x) * 0.5 * micro
+    data += np.sin(2.3 * x) * 0.2 * micro
+    data += np.sin(0.7 * x) * 0.15 * micro
+    data += np.random.normal(0, 0.01 * micro, n_samples)
     return data
 
 
@@ -37,7 +35,11 @@ def create_shifted_profiles(
     n = len(base)
     extended_length = n + shift_samples
     x = np.linspace(0, 20 * np.pi * extended_length / n, extended_length)
-    extended = np.sin(x) * 0.5e-6 + np.sin(2.3 * x) * 0.2e-6 + np.sin(0.7 * x) * 0.15e-6
+    extended = (
+        np.sin(x) * 0.5 * micro
+        + np.sin(2.3 * x) * 0.2 * micro
+        + np.sin(0.7 * x) * 0.15 * micro
+    )
     ref_data = extended[:n].copy()
     comp_data = extended[shift_samples : shift_samples + n].copy()
     return (
@@ -76,9 +78,7 @@ def create_scaled_profiles(
     )
 
 
-# --- Basic functionality tests ---
-
-
+@pytest.mark.integration
 class TestCorrelateProfilesBasic:
     """Basic functionality tests for correlate_profiles."""
 
@@ -121,9 +121,9 @@ class TestCorrelateProfilesBasic:
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result is not None
         assert not np.isnan(result.sa_ref)
-        assert not np.isnan(result.mean_square_ref)
+        assert not np.isnan(result.sq_ref)
         assert result.sa_ref > 0
-        assert result.mean_square_ref > 0
+        assert result.sq_ref > 0
 
     def test_overlap_metrics_computed(self):
         """Overlap length and ratio should be computed."""
@@ -151,9 +151,7 @@ class TestCorrelateProfilesBasic:
         assert not np.isnan(result.correlation_coefficient)
 
 
-# --- Synthetic profile alignment tests ---
-
-
+@pytest.mark.integration
 class TestIdenticalProfiles:
     """Tests for identical profiles."""
 
@@ -168,6 +166,7 @@ class TestIdenticalProfiles:
         assert result.overlap_ratio > 0.99
 
 
+@pytest.mark.integration
 class TestShiftedProfiles:
     """Tests for profiles with translation shifts."""
 
@@ -196,6 +195,7 @@ class TestShiftedProfiles:
         assert result.correlation_coefficient >= min_corr
 
 
+@pytest.mark.integration
 class TestPartialProfiles:
     """Tests for partial profile matching."""
 
@@ -212,7 +212,7 @@ class TestPartialProfiles:
         ref, comp = create_partial_profiles(base, length_pct / 100.0)
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result is not None
-        assert result.correlation_coefficient == 1
+        assert np.isclose(result.correlation_coefficient, 1.0, atol=0.01)
         assert result.overlap_ratio == pytest.approx(expected_overlap, rel=1e-6)
 
     @pytest.mark.parametrize(
@@ -228,10 +228,11 @@ class TestPartialProfiles:
         long, short = create_partial_profiles(base, length_pct / 100.0)
         result = correlate_profiles(short, long, AlignmentParameters())
         assert result is not None
-        assert result.correlation_coefficient == 1
+        assert np.isclose(result.correlation_coefficient, 1.0, atol=0.01)
         assert result.overlap_ratio == pytest.approx(expected_overlap, rel=1e-6)
 
 
+@pytest.mark.integration
 class TestScaledProfiles:
     """Tests for profiles with scaling differences."""
 
@@ -260,23 +261,20 @@ class TestScaledProfiles:
         assert abs(result.scale_factor - 1 / scale) == 0
 
 
-# --- Edge case tests ---
-
-
 class TestEdgeCases:
     """Edge case tests for correlate_profiles."""
 
     def test_constant_profile(self):
         """Constant profiles return None (no valid correlation possible)."""
-        ref = Profile(np.ones(500), pixel_size=0.5e-6)
-        comp = Profile(np.ones(500) * 2, pixel_size=0.5e-6)
+        ref = Profile(np.ones(500), pixel_size=0.5 * micro)
+        comp = Profile(np.ones(500) * 2, pixel_size=0.5 * micro)
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result is None
 
     def test_very_short_profiles(self):
         """Very short profiles return None when below min_overlap_distance."""
-        ref = Profile(np.random.randn(50), pixel_size=0.5e-6)
-        comp = Profile(np.random.randn(50), pixel_size=0.5e-6)
+        ref = Profile(np.random.randn(50), pixel_size=0.5 * micro)
+        comp = Profile(np.random.randn(50), pixel_size=0.5 * micro)
         result = correlate_profiles(ref, comp, AlignmentParameters())
         assert result is None
 

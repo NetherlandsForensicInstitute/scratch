@@ -1,9 +1,19 @@
 """Helper functions for conversion tests."""
 
+from pathlib import Path
+from typing import Any
+
 import numpy as np
-from container_models.base import FloatArray
+from PIL import Image
+from matplotlib.figure import Figure
+
+from container_models.base import FloatArray, DepthData
+from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark, MarkType
 
 from numpy.typing import NDArray
+
+from conversion.surface_comparison.models import Cell, CellMetaData
 
 
 def _crop_to_common_shape(
@@ -64,3 +74,70 @@ def _compute_difference_stats(arr1: FloatArray, arr2: FloatArray) -> dict[str, f
         "mean": float(np.nanmean(diff)),
         "std": float(np.nanstd(diff)),
     }
+
+
+def make_mark(
+    data: DepthData,
+    scale_x: float = 1.0,
+    scale_y: float = 1.0,
+    mark_type: MarkType = MarkType.EXTRACTOR_IMPRESSION,
+    center: tuple[float, float] | None = None,
+    meta_data: dict[str, Any] | None = None,
+) -> Mark:
+    """Create a Mark instance for testing."""
+    scan_image = ScanImage(data=data, scale_x=scale_x, scale_y=scale_y)
+    if meta_data is not None:
+        return Mark(
+            scan_image=scan_image,
+            mark_type=mark_type,
+            center=center,
+            meta_data=meta_data,
+        )
+    return Mark(scan_image=scan_image, mark_type=mark_type, center=center)
+
+
+def assert_plot_is_valid_image(fig: Figure, tmp_path: Path) -> None:
+    img_path = tmp_path / "plot.png"
+
+    fig.savefig(img_path, format="png")
+
+    assert img_path.exists()
+    assert img_path.stat().st_size > 0
+
+    # Validate it's a real image
+    img = Image.open(img_path)
+    img.verify()
+
+
+def make_cell(
+    center_reference: tuple[float, float] = (0.0, 0.0),
+    best_score: float = 0.8,
+    is_congruent: bool = False,
+    angle_deg: float = 0.0,
+    center_comparison: tuple[float, float] | None = None,
+    cell_size: tuple[float, float] = (50e-6, 50e-6),
+    fill_fraction_reference: float = 0.9,
+    is_outlier: bool | None = None,
+    residual_angle_deg: float = 0.0,
+    position_error: tuple[float, float] = (0.0, 0.0),
+) -> Cell:
+    """Create a Cell instance for testing."""
+    if center_comparison is None:
+        center_comparison = center_reference
+    if is_outlier is None:
+        is_outlier = not is_congruent
+
+    return Cell(
+        center_reference=center_reference,
+        cell_size=cell_size,
+        fill_fraction_reference=fill_fraction_reference,
+        best_score=best_score,
+        angle_deg=angle_deg,
+        center_comparison=center_comparison,
+        is_congruent=is_congruent,
+        meta_data=CellMetaData(
+            is_outlier=is_outlier,
+            residual_angle_deg=residual_angle_deg,
+            position_error=position_error,
+        ),
+    )

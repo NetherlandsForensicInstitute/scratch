@@ -1,28 +1,40 @@
 from __future__ import annotations
 
-from enum import StrEnum, auto
 from functools import cached_property
-from typing import Annotated, Self
+from typing import Any
 
 import numpy as np
-from container_models.light_source import LightSource
-from numpy.typing import NDArray
+from conversion.data_formats import BoundingBox, MarkType
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
-    AfterValidator,
     Field,
     PositiveFloat,
     PositiveInt,
+    field_validator,
     model_validator,
 )
-from scipy.constants import micro
+from utils.constants import RegressionOrder
 
-from constants import ImpressionMarks, MaskTypes, StriationMarks
+from constants import MaskTypes
 from models import (
     BaseModelConfig,
     ProjectTag,
     ScanFile,
     SupportedScanExtension,
 )
+from preprocessors.constants import SurfaceOptions
+
+
+def _update_schema(schema: dict[str, Any], attr_to_class: tuple[tuple[str, str], ...]) -> dict[str, Any]:
+    """Update the model JSON schema for correctly rendering the `openapi_extra` fields."""
+    for attribute, class_name in attr_to_class:
+        updated = schema["$defs"][class_name]
+        for key in ("examples", "description"):
+            if value := schema["properties"][attribute].get(key):
+                updated[key] = value
+        schema["properties"][attribute] = updated
+    return schema
 
 
 class BaseParameters(BaseModelConfig):
@@ -46,26 +58,18 @@ class BaseParameters(BaseModelConfig):
         """Get the tag to use for directory naming."""
         return self.project_name or self.scan_file.stem
 
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (
+            ("scan_file", "ScanFile"),
+            ("project_name", "ProjectTag"),
+        )
+        return _update_schema(schema, attr_to_class)
+
 
 class UploadScan(BaseParameters):
-    light_sources: tuple[LightSource, ...] = Field(
-        (
-            LightSource(azimuth=90, elevation=45),
-            LightSource(azimuth=180, elevation=45),
-        ),
-        description="Light sources for surface illumination rendering.",
-        examples=[
-            (
-                LightSource(azimuth=90, elevation=45),
-                LightSource(azimuth=180, elevation=45),
-            ),
-        ],
-    )
-    observer: LightSource = Field(
-        LightSource(azimuth=90, elevation=45),
-        description="Observer viewpoint vector for surface rendering.",
-        examples=[LightSource(azimuth=90, elevation=45)],
-    )
     scale_x: PositiveFloat = Field(
         1.0,
         gt=0.0,
@@ -77,14 +81,10 @@ class UploadScan(BaseParameters):
         description="Vertical pixel size in meters (m). Defines physical spacing between pixels in y-direction.",
         examples=[1.0, 0.5, 2.0],
     )
-    step_size_x: PositiveInt = Field(
+    step_size: PositiveInt = Field(
         1,
-        description="Subsampling step in x-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
-    )
-    step_size_y: PositiveInt = Field(
-        1,
-        description="Subsampling step in y-direction. Values > 1 reduce resolution by skipping pixels.",
+        description="Sets the sampling interval for both axes. "
+        "Values > 1 downscale the image by skipping intermediate pixels.",
         examples=[1, 2, 4],
     )
 
@@ -95,73 +95,77 @@ class CropInfo(BaseModelConfig):
     is_foreground: bool
 
 
-class PreprocessingImpressionParams(BaseModelConfig):
-    """dummy till #84 is merged."""
-
-    pass  # TODO: not yet merged dataclass from PR #84
-
-
-class PreprocessingStriationParams(BaseModelConfig):
-    """dummy till #84 is merged."""
-
-    pass  # TODO: not yet merged dataclass from PR #84
-
-
-class PrepareMarkStriation(BaseParameters):
-    mark_type: StriationMarks = Field(..., description="Type of mark to prepare.")
-    mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
-    rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
-    crop_info: CropInfo | None = Field(
-        None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
+class PrepareMarkBase(BaseParameters):
+    mark_type: MarkType = Field(..., description="Type of mark to prepare.")
+    bounding_box_list: list[list[float]] | None = Field(
+        None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
     )
-    mark_parameters: PreprocessingStriationParams = Field(
-        ..., description="Preprocessor parameters."
-    )  # TODO: not yet merged dataclass from PR #84
-
-
-class PrepareMarkImpression(BaseParameters):
-    mark_type: ImpressionMarks = Field(..., description="Type of mark to prepare.")
-    mask_array: list[list[float]] = Field(..., description="Array representing the mask for the mark.")
-    rotation_angle: int = Field(0, description="Rotation angle for the mark preparation.")
-    crop_info: CropInfo | None = Field(
-        None, description="", examples=[{"type": "rectangle", "data": {}, "is_foreground": False}]
+    mask_is_bitpacked: bool = Field(
+        default=False,
+        description="Whether the bytes in the mask are bit-packed. "
+        'The expected bit-order for bit-packed arrays is "little".',
+        examples=[True, False],
     )
+
+    @cached_property
+    def bounding_box(self) -> BoundingBox | None:
+        """
+        Convert the bounding_box tuple to a numpy array.
+
+        :return: 2D numpy array of float values representing the bounding box
+        """
+        return np.array(self.bounding_box_list) if self.bounding_box_list is not None else None
+
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (("mark_type", "MarkType"),)
+        return _update_schema(schema, attr_to_class)
+
+
+class PrepareMarkStriation(PrepareMarkBase):
+    mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
+
+    @field_validator("mark_type")
+    @classmethod
+    def must_be_striation(cls, v: MarkType) -> MarkType:
+        """Validate that the given mark type is a striation mark."""
+        if not v.is_striation():
+            raise ValueError(f"{v} is not a striation mark")
+        return v
+
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (("mark_parameters", "PreprocessingStriationParams"),)
+        return _update_schema(schema, attr_to_class)
+
+
+class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
 
+    @field_validator("mark_type")
+    @classmethod
+    def must_be_impression(cls, v: MarkType) -> MarkType:
+        """Validate that the given mark type is an impression mark."""
+        if not v.is_impression():
+            raise ValueError(f"{v} is not an impression mark")
+        return v
 
-class Terms(StrEnum):
-    """Surface fitting terms for leveling operations."""
-
-    PLANE = auto()
-    SPHERE = auto()
-
-
-class RegressionOrder(StrEnum):
-    """Polynomial regression order for surface leveling."""
-
-    RO = auto()
-    R1 = auto()
-    R2 = auto()
-
-
-type Mask = tuple[tuple[bool, ...], ...]
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        attr_to_class = (("mark_parameters", "PreprocessingImpressionParams"),)
+        return _update_schema(schema, attr_to_class)
 
 
 class EditImage(BaseParameters):
     """Request model for editing and transforming processed scan images."""
 
-    mask: Mask = Field(
-        description=(
-            "Binary mask defining regions to include (True/1) or exclude (False/0) during processing. "
-            "Accepts both boolean (True/False) and integer (1/0) representations. "
-            "Must be a 2D tuple structure matching the scan dimensions."
-        ),
-        examples=[
-            ((1, 0), (0, 1)),  # Integer format
-            ((True, False), (False, True)),  # Boolean format
-        ],
-    )
-    cutoff_length: Annotated[PositiveFloat, AfterValidator(lambda x: x * micro)] = Field(
+    cutoff_length: PositiveFloat = Field(
         description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "
         "Defines the spatial frequency threshold for surface texture analysis.",
         examples=[250, 500, 1000],
@@ -171,54 +175,41 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: Terms = Field(
-        default=Terms.PLANE,
+    terms: SurfaceOptions = Field(
+        ...,
         description=(
             "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
         ),
     )
     regression_order: RegressionOrder = Field(
-        default=RegressionOrder.RO,
+        default=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         description="Polynomial regression order for surface fitting. R0 (constant), R1 (linear), or R2 (quadratic).",
     )
     crop: bool = Field(
         default=False,
         description="Whether to crop the image to the non-masked region.",
     )
-    step_size_x: PositiveInt = Field(
-        1,
-        description="Subsampling step size in x-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
-    )
-    step_size_y: PositiveInt = Field(
-        1,
-        description="Subsampling step size in y-direction. Values > 1 reduce resolution by skipping pixels.",
-        examples=[1, 2, 4],
+    mask_is_bitpacked: bool = Field(
+        default=False,
+        description="Whether the bytes in the mask are bit-packed. "
+        'The expected bit-order for bit-packed arrays is "little".',
+        examples=[True, False],
     )
 
     @model_validator(mode="after")
-    def validate_mask_is_2d(self) -> Self:
-        """
-        Validate that the mask is a valid 2D array structure.
-
-        Ensures the mask can be converted to a numpy array and has exactly
-        2 dimensions, as required for image masking operations.
-        """
-        try:
-            self.mask_array
-        except (ValueError, TypeError) as e:
-            raise ValueError("Bad mask value: unable to capture mask") from e
-        if not self.mask_array.ndim == 2:  # noqa: PLR2004
-            raise ValueError(f"Mask is not a 2D image: D{self.mask_array.ndim}")
-        if self.scan_file.suffix != ".x3p":
+    def check_file_is_x3p(self):
+        """Check whether the scan file is an x3p file."""
+        if self.scan_file.suffix.lower() != ".x3p":
             raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
         return self
 
-    @cached_property
-    def mask_array(self) -> NDArray:
-        """
-        Convert the mask tuple to a numpy boolean array.
-
-        :return: 2D numpy array of boolean values representing the mask
-        """
-        return np.array(self.mask, np.bool_)
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+        """Override the base method."""
+        schema = super().model_json_schema(*args, **kwargs)
+        # Add schema for BaseParameters and EditImage to JSON model
+        attr_to_class = (
+            ("regression_order", "RegressionOrder"),
+            ("terms", "SurfaceOptions"),
+        )
+        return _update_schema(schema, attr_to_class)

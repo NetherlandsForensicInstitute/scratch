@@ -193,6 +193,7 @@ class TestLoadCompressedBinary:
 
         assert loaded.dtype == np.int32
 
+    @pytest.mark.integration
     def test_load_large_array(self, tmp_path: PosixPath):
         """Test loading large array to verify compression works."""
         npz_file = tmp_path / "large.npz"

@@ -1,11 +1,10 @@
 from collections.abc import Iterable
-import numpy as np
 from typing import Final
-from returns.result import safe
-from container_models.base import VectorField, UnitVector, FloatArray2D
-from container_models.light_source import LightSource
-from utils.logger import log_railway_function
 
+import numpy as np
+
+from container_models.base import FloatArray2D, UnitVector, VectorField
+from container_models.light_source import LightSource
 
 SPECULAR_FACTOR: Final[float] = 1.0
 PHONG_EXPONENT: Final[int] = 4
@@ -67,7 +66,6 @@ def _combine_lighting_components(
     return combined
 
 
-@log_railway_function("Calculating 2d maps per lighting source failed.")
 def calculate_lighting(
     light: LightSource,
     observer: LightSource,
@@ -93,8 +91,6 @@ def calculate_lighting(
     return combined
 
 
-@log_railway_function("Failed to apply lights")
-@safe
 def apply_multiple_lights(
     surface_normals: VectorField,
     light_sources: Iterable[LightSource],
@@ -114,7 +110,7 @@ def apply_multiple_lights(
     lighting_results = [
         calculate_lighting(light, observer, surface_normals) for light in light_sources
     ]
-    return np.nansum(
+    return np.sum(
         np.stack([result for result in lighting_results], axis=-1),
         axis=2,
     )

@@ -1,13 +1,10 @@
 from pathlib import Path
-from PIL.Image import Image, fromarray
+
 import numpy as np
+from PIL.Image import Image, fromarray
 
-from returns.io import impure_safe
-from returns.result import safe
-
+from container_models.base import FloatArray, FloatArray2D, ImageRGBA
 from container_models.scan_image import ScanImage
-from container_models.base import ImageRGBA, FloatArray2D, FloatArray
-from utils.logger import log_railway_function
 
 
 def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
@@ -54,8 +51,6 @@ def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, 
     return np.clip(data, lower, upper), lower, upper
 
 
-@log_railway_function("Failed to retrieve array for display")
-@safe
 def get_scan_image_for_display(
     scan_image: ScanImage, *, std_scaler: float = 2.0
 ) -> ScanImage:
@@ -76,20 +71,14 @@ def get_scan_image_for_display(
     )
 
 
-@log_railway_function("Failed to convert scan to image")
-@safe
 def scan_to_image(scan_image: ScanImage) -> Image:
     return fromarray(grayscale_to_rgba(scan_data=scan_image.data))
 
 
-@log_railway_function("Failed to convert grayscale data to image")
-@safe
 def grayscale_to_image(grayscale: FloatArray2D) -> Image:
     return fromarray(grayscale_to_rgba(scan_data=grayscale))
 
 
-@log_railway_function("Failed to save image")
-@impure_safe
 def save_image(image: Image, output_path: Path) -> Path:
     image.save(output_path)
     return output_path

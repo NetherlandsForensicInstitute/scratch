@@ -1,0 +1,62 @@
+from typing import Sequence
+
+import numpy as np
+import pytest
+
+from conversion.data_formats import Mark, MarkMetadata
+from conversion.plots.data_formats import (
+    HistogramData,
+    LlrTransformationData,
+)
+from conversion.plots.plot_cmc_comparison_overview import plot_cmc_comparison_overview
+from conversion.surface_comparison.models import Cell
+
+from .helper_functions import assert_valid_rgb_image
+
+
+@pytest.mark.integration
+class TestPlotCmcComparisonOverview:
+    """Tests for plot_cmc_comparison_overview function."""
+
+    def test_returns_valid_rgb_image(
+        self,
+        impression_overview_marks: dict[str, Mark],
+        impression_overview_cells: Sequence[Cell],
+        sample_metadata_reference: MarkMetadata,
+        sample_metadata_compared: MarkMetadata,
+        cmc_results_metadata: dict[str, str],
+        cmc_histogram_data: HistogramData,
+        cmc_llr_data: LlrTransformationData,
+    ) -> None:
+        llr_scores = cmc_llr_data.scores
+        llrs = cmc_llr_data.llrs
+
+        histogram_data = HistogramData(
+            scores=cmc_histogram_data.scores,
+            labels=cmc_histogram_data.labels,
+            bins=cmc_histogram_data.bins,
+            densities=cmc_histogram_data.densities,
+            new_score=5,
+        )
+        llr_data = LlrTransformationData(
+            scores=cmc_llr_data.scores,
+            llrs=cmc_llr_data.llrs,
+            llrs_at5=cmc_llr_data.llrs_at5,
+            llrs_at95=cmc_llr_data.llrs_at95,
+            score_llr_point=(5, float(np.interp(5, llr_scores, llrs))),
+        )
+
+        result = plot_cmc_comparison_overview(
+            mark_reference_filtered=impression_overview_marks["reference_filtered"],
+            mark_compared_filtered=impression_overview_marks["compared_filtered"],
+            cells=impression_overview_cells,
+            metadata_reference=sample_metadata_reference,
+            metadata_compared=sample_metadata_compared,
+            results_metadata=cmc_results_metadata,
+            histogram_data=histogram_data,
+            llr_data=llr_data,
+        )
+
+        assert_valid_rgb_image(result)
+        assert result.shape[0] > 500, "Figure height too small"
+        assert result.shape[1] > 500, "Figure width too small"

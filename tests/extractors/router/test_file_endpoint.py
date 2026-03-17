@@ -58,7 +58,9 @@ def test_get_file_rejects_invalid_extension(client: TestClient, directory_access
 
     # Assert
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-    assert response.json()["detail"][0]["msg"] == "Value error, unsupported file type: test.txt, try: x3p, png"
+    assert (
+        response.json()["detail"][0]["msg"] == "Value error, unsupported file type: test.txt, try: x3p, png, json, npz"
+    )
 
 
 def test_get_file_returns_422_for_invalid_token(client: TestClient) -> None:

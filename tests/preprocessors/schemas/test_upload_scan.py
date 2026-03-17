@@ -2,7 +2,6 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from container_models.light_source import LightSource
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
@@ -129,40 +128,27 @@ def test_tag_uses_project_name_when_provided(upload_scan_parameter: Callable[...
 def test_default_values(upload_scan: UploadScan) -> None:
     """Test that default parameters are set correctly."""
     # Assert
-    assert upload_scan.light_sources == (
-        LightSource(azimuth=90, elevation=45),
-        LightSource(azimuth=180, elevation=45),
-    )
-    assert upload_scan.observer == LightSource(azimuth=90, elevation=45)
     assert upload_scan.scale_x == 1.0
     assert upload_scan.scale_y == 1.0
-    assert upload_scan.step_size_x == 1
-    assert upload_scan.step_size_y == 1
+    assert upload_scan.step_size == 1
 
 
 def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> None:
     """Test that custom parameters can be set."""
     # Arrange
-    custom_light = LightSource(azimuth=45, elevation=30)
-    custom_observer = LightSource(azimuth=0, elevation=90)
-
+    expected_scale_x = 2.5
+    expected_scale_y = 3.0
+    expected_step_size = 2
     # Act
-    params = upload_scan_parameter(  # type: ignore
-        light_sources=(custom_light,),
-        observer=custom_observer,
-        scale_x=2.5,
-        scale_y=3.0,
-        step_size_x=2,
-        step_size_y=3,
+    params = upload_scan_parameter(
+        scale_x=expected_scale_x,
+        scale_y=expected_scale_y,
+        step_size=expected_step_size,
     )
-
     # Assert
-    assert params.light_sources == (custom_light,)
-    assert params.observer == custom_observer
-    assert params.scale_x == 2.5  # noqa: PLR2004
-    assert params.scale_y == 3.0  # noqa: PLR2004
-    assert params.step_size_x == 2  # noqa: PLR2004
-    assert params.step_size_y == 3  # noqa: PLR2004
+    assert params.scale_x == expected_scale_x
+    assert params.scale_y == expected_scale_y
+    assert params.step_size == expected_step_size
 
 
 @pytest.mark.parametrize(
@@ -172,10 +158,8 @@ def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> 
         ("scale_x", -1.0),
         ("scale_y", 0.0),
         ("scale_y", -1.5),
-        ("step_size_x", 0),
-        ("step_size_x", -1),
-        ("step_size_y", 0),
-        ("step_size_y", -2),
+        ("step_size", 0),
+        ("step_size", -1),
     ],
 )
 def test_invalid_scale_and_step_values(
@@ -186,8 +170,7 @@ def test_invalid_scale_and_step_values(
     valid_params = {
         "scale_x": 1.0,
         "scale_y": 1.0,
-        "step_size_x": 1,
-        "step_size_y": 1,
+        "step_size": 1,
     }
     valid_params[field_name] = invalid_value
 
