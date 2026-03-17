@@ -91,7 +91,7 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
     list(
         product(
             [classify_congruent_cells_consensus, classify_congruent_cells_median],
-            [0, 60, -90],
+            [120, 60, -90, -150],
         )
     ),
     ids=lambda x: x.__name__ if callable(x) else str(x),
@@ -121,8 +121,6 @@ def test_coarse_registration_finds_angle(
     )
     params = ComparisonParams(
         cell_size=(cell_size[0] * scale, cell_size[1] * scale),
-        search_angle_min=-90,
-        search_angle_max=90,
         search_angle_step=30,
         minimum_fill_fraction=0.5,
     )
@@ -151,9 +149,6 @@ def test_coarse_registration_finds_angle(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
 
-    if classification.cells:
-        assert (cell.is_congruent for cell in classification.cells)
-
     if plot:
         plot_cell_registration_results(
             reference_image=reference_image,
@@ -162,4 +157,7 @@ def test_coarse_registration_finds_angle(
         )
 
     # Assert
+    if classification.cells:
+        assert all(cell.is_congruent for cell in classification.cells)
+
     assert all(c.angle_deg == pytest.approx(angle) for c in cells)

@@ -4,7 +4,6 @@ Test helpers for cmc_classification tests.
 
 import numpy as np
 
-from conversion.surface_comparison.cmc_classification_median import _reflect_y_axis
 from conversion.surface_comparison.models import Cell, CellMetaData, ComparisonParams
 
 # Placeholder cell data: a minimal 2x2 height map, unused by the classifier.
@@ -18,6 +17,16 @@ _DEFAULT_META_DATA = CellMetaData(
 )
 
 
+def _reflect_y_axis(coordinates: np.ndarray) -> np.ndarray:
+    """
+    Reflect y-axis by multiplying data with reflection matrix.
+    """
+
+    reflection_matrix = np.array([[1, 0], [0, -1]]).transpose()
+
+    return coordinates @ reflection_matrix
+
+
 def build_cells(inputs: dict) -> list[Cell]:
     """
     Build a list of Cell objects from a test-case input dict.
@@ -29,6 +38,8 @@ def build_cells(inputs: dict) -> list[Cell]:
     """
     centers_reference = np.array(inputs["centers_reference"])
     centers_comparison = np.array(inputs["centers_comparison"])
+
+    # also works when ndim = 1
     centers_reference = _reflect_y_axis(centers_reference)
     centers_comparison = _reflect_y_axis(centers_comparison)
 

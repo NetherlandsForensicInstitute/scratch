@@ -73,6 +73,14 @@ class Cell(ConfigBaseModel):
             raise ValueError(f"value must be ≤ 1.0 (+{tol} tolerance)")
         return min(value, 1.0)  # clip value
 
+    def __hash__(self):
+        return hash(self.center_reference)
+
+    def __eq__(self, other):
+        if not isinstance(other, Cell):
+            return False
+        return self.center_reference == other.center_reference
+
     @property
     def cell_size_um(self) -> tuple[float, float]:
         return self.cell_size[0] * mega, self.cell_size[1] * mega
