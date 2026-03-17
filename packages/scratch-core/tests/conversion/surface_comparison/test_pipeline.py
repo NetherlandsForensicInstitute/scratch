@@ -46,7 +46,7 @@ def grid_cell() -> GridCell:
 def test_compare_surfaces_runs(mark: Mark, params: ComparisonParams):
     processed_mark = ProcessedMark(filtered_mark=mark, leveled_mark=mark)
     results = compare_surfaces(
-        refence_mark=processed_mark, comparison_mark=processed_mark, params=params
+        reference_mark=processed_mark, comparison_mark=processed_mark, params=params
     )
     assert results
 

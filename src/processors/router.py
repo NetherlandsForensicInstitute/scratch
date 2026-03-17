@@ -66,11 +66,10 @@ async def processor_root() -> RedirectResponse:
     performs pairwise comparison, and calculates a score (correlation coefficient).
     The score, together with plots, are saved and made available via URLs.
     """,
-    include_in_schema=False,
 )
 async def calculate_score_impression(impression_params: CalculateScoreImpression) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
-    logger.debug("starting calculate score striation")
+    logger.debug("starting calculate score impression")
     vault = create_vault(impression_params.tag)
 
     mark_ref = load_mark_from_path(path=impression_params.mark_dir_ref, stem="processed")
@@ -82,7 +81,7 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     logger.debug("marks loaded")
 
     cmc_result = compare_surfaces(
-        refence_mark=mark_ref_processed, comparison_mark=mark_comp_processed, params=impression_params.comparison_params
+        reference_mark=mark_ref_processed, comparison_mark=mark_comp_processed, params=impression_params.comparison_params
     )
     logger.debug("CMC is calculated")
 
