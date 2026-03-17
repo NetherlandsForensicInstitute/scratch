@@ -171,6 +171,8 @@ def _get_consensus_translation(
     Rotate reference cell centers by the consensus angle, then compute the
     median positional offset between the rotated reference and comparison centers.
 
+    Y-axis is reflected since we need coordinate system to change from 'image-coordinates' to 'mathematical coordinate-system'
+
     Outlier cells are excluded from the median by NaN-masking their centers before aggregation.
     Every cell's ``meta_data.position_error`` is updated with its signed [x, y] deviation
     from the consensus translation.
@@ -185,14 +187,15 @@ def _get_consensus_translation(
     outliers = np.array([c.meta_data.is_outlier for c in cells])
     centers_reference[outliers] = np.nan
     centers_comparison[outliers] = np.nan
-    centers_reference_temp = centers_reference.copy()
-    centers_reference_temp[:, 1] *= -1
-    rotation_center_temp = list(rotation_center)
-    rotation_center_temp[1] *= -1
+    centers_reference = _reflect_y_axis(centers_reference)
+    rotation_center = _reflect_y_axis(np.array(rotation_center))
+    rotation_center = (rotation_center[0], rotation_center[1])
     expected_positions_in_comparison_frame = rotate_points(
-        points=centers_reference_temp, angle=angle, center=tuple(rotation_center_temp)
+        points=centers_reference, angle=angle, center=rotation_center
     )
-    expected_positions_in_comparison_frame[:, 1] *= -1
+    expected_positions_in_comparison_frame = _reflect_y_axis(
+        expected_positions_in_comparison_frame
+    )
     # Compute residuals with respect to comparison.
     position_residuals = centers_comparison - expected_positions_in_comparison_frame
     consensus_translation = np.nanmedian(position_residuals, axis=0)
@@ -206,6 +209,16 @@ def _get_consensus_translation(
         )
 
     return float(consensus_translation[0]), float(consensus_translation[1])
+
+
+def _reflect_y_axis(coordinates: np.ndarray) -> np.ndarray:
+    """
+    Reflect y-axis by multiplying data with reflection matrix.
+    """
+
+    reflection_matrix = np.array([[1, 0], [0, -1]]).transpose()
+
+    return coordinates @ reflection_matrix
 
 
 def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
