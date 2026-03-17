@@ -51,7 +51,7 @@ def classify_congruent_cells_consensus(
     max_abs_angle_distance = params.angle_deviation_threshold  # in degrees
 
     # initialize solution: default to first cell as sole CMC
-
+    best_inliers_idx = []
     criterion = np.inf
 
     if n_filtered_cells == 1 or (
@@ -114,13 +114,13 @@ def classify_congruent_cells_consensus(
                             # break while loop, also for len(inliers_idx_candidate) == len(inliers_idx_current) and criterion did not improve
                             break
 
-                # --- Accept global best if the current solution is better ---
-                if len(inliers_idx_current) > len(best_inliers_idx) or (
-                    len(inliers_idx_current) == len(best_inliers_idx)
-                    and criterion_current < criterion
-                ):
-                    best_inliers_idx = inliers_idx_current
-                    criterion = criterion_current
+                    # --- Accept global best if the current solution is better ---
+                    if len(inliers_idx_current) > len(best_inliers_idx) or (
+                        len(inliers_idx_current) == len(best_inliers_idx)
+                        and criterion_current < criterion
+                    ):
+                        best_inliers_idx = inliers_idx_current
+                        criterion = criterion_current
 
             if len(best_inliers_idx) == n_filtered_cells:
                 break  # outer loop short-circuit
