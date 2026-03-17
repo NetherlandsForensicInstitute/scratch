@@ -1,3 +1,5 @@
+from typing import Sequence
+
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -8,11 +10,9 @@ from container_models.base import ImageRGB
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.plots.data_formats import (
     HistogramData,
-    ImpressionComparisonMetrics,
     LlrTransformationData,
 )
 from conversion.plots.plot_impression import (
-    compute_cell_size_um,
     plot_cell_overlay_on_axes,
 )
 from conversion.plots.plot_score_histograms import plot_score_histograms
@@ -23,6 +23,7 @@ from conversion.plots.utils import (
     get_height_ratios,
     get_metadata_dimensions,
 )
+from conversion.surface_comparison.models import Cell
 
 
 def _plot_surface_with_colorbar(
@@ -42,7 +43,7 @@ def _plot_surface_with_colorbar(
 def plot_cmc_comparison_overview(
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
-    metrics: ImpressionComparisonMetrics,
+    cells: Sequence[Cell],
     metadata_reference: MarkMetadata,
     metadata_compared: MarkMetadata,
     results_metadata: dict[str, str],
@@ -59,7 +60,7 @@ def plot_cmc_comparison_overview(
 
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.
-    :param metrics: Comparison metrics including correlation values.
+    :param cells: Cells to plot.
     :param metadata_reference: Metadata object for reference mark display.
     :param metadata_compared: Metadata object for compared mark display.
     :param results_metadata: Results metadata dict for display.
@@ -103,9 +104,8 @@ def plot_cmc_comparison_overview(
         ax_filtered_ref,
         mark_reference_filtered.scan_image.data,
         mark_reference_filtered.scan_image.scale_x,
-        metrics.cell_correlations,
+        cells=cells,
         cell_label_prefix="A",
-        cell_similarity_threshold=metrics.cell_similarity_threshold,
         show_all_cells=True,
     )
     _plot_surface_with_colorbar(
@@ -113,24 +113,14 @@ def plot_cmc_comparison_overview(
     )
 
     ax_filtered_comp = fig.add_subplot(gs[1, 2:4])
-    cell_size_um = compute_cell_size_um(
-        mark_reference_filtered.scan_image.data.shape,
-        mark_reference_filtered.scan_image.scale_x,
-        metrics.cell_correlations.shape,
-    )
+
     im_comp = plot_cell_overlay_on_axes(
         ax_filtered_comp,
         mark_compared_filtered.scan_image.data,
         mark_compared_filtered.scan_image.scale_x,
-        metrics.cell_correlations,
+        cells=cells,
         cell_label_prefix="B",
-        cell_similarity_threshold=metrics.cell_similarity_threshold,
         show_all_cells=False,
-        cell_positions=metrics.cell_positions_compared,
-        cell_rotations=metrics.cell_rotations_compared,
-        cell_size_um=cell_size_um
-        if metrics.cell_positions_compared is not None
-        else None,
     )
     _plot_surface_with_colorbar(
         fig, ax_filtered_comp, im_comp, "Filtered, Moved Compared Surface B"

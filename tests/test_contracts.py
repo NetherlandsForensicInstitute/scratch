@@ -11,7 +11,7 @@ from requests import Response
 
 from models import DirectoryAccess
 from preprocessors.pipelines import parse_scan_pipeline
-from processors.schemas import MetadataParameters
+from processors.schemas import ImpressionLRParameters, MetadataParameters
 from settings import get_settings
 
 
@@ -74,9 +74,9 @@ class TestContracts:
                 "step_size": "1",
             },
             expected_output={
-                "preview": ".png",
-                "surface_map": ".png",
-                "scan": ".x3p",
+                "preview_image": ".png",
+                "surface_map_image": ".png",
+                "scan_image": ".x3p",
             },
         )
 
@@ -107,8 +107,8 @@ class TestContracts:
                 },
             },
             expected_output={
-                "preview": ".png",
-                "surface_map": ".png",
+                "preview_image": ".png",
+                "surface_map_image": ".png",
                 "mark_data": ".npz",
                 "mark_meta": ".json",
                 "processed_data": ".npz",
@@ -142,8 +142,8 @@ class TestContracts:
                 },
             },
             expected_output={
-                "preview": ".png",
-                "surface_map": ".png",
+                "preview_image": ".png",
+                "surface_map_image": ".png",
                 "mark_data": ".npz",
                 "mark_meta": ".json",
                 "processed_data": ".npz",
@@ -169,8 +169,8 @@ class TestContracts:
                 "terms": "plane",
             },
             expected_output={
-                "preview": ".png",
-                "surface_map": ".png",
+                "preview_image": ".png",
+                "surface_map_image": ".png",
             },
         ), np.ones(parsed_scan.data.shape, dtype=np.bool_).tobytes(order="C")
 
@@ -236,7 +236,24 @@ class TestContracts:
                 "score": 1,
                 "n_cells": 5,
                 "lr_system": lr_system,
-                "param": sample_metadata_parameters,
+                "param": ImpressionLRParameters(
+                    area_correlation=0.0,
+                    cell_correlations=[[0.0]],
+                    cmc_score=0.0,
+                    mean_square_ref=0.0,
+                    mean_square_comp=0.0,
+                    mean_square_of_difference=0.0,
+                    has_area_results=False,
+                    has_cell_results=False,
+                    cell_positions_compared=[[0.0, 0.0]],
+                    cell_rotations_compared=[0.0],
+                    cmc_area_fraction=0.0,
+                    cutoff_low_pass=0.0,
+                    cutoff_high_pass=0.0,
+                    cell_size_um=0.0,
+                    max_error_cell_position=0.0,
+                    max_error_cell_angle=0.0,
+                ),
             },
             expected_output={
                 "urls": {"lr_overview_plot": ".png"},
@@ -261,6 +278,7 @@ class TestContracts:
                 "score": 1,
                 "lr_system": lr_system,
                 "param": sample_metadata_parameters,
+                "lr_system_path": lr_system,
             },
             expected_output={
                 "mark_ref_surfacemap": ".png",

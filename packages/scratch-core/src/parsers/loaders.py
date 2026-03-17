@@ -1,10 +1,12 @@
-from pathlib import Path
 from functools import lru_cache
-from loguru import logger
+from pathlib import Path
 
 import numpy as np
+from loguru import logger
 from returns.io import impure_safe
 from returns.result import safe
+from scipy.constants import micro
+from skimage.transform import resize
 from surfalize import Surface
 from surfalize.file import FileHandler
 from surfalize.file.al3d import MAGIC
@@ -14,14 +16,21 @@ from container_models.scan_image import ScanImage
 from utils.logger import log_railway_function
 
 from .patches.al3d import read_al3d
-from scipy.constants import micro
-from skimage.transform import resize
 
 # register the patched method as a parser
 FileHandler.register_reader(suffix=".al3d", magic=MAGIC)(read_al3d)
 
 
 @lru_cache(maxsize=1)
+def _load_surface(scan_file: Path) -> Surface:
+    """
+    Cache scan file as a Surface.
+    :param scan_file: The path to the file containing the scanned image data.
+    :returns: An instance of `Surface`.
+    """
+    return Surface.load(scan_file)
+
+
 @log_railway_function(
     "Failed to load image file",
     "Successfully loaded scan file",
@@ -33,7 +42,7 @@ def load_scan_image(scan_file: Path) -> ScanImage:
     :param scan_file: The path to the file containing the scanned image data.
     :returns: An instance of `ScanImage`.
     """
-    surface = Surface.load(scan_file)
+    surface = _load_surface(scan_file)
     data = np.asarray(surface.data, dtype=np.float64) * micro
     step_x = surface.step_x * micro
     step_y = surface.step_y * micro
@@ -105,7 +114,7 @@ def subsample_scan_image(
             f"Step size should be positive and smaller than the image size: {(height, width)}"
         )
     logger.info(
-        "Subsampling scan image with step sizes x: {step_size_x}, y: {step_size_y}"
+        f"Subsampling scan image with step sizes x: {step_size_x}, y: {step_size_y}"
     )
     return ScanImage(
         data=scan_image.data[::step_size_y, ::step_size_x].copy(),

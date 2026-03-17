@@ -22,22 +22,28 @@ All mutations in this module must preserve the semantic content of
 the image while adjusting its spatial representation.
 """
 
-import numpy as np
+from typing import Self
 
-from container_models.base import BinaryMask
-from computations.spatial import get_bounding_box
-from container_models.scan_image import ScanImage
-from exceptions import ImageShapeMismatchError
+import numpy as np
 from loguru import logger
-from mutations.base import ImageMutation
+from scipy.ndimage import binary_dilation, rotate
 from skimage.transform import resize
+
+from computations.spatial import get_bounding_box
+from container_models.base import BinaryMask
+from container_models.scan_image import ScanImage
+from conversion.data_formats import BoundingBox
+from conversion.rotate import rotate_mask
+from exceptions import ImageShapeMismatchError
+from mutations.base import ImageMutation
 
 
 class CropToMask(ImageMutation):
-    def __init__(self, mask: BinaryMask) -> None:
+    def __init__(self, mask: BinaryMask, margin: int = 0) -> None:
         if not np.any(mask):
             raise ValueError("Can't crop to a mask where there are only 0/False")
         self.mask = mask
+        self.margin = margin
 
     @property
     def skip_predicate(self) -> bool:
@@ -48,7 +54,34 @@ class CropToMask(ImageMutation):
 
         :returns: True if the crop is empty, False otherwise
         """
-        return bool(self.mask.all())
+        if self.mask.all():
+            logger.info("Skipping crop, mask is empty (containing only 1's")
+            return True
+        return False
+
+    @classmethod
+    def from_rotation(
+        cls, rotation_angle: float, mask_before_rotation: BinaryMask
+    ) -> Self:
+        """
+        Create a ``CropToMask`` instance for an image that will be rotated.
+
+        The mask is first dilated and then rotated to match the rotated image.
+        An additional margin is added to compensate for the dilation and
+        rotation operations (margin = iterations + 2).
+
+        :param rotation_angle: Rotation angle that will be applied to the scan image.
+        :param mask_before_rotation: Mask corresponding to the image before rotation.
+        :return: A ``CropToMask`` instance with the rotated mask and adjusted margin.
+        """
+        if np.isclose(rotation_angle, 0.0):
+            return cls(mask=mask_before_rotation, margin=0)
+        else:
+            mask = rotate_mask(
+                mask=binary_dilation(mask_before_rotation, iterations=3).astype(bool),
+                rotation_angle=rotation_angle,
+            )
+            return cls(mask=mask, margin=5)
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
@@ -59,7 +92,7 @@ class CropToMask(ImageMutation):
             raise ImageShapeMismatchError(
                 f"image shape: {scan_image.data.shape} and crop shape: {self.mask.shape} are not equal"
             )
-        y_slice, x_slice = get_bounding_box(self.mask)
+        y_slice, x_slice = get_bounding_box(self.mask, margin=self.margin)
         scan_image.data = scan_image.data[y_slice, x_slice]
         return scan_image
 
@@ -106,3 +139,64 @@ class Resample(ImageMutation):
             scale_x=scan_image.scale_x * scale_x_factor,
             scale_y=scan_image.scale_y * scale_y_factor,
         )
+
+
+class Rotate(ImageMutation):
+    def __init__(self, rotation_angle: float):
+        """Constructor to initiating the Rotate class,
+
+        The Rotate ImageMutation is rotating the given scan_image.
+
+        :param rotation_angle: a rotation angle in degrees positive will result in counterclockwise rotation
+        """
+        self.rotation_angle = rotation_angle
+
+    @property
+    def skip_predicate(self) -> bool:
+        """
+        Determine whether this rotation should be skipped.
+
+        Skips computation if the rotation is 0.
+
+        :returns: True if rotation angle is 0, False otherwise
+        """
+        if np.isclose(self.rotation_angle, 0.0):
+            logger.info(
+                f"No rotation is needed, given rotation angle is close by 0, given angle : {self.rotation_angle}"
+            )
+            return True
+        return False
+
+    @classmethod
+    def from_bounding_box(cls, bounding_box: BoundingBox) -> Self:
+        """
+        Calculate the rotation angle of a rectangular crop region.
+
+        Determines the rotation angle by computing the angles between edges and the x-axis, and selecting the angle with
+        the smallest absolute value.
+
+        :param bounding_box: Bounding box of a rectangular crop region. Expects pixel coordinates,
+            i.e. top-left origin, in the order [x, y].
+        """
+        angles = []
+        for i in range(4):
+            point1 = bounding_box[i]
+            point2 = bounding_box[(i + 1) % 4]
+            angles.append(
+                np.degrees(np.arctan2(point2[1] - point1[1], point2[0] - point1[0]))
+            )
+        angle = min(angles, key=lambda x: abs(x))
+        return cls(
+            rotation_angle=-angle,
+        )
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        scan_image.data = rotate(
+            scan_image.data,
+            self.rotation_angle,
+            reshape=True,
+            order=1,
+            mode="constant",
+            cval=np.nan,
+        )
+        return scan_image

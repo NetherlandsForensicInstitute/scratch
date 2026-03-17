@@ -1,12 +1,13 @@
 import numpy as np
 from scipy.stats import t
 
-from container_models.base import Points2D, FloatArray1D, BoolArray1D
+from container_models.base import FloatArray1D, BoolArray1D
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonResult,
     ComparisonParams,
 )
+from conversion.surface_comparison.utils import rotate_points
 
 
 def classify_congruent_cells_median(
@@ -87,23 +88,6 @@ def _wrap_angles(angles: FloatArray1D) -> FloatArray1D:
     :returns: Array of normalized angles in radians.
     """
     return (angles + np.pi) % (2 * np.pi) - np.pi
-
-
-def _rotate_points(
-    points: Points2D, angle: float, center: tuple[float, float]
-) -> Points2D:
-    """
-    Rotate 2-D points around a center.
-
-    :param points: (N, 2) array of [x, y] coordinates.
-    :param angle: Rotation angle in radians.
-    :param center: Tuple for the center of rotation [x, y].
-    :returns: (N, 2) rotated points.
-    """
-    cos_val, sin_val = np.cos(angle), np.sin(angle)
-    rotation_matrix = np.array([[cos_val, -sin_val], [sin_val, cos_val]])
-    translation = np.array(center)
-    return (points - translation) @ rotation_matrix.T + translation
 
 
 def _get_esd_criterion(values: FloatArray1D) -> BoolArray1D:
@@ -187,6 +171,8 @@ def _get_median_translation(
     Rotate reference cell centers by the median angle, then compute the
     median positional offset between the rotated reference and comparison centers.
 
+    Y-axis is reflected since we need coordinate system to change from 'image-coordinates' to 'mathematical coordinate-system'
+
     Outlier cells are excluded from the median by NaN-masking their centers before aggregation.
     Every cell's ``meta_data.position_error`` is updated with its signed [x, y] deviation
     from the median translation.
@@ -201,11 +187,17 @@ def _get_median_translation(
     outliers = np.array([c.meta_data.is_outlier for c in cells])
     centers_reference[outliers] = np.nan
     centers_comparison[outliers] = np.nan
-    expected_positions_on_reference = _rotate_points(
+    centers_reference = _reflect_y_axis(centers_reference)
+    rotation_center = _reflect_y_axis(np.array(rotation_center))
+    rotation_center = (rotation_center[0], rotation_center[1])
+    expected_positions_in_comparison_frame = rotate_points(
         points=centers_reference, angle=angle, center=rotation_center
     )
+    expected_positions_in_comparison_frame = _reflect_y_axis(
+        expected_positions_in_comparison_frame
+    )
     # Compute residuals with respect to comparison.
-    position_residuals = centers_comparison - expected_positions_on_reference
+    position_residuals = centers_comparison - expected_positions_in_comparison_frame
     median_translation = np.nanmedian(position_residuals, axis=0)
     position_errors = position_residuals - median_translation
 
@@ -217,6 +209,16 @@ def _get_median_translation(
         )
 
     return float(median_translation[0]), float(median_translation[1])
+
+
+def _reflect_y_axis(coordinates: np.ndarray) -> np.ndarray:
+    """
+    Reflect y-axis by multiplying data with reflection matrix.
+    """
+
+    reflection_matrix = np.array([[1, 0], [0, -1]]).transpose()
+
+    return coordinates @ reflection_matrix
 
 
 def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
@@ -237,8 +239,8 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
         :func:`_get_median_angle` and :func:`_get_median_translation`.
     :param params: Algorithm parameters providing the classification thresholds.
     """
-    for cell in cells:
-        cell.is_congruent = bool(
+    for i, cell in enumerate(cells):
+        congruent = bool(
             cell.best_score >= params.correlation_threshold
             and not cell.meta_data.is_outlier
             and np.abs(cell.meta_data.residual_angle_deg)
@@ -247,6 +249,7 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
                 np.abs(cell.meta_data.position_error) <= params.position_threshold
             )
         )
+        cell.is_congruent = congruent
 
 
 def _rosner_critical_value(n_remaining: int, alpha: float) -> float:
