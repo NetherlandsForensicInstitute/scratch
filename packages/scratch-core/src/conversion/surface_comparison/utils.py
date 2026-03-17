@@ -66,8 +66,8 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
     step_x = (max_x - min_x) / (len(unique_x) - 1) if len(unique_x) > 1 else 1.0
     step_y = (max_y - min_y) / (len(unique_y) - 1) if len(unique_y) > 1 else 1.0
 
-    col_indices = np.round((centers[:, 0] - unique_x[0]) / step_x).astype(int)
-    row_indices = np.round((centers[:, 1] - unique_y[0]) / step_y).astype(int)
+    col_indices = np.round((centers[:, 0] - min_x) / step_x).astype(int)
+    row_indices = np.round((centers[:, 1] - min_y) / step_y).astype(int)
 
     n_rows = row_indices.max() + 1
     n_cols = col_indices.max() + 1
