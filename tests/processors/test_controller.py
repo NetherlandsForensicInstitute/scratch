@@ -5,12 +5,12 @@ from unittest.mock import Mock
 import pytest
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.likelihood_ratio import ModelSpecs
-from conversion.plots.data_formats import ImpressionComparisonMetrics
 from conversion.profile_correlator import Profile
 from fastapi import HTTPException
 
 from processors.controller import compare_striation_marks, save_lr_impression_plot, save_lr_striation_plot
-from tests.processors.conftest import assert_valid_png
+
+from ..helper_function import assert_valid_png, make_cell
 
 
 class TestCompareStriationMarks:
@@ -44,7 +44,6 @@ class TestSaveLrOverviewPlot:
         mark_ref: Mark,
         mark_comp: Mark,
         reference_data: ModelSpecs,
-        impression_metrics: ImpressionComparisonMetrics,
         results_metadata: dict[str, str],
         metadata_reference: MarkMetadata,
         metadata_compared: MarkMetadata,
@@ -56,7 +55,14 @@ class TestSaveLrOverviewPlot:
             reference_data=reference_data,
             mark_ref=mark_ref,
             mark_comp=mark_comp,
-            metrics=impression_metrics,
+            cells=[
+                make_cell(
+                    center_reference=(i * 1e-3, 0.0),
+                    best_score=0.3,
+                    cell_size=(1e-3, 1e-3),
+                )
+                for i in range(5)
+            ],
             metadata_reference=metadata_reference,
             metadata_compared=metadata_compared,
             results_metadata=results_metadata,

@@ -13,6 +13,11 @@ from extractors.schemas import (
     URLContainer,
 )
 
+_EMPTY_LR_STATS = {
+    "lr_lower_ci": None,
+    "lr_upper_ci": None,
+}
+
 _CONCRETE_CLASSES = [
     cls
     for _, cls in inspect.getmembers(schemas_module, inspect.isclass)
@@ -20,6 +25,7 @@ _CONCRETE_CLASSES = [
     and cls is not URLContainer
     and cls is not SupportedExtension
     and cls is not LRResponse
+    and not issubclass(cls, LRResponse)
 ]
 
 _BASE_URL = "http://localhost:8000/files/token123"
@@ -88,7 +94,7 @@ class TestLRResponse:
     @pytest.fixture
     def lr_response(self) -> LRResponse:
         """LRResponse instance with a valid LRResponseURL and a non-zero lr value."""
-        return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL), lr=2.5)
+        return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL), lr=2.5, **_EMPTY_LR_STATS)
 
     def test_serialized_output_is_flat(self, lr_response: LRResponse) -> None:
         """model_dump produces a flat dict with no nested 'urls' key."""
@@ -106,4 +112,8 @@ class TestLRResponse:
     def test_raises_validation_error_for_non_numeric_lr(self) -> None:
         """ValidationError is raised when lr cannot be coerced to float."""
         with pytest.raises(ValidationError):
-            LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL), lr="not-a-number")  # type: ignore
+            LRResponse(
+                urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL),
+                lr="not-a-number",  # pyright: ignore[reportArgumentType]
+                **_EMPTY_LR_STATS,
+            )

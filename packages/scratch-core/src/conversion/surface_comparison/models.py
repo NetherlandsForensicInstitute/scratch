@@ -1,6 +1,13 @@
+from functools import cached_property
+
+import numpy as np
 from pydantic import Field, field_validator, PositiveFloat
+
 from collections.abc import Sequence
 from dataclasses import dataclass
+
+from scipy.constants import mega
+
 from container_models.base import ConfigBaseModel, FloatArray2D
 from conversion.data_formats import Mark
 
@@ -35,7 +42,7 @@ class Cell(ConfigBaseModel):
     Per-cell registration result and CMC classification outcome.
 
     :param center_reference: Cell center on the reference image [x, y] in meters.
-    :param cell_data: Height data of the cell in meters.
+    :param cell_size: Cell size on the reference image [width, height] in meters.
     :param fill_fraction_reference: Fraction of valid pixels in this cell relative
         to the nominal cell area (0 = empty, 1 = fully filled).
     :param best_score: Best ACCF cross-correlation score achieved for this cell.
@@ -48,7 +55,7 @@ class Cell(ConfigBaseModel):
     """
 
     center_reference: tuple[float, float]
-    cell_data: FloatArray2D
+    cell_size: tuple[float, float]
     fill_fraction_reference: float = Field(ge=0.0, le=1.0)
     best_score: float = Field(ge=0.0, le=1.0)
     angle_deg: float = Field(ge=-180, le=180)
@@ -65,6 +72,10 @@ class Cell(ConfigBaseModel):
         if value > 1.0 + tol:
             raise ValueError(f"value must be ≤ 1.0 (+{tol} tolerance)")
         return min(value, 1.0)  # clip value
+
+    @property
+    def cell_size_um(self) -> tuple[float, float]:
+        return self.cell_size[0] * mega, self.cell_size[1] * mega
 
 
 @dataclass
@@ -123,10 +134,76 @@ class ComparisonParams(ConfigBaseModel):
 
     cell_size: tuple[PositiveFloat, PositiveFloat] = (1e-3, 1e-3)
     minimum_fill_fraction: float = Field(default=0.5, ge=0.0, le=1.0)
-    # TODO: minimum fill fraction is different for reference and comparison?
     correlation_threshold: float = Field(default=0.4, ge=-1.0, le=1.0)
     angle_deviation_threshold: float = Field(default=2.0, gt=0.0)
     position_threshold: float = Field(default=100e-6, gt=0.0)
     search_angle_min: float = -180.0
     search_angle_max: float = 180.0
     search_angle_step: float = Field(default=1.0, gt=0.0)
+
+
+@dataclass(frozen=False)
+class GridSearchParams:
+    """
+    Mutable container for the best registration parameters found so far for one cell.
+    All positional attributes are in pixel coordinates of the (rotated) comparison image.
+    :param center_x: Center x-coordinate of the best-matching comparison patch (pixels).
+    :param center_y: Center y-coordinate of the best-matching comparison patch (pixels).
+    :param angle: Rotation angle at which the best score was found (degrees).
+    :param score: Best normalized cross-correlation score found so far.
+    """
+
+    center_x: float = -1.0
+    center_y: float = -1.0
+    angle: float = 0.0
+    score: float = float("-inf")
+
+    def update(
+        self, center_x: float, center_y: float, angle: float, score: float
+    ) -> None:
+        """Replace all fields with a new best result."""
+        self.center_x = center_x
+        self.center_y = center_y
+        self.angle = angle
+        self.score = score
+
+
+@dataclass(frozen=True)
+class GridCell:
+    """
+    Container class for storing generated grid cells.
+
+    All the values of the attributes and properties are in pixel units.
+
+    :param top_left: Tuple containing the top-left pixel coordinates (x, y) corresponding to the reference image.
+    :param cell_data: 2D array containing the sliced image data from the reference image.
+    :param grid_search_params: An instance of `GridSearchParams` for keeping track of intermediate search results.
+    :param nan_fill_value: (Optional) A sentinel value for replacing NaN values. The cell data with the NaN
+        values replaced is stored in the `cell_data_filled` attribute.
+    """
+
+    top_left: tuple[int, int]
+    cell_data: FloatArray2D
+    grid_search_params: GridSearchParams
+    nan_fill_value: float = np.nan
+
+    @property
+    def width(self) -> int:
+        return self.cell_data.shape[1]
+
+    @property
+    def height(self) -> int:
+        return self.cell_data.shape[0]
+
+    @property
+    def center(self) -> tuple[float, float]:
+        return self.top_left[0] + self.width / 2, self.top_left[1] + self.height / 2
+
+    @property
+    def fill_fraction(self) -> float:
+        return float(np.count_nonzero(~np.isnan(self.cell_data)) / self.cell_data.size)
+
+    @cached_property
+    def cell_data_filled(self) -> FloatArray2D:
+        """Cell data where NaN values are replaced with the sentinel value."""
+        return np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)

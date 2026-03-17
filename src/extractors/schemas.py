@@ -4,7 +4,7 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated, TypeVar
 
-from pydantic import AfterValidator, BaseModel, Field, HttpUrl, model_serializer
+from pydantic import AfterValidator, BaseModel, Field, HttpUrl, SerializerFunctionWrapHandler, model_serializer
 
 from models import (
     validate_file_extension,
@@ -220,7 +220,7 @@ class ComparisonResponseStriation(URLContainer):
     )
 
     @model_serializer(mode="wrap")
-    def serialize(self, handler):
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
         """Serialize model to flat json."""
         data = handler(self)
         return {
@@ -239,12 +239,12 @@ class LRResponseURL(URLContainer):
 class LRResponse(BaseModel):
     urls: LRResponseURL
     lr: float
+    lr_lower_ci: float | None
+    lr_upper_ci: float | None
 
     @model_serializer(mode="wrap")
-    def serialize(self, handler):
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
         """Serialize model to flat json."""
         data = handler(self)
-        return {
-            **data["urls"],
-            "lr": data["lr"],
-        }
+        urls = data.pop("urls")
+        return {**urls, **data}

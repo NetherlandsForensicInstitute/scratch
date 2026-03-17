@@ -1,12 +1,13 @@
 import numpy as np
 from scipy.stats import t
 
-from container_models.base import Points2D, FloatArray1D, BoolArray1D
+from container_models.base import FloatArray1D, BoolArray1D
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonResult,
     ComparisonParams,
 )
+from conversion.surface_comparison.utils import rotate_points
 
 
 def classify_congruent_cells(
@@ -87,23 +88,6 @@ def _wrap_angles(angles: FloatArray1D) -> FloatArray1D:
     :returns: Array of normalized angles in radians.
     """
     return (angles + np.pi) % (2 * np.pi) - np.pi
-
-
-def _rotate_points(
-    points: Points2D, angle: float, center: tuple[float, float]
-) -> Points2D:
-    """
-    Rotate 2-D points around a center.
-
-    :param points: (N, 2) array of [x, y] coordinates.
-    :param angle: Rotation angle in radians.
-    :param center: Tuple for the center of rotation [x, y].
-    :returns: (N, 2) rotated points.
-    """
-    cos_val, sin_val = np.cos(angle), np.sin(angle)
-    rotation_matrix = np.array([[cos_val, -sin_val], [sin_val, cos_val]])
-    translation = np.array(center)
-    return (points - translation) @ rotation_matrix.T + translation
 
 
 def _get_esd_criterion(values: FloatArray1D) -> BoolArray1D:
@@ -201,7 +185,7 @@ def _get_consensus_translation(
     outliers = np.array([c.meta_data.is_outlier for c in cells])
     centers_reference[outliers] = np.nan
     centers_comparison[outliers] = np.nan
-    expected_positions_on_reference = _rotate_points(
+    expected_positions_on_reference = rotate_points(
         points=centers_reference, angle=angle, center=rotation_center
     )
     # Compute residuals with respect to comparison.

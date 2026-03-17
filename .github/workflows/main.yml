@@ -37,7 +37,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           git fetch origin ${{ github.base_ref }} --depth=1
-          just cov-diff
+          just cov-diff origin/${{ github.base_ref }}
 
       - name: Code Coverage Summary Report
         uses: irongut/CodeCoverageSummary@v1.3.0
