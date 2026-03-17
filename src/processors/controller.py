@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 from http import HTTPStatus
 from pathlib import Path
 
@@ -20,13 +21,22 @@ from conversion.plots.plot_striation import plot_striation_comparison_results
 from conversion.plots.utils import build_results_metadata_impression, build_results_metadata_striation
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from conversion.surface_comparison.models import Cell, ProcessedMark
+from conversion.surface_comparison.models import Cell, ComparisonParams, ComparisonResult, ProcessedMark
 from fastapi import HTTPException
+from lir import LLRData
 from lir.util import probability_to_logodds
 from loguru import logger
 from PIL import Image
 
 from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from processors.schemas import CalculateLRImpression, CalculateLRStriation
+
+
+@dataclass(frozen=True)
+class LRResult:
+    log_lr: float
+    log_lr_lower_ci: float | None
+    log_lr_upper_ci: float | None
 
 
 def compare_striation_marks(
@@ -46,6 +56,12 @@ def compare_striation_marks(
         )
     logger.debug("correlations are calculated")
     return mark_correlations
+
+
+def _build_lr_result(llr_data: LLRData) -> LRResult:
+    lower = float(llr_data.llr_intervals[0, 0]) if llr_data.llr_intervals is not None else None
+    upper = float(llr_data.llr_intervals[0, 1]) if llr_data.llr_intervals is not None else None
+    return LRResult(log_lr=float(llr_data.llrs[0]), log_lr_lower_ci=lower, log_lr_upper_ci=upper)
 
 
 def save_striation_comparison_plots(  # noqa: PLR0913
@@ -84,8 +100,8 @@ def save_striation_comparison_plots(  # noqa: PLR0913
 def save_impression_comparison_plots(  # noqa: PLR0913
     mark_ref: ProcessedMark,
     mark_comp: ProcessedMark,
-    cmc_result,
-    comparison_params,
+    cmc_result: ComparisonResult,
+    comparison_params: ComparisonParams,
     working_dir: Path,
     files_to_save: type[ComparisonImpressionFiles],
     metadata_reference: MarkMetadata,
@@ -96,7 +112,7 @@ def save_impression_comparison_plots(  # noqa: PLR0913
         mark_reference_leveled=mark_ref.leveled_mark,
         mark_compared_leveled=mark_comp.leveled_mark,
         mark_reference_filtered=mark_ref.filtered_mark,
-        mark_compared_filtered=mark_ref.filtered_mark,
+        mark_compared_filtered=mark_comp.filtered_mark,
         cmc_result=cmc_result,
         comparison_params=comparison_params,
         metadata_reference=metadata_reference,
@@ -182,7 +198,7 @@ def save_lr_striation_plot(  # noqa: PLR0913
     results_metadata: dict[str, str],
     score: float,
     score_transformed: float,
-    transformed_reference_scores: np.ndarray,
+    reference_scores_transformed: np.ndarray,
     lr: float,
     output_path: Path,
 ):
@@ -201,8 +217,8 @@ def save_lr_striation_plot(  # noqa: PLR0913
     :param metadata_compared: Display metadata for the compared mark.
     :param results_metadata: Formatted summary of comparison results for display.
     :param score: CCF score for the current case comparison.
-    :param score_transformed: Log odds transformed score for the current case comparison.
-    :param transformed_reference_scores: Log odds transformed reference scores.
+    :param score_transformed: Log-odds transformed CCF score for the current case comparison.
+    :param reference_scores_transformed: Log-odds transformed CCF scores for the reference population.
     :param lr: Log-likelihood ratio for the current case comparison.
     :param output_path: Path to save the output PNG image.
     """
@@ -216,7 +232,7 @@ def save_lr_striation_plot(  # noqa: PLR0913
         results_metadata=results_metadata,
         histogram_data=HistogramData(scores=reference_data.scores, labels=reference_data.labels, new_score=score),
         histogram_data_transformed=HistogramData(
-            scores=transformed_reference_scores, labels=reference_data.labels, new_score=score_transformed
+            scores=reference_scores_transformed, labels=reference_data.labels, new_score=score_transformed
         ),
         llr_data=LlrTransformationData(
             scores=reference_data.scores,
@@ -229,7 +245,10 @@ def save_lr_striation_plot(  # noqa: PLR0913
     Image.fromarray(plot).save(output_path)
 
 
-def process_lr_striation(lr_input: CalculateLRStriation, working_dir: Path) -> float:
+def process_lr_striation(
+    lr_input: CalculateLRStriation,
+    working_dir: Path,
+) -> LRResult:
     """Calculate LR for striation marks and save the overview plot."""
     lr_system = get_lr_system_from_path(lr_input.lr_system_path)
     reference_data = get_reference_data_from_path(lr_input.lr_system_path)
@@ -268,15 +287,15 @@ def process_lr_striation(lr_input: CalculateLRStriation, working_dir: Path) -> f
         results_metadata=results_metadata,
         score=lr_input.score,
         score_transformed=score_transformed,
-        transformed_reference_scores=transformed_reference_scores,
+        reference_scores_transformed=transformed_reference_scores,
         lr=log_lr,
         output_path=LRFiles.lr_overview_plot.get_file_path(working_dir),
     )
 
-    return log_lr
+    return _build_lr_result(llr_data)
 
 
-def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) -> float:
+def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) -> LRResult:
     """Calculate LR for impression marks and save the overview plot."""
     lr_system = get_lr_system_from_path(lr_input.lr_system_path)
     reference_data = get_reference_data_from_path(lr_input.lr_system_path)
@@ -311,4 +330,4 @@ def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) ->
         output_path=LRFiles.lr_overview_plot.get_file_path(working_dir),
     )
 
-    return log_lr
+    return _build_lr_result(llr_data)

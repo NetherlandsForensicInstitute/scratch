@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+import pickle
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -164,3 +165,37 @@ def impression_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(scope="session")
 def striation_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return RESOURCES_DIR / "striation"
+
+def _create_dummy_impression_surface(rows: int = 100, cols: int = 100) -> np.ndarray:
+    """Create a surface with enough variation for CMC to find cells."""
+    rng = np.random.default_rng(42)
+    # Base surface with some spatial structure
+    x = np.linspace(0, 4 * np.pi, cols)
+    y = np.linspace(0, 4 * np.pi, rows)
+    xs, ys = np.meshgrid(x, y)
+    surface = np.sin(xs) * np.cos(ys) * 10.0
+    # Add noise so cells have something to correlate
+    surface += rng.normal(0, 1.0, surface.shape)
+    return surface
+
+
+@pytest.fixture
+def impression_mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
+    """Prepare directories with impression mark files (processed + leveled)."""
+    ref_path = tmp_path / "ref_mark"
+    comp_path = tmp_path / "comp_mark"
+    ref_path.mkdir()
+    comp_path.mkdir()
+
+    surface_ref = _create_dummy_impression_surface()
+    # Shift slightly so marks are similar but not identical
+    surface_comp = np.roll(surface_ref, shift=5, axis=1)
+
+    mark_ref = _impression_mark(surface_ref)
+    mark_comp = _impression_mark(surface_comp)
+
+    # Both stems needed: ProcessedMark(filtered, leveled)
+    for path, mark in [(ref_path, mark_ref), (comp_path, mark_comp)]:
+        _save_impression_marks(path, mark)
+
+    return ref_path, comp_path

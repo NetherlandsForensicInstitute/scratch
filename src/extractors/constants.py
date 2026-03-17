@@ -25,12 +25,12 @@ class ComparisonImpressionFiles(UrlFiles):
 
 
 class ComparisonStriationFiles(UrlFiles):
-    mark_ref_surfacemap = "mark_ref_surfacemap.png"
-    mark_comp_surfacemap = "mark_comp_surfacemap.png"
+    mark_reference_aligned_surfacemap = "mark_reference_aligned_surfacemap.png"
+    mark_compared_aligned_surfacemap = "mark_compared_aligned_surfacemap.png"
     filtered_reference_heatmap = "filtered_reference_heatmap.png"
     comparison_overview = "comparison_overview.png"
-    mark_ref_preview = "mark_ref_preview.png"
-    mark_comp_preview = "mark_comp_preview.png"
+    mark_reference_aligned_preview = "mark_reference_aligned_preview.png"
+    mark_compared_aligned_preview = "mark_compared_aligned_preview.png"
     similarity_plot = "similarity_plot.png"
     filtered_compared_heatmap = "filtered_compared_heatmap.png"
     side_by_side_heatmap = "side_by_side_heatmap.png"

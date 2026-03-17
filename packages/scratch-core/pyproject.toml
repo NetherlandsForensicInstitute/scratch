@@ -3,9 +3,9 @@ name = "scratch-core"
 version = "0.0.1"
 description = "Scratch core libraries"
 authors = [
-  { name = "Netherlands Forensic Institute - CFS R&D Data", email = "cfs_rd_data@nfi.nl" },
-  { name = "Sharlon N. Regales", email = "s.regales@nfi.nl" },
-  { name = "Raymond Houwing", email = "r.houwing@nfi.nl" },
+    { name = "Netherlands Forensic Institute - CFS R&D Data", email = "cfs_rd_data@nfi.nl" },
+    { name = "Sharlon N. Regales", email = "s.regales@nfi.nl" },
+    { name = "Raymond Houwing", email = "r.houwing@nfi.nl" },
 ]
 readme = "README.md"
 

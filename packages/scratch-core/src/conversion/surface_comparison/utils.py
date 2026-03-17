@@ -1,7 +1,8 @@
 from container_models.base import Points2D
 from typing import Sequence
 
-from container_models.base import FloatArray2D, FloatArray1D
+from container_models.base import FloatArray2D
+
 import numpy as np
 
 from conversion.surface_comparison.models import Cell
@@ -46,25 +47,25 @@ def rotate_points(
     return (points - translation) @ rotation_matrix.T + translation
 
 
-def _cells_to_grid(
-    cells: Sequence[Cell],
-) -> tuple[FloatArray2D, FloatArray2D, FloatArray1D]:
+def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
     """
-    Map unordered cells onto a row-major grid.
+    Map unordered cells onto a row-major grid with the correlation as values.
 
     Grid dimensions and spacing are inferred from the cell center positions.
 
     :param cells: Unordered cell results from the CMC pipeline.
     :return: cell_correlations (n_rows, n_cols),
-             cell_positions_compared (n_rows * n_cols, 2) in µm,
-             cell_rotations_compared (n_rows * n_cols,) in radians.
     """
     centers = np.array([c.center_reference for c in cells])
 
     unique_x = np.unique(np.round(centers[:, 0], decimals=9))
     unique_y = np.unique(np.round(centers[:, 1], decimals=9))
-    step_x = np.diff(unique_x).min() if len(unique_x) > 1 else 1.0
-    step_y = np.diff(unique_y).min() if len(unique_y) > 1 else 1.0
+    min_x = np.min(unique_x)
+    min_y = np.min(unique_y)
+    max_x = np.max(unique_x)
+    max_y = np.max(unique_y)
+    step_x = (max_x - min_x) / (len(unique_x) - 1) if len(unique_x) > 1 else 1.0
+    step_y = (max_y - min_y) / (len(unique_y) - 1) if len(unique_y) > 1 else 1.0
 
     col_indices = np.round((centers[:, 0] - unique_x[0]) / step_x).astype(int)
     row_indices = np.round((centers[:, 1] - unique_y[0]) / step_y).astype(int)
@@ -73,14 +74,9 @@ def _cells_to_grid(
     n_cols = col_indices.max() + 1
 
     cell_correlations = np.full((n_rows, n_cols), np.nan)
-    cell_positions = np.full((n_rows * n_cols, 2), np.nan)
-    cell_rotations = np.full(n_rows * n_cols, np.nan)
 
     for k, cell in enumerate(cells):
         r, c = row_indices[k], col_indices[k]
-        flat = r * n_cols + c
         cell_correlations[r, c] = cell.best_score
-        cell_positions[flat] = np.array(cell.center_comparison) * 1e6
-        cell_rotations[flat] = np.deg2rad(cell.angle_deg)
 
-    return cell_correlations, cell_positions, cell_rotations
+    return cell_correlations

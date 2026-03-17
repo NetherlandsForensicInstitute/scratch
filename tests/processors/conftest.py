@@ -1,5 +1,4 @@
 from datetime import date
-from http import HTTPStatus
 from pathlib import Path
 
 import pytest
@@ -19,11 +18,6 @@ RESOURCES = Path(__file__).parent.parent.parent / "packages/scratch-core/tests/r
 def random_lr_system_path() -> Path:
     """Path to the pre-built random LR system pickle in test resources."""
     return RESOURCES / "random_lr_system.pkl"
-
-
-def assert_valid_png(path: Path) -> None:
-    assert path.exists()
-    assert Image.open(path).format == "PNG"
 
 
 class _IdentityLRSystem(LRSystem):

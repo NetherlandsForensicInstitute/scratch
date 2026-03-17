@@ -6,15 +6,28 @@ from conversion.data_formats import Mark, MarkType
 from conversion.export.mark import save_mark
 from conversion.export.profile import save_profile
 from conversion.profile_correlator import Profile
+from http import HTTPStatus
+from pathlib import Path
+
+import numpy as np
+from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark, MarkType
+from conversion.export.mark import save_mark
+from conversion.export.profile import save_profile
+from conversion.profile_correlator import Profile
 from conversion.surface_comparison.models import Cell, CellMetaData
 from scipy.constants import micro
 from scipy.interpolate import interp1d
+from PIL import Image
+from pydantic import HttpUrl
+from scipy.constants import micro
+from scipy.interpolate import interp1d
+from starlette.testclient import TestClient
 
 
 def make_cell(  # noqa: PLR0913
     center_reference: tuple[float, float] = (0.0, 0.0),
     best_score: float = 0.8,
-    *,
     is_congruent: bool = False,
     angle_deg: float = 0.0,
     center_comparison: tuple[float, float] | None = None,
@@ -70,6 +83,22 @@ def _create_dummy_profile(n_samples: int = 1000) -> Profile:
     return Profile(heights=data, pixel_size=pixel_size_m)
 
 
+def assert_valid_png(path: Path) -> None:
+    assert path.exists()
+    assert Image.open(path).format == "PNG"
+
+
+def assert_lr_response_valid(client: TestClient, response) -> None:
+    """Assert that an LR endpoint response contains a valid LR and reachable PNG plot."""
+    assert response.status_code == HTTPStatus.OK, response.json()
+    data = response.json()
+    assert isinstance(data["lr"], float)
+    assert HttpUrl(data["lr_overview_plot"])
+    plot_response = client.get(data["lr_overview_plot"])
+    assert plot_response.status_code == HTTPStatus.OK
+    assert plot_response.headers["content-type"] == "image/png"
+
+
 def _shift_profile(profile: Profile, shift_samples: float) -> Profile:
     """Create a shifted version of a profile."""
     data = profile.heights
@@ -90,6 +119,20 @@ def _striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
     data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
     scan_image = ScanImage(data=data, scale_x=profile.pixel_size, scale_y=profile.pixel_size)
     return Mark(scan_image=scan_image, mark_type=MarkType.BULLET_GEA_STRIATION, center=None)
+
+
+def _impression_mark(data: np.ndarray) -> Mark:
+    """Create an impression mark from 2D surface data."""
+    return Mark(
+        scan_image=ScanImage(data=data, scale_x=micro, scale_y=micro),
+        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+    )
+
+
+def _save_impression_marks(dir_path: Path, mark: Mark) -> None:
+    """Save mark and profile files to a directory."""
+    for stem in ("processed", "leveled"):
+        save_mark(mark, dir_path / stem)
 
 
 def _save_striation_mark_and_profile(dir_path: Path, profile: Profile, mark: Mark) -> None:

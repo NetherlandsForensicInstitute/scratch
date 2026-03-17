@@ -1,18 +1,16 @@
+from dataclasses import dataclass
 from math import ceil
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
-from returns.pipeline import is_successful
 from scipy.constants import micro
 from surfalize import Surface
-from unittest.mock import patch
 
 from container_models.scan_image import ScanImage
 from parsers import load_scan_image, subsample_scan_image
-from parsers.loaders import make_isotropic
-
-from ..helper_function import unwrap_result
+from parsers.loaders import _load_surface, make_isotropic
 
 
 @pytest.fixture(scope="class")
@@ -34,8 +32,7 @@ class TestLoadScanImage:
         surface = Surface.load(filepath)
         # Act
         result = load_scan_image(filepath)
-        scan_image = unwrap_result(result)
-
+        scan_image = result
         # Assert
         assert scan_image.data.shape == (
             ceil(surface.data.shape[0]),
@@ -46,15 +43,22 @@ class TestLoadScanImage:
 
 
 class TestLoadScanImageCaching:
+    @dataclass
     class FakeSurfaceOne:
-        pass
+        data = np.zeros((2, 2))
+        step_x = 1
+        step_y = 1
+        metadata = {"some_data": "data"}
 
     class FakeSurfaceTwo:
-        pass
+        data = np.zeros((2, 2))
+        step_x = 1
+        step_y = 1
+        metadata = {"some_data": "data"}
 
     @pytest.fixture(autouse=True)
     def empty_cache_for_test(self):
-        load_scan_image.cache_clear()
+        _load_surface.cache_clear()
         yield
 
     def test_load_scan_image_is_cached(self, tmp_path: Path) -> None:
@@ -68,7 +72,9 @@ class TestLoadScanImageCaching:
             image_2 = load_scan_image(scan_file)
 
         # Assert
-        assert image_1 is image_2, "same object expected due to caching"
+        assert image_1 is not image_2, (
+            "Same data should be cached, but new object should be created."
+        )
         assert mock_load.call_count == 1, (
             "Surface.load should be called only once due to caching"
         )
@@ -91,7 +97,7 @@ class TestLoadScanImageCaching:
             _image_3 = load_scan_image(scan_file_2)
 
         # Assert
-        info = load_scan_image.cache_info()
+        info = _load_surface.cache_info()
         assert info.hits == 1, "one cache hit expected"
         assert info.misses == 2, "two different files loaded"
         assert info.currsize == 1, "Cache should only hold one item"
@@ -106,7 +112,7 @@ class TestSubSampleScanImage:
         verified = np.load(baseline_images_dir / "replica_subsampled.npy")
         # act
         result = subsample_scan_image(scan_image_replica, 10, 15)
-        subsampled = unwrap_result(result)
+        subsampled = result
         # assert
         assert np.allclose(
             subsampled.data,
@@ -127,8 +133,7 @@ class TestSubSampleScanImage:
 
         # Act
         result = subsample_scan_image(scan_image, step_size_x, step_size_y)
-        subsampled = unwrap_result(result)
-
+        subsampled = result
         #  Assert
         assert subsampled.data.shape == (expected_height, expected_width)
 
@@ -146,8 +151,7 @@ class TestSubSampleScanImage:
     ) -> None:
         # Act
         result = subsample_scan_image(scan_image, step_x, step_y)
-        subsampled = unwrap_result(result)
-
+        subsampled = result
         # Assert
         assert np.isclose(subsampled.scale_x, scan_image.scale_x * step_x, atol=1.0e-3)
         assert np.isclose(subsampled.scale_y, scan_image.scale_y * step_y, atol=1.0e-3)
@@ -160,10 +164,8 @@ class TestSubSampleScanImage:
         self, scan_image: ScanImage, step_size_x: int, step_size_y: int
     ):
         # Act
-        result = subsample_scan_image(scan_image, step_size_x, step_size_y)
-
-        # Assert
-        assert not is_successful(result)
+        with pytest.raises(ValueError):
+            subsample_scan_image(scan_image, step_size_x, step_size_y)
 
     def test_subsample_skips_when_given_step_size_of_one(
         self, scan_image: ScanImage
@@ -174,8 +176,7 @@ class TestSubSampleScanImage:
         """
         # Act
         result = subsample_scan_image(scan_image, 1, 1)
-        subsampled = unwrap_result(result)
-
+        subsampled = result
         # Assert
         assert subsampled is scan_image, "Expected the same object to be returned"
 
@@ -187,7 +188,7 @@ class TestSubSampleScanImage:
             scale_x=scale, scale_y=scale, data=np.zeros((height, width))
         )
 
-        result = unwrap_result(make_isotropic(scan_image))
+        result = make_isotropic(scan_image)
 
         assert np.isclose(result.scale_x, scale), (
             f"Scale should not have changed, but now is {result.scale_x}"
@@ -211,7 +212,7 @@ class TestSubSampleScanImage:
             scale_y=scale_fine,
         )
 
-        result = unwrap_result(make_isotropic(scan_image))
+        result = make_isotropic(scan_image)
 
         assert np.isclose(result.scale_x, scale_fine), (
             f"Scale should now be the minimum of the two {scale_fine}"
@@ -232,7 +233,7 @@ class TestSubSampleScanImage:
             data=np.array([[0, 1000], [2000, 3000]], dtype=np.float64),
         )
 
-        result = unwrap_result(make_isotropic(scan_image))
+        result = make_isotropic(scan_image)
 
         assert result.meta_data == scan_image.meta_data
         assert np.min(result.data) == 0, (
@@ -260,7 +261,7 @@ class TestSubSampleScanImage:
             int(round(scan_image.width)),
         )
 
-        result = unwrap_result(make_isotropic(scan_image))
+        result = make_isotropic(scan_image)
 
         assert np.isclose(result.scale_x, scale_fine), (
             f"Scale should be {scale_fine}, but got {result.scale_x}"
