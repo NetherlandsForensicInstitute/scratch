@@ -112,11 +112,7 @@ class TestClassifyCongruentCells:
 
         expected_translation = matlab_test_case["outputs"]["consensus_translation"]
         actual_translation = result.consensus_translation
-        actual_translation_list = list(actual_translation)
-        actual_translation = (
-            actual_translation_list[0],
-            -1 * actual_translation_list[1],
-        )
+        actual_translation = (actual_translation[0], -1 * actual_translation[1])
         if all(item is None for item in expected_translation):
             assert all(np.isnan(v) for v in actual_translation), (
                 f"[{matlab_test_case['name']}] Expected NaN translation, "

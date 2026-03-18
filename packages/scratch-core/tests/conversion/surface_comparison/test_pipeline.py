@@ -118,9 +118,7 @@ def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
         comparison_image=comparison_image,
         params=params,
     )
-
-    # TODO implement run fine_registration when implmemented
-
+    # TODO: add the fine_registration stage when implemented
     classification = classify_congruent_cells(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
