@@ -1,10 +1,9 @@
-import numpy as np
 from typing import Final
-from returns.result import safe
+
+import numpy as np
+
 from container_models.base import FloatArray2D, VectorField
 from container_models.scan_image import ScanImage
-from utils.logger import log_railway_function
-
 
 # Padding configurations for gradient arrays to maintain original dimensions
 _PAD_X_GRADIENT: Final[tuple[tuple[int, int], ...]] = (
@@ -68,11 +67,6 @@ def _normalize_to_surface_normals(
     )
 
 
-@log_railway_function(
-    failure_message="Failed to compute surface normals from depth data",
-    success_message="Successfully computed surface normal components",
-)
-@safe
 def compute_surface_normals(scan_image: ScanImage) -> VectorField:
     """
     Compute per-pixel surface normals from a 2D depth map.
@@ -93,10 +87,6 @@ def compute_surface_normals(scan_image: ScanImage) -> VectorField:
     return surface_normals
 
 
-@log_railway_function(
-    failure_message="Failed to normalize 2D intensity map",
-)
-@safe
 def normalize_2d_array(
     array_to_normalize: FloatArray2D,
     scale_max: float = 255,

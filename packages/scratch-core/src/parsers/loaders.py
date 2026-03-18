@@ -3,8 +3,6 @@ from pathlib import Path
 
 import numpy as np
 from loguru import logger
-from returns.io import impure_safe
-from returns.result import safe
 from scipy.constants import micro
 from skimage.transform import resize
 from surfalize import Surface
@@ -13,7 +11,6 @@ from surfalize.file.al3d import MAGIC
 
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
-from utils.logger import log_railway_function
 
 from .patches.al3d import read_al3d
 
@@ -31,11 +28,6 @@ def _load_surface(scan_file: Path) -> Surface:
     return Surface.load(scan_file)
 
 
-@log_railway_function(
-    "Failed to load image file",
-    "Successfully loaded scan file",
-)
-@impure_safe
 def load_scan_image(scan_file: Path) -> ScanImage:
     """
     Load a scan image from a file. Parsed values will be converted to meters (m).
@@ -55,11 +47,6 @@ def load_scan_image(scan_file: Path) -> ScanImage:
     )
 
 
-@log_railway_function(
-    "Failed to make image resolution isotropic",
-    "Successfully upsampled image file to isotropic resolution",
-)
-@safe
 def make_isotropic(scan_image: ScanImage) -> ScanImage:
     """
     Resample a scan image to isotropic resolution (i.e. equal pixel spacing in X and Y).
@@ -87,12 +74,6 @@ def make_isotropic(scan_image: ScanImage) -> ScanImage:
     )
 
 
-@log_railway_function(
-    "Failed to subsample image file",
-    "Successfully subsampled scan file",
-)
-@log_railway_function("Failed to subsample image file")
-@safe
 def subsample_scan_image(
     scan_image: ScanImage, step_size_x: int, step_size_y: int
 ) -> ScanImage:

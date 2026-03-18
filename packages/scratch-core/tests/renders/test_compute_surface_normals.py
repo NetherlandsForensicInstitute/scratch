@@ -2,9 +2,10 @@ import numpy as np
 import pytest
 from scipy.constants import milli
 
+from container_models.base import BinaryMask, VectorField
 from container_models.scan_image import ScanImage
 from renders import compute_surface_normals
-from container_models.base import BinaryMask, VectorField
+
 from ..helper_function import NoScaleScanImage
 
 IMAGE_SIZE = 20
@@ -75,7 +76,7 @@ def test_slope_has_nan_border(
     This is filled with NaN values to get the same shape as original image
     """
     # Act
-    surface_normals = compute_surface_normals(flat_neutral_image).unwrap()
+    surface_normals = compute_surface_normals(flat_neutral_image)
 
     # Assert
     assert not has_nan(surface_normals, inner_mask)
@@ -88,7 +89,7 @@ def test_flat_surface_returns_flat_surface(
     """Given a flat surface the depth map should also be flat."""
 
     # Act
-    surface_normals = compute_surface_normals(flat_neutral_image).unwrap()
+    surface_normals = compute_surface_normals(flat_neutral_image)
 
     # Assert
     assert are_normals_allclose(surface_normals, inner_mask, (0, 0, 1))
@@ -116,7 +117,7 @@ def test_linear_slope(step_x: float, step_y: float, inner_mask: BinaryMask) -> N
     expected = (-step_x / norm, step_y / norm, 1 / norm)
 
     # Act
-    surface_normals = compute_surface_normals(input_image).unwrap()
+    surface_normals = compute_surface_normals(input_image)
 
     # Assert
     assert are_normals_allclose(surface_normals, inner_mask, expected)
@@ -143,7 +144,7 @@ def test_location_slope_is_where_expected(
     outside_bump_mask = ~bump_mask & inner_mask
 
     # Act
-    surface_normals = compute_surface_normals(image_with_bump).unwrap()
+    surface_normals = compute_surface_normals(image_with_bump)
     nx, ny, nz = (
         surface_normals[..., 0],
         surface_normals[..., 1],
@@ -170,7 +171,7 @@ def test_corner_of_slope(image_with_bump: ScanImage) -> None:
     )
 
     # Act
-    surface_normals = compute_surface_normals(image_with_bump).unwrap()
+    surface_normals = compute_surface_normals(image_with_bump)
     nz = surface_normals[..., 2]
 
     # Assert

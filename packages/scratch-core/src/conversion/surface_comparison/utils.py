@@ -2,6 +2,7 @@ from container_models.base import Points2D
 from typing import Sequence
 
 from container_models.base import FloatArray2D
+
 import numpy as np
 
 from conversion.surface_comparison.models import Cell

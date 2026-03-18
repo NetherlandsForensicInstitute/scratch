@@ -1,9 +1,11 @@
 import re
+
+import numpy as np
+import pytest
+
 from container_models.scan_image import ScanImage
 from exceptions import ImageShapeMismatchError
 from mutations.spatial import CropToMask
-import pytest
-import numpy as np
 
 
 class TestCropImage:
@@ -22,7 +24,7 @@ class TestCropImage:
         # [0,0,0,0]
         crop = CropToMask(mask=mask)
         # Act
-        result = crop(scan_image).unwrap()
+        result = crop(scan_image)
 
         # Assert
         removed_border = np.array([[5, 6], [9, 10]], dtype=scan_image.data.dtype)
@@ -39,7 +41,7 @@ class TestCropImage:
         # Arrange
         crop = CropToMask(mask=(np.ones(scan_image.data.shape, dtype=np.bool)))
         # Act
-        result = crop(scan_image).unwrap()
+        result = crop(scan_image)
         # Assert
         assert result is scan_image
         np.testing.assert_array_equal(result.data, scan_image.data)
