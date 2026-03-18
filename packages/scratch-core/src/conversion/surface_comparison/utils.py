@@ -2,6 +2,7 @@ from container_models.base import Points2D
 from typing import Sequence
 
 from container_models.base import FloatArray2D
+
 import numpy as np
 
 from conversion.surface_comparison.models import Cell
@@ -55,19 +56,17 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
     :param cells: Unordered cell results from the CMC pipeline.
     :return: cell_correlations (n_rows, n_cols),
     """
-    centers = np.array([c.center_reference for c in cells])
+    centers = np.array([cell.center_reference for cell in cells])
 
     unique_x = np.unique(np.round(centers[:, 0], decimals=9))
     unique_y = np.unique(np.round(centers[:, 1], decimals=9))
-    min_x = np.min(unique_x)
-    min_y = np.min(unique_y)
-    max_x = np.max(unique_x)
-    max_y = np.max(unique_y)
+    min_x, min_y = unique_x[0], unique_y[0]
+    max_x, max_y = unique_x[-1], unique_y[-1]
     step_x = (max_x - min_x) / (len(unique_x) - 1) if len(unique_x) > 1 else 1.0
     step_y = (max_y - min_y) / (len(unique_y) - 1) if len(unique_y) > 1 else 1.0
 
-    col_indices = np.round((centers[:, 0] - unique_x[0]) / step_x).astype(int)
-    row_indices = np.round((centers[:, 1] - unique_y[0]) / step_y).astype(int)
+    col_indices = np.round((centers[:, 0] - min_x) / step_x).astype(int)
+    row_indices = np.round((centers[:, 1] - min_y) / step_y).astype(int)
 
     n_rows = row_indices.max() + 1
     n_cols = col_indices.max() + 1

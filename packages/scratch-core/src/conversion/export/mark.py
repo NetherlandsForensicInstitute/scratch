@@ -8,8 +8,9 @@ with NPZ binary data, and load them back into memory.
 from pathlib import Path
 from typing import Annotated, Any
 
+import numpy as np
 from pydantic import Field
-
+from scipy.io import loadmat
 from container_models.base import ConfigBaseModel
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
@@ -48,6 +49,22 @@ def save_mark(mark: Mark, path: Path) -> None:
 
     save_as_json(data=mark.export(), file_path=path)
     save_as_compressed_binary(array=mark.scan_image.data, file_path=path)
+
+
+def load_mark_from_mat_file(path: Path) -> Mark:
+    """Load a `Mark` object from a .mat file."""
+    parsed = loadmat(str(path))
+    container = parsed["data_struct"][0, 0]
+    mark = Mark(
+        scan_image=ScanImage(
+            data=np.asarray(container["depth_data"], dtype=np.float64),
+            scale_x=float(container["xdim"][0]),
+            scale_y=float(container["ydim"][0]),
+        ),
+        mark_type=MarkType(str(container["mark_type"][0]).lower()),
+        # TODO: Parse `center` and `meta_data` from data struct
+    )
+    return mark
 
 
 def load_mark_from_path(path: Path, stem: str) -> Mark:

@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -19,7 +18,6 @@ from renders import (
 )
 from renders.normalizations import normalize_2d_array
 
-from pipelines import run_pipeline
 from preprocessors.exceptions import ArrayShapeMismatchError
 
 
@@ -30,15 +28,9 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
     :param scan_file: The path to the scan file to parse.
     :param parameters: All parameters used in the pipeline.
     :return: The parsed scan image data.
-    :raises HTTPException: If the file cannot be parsed or read.
     """
-    return run_pipeline(
-        scan_file,
-        load_scan_image,
-        partial(subsample_scan_image, step_size_x=step_size_x, step_size_y=step_size_y),
-        make_isotropic,
-        error_message=f"Failed to parsed given scan file: {scan_file}",
-    )
+    scan_image = subsample_scan_image(load_scan_image(scan_file), step_size_x=step_size_x, step_size_y=step_size_y)
+    return make_isotropic(scan_image)
 
 
 def _reshape_array(array: NDArray, shape: tuple[int, int]) -> NDArray:
@@ -78,14 +70,8 @@ def x3p_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     :param parsed_scan: The scan image data to convert to X3P format.
     :param output_path: The file path where the X3P file will be saved.
     :return: The path to the saved X3P file.
-    :raises HTTPException: If conversion or saving fails.
     """
-    return run_pipeline(
-        parsed_scan,
-        parse_to_x3p,
-        partial(save_x3p, output_path=output_path),
-        error_message=f"Failed to create the x3p: {output_path}",
-    )
+    return save_x3p(parse_to_x3p(parsed_scan), output_path=output_path)
 
 
 def surface_map_pipeline(  # noqa
@@ -101,21 +87,15 @@ def surface_map_pipeline(  # noqa
     :param output_path: The file path where the surface map image will be saved.
     :param parameters: All parameters used in the pipeline.
     :return: The path to the saved surface map image file.
-    :raises HTTPException: If image generation or saving fails.
     """
-    return run_pipeline(
-        parsed_scan,
-        compute_surface_normals,
-        partial(
-            apply_multiple_lights,
-            light_sources=light_sources,
-            observer=observer,
-        ),
-        normalize_2d_array,
-        grayscale_to_image,
-        partial(save_image, output_path=output_path),
-        error_message=f"Failed to create the surface map: {output_path}",
+    scan_image = apply_multiple_lights(
+        compute_surface_normals(parsed_scan),
+        light_sources=light_sources,
+        observer=observer,
     )
+    scan_image = normalize_2d_array(scan_image)
+    scan_image = grayscale_to_image(scan_image)
+    return save_image(scan_image, output_path=output_path)
 
 
 def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
@@ -125,12 +105,6 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     :param parsed_scan: The scan image data to generate a preview from.
     :param output_path: The file path where the preview image will be saved.
     :return: The path to the saved preview image file.
-    :raises HTTPException: If image generation or saving fails.
     """
-    return run_pipeline(
-        parsed_scan,
-        get_scan_image_for_display,
-        scan_to_image,
-        partial(save_image, output_path=output_path),
-        error_message=f"Failed to create the surface map: {output_path}",
-    )
+    scan_image = scan_to_image(get_scan_image_for_display(parsed_scan))
+    return save_image(scan_image, output_path=output_path)

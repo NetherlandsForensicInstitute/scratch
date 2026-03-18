@@ -95,7 +95,7 @@ class TestRotate:
             rotation_angle=rotation,
         )
         # Act
-        rotated_image = rotator(scan_image=smal_square_scan_image).unwrap()
+        rotated_image = rotator(scan_image=smal_square_scan_image)
         # Assert
         self.assert_scan_image_with_expected_scan_image(
             scan_image=rotated_image,
