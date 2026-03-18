@@ -31,8 +31,8 @@ def create_normalized_separable_kernels(
     kernel_y = create_normalized_1d_kernel(alpha, cutoff_pixels[0], size=kernel_dims[0])
     kernel_x = create_normalized_1d_kernel(alpha, cutoff_pixels[1], size=kernel_dims[1])
 
-    # Each 1D kernel is normalized to sum to 1. Separable convolution uses the outer
-    # product (https://en.wikipedia.org/wiki/Outer_product), so the equivalent 2D
+    # Each 1D kernel is normalized to sum to 1. Separable convolution uses the outer product
+    # of the two kernels (https://en.wikipedia.org/wiki/Outer_product), so the equivalent 2D
     # kernel automatically sums to 1 as well.
     return kernel_x, kernel_y
 
@@ -103,14 +103,15 @@ def convolve_2d_separable(
     mode: str = "constant",
 ) -> FloatArray2D:
     """
-    Perform fast 2D convolution using separable 1D kernels via FFT.
+      Perform fast 2D convolution using separable 1D kernels via FFT.
 
-    :param data: 2D input array.
-    :param kernel_x: 1D kernel for the X-axis.
-    :param kernel_y: 1D kernel for the Y-axis.
-    :param mode: Padding mode - `"constant"` (zero) or `"symmetric"` (mirror).
-    :returns: Convolved array of same shape as input.
+      :param data: 2D input array.
+      :param kernel_x: 1D kernel for the X-axis.
+      :param kernel_y: 1D kernel for the Y-axis.
+    :param mode: Padding mode - "constant" (zero) or "symmetric" (mirror).
+      :returns: Convolved array of same shape as input.
     """
+    # Prepare: apply explicit padding for symmetric mode
     if mode == "constant":
         pad_y, pad_x = 0, 0
         padded = data
@@ -152,7 +153,7 @@ def apply_order0_filter(
     :param data: The 2D input array to be smoothed, potentially containing NaNs.
     :param kernel_x: The 1D X-axis component of the separable smoothing kernel.
     :param kernel_y: The 1D Y-axis component of the separable smoothing kernel.
-    :param mode: Padding mode - `"constant"` (zero), `"reflect"`, or `"symmetric"`.
+    :param mode: Padding mode - "constant" (zero), "reflect", or "symmetric".
     :returns: A 2D array of the same shape as `data` containing the smoothed values.
     """
     # Assign zero weight to NaNs
@@ -177,9 +178,9 @@ def apply_polynomial_filter(
     """
     Apply local polynomial regression filter (orders 1 or 2).
 
-    For each pixel, this fits a polynomial surface to the neighboring pixels
-    using weighted least squares, where the kernel determines the weights.
-    The smoothed value is the fitted polynomial evaluated at the center pixel.
+    For each pixel, this fits a polynomial surface to the neighboring pixels using
+    weighted least squares, where the kernel determines the weights. The smoothed
+    value is the fitted polynomial evaluated at the center pixel.
 
     Order 1 fits a plane (linear):    f(x,y) = c0 + c1·x + c2·y
     Order 2 fits a quadratic surface: f(x,y) = c0 + c1·x + c2·y + c3·x² + c4·xy + c5·y²
