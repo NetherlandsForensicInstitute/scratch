@@ -73,12 +73,12 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     logger.debug("starting calculate score striation")
     vault = create_vault(impression_params.tag)
 
-    mark_ref = load_mark_from_path(path=impression_params.mark_dir_ref, stem="processed")
-    mark_ref_leveled = load_mark_from_path(path=impression_params.mark_dir_ref, stem="leveled")
-    mark_ref_processed = ProcessedMark(mark_ref, mark_ref_leveled)
-    mark_comp = load_mark_from_path(path=impression_params.mark_dir_comp, stem="processed")
-    mark_comp_leveled = load_mark_from_path(path=impression_params.mark_dir_comp, stem="leveled")
-    mark_comp_processed = ProcessedMark(mark_comp, mark_comp_leveled)
+    mark_ref = load_mark_from_path(path=impression_params.mark_dir_ref / "processed", stem="processed")
+    mark_ref_raw = load_mark_from_path(path=impression_params.mark_dir_ref, stem="mark")
+    mark_ref_processed = ProcessedMark(mark_ref, mark_ref_raw)
+    mark_comp = load_mark_from_path(path=impression_params.mark_dir_comp / "processed", stem="processed")
+    mark_comp_raw = load_mark_from_path(path=impression_params.mark_dir_comp, stem="mark")
+    mark_comp_processed = ProcessedMark(mark_comp, mark_comp_raw)
     logger.debug("marks loaded")
 
     cmc_result = compare_surfaces(
@@ -129,10 +129,10 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     """Compare two striation profiles."""
     logger.debug("starting calculate score striation")
     vault = create_vault(striation_params.tag)
-    mark_ref = load_mark_from_path(path=striation_params.mark_dir_ref, stem="processed")
-    mark_comp = load_mark_from_path(path=striation_params.mark_dir_comp, stem="processed")
-    profile_ref = load_profile_from_path(path=striation_params.mark_dir_ref, stem="profile")
-    profile_comp = load_profile_from_path(path=striation_params.mark_dir_comp, stem="profile")
+    mark_ref = load_mark_from_path(path=striation_params.mark_dir_ref / "processed", stem="processed")
+    mark_comp = load_mark_from_path(path=striation_params.mark_dir_comp / "processed", stem="processed")
+    profile_ref = load_profile_from_path(path=striation_params.mark_dir_ref / "processed", stem="profile")
+    profile_comp = load_profile_from_path(path=striation_params.mark_dir_comp / "processed", stem="profile")
     logger.debug("marks & profiles loaded")
     comparison_result = compare_striation_marks(
         mark_ref=mark_ref, mark_comp=mark_comp, profile_ref=profile_ref, profile_comp=profile_comp

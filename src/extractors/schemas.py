@@ -133,15 +133,15 @@ class ComparisonResponse(URLContainer):
 
 
 class ComparisonResponseImpressionURL(ComparisonResponse):
-    leveled_reference_heatmap: HttpUrl = Field(
+    raw_reference_heatmap: HttpUrl = Field(
         ...,
-        description="Heatmap of the reference mark after leveling.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/leveled_reference_heatmap.png"],
+        description="Heatmap of the raw reference mark.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/raw_reference_heatmap.png"],
     )
-    leveled_compared_heatmap: HttpUrl = Field(
+    raw_compared_heatmap: HttpUrl = Field(
         ...,
-        description="Heatmap of the compared mark after leveling.",
-        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/leveled_compared_heatmap.png"],
+        description="Heatmap of the raw compared mark.",
+        examples=["http://localhost:8000/preprocessor/files/surface_comparator_859lquto/raw_compared_heatmap.png"],
     )
     filtered_compared_heatmap: HttpUrl = Field(
         ...,

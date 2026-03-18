@@ -99,8 +99,8 @@ class TestMarkImpression:
         mark_dir_ref, mark_dir_comp = impression_mark_dirs
         expected_images = {
             "comparison_overview",
-            "leveled_reference_heatmap",
-            "leveled_compared_heatmap",
+            "raw_reference_heatmap",
+            "raw_compared_heatmap",
             "filtered_reference_heatmap",
             "filtered_compared_heatmap",
             "cell_reference_heatmap",

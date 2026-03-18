@@ -108,8 +108,8 @@ def save_impression_comparison_plots(  # noqa: PLR0913
 ) -> None:
     """Create and save the plots of the processed markings."""
     plots = plot_impression_comparison_results(
-        mark_reference_leveled=mark_ref.leveled_mark,
-        mark_compared_leveled=mark_comp.leveled_mark,
+        mark_reference_raw=mark_ref.raw_mark,
+        mark_compared_raw=mark_comp.raw_mark,
         mark_reference_filtered=mark_ref.filtered_mark,
         mark_compared_filtered=mark_comp.filtered_mark,
         cmc_result=cmc_result,
@@ -120,12 +120,8 @@ def save_impression_comparison_plots(  # noqa: PLR0913
 
     logger.debug("impression comparison plots generated")
     Image.fromarray(plots.comparison_overview).save(files_to_save.comparison_overview.get_file_path(working_dir))
-    Image.fromarray(plots.leveled_reference_heatmap).save(
-        files_to_save.leveled_reference_heatmap.get_file_path(working_dir)
-    )
-    Image.fromarray(plots.leveled_compared_heatmap).save(
-        files_to_save.leveled_compared_heatmap.get_file_path(working_dir)
-    )
+    Image.fromarray(plots.raw_reference_heatmap).save(files_to_save.raw_reference_heatmap.get_file_path(working_dir))
+    Image.fromarray(plots.raw_compared_heatmap).save(files_to_save.raw_compared_heatmap.get_file_path(working_dir))
     Image.fromarray(plots.filtered_reference_heatmap).save(
         files_to_save.filtered_reference_heatmap.get_file_path(working_dir)
     )
@@ -260,8 +256,8 @@ def process_lr_striation(
     transformed_reference_scores = probability_to_logodds((reference_data.scores + 1) / 2)
     score_transformed = float(probability_to_logodds((lr_input.score + 1) / 2))
 
-    mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
-    mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
+    mark_ref = load_mark_from_path(lr_input.mark_dir_ref / "processed", stem="processed")
+    mark_comp = load_mark_from_path(lr_input.mark_dir_comp / "processed", stem="processed")
     mark_ref_aligned = load_mark_from_path(lr_input.mark_dir_ref_aligned, stem="aligned")
     mark_comp_aligned = load_mark_from_path(lr_input.mark_dir_comp_aligned, stem="aligned")
 
@@ -301,8 +297,8 @@ def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) ->
     llr_data = calculate_lr_impression(lr_system, lr_input.score, lr_input.n_cells)
     log_lr = llr_data.llrs[0]
 
-    mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
-    mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
+    mark_ref = load_mark_from_path(lr_input.mark_dir_ref / "processed", stem="processed")
+    mark_comp = load_mark_from_path(lr_input.mark_dir_comp / "processed", stem="processed")
 
     # TODO: check this well after the impression score calculation is done
     results_metadata = build_results_metadata_impression(

@@ -213,8 +213,8 @@ class TestContracts:
             },
             expected_urls={
                 "comparison_overview": ".png",
-                "leveled_reference_heatmap": ".png",
-                "leveled_compared_heatmap": ".png",
+                "raw_reference_heatmap": ".png",
+                "raw_compared_heatmap": ".png",
                 "filtered_reference_heatmap": ".png",
                 "filtered_compared_heatmap": ".png",
                 "cell_reference_heatmap": ".png",
