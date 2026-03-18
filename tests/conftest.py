@@ -1,7 +1,3 @@
-import matplotlib
-
-matplotlib.use("Agg")
-
 import pickle
 from collections.abc import Iterator
 from datetime import date
@@ -15,6 +11,7 @@ from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.likelihood_ratio import ModelSpecs
 from conversion.plots.utils import build_results_metadata_impression
+from conversion.profile_correlator import Profile
 from fastapi.testclient import TestClient
 from lir import LLRData
 
@@ -22,6 +19,14 @@ from constants import PROJECT_ROOT
 from main import app
 from models import DirectoryAccess
 from settings import Settings
+from tests.helper_function import (
+    _create_dummy_profile,
+    _impression_mark,
+    _save_impression_marks,
+    _save_striation_mark_and_profile,
+    _shift_profile,
+    _striation_mark,
+)
 from tests.processors.conftest import _IdentityLRSystem
 
 
@@ -77,16 +82,6 @@ def lr_system_path(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
-    """Create empty mark directories."""
-    ref = tmp_path / "mark_ref"
-    comp = tmp_path / "mark_comp"
-    ref.mkdir()
-    comp.mkdir()
-    return ref, comp
-
-
-@pytest.fixture
 def dummy_mark() -> Mark:
     return Mark(
         scan_image=ScanImage(
@@ -96,6 +91,11 @@ def dummy_mark() -> Mark:
         ),
         mark_type=MarkType.BREECH_FACE_IMPRESSION,
     )
+
+
+@pytest.fixture
+def dummy_profile() -> Profile:
+    return Profile(heights=np.random.default_rng(42).random(1000), pixel_size=1e-6)
 
 
 @pytest.fixture
@@ -136,21 +136,54 @@ def results_metadata(reference_data: ModelSpecs) -> dict[str, str]:
 
 
 @pytest.fixture
-def mark_dir_ref(tmp_path: Path) -> Path:
-    directory = tmp_path / "mark_ref"
-    directory.mkdir()
-    return directory
+def mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
+    """Prepare directories with striation mark and profile files."""
+    ref_path = tmp_path / "ref_mark"
+    comp_path = tmp_path / "comp_mark"
+    ref_path.mkdir()
+    comp_path.mkdir()
+
+    profile_ref = _create_dummy_profile()
+    profile_comp = _shift_profile(profile_ref, 10.0)
+    mark_ref = _striation_mark(profile_ref)
+    mark_comp = _striation_mark(profile_comp)
+
+    _save_striation_mark_and_profile(ref_path, profile_ref, mark_ref)
+    _save_striation_mark_and_profile(comp_path, profile_comp, mark_comp)
+
+    return ref_path, comp_path
+
+
+def _create_dummy_impression_surface(rows: int = 100, cols: int = 100) -> np.ndarray:
+    """Create a surface with enough variation for CMC to find cells."""
+    rng = np.random.default_rng(42)
+    # Base surface with some spatial structure
+    x = np.linspace(0, 4 * np.pi, cols)
+    y = np.linspace(0, 4 * np.pi, rows)
+    xs, ys = np.meshgrid(x, y)
+    surface = np.sin(xs) * np.cos(ys) * 10.0
+    # Add noise so cells have something to correlate
+    surface += rng.normal(0, 1.0, surface.shape)
+    return surface
 
 
 @pytest.fixture
-def mark_dir_comp(tmp_path: Path) -> Path:
-    directory = tmp_path / "mark_comp"
-    directory.mkdir()
-    return directory
+def impression_mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
+    """Prepare directories with impression mark files (processed + leveled)."""
+    ref_path = tmp_path / "ref_mark"
+    comp_path = tmp_path / "comp_mark"
+    ref_path.mkdir()
+    comp_path.mkdir()
 
+    surface_ref = _create_dummy_impression_surface()
+    # Shift slightly so marks are similar but not identical
+    surface_comp = np.roll(surface_ref, shift=5, axis=1)
 
-@pytest.fixture
-def lr_system_file(tmp_path: Path) -> Path:
-    f = tmp_path / "lr_system.bin"
-    f.touch()
-    return f
+    mark_ref = _impression_mark(surface_ref)
+    mark_comp = _impression_mark(surface_comp)
+
+    # Both stems needed: ProcessedMark(filtered, leveled)
+    for path, mark in [(ref_path, mark_ref), (comp_path, mark_comp)]:
+        _save_impression_marks(path, mark)
+
+    return ref_path, comp_path
