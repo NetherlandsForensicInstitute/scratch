@@ -46,7 +46,7 @@ def get_scan_image_for_display(
     :returns: An array containing the clipped and normalized image data.
     """
     return ScanImage(
-        data=_normalize(*_clip_data(data=scan_image.data, std_scaler=std_scaler)),
+        data=_clip_data(data=scan_image.data, std_scaler=std_scaler)[0],
         scale_x=scan_image.scale_x,
         scale_y=scan_image.scale_y,
     )

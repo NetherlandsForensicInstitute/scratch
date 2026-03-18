@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
 
-from container_models.scan_image import ScanImage
-from renders import normalize_2d_array
+from container_models.scan_image import ScanImage, normalize_2d_array
 
 from ..helper_function import assert_nan_mask_preserved
 

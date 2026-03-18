@@ -10,7 +10,14 @@ from scipy.constants import micro
 from parsers import convert_to_x3p, save_x3p
 from parsers.loaders import _load_surface
 
-from .base import BinaryMask, ConfigBaseModel, DepthData, FloatArray1D,    FloatArray2D,ImageRGBA
+from .base import (
+    BinaryMask,
+    ConfigBaseModel,
+    DepthData,
+    FloatArray1D,
+    FloatArray2D,
+    ImageRGBA,
+)
 
 
 class ScanImage(ConfigBaseModel):
@@ -56,6 +63,16 @@ class ScanImage(ConfigBaseModel):
         # TODO: Can we remove this?
         return self.width / 2 * self.scale_x, self.height / 2 * self.scale_y
 
+    def _to_image(self, scale_max: float, scale_min: float) -> Image:
+        """Get a rgba image from the scan data."""
+        return fromarray(
+            grayscale_to_rgba(
+                scan_data=normalize_2d_array(
+                    self.data, scale_max=scale_max, scale_min=scale_min
+                )
+            )
+        )
+
     @classmethod
     def from_file(cls, scan_file: Path) -> Self:
         """
@@ -84,20 +101,14 @@ class ScanImage(ConfigBaseModel):
         """
         save_x3p(convert_to_x3p(self), output_path=output_path)
 
-    @property
-    def _image(self) -> Image:
-        """Get a rgba image from the scan data."""
-        return fromarray(grayscale_to_rgba(scan_data=self.data))
-
-    def export_to_png(self, output_path: Path) -> Path:
+    def save_as_image(self, output_path: Path, scale_max: float, scale_min: float):
         """
         Convert ScanImage data to an Image and save it to the given output_path.
 
-        :param output_path: the given path to save the scan data. this expects to be an 'png'.
+        :param output_path: the given path to save the scan data.
         :return: the output path to where the image is saved.
         """
-        self._image.save(output_path)
-        return output_path
+        self._to_image(scale_max=scale_max, scale_min=scale_min).save(output_path)
 
 
 def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
@@ -114,3 +125,35 @@ def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
     rgba = np.repeat(gray_uint8[..., np.newaxis], 4, axis=-1)
     rgba[..., 3] = (~np.isnan(scan_data)).astype(np.uint8) * 255
     return rgba
+
+
+def normalize_2d_array(
+    array_to_normalize: FloatArray2D,
+    scale_max: float = 255,
+    scale_min: float = 25,
+) -> FloatArray2D:
+    """
+    Normalize a 2D intensity map to a specified output range.
+    The normalization is done by the steps:
+    1. apply min-max normalization to grayscale data
+    2. stretch / scale the normalized data from the unit range to a specified output range
+
+    :note: If all valid pixels have the same value (no contrast), the output
+    is filled with the midpoint of the output range. NaN pixels are preserved.
+
+    :param array_to_normalize: 2D array of input intensity values.
+    :param scale_max: Maximum output intensity value. Default is ``255``.
+    :param scale_min: Minimum output intensity value. Default is ``25``.
+    :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
+    """
+    imin = np.nanmin(array_to_normalize.data)
+    imax = np.nanmax(array_to_normalize.data)
+
+    if imax == imin:
+        fill_value = (scale_min + scale_max) / 2
+        result = np.full_like(array_to_normalize, fill_value)
+        result[np.isnan(array_to_normalize)] = np.nan
+        return result
+
+    norm = (array_to_normalize - imin) / (imax - imin)
+    return scale_min + (scale_max - scale_min) * norm

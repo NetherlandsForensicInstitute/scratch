@@ -12,7 +12,6 @@ from renders import (
     compute_surface_normals,
     get_scan_image_for_display,
 )
-from renders.normalizations import normalize_2d_array
 
 from preprocessors.exceptions import ArrayShapeMismatchError
 
@@ -64,7 +63,7 @@ def surface_map_pipeline(  # noqa
     output_path: Path,
     light_sources: Iterable[LightSource],
     observer: LightSource,
-) -> Path:
+) -> None:
     """
     Generate a 3D surface map image from scan data and save it to the specified path.
 
@@ -73,18 +72,15 @@ def surface_map_pipeline(  # noqa
     :param parameters: All parameters used in the pipeline.
     :return: The path to the saved surface map image file.
     """
-    scan_image = apply_multiple_lights(
+    parsed_scan.data = apply_multiple_lights(
         compute_surface_normals(parsed_scan),
         light_sources=light_sources,
         observer=observer,
     )
-    # TODO: Conversion should be made inside a ImageMutation. Then we can call `scan_image.save_image`
-    scan_image = normalize_2d_array(scan_image)
-    parsed_scan.data = scan_image
-    return parsed_scan.export_to_png(output_path=output_path)
+    parsed_scan.save_as_image(output_path=output_path, scale_min=25, scale_max=255)
 
 
-def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
+def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> None:
     """
     Generate a preview image from scan data and save it to the specified path.
 
@@ -93,4 +89,4 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     :return: The path to the saved preview image file.
     """
     scan_image = get_scan_image_for_display(parsed_scan)
-    return scan_image.export_to_png(output_path=output_path)
+    scan_image.save_as_image(output_path=output_path, scale_min=0, scale_max=255)
