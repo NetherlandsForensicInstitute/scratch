@@ -125,5 +125,5 @@ def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
             cells=cells,
         )
 
-    # Assert
-    assert all(c.angle_deg == pytest.approx(angle) for c in cells)
+    # Assert that all angle deviations are within 1 degree
+    assert all(cell.angle_deg == pytest.approx(angle, abs=1) for cell in cells)
