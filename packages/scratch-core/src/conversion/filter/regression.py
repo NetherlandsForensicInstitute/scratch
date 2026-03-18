@@ -3,34 +3,6 @@ Low-level regression filter implementations.
 
 This module provides kernel creation, convolution operations, and polynomial
 regression filters used by the higher-level Gaussian filter functions.
-
-Performance notes
------------------
-The main optimisation in ``apply_polynomial_filter`` is a *fast path* for the
-common no-NaN case (order ≥ 1):
-
-* **No LHS FFTs.**  When the data contains no NaNs the weight function is
-  identically 1 everywhere.  The LHS moment matrix ``A`` therefore separates
-  into a product of 1-D kernel moments and is **the same at every interior
-  pixel**.  It is computed analytically from the kernel in O(n_params²) scalar
-  operations instead of 15 (order-2) or 6 (order-1) full-image FFT pairs.
-
-* **No per-pixel linalg.solve.**  Because ``A`` is constant in the interior,
-  the smoothed value reduces to a weighted sum ``c₀ = A⁻¹[0,:] @ rhs[:,y,x]``,
-  evaluated for all pixels simultaneously with a single ``np.einsum``.
-
-* **Accurate border handling without extra FFTs.**  At the image boundary the
-  Gaussian kernel is truncated, so ``A`` does vary per pixel.  These border
-  pixels (a strip of half-kernel-width around the edge) are solved exactly
-  using a direct per-pixel ``A`` built from pre-computed *partial kernel
-  moment* arrays — 1-D arrays that are O(max_power × image_size) scalars and
-  cost ~10 ms to compute — followed by a single batched ``linalg.solve`` on
-  the ~35 % of pixels that fall in the border region.
-
-* **Pre-allocated intermediate arrays.**  The NaN path (and the RHS
-  computation in both paths) uses ``np.empty`` + in-place assignment instead
-  of ``np.array([generator])`` list-construction, eliminating ~80–90 ms of
-  Python-level array-stacking overhead per call.
 """
 
 import numpy as np
@@ -39,23 +11,18 @@ from numpy.typing import NDArray
 from container_models.base import FloatArray1D, FloatArray2D, FloatArray4D, FloatArray3D
 
 
-# ---------------------------------------------------------------------------
-# Kernel creation
-# ---------------------------------------------------------------------------
-
-
 def create_normalized_separable_kernels(
     alpha: float, cutoff_pixels: FloatArray1D
 ) -> tuple[FloatArray1D, FloatArray1D]:
     """
     Create normalized 1D Gaussian kernels for the X and Y axes, where:
-      - ``kernel_x`` is the 1D kernel for the X-axis (row vector).
-      - ``kernel_y`` is the 1D kernel for the Y-axis (column vector).
+      - `kernel_x` is the 1D kernel for the X-axis (row vector).
+      - `kernel_y` is the 1D kernel for the Y-axis (column vector).
       - The outer product of these kernels sums to approx 1.0.
 
     :param alpha: The Gaussian constant (ISO 16610).
     :param cutoff_pixels: Array of [cutoff_y, cutoff_x] in pixel units.
-    :returns: A tuple ``(kernel_x, kernel_y)``.
+    :returns: A tuple `(kernel_x, kernel_y)`.
     """
     # Ensure kernel size is odd and covers sufficient standard deviations
     kernel_dims = 1 + np.ceil(len(cutoff_pixels) * cutoff_pixels).astype(int)
@@ -129,11 +96,6 @@ def create_normalized_1d_kernel(
     return kernel / np.sum(kernel)
 
 
-# ---------------------------------------------------------------------------
-# Convolution helpers
-# ---------------------------------------------------------------------------
-
-
 def convolve_2d_separable(
     data: FloatArray2D,
     kernel_x: FloatArray1D,
@@ -146,7 +108,7 @@ def convolve_2d_separable(
     :param data: 2D input array.
     :param kernel_x: 1D kernel for the X-axis.
     :param kernel_y: 1D kernel for the Y-axis.
-    :param mode: Padding mode - ``"constant"`` (zero) or ``"symmetric"`` (mirror).
+    :param mode: Padding mode - `"constant"` (zero) or `"symmetric"` (mirror).
     :returns: Convolved array of same shape as input.
     """
     if mode == "constant":
@@ -174,11 +136,6 @@ def convolve_2d_separable(
     return result
 
 
-# ---------------------------------------------------------------------------
-# Order-0 filter (unchanged — already optimal)
-# ---------------------------------------------------------------------------
-
-
 def apply_order0_filter(
     data: FloatArray2D,
     kernel_x: FloatArray1D,
@@ -189,15 +146,14 @@ def apply_order0_filter(
     Perform a 2D weighted moving average (Order-0 Regression) using separable kernels.
 
     This function treats NaNs in the input data as missing values with zero weight,
-    ensuring they do not corrupt the local average.  The result is a
-    convolution-based smoothing where each pixel is the weighted mean of its
-    neighbours.
+    ensuring they do not corrupt the local average. The result is a convolution-based
+    smoothing where each pixel is the weighted mean of its neighbors.
 
     :param data: The 2D input array to be smoothed, potentially containing NaNs.
     :param kernel_x: The 1D X-axis component of the separable smoothing kernel.
     :param kernel_y: The 1D Y-axis component of the separable smoothing kernel.
-    :param mode: Padding mode - ``"constant"`` (zero), ``"reflect"``, or ``"symmetric"``.
-    :returns: A 2D array of the same shape as ``data`` containing the smoothed values.
+    :param mode: Padding mode - `"constant"` (zero), `"reflect"`, or `"symmetric"`.
+    :returns: A 2D array of the same shape as `data` containing the smoothed values.
     """
     # Assign zero weight to NaNs
     nan_mask = np.isnan(data)
@@ -212,11 +168,6 @@ def apply_order0_filter(
     return np.where(denominator > 0, numerator / denominator, np.nan)
 
 
-# ---------------------------------------------------------------------------
-# Polynomial filter (orders 1 & 2) — optimised
-# ---------------------------------------------------------------------------
-
-
 def apply_polynomial_filter(
     data: FloatArray2D,
     kernel_x: FloatArray1D,
@@ -226,24 +177,12 @@ def apply_polynomial_filter(
     """
     Apply local polynomial regression filter (orders 1 or 2).
 
-    For each pixel, this fits a polynomial surface to the neighbouring pixels
+    For each pixel, this fits a polynomial surface to the neighboring pixels
     using weighted least squares, where the kernel determines the weights.
-    The smoothed value is the fitted polynomial evaluated at the centre pixel.
+    The smoothed value is the fitted polynomial evaluated at the center pixel.
 
     Order 1 fits a plane (linear):    f(x,y) = c0 + c1·x + c2·y
     Order 2 fits a quadratic surface: f(x,y) = c0 + c1·x + c2·y + c3·x² + c4·xy + c5·y²
-
-    Performance
-    -----------
-    When ``data`` contains **no NaNs** a fast path is taken (see module
-    docstring): the LHS moment matrix is constant over interior pixels, so no
-    LHS FFTs are needed and the per-pixel solve is replaced by a single
-    ``np.einsum``.  Border pixels (within half-kernel-width of the edge) are
-    solved exactly using pre-computed partial kernel moments — no extra FFTs.
-
-    When ``data`` **contains NaNs** the full per-pixel LHS is still required,
-    but intermediate arrays are pre-allocated (avoiding costly list-to-array
-    conversions) for a meaningful constant-factor speedup.
 
     :param data: Input 2D array with potential NaNs.
     :param kernel_x: 1D kernel for the X-axis.
@@ -289,11 +228,6 @@ def apply_polynomial_filter(
         )
 
 
-# ---------------------------------------------------------------------------
-# Internal: no-NaN fast path
-# ---------------------------------------------------------------------------
-
-
 def _apply_polynomial_filter_no_nan(
     data: FloatArray2D,
     kernel_x: FloatArray1D,
@@ -310,7 +244,7 @@ def _apply_polynomial_filter_no_nan(
     Fast polynomial filter for data with no NaN values.
 
     Avoids all LHS FFT convolutions by exploiting the fact that, with
-    weights ≡ 1, the moment matrix ``A`` is constant across all interior
+    weights ≡ 1, the moment matrix `A` is constant across all interior
     pixels and can be computed analytically from the 1-D kernel moments.
     Border pixels are handled via pre-computed partial moment arrays.
     """
@@ -386,20 +320,20 @@ def _compute_partial_moments(
 ) -> FloatArray2D:
     """
     Compute per-row (or per-column) partial kernel moments that reproduce
-    what ``fftconvolve(..., mode='same')`` evaluates at each pixel.
+    what `fftconvolve(..., mode='same')` evaluates at each pixel.
 
-    For pixel position ``y``, the valid kernel positions are
-    ``j ∈ [y + half_k - min(size-1, y+half_k), y + half_k - max(0, y-half_k)]``
+    For pixel position `y`, the valid kernel positions are
+    `j ∈ [y + half_k - min(size-1, y+half_k), y + half_k - max(0, y-half_k)]`
     (clipped to [0, 2·half_k] by the zero-padding of fftconvolve).
 
-    ``partial[p, y] = Σ_{valid j} coords[j]^p · kernel[j]``
+    `partial[p, y] = Σ_{valid j} coords[j]^p · kernel[j]`
 
-    :param coords: Coordinate vector of length ``2·half_k + 1``.
+    :param coords: Coordinate vector of length `2·half_k + 1`.
     :param kernel: 1-D kernel of the same length.
     :param size: Image dimension along this axis.
-    :param half_k: Half-width of the kernel, ``(len(kernel) - 1) // 2``.
-    :param max_p: Highest power needed (``2 · regression_order``).
-    :returns: Array of shape ``(max_p + 1, size)``.
+    :param half_k: Half-width of the kernel, `(len(kernel) - 1) // 2`.
+    :param max_p: Highest power needed (`2 · regression_order`).
+    :returns: Array of shape `(max_p + 1, size)`.
     """
     partial = np.zeros((max_p + 1, size))
     # Precompute all powers of the coordinate vector
@@ -418,11 +352,6 @@ def _compute_partial_moments(
     return partial
 
 
-# ---------------------------------------------------------------------------
-# Internal: NaN path
-# ---------------------------------------------------------------------------
-
-
 def _apply_polynomial_filter_nan(
     data: FloatArray2D,
     nan_mask: FloatArray2D,
@@ -436,10 +365,10 @@ def _apply_polynomial_filter_nan(
     """
     Polynomial filter for data containing NaN values.
 
-    The weight function is no longer uniform, so ``A`` varies per pixel and
+    The weight function is no longer uniform, so `A` varies per pixel and
     the full convolution-based LHS must be computed.  This path matches the
     original algorithm but uses pre-allocated arrays to avoid the overhead of
-    ``np.array([generator])`` list construction.
+    `np.array([generator])` list construction.
     """
     H, W = data.shape
     weights = np.where(nan_mask, 0.0, 1.0)
@@ -478,11 +407,11 @@ def _build_lhs_matrix_prealloc(
     n_params: int,
 ) -> FloatArray4D:
     """
-    Build the per-pixel LHS matrix ``A`` for the NaN case.
+    Build the per-pixel LHS matrix `A` for the NaN case.
 
-    Identical in semantics to the original ``_build_lhs_matrix`` but uses
-    a pre-allocated ``unique_moments`` array instead of
-    ``np.array([convolve(...) for ...])`` to avoid Python-level list-to-array
+    Identical in semantics to the original `_build_lhs_matrix` but uses
+    a pre-allocated `unique_moments` array instead of
+    `np.array([convolve(...) for ...])` to avoid Python-level list-to-array
     overhead (~80–90 ms per call for a 512×512 image with a 101-element kernel).
     """
     H, W = weights.shape
@@ -509,11 +438,6 @@ def _build_lhs_matrix_prealloc(
 
     full_moments = unique_moments[inverse_indices]
     return np.moveaxis(full_moments.reshape(n_params, n_params, H, W), [0, 1], [-2, -1])
-
-
-# ---------------------------------------------------------------------------
-# Solver helpers (unchanged)
-# ---------------------------------------------------------------------------
 
 
 def _get_polynomial_exponents(order: int) -> list[tuple[int, int]]:
@@ -566,29 +490,3 @@ def _solve_fallback_lstsq(
         y, x = y_idx[i], x_idx[i]
         sol = np.linalg.lstsq(lhs[y, x], rhs[y, x], rcond=None)[0]
         result_array[y, x] = sol[0, 0]
-
-
-# ---------------------------------------------------------------------------
-# Legacy public aliases kept for backward compatibility
-# ---------------------------------------------------------------------------
-
-
-def _build_lhs_matrix(
-    weights: FloatArray2D,
-    kernel_x: FloatArray1D,
-    kernel_y: FloatArray1D,
-    x_coords: FloatArray1D,
-    y_coords: FloatArray1D,
-    exponents: list[tuple[int, int]],
-) -> FloatArray4D:
-    """
-    Construct the LHS matrix ``A`` efficiently.
-
-    .. deprecated::
-        Prefer ``_build_lhs_matrix_prealloc`` which avoids list-construction
-        overhead.  This alias is retained for any callers that reference the
-        private function directly.
-    """
-    return _build_lhs_matrix_prealloc(
-        weights, kernel_x, kernel_y, x_coords, y_coords, exponents, len(exponents)
-    )
