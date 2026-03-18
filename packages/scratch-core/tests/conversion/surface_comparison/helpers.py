@@ -18,7 +18,7 @@ _DEFAULT_META_DATA = CellMetaData(
 )
 
 
-def _reflect_y_axis(coordinates: FloatArray2D) -> np.ndarray:
+def _reflect_y_axis(coordinates: FloatArray2D) -> FloatArray2D:
     """
     Reflect y-axis of coordinates.
 
@@ -36,7 +36,8 @@ def build_cells(inputs: dict) -> list[Cell]:
     The angle stored on each Cell is the delta ``angles_comparison - angles_reference``.
     In all current test cases ``angles_reference`` is zero, so the delta equals
     ``angles_comparison`` directly.
-    The y-coordinates are reflected since MATLAB uses mathematical coordinates while our pipeline uses image coordinates.
+    The y-coordinates are reflected since MATLAB uses conventional coordinates (y-axis upwards)
+    while our pipeline uses image coordinates (y-axis downwards).
     """
     centers_reference = np.array(inputs["centers_reference"])
     centers_comparison = np.array(inputs["centers_comparison"])
@@ -81,9 +82,9 @@ def build_test_inputs(
     inputs: dict,
 ) -> tuple[list[Cell], ComparisonParams, tuple[float, float]]:
     """
-    Build the full set of inputs for ``classify_congruent_cells`` from a test-case
-    input dict.
-    The y-coordinate of the rotation center is reflected over the x-axis since MATLAB uses mathematical coordinates while our pipeline uses image coordinates
+    Build the full set of inputs for ``classify_congruent_cells`` from a test-case input dict.
+    The y-coordinate of the rotation center is reflected over the x-axis since MATLAB uses
+    mathematical coordinates while our pipeline uses image coordinates
 
     Returns ``(cells, params, rotation_center)``.
     """
@@ -96,7 +97,7 @@ def build_test_inputs(
     )
 
     rotation_center_list = inputs["rotation_center"]
-    # Reflect the rotation_center about the y-axis in order to comply with to image_coordinates
+    # Reflect the rotation center about the y-axis in order to comply with image coordinates
     rotation_center = (float(rotation_center_list[0]), -float(rotation_center_list[1]))
 
     return cells, params, rotation_center
