@@ -98,9 +98,18 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     )
     logger.debug(f"images saved in:{vault.resource_path}")
 
+    comparison_results = {
+        "n_cells": cmc_result.cell_count,
+        "score": cmc_result.cmc_count,
+        "cmc_fraction": cmc_result.cmc_fraction,
+        "cmc_area_fraction": cmc_result.cmc_area_fraction,
+        "consensus_rotation": cmc_result.consensus_rotation,
+        "consensus_translation": cmc_result.consensus_translation,
+    }
     return ComparisonResponseImpression(
         urls=ComparisonResponseImpressionURL.from_enum(enum=ComparisonImpressionFiles, base_url=vault.access_url),
         cells=[cell.model_dump() for cell in cmc_result.cells],
+        comparison_results=comparison_results,
     )
 
 
