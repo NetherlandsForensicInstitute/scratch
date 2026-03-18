@@ -110,6 +110,7 @@ class TestMarkImpression:
         }
         expected_data = {
             "cells",
+            "comparison_results",
         }
 
         json_data = CalculateScoreImpression(
