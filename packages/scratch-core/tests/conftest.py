@@ -51,6 +51,12 @@ def baseline_images_dir() -> Path:
 
 
 @pytest.fixture(scope="session")
+def matlab_marks_dir() -> Path:
+    """Path to `Mark` instances saved as .mat file."""
+    return TEST_ROOT / "resources" / "matlab_marks"
+
+
+@pytest.fixture(scope="session")
 def scan_image_array(baseline_images_dir: Path) -> DepthData:
     """Build a fixture with ground truth image data."""
     gray = Image.open(baseline_images_dir / "circle.png").convert("L")
