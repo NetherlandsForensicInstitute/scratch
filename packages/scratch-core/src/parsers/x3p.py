@@ -1,12 +1,14 @@
+from __future__ import annotations
 import datetime as dt
 from pathlib import Path
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 from x3p import X3Pfile
 from x3p._x3pfileclasses import Ax
 
-from container_models.scan_image import ScanImage
+if TYPE_CHECKING:
+    from container_models.scan_image import ScanImage
 
 
 class X3PMetaData(NamedTuple):
