@@ -7,6 +7,7 @@ with NPZ binary data, and load them back into memory.
 
 from pathlib import Path
 from typing import Annotated, Any
+
 import numpy as np
 from pydantic import Field
 from scipy.io import loadmat
