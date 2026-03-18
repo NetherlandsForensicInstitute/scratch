@@ -135,7 +135,7 @@ def calculate_lr_impression(lr_system: LRSystem, score: int, n_cells: int) -> LL
     return result
 
 
-class DummyLRSystem:
+class DummyLRSystem:  # pragma: no cover
     """Minimal LR system for testing."""
 
     def apply(self, feature_data: FeatureData) -> LLRData:
