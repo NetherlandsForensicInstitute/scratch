@@ -32,7 +32,7 @@ def send_post_request_with_mask(client: TestClient, endpoint: str, params: dict,
         f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{endpoint}",
         data={"params": json.dumps(params, default=str)},
         files={"mask_data": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream")},
-        timeout=10,
+        timeout=5,
     )
 
 

@@ -28,9 +28,6 @@ from tests.helper_function import (
     _striation_mark,
 )
 
-TEST_ROOT = Path(__file__).parent
-RESOURCES_DIR = TEST_ROOT / "resources"
-
 
 @pytest.fixture(scope="session")
 def tmp_dir_api(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
