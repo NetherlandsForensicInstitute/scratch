@@ -63,7 +63,9 @@ def match_cells(
 
     # Prepare the arguments for parallel processing
     angles = np.arange(
-        params.search_angle_min, params.search_angle_max, params.search_angle_step
+        params.search_angle_min,
+        params.search_angle_max + params.search_angle_step,
+        params.search_angle_step,
     )
     chunks = np.array_split(angles, N_THREADS)
     # One lock per cell guards concurrent writes to `grid_search_params`
