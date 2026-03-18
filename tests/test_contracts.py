@@ -224,6 +224,7 @@ class TestContracts:
             },
             expected_fields={
                 "cells": list,
+                "comparison_results": dict,
             },
         )
 

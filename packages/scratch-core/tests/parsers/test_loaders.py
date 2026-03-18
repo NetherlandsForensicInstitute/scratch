@@ -8,9 +8,9 @@ import pytest
 from scipy.constants import micro
 from surfalize import Surface
 
+from computations.spatial import make_isotropic, subsample_scan_image
 from container_models.scan_image import ScanImage
-from parsers import load_scan_image, subsample_scan_image
-from parsers.loaders import _load_surface, make_isotropic
+from parsers.loaders import _load_surface
 
 
 @pytest.fixture(scope="class")
@@ -31,7 +31,7 @@ class TestLoadScanImage:
         # Arrange
         surface = Surface.load(filepath)
         # Act
-        result = load_scan_image(filepath)
+        result = ScanImage.from_file(filepath)
         scan_image = result
         # Assert
         assert scan_image.data.shape == (
@@ -68,8 +68,8 @@ class TestLoadScanImageCaching:
             "parsers.loaders.Surface.load", return_value=self.FakeSurfaceOne()
         ) as mock_load:
             # Act
-            image_1 = load_scan_image(scan_file)
-            image_2 = load_scan_image(scan_file)
+            image_1 = ScanImage.from_file(scan_file)
+            image_2 = ScanImage.from_file(scan_file)
 
         # Assert
         assert image_1 is not image_2, (
@@ -92,9 +92,9 @@ class TestLoadScanImageCaching:
             ],
         ):
             # Act
-            _image_1 = load_scan_image(scan_file_1)
-            _image_2 = load_scan_image(scan_file_1)
-            _image_3 = load_scan_image(scan_file_2)
+            _image_1 = ScanImage.from_file(scan_file_1)
+            _image_2 = ScanImage.from_file(scan_file_1)
+            _image_3 = ScanImage.from_file(scan_file_2)
 
         # Assert
         info = _load_surface.cache_info()

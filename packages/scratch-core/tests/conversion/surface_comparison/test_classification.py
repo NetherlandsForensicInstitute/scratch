@@ -101,13 +101,20 @@ class TestClassifyCongruentCells:
             )
 
     def test_consensus_translation(self, matlab_test_case: dict) -> None:
-        """The consensus translation must match the MATLAB reference."""
+        """
+        The consensus translation must match the MATLAB reference.
+
+        The MATLAB code works with a mathematical coordinate system (with origin bottom-left),
+        while our pipeline works with an image coordinate system. Therefore, we reflect the
+        y-coordinate of the rotation center and the resulting y-translation.
+        """
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
         result = classify_congruent_cells(cells, params, rotation_center)
 
         expected_translation = matlab_test_case["outputs"]["consensus_translation"]
         actual_translation = result.consensus_translation
+        actual_translation = (actual_translation[0], -1 * actual_translation[1])
         if all(item is None for item in expected_translation):
             assert all(np.isnan(v) for v in actual_translation), (
                 f"[{matlab_test_case['name']}] Expected NaN translation, "

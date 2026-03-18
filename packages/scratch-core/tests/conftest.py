@@ -11,7 +11,6 @@ from container_models.base import BinaryMask, DepthData
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.profile_correlator import Profile
-from parsers.loaders import load_scan_image
 
 from .conversion.helper_functions import make_mark
 
@@ -51,6 +50,12 @@ def baseline_images_dir() -> Path:
 
 
 @pytest.fixture(scope="session")
+def matlab_marks_dir() -> Path:
+    """Path to `Mark` instances saved as .mat file."""
+    return TEST_ROOT / "resources" / "matlab_marks"
+
+
+@pytest.fixture(scope="session")
 def scan_image_array(baseline_images_dir: Path) -> DepthData:
     """Build a fixture with ground truth image data."""
     gray = Image.open(baseline_images_dir / "circle.png").convert("L")
@@ -66,7 +71,7 @@ def scan_image(scan_image_array: DepthData) -> ScanImage:
 @pytest.fixture(scope="session")
 def scan_image_replica(scans_dir: Path) -> ScanImage:
     """Build a `ScanImage` object`."""
-    return load_scan_image(
+    return ScanImage.from_file(
         scans_dir / "Klein_non_replica_mode.al3d",
     )
 

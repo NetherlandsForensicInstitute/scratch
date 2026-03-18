@@ -1,20 +1,26 @@
-from container_models.base import BinaryMask, FloatArray2D
+from container_models.base import BinaryMask, FloatArray2D, FloatArray1D
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
     ComparisonParams,
     Cell,
     GridCell,
 )
-import numpy as np
-from skimage.transform import rotate
+from conversion.surface_comparison.utils import rotate_points
 from conversion.surface_comparison.cell_registration.utils import (
     convert_grid_cell_to_cell,
     pad_image_array,
 )
 
-import cv2
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from os import cpu_count
+from threading import Lock
 
-from conversion.surface_comparison.utils import rotate_points
+import cv2
+import numpy as np
+from skimage.transform import rotate
+
+N_THREADS = cpu_count() or 1
 
 
 def match_cells(
@@ -55,12 +61,49 @@ def match_cells(
         (comparison_data.shape[0] - 1) / 2,
     )
 
+    # Prepare the arguments for parallel processing
     angles = np.arange(
         params.search_angle_min,
         params.search_angle_max + params.search_angle_step,
         params.search_angle_step,
     )
+    chunks = np.array_split(angles, N_THREADS)
+    locks = [Lock() for _ in grid_cells]
+    _process_chunk = partial(
+        _find_best_match,
+        grid_cells=grid_cells,
+        locks=locks,
+        comparison_data=comparison_data,
+        cell_size=(cell_width, cell_height),
+        minimum_fill_fraction=params.minimum_fill_fraction,
+        fill_value=fill_value_comparison,
+        padded_center=(padded_center_x, padded_center_y),
+        pad_size=(pad_width, pad_height),
+    )
+    # Execute parallel search
+    with ThreadPoolExecutor(max_workers=N_THREADS) as executor:
+        list(executor.map(_process_chunk, chunks))
 
+    return [
+        convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
+        for grid_cell in grid_cells
+    ]
+
+
+def _find_best_match(
+    angles: FloatArray1D,
+    grid_cells: list[GridCell],
+    locks: list[Lock],
+    comparison_data: FloatArray2D,
+    cell_size: tuple[int, int],
+    minimum_fill_fraction: float,
+    fill_value: float,
+    padded_center: tuple[float, float],
+    pad_size: tuple[int, int],
+) -> list[GridCell]:
+    """Find the best-matching position and angle for each grid cell in the comparison image."""
+    cell_width, cell_height = cell_size
+    pad_width, pad_height = pad_size
     for angle in angles:
         angle = float(angle)
         # Rotate the comparison image by `-angle` degrees.
@@ -80,11 +123,11 @@ def match_cells(
             cell_width=cell_width,
             cell_height=cell_height,
         )
-        fill_fraction_mask = fill_fraction_map >= params.minimum_fill_fraction
+        fill_fraction_mask = fill_fraction_map >= minimum_fill_fraction
         # Now that we computed the fill fraction mask, we can safely replace NaN values in the rotated image
-        rotated[~valid_mask] = fill_value_comparison
+        rotated[~valid_mask] = fill_value
 
-        for grid_cell in grid_cells:
+        for grid_cell, lock in zip(grid_cells, locks):
             score_map = _get_score_map(
                 comparison_array=rotated,
                 template=grid_cell.cell_data_filled,
@@ -95,28 +138,27 @@ def match_cells(
             if score > grid_cell.grid_search_params.score:
                 # Compute the center coordinates of the cell on the (original) unrotated image
                 cell_center = (x + cell_width / 2, y + cell_height / 2)
-                rotated_center_x, rotated_center_y = (
+                rotated_center = (
                     (rotated.shape[1] - 1) / 2,  # type: ignore
                     (rotated.shape[0] - 1) / 2,
                 )
                 original_center_x, original_center_y = _unrotate_point(
                     rotated_point=cell_center,
-                    original_image_center=(padded_center_x, padded_center_y),
-                    rotated_image_center=(rotated_center_x, rotated_center_y),
+                    original_image_center=padded_center,
+                    rotated_image_center=rotated_center,
                     angle_deg=angle,
                 )
-                # Update parameters
-                grid_cell.grid_search_params.update(
-                    score=score,
-                    angle=angle,
-                    center_x=original_center_x - pad_width,  # Undo the padding
-                    center_y=original_center_y - pad_height,  # Undo the padding
-                )
-
-    return [
-        convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
-        for grid_cell in grid_cells
-    ]
+                with lock:
+                    # Guard against race conditions
+                    if score > grid_cell.grid_search_params.score:
+                        # Update the parameters
+                        grid_cell.grid_search_params.update(
+                            score=score,
+                            angle=angle,
+                            center_x=original_center_x - pad_width,  # Undo the padding
+                            center_y=original_center_y - pad_height,  # Undo the padding
+                        )
+    return grid_cells
 
 
 def _unrotate_point(
