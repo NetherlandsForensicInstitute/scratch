@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkType
 
 
 @dataclass(frozen=True)
@@ -117,6 +117,15 @@ class ComparisonResult:
         return cmc_area / total_area
 
 
+_CELL_SIZE_BY_MARK_TYPE: dict[MarkType, tuple[float, float]] = {
+    MarkType.BREECH_FACE_IMPRESSION: (4.5e-4, 4.5e-4),
+    MarkType.CHAMBER_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkType.EJECTOR_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkType.EXTRACTOR_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkType.FIRING_PIN_IMPRESSION: (1.25e-4, 1.25e-4),
+}
+
+
 class ComparisonParams(ConfigBaseModel):
     """
     Parameters for the Congruent Matching Cells (CMC) algorithm.
@@ -133,6 +142,24 @@ class ComparisonParams(ConfigBaseModel):
     """
 
     cell_size: tuple[PositiveFloat, PositiveFloat] = (4.5e-4, 4.5e-4)
+
+    @classmethod
+    def for_mark_type(cls, mark_type: MarkType, **kwargs: float) -> "ComparisonParams":
+        """Create a :class:`ComparisonParams` with the default cell size for *mark_type*.
+
+        Any additional keyword arguments override the other defaults.
+
+        :param mark_type: The mark type to look up the default cell size for.
+        :param kwargs: Additional field overrides.
+        :returns: A :class:`ComparisonParams` instance.
+        :raises ValueError: If *mark_type* has no registered default cell size.
+        """
+        if mark_type not in _CELL_SIZE_BY_MARK_TYPE:
+            raise ValueError(
+                f"No default cell size registered for mark type: {mark_type!r}"
+            )
+        return cls(cell_size=_CELL_SIZE_BY_MARK_TYPE[mark_type], **kwargs)
+
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
     correlation_threshold: float = Field(default=0.25, ge=-1.0, le=1.0)
     angle_deviation_threshold: float = Field(default=6.0, gt=0.0)

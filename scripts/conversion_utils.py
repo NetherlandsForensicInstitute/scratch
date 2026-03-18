@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from conversion.data_formats import MarkType
+from conversion.surface_comparison.models import ComparisonParams
 from tqdm import tqdm
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
@@ -187,7 +188,7 @@ def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
         "mark_dir_ref": processed_ref,
         "mark_dir_comp": processed_comp,
         **metadata,
-        "comparison_params": {},
+        "comparison_params": ComparisonParams.for_mark_type(entry.mark_type).model_dump(),
     }
 
 
