@@ -72,7 +72,7 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("angle", [0, 60, -90])
+@pytest.mark.parametrize("angle", [0, 60, -90, 150, -150])
 def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
     # Arrange
     scale = 1e-6
@@ -92,8 +92,8 @@ def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
     )
     params = ComparisonParams(
         cell_size=(cell_size[0] * scale, cell_size[1] * scale),
-        search_angle_min=-90,
-        search_angle_max=90,
+        search_angle_min=-150,
+        search_angle_max=150,
         search_angle_step=30,
         minimum_fill_fraction=0.5,
     )
@@ -126,4 +126,4 @@ def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
         )
 
     # Assert
-    assert all(c.angle_deg == pytest.approx(angle) for c in cells)
+    assert all(cell.angle_deg == pytest.approx(angle) for cell in cells)

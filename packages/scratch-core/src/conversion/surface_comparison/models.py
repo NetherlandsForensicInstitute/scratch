@@ -57,7 +57,7 @@ class Cell(ConfigBaseModel):
     center_reference: tuple[float, float]
     cell_size: tuple[float, float]
     fill_fraction_reference: float = Field(ge=0.0, le=1.0)
-    best_score: float = Field(ge=0.0, le=1.0)
+    best_score: float = Field(ge=-1.0, le=1.0)
     angle_deg: float = Field(ge=-180, le=180)
     center_comparison: tuple[float, float]
     is_congruent: bool
