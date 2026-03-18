@@ -43,6 +43,7 @@ from container_models.base import FloatArray1D, FloatArray2D, FloatArray4D, Floa
 # Kernel creation
 # ---------------------------------------------------------------------------
 
+
 def create_normalized_separable_kernels(
     alpha: float, cutoff_pixels: FloatArray1D
 ) -> tuple[FloatArray1D, FloatArray1D]:
@@ -132,6 +133,7 @@ def create_normalized_1d_kernel(
 # Convolution helpers
 # ---------------------------------------------------------------------------
 
+
 def convolve_2d_separable(
     data: FloatArray2D,
     kernel_x: FloatArray1D,
@@ -176,6 +178,7 @@ def convolve_2d_separable(
 # Order-0 filter (unchanged — already optimal)
 # ---------------------------------------------------------------------------
 
+
 def apply_order0_filter(
     data: FloatArray2D,
     kernel_x: FloatArray1D,
@@ -212,6 +215,7 @@ def apply_order0_filter(
 # ---------------------------------------------------------------------------
 # Polynomial filter (orders 1 & 2) — optimised
 # ---------------------------------------------------------------------------
+
 
 def apply_polynomial_filter(
     data: FloatArray2D,
@@ -261,19 +265,34 @@ def apply_polynomial_filter(
 
     if not has_nans:
         return _apply_polynomial_filter_no_nan(
-            data, kernel_x, kernel_y, order, exponents, n_params,
-            y_coords, x_coords, ky_half, kx_half,
+            data,
+            kernel_x,
+            kernel_y,
+            order,
+            exponents,
+            n_params,
+            y_coords,
+            x_coords,
+            ky_half,
+            kx_half,
         )
     else:
         return _apply_polynomial_filter_nan(
-            data, nan_mask, kernel_x, kernel_y, exponents, n_params,
-            y_coords, x_coords,
+            data,
+            nan_mask,
+            kernel_x,
+            kernel_y,
+            exponents,
+            n_params,
+            y_coords,
+            x_coords,
         )
 
 
 # ---------------------------------------------------------------------------
 # Internal: no-NaN fast path
 # ---------------------------------------------------------------------------
+
 
 def _apply_polynomial_filter_no_nan(
     data: FloatArray2D,
@@ -313,7 +332,9 @@ def _apply_polynomial_filter_no_nan(
     A_const = np.empty((n_params, n_params))
     for p, (py_p, px_p) in enumerate(exponents):
         for q, (py_q, px_q) in enumerate(exponents):
-            A_const[p, q] = y_partial[py_p + py_q, H // 2] * x_partial[px_p + px_q, W // 2]
+            A_const[p, q] = (
+                y_partial[py_p + py_q, H // 2] * x_partial[px_p + px_q, W // 2]
+            )
 
     # Row 0 of A⁻¹ gives the weights for c₀ (the smoothed value at the centre).
     w0 = np.linalg.inv(A_const)[0]
@@ -323,8 +344,8 @@ def _apply_polynomial_filter_no_nan(
     # ------------------------------------------------------------------
     rhs = np.empty((n_params, H, W))
     for i, (py, px) in enumerate(exponents):
-        t = fftconvolve(data, (y_coords ** py * kernel_y)[:, np.newaxis], mode="same")
-        rhs[i] = fftconvolve(t, (x_coords ** px * kernel_x)[np.newaxis, :], mode="same")
+        t = fftconvolve(data, (y_coords**py * kernel_y)[:, np.newaxis], mode="same")
+        rhs[i] = fftconvolve(t, (x_coords**px * kernel_x)[np.newaxis, :], mode="same")
 
     # ------------------------------------------------------------------
     # 4.  Interior: c₀ = w0 · rhs  (vectorised over all pixels).
@@ -382,7 +403,9 @@ def _compute_partial_moments(
     """
     partial = np.zeros((max_p + 1, size))
     # Precompute all powers of the coordinate vector
-    coord_pows = np.array([coords ** p for p in range(max_p + 1)])  # (max_p+1, 2*half_k+1)
+    coord_pows = np.array(
+        [coords**p for p in range(max_p + 1)]
+    )  # (max_p+1, 2*half_k+1)
 
     for y in range(size):
         k_min = max(0, y - half_k)
@@ -398,6 +421,7 @@ def _compute_partial_moments(
 # ---------------------------------------------------------------------------
 # Internal: NaN path
 # ---------------------------------------------------------------------------
+
 
 def _apply_polynomial_filter_nan(
     data: FloatArray2D,
@@ -426,8 +450,8 @@ def _apply_polynomial_filter_nan(
     # ------------------------------------------------------------------
     rhs_moments = np.empty((n_params, H, W))
     for i, (py, px) in enumerate(exponents):
-        mod_ky = (y_coords ** py) * kernel_y
-        mod_kx = (x_coords ** px) * kernel_x
+        mod_ky = (y_coords**py) * kernel_y
+        mod_kx = (x_coords**px) * kernel_x
         t = fftconvolve(weighted_data, mod_ky[:, np.newaxis], mode="same")
         rhs_moments[i] = fftconvolve(t, mod_kx[np.newaxis, :], mode="same")
 
@@ -478,18 +502,19 @@ def _build_lhs_matrix_prealloc(
     # Pre-allocate and fill in-place (avoids np.array([generator]) overhead).
     unique_moments = np.empty((n_unique, H, W))
     for i, (py, px) in enumerate(unique_powers):
-        t = fftconvolve(weights, (y_coords ** py * kernel_y)[:, np.newaxis], mode="same")
-        unique_moments[i] = fftconvolve(t, (x_coords ** px * kernel_x)[np.newaxis, :], mode="same")
+        t = fftconvolve(weights, (y_coords**py * kernel_y)[:, np.newaxis], mode="same")
+        unique_moments[i] = fftconvolve(
+            t, (x_coords**px * kernel_x)[np.newaxis, :], mode="same"
+        )
 
     full_moments = unique_moments[inverse_indices]
-    return np.moveaxis(
-        full_moments.reshape(n_params, n_params, H, W), [0, 1], [-2, -1]
-    )
+    return np.moveaxis(full_moments.reshape(n_params, n_params, H, W), [0, 1], [-2, -1])
 
 
 # ---------------------------------------------------------------------------
 # Solver helpers (unchanged)
 # ---------------------------------------------------------------------------
+
 
 def _get_polynomial_exponents(order: int) -> list[tuple[int, int]]:
     """Return list of (power_y, power_x) tuples for polynomial terms."""
@@ -547,6 +572,7 @@ def _solve_fallback_lstsq(
 # Legacy public aliases kept for backward compatibility
 # ---------------------------------------------------------------------------
 
+
 def _build_lhs_matrix(
     weights: FloatArray2D,
     kernel_x: FloatArray1D,
@@ -564,6 +590,5 @@ def _build_lhs_matrix(
         private function directly.
     """
     return _build_lhs_matrix_prealloc(
-        weights, kernel_x, kernel_y, x_coords, y_coords,
-        exponents, len(exponents)
+        weights, kernel_x, kernel_y, x_coords, y_coords, exponents, len(exponents)
     )
