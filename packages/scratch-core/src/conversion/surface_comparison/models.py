@@ -1,4 +1,5 @@
 from functools import cached_property
+from typing import Any
 
 import numpy as np
 from pydantic import Field, field_validator, PositiveFloat
@@ -9,7 +10,7 @@ from dataclasses import dataclass
 from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, MarkType
 
 
 @dataclass(frozen=True)
@@ -117,9 +118,29 @@ class ComparisonResult:
         return cmc_area / total_area
 
 
+_CELL_SIZE_BY_MARK_TYPE: dict[MarkType, tuple[float, float]] = {
+    MarkType.BREECH_FACE_IMPRESSION: (4.5e-4, 4.5e-4),
+    MarkType.CHAMBER_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkType.EJECTOR_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkType.EXTRACTOR_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkType.FIRING_PIN_IMPRESSION: (1.25e-4, 1.25e-4),
+}
+
+
 class ComparisonParams(ConfigBaseModel):
     """
     Parameters for the Congruent Matching Cells (CMC) algorithm.
+
+    Use :meth:`for_mark_type` to construct an instance with mark-type-appropriate
+    defaults (e.g. cell size) rather than constructing directly.
+
+    Supported mark types and their default cell sizes:
+
+    - ``BREECH_FACE_IMPRESSION``: 450 × 450 μm
+    - ``CHAMBER_IMPRESSION``: 125 × 125 μm
+    - ``EJECTOR_IMPRESSION``: 125 × 125 μm
+    - ``EXTRACTOR_IMPRESSION``: 125 × 125 μm
+    - ``FIRING_PIN_IMPRESSION``: 125 × 125 μm
 
     :param cell_size: Nominal cell size [width, height] in meters.
     :param minimum_fill_fraction: Minimum fraction of valid pixels required in a
@@ -132,14 +153,32 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
     """
 
-    cell_size: tuple[PositiveFloat, PositiveFloat] = (1e-3, 1e-3)
-    minimum_fill_fraction: float = Field(default=0.5, ge=0.0, le=1.0)
-    correlation_threshold: float = Field(default=0.3, ge=-1.0, le=1.0)
-    angle_deviation_threshold: float = Field(default=2.0, gt=0.0)
-    position_threshold: float = Field(default=100e-6, gt=0.0)
+    cell_size: tuple[PositiveFloat, PositiveFloat] = (4.5e-4, 4.5e-4)
+
+    @classmethod
+    def for_mark_type(cls, mark_type: MarkType, **kwargs: Any) -> "ComparisonParams":
+        """Create a :class:`ComparisonParams` with the default cell size for *mark_type*.
+
+        Any additional keyword arguments override the other defaults.
+
+        :param mark_type: The mark type to look up the default cell size for.
+        :param kwargs: Additional field overrides.
+        :returns: A :class:`ComparisonParams` instance.
+        :raises ValueError: If *mark_type* has no registered default cell size.
+        """
+        if mark_type not in _CELL_SIZE_BY_MARK_TYPE:
+            raise ValueError(
+                f"No default cell size registered for mark type: {mark_type!r}"
+            )
+        return cls(cell_size=_CELL_SIZE_BY_MARK_TYPE[mark_type], **kwargs)
+
+    minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
+    correlation_threshold: float = Field(default=0.25, ge=-1.0, le=1.0)
+    angle_deviation_threshold: float = Field(default=6.0, gt=0.0)
+    position_threshold: float = Field(default=7.5e-5, gt=0.0)
     search_angle_min: float = -180.0
     search_angle_max: float = 180.0
-    search_angle_step: float = Field(default=1.0, gt=0.0)
+    search_angle_step: float = Field(default=5.0, gt=0.0)
 
 
 @dataclass(frozen=False)
