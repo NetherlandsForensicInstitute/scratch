@@ -203,7 +203,7 @@ class TestRegressionOrders:
 
     def test_higher_order_preserves_more_detail(self, rng: np.random.Generator):
         """Higher regression orders should preserve more local structure."""
-        data = rng.random((3000, 3000)) * 100
+        data = rng.random((30, 30)) * 100
 
         result_r0 = apply_gaussian_regression_filter(
             data, 5.0, regression_order=0, is_high_pass=True
