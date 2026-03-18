@@ -112,9 +112,9 @@ def _create_tasks(
     comparison_data: FloatArray2D,
     grid_cells: Iterable[GridCell],
     cell_size: tuple[int, int],
-    minimum_fill_fraction: float,
     padded_center: tuple[float, float],
     pad_size: tuple[int, int],
+    minimum_fill_fraction: float,
     fill_value: float,
 ) -> list[_TaskParams]:
     tasks = [
@@ -123,10 +123,10 @@ def _create_tasks(
             grid_cells=[cell.copy() for cell in grid_cells],
             comparison_data=comparison_data,
             cell_size=cell_size,
-            minimum_fill_fraction=minimum_fill_fraction,
-            fill_value=fill_value,
             padded_center=padded_center,
             pad_size=pad_size,
+            minimum_fill_fraction=minimum_fill_fraction,
+            fill_value=fill_value,
         )
         for chunk in np.array_split(angles, N_PROCESSES)  # type: ignore
     ]
