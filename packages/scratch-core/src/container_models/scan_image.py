@@ -74,7 +74,7 @@ class ScanImage(ConfigBaseModel):
             meta_data=surface.metadata,
         )
 
-    def export_to_x3p(self, output_path: Path) -> None:
+    def save_as_x3p(self, output_path: Path) -> None:
         """
         Convert a scan image to X3P format and save it to the specified path.
 
