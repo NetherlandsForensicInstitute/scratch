@@ -5,7 +5,7 @@ import pytest
 from x3p import X3Pfile
 
 from container_models.scan_image import ScanImage
-from parsers import parse_to_x3p, save_x3p
+from parsers import convert_to_x3p, save_x3p
 
 
 @pytest.mark.parametrize(
@@ -23,13 +23,13 @@ class TestParseToX3PFailure:
         with patch(f"parsers.x3p.{function}") as mocker:
             mocker.side_effect = RuntimeError("Some Error")
             with pytest.raises(RuntimeError):
-                parse_to_x3p(scan_image)
+                convert_to_x3p(scan_image)
 
 
 class TestX3PSave:
     @pytest.fixture(scope="class")
     def x3p(self, scan_image: ScanImage) -> X3Pfile:
-        return parse_to_x3p(scan_image)
+        return convert_to_x3p(scan_image)
 
     def test_save_to_x3p_returns_failure_when_write_fails(self, x3p: X3Pfile):
         """Test that raises error when write operation fails."""
@@ -49,7 +49,7 @@ class TestX3PSave:
 
 def test_parse_to_x3p_on_success(scan_image: ScanImage):
     """Test that parse_to_x3p logs INFO on successful parsing."""
-    result = parse_to_x3p(scan_image)
+    result = convert_to_x3p(scan_image)
 
     # TODO: How do I test that X3P is a valid object?
     assert isinstance(result, X3Pfile)
@@ -57,4 +57,4 @@ def test_parse_to_x3p_on_success(scan_image: ScanImage):
 
 def test_parse_to_x3p_logs_on_success(scan_image: ScanImage):
     """Test that parse_to_x3p logs INFO on successful parsing."""
-    _ = parse_to_x3p(scan_image)
+    _ = convert_to_x3p(scan_image)

@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import requests
 from container_models.scan_image import ScanImage
-from parsers import parse_to_x3p
+from parsers import convert_to_x3p
 from tqdm import tqdm
 
 from scripts.conversion_utils import ConversionConfig, run_parallel
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
     """Load an X3P from path, parse it, and write the result."""
     scan = ScanImage.from_file(input_path)
-    x3p = parse_to_x3p(scan)
+    x3p = convert_to_x3p(scan)
 
     tmp = output_path.with_stem(f".{uuid.uuid4().hex}.tmp")
     try:
