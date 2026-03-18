@@ -1,4 +1,5 @@
 from functools import cached_property
+from typing import Any
 
 import numpy as np
 from pydantic import Field, field_validator, PositiveFloat
@@ -130,6 +131,17 @@ class ComparisonParams(ConfigBaseModel):
     """
     Parameters for the Congruent Matching Cells (CMC) algorithm.
 
+    Use :meth:`for_mark_type` to construct an instance with mark-type-appropriate
+    defaults (e.g. cell size) rather than constructing directly.
+
+    Supported mark types and their default cell sizes:
+
+    - ``BREECH_FACE_IMPRESSION``: 450 × 450 μm
+    - ``CHAMBER_IMPRESSION``: 125 × 125 μm
+    - ``EJECTOR_IMPRESSION``: 125 × 125 μm
+    - ``EXTRACTOR_IMPRESSION``: 125 × 125 μm
+    - ``FIRING_PIN_IMPRESSION``: 125 × 125 μm
+
     :param cell_size: Nominal cell size [width, height] in meters.
     :param minimum_fill_fraction: Minimum fraction of valid pixels required in a
         reference cell for it to be processed.
@@ -144,7 +156,7 @@ class ComparisonParams(ConfigBaseModel):
     cell_size: tuple[PositiveFloat, PositiveFloat] = (4.5e-4, 4.5e-4)
 
     @classmethod
-    def for_mark_type(cls, mark_type: MarkType, **kwargs: float) -> "ComparisonParams":
+    def for_mark_type(cls, mark_type: MarkType, **kwargs: Any) -> "ComparisonParams":
         """Create a :class:`ComparisonParams` with the default cell size for *mark_type*.
 
         Any additional keyword arguments override the other defaults.

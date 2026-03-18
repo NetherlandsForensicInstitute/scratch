@@ -174,20 +174,18 @@ def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
     processed_ref = str(entry.mark_dir_ref / "processed")
     processed_comp = str(entry.mark_dir_comp / "processed")
 
-    metadata = {
-        "metadata_reference": _extract_metadata(entry.mark_dir_ref),
-        "metadata_compared": _extract_metadata(entry.mark_dir_comp),
-    }
     if entry.mark_type.is_striation():
         return {
             "mark_dir_ref": processed_ref,
             "mark_dir_comp": processed_comp,
-            "param": metadata,
+            "metadata_reference": _extract_metadata(entry.mark_dir_ref),
+            "metadata_compared": _extract_metadata(entry.mark_dir_comp),
         }
     return {
         "mark_dir_ref": processed_ref,
         "mark_dir_comp": processed_comp,
-        **metadata,
+        "metadata_reference": _extract_metadata(entry.mark_dir_ref),
+        "metadata_compared": _extract_metadata(entry.mark_dir_comp),
         "comparison_params": ComparisonParams.for_mark_type(entry.mark_type).model_dump(),
     }
 
