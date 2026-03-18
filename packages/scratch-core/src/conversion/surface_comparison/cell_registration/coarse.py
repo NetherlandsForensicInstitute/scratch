@@ -68,7 +68,6 @@ def match_cells(
         params.search_angle_step,
     )
     chunks = np.array_split(angles, N_THREADS)
-    # One lock per cell guards concurrent writes to `grid_search_params`
     locks = [Lock() for _ in grid_cells]
     _process_chunk = partial(
         _find_best_match,
@@ -150,13 +149,15 @@ def _find_best_match(
                     angle_deg=angle,
                 )
                 with lock:
-                    # Update the parameters
-                    grid_cell.grid_search_params.update(
-                        score=score,
-                        angle=angle,
-                        center_x=original_center_x - pad_width,  # Undo the padding
-                        center_y=original_center_y - pad_height,  # Undo the padding
-                    )
+                    # Guard against race conditions
+                    if score > grid_cell.grid_search_params.score:
+                        # Update the parameters
+                        grid_cell.grid_search_params.update(
+                            score=score,
+                            angle=angle,
+                            center_x=original_center_x - pad_width,  # Undo the padding
+                            center_y=original_center_y - pad_height,  # Undo the padding
+                        )
     return grid_cells
 
 
