@@ -57,7 +57,7 @@ class Cell(ConfigBaseModel):
     center_reference: tuple[float, float]
     cell_size: tuple[float, float]
     fill_fraction_reference: float = Field(ge=0.0, le=1.0)
-    best_score: float = Field(ge=0.0, le=1.0)
+    best_score: float = Field(ge=-1.0, le=1.0)
     angle_deg: float = Field(ge=-180, le=180)
     center_comparison: tuple[float, float]
     is_congruent: bool
@@ -134,7 +134,7 @@ class ComparisonParams(ConfigBaseModel):
 
     cell_size: tuple[PositiveFloat, PositiveFloat] = (1e-3, 1e-3)
     minimum_fill_fraction: float = Field(default=0.5, ge=0.0, le=1.0)
-    correlation_threshold: float = Field(default=0.4, ge=-1.0, le=1.0)
+    correlation_threshold: float = Field(default=0.3, ge=-1.0, le=1.0)
     angle_deviation_threshold: float = Field(default=2.0, gt=0.0)
     position_threshold: float = Field(default=100e-6, gt=0.0)
     search_angle_min: float = -180.0
