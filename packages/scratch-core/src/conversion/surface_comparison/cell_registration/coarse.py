@@ -138,14 +138,14 @@ def _find_best_match(
             if score > grid_cell.grid_search_params.score:
                 # Compute the center coordinates of the cell on the (original) unrotated image
                 cell_center = (x + cell_width / 2, y + cell_height / 2)
-                rotated_center_x, rotated_center_y = (
+                rotated_center = (
                     (rotated.shape[1] - 1) / 2,  # type: ignore
                     (rotated.shape[0] - 1) / 2,
                 )
                 original_center_x, original_center_y = _unrotate_point(
                     rotated_point=cell_center,
                     original_image_center=padded_center,
-                    rotated_image_center=(rotated_center_x, rotated_center_y),
+                    rotated_image_center=rotated_center,
                     angle_deg=angle,
                 )
                 with lock:
