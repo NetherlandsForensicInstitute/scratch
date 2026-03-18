@@ -19,10 +19,9 @@ class TestX3pPipeline:
         output_path = tmp_path / "output.x3p"
 
         # Act
-        result_path = parsed_al3d_file.export_to_x3p(output_path)
+        parsed_al3d_file.export_to_x3p(output_path)
 
         # Assert
-        assert output_path == result_path
         assert output_path.is_file()
         assert output_path.stat().st_size > 0
 

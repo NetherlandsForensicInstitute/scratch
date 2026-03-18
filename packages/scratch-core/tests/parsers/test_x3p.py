@@ -43,8 +43,8 @@ class TestX3PSave:
     ):
         """Test that save_to_x3p returns IOSuccess(None) when save succeeds."""
         output_path = tmp_path / "test.x3p"
-        result = save_x3p(x3p, output_path=output_path)
-        assert result.exists()
+        save_x3p(x3p, output_path=output_path)
+        assert output_path.exists()
 
 
 def test_parse_to_x3p_on_success(scan_image: ScanImage):
