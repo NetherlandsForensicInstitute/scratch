@@ -5,20 +5,22 @@ from conversion.surface_comparison.models import (
     Cell,
     GridCell,
 )
-from collections.abc import Sequence
-import numpy as np
-from skimage.transform import rotate
+from conversion.surface_comparison.utils import rotate_points
 from conversion.surface_comparison.cell_registration.utils import (
     convert_grid_cell_to_cell,
     pad_image_array,
 )
-from multiprocessing import Pool
-from os import cpu_count
-import cv2
-from conversion.surface_comparison.utils import rotate_points
-from functools import partial
 
-N_PROCESSES = cpu_count()
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from os import cpu_count
+from threading import Lock
+
+import cv2
+import numpy as np
+from skimage.transform import rotate
+
+N_THREADS = cpu_count() or 1
 
 
 def match_cells(
@@ -59,14 +61,17 @@ def match_cells(
         (comparison_data.shape[0] - 1) / 2,
     )
 
-    # Build the chunks to be processed in parallel
+    # Prepare the arguments for parallel processing
     angles = np.arange(
         params.search_angle_min, params.search_angle_max, params.search_angle_step
     )
-    chunks = np.array_split(angles, N_PROCESSES)
+    chunks = np.array_split(angles, N_THREADS)
+    # One lock per cell guards concurrent writes to `grid_search_params`
+    locks = [Lock() for _ in grid_cells]
     _process_chunk = partial(
         _find_best_match,
         grid_cells=grid_cells,
+        locks=locks,
         comparison_data=comparison_data,
         cell_size=(cell_width, cell_height),
         minimum_fill_fraction=params.minimum_fill_fraction,
@@ -74,31 +79,20 @@ def match_cells(
         padded_center=(padded_center_x, padded_center_y),
         pad_size=(pad_width, pad_height),
     )
-    # Apply the map-reduce paradigm
-    with Pool(N_PROCESSES) as pool:
-        per_worker_results = pool.map(_process_chunk, chunks)
-    best_cells = _reduce(per_worker_results)
+    # Execute parallel search
+    with ThreadPoolExecutor(max_workers=N_THREADS) as executor:
+        list(executor.map(_process_chunk, chunks))
 
     return [
         convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
-        for grid_cell in best_cells
+        for grid_cell in grid_cells
     ]
-
-
-def _reduce(results: Sequence[Sequence[GridCell]]) -> list[GridCell]:
-    reduced: dict[tuple[int, int], GridCell] = {}
-    for grid_cells in results:
-        for grid_cell in grid_cells:
-            key = grid_cell.top_left
-            score = grid_cell.grid_search_params.score
-            if key not in reduced or score > reduced[key].grid_search_params.score:
-                reduced[key] = grid_cell
-    return sorted(reduced.values(), key=lambda cell: cell.top_left)
 
 
 def _find_best_match(
     angles: FloatArray1D,
     grid_cells: list[GridCell],
+    locks: list[Lock],
     comparison_data: FloatArray2D,
     cell_size: tuple[int, int],
     minimum_fill_fraction: float,
@@ -132,7 +126,7 @@ def _find_best_match(
         # Now that we computed the fill fraction mask, we can safely replace NaN values in the rotated image
         rotated[~valid_mask] = fill_value
 
-        for grid_cell in grid_cells:
+        for grid_cell, lock in zip(grid_cells, locks):
             score_map = _get_score_map(
                 comparison_array=rotated,
                 template=grid_cell.cell_data_filled,
@@ -153,13 +147,14 @@ def _find_best_match(
                     rotated_image_center=(rotated_center_x, rotated_center_y),
                     angle_deg=angle,
                 )
-                # Update parameters
-                grid_cell.grid_search_params.update(
-                    score=score,
-                    angle=angle,
-                    center_x=original_center_x - pad_width,  # Undo the padding
-                    center_y=original_center_y - pad_height,  # Undo the padding
-                )
+                with lock:
+                    # Update the parameters
+                    grid_cell.grid_search_params.update(
+                        score=score,
+                        angle=angle,
+                        center_x=original_center_x - pad_width,  # Undo the padding
+                        center_y=original_center_y - pad_height,  # Undo the padding
+                    )
     return grid_cells
 
 
