@@ -133,3 +133,20 @@ def calculate_lr_impression(lr_system: LRSystem, score: int, n_cells: int) -> LL
     """
     result = lr_system.apply(FeatureData(features=np.array([[0, score, n_cells]])))
     return result
+
+
+class DummyLRSystem:
+    """Minimal LR system for testing."""
+
+    def apply(self, feature_data: FeatureData) -> LLRData:
+        """Return dummy results."""
+        n = len(feature_data.features)
+        # 3 columns: llr, lower_ci, upper_ci
+        features = np.column_stack(
+            [
+                np.zeros(n),  # llrs
+                -np.ones(n),  # lower interval
+                np.ones(n),  # upper interval
+            ]
+        )
+        return LLRData(features=features)

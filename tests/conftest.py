@@ -1,3 +1,4 @@
+import pickle
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -8,7 +9,7 @@ import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
-from conversion.likelihood_ratio import ModelSpecs
+from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
 from conversion.plots.utils import build_results_metadata_impression
 from conversion.profile_correlator import Profile
 from fastapi.testclient import TestClient
@@ -160,12 +161,30 @@ def mark_dirs(tmp_path: Path) -> tuple[Path, Path]:
 
 @pytest.fixture(scope="session")
 def impression_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return RESOURCES_DIR / "impression"
+    lr_dir = tmp_path_factory.mktemp("lr_impression")
+
+    # Dummy model
+    with (lr_dir / "model.pkl").open("wb") as f:
+        pickle.dump(DummyLRSystem(), f)
+
+    # Dummy reference data
+    (lr_dir / "reference_data.csv").write_text(
+        "feature1,feature2,hypothesis\n0.8,0.9,1\n0.85,0.95,1\n0.7,0.88,1\n0.1,0.2,0\n0.15,0.25,0\n0.05,0.1,0\n"
+    )
+
+    return lr_dir
 
 
 @pytest.fixture(scope="session")
 def striation_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return RESOURCES_DIR / "striation"
+    lr_dir = tmp_path_factory.mktemp("lr_striation")
+
+    with (lr_dir / "model.pkl").open("wb") as f:
+        pickle.dump(DummyLRSystem(), f)
+
+    (lr_dir / "reference_data.csv").write_text("feature1,hypothesis\n0.9,1\n0.85,1\n0.78,1\n0.3,0\n0.25,0\n0.15,0\n")
+
+    return lr_dir
 
 
 def _create_dummy_impression_surface(rows: int = 100, cols: int = 100) -> np.ndarray:
