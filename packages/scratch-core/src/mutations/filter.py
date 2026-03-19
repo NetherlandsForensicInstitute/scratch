@@ -356,9 +356,9 @@ class GaussianRegressionFilter(ImageMutation):  # pragma: no cover
         :returns: ScanImage with the filtered 2D array.
         """
         pixel_size = (scan_image.scale_y, scan_image.scale_x)
-        box = get_bounding_box(mask=scan_image.valid_mask, margin=0)
-        scan_image.data[box] = apply_gaussian_regression_filter(
-            data=scan_image.data[box],
+        valid_region = get_bounding_box(mask=scan_image.valid_mask, margin=0)
+        scan_image.data[valid_region] = apply_gaussian_regression_filter(
+            data=scan_image.data[valid_region],
             cutoff_length=self.cutoff_length,
             pixel_size=pixel_size,
             regression_order=self.regression_order.value,
