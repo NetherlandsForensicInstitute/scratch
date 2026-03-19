@@ -136,7 +136,9 @@ class TestGetScoreMap:
 
         # Act
         score_map = _get_score_map(
-            comparison_array=filled, template=grid_cell.cell_data_filled
+            comparison_array=filled,
+            template=grid_cell.cell_data_filled,
+            template_mask=grid_cell.valid_mask,
         )
 
         # Asserts
