@@ -63,7 +63,7 @@ class ScanImage(ConfigBaseModel):
         # TODO: Can we remove this?
         return self.width / 2 * self.scale_x, self.height / 2 * self.scale_y
 
-    def _to_image(self, scale_max: float, scale_min: float) -> Image:
+    def _to_pil_image(self, scale_max: float, scale_min: float) -> Image:
         """Get a rgba image from the scan data."""
         return fromarray(
             grayscale_to_rgba(
@@ -108,7 +108,7 @@ class ScanImage(ConfigBaseModel):
         :param output_path: the given path to save the scan data.
         :return: the output path to where the image is saved.
         """
-        self._to_image(scale_max=scale_max, scale_min=scale_min).save(output_path)
+        self._to_pil_image(scale_max=scale_max, scale_min=scale_min).save(output_path)
 
 
 def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:

@@ -13,7 +13,7 @@ def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArra
     return (input_array - lower) / (upper - lower) * 255.0
 
 
-def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, float]:
+def _clip_data(data: FloatArray, std_scaler: float) -> FloatArray:
     """
     Clip the data so that the values lie in the interval [μ - σ * S, μ + σ * S].
 
@@ -21,7 +21,7 @@ def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, 
 
     :param data: The data to be clipped.
     :param std_scaler: The multiplier for the standard deviation of the data to be clipped.
-    :returns: A tuple containing the clipped data, the lower bound, and the upper bound of the clipped data.
+    :returns: clipped data.
     """
     if std_scaler <= 0.0:
         raise ValueError("`std_scaler` must be a positive number.")
@@ -29,7 +29,7 @@ def _clip_data(data: FloatArray, std_scaler: float) -> tuple[FloatArray, float, 
     std = np.nanstd(data, ddof=1) * std_scaler
     upper = float(mean + std)
     lower = float(mean - std)
-    return np.clip(data, lower, upper), lower, upper
+    return np.clip(data, lower, upper)
 
 
 def get_scan_image_for_display(
@@ -46,7 +46,7 @@ def get_scan_image_for_display(
     :returns: An array containing the clipped and normalized image data.
     """
     return ScanImage(
-        data=_clip_data(data=scan_image.data, std_scaler=std_scaler)[0],
+        data=_clip_data(data=scan_image.data, std_scaler=std_scaler),
         scale_x=scan_image.scale_x,
         scale_y=scan_image.scale_y,
     )
