@@ -176,6 +176,10 @@ class ComparisonResponseImpression(URLContainer):
         default_factory=list,
         description="Per-cell CMC results for use in LR calculation.",
     )
+    comparison_results: dict = Field(
+        default_factory=dict,
+        description="Impression comparison metrics including CMC counts, fractions, and consensus registration.",
+    )
 
     @model_serializer(mode="wrap")
     def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
@@ -184,6 +188,7 @@ class ComparisonResponseImpression(URLContainer):
         return {
             **data["urls"],
             "cells": data["cells"],
+            "comparison_results": data["comparison_results"],
         }
 
 

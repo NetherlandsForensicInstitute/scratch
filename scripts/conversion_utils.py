@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from conversion.data_formats import MarkType
+from conversion.surface_comparison.models import ComparisonParams
 from tqdm import tqdm
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
@@ -177,13 +178,16 @@ def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
         return {
             "mark_dir_ref": processed_ref,
             "mark_dir_comp": processed_comp,
-            "param": {
-                "metadata_reference": _extract_metadata(entry.mark_dir_ref),
-                "metadata_compared": _extract_metadata(entry.mark_dir_comp),
-            },
+            "metadata_reference": _extract_metadata(entry.mark_dir_ref),
+            "metadata_compared": _extract_metadata(entry.mark_dir_comp),
         }
-    # TODO: update with actual CalculateScoreImpression fields
-    return {"mark_dir_ref": processed_ref, "mark_dir_comp": processed_comp}
+    return {
+        "mark_dir_ref": processed_ref,
+        "mark_dir_comp": processed_comp,
+        "metadata_reference": _extract_metadata(entry.mark_dir_ref),
+        "metadata_compared": _extract_metadata(entry.mark_dir_comp),
+        "comparison_params": ComparisonParams.for_mark_type(entry.mark_type).model_dump(),
+    }
 
 
 def _save_result(entry: ComparisonEntry, result: dict[str, Any] | None = None, error: str | None = None) -> None:

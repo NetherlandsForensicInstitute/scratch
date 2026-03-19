@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
-from parsers import parse_to_x3p, save_x3p
+from parsers import convert_to_x3p, save_x3p
 from scipy.constants import micro
 from utils.constants import RegressionOrder
 
@@ -32,7 +32,7 @@ def resample_twice_bigger(
     scan_image: ScanImage, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> tuple[EditImage, BinaryMask, Callable[[ScanImage], None]]:
     scan_file = tmp_path / "scan.x3p"
-    save_x3p(output_path=scan_file, x3p=parse_to_x3p(scan_image))
+    save_x3p(output_path=scan_file, x3p=convert_to_x3p(scan_image))
 
     mask = np.ones(shape=(2, 3), dtype=np.bool)
 
@@ -56,7 +56,7 @@ def resample_twice_bigger(
 @pytest.fixture
 def mask_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage, BinaryMask, Callable]:
     scan_file = tmp_path / "scan.x3p"
-    save_x3p(output_path=scan_file, x3p=parse_to_x3p(scan_image))
+    save_x3p(output_path=scan_file, x3p=convert_to_x3p(scan_image))
 
     mask = np.array(
         [
@@ -86,7 +86,7 @@ def mask_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage,
 @pytest.fixture
 def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage, BinaryMask, Callable]:
     scan_file = tmp_path / "scan.x3p"
-    save_x3p(output_path=scan_file, x3p=parse_to_x3p(scan_image))
+    save_x3p(output_path=scan_file, x3p=convert_to_x3p(scan_image))
 
     mask = np.array(
         [
@@ -116,7 +116,7 @@ def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIma
 @pytest.fixture
 def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage, BinaryMask, Callable]:
     scan_file = tmp_path / "scan.x3p"
-    save_x3p(output_path=scan_file, x3p=parse_to_x3p(scan_image))
+    save_x3p(output_path=scan_file, x3p=convert_to_x3p(scan_image))
 
     mask = np.array(
         [

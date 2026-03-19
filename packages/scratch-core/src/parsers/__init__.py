@@ -35,10 +35,10 @@ Notes
 - Custom file format support can be added via surfalize FileHandler registration
 """
 
-from .x3p import X3PMetaData, parse_to_x3p, save_x3p
+from .x3p import X3PMetaData, convert_to_x3p, save_x3p
 
 __all__ = (
-    "parse_to_x3p",
+    "convert_to_x3p",
     "save_x3p",
     "X3PMetaData",
 )

@@ -6,8 +6,10 @@ import numpy as np
 from pydantic import Field
 from scipy.constants import micro
 
+from parsers import convert_to_x3p, save_x3p
 from parsers.loaders import _load_surface
-from .base import ConfigBaseModel, BinaryMask, FloatArray1D, DepthData
+
+from .base import BinaryMask, ConfigBaseModel, DepthData, FloatArray1D
 
 
 class ScanImage(ConfigBaseModel):
@@ -71,3 +73,12 @@ class ScanImage(ConfigBaseModel):
             scale_y=step_y,
             meta_data=surface.metadata,
         )
+
+    def save_as_x3p(self, output_path: Path) -> None:
+        """
+        Convert a scan image to X3P format and save it to the specified path.
+
+        :param parsed_scan: The scan image data to convert to X3P format.
+        :param output_path: The file path where the X3P file will be saved.
+        """
+        save_x3p(convert_to_x3p(self), output_path=output_path)
