@@ -4,6 +4,7 @@ Test helpers for cmc_classification tests.
 
 import numpy as np
 
+from container_models.base import FloatArray2D
 from conversion.surface_comparison.models import Cell, CellMetaData, ComparisonParams
 
 # Placeholder cell data: a minimal 2x2 height map, unused by the classifier.
@@ -17,6 +18,17 @@ _DEFAULT_META_DATA = CellMetaData(
 )
 
 
+def _reflect_y_axis(coordinates: FloatArray2D) -> FloatArray2D:
+    """
+    Reflect y-axis of coordinates.
+
+    :param coordinates: coordinate array, rows are coordinates (2 columns)
+    """
+
+    coordinates[:, 1] *= -1
+    return coordinates
+
+
 def build_cells(inputs: dict) -> list[Cell]:
     """
     Build a list of Cell objects from a test-case input dict.
@@ -24,9 +36,19 @@ def build_cells(inputs: dict) -> list[Cell]:
     The angle stored on each Cell is the delta ``angles_comparison - angles_reference``.
     In all current test cases ``angles_reference`` is zero, so the delta equals
     ``angles_comparison`` directly.
+    The y-coordinates are reflected since MATLAB uses conventional coordinates (y-axis upwards)
+    while our pipeline uses image coordinates (y-axis downwards).
     """
     centers_reference = np.array(inputs["centers_reference"])
     centers_comparison = np.array(inputs["centers_comparison"])
+
+    if centers_reference.ndim == 1:
+        centers_reference = centers_reference.reshape(1, -1)
+        centers_comparison = centers_comparison.reshape(1, -1)
+
+    centers_reference = _reflect_y_axis(centers_reference)
+    centers_comparison = _reflect_y_axis(centers_comparison)
+
     angles_reference = np.atleast_1d(np.array(inputs["angles_reference"], dtype=float))
     angles_comparison = np.atleast_1d(
         np.array(inputs["angles_comparison"], dtype=float)
@@ -34,10 +56,6 @@ def build_cells(inputs: dict) -> list[Cell]:
     correlation_scores = np.atleast_1d(
         np.array(inputs["correlation_scores"], dtype=float)
     )
-
-    if centers_reference.ndim == 1:
-        centers_reference = centers_reference.reshape(1, -1)
-        centers_comparison = centers_comparison.reshape(1, -1)
 
     return [
         Cell(
@@ -64,8 +82,9 @@ def build_test_inputs(
     inputs: dict,
 ) -> tuple[list[Cell], ComparisonParams, tuple[float, float]]:
     """
-    Build the full set of inputs for ``classify_congruent_cells`` from a test-case
-    input dict.
+    Build the full set of inputs for ``classify_congruent_cells`` from a test-case input dict.
+    The y-coordinate of the rotation center is reflected over the x-axis since MATLAB uses
+    mathematical coordinates while our pipeline uses image coordinates
 
     Returns ``(cells, params, rotation_center)``.
     """
@@ -78,6 +97,7 @@ def build_test_inputs(
     )
 
     rotation_center_list = inputs["rotation_center"]
-    rotation_center = (float(rotation_center_list[0]), float(rotation_center_list[1]))
+    # Reflect the rotation center about the y-axis in order to comply with image coordinates
+    rotation_center = (float(rotation_center_list[0]), -float(rotation_center_list[1]))
 
     return cells, params, rotation_center

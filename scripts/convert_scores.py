@@ -211,8 +211,6 @@ def get_pairs(
     if limit:
         all_entries = all_entries[:limit]
 
-    # Only doing striation for now:
-    all_entries = [a for a in all_entries if a.mark_type.is_striation()]
     return all_entries
 
 

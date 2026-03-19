@@ -204,3 +204,27 @@ class TestUnrotatePoint:
         # Assert
         assert recovered_x == pytest.approx(px, abs=1e-6)
         assert recovered_y == pytest.approx(py, abs=1e-6)
+
+
+class TestNegativeCorrelation:
+    def test_coarse_registration_can_find_negative_correlation(self):
+        # Arrange
+        # Use a non-periodic surface so the inverted cell has no spurious positive correlations elsewhere
+        image_data = make_surface(height=30, width=40, scale=1.0)
+        comparison_data = -image_data  # Exact pointwise inversion
+        comparison_image = ScanImage(data=comparison_data, scale_x=1.0, scale_y=1.0)
+        # Make the cell size large enough to not allow for spurious correlations
+        cell_data = image_data[5:25, 5:35]
+        grid_cell = make_grid_cell(data=cell_data)
+        params = ComparisonParams(
+            search_angle_min=0,
+            search_angle_max=0,
+            search_angle_step=1,
+            minimum_fill_fraction=1,
+        )
+        # Act
+        results = match_cells(
+            grid_cells=[grid_cell], comparison_image=comparison_image, params=params
+        )
+        # Assert
+        assert results[0].best_score < 0.0

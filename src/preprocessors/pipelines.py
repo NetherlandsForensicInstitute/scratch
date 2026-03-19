@@ -2,12 +2,11 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import numpy as np
+from computations.spatial import make_isotropic, subsample_scan_image
 from container_models.base import BinaryMask
 from container_models.light_source import LightSource
 from container_models.scan_image import ScanImage
 from numpy.typing import NDArray
-from parsers import load_scan_image, parse_to_x3p, save_x3p, subsample_scan_image
-from parsers.loaders import make_isotropic
 from renders import (
     apply_multiple_lights,
     compute_surface_normals,
@@ -29,7 +28,7 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
     :param parameters: All parameters used in the pipeline.
     :return: The parsed scan image data.
     """
-    scan_image = subsample_scan_image(load_scan_image(scan_file), step_size_x=step_size_x, step_size_y=step_size_y)
+    scan_image = subsample_scan_image(ScanImage.from_file(scan_file), step_size_x=step_size_x, step_size_y=step_size_y)
     return make_isotropic(scan_image)
 
 
@@ -61,17 +60,6 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
     padding = (-width) % 8
     reshaped = _reshape_array(array=unpacked, shape=(height, width + padding))
     return reshaped[:, :width]
-
-
-def x3p_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
-    """
-    Convert a scan image to X3P format and save it to the specified path.
-
-    :param parsed_scan: The scan image data to convert to X3P format.
-    :param output_path: The file path where the X3P file will be saved.
-    :return: The path to the saved X3P file.
-    """
-    return save_x3p(parse_to_x3p(parsed_scan), output_path=output_path)
 
 
 def surface_map_pipeline(  # noqa
