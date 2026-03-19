@@ -18,6 +18,7 @@ from .base import (
     FloatArray2D,
     ImageRGBA,
 )
+from .models import ImageScaling
 
 
 class ScanImage(ConfigBaseModel):
@@ -101,14 +102,14 @@ class ScanImage(ConfigBaseModel):
         """
         save_x3p(convert_to_x3p(self), output_path=output_path)
 
-    def save_as_image(self, output_path: Path, scale_max: float, scale_min: float):
+    def save_as_image(self, output_path: Path, scaling: ImageScaling):
         """
         Convert ScanImage data to an Image and save it to the given output_path.
 
         :param output_path: the given path to save the scan data.
         :return: the output path to where the image is saved.
         """
-        self._to_pil_image(scale_max=scale_max, scale_min=scale_min).save(output_path)
+        self._to_pil_image(scale_max=scaling.scale_max, scale_min=scaling.scale_min).save(output_path)
 
 
 def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
