@@ -51,10 +51,8 @@ def make_cell(  # noqa: PLR0913
 
 def _save_impression_mark(dir_path: Path, mark: Mark) -> None:
     """Save mark files to a directory in the format load_mark_from_path expects."""
-    save_mark(mark, dir_path / "mark")
-    save_mark(mark, dir_path / "aligned")
-    for stem in ("processed", "leveled"):
-        save_mark(mark, dir_path / "processed" / stem)
+    for stem in ("processed", "leveled", "mark", "aligned"):
+        save_mark(mark, dir_path / stem)
 
 
 def _create_dummy_profile(n_samples: int = 1000) -> Profile:
@@ -123,14 +121,12 @@ def _impression_mark(data: np.ndarray) -> Mark:
 
 def _save_impression_marks(dir_path: Path, mark: Mark) -> None:
     """Save mark and profile files to a directory."""
-    save_mark(mark, dir_path / "mark")
-    for stem in ("processed", "leveled"):
-        save_mark(mark, dir_path / "processed" / stem)
+    for stem in ("processed", "leveled", "mark"):
+        save_mark(mark, dir_path / stem)
 
 
 def _save_striation_mark_and_profile(dir_path: Path, profile: Profile, mark: Mark) -> None:
     """Save mark and profile files to a directory."""
-    save_mark(mark, dir_path / "mark")
-    save_mark(mark, dir_path / "aligned")
-    save_mark(mark, dir_path / "processed" / "processed")
-    save_profile(profile, dir_path / "processed" / "profile")
+    for stem in ("processed", "aligned", "mark"):
+        save_mark(mark, dir_path / stem)
+    save_profile(profile, dir_path / "profile")

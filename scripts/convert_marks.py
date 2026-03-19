@@ -156,20 +156,32 @@ def convert_mark(
         files={"mask_data": ("mask.bin", io.BytesIO(mask_bytes), "application/octet-stream")},
     )
 
-    processed_dir = mark_dir / "processed"
     mark_dir.mkdir(parents=True, exist_ok=True)
-    processed_dir.mkdir(parents=True, exist_ok=True)
 
-    mark_filenames = {"mark.npz", "mark.json"}
     for url in result.values():
         if not isinstance(url, str) or not url.startswith("http"):
             continue
         filename = url.rsplit("/", 1)[-1]
-        dest = mark_dir if filename in mark_filenames else processed_dir
         resp = requests.get(url, timeout=60)
         resp.raise_for_status()
-        (dest / filename).write_bytes(resp.content)
+        (mark_dir / filename).write_bytes(resp.content)
 
+
+def flatten_processed_folders(output_dir: Path) -> None:
+    """Move db.scratch from processed/ subfolders and remove the subfolder."""
+    for processed_dir in output_dir.rglob("processed"):
+        if not processed_dir.is_dir():
+            continue
+        parent = processed_dir.parent
+        contents = list(processed_dir.iterdir())
+        unexpected = [f.name for f in contents if f.name != "db.scratch"]
+        if unexpected:
+            raise RuntimeError(
+                f"Unexpected files in {processed_dir}: {unexpected}"
+            )
+        for f in contents:
+            f.rename(parent / "db_processed.scratch")
+        processed_dir.rmdir()
 
 def main() -> None:
     """Entry point: parse args and run the conversion pipeline."""
@@ -205,6 +217,8 @@ def main() -> None:
         "Converting marks",
         " marks",
     )
+
+    flatten_processed_folders(cfg.output_dir)
 
     logger.info(f"Done: {len(marks)} marks, {len(converted_x3ps)} x3p files")
 

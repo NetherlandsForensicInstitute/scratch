@@ -256,8 +256,8 @@ def process_lr_striation(
     transformed_reference_scores = probability_to_logodds((reference_data.scores + 1) / 2)
     score_transformed = float(probability_to_logodds((lr_input.score + 1) / 2))
 
-    mark_ref = load_mark_from_path(lr_input.mark_dir_ref / "processed", stem="processed")
-    mark_comp = load_mark_from_path(lr_input.mark_dir_comp / "processed", stem="processed")
+    mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
+    mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
     mark_ref_aligned = load_mark_from_path(lr_input.mark_dir_ref_aligned, stem="aligned")
     mark_comp_aligned = load_mark_from_path(lr_input.mark_dir_comp_aligned, stem="aligned")
 
@@ -297,8 +297,8 @@ def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) ->
     llr_data = calculate_lr_impression(lr_system, lr_input.score, lr_input.n_cells)
     log_lr = llr_data.llrs[0]
 
-    mark_ref = load_mark_from_path(lr_input.mark_dir_ref / "processed", stem="processed")
-    mark_comp = load_mark_from_path(lr_input.mark_dir_comp / "processed", stem="processed")
+    mark_ref = load_mark_from_path(lr_input.mark_dir_ref, stem="processed")
+    mark_comp = load_mark_from_path(lr_input.mark_dir_comp, stem="processed")
 
     # TODO: check this well after the impression score calculation is done
     results_metadata = build_results_metadata_impression(

@@ -170,8 +170,8 @@ class ComparisonEntry:
 
 def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
     """Build the API request body for a comparison."""
-    processed_ref = str(entry.mark_dir_ref / "processed")
-    processed_comp = str(entry.mark_dir_comp / "processed")
+    processed_ref = str(entry.mark_dir_ref)
+    processed_comp = str(entry.mark_dir_comp)
 
     if entry.mark_type.is_striation():
         return {

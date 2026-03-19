@@ -153,8 +153,8 @@ def calculate_score(entry: ComparisonEntry, cfg: ConversionConfig) -> dict[str, 
     if (entry.comparison_out / "comparison_results.json").exists() and not cfg.force:
         return None
 
-    processed_ref = entry.mark_dir_ref / "processed"
-    processed_comp = entry.mark_dir_comp / "processed"
+    processed_ref = entry.mark_dir_ref
+    processed_comp = entry.mark_dir_comp
     if not processed_ref.exists() or not processed_comp.exists():
         logger.warning("Processed dir missing for row %d", entry.row_index)
         return None
