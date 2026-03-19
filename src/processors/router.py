@@ -81,7 +81,9 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     logger.debug("marks loaded")
 
     cmc_result = compare_surfaces(
-        reference_mark=mark_ref_processed, comparison_mark=mark_comp_processed, params=impression_params.comparison_params
+        reference_mark=mark_ref_processed,
+        comparison_mark=mark_comp_processed,
+        params=impression_params.comparison_params,
     )
     logger.debug("CMC is calculated")
 
