@@ -10,7 +10,6 @@ from conversion.likelihood_ratio import (
     ModelSpecs,
     calculate_lr_impression,
     calculate_lr_striation,
-    get_lr_system_from_path,
     get_reference_data_from_path,
 )
 from conversion.plots.data_formats import HistogramData, LlrTransformationData
@@ -25,6 +24,7 @@ from fastapi import HTTPException
 from lir import LLRData
 from lir.util import probability_to_logodds
 from loguru import logger
+from lrmodule import get_lr_system
 from PIL import Image
 
 from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
@@ -249,7 +249,7 @@ def process_lr_striation(
     working_dir: Path,
 ) -> LRResult:
     """Calculate LR for striation marks and save the overview plot."""
-    lr_system = get_lr_system_from_path(lr_input.lr_system_path)
+    lr_system = get_lr_system(lr_input.lr_system_path)
     reference_data = get_reference_data_from_path(lr_input.lr_system_path)
     llr_data = calculate_lr_striation(lr_system, lr_input.score)
     log_lr = llr_data.llrs[0]
@@ -296,7 +296,7 @@ def process_lr_striation(
 
 def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) -> LRResult:
     """Calculate LR for impression marks and save the overview plot."""
-    lr_system = get_lr_system_from_path(lr_input.lr_system_path)
+    lr_system = get_lr_system(lr_input.lr_system_path)
     reference_data = get_reference_data_from_path(lr_input.lr_system_path)
     llr_data = calculate_lr_impression(lr_system, lr_input.score, lr_input.n_cells)
     log_lr = llr_data.llrs[0]

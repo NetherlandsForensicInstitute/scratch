@@ -172,7 +172,7 @@ class TestCalculateLRImpression:
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
         with (
-            patch("processors.controller.get_lr_system_from_path", return_value=DummyLRSystem()),
+            patch("processors.controller.get_lr_system", return_value=DummyLRSystem()),
             patch("processors.controller.get_reference_data_from_path", return_value=impression_reference_data),
         ):
             json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
@@ -187,7 +187,7 @@ class TestCalculateLRStriation:
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
         with (
-            patch("processors.controller.get_lr_system_from_path", return_value=DummyLRSystem()),
+            patch("processors.controller.get_lr_system", return_value=DummyLRSystem()),
             patch("processors.controller.get_reference_data_from_path", return_value=striation_reference_data),
         ):
             json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")

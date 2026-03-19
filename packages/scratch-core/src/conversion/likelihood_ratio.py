@@ -3,7 +3,7 @@ from typing import Self
 from lrmodule import get_lr_system, get_reference_data
 
 import numpy as np
-from lir.data.models import FeatureData, LLRData
+from lir.data.models import FeatureData, LLRData, InstanceData
 from lir.lrsystems import LRSystem
 from pydantic import model_validator
 
@@ -67,21 +67,18 @@ class ModelSpecs(ConfigBaseModel):
         )
 
 
-def get_lr_system_from_path(
-    lr_system_path: Path,
-) -> LRSystem:
-    """Load an LR system from a pickle file."""
-    return get_lr_system(lr_system_path)
-
-
 def get_reference_data_from_path(
     lr_system_path: Path,
 ) -> ModelSpecs:
     """Return the reference data of a specific LR system."""
-    lr_system = get_lr_system_from_path(lr_system_path)
+    lr_system = get_lr_system(lr_system_path)
     reference_data = get_reference_data(lr_system_path)
     if reference_data.labels is None:
         raise ValueError("reference data must have labels")
+    if not set(reference_data.labels).issubset({0, 1}):
+        raise ValueError(
+            f"reference data labels must be 0 or 1, got {set(reference_data.labels)}"
+        )
 
     mask = reference_data.labels == 1
     km_scores = FeatureData(
@@ -135,12 +132,13 @@ def calculate_lr_impression(lr_system: LRSystem, score: int, n_cells: int) -> LL
     return result
 
 
-class DummyLRSystem:  # pragma: no cover
+class DummyLRSystem(LRSystem):  # pragma: no cover
     """Minimal LR system for testing."""
 
-    def apply(self, feature_data: FeatureData) -> LLRData:
+    def apply(self, instances: InstanceData) -> LLRData:
         """Return dummy results."""
-        n = len(feature_data.features)
+        assert isinstance(instances, FeatureData)
+        n = len(instances.features)
         # 3 columns: llr, lower_ci, upper_ci
         features = np.column_stack(
             [
