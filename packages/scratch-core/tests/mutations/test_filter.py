@@ -11,7 +11,7 @@ from scipy.constants import micro
 
 def test_gaussian_filter_mutation(baseline_images_dir: Path):
     # Arrange
-    filter = GaussianRegressionFilter(
+    mutator = GaussianRegressionFilter(
         cutoff_length=250 * micro,
         regression_order=RegressionOrder.LOCAL_QUADRATIC,
         is_high_pass=True,
@@ -28,7 +28,7 @@ def test_gaussian_filter_mutation(baseline_images_dir: Path):
     verified_array = np.load(verified_file, allow_pickle=True)["array"]
 
     # Act
-    mutated = filter(scan_image_masked)
+    mutated = mutator(scan_image_masked)
     bounding_box = get_bounding_box(mutated.valid_mask, margin=0)
 
     # Assert
