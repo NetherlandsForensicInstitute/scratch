@@ -29,9 +29,9 @@ def test_gaussian_filter_mutation(baseline_images_dir: Path):
     bounding_box = get_bounding_box(mutated.valid_mask, margin=0)
 
     # Assert
-    assert np.allclose(mutated.data, verified_array, equal_nan=True), (
-        "Filtered image does not match verified image"
-    )
+    assert np.allclose(
+        mutated.data, verified_array, equal_nan=True, rtol=0.0, atol=1e-20
+    ), "Filtered image does not match verified image"
     assert np.array_equal(bounding_box, valid_region), (
         "Valid region should be unaffected"
     )
