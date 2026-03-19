@@ -176,12 +176,11 @@ def flatten_processed_folders(output_dir: Path) -> None:
         contents = list(processed_dir.iterdir())
         unexpected = [f.name for f in contents if f.name != "db.scratch"]
         if unexpected:
-            raise RuntimeError(
-                f"Unexpected files in {processed_dir}: {unexpected}"
-            )
+            raise RuntimeError(f"Unexpected files in {processed_dir}: {unexpected}")
         for f in contents:
             f.rename(parent / "db_processed.scratch")
         processed_dir.rmdir()
+
 
 def main() -> None:
     """Entry point: parse args and run the conversion pipeline."""
