@@ -16,11 +16,14 @@ def test_gaussian_filter_mutation(baseline_images_dir: Path):
         regression_order=RegressionOrder.LOCAL_QUADRATIC,
         is_high_pass=True,
     )
+
     rng = np.random.default_rng(4321)
     data = np.full(shape=(500, 1000), fill_value=np.nan, dtype=np.float64)
     valid_region = slice(200, 400), slice(500, 800)
+    # Fill unmasked region with random data
     data[valid_region] = rng.random(size=(200, 300), dtype=np.float64) * micro
     scan_image_masked = ScanImage(data=data, scale_x=micro, scale_y=micro)
+
     verified_file = baseline_images_dir / "gaussian_filtered.npz"
     verified_array = np.load(verified_file, allow_pickle=True)["array"]
 
