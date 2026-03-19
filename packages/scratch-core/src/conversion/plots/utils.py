@@ -1,5 +1,6 @@
 import datetime
 import textwrap
+from pathlib import Path
 from typing import Literal, cast
 
 import numpy as np
@@ -449,13 +450,13 @@ def build_results_metadata_impression(
     mark_type: MarkType,
     score: int,
     n_cells: int,
+    lr_system_path: Path,
 ) -> dict[str, str]:
     return {
         **_common_results_metadata(
             reference_data, llr_data, date_report, user_id, mark_type
         ),
-        "KM model": reference_data.km_model,  # TODO this should be replaced by the lr system path (new ticket)
-        "KNM model": reference_data.knm_model,  # TODO this should be replaced by the lr system path (new ticket)
+        "LR system path": str(lr_system_path),
         "Score type": "CMC",
         "Score (transform)": f"{score} of {n_cells}",
     }
