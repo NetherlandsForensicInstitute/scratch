@@ -1,0 +1,172 @@
+import numpy as np
+import pytest
+from unittest.mock import patch, MagicMock
+
+from conversion.surface_comparison.cmc_classification_consensus import (
+    _calculate_criterion,
+    _get_cmc_consensus,
+    _find_consensus_parameters,
+    _rotation_component_with_rotation_matrix,
+    _get_distances,
+)
+from conversion.surface_comparison.models import Cell
+
+
+class TestCriterion:
+    def test_empty_cell_ids_returns_inf(self):
+        """Test that empty cell_ids returns np.inf."""
+        cell_distances = np.array([1.0, 2.0, 3.0])
+        cell_angle_distances = np.array([10.0, 20.0, 30.0])
+        result = _calculate_criterion(
+            [], cell_distances, cell_angle_distances, 10.0, 90.0
+        )
+        assert result == np.inf
+
+    def test_basic_calculation(self):
+        """Test criterion calculation with known values."""
+        cell_ids = [0, 1]
+        cell_distances = np.array([2.0, 4.0])  # mean = 3.0
+        cell_angle_distances = np.array([10.0, 30.0])  # mean = 20.0
+        max_distance = 10.0
+        max_abs_angle_distance = 40.0
+
+        result = _calculate_criterion(
+            cell_ids,
+            cell_distances,
+            cell_angle_distances,
+            max_distance,
+            max_abs_angle_distance,
+        )
+
+        expected = 3.0 / 10.0 + 20.0 / 40.0  # 0.3 + 0.5 = 0.8
+        assert result == pytest.approx(expected)
+
+
+class TestGetCmcConsensus:
+    def test_uses_only_included_idx_for_least_squares(self):
+        """Test that _find_consensus_parameters is called with only the included cells, not all cells."""
+        all_cells = [MagicMock(spec=Cell) for _ in range(5)]
+        included_idx = [0, 2, 4]
+
+        with (
+            patch(
+                "conversion.surface_comparison.cmc_classification_consensus._find_consensus_parameters",
+                return_value=(None, 0.1, np.array([0.0, 0.0]), np.array([1.0, 1.0])),
+            ) as mock_find,
+            patch(
+                "conversion.surface_comparison.cmc_classification_consensus._get_distances",
+                return_value=(np.zeros(5), np.zeros(5)),
+            ),
+        ):
+            _get_cmc_consensus(included_idx, all_cells)
+
+            mock_find.assert_called_once_with(
+                [all_cells[0], all_cells[2], all_cells[4]]
+            )
+
+
+class TestFindConsensusParameters:
+    @pytest.mark.parametrize(
+        "angle, translation",
+        [
+            (np.pi / 6, [3.0, 5.0]),
+            (np.pi / 4, [0.0, 0.0]),
+            (-np.pi / 3, [-2.0, 7.0]),
+            (0.0, [1.5, -3.5]),
+            (np.pi / 2, [10.0, 0.0]),
+        ],
+    )
+    def test_recovers_all_parameters(self, angle, translation):
+        """Test that all four outputs match known rotation, translation, and centers."""
+        translation = np.array(translation)
+        cos_a, sin_a = np.cos(angle), np.sin(angle)
+        rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
+
+        centers_reference = np.array([[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]])
+        centers_comparison = centers_reference @ rotation_matrix + translation
+
+        cells = [
+            MagicMock(
+                spec=Cell,
+                center_reference=ref.tolist(),
+                center_comparison=comp.tolist(),
+            )
+            for ref, comp in zip(centers_reference, centers_comparison)
+        ]
+
+        (
+            consensus_translation,
+            consensus_rotation_rad,
+            rotation_center_reference,
+            rotation_center_comparison,
+        ) = _find_consensus_parameters(cells)
+
+        assert consensus_rotation_rad == pytest.approx(angle, abs=1e-6)
+        assert consensus_translation == pytest.approx(translation, abs=1e-6)
+        assert rotation_center_reference == pytest.approx(
+            centers_reference.mean(axis=0), abs=1e-6
+        )
+        assert rotation_center_comparison == pytest.approx(
+            centers_comparison.mean(axis=0), abs=1e-6
+        )
+
+
+class TestRotationComponentWithRotationMatrix:
+    @pytest.mark.parametrize("angle", np.linspace(-np.pi, np.pi, 13))
+    def test_known_rotation_returns_correct_component(self, angle):
+        """Test that rotation around a center returns (data - center) rotated by the given angle."""
+        cos_a, sin_a = np.cos(angle), np.sin(angle)
+        rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
+
+        data = np.array([[2.0, 1.0], [0.0, 3.0]])
+        center = np.array([[1.0, 1.0]])
+
+        result = _rotation_component_with_rotation_matrix(data, center, rotation_matrix)
+
+        expected = (data - center) @ rotation_matrix
+        assert result == pytest.approx(expected, abs=1e-6)
+
+
+class TestGetDistances:
+    @pytest.mark.parametrize("consensus_rotation_rad", [np.pi / 6, -np.pi / 3])
+    @pytest.mark.parametrize("rotation_center_reference", [(0.0, 0.0), (3.0, -2.0)])
+    @pytest.mark.parametrize("rotation_center_comparison", [(0.0, 0.0), (1.0, 5.0)])
+    def test_returns_distances_and_angle_distances_for_known_inputs(
+        self,
+        consensus_rotation_rad,
+        rotation_center_reference,
+        rotation_center_comparison,
+    ):
+        """Test that distances and abs_angle_distances are correctly computed for known inputs."""
+        consensus_rotation_deg = np.degrees(consensus_rotation_rad)
+
+        cell_angle_degs = [10.0, -50.0, 0.0]
+        cells = [MagicMock(spec=Cell, angle_deg=a) for a in cell_angle_degs]
+
+        expected_distances = np.array([1.0, 2.0, 3.0])
+        # The absolute residual is |cell.angle_deg - -consensus_rotation_deg|, since we use pixel_coordinates for rotation_angle of cells and mathematical coordinates here.
+        expected_abs_angle_distances = np.array(
+            [abs(a - -consensus_rotation_deg) for a in cell_angle_degs]
+        )
+
+        with (
+            patch(
+                "conversion.surface_comparison.cmc_classification_consensus._predict_positions",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "conversion.surface_comparison.cmc_classification_consensus._get_distances_meters",
+                return_value=expected_distances.tolist(),
+            ),
+        ):
+            distances, abs_angle_distances = _get_distances(
+                cells,
+                consensus_rotation_rad,
+                rotation_center_reference,
+                rotation_center_comparison,
+            )
+
+        assert distances == pytest.approx(expected_distances, abs=1e-6)
+        assert abs_angle_distances == pytest.approx(
+            expected_abs_angle_distances, abs=1e-6
+        )

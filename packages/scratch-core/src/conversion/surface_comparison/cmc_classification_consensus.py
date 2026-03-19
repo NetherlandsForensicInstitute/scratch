@@ -343,9 +343,9 @@ def _get_distances(
 
     consensus_rotation_deg = float(np.degrees(consensus_rotation_rad))
 
-    # The absolute residual is |cell.angle_deg -  -consensus_rotation_deg|, since we use pixel_coordinates for rotation_angle of cells and mathematical coordinates here.
+    # The absolute residual is |cell.angle_deg - -consensus_rotation_deg|, since we use pixel_coordinates for rotation_angle of cells and mathematical coordinates here.
     abs_angle_distances = np.array(
-        [abs(cell.angle_deg + consensus_rotation_deg) for cell in cells]
+        [abs(cell.angle_deg - -consensus_rotation_deg) for cell in cells]
     )
 
     return distances, abs_angle_distances
