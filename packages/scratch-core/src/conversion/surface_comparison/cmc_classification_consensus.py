@@ -8,11 +8,11 @@ from conversion.surface_comparison.models import (
 
 
 def classify_congruent_cells_consensus(
-    cells: list[Cell], params: ComparisonParams, rotation_center_reference: list[float]
+    cells: list[Cell], params: ComparisonParams, reference_center: list[float]
 ) -> ComparisonResult:
     """
-    Identify Congruent Matching Cells (CMCs) using a median-based procedure with
-    generalized ESD outlier rejection.
+    Identify Congruent Matching Cells (CMCs) using a consensus-based procedure using Procrustes rotation and translation
+    to find consensus parameters
 
     Steps:
     1. Filter cells that pass the similarity threshold.
@@ -26,7 +26,7 @@ def classify_congruent_cells_consensus(
 
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
-    :param rotation_center_reference: rotation center of reference image (meters). Used to predict coordinate when there is only one congruent cell.
+    :param reference_center: rotation center of reference image (meters). Used to predict coordinate when there is only one congruent cell.
     :returns: A `ComparisonResult` containing the classified cells, consensus
         rotation in degrees, and consensus translation in meters.
     :raises ValueError: If ``cells`` is empty.
@@ -144,9 +144,9 @@ def classify_congruent_cells_consensus(
             _rotate_using_angle_deg(
                 np.array(congruent_cell.center_reference),
                 -congruent_cell.angle_deg,
-                np.array(rotation_center_reference),
+                np.array(reference_center),
             )[0]
-            + np.array(rotation_center_reference)
+            + np.array(reference_center)
         )
         consensus_translation = tuple(
             [

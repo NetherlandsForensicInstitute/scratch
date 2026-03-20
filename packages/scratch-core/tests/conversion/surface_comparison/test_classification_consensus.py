@@ -253,7 +253,7 @@ class TestFillFraction:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference=[0.0, 0.0]
+            cells, params, reference_center=[0.0, 0.0]
         )
 
         # Assert
@@ -272,7 +272,7 @@ class TestFillFraction:
         # Act / Assert
         with pytest.raises(ValueError, match="no cells with fill fraction"):
             classify_congruent_cells_consensus(
-                cells, params, rotation_center_reference=[0.0, 0.0]
+                cells, params, reference_center=[0.0, 0.0]
             )
 
     def test_cells_exactly_at_fill_fraction_threshold_are_included(self) -> None:
@@ -286,7 +286,7 @@ class TestFillFraction:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference=[0.0, 0.0]
+            cells, params, reference_center=[0.0, 0.0]
         )
 
         # Assert — both cells pass the filter, so both should be CMC
@@ -303,7 +303,7 @@ class TestFillFraction:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference=[0.0, 0.0]
+            cells, params, reference_center=[0.0, 0.0]
         )
 
         # Assert — both cells are present and eligible
@@ -320,7 +320,7 @@ class TestFillFraction:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference=[0.0, 0.0]
+            cells, params, reference_center=[0.0, 0.0]
         )
 
         # Assert
