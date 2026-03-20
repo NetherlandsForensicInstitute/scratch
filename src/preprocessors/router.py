@@ -12,20 +12,20 @@ from constants import (
     PreprocessorEndpoint,
     RoutePrefix,
 )
-from extractors import ProcessedDataAccess
-from extractors.constants import (
+from response_constants import (
     GeneratedImageFiles,
     PrepareMarkImpressionFiles,
     PrepareMarkStriationFiles,
     ProcessFiles,
 )
-from extractors.schemas import (
+from file_services import create_vault
+from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
+from response_models import (
     GeneratedImages,
     PrepareMarkResponseImpression,
     PrepareMarkResponseStriation,
+    ProcessedDataAccess,
 )
-from file_services import create_vault
-from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
 from .exceptions import ArrayShapeMismatchError
 from .pipelines import (
@@ -124,7 +124,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 
 @preprocessor_route.post(
     path=f"/{PreprocessorEndpoint.PREPARE_MARK_IMPRESSION}",
-    summary="Preprocess a scan into analysis-ready mark files.",
+    summary="Preprocess a scan into analysis-ready impression mark files.",
     description="""
     Applies user-defined masking and cropping to a scan, then performs
     mark-type-specific preprocessing (rotation, cropping, filtering) for impression marks.
@@ -143,7 +143,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 async def prepare_mark_impression(
     params: Annotated[Json[PrepareMarkImpression], Form(...)], mask_data: bytes = File(...)
 ) -> PrepareMarkResponseImpression:
-    """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
+    """Prepare the ScanFile, save it to the vault and return the URLs to access the files."""
     vault = create_vault(params.tag)
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
 
@@ -170,7 +170,7 @@ async def prepare_mark_impression(
 
 @preprocessor_route.post(
     path=f"/{PreprocessorEndpoint.PREPARE_MARK_STRIATION}",
-    summary="Preprocess a scan into analysis-ready mark files.",
+    summary="Preprocess a scan into analysis-ready striation mark files.",
     description="""
     Applies user-defined masking and cropping to a scan, then performs
     mark-type-specific preprocessing (rotation, cropping, filtering) for striation marks.
@@ -189,7 +189,7 @@ async def prepare_mark_impression(
 async def prepare_mark_striation(
     params: Annotated[Json[PrepareMarkStriation], Form(...)], mask_data: bytes = File(...)
 ) -> PrepareMarkResponseStriation:
-    """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
+    """Prepare the ScanFile, save it to the vault and return the URLs to access the files."""
     vault = create_vault(params.tag)
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
 

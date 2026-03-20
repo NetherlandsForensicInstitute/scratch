@@ -1,7 +1,7 @@
 import pytest
 
 from constants import RoutePrefix
-from extractors.constants import ProcessFiles
+from response_constants import ProcessFiles
 from models import DirectoryAccess
 from settings import get_settings
 

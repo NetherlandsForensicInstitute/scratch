@@ -14,7 +14,6 @@ class MaskTypes(StrEnum):
 
 
 class RoutePrefix(StrEnum):
-    COMPARATOR = "comparator"
     EXTRACTOR = "extractor"
     PREPROCESSOR = "preprocessor"
     PROCESSOR = "processor"
@@ -39,10 +38,6 @@ class ProcessorEndpoint(StrEnum):
     CALCULATE_SCORE_STRIATION = "calculate-score-striation"
     CALCULATE_LR_IMPRESSION = "calculate-lr-impression"
     CALCULATE_LR_STRIATION = "calculate-lr-striation"
-
-
-class ComparatorEndpoint(StrEnum):
-    ROOT = ""
 
 
 LIGHT_SOURCES = (

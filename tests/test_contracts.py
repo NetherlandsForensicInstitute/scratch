@@ -19,7 +19,6 @@ from tests.helper_function import _save_impression_mark, _save_striation_mark_an
 
 
 class RoutePrefix(StrEnum):
-    COMPARATOR = "comparator"
     EXTRACTOR = "extractor"
     PREPROCESSOR = "preprocessor"
     PROCESSOR = "processor"

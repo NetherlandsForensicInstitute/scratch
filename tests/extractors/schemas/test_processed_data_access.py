@@ -3,7 +3,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import HttpUrl, ValidationError
 
-from extractors.schemas import ProcessedDataAccess
+from response_models import ProcessedDataAccess
 
 
 @pytest.mark.parametrize("application_protocol", ["http", "https"])

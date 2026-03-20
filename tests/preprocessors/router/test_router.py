@@ -13,8 +13,7 @@ from scipy.constants import micro
 from utils.constants import RegressionOrder
 
 from constants import PreprocessorEndpoint, RoutePrefix
-from extractors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
-from extractors.schemas import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
+from response_constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 from models import DirectoryAccess
 from preprocessors.constants import SurfaceOptions
 from preprocessors.schemas import (
@@ -24,6 +23,7 @@ from preprocessors.schemas import (
     PreprocessingImpressionParams,
     PreprocessingStriationParams,
 )
+from response_models import GeneratedImages, PrepareMarkResponseImpression, PrepareMarkResponseStriation
 from settings import get_settings
 
 

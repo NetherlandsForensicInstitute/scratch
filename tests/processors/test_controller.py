@@ -10,7 +10,7 @@ from conversion.plots.data_formats import StriationComparisonPlots
 from conversion.profile_correlator import Profile
 from fastapi import HTTPException
 
-from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles
+from response_constants import ComparisonImpressionFiles, ComparisonStriationFiles
 from processors.controller import (
     compare_striation_marks,
     save_impression_comparison_plots,

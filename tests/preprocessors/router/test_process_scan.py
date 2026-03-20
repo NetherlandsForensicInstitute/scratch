@@ -8,9 +8,9 @@ from httpx import Response
 from pydantic import HttpUrl
 
 from constants import PreprocessorEndpoint, RoutePrefix
-from extractors.schemas import ProcessedDataAccess
 from models import DirectoryAccess
 from preprocessors.schemas import UploadScan
+from response_models import ProcessedDataAccess
 from settings import get_settings
 
 PROCESS_SCAN_ROUTE = f"/{RoutePrefix.PREPROCESSOR}/{PreprocessorEndpoint.PROCESS_SCAN}"

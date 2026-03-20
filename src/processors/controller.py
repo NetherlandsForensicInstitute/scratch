@@ -27,7 +27,7 @@ from lir.util import probability_to_logodds
 from loguru import logger
 from PIL import Image
 
-from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
+from response_constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from processors.schemas import CalculateLRImpression, CalculateLRStriation
 
 

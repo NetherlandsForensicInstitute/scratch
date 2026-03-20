@@ -16,7 +16,6 @@ from pydantic import (
 )
 from utils.constants import RegressionOrder
 
-from constants import MaskTypes
 from models import (
     BaseModelConfig,
     ProjectTag,
@@ -71,15 +70,14 @@ class BaseParameters(BaseModelConfig):
 
 class UploadScan(BaseParameters):
     scale_x: PositiveFloat = Field(
-        1.0,
-        gt=0.0,
+        1e-6,
         description="Horizontal pixel size in meters (m). Defines physical spacing between pixels in x-direction.",
-        examples=[1.0, 0.5, 2.0],
+        examples=[1e-6, 3.5e-6, 5e-6],
     )
     scale_y: PositiveFloat = Field(
-        1.0,
+        1e-6,
         description="Vertical pixel size in meters (m). Defines physical spacing between pixels in y-direction.",
-        examples=[1.0, 0.5, 2.0],
+        examples=[1e-6, 3.5e-6, 5e-6],
     )
     step_size: PositiveInt = Field(
         1,
@@ -89,16 +87,12 @@ class UploadScan(BaseParameters):
     )
 
 
-class CropInfo(BaseModelConfig):
-    type: MaskTypes
-    data: dict
-    is_foreground: bool
-
-
 class PrepareMarkBase(BaseParameters):
     mark_type: MarkType = Field(..., description="Type of mark to prepare.")
     bounding_box_list: list[list[float]] | None = Field(
-        None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
+        None,
+        description="Bounding box corners (4 × 2 array of [x, y] coordinates) "
+        "defining a rectangular crop region used to determine the rotation of the image.",
     )
     mask_is_bitpacked: bool = Field(
         default=False,

@@ -20,7 +20,7 @@ from scipy.constants import micro
 from skimage.transform import resize
 
 from constants import LIGHT_SOURCES, OBSERVER
-from extractors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
+from response_constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
 from preprocessors.schemas import EditImage
 

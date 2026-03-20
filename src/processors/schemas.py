@@ -10,8 +10,14 @@ from models import BaseModelConfig
 
 
 class MarkDirectories(BaseModelConfig):
-    mark_dir_ref: DirectoryPath
-    mark_dir_comp: DirectoryPath
+    mark_dir_ref: DirectoryPath = Field(
+        ...,
+        description="Path to the directory containing the preprocessed reference mark files.",
+    )
+    mark_dir_comp: DirectoryPath = Field(
+        ...,
+        description="Path to the directory containing the preprocessed compared mark files.",
+    )
 
     @property
     def tag(self) -> str:
@@ -28,19 +34,40 @@ class CalculateScore(MarkDirectories, MetadataParameters): ...
 
 
 class CalculateScoreImpression(CalculateScore):
-    comparison_params: ComparisonParams
+    comparison_params: ComparisonParams = Field(
+        ...,
+        description="Parameters controlling the CMC comparison (cell size, angle tolerance, etc.).",
+    )
 
 
 class CalculateLR(MarkDirectories, MetadataParameters):
-    lr_system_path: FilePath
-    user_id: str
-    date_report: datetime.date
+    lr_system_path: FilePath = Field(
+        ...,
+        description="Path to the likelihood ratio system directory containing the trained LR model.",
+    )
+    user_id: str = Field(
+        ...,
+        description="Identifier of the user performing the LR calculation.",
+    )
+    date_report: datetime.date = Field(
+        ...,
+        description="Date of the report for which the LR is calculated.",
+    )
 
 
 class CalculateLRImpression(CalculateLR):
-    score: NonNegativeInt
-    n_cells: PositiveInt
-    cells: Sequence[Cell]
+    score: NonNegativeInt = Field(
+        ...,
+        description="CMC score (number of congruent matching cells).",
+    )
+    n_cells: PositiveInt = Field(
+        ...,
+        description="Total number of cells in the comparison grid.",
+    )
+    cells: Sequence[Cell] = Field(
+        ...,
+        description="Per-cell CMC results from the impression comparison.",
+    )
 
     @model_validator(mode="after")
     def score_cannot_exceed_n_cells(self) -> Self:
@@ -51,9 +78,22 @@ class CalculateLRImpression(CalculateLR):
 
 
 class CalculateLRStriation(CalculateLR):
-    mark_dir_ref_aligned: DirectoryPath
-    mark_dir_comp_aligned: DirectoryPath
-    score: Annotated[float, Field(ge=-1, le=1)]
+    mark_dir_ref_aligned: DirectoryPath = Field(
+        ...,
+        description="Path to the directory containing the aligned reference mark files.",
+    )
+    mark_dir_comp_aligned: DirectoryPath = Field(
+        ...,
+        description="Path to the directory containing the aligned compared mark files.",
+    )
+    score: Annotated[
+        float,
+        Field(
+            ge=-1,
+            le=1,
+            description="Correlation coefficient from the striation comparison (range: -1 to 1).",
+        ),
+    ]
 
     @property
     def tag(self) -> str:

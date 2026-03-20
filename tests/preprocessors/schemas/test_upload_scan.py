@@ -5,6 +5,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
+from scipy.constants import micro
 
 from models import SupportedScanExtension
 from preprocessors.schemas import UploadScan
@@ -128,8 +129,8 @@ def test_tag_uses_project_name_when_provided(upload_scan_parameter: Callable[...
 def test_default_values(upload_scan: UploadScan) -> None:
     """Test that default parameters are set correctly."""
     # Assert
-    assert upload_scan.scale_x == 1.0
-    assert upload_scan.scale_y == 1.0
+    assert upload_scan.scale_x == micro
+    assert upload_scan.scale_y == micro
     assert upload_scan.step_size == 1
 
 
