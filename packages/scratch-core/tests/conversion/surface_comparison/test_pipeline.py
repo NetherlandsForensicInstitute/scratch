@@ -85,12 +85,19 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
     assert cells
 
 
-@pytest.mark.integration
+# helper function for test_coarse_registration_finds_angle to be able to parameterize since cmc_consensus takes less arguments than cmc_median
+def _consensus_wrapper(cells, params, reference_center):
+    return classify_congruent_cells_consensus(cells=cells, params=params)
+
+
+_consensus_wrapper.__name__ = "classify_congruent_cells_consensus"
+
+
 @pytest.mark.parametrize(
     ("classification_function", "angle"),
     list(
         product(
-            [classify_congruent_cells_consensus, classify_congruent_cells_median],
+            [_consensus_wrapper, classify_congruent_cells_median],
             [120, 60, -90, -150],
         )
     ),

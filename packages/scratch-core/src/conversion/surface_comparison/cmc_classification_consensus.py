@@ -8,7 +8,8 @@ from conversion.surface_comparison.models import (
 
 
 def classify_congruent_cells_consensus(
-    cells: list[Cell], params: ComparisonParams, reference_center
+    cells: list[Cell],
+    params: ComparisonParams,
 ) -> ComparisonResult:
     """
     Identify Congruent Matching Cells (CMCs) using a median-based procedure with
@@ -26,7 +27,6 @@ def classify_congruent_cells_consensus(
 
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
-    :param reference_center: Not needed
     :returns: A `ComparisonResult` containing the classified cells, consensus
         rotation in degrees, and consensus translation in meters.
     :raises ValueError: If ``cells`` is empty.
