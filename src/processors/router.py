@@ -9,7 +9,6 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 
 from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
-from response_constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from file_services import create_vault
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
 from processors.controller import (
@@ -25,6 +24,7 @@ from processors.schemas import (
     CalculateScore,
     CalculateScoreImpression,
 )
+from response_constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from response_models import (
     ComparisonResponseImpression,
     ComparisonResponseImpressionURL,

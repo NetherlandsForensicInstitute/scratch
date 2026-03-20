@@ -12,14 +12,14 @@ from constants import (
     PreprocessorEndpoint,
     RoutePrefix,
 )
+from file_services import create_vault
+from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 from response_constants import (
     GeneratedImageFiles,
     PrepareMarkImpressionFiles,
     PrepareMarkStriationFiles,
     ProcessFiles,
 )
-from file_services import create_vault
-from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 from response_models import (
     GeneratedImages,
     PrepareMarkResponseImpression,

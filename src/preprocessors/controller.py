@@ -20,9 +20,9 @@ from scipy.constants import micro
 from skimage.transform import resize
 
 from constants import LIGHT_SOURCES, OBSERVER
-from response_constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
 from preprocessors.schemas import EditImage
+from response_constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 
 
 def _scan_image_to_mark(mask: BinaryMask, bounding_box: BoundingBox | None, scan_image: ScanImage) -> ScanImage:

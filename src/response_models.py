@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import TypeVar
 
-from pydantic import BaseModel, Field, HttpUrl, model_serializer, SerializerFunctionWrapHandler
+from pydantic import BaseModel, Field, HttpUrl, SerializerFunctionWrapHandler, model_serializer
 
 C = TypeVar("C", bound="URLContainer")
 

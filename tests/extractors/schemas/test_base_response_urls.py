@@ -2,13 +2,13 @@ import inspect
 from enum import StrEnum
 
 import pytest
-from response_constants import LRFiles
 from pydantic import Field, HttpUrl, ValidationError
 
 import extractors.schemas as schemas_module
 from extractors.schemas import (
     SupportedExtension,
 )
+from response_constants import LRFiles
 from response_models import LRResponse, LRResponseURL, URLContainer
 
 _EMPTY_LR_STATS = {
