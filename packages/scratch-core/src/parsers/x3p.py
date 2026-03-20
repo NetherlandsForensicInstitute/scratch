@@ -1,16 +1,15 @@
+from __future__ import annotations
+
 import datetime as dt
-from functools import partial
 from pathlib import Path
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
-from returns.pipeline import flow
 from x3p import X3Pfile
-from returns.result import safe
-from returns.io import impure_safe
-from container_models.scan_image import ScanImage
-from utils.logger import log_railway_function
 from x3p._x3pfileclasses import Ax
+
+if TYPE_CHECKING:
+    from container_models.scan_image import ScanImage
 
 
 class X3PMetaData(NamedTuple):
@@ -73,28 +72,16 @@ def _set_record3_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
     return x3p
 
 
-@log_railway_function(
-    "Failed to parse image X3P",
-    "Successfully parse array to x3p",
-)
-@safe
-def parse_to_x3p(image: ScanImage) -> X3Pfile:
-    """Convert ScanImage to X3Pfile using a functional approach."""
-    return flow(
-        X3Pfile(),
-        partial(_set_record1_entries, image=image),
-        partial(_set_record2_entries, meta_data=X3PMetaData()),
-        partial(_set_binary_data, image=image),
-        partial(_set_record3_entries, image=image),
-    )
+def convert_to_x3p(image: ScanImage) -> X3Pfile:
+    """Convert ScanImage to X3Pfile."""
+    file = X3Pfile()
+    file = _set_record1_entries(file, image=image)
+    file = _set_record2_entries(file, meta_data=X3PMetaData())
+    file = _set_binary_data(file, image=image)
+    return _set_record3_entries(file, image=image)
 
 
-@log_railway_function(
-    "Failed to write X3P file",
-    "Successfully written X3P",
-)
-@impure_safe
-def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
+def save_x3p(x3p: X3Pfile, output_path: Path) -> None:
     """
     Save an X3P file to disk.
 
@@ -105,4 +92,3 @@ def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
     """
 
     x3p.write(str(output_path))
-    return output_path

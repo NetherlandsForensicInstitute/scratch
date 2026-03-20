@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from container_models.scan_image import ScanImage
 
-from preprocessors.pipelines import parse_scan_pipeline, x3p_pipeline
+from preprocessors.pipelines import parse_scan_pipeline
 
 TOLERANCE = 1e-16
 
@@ -19,10 +19,9 @@ class TestX3pPipeline:
         output_path = tmp_path / "output.x3p"
 
         # Act
-        result_path = x3p_pipeline(parsed_al3d_file, output_path)
+        parsed_al3d_file.save_as_x3p(output_path)
 
         # Assert
-        assert output_path == result_path
         assert output_path.is_file()
         assert output_path.stat().st_size > 0
 
@@ -33,7 +32,7 @@ class TestX3pPipeline:
         output_path = tmp_path / "output.x3p"
 
         # Act
-        x3p_pipeline(parsed_al3d_file, output_path)
+        parsed_al3d_file.save_as_x3p(output_path)
 
         # Assert - verify we can parse the generated X3P file
         reparsed_scan = parse_scan_pipeline(output_path, 1, 1)

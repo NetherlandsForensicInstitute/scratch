@@ -2,6 +2,8 @@ from dataclasses import asdict
 
 from conversion.export.mark import load_mark_from_path, save_mark
 from conversion.export.profile import load_profile_from_path
+from conversion.surface_comparison.models import ProcessedMark
+from conversion.surface_comparison.pipeline import compare_surfaces
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from loguru import logger
@@ -10,6 +12,7 @@ from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
 from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from extractors.schemas import (
     ComparisonResponseImpression,
+    ComparisonResponseImpressionURL,
     ComparisonResponseStriation,
     ComparisonResponseStriationURL,
     LRResponse,
@@ -21,12 +24,14 @@ from processors.controller import (
     compare_striation_marks,
     process_lr_impression,
     process_lr_striation,
+    save_impression_comparison_plots,
     save_striation_comparison_plots,
 )
 from processors.schemas import (
     CalculateLRImpression,
     CalculateLRStriation,
     CalculateScore,
+    CalculateScoreImpression,
 )
 
 processors = APIRouter(
@@ -63,10 +68,49 @@ async def processor_root() -> RedirectResponse:
     """,
     include_in_schema=False,
 )
-async def calculate_score_impression(impression: CalculateScore) -> ComparisonResponseImpression:
+async def calculate_score_impression(impression_params: CalculateScoreImpression) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
-    vault = create_vault(impression.tag)
-    return ComparisonResponseImpression.from_enum(enum=ComparisonImpressionFiles, base_url=vault.access_url)
+    logger.debug("starting calculate score striation")
+    vault = create_vault(impression_params.tag)
+
+    mark_ref = load_mark_from_path(path=impression_params.mark_dir_ref, stem="processed")
+    mark_ref_leveled = load_mark_from_path(path=impression_params.mark_dir_ref, stem="leveled")
+    mark_ref_processed = ProcessedMark(mark_ref, mark_ref_leveled)
+    mark_comp = load_mark_from_path(path=impression_params.mark_dir_comp, stem="processed")
+    mark_comp_leveled = load_mark_from_path(path=impression_params.mark_dir_comp, stem="leveled")
+    mark_comp_processed = ProcessedMark(mark_comp, mark_comp_leveled)
+    logger.debug("marks loaded")
+
+    cmc_result = compare_surfaces(
+        refence_mark=mark_ref_processed, comparison_mark=mark_comp_processed, params=impression_params.comparison_params
+    )
+    logger.debug("CMC is calculated")
+
+    save_impression_comparison_plots(
+        mark_ref=mark_ref_processed,
+        mark_comp=mark_comp_processed,
+        cmc_result=cmc_result,
+        comparison_params=impression_params.comparison_params,
+        working_dir=vault.resource_path,
+        files_to_save=ComparisonImpressionFiles,
+        metadata_reference=impression_params.metadata_reference,
+        metadata_compared=impression_params.metadata_compared,
+    )
+    logger.debug(f"images saved in:{vault.resource_path}")
+
+    comparison_results = {
+        "n_cells": cmc_result.cell_count,
+        "score": cmc_result.cmc_count,
+        "cmc_fraction": cmc_result.cmc_fraction,
+        "cmc_area_fraction": cmc_result.cmc_area_fraction,
+        "consensus_rotation": cmc_result.consensus_rotation,
+        "consensus_translation": cmc_result.consensus_translation,
+    }
+    return ComparisonResponseImpression(
+        urls=ComparisonResponseImpressionURL.from_enum(enum=ComparisonImpressionFiles, base_url=vault.access_url),
+        cells=[cell.model_dump() for cell in cmc_result.cells],
+        comparison_results=comparison_results,
+    )
 
 
 @processors.post(
@@ -99,8 +143,8 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
         mark_correlations=comparison_result,
         working_dir=vault.resource_path,
         files_to_save=ComparisonStriationFiles,
-        metadata_reference=striation_params.param.metadata_reference,
-        metadata_compared=striation_params.param.metadata_compared,
+        metadata_reference=striation_params.metadata_reference,
+        metadata_compared=striation_params.metadata_compared,
     )
     save_mark(
         comparison_result.mark_reference_aligned,
@@ -112,23 +156,23 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     )
     surface_map_pipeline(
         comparison_result.mark_reference_aligned.scan_image,
-        ComparisonStriationFiles.mark_ref_surfacemap.get_file_path(vault.resource_path),
+        ComparisonStriationFiles.mark_reference_aligned_surfacemap.get_file_path(vault.resource_path),
         LIGHT_SOURCES,
         OBSERVER,
     )
     preview_pipeline(
         comparison_result.mark_reference_aligned.scan_image,
-        ComparisonStriationFiles.mark_ref_preview.get_file_path(vault.resource_path),
+        ComparisonStriationFiles.mark_reference_aligned_preview.get_file_path(vault.resource_path),
     )
     surface_map_pipeline(
         comparison_result.mark_compared_aligned.scan_image,
-        ComparisonStriationFiles.mark_comp_surfacemap.get_file_path(vault.resource_path),
+        ComparisonStriationFiles.mark_compared_aligned_surfacemap.get_file_path(vault.resource_path),
         LIGHT_SOURCES,
         OBSERVER,
     )
     preview_pipeline(
         comparison_result.mark_compared_aligned.scan_image,
-        ComparisonStriationFiles.mark_comp_preview.get_file_path(vault.resource_path),
+        ComparisonStriationFiles.mark_compared_aligned_preview.get_file_path(vault.resource_path),
     )
     logger.debug(f"images saved in:{vault.resource_path}")
 

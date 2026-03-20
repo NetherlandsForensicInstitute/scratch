@@ -186,7 +186,7 @@ def _get_median_translation(
     centers_reference[outliers] = np.nan
     centers_comparison[outliers] = np.nan
 
-    # rotate by -angle to match the `skimage.transform.rotate` convention that rotate counter-clockwise with respect to image coordinates (where the rows increase downwards) .
+    # rotate by -angle to match the `skimage.transform.rotate` convention
     expected_positions_in_comparison_frame = rotate_points(
         points=centers_reference, angle=-angle, center=rotation_center
     )
@@ -225,7 +225,7 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
     :param params: Algorithm parameters providing the classification thresholds.
     """
     for cell in cells:
-        congruent = bool(
+        is_congruent = bool(
             cell.best_score >= params.correlation_threshold
             and not cell.meta_data.is_outlier
             and np.abs(cell.meta_data.residual_angle_deg)
@@ -234,7 +234,7 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
                 np.abs(cell.meta_data.position_error) <= params.position_threshold
             )
         )
-        cell.is_congruent = congruent
+        cell.is_congruent = is_congruent
 
 
 def _rosner_critical_value(n_remaining: int, alpha: float) -> float:
