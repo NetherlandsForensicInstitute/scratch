@@ -145,7 +145,7 @@ def test_coarse_registration_finds_angle(
         params=params,
     )
 
-    # TODO implement run fine_registration when implmemented
+    # TODO implement run fine_registration when implemented
 
     classification = classification_function(
         cells=cells, params=params, reference_center=reference_image.center_meters

@@ -8,6 +8,10 @@ from conversion.surface_comparison.cmc_classification_consensus import (
     _find_consensus_parameters,
     _rotation_component_with_rotation_matrix,
     _get_distances,
+    _rotate_using_angle_deg,
+    _build_2d_rotation_matrix,
+    _predict_positions,
+    _get_distances_meters,
 )
 from conversion.surface_comparison.models import Cell
 
@@ -170,3 +174,96 @@ class TestGetDistances:
         assert abs_angle_distances == pytest.approx(
             expected_abs_angle_distances, abs=1e-6
         )
+
+
+class TestRotateUsingAngleDeg:
+    @pytest.mark.parametrize("angle_deg", np.linspace(-180, 180, 13))
+    def test_rotation_recovers_known_output(self, angle_deg):
+        """Test that rotating data around a center returns the correct rotated positions."""
+        xy_data = np.array([[2.0, 1.0], [0.0, 3.0]])
+        reference_center = np.array([1.0, 1.0])
+
+        angle_rad = np.radians(angle_deg)
+        cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
+        rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
+        expected = (xy_data - reference_center.reshape(1, -1)) @ rotation_matrix
+
+        result = _rotate_using_angle_deg(xy_data, angle_deg, reference_center)
+
+        assert result == pytest.approx(expected, abs=1e-6)
+
+
+class TestBuild2dRotationMatrix:
+    @pytest.mark.parametrize("angle_rad", np.linspace(-np.pi, np.pi, 13))
+    def test_rotation_matrix_has_correct_values(self, angle_rad):
+        """Test that the rotation matrix has correct cos/sin entries and is orthonormal."""
+        cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
+        expected = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
+
+        result = _build_2d_rotation_matrix(angle_rad)
+
+        assert result == pytest.approx(expected, abs=1e-6)
+        assert result.shape == (2, 2)
+
+        # assert two properties of rotation matrix: determinant of 1 and 'rotate -> undo rotate' gives eye.
+        assert np.linalg.det(result) == pytest.approx(1.0, abs=1e-6)
+        assert result @ result.T == pytest.approx(np.eye(2), abs=1e-6)
+
+
+class TestPredictPositions:
+    @pytest.mark.parametrize("consensus_rotation_rad", [np.pi / 6, -np.pi / 3])
+    @pytest.mark.parametrize("rotation_center_reference", [(0.0, 0.0), (3.0, -2.0)])
+    @pytest.mark.parametrize("rotation_center_comparison", [(0.0, 0.0), (1.0, 5.0)])
+    def test_predicts_correct_positions(
+        self,
+        consensus_rotation_rad,
+        rotation_center_reference,
+        rotation_center_comparison,
+    ):
+        """Test that predicted positions match manual rotation + translation computation."""
+        centers_reference = np.array([[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]])
+        cells = [
+            MagicMock(spec=Cell, center_reference=c.tolist()) for c in centers_reference
+        ]
+
+        cos_a, sin_a = np.cos(consensus_rotation_rad), np.sin(consensus_rotation_rad)
+        rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
+        rotation_center = np.array(rotation_center_reference).reshape(1, 2)
+        expected = (
+            centers_reference - rotation_center
+        ) @ rotation_matrix + rotation_center_comparison
+
+        result = _predict_positions(
+            cells,
+            consensus_rotation_rad,
+            rotation_center_reference,
+            rotation_center_comparison,
+        )
+
+        assert result == pytest.approx(expected, abs=1e-6)
+
+
+class TestGetDistancesMeters:
+    @pytest.mark.parametrize(
+        "centers_comparison, predicted_positions",
+        [
+            ([[0.0, 0.0], [3.0, 4.0]], [[0.0, 0.0], [0.0, 0.0]]),  # zero and 5.0
+            ([[1.0, 1.0], [2.0, 2.0]], [[1.0, 1.0], [2.0, 2.0]]),  # all zeros
+            ([[4.0, 0.0], [0.0, 3.0]], [[1.0, 0.0], [0.0, 0.0]]),  # 3.0 and 3.0
+        ],
+    )
+    def test_returns_correct_euclidean_distances(
+        self, centers_comparison, predicted_positions
+    ):
+        """Test that Euclidean distances between comparison centers and predicted positions are correct."""
+        cells = [MagicMock(spec=Cell, center_comparison=c) for c in centers_comparison]
+        predicted_positions = np.array(predicted_positions)
+
+        expected = [
+            float(np.sqrt((c[0] - p[0]) ** 2 + (c[1] - p[1]) ** 2))
+            for c, p in zip(centers_comparison, predicted_positions)
+        ]
+
+        result = _get_distances_meters(cells, predicted_positions)
+
+        assert result == pytest.approx(expected, abs=1e-6)
