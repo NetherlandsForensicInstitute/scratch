@@ -4,11 +4,11 @@ from unittest.mock import patch, MagicMock
 
 from conversion.surface_comparison.cmc_classification_consensus import (
     _calculate_criterion,
-    _get_cmc_consensus,
+    _get_cell_angle_and_position_distances,
     _find_consensus_parameters,
-    _rotation_component_with_rotation_matrix,
+    _get_rotation_component_using_rotation_matrix,
     _get_distances,
-    _rotate_using_angle_deg,
+    _get_rotation_component_using_angle_degree,
     _build_2d_rotation_matrix,
     _predict_positions,
     _get_distances_meters,
@@ -62,7 +62,7 @@ class TestGetCmcConsensus:
                 return_value=(np.zeros(5), np.zeros(5)),
             ),
         ):
-            _get_cmc_consensus(included_idx, all_cells)
+            _get_cell_angle_and_position_distances(included_idx, all_cells)
 
             mock_find.assert_called_once_with(
                 [all_cells[0], all_cells[2], all_cells[4]]
@@ -125,7 +125,9 @@ class TestRotationComponentWithRotationMatrix:
         data = np.array([[2.0, 1.0], [0.0, 3.0]])
         center = np.array([[1.0, 1.0]])
 
-        result = _rotation_component_with_rotation_matrix(data, center, rotation_matrix)
+        result = _get_rotation_component_using_rotation_matrix(
+            data, center, rotation_matrix
+        )
 
         expected = (data - center) @ rotation_matrix
         assert result == pytest.approx(expected, abs=1e-6)
@@ -188,7 +190,9 @@ class TestRotateUsingAngleDeg:
         rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
         expected = (xy_data - reference_center.reshape(1, -1)) @ rotation_matrix
 
-        result = _rotate_using_angle_deg(xy_data, angle_deg, reference_center)
+        result = _get_rotation_component_using_angle_degree(
+            xy_data, angle_deg, reference_center
+        )
 
         assert result == pytest.approx(expected, abs=1e-6)
 
