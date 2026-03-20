@@ -18,7 +18,7 @@ from conversion.surface_comparison.cmc_classification_median import (
 )
 from conversion.surface_comparison.models import Cell, CellMetaData, ComparisonParams
 from conversion.data_formats import MarkType
-from ..helper_functions import make_cell
+from tests.conversion.helper_functions import make_cell
 
 
 def test_cell_size_um_converts_meters_to_micrometers():
