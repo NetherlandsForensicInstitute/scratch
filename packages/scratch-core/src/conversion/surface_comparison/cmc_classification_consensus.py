@@ -1,4 +1,5 @@
 import numpy as np
+from itertools import combinations
 
 from conversion.surface_comparison.models import (
     Cell,
@@ -58,65 +59,64 @@ def classify_congruent_cells_consensus(
         best_inliers_idx = list(range(n_filtered_cells))
 
     else:
-        for idx_1 in range(n_filtered_cells):
-            for idx_2 in range(idx_1 + 1, n_filtered_cells):
-                # Seed: evaluate two-cell pair solution ---
-                cell_distances, cell_angle_distances = _get_cmc_consensus(
-                    [idx_1, idx_2], filtered_cells
-                )
-                inliers_idx_current = np.where(
-                    (cell_distances <= max_distance)
-                    & (cell_angle_distances <= max_abs_angle_distance)
-                )[0].tolist()
+        for pair_idx in combinations(range(n_filtered_cells), 2):
+            # Seed: evaluate two-cell pair solution ---
+            cell_distances, cell_angle_distances = _get_cmc_consensus(
+                list(pair_idx), filtered_cells
+            )
+            inliers_idx_current = np.where(
+                (cell_distances <= max_distance)
+                & (cell_angle_distances <= max_abs_angle_distance)
+            )[0].tolist()
 
-                criterion_current = _calculate_criterion(
-                    inliers_idx_current,
-                    cell_distances,
-                    cell_angle_distances,
-                    max_distance,
-                    max_abs_angle_distance,
-                )
+            criterion_current = _calculate_criterion(
+                inliers_idx_current,
+                cell_distances,
+                cell_angle_distances,
+                max_distance,
+                max_abs_angle_distance,
+            )
 
-                if 2 < len(inliers_idx_current) < n_filtered_cells:
-                    # Refinement: iteratively re-fit using all inliers ---
-                    # make while loop pass for seed
-                    inliers_idx_candidate = inliers_idx_current
+            if 2 < len(inliers_idx_current) < n_filtered_cells:
+                # Refinement: iteratively re-fit using all inliers ---
+                # make while loop pass for seed
+                inliers_idx_candidate = inliers_idx_current
 
-                    while len(inliers_idx_candidate) == len(inliers_idx_current):
-                        cell_distances, cell_angle_distances = _get_cmc_consensus(
-                            inliers_idx_current, filtered_cells
-                        )
-                        inliers_idx_candidate = np.where(
-                            (cell_distances <= max_distance)
-                            & (cell_angle_distances <= max_abs_angle_distance)
-                        )[0].tolist()
+                while len(inliers_idx_candidate) == len(inliers_idx_current):
+                    cell_distances, cell_angle_distances = _get_cmc_consensus(
+                        inliers_idx_current, filtered_cells
+                    )
+                    inliers_idx_candidate = np.where(
+                        (cell_distances <= max_distance)
+                        & (cell_angle_distances <= max_abs_angle_distance)
+                    )[0].tolist()
 
-                        criterion_candidate = _calculate_criterion(
-                            inliers_idx_candidate,
-                            cell_distances,
-                            cell_angle_distances,
-                            max_distance,
-                            max_abs_angle_distance,
-                        )
+                    criterion_candidate = _calculate_criterion(
+                        inliers_idx_candidate,
+                        cell_distances,
+                        cell_angle_distances,
+                        max_distance,
+                        max_abs_angle_distance,
+                    )
 
-                        # Accept if strictly more inliers, or same count with lower criterion
-                        if len(inliers_idx_candidate) > len(inliers_idx_current) or (
-                            len(inliers_idx_candidate) == len(inliers_idx_current)
-                            and criterion_candidate < criterion_current
-                        ):
-                            criterion_current = criterion_candidate
-                            inliers_idx_current = inliers_idx_candidate
-                        else:
-                            # break while loop, also for len(inliers_idx_candidate) == len(inliers_idx_current) and criterion did not improve
-                            break
+                    # Accept if strictly more inliers, or same count with lower criterion
+                    if len(inliers_idx_candidate) > len(inliers_idx_current) or (
+                        len(inliers_idx_candidate) == len(inliers_idx_current)
+                        and criterion_candidate < criterion_current
+                    ):
+                        criterion_current = criterion_candidate
+                        inliers_idx_current = inliers_idx_candidate
+                    else:
+                        # break while loop, also for len(inliers_idx_candidate) == len(inliers_idx_current) and criterion did not improve
+                        break
 
-                # --- Accept global best if the current solution is better ---
-                if len(inliers_idx_current) > len(best_inliers_idx) or (
-                    len(inliers_idx_current) == len(best_inliers_idx)
-                    and criterion_current < criterion
-                ):
-                    best_inliers_idx = inliers_idx_current
-                    criterion = criterion_current
+            # --- Accept global best if the current solution is better ---
+            if len(inliers_idx_current) > len(best_inliers_idx) or (
+                len(inliers_idx_current) == len(best_inliers_idx)
+                and criterion_current < criterion
+            ):
+                best_inliers_idx = inliers_idx_current
+                criterion = criterion_current
 
             if len(best_inliers_idx) == n_filtered_cells:
                 break  # outer loop short-circuit
