@@ -8,8 +8,7 @@ from conversion.surface_comparison.models import (
 
 
 def classify_congruent_cells_consensus(
-    cells: list[Cell],
-    params: ComparisonParams,
+    cells: list[Cell], params: ComparisonParams, rotation_center_reference: list[float]
 ) -> ComparisonResult:
     """
     Identify Congruent Matching Cells (CMCs) using a median-based procedure with
@@ -27,6 +26,7 @@ def classify_congruent_cells_consensus(
 
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
+    :param rotation_center_reference: rotation center of reference image (meters). Used to predict coordinate when there is only one congruent cell.
     :returns: A `ComparisonResult` containing the classified cells, consensus
         rotation in degrees, and consensus translation in meters.
     :raises ValueError: If ``cells`` is empty.
@@ -140,12 +140,18 @@ def classify_congruent_cells_consensus(
     else:
         # There was only one filtered_cell
         congruent_cell = filtered_cells[0]
+        predicted_coordinate = list(
+            _rotate_using_angle_deg(
+                np.array(congruent_cell.center_reference),
+                -congruent_cell.angle_deg,
+                np.array(rotation_center_reference),
+            )[0]
+            + np.array(rotation_center_reference)
+        )
         consensus_translation = tuple(
             [
                 c - r
-                for c, r in zip(
-                    congruent_cell.center_comparison, congruent_cell.center_reference
-                )
+                for c, r in zip(congruent_cell.center_comparison, predicted_coordinate)
             ]
         )
         consensus_rotation_deg = congruent_cell.angle_deg
