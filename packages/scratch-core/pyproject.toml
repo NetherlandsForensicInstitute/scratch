@@ -10,16 +10,17 @@ authors = [
 readme = "README.md"
 
 dependencies = [
-    "lir>=1.4.0",
-    "loguru>=0.7.3",
-    "matplotlib>=3.10.7",
-    "numpy>=2.3.4",
-    "pillow>=12.0.0",
-    "pydantic>=2.12.4",
-    "scikit-image>=0.25.2",
-    "scipy>=1.16.3",
-    "surfalize~=0.16.6",
-    "x3p @ git+https://github.com/giacomomarchioro/pyx3p.git#81c0f764cf321e56dc41e9e3c71d14e97d5bc3ae",
+  "lir>=1.4.0",
+  "loguru>=0.7.3",
+  "lr_module_scratch @ git+https://github.com/NetherlandsForensicInstitute/lr_module_scratch.git@v0.1",
+  "matplotlib>=3.10.7",
+  "numpy>=2.3.4",
+  "pillow>=12.0.0",
+  "pydantic>=2.12.4",
+  "scikit-image>=0.25.2",
+  "scipy>=1.16.3",
+  "surfalize~=0.16.6",
+  "x3p @ git+https://github.com/giacomomarchioro/pyx3p.git#81c0f764cf321e56dc41e9e3c71d14e97d5bc3ae",
 ]
 
 [tool.ruff.lint.per-file-ignores]

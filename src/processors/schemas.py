@@ -4,7 +4,7 @@ from typing import Annotated, Self
 
 from conversion.data_formats import MarkMetadata
 from conversion.surface_comparison.models import Cell, ComparisonParams
-from pydantic import DirectoryPath, Field, FilePath, NonNegativeInt, PositiveInt, model_validator
+from pydantic import DirectoryPath, Field, NonNegativeInt, PositiveInt, model_validator
 
 from models import BaseModelConfig
 
@@ -32,7 +32,7 @@ class CalculateScoreImpression(CalculateScore):
 
 
 class CalculateLR(MarkDirectories, MetadataParameters):
-    lr_system_path: FilePath
+    lr_system_path: DirectoryPath
     user_id: str
     date_report: datetime.date
 

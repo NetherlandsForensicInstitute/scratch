@@ -112,7 +112,7 @@ def test_coarse_registration_matches_angle(
         reference_image.data,
         angle=angle,
         order=0,
-        resize=False,
+        resize=True,
         cval=np.nan,  # type: ignore
     )
     comparison_image = reference_image.model_copy(update={"data": rotated})

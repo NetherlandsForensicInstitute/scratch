@@ -276,13 +276,15 @@ class TestContracts:
         )
 
     @pytest.fixture
-    def calculate_lr_impression(self, directory_access: DirectoryAccess, tmp_path: Path) -> EndpointContractInterface:
+    def calculate_lr_impression(
+        self, directory_access: DirectoryAccess, tmp_path: Path, impression_lr_system_path: Path, dummy_mark: Mark
+    ) -> EndpointContractInterface:
         """
         Create test data for calculate-score-impression endpoint.
 
         Returns the post request data and expected response type.
         """
-        (lr_system := tmp_path / "lr_system").touch()
+        _save_impression_mark(directory_access.resource_path, mark=dummy_mark)
         return EndpointContractInterface(
             expected_input={
                 "mark_dir_ref": str(directory_access.resource_path),
@@ -301,7 +303,7 @@ class TestContracts:
                     "measurement_id": "measurement_1",
                     "mark_id": "mark_2",
                 },
-                "lr_system_path": str(lr_system),
+                "lr_system_path": str(impression_lr_system_path),
                 "user_id": "ABCDE",
                 "date_report": "2000-01-01",
                 "score": 1,
@@ -316,7 +318,7 @@ class TestContracts:
                 ],
             },
             expected_urls={"lr_overview_plot": ".png"},
-            expected_fields={"lr": 0},
+            expected_fields={"lr": float, "lr_lower_ci": float, "lr_upper_ci": float},
         )
 
     @pytest.fixture
@@ -324,13 +326,16 @@ class TestContracts:
         self,
         directory_access: DirectoryAccess,
         tmp_path: Path,
+        striation_lr_system_path: Path,
+        dummy_mark: Mark,
+        dummy_profile: Profile,
     ) -> EndpointContractInterface:
         """
         Create test data for calculate-score-striation endpoint.
 
         Returns the post request data and expected response type.
         """
-        (lr_system := tmp_path / "lr_system").touch()
+        _save_striation_mark_and_profile(directory_access.resource_path, profile=dummy_profile, mark=dummy_mark)
         return EndpointContractInterface(
             expected_input={
                 "mark_dir_ref": str(directory_access.resource_path),
@@ -349,7 +354,7 @@ class TestContracts:
                     "measurement_id": "measurement_1",
                     "mark_id": "mark_2",
                 },
-                "lr_system_path": str(lr_system),
+                "lr_system_path": str(striation_lr_system_path),
                 "user_id": "ABCDE",
                 "date_report": "2000-01-01",
                 "mark_dir_ref_aligned": str(directory_access.resource_path),
@@ -357,7 +362,7 @@ class TestContracts:
                 "score": 0.5,
             },
             expected_urls={"lr_overview_plot": ".png"},
-            expected_fields={"lr": 0},
+            expected_fields={"lr": float, "lr_lower_ci": float, "lr_upper_ci": float},
         )
 
     @pytest.mark.parametrize(
@@ -450,13 +455,11 @@ class TestContracts:
                 "calculate_lr_impression",
                 "calculate-lr-impression",
                 id="calculate_lr_impression",
-                marks=pytest.mark.xfail(reason="requires valid LR system"),
             ),
             pytest.param(
                 "calculate_lr_striation",
                 "calculate-lr-striation",
                 id="calculate_lr_striation",
-                marks=pytest.mark.xfail(reason="requires valid LR system"),
             ),
         ],
     )
@@ -467,7 +470,7 @@ class TestContracts:
         response = requests.post(
             f"{get_settings().base_url}/{RoutePrefix.PROCESSOR}/{sub_route}",
             json=data.expected_input,
-            timeout=5,
+            timeout=15,
         )
         # Assert
         assert response.status_code == HTTPStatus.OK

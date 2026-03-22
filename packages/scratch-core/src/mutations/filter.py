@@ -4,6 +4,7 @@ import numpy as np
 from loguru import logger
 from scipy.ndimage import generic_filter
 
+from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.filter import apply_gaussian_regression_filter
@@ -355,8 +356,9 @@ class GaussianRegressionFilter(ImageMutation):  # pragma: no cover
         :returns: ScanImage with the filtered 2D array.
         """
         pixel_size = (scan_image.scale_y, scan_image.scale_x)
-        scan_image.data = apply_gaussian_regression_filter(
-            data=scan_image.data,
+        valid_region = get_bounding_box(mask=scan_image.valid_mask, margin=0)
+        scan_image.data[valid_region] = apply_gaussian_regression_filter(
+            data=scan_image.data[valid_region],
             cutoff_length=self.cutoff_length,
             pixel_size=pixel_size,
             regression_order=self.regression_order.value,
