@@ -3,29 +3,10 @@ from pathlib import Path
 
 import pytest
 from conversion.data_formats import MarkMetadata
-from lir import FeatureData, InstanceData, LLRData
-from lir.lrsystems import LRSystem
 
 from tests.helper_function import make_cell
 
 RESOURCES = Path(__file__).parent.parent.parent / "packages/scratch-core/tests/resources"
-
-
-@pytest.fixture
-def random_lr_system_path() -> Path:
-    """Path to the pre-built random LR system pickle in test resources."""
-    return RESOURCES / "random_lr_system.pkl"
-
-
-class _IdentityLRSystem(LRSystem):
-    """Minimal LRSystem that returns the input score as the LLR."""
-
-    def __init__(self) -> None:
-        pass
-
-    def apply(self, instances: InstanceData) -> LLRData:
-        assert isinstance(instances, FeatureData)
-        return LLRData(features=instances.features[:, 0])
 
 
 @pytest.fixture
@@ -53,7 +34,7 @@ def base_kwargs(metadata_reference: MarkMetadata, metadata_compared: MarkMetadat
 
 @pytest.fixture
 def striation_kwargs(
-    lr_system_path: Path,
+    striation_lr_system_path: Path,
     mark_dirs: tuple[Path, Path],
     base_kwargs: dict,
 ) -> dict:
@@ -64,14 +45,14 @@ def striation_kwargs(
         "mark_dir_comp": mark_dir_comp,
         "mark_dir_comp_aligned": mark_dir_comp,
         "score": 0.5,
-        "lr_system_path": lr_system_path,
+        "lr_system_path": striation_lr_system_path,
         **base_kwargs,
     }
 
 
 @pytest.fixture
 def impression_kwargs(
-    lr_system_path: Path,
+    impression_lr_system_path: Path,
     mark_dirs: tuple[Path, Path],
     base_kwargs: dict,
 ) -> dict:
@@ -81,7 +62,7 @@ def impression_kwargs(
         "mark_dir_comp": mark_dir_comp,
         "score": 3,
         "n_cells": 10,
-        "lr_system_path": lr_system_path,
+        "lr_system_path": impression_lr_system_path,
         "cells": [
             make_cell(
                 center_reference=(i * 1e-3, 0.0),

@@ -10,8 +10,7 @@ from conversion.likelihood_ratio import (
     ModelSpecs,
     calculate_lr_impression,
     calculate_lr_striation,
-    get_lr_system,
-    get_reference_data,
+    get_reference_data_from_path,
 )
 from conversion.plots.data_formats import HistogramData, LlrTransformationData
 from conversion.plots.plot_ccf_comparison_overview import plot_ccf_comparison_overview
@@ -25,6 +24,7 @@ from fastapi import HTTPException
 from lir import LLRData
 from lir.util import probability_to_logodds
 from loguru import logger
+from lrmodule import get_lr_system
 from PIL import Image
 
 from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
@@ -174,7 +174,7 @@ def save_lr_impression_plot(  # noqa: PLR0913
         metadata_reference=metadata_reference,
         metadata_compared=metadata_compared,
         results_metadata=results_metadata,
-        histogram_data=HistogramData(scores=reference_data.scores, labels=reference_data.labels, new_score=score),
+        histogram_data=HistogramData(scores=reference_data.scores[:, 0], labels=reference_data.labels, new_score=score),
         llr_data=LlrTransformationData(
             scores=reference_data.scores,
             llrs=reference_data.llrs,
@@ -250,7 +250,7 @@ def process_lr_striation(
 ) -> LRResult:
     """Calculate LR for striation marks and save the overview plot."""
     lr_system = get_lr_system(lr_input.lr_system_path)
-    reference_data = get_reference_data(lr_input.lr_system_path)
+    reference_data = get_reference_data_from_path(lr_input.lr_system_path)
     llr_data = calculate_lr_striation(lr_system, lr_input.score)
     log_lr = llr_data.llrs[0]
 
@@ -297,7 +297,7 @@ def process_lr_striation(
 def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) -> LRResult:
     """Calculate LR for impression marks and save the overview plot."""
     lr_system = get_lr_system(lr_input.lr_system_path)
-    reference_data = get_reference_data(lr_input.lr_system_path)
+    reference_data = get_reference_data_from_path(lr_input.lr_system_path)
     llr_data = calculate_lr_impression(lr_system, lr_input.score, lr_input.n_cells)
     log_lr = llr_data.llrs[0]
 
@@ -313,6 +313,7 @@ def process_lr_impression(lr_input: CalculateLRImpression, working_dir: Path) ->
         mark_type=mark_ref.mark_type,
         score=lr_input.score,
         n_cells=lr_input.n_cells,
+        lr_system_path=lr_input.lr_system_path,
     )
 
     save_lr_impression_plot(

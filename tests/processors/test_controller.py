@@ -130,7 +130,7 @@ class TestSaveLrOverviewPlot:
         tmp_path: Path,
         mark_ref: Mark,
         mark_comp: Mark,
-        reference_data: ModelSpecs,
+        impression_reference_data: ModelSpecs,
         results_metadata: dict[str, str],
         metadata_reference: MarkMetadata,
         metadata_compared: MarkMetadata,
@@ -139,7 +139,7 @@ class TestSaveLrOverviewPlot:
         output = tmp_path / "lr_plot.png"
 
         save_lr_impression_plot(
-            reference_data=reference_data,
+            reference_data=impression_reference_data,
             mark_ref=mark_ref,
             mark_comp=mark_comp,
             cells=[
@@ -166,7 +166,7 @@ class TestSaveLrOverviewPlot:
         tmp_path: Path,
         mark_ref: Mark,
         mark_comp: Mark,
-        reference_data: ModelSpecs,
+        striation_reference_data: ModelSpecs,
         results_metadata: dict[str, str],
         metadata_reference: MarkMetadata,
         metadata_compared: MarkMetadata,
@@ -175,7 +175,7 @@ class TestSaveLrOverviewPlot:
         output = tmp_path / "lr_plot.png"
 
         save_lr_striation_plot(
-            reference_data=reference_data,
+            reference_data=striation_reference_data,
             mark_ref=mark_ref,
             mark_comp=mark_comp,
             mark_ref_aligned=mark_ref,
@@ -185,7 +185,7 @@ class TestSaveLrOverviewPlot:
             results_metadata=results_metadata,
             score=0.5,
             score_transformed=0.5,
-            reference_scores_transformed=reference_data.scores,
+            reference_scores_transformed=striation_reference_data.scores,
             lr=1.2,
             output_path=output,
         )
