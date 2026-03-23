@@ -5,18 +5,16 @@ import numpy as np
 from computations.spatial import make_isotropic, subsample_scan_image
 from container_models.base import BinaryMask
 from container_models.light_source import LightSource
+from container_models.models import NormalizationBounds
 from container_models.scan_image import ScanImage
 from numpy.typing import NDArray
 from renders import (
     apply_multiple_lights,
     compute_surface_normals,
     get_scan_image_for_display,
-    grayscale_to_image,
-    save_image,
-    scan_to_image,
 )
-from renders.normalizations import normalize_2d_array
 
+from preprocessors.constants import PreviewImageNormalizationBounds, SurfaceImageNormalizationBounds
 from preprocessors.exceptions import ArrayShapeMismatchError
 
 
@@ -67,7 +65,7 @@ def surface_map_pipeline(  # noqa
     output_path: Path,
     light_sources: Iterable[LightSource],
     observer: LightSource,
-) -> Path:
+) -> None:
     """
     Generate a 3D surface map image from scan data and save it to the specified path.
 
@@ -76,17 +74,21 @@ def surface_map_pipeline(  # noqa
     :param parameters: All parameters used in the pipeline.
     :return: The path to the saved surface map image file.
     """
-    scan_image = apply_multiple_lights(
+    surface_scan_image = parsed_scan.model_copy()
+    surface_scan_image.data = apply_multiple_lights(
         compute_surface_normals(parsed_scan),
         light_sources=light_sources,
         observer=observer,
     )
-    scan_image = normalize_2d_array(scan_image)
-    scan_image = grayscale_to_image(scan_image)
-    return save_image(scan_image, output_path=output_path)
+    surface_scan_image.save_as_image(
+        output_path=output_path,
+        normalization_bounds=NormalizationBounds(
+            low=SurfaceImageNormalizationBounds.low, high=SurfaceImageNormalizationBounds.high
+        ),
+    )
 
 
-def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
+def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> None:
     """
     Generate a preview image from scan data and save it to the specified path.
 
@@ -94,5 +96,10 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> Path:
     :param output_path: The file path where the preview image will be saved.
     :return: The path to the saved preview image file.
     """
-    scan_image = scan_to_image(get_scan_image_for_display(parsed_scan))
-    return save_image(scan_image, output_path=output_path)
+    preview_image = get_scan_image_for_display(parsed_scan)
+    preview_image.save_as_image(
+        output_path=output_path,
+        normalization_bounds=NormalizationBounds(
+            low=PreviewImageNormalizationBounds.low, high=PreviewImageNormalizationBounds.high
+        ),
+    )
