@@ -68,8 +68,8 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
     col_indices = np.round((centers[:, 0] - min_x) / step_x).astype(int)
     row_indices = np.round((centers[:, 1] - min_y) / step_y).astype(int)
 
-    n_rows = row_indices.high() + 1
-    n_cols = col_indices.high() + 1
+    n_rows = row_indices.max() + 1
+    n_cols = col_indices.max() + 1
 
     cell_correlations = np.full((n_rows, n_cols), np.nan)
 
