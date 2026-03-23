@@ -74,12 +74,13 @@ def surface_map_pipeline(  # noqa
     :param parameters: All parameters used in the pipeline.
     :return: The path to the saved surface map image file.
     """
-    parsed_scan.data = apply_multiple_lights(
+    surface_scan_image = parsed_scan.model_copy()
+    surface_scan_image.data = apply_multiple_lights(
         compute_surface_normals(parsed_scan),
         light_sources=light_sources,
         observer=observer,
     )
-    parsed_scan.save_as_image(
+    surface_scan_image.save_as_image(
         output_path=output_path,
         scaling=IntensityScaling(
             scale_min=SurfaceImageIntensityScaling.scaling_min, scale_max=SurfaceImageIntensityScaling.scaling_max
@@ -95,8 +96,8 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> None:
     :param output_path: The file path where the preview image will be saved.
     :return: The path to the saved preview image file.
     """
-    scan_image = get_scan_image_for_display(parsed_scan)
-    scan_image.save_as_image(
+    preview_image = get_scan_image_for_display(parsed_scan)
+    preview_image.save_as_image(
         output_path=output_path,
         scaling=IntensityScaling(
             scale_min=PreviewImageIntensityScaling.scaling_min, scale_max=PreviewImageIntensityScaling.scaling_max
