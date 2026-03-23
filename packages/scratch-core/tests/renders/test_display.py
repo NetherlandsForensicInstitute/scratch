@@ -25,6 +25,7 @@ def test_get_image_for_display_matches_baseline_image(
         return original_fromarray(obj, *args, **kwargs)
 
     # act
+    #TODO: break up preview_pipeline into separate steps to test.
     with patch(
         "container_models.scan_image.fromarray",
         new=fake_fromarray,
