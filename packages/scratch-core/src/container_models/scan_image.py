@@ -145,7 +145,7 @@ def _normalize_2d_array(
 
     :param array_to_normalize: 2D array of input intensity values.
     :param normalization_bounds: the scaling for normalization.
-    :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
+    :returns: Normalized 2D intensity map with values in `[normalization_bounds.low, normalization_bounds.high]``.
     """
     imin = np.nanmin(array_to_normalize)
     imax = np.nanmax(array_to_normalize)
