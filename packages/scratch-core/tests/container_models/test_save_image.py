@@ -3,16 +3,16 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from container_models.models import IntensityScaling
+from container_models.models import NormalizationBounds
 from container_models.scan_image import ScanImage
 
 
 def test_save_image_to_temp_dir(scan_image: ScanImage, tmp_path: Path) -> None:
     # Arrange
     file_path = tmp_path / "some_image.png"
-    scaling = IntensityScaling(scale_min=0, scale_max=255)
+    scaling = NormalizationBounds(low=0, high=255)
     # Act
-    scan_image.save_as_image(output_path=file_path, scaling=scaling)
+    scan_image.save_as_image(output_path=file_path, normalization_bounds=scaling)
     # Arrange
     assert file_path.exists()
     assert file_path.is_file()
@@ -35,5 +35,5 @@ def test_save_image_to_temp_dir_with_wrong_scaling_raises_error(
     with pytest.raises(ValidationError):
         scan_image.save_as_image(
             output_path=file_path,
-            scaling=IntensityScaling(scale_min=scale_min, scale_max=scale_max),
+            normalization_bounds=NormalizationBounds(low=scale_min, high=scale_max),
         )

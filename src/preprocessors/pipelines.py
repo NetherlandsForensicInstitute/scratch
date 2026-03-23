@@ -5,7 +5,7 @@ import numpy as np
 from computations.spatial import make_isotropic, subsample_scan_image
 from container_models.base import BinaryMask
 from container_models.light_source import LightSource
-from container_models.models import IntensityScaling
+from container_models.models import NormalizationBounds
 from container_models.scan_image import ScanImage
 from numpy.typing import NDArray
 from renders import (
@@ -14,7 +14,7 @@ from renders import (
     get_scan_image_for_display,
 )
 
-from preprocessors.constants import PreviewImageIntensityScaling, SurfaceImageIntensityScaling
+from preprocessors.constants import PreviewImageNormalizationBounds, SurfaceImageNormalizationBounds
 from preprocessors.exceptions import ArrayShapeMismatchError
 
 
@@ -82,8 +82,8 @@ def surface_map_pipeline(  # noqa
     )
     surface_scan_image.save_as_image(
         output_path=output_path,
-        scaling=IntensityScaling(
-            scale_min=SurfaceImageIntensityScaling.scaling_min, scale_max=SurfaceImageIntensityScaling.scaling_max
+        normalization_bounds=NormalizationBounds(
+            low=SurfaceImageNormalizationBounds.low, high=SurfaceImageNormalizationBounds.high
         ),
     )
 
@@ -99,7 +99,7 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> None:
     preview_image = get_scan_image_for_display(parsed_scan)
     preview_image.save_as_image(
         output_path=output_path,
-        scaling=IntensityScaling(
-            scale_min=PreviewImageIntensityScaling.scaling_min, scale_max=PreviewImageIntensityScaling.scaling_max
+        normalization_bounds=NormalizationBounds(
+            low=PreviewImageNormalizationBounds.low, high=PreviewImageNormalizationBounds.high
         ),
     )

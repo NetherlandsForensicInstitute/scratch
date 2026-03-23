@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from container_models.models import IntensityScaling
-from container_models.scan_image import ScanImage, normalize_2d_array
+from container_models.models import NormalizationBounds
+from container_models.scan_image import ScanImage, _normalize_2d_array
 
 from ..helper_function import assert_nan_mask_preserved
 
@@ -26,8 +26,8 @@ def test_bigger_numbers(start_value: int, slope: float) -> None:
     max_val = 255
     min_val = 20
     # Act
-    normalized_image = normalize_2d_array(
-        image, intensity_scaling=IntensityScaling(scale_max=max_val, scale_min=min_val)
+    normalized_image = _normalize_2d_array(
+        image, normalization_bounds=NormalizationBounds(high=max_val, low=min_val)
     )
 
     # Assert
@@ -46,9 +46,9 @@ def test_already_normalized_image() -> None:
     ).reshape(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT)
 
     # Act
-    normalized = normalize_2d_array(
+    normalized = _normalize_2d_array(
         array_to_normalize=image,
-        intensity_scaling=IntensityScaling(scale_max=max_value, scale_min=min_val),
+        normalization_bounds=NormalizationBounds(high=max_value, low=min_val),
     )
 
     # Assert
@@ -60,9 +60,9 @@ def test_already_normalized_image() -> None:
 
 
 def test_nan_mask_preserved(image_with_nan_background: ScanImage):
-    result = normalize_2d_array(
+    result = _normalize_2d_array(
         image_with_nan_background.data,
-        intensity_scaling=IntensityScaling(scale_max=255, scale_min=25),
+        normalization_bounds=NormalizationBounds(high=255, low=25),
     )
     assert_nan_mask_preserved(image_with_nan_background.data, result)
 
@@ -75,8 +75,8 @@ def test_constant_valid_region_does_not_produce_nan(
     constant_data = image_with_nan_background.data.copy()
     constant_data[~np.isnan(constant_data)] = 42.0
 
-    result = normalize_2d_array(
-        constant_data, intensity_scaling=IntensityScaling(scale_max=255, scale_min=25)
+    result = _normalize_2d_array(
+        constant_data, normalization_bounds=NormalizationBounds(high=255, low=25)
     )
 
     valid_mask = ~np.isnan(constant_data)

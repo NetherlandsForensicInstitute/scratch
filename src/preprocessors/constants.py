@@ -24,11 +24,11 @@ class SurfaceOptions(StrEnum):
         return SurfaceTerms[self.name]
 
 
-class PreviewImageIntensityScaling(IntEnum):
-    scaling_max = 255
-    scaling_min = 0
+class PreviewImageNormalizationBounds(IntEnum):
+    low = 0
+    high = 255
 
 
-class SurfaceImageIntensityScaling(IntEnum):
-    scaling_max = 255
-    scaling_min = 25
+class SurfaceImageNormalizationBounds(IntEnum):
+    low = 25
+    high = 255

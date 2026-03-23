@@ -18,7 +18,7 @@ from .base import (
     FloatArray2D,
     ImageRGBA,
 )
-from .models import IntensityScaling
+from .models import NormalizationBounds
 
 
 class ScanImage(ConfigBaseModel):
@@ -64,11 +64,13 @@ class ScanImage(ConfigBaseModel):
         # TODO: Can we remove this?
         return self.width / 2 * self.scale_x, self.height / 2 * self.scale_y
 
-    def _to_pil_image(self, scaling: IntensityScaling) -> Image:
+    def _to_pil_image(self, normalization_bounds: NormalizationBounds) -> Image:
         """Get a rgba image from the scan data."""
         return fromarray(
-            grayscale_to_rgba(
-                scan_data=normalize_2d_array(self.data, intensity_scaling=scaling)
+            _grayscale_to_rgba(
+                scan_data=_normalize_2d_array(
+                    self.data, normalization_bounds=normalization_bounds
+                )
             )
         )
 
@@ -100,18 +102,20 @@ class ScanImage(ConfigBaseModel):
         """
         save_x3p(convert_to_x3p(self), output_path=output_path)
 
-    def save_as_image(self, output_path: Path, scaling: IntensityScaling):
+    def save_as_image(
+        self, output_path: Path, normalization_bounds: NormalizationBounds
+    ):
         """
         Convert ScanImage data to an Image and save it to the given output_path.
 
         :param output_path: the given path to save the scan data.
-        :param scaling: the scaling needed for normalizing the ScanImage.
+        :param normalization_bounds: the scaling needed for normalizing the ScanImage.
         :return: the output path to where the image is saved.
         """
-        self._to_pil_image(scaling=scaling).save(output_path)
+        self._to_pil_image(normalization_bounds=normalization_bounds).save(output_path)
 
 
-def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
+def _grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
     """
     Convert a 2D grayscale array to an 8-bit RGBA array.
 
@@ -127,8 +131,8 @@ def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
     return rgba
 
 
-def normalize_2d_array(
-    array_to_normalize: FloatArray2D, intensity_scaling: IntensityScaling
+def _normalize_2d_array(
+    array_to_normalize: FloatArray2D, normalization_bounds: NormalizationBounds
 ) -> FloatArray2D:
     """
     Normalize a 2D intensity map to a specified output range.
@@ -140,20 +144,20 @@ def normalize_2d_array(
     is filled with the midpoint of the output range. NaN pixels are preserved.
 
     :param array_to_normalize: 2D array of input intensity values.
-    :param intensity_scaling: the scaling for normalization.
+    :param normalization_bounds: the scaling for normalization.
     :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
     """
     imin = np.nanmin(array_to_normalize)
     imax = np.nanmax(array_to_normalize)
 
-    if np.isclose(imax, imin):
-        fill_value = (intensity_scaling.scale_min + intensity_scaling.scale_max) / 2
+    if imax == imin:
+        fill_value = (normalization_bounds.low + normalization_bounds.high) / 2
         result = np.full_like(array_to_normalize, fill_value)
         result[np.isnan(array_to_normalize)] = np.nan
         return result
 
     norm = (array_to_normalize - imin) / (imax - imin)
     return (
-        intensity_scaling.scale_min
-        + (intensity_scaling.scale_max - intensity_scaling.scale_min) * norm
+        normalization_bounds.low
+        + (normalization_bounds.high - normalization_bounds.low) * norm
     )
