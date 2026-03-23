@@ -18,7 +18,7 @@ from .base import (
     FloatArray2D,
     ImageRGBA,
 )
-from .models import ImageScaling
+from .models import IntensityScaling
 
 
 class ScanImage(ConfigBaseModel):
@@ -64,13 +64,11 @@ class ScanImage(ConfigBaseModel):
         # TODO: Can we remove this?
         return self.width / 2 * self.scale_x, self.height / 2 * self.scale_y
 
-    def _to_pil_image(self, scale_max: float, scale_min: float) -> Image:
+    def _to_pil_image(self, scaling: IntensityScaling) -> Image:
         """Get a rgba image from the scan data."""
         return fromarray(
             grayscale_to_rgba(
-                scan_data=normalize_2d_array(
-                    self.data, scale_max=scale_max, scale_min=scale_min
-                )
+                scan_data=normalize_2d_array(self.data, intensity_scaling=scaling)
             )
         )
 
@@ -102,14 +100,15 @@ class ScanImage(ConfigBaseModel):
         """
         save_x3p(convert_to_x3p(self), output_path=output_path)
 
-    def save_as_image(self, output_path: Path, scaling: ImageScaling):
+    def save_as_image(self, output_path: Path, scaling: IntensityScaling):
         """
         Convert ScanImage data to an Image and save it to the given output_path.
 
         :param output_path: the given path to save the scan data.
+        :param scaling: the scaling needed for normalizing the ScanImage.
         :return: the output path to where the image is saved.
         """
-        self._to_pil_image(scale_max=scaling.scale_max, scale_min=scaling.scale_min).save(output_path)
+        self._to_pil_image(scaling=scaling).save(output_path)
 
 
 def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
@@ -129,9 +128,7 @@ def grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
 
 
 def normalize_2d_array(
-    array_to_normalize: FloatArray2D,
-    scale_max: float = 255,
-    scale_min: float = 25,
+    array_to_normalize: FloatArray2D, intensity_scaling: IntensityScaling
 ) -> FloatArray2D:
     """
     Normalize a 2D intensity map to a specified output range.
@@ -143,18 +140,20 @@ def normalize_2d_array(
     is filled with the midpoint of the output range. NaN pixels are preserved.
 
     :param array_to_normalize: 2D array of input intensity values.
-    :param scale_max: Maximum output intensity value. Default is ``255``.
-    :param scale_min: Minimum output intensity value. Default is ``25``.
+    :param intensity_scaling: the scaling for normalization.
     :returns: Normalized 2D intensity map with values in ``[scale_min, max_val]``.
     """
-    imin = np.nanmin(array_to_normalize.data)
-    imax = np.nanmax(array_to_normalize.data)
+    imin = np.nanmin(array_to_normalize)
+    imax = np.nanmax(array_to_normalize)
 
-    if imax == imin:
-        fill_value = (scale_min + scale_max) / 2
+    if np.isclose(imax, imin):
+        fill_value = (intensity_scaling.scale_min + intensity_scaling.scale_max) / 2
         result = np.full_like(array_to_normalize, fill_value)
         result[np.isnan(array_to_normalize)] = np.nan
         return result
 
     norm = (array_to_normalize - imin) / (imax - imin)
-    return scale_min + (scale_max - scale_min) * norm
+    return (
+        intensity_scaling.scale_min
+        + (intensity_scaling.scale_max - intensity_scaling.scale_min) * norm
+    )

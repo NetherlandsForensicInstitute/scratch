@@ -1,17 +1,16 @@
 from pathlib import Path
 
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
-from container_models.models import ImageScaling
-
+from container_models.models import IntensityScaling
 from container_models.scan_image import ScanImage
 
 
 def test_save_image_to_temp_dir(scan_image: ScanImage, tmp_path: Path) -> None:
     # Arrange
     file_path = tmp_path / "some_image.png"
-    scaling = ImageScaling(scale_min=0, scale_max=255)
+    scaling = IntensityScaling(scale_min=0, scale_max=255)
     # Act
     scan_image.save_as_image(output_path=file_path, scaling=scaling)
     # Arrange
@@ -19,14 +18,22 @@ def test_save_image_to_temp_dir(scan_image: ScanImage, tmp_path: Path) -> None:
     assert file_path.is_file()
 
 
-@pytest.mark.parametrize(("scale_min", "scale_max"),
-                         (pytest.param(-1, 200, id="scale_min needs to be above 0"),
-                          pytest.param(0, 300, id="scale_max should be lower then 255"),
-                          pytest.param(50, 20, id="max value should be higher then the lower value")))
-def test_save_image_to_temp_dir_with_wrong_scaling_raises_error(scale_min: float, scale_max: float,
-                                                                scan_image: ScanImage, tmp_path: Path):
+@pytest.mark.parametrize(
+    ("scale_min", "scale_max"),
+    (
+        pytest.param(-1, 200, id="scale_min needs to be above 0"),
+        pytest.param(0, 300, id="scale_max should be lower then 255"),
+        pytest.param(50, 20, id="max value should be higher then the lower value"),
+    ),
+)
+def test_save_image_to_temp_dir_with_wrong_scaling_raises_error(
+    scale_min: int, scale_max: int, scan_image: ScanImage, tmp_path: Path
+):
     # Arrange
     file_path = tmp_path / "some_image.png"
     # Act
     with pytest.raises(ValidationError):
-        scan_image.save_as_image(output_path=file_path, scaling=ImageScaling(scale_min=scale_min, scale_max=scale_max))
+        scan_image.save_as_image(
+            output_path=file_path,
+            scaling=IntensityScaling(scale_min=scale_min, scale_max=scale_max),
+        )

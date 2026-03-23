@@ -1,4 +1,4 @@
-from enum import StrEnum, auto
+from enum import IntEnum, StrEnum, auto
 
 from conversion.leveling import SurfaceTerms
 
@@ -22,3 +22,13 @@ class SurfaceOptions(StrEnum):
         :return: The corresponding internal surface term flags.
         """
         return SurfaceTerms[self.name]
+
+
+class PreviewImageIntensityScaling(IntEnum):
+    scaling_max = 255
+    scaling_min = 0
+
+
+class SurfaceImageIntensityScaling(IntEnum):
+    scaling_max = 255
+    scaling_min = 25

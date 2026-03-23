@@ -4,15 +4,6 @@ from container_models.base import FloatArray
 from container_models.scan_image import ScanImage
 
 
-def _normalize(input_array: FloatArray, lower: float, upper: float) -> FloatArray:
-    """Perform min-max normalization on the input array and scale to the [0, 255] interval."""
-    if lower >= upper:
-        raise ValueError(
-            f"The lower bound ({lower}) should be smaller than the upper bound ({upper})."
-        )
-    return (input_array - lower) / (upper - lower) * 255.0
-
-
 def _clip_data(data: FloatArray, std_scaler: float) -> FloatArray:
     """
     Clip the data so that the values lie in the interval [μ - σ * S, μ + σ * S].

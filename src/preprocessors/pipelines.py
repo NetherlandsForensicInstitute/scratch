@@ -5,7 +5,7 @@ import numpy as np
 from computations.spatial import make_isotropic, subsample_scan_image
 from container_models.base import BinaryMask
 from container_models.light_source import LightSource
-from container_models.models import ImageScaling
+from container_models.models import IntensityScaling
 from container_models.scan_image import ScanImage
 from numpy.typing import NDArray
 from renders import (
@@ -14,6 +14,7 @@ from renders import (
     get_scan_image_for_display,
 )
 
+from preprocessors.constants import PreviewImageIntensityScaling, SurfaceImageIntensityScaling
 from preprocessors.exceptions import ArrayShapeMismatchError
 
 
@@ -78,7 +79,12 @@ def surface_map_pipeline(  # noqa
         light_sources=light_sources,
         observer=observer,
     )
-    parsed_scan.save_as_image(output_path=output_path, scaling=ImageScaling(scale_min=25, scale_max=255))
+    parsed_scan.save_as_image(
+        output_path=output_path,
+        scaling=IntensityScaling(
+            scale_min=SurfaceImageIntensityScaling.scaling_min, scale_max=SurfaceImageIntensityScaling.scaling_max
+        ),
+    )
 
 
 def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> None:
@@ -90,4 +96,9 @@ def preview_pipeline(parsed_scan: ScanImage, output_path: Path) -> None:
     :return: The path to the saved preview image file.
     """
     scan_image = get_scan_image_for_display(parsed_scan)
-    scan_image.save_as_image(output_path=output_path, scaling=ImageScaling(scale_min=0, scale_max=255))
+    scan_image.save_as_image(
+        output_path=output_path,
+        scaling=IntensityScaling(
+            scale_min=PreviewImageIntensityScaling.scaling_min, scale_max=PreviewImageIntensityScaling.scaling_max
+        ),
+    )
