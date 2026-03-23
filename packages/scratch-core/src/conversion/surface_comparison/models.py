@@ -18,7 +18,7 @@ class ProcessedMark:
     """Container class for storing processed `Mark` instances."""
 
     filtered_mark: Mark
-    leveled_mark: Mark
+    raw_mark: Mark
 
 
 class CellMetaData(ConfigBaseModel):

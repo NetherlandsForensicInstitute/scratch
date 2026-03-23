@@ -108,8 +108,8 @@ def save_impression_comparison_plots(  # noqa: PLR0913
 ) -> None:
     """Create and save the plots of the processed markings."""
     plots = plot_impression_comparison_results(
-        mark_reference_leveled=mark_ref.leveled_mark,
-        mark_compared_leveled=mark_comp.leveled_mark,
+        mark_reference_raw=mark_ref.raw_mark,
+        mark_compared_raw=mark_comp.raw_mark,
         mark_reference_filtered=mark_ref.filtered_mark,
         mark_compared_filtered=mark_comp.filtered_mark,
         cmc_result=cmc_result,
@@ -120,12 +120,8 @@ def save_impression_comparison_plots(  # noqa: PLR0913
 
     logger.debug("impression comparison plots generated")
     Image.fromarray(plots.comparison_overview).save(files_to_save.comparison_overview.get_file_path(working_dir))
-    Image.fromarray(plots.leveled_reference_heatmap).save(
-        files_to_save.leveled_reference_heatmap.get_file_path(working_dir)
-    )
-    Image.fromarray(plots.leveled_compared_heatmap).save(
-        files_to_save.leveled_compared_heatmap.get_file_path(working_dir)
-    )
+    Image.fromarray(plots.raw_reference_heatmap).save(files_to_save.raw_reference_heatmap.get_file_path(working_dir))
+    Image.fromarray(plots.raw_compared_heatmap).save(files_to_save.raw_compared_heatmap.get_file_path(working_dir))
     Image.fromarray(plots.filtered_reference_heatmap).save(
         files_to_save.filtered_reference_heatmap.get_file_path(working_dir)
     )

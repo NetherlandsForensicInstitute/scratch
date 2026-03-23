@@ -14,8 +14,8 @@ class UrlFiles(StrEnum):
 
 class ComparisonImpressionFiles(UrlFiles):
     comparison_overview = "comparison_overview.png"
-    leveled_reference_heatmap = "leveled_reference_heatmap.png"
-    leveled_compared_heatmap = "leveled_compared_heatmap.png"
+    raw_reference_heatmap = "raw_reference_heatmap.png"
+    raw_compared_heatmap = "raw_compared_heatmap.png"
     filtered_reference_heatmap = "filtered_reference_heatmap.png"
     filtered_compared_heatmap = "filtered_compared_heatmap.png"
     cell_reference_heatmap = "cell_reference_heatmap.png"

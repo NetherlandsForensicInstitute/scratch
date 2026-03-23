@@ -92,8 +92,8 @@ class TestSaveComparisonPlots:
         img = self._dummy_image_array()
         mock_plots = Mock(
             comparison_overview=img,
-            leveled_reference_heatmap=img,
-            leveled_compared_heatmap=img,
+            raw_reference_heatmap=img,
+            raw_compared_heatmap=img,
             filtered_reference_heatmap=img,
             filtered_compared_heatmap=img,
             cell_reference_heatmap=img,
