@@ -63,8 +63,10 @@ Input scans are parsed from AL3D or X3P files via `parsers/`.
 
 ## Filtering
 
-All filtering is implemented as **Gaussian regression filtering** (ISO 16610-21), implemented in
-`conversion/filter/`. This is currently the only filter type in the library.
+The primary filter type is **Gaussian regression filtering** (ISO 16610-21), implemented in
+`conversion/filter/`. Note that not all filtering is here: leveling (`conversion/leveling/`) is
+conceptually also a filter step — it fits and subtracts a polynomial surface, which is equivalent
+to a parametric high-pass operation.
 
 ### ISO 16610 Gaussian filter
 
