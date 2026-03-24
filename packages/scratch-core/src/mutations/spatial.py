@@ -25,17 +25,16 @@ the image while adjusting its spatial representation.
 from typing import Self
 
 import numpy as np
-from loguru import logger
-from scipy.ndimage import binary_dilation, rotate
-from skimage.transform import resize
-
 from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import rotate_mask
 from exceptions import ImageShapeMismatchError
+from loguru import logger
 from mutations.base import ImageMutation
+from scipy.ndimage import binary_dilation, rotate
+from skimage.transform import resize
 
 
 class CropToMask(ImageMutation):
@@ -94,6 +93,48 @@ class CropToMask(ImageMutation):
         y_slice, x_slice = get_bounding_box(self.mask, margin=self.margin)
         scan_image.data = scan_image.data[y_slice, x_slice]
         return scan_image
+
+
+class Subsample(ImageMutation):
+    """
+    Subsample a `ScanImage` by skipping pixels at fixed intervals.
+
+    This mutation reduces the spatial resolution of the image by selecting
+    every N-th pixel along the X and Y axes. No interpolation is performed;
+    pixel values are preserved exactly, and intermediate pixels are discarded.
+
+    The spatial scale of the image is updated accordingly to reflect the
+    increased distance between sampled pixels.
+
+    :param step_size_x: The step size in the X-direction (columns).
+    :param step_size_y: The step size in the Y-direction (rows).
+    :returns: A new `ScanImage` instance with subsampled data and updated scales.
+    """
+
+    def __init__(self, step_size_x: int, step_size_y: int) -> None:
+        self.step_x = step_size_x
+        self.step_y = step_size_y
+
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
+        if self.step_x == 1 and self.step_y == 1:
+            logger.info("No subsampling needed, returning original scan image")
+            return True
+        return False
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        width, height = scan_image.width, scan_image.height
+        if not (0 < self.step_x < width and 0 < self.step_y < height):
+            raise ValueError(
+                f"Step size should be positive and smaller than the image size: {(height, width)}"
+            )
+        logger.info(
+            f"Subsampling scan image with step sizes x: {self.step_x}, y: {self.step_y}"
+        )
+        return ScanImage(
+            data=scan_image.data[:: self.step_y, :: self.step_x].copy(),
+            scale_x=scan_image.scale_x * self.step_x,
+            scale_y=scan_image.scale_y * self.step_y,
+        )
 
 
 class Resample(ImageMutation):
