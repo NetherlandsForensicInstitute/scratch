@@ -108,7 +108,8 @@ class ImageMutation(ABC):
 
         This can be used for simple validations. For example:
         - `Resample` may skip execution if both scale factors are `1`.
-
+        :param scan_image:
+            The `ScanImage` to be modified.
         :return bool:
             - `True`  → skip `apply_on_image`
             - `False` → apply the mutation
