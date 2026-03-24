@@ -19,7 +19,7 @@ from conversion.surface_comparison.cmc_classification_consensus import (
 )
 from conversion.surface_comparison.models import Cell, CellMetaData, ComparisonParams
 
-from tests.conversion.surface_comparison.helpers import build_test_inputs
+from ..helpers import build_test_inputs
 
 
 TEST_ROOT = Path(__file__).parent.parent.parent.parent
