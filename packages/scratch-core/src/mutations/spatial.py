@@ -30,7 +30,7 @@ from scipy.ndimage import binary_dilation, rotate
 from skimage.transform import resize
 
 from computations.spatial import get_bounding_box
-from container_models.base import BinaryMask
+from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import rotate_mask
@@ -198,3 +198,78 @@ class Rotate(ImageMutation):
             cval=np.nan,
         )
         return scan_image
+
+
+class MakeIsotropic(ImageMutation):
+    """
+    Resample a `ScanImage` to isotropic resolution (equal pixel spacing in X and Y).
+
+    If the input image already has equal scaling in both directions, the original
+    instance is returned unchanged. Otherwise, the image is upsampled to the
+    highest available resolution (i.e. the smallest scale value) using
+    nearest-neighbor interpolation.
+
+    This operation preserves the spatial content of the image while ensuring that
+    distances in both axes are represented uniformly. NaN values are preserved and
+    not interpolated.
+
+    :returns: A new `ScanImage` instance with isotropic scaling and updated data.
+    """
+
+    @staticmethod
+    def _is_isotropic(scan_image: ScanImage) -> bool:
+        """Check if a scan image is isotropic within tolerance."""
+        tolerance = 1e-16
+        return bool(np.isclose(scan_image.scale_x, scan_image.scale_y, atol=tolerance))
+
+    @staticmethod
+    def _get_target_shape(
+        scan_image: ScanImage, target_scale: float
+    ) -> tuple[int, int]:
+        """Get the target shape for a scan image given a target scale."""
+        height, width = (
+            int(round(scan_image.height * scan_image.scale_y / target_scale)),
+            int(round(scan_image.width * scan_image.scale_x / target_scale)),
+        )
+        return height, width
+
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
+        """
+        Determine whether image is already isotropic and should be skipped.
+
+        Skips computation if the image is already isotropic.
+
+        :param scan_image: Input ScanImage to resample.
+        :returns: True if image is already isotropic, False otherwise
+        """
+        if self._is_isotropic(scan_image):
+            logger.debug(
+                f"Image is already isotropic, with shape: {scan_image.data.shape}, conversion not needed."
+            )
+            return True
+        return False
+
+    def _upsample_image_data(
+        self, scan_image: ScanImage, target_scale: float
+    ) -> FloatArray2D:
+        """Upsample image data in a `ScanImage` instance to a common target scale."""
+        upsampled = resize(
+            image=scan_image.data,
+            output_shape=self._get_target_shape(scan_image, target_scale),
+            mode="edge",
+            anti_aliasing=False,  # Disabled for pure upsampling
+            preserve_range=True,  # Keep original data intensity levels
+            order=0,  # Nearest Neighbor so that NaNs appear at corresponding coordinates
+        )
+        return np.asarray(upsampled, dtype=np.float64)
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        target_scale = min(scan_image.scale_x, scan_image.scale_y)
+        upsampled = self._upsample_image_data(scan_image, target_scale)
+
+        return ScanImage(
+            data=upsampled,
+            scale_x=target_scale,
+            scale_y=target_scale,
+            meta_data=scan_image.meta_data,
+        )
