@@ -26,7 +26,7 @@ from typing import Self
 
 import numpy as np
 from computations.spatial import get_bounding_box
-from container_models.base import BinaryMask, FloatArray2D
+from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import rotate_mask
@@ -138,7 +138,14 @@ class Subsample(ImageMutation):
 
 
 class Resample(ImageMutation):
-    def __init__(self, target_shape: tuple[float, float]) -> None:
+    def __init__(
+        self,
+        target_shape: tuple[float, float],
+        *,
+        anti_aliasing: bool | None = None,
+        preserve_range: bool = False,
+        order: int | None = None,
+    ) -> None:
         """
         Constructor for initiating the Resampling.
 
@@ -146,17 +153,33 @@ class Resample(ImageMutation):
         """
         self.target_shape_height = target_shape[0]
         self.target_shape_width = target_shape[1]
+        self.anti_aliasing = anti_aliasing
+        self.preserve_range = preserve_range
+        self.order = order
+
+    @classmethod
+    def for_upsampling(cls, target_shape: tuple[float, float]) -> Self:
+        return cls(
+            target_shape,
+            order=0,
+            anti_aliasing=False,
+            preserve_range=True,
+        )
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
         Resample the ScanImage object using the specified resampling factors.
 
-        :param image: Input ScanImage to resample.
+        :param scan_image: Input ScanImage to resample.
         :returns: The resampled ScanImage.
         """
         anti_aliasing = (
-            self.target_shape_height < scan_image.height
-            and self.target_shape_width < scan_image.width
+            (
+                self.target_shape_height < scan_image.height
+                and self.target_shape_width < scan_image.width
+            )
+            if self.anti_aliasing is None
+            else self.anti_aliasing
         )
         resampled_data = resize(
             image=scan_image.data,
@@ -166,6 +189,8 @@ class Resample(ImageMutation):
             ),
             mode="edge",
             anti_aliasing=anti_aliasing,
+            preserve_range=self.preserve_range,
+            order=self.order,
         )
         scale_x_factor = scan_image.width / self.target_shape_width
         scale_y_factor = scan_image.height / self.target_shape_height
@@ -178,6 +203,7 @@ class Resample(ImageMutation):
             data=np.asarray(resampled_data, dtype=scan_image.data.dtype),
             scale_x=scan_image.scale_x * scale_x_factor,
             scale_y=scan_image.scale_y * scale_y_factor,
+            meta_data=scan_image.meta_data,
         )
 
 
@@ -290,26 +316,13 @@ class MakeIsotropic(ImageMutation):
             return True
         return False
 
-    def _upsample_image_data(
-        self, scan_image: ScanImage, target_scale: float
-    ) -> FloatArray2D:
-        """Upsample image data in a `ScanImage` instance to a common target scale."""
-        upsampled = resize(
-            image=scan_image.data,
-            output_shape=self._get_target_shape(scan_image, target_scale),
-            mode="edge",
-            anti_aliasing=False,  # Disabled for pure upsampling
-            preserve_range=True,  # Keep original data intensity levels
-            order=0,  # Nearest Neighbor so that NaNs appear at corresponding coordinates
-        )
-        return np.asarray(upsampled, dtype=np.float64)
-
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         target_scale = min(scan_image.scale_x, scan_image.scale_y)
-        upsampled = self._upsample_image_data(scan_image, target_scale)
-
+        upsampled = Resample.for_upsampling(
+            self._get_target_shape(scan_image, target_scale)
+        )(scan_image)
         return ScanImage(
-            data=upsampled,
+            data=upsampled.data,
             scale_x=target_scale,
             scale_y=target_scale,
             meta_data=scan_image.meta_data,
