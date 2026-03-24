@@ -2,12 +2,11 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import numpy as np
-from computations.spatial import subsample_scan_image
 from container_models.base import BinaryMask
 from container_models.light_source import LightSource
 from container_models.models import NormalizationBounds
 from container_models.scan_image import ScanImage
-from mutations.spatial import MakeIsotropic
+from mutations.spatial import MakeIsotropic, Subsample
 from numpy.typing import NDArray
 from renders import (
     apply_multiple_lights,
@@ -27,7 +26,7 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
     :param parameters: All parameters used in the pipeline.
     :return: The parsed scan image data.
     """
-    scan_image = subsample_scan_image(ScanImage.from_file(scan_file), step_size_x=step_size_x, step_size_y=step_size_y)
+    scan_image = Subsample(step_size_x=step_size_x, step_size_y=step_size_y)(ScanImage.from_file(scan_file))
     return MakeIsotropic()(scan_image)
 
 
