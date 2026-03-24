@@ -68,46 +68,34 @@ All filtering is implemented as **Gaussian regression filtering** (ISO 16610-21)
 
 ### ISO 16610 Gaussian filter
 
-The standard Gaussian uses the ISO formula `G(x) = exp(-π(x/(α·λc))²)` where `α = √(ln(2)/π)` gives
-50% transmission at the cutoff wavelength `λc`. This differs from the `exp(-x²/(2σ²))` convention used
-by scipy; the conversion is `σ = α·λc/√(2π)`. All cutoffs are specified in meters.
+The filter follows ISO 16610-21, which defines the cutoff wavelength as the point of 50% transmission.
+All cutoffs are specified in meters.
 
-### NaN-aware filtering via normalized convolution
-
-The filter handles missing data (NaN pixels from scan gaps or masks) using normalized convolution: NaN
-pixels are assigned zero weight, so the kernel only accumulates over valid neighbors. For order-0 this
-is implemented as FFT-based separable convolution over both the data and a binary weight map, then
-dividing the two results pixelwise.
+Missing data (NaN pixels from scan gaps or masks) is handled transparently: NaN pixels are excluded
+from the kernel, so the filter produces valid output wherever enough valid neighbors exist.
 
 ### Regression orders
 
 `apply_gaussian_regression_filter` supports three regression orders:
 
-| Order | Model fitted locally            | Use case                                    |
-|-------|---------------------------------|---------------------------------------------|
-| 0     | Weighted mean (Nadaraya-Watson) | Standard Gaussian smoothing                 |
-| 1     | Plane (`c₀ + c₁x + c₂y`)       | Smoothing robust to local linear trends     |
-| 2     | Quadratic surface (6 terms)     | Smoothing robust to local curvature         |
-
-For order 0, the computation reduces to two separable FFT convolutions (fast). For orders 1 and 2, a
-weighted least-squares system is solved per pixel using moment-sums precomputed via convolution (a 2D
-Savitzky-Golay approach). Order 2 uses a slightly different `α` (`ALPHA_REGRESSION ≈ 0.731`) to
-preserve the filter's frequency properties.
+| Order | Behaviour                         | Use case                                |
+|-------|-----------------------------------|-----------------------------------------|
+| 0     | Weighted mean                     | Standard Gaussian smoothing             |
+| 1     | Plane fit subtracted locally      | Smoothing robust to local linear trends |
+| 2     | Quadratic surface fit subtracted  | Smoothing robust to local curvature     |
 
 ### 1D striation-preserving filter
 
 `apply_striation_preserving_filter_1d` applies the Gaussian filter **only along the y-axis** (across
 rows), leaving the x-direction (along striations) untouched. This preserves the striation signal while
-removing cross-striation shape and noise. Border rows affected by edge effects (±σ pixels top/bottom)
-are optionally cropped.
+removing cross-striation shape and noise. Border rows affected by edge effects are optionally cropped.
 
 ### High-pass and band-pass
 
-Both 1D and 2D variants support `is_high_pass=True`, which returns `data - smoothed` (i.e. the
-residual after subtracting the lowpass component). A band-pass is obtained by chaining two high-pass
-filters sequentially: highpass at `λ_high` followed by lowpass at `λ_low`. This is mathematically
-equivalent to a Difference of Gaussians (DoG) filter with parameters `t₁ = σ_high` and
-`t₂ = √(σ_low² + σ_high²)`.
+Both 1D and 2D variants support `is_high_pass=True`, which returns the residual after subtracting the
+lowpass component. A band-pass is obtained by chaining a highpass filter (to remove large-scale form)
+followed by a lowpass filter (to remove high-frequency noise), passing only the frequency band between
+the two cutoffs.
 
 ## Leveling
 
@@ -172,7 +160,7 @@ iteratively:
 5. Apply a **shear transform** (shift each column by `tan(θ) × column_index`) to bring striations
    horizontal, accumulate the total angle, and repeat until `|θ| < 0.1°`.
 
-This uses a shear (not a rotation) to preserve pixel scale and avoid interpolation artefacts across
+This uses a shear (not a rotation) to preserve pixel scale and avoid interpolation artifacts across
 the full image width.
 
 **3. Profile extraction**
@@ -247,15 +235,15 @@ scale factors.
 
 **Output metrics** (`StriationComparisonResults`):
 
-| Field                              | Description                                                |
-|------------------------------------|------------------------------------------------------------|
-| `correlation_coefficient`          | Pearson correlation of the aligned overlap (primary score) |
-| `overlap_ratio`                    | Overlap length / length of the shorter profile             |
-| `scale_factor`                     | Relative scale difference between the two marks            |
-| `sa_ref`, `sa_comp`                | ISO 25178 mean absolute roughness of each overlap region   |
-| `sq_ref`, `sq_comp`                | RMS roughness of each overlap region                       |
-| `sa_diff`, `sq_diff`               | Roughness of the difference profile (ref − comp)           |
-| `ds_normalized_ref/comp/combined`  | Normalized signature differences (0 = identical, 1 = max) |
+| Field                             | Description                                                |
+|-----------------------------------|------------------------------------------------------------|
+| `correlation_coefficient`         | Pearson correlation of the aligned overlap (primary score) |
+| `overlap_ratio`                   | Overlap length / length of the shorter profile             |
+| `scale_factor`                    | Relative scale difference between the two marks            |
+| `sa_ref`, `sa_comp`               | ISO 25178 mean absolute roughness of each overlap region   |
+| `sq_ref`, `sq_comp`               | RMS roughness of each overlap region                       |
+| `sa_diff`, `sq_diff`              | Roughness of the difference profile (ref − comp)           |
+| `ds_normalized_ref/comp/combined` | Normalized signature differences (0 = identical, 1 = max)  |
 
 ---
 
@@ -301,14 +289,14 @@ scale factors.
 
 **Output** (`ComparisonResult`):
 
-| Field                      | Description                                             |
-|----------------------------|---------------------------------------------------------|
-| `cells`                    | Per-cell results: score, angle, positions, `is_congruent` |
-| `cmc_count`                | Number of congruent cells (primary score)               |
-| `cmc_fraction`             | `cmc_count / total_cells`                               |
-| `cmc_area_fraction`        | Fraction of valid reference surface in congruent cells  |
-| `consensus_rotation`       | Estimated global rotation between the two marks (°)     |
-| `consensus_translation`    | Estimated global translation between the two marks (m)  |
+| Field                   | Description                                                   |
+|-------------------------|---------------------------------------------------------------|
+| `cells`                 | Per-cell results: score, angle, positions, `is_congruent`     |
+| `cmc_count`             | Number of congruent cells (primary score)                     |
+| `cmc_fraction`          | `cmc_count / total_cells`                                     |
+| `cmc_area_fraction`     | Fraction of valid reference surface in congruent cells        |
+| `consensus_rotation`    | Estimated global rotation between the two marks (°)           |
+| `consensus_translation` | Estimated global translation between the two marks (m)        |
 
 Use `ComparisonParams.for_mark_type(mark_type)` to get the correct default cell size for the mark type.
 Default cell sizes: 450 × 450 μm for breech face, 125 × 125 μm for all other impression types.
