@@ -174,14 +174,13 @@ class Mask(ImageMutation):
         """
         self.mask = mask
 
-    @property
-    def skip_predicate(self) -> bool:
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
         """
         Determine whether the masking operation can be skipped.
 
         If the mask contains no masked pixels (i.e. all values are `True`),
         applying the mask would have no effect and the mutation is skipped.
-
+        :param scan_image: Input ScanImage to resample.
         :returns: bool `True` if the mutation can be skipped, otherwise `False`.
         """
         if self.mask.all():
