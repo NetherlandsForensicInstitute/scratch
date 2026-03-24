@@ -13,8 +13,7 @@ class TestBaseMutations:
         return ScanImage(data=np.zeros((2, 2)), scale_x=1, scale_y=1)
 
     class FakeMutation(ImageMutation):
-        @property
-        def skip_predicate(self) -> bool:
+        def skip_predicate(self, scan_image: ScanImage) -> bool:
             return self.var == 3
 
         def __init__(self, var: int) -> None:

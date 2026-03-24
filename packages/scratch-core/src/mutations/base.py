@@ -102,8 +102,7 @@ class ImageMutation(ABC):
     the constructor.
     """
 
-    @property
-    def skip_predicate(self) -> bool:
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
         """
         Determines whether this mutation should be skipped.
 
@@ -129,7 +128,7 @@ class ImageMutation(ABC):
         :return ScanImage:
             The resulting `ScanImage`.
         """
-        if self.skip_predicate:
+        if self.skip_predicate(scan_image):
             return scan_image
         return self.apply_on_image(scan_image=scan_image)
 
