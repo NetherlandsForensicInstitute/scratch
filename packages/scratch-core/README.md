@@ -3,6 +3,31 @@
 Core library for forensic ballistics analysis, developed at the Netherlands Forensic Institute (NFI).
 Provides algorithms for comparing toolmarks on bullets (striations) and cartridge cases (impressions).
 
+## Repository context
+
+`scratch-core` is the algorithmic engine of the `scratch` repository. The repository also contains a
+FastAPI service (`src/`) that exposes the core functionality as HTTP endpoints:
+
+```
+Raw scan file
+    │
+    ▼
+POST /preprocessor/prepare_mark_{striation|impression}
+    │   Parse scan, apply user mask/crop, run preprocessing pipeline
+    │   → saves preprocessed mark files to a vault
+    ▼
+POST /processor/calculate_score_{striation|impression}
+    │   Load preprocessed marks, run profile correlation or CMC comparison
+    │   → returns score, per-cell results, and plot URLs
+    ▼
+POST /processor/calculate_lr_{striation|impression}
+        Load score, apply LR system
+        → returns log-LR with confidence interval
+```
+
+All algorithmic work (filtering, leveling, profile correlation, CMC) is implemented in `scratch-core`.
+The API layer in `src/` handles file I/O, HTTP plumbing, and vault management.
+
 ## Package Structure
 
 ```
