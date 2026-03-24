@@ -90,9 +90,9 @@ class TestClassifyCongruentCells:
 
         expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
         if np.isnan(expected_rotation):
-            assert np.isnan(result.consensus_rotation), (
+            assert np.isnan(result.shared_rotation), (
                 f"[{matlab_test_case['name']}] Expected NaN consensus rotation, "
-                f"got {result.consensus_rotation}"
+                f"got {result.shared_rotation}"
             )
         else:
             np.testing.assert_allclose(

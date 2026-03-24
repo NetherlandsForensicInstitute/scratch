@@ -1,3 +1,5 @@
+from typing import Sequence
+
 import numpy as np
 from itertools import combinations
 
@@ -9,7 +11,7 @@ from conversion.surface_comparison.models import (
 
 
 def classify_congruent_cells_consensus(
-    cells: list[Cell], params: ComparisonParams, reference_center: list[float]
+    cells: list[Cell], params: ComparisonParams, reference_center: tuple[float, float]
 ) -> ComparisonResult:
     """
     Identify Congruent Matching Cells (CMCs) using a consensus-based procedure using Procrustes rotation and translation
@@ -204,7 +206,9 @@ def _calculate_criterion(
 
 def _get_cell_angle_and_position_distances(
     included_idx: list[int],
-    cells: list[Cell],
+    cells: Sequence[
+        Cell
+    ],  # we use Sequence here for test mocking, where Cell is replaced by MagicMock which is allowed for Sequence but not for list
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate cell_distances and cell_angle_distances for all cells after finding consensus parameters.
@@ -231,7 +235,7 @@ def _get_cell_angle_and_position_distances(
 
 
 def _find_consensus_parameters(
-    cells: list[Cell],
+    cells: Sequence[Cell],
 ) -> tuple[tuple[float, float], float, tuple[float, float], tuple[float, float]]:
     """Least-squares 'Procrustes' rotation fit to find consensus rotation and translation parameters.
 
@@ -325,7 +329,7 @@ def _get_rotation_component_using_rotation_matrix(
 
 
 def _get_distances(
-    cells: list[Cell],
+    cells: Sequence[Cell],
     consensus_rotation_rad: float,
     rotation_center_reference: tuple[float, float],
     rotation_center_comparison: tuple[float, float],
@@ -394,7 +398,7 @@ def _build_2d_rotation_matrix(angle_rad: float) -> np.ndarray:
 
 
 def _predict_positions(
-    cells: list[Cell],
+    cells: Sequence[Cell],
     consensus_rotation_rad: float,
     rotation_center_reference: tuple[float, float],
     rotation_center_comparison: tuple[float, float],
@@ -426,7 +430,7 @@ def _predict_positions(
 
 
 def _get_distances_meters(
-    cells: list[Cell],
+    cells: Sequence[Cell],
     predicted_positions: np.ndarray,
 ) -> list[float]:
     """Calculate Euclidean distances of cells' comparison centers to predicted positions.

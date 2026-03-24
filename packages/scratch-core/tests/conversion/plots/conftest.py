@@ -300,8 +300,8 @@ def impression_overview_cmc_result(
 ) -> ComparisonResult:
     return ComparisonResult(
         cells=impression_overview_cells,
-        consensus_rotation=2.5,
-        consensus_translation=(8 * micro, -6 * micro),
+        shared_rotation=2.5,
+        shared_translation=(8 * micro, -6 * micro),
     )
 
 

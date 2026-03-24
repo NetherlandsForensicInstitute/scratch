@@ -14,8 +14,6 @@ from conversion.surface_comparison.grid import GridCell, generate_grid
 from conversion.surface_comparison.models import (
     ComparisonParams,
     GridSearchParams,
-    Cell,
-    ComparisonResult,
 )
 from conversion.surface_comparison.pipeline import compare_surfaces, ProcessedMark
 import numpy as np
@@ -98,9 +96,7 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
 )
 def test_coarse_registration_finds_angle(
     angle: float,
-    classification_function: Callable[
-        [list[Cell], ComparisonParams, tuple[float, float]], ComparisonResult
-    ],
+    classification_function: Callable,
     plot: bool = False,
 ):
     # Arrange
