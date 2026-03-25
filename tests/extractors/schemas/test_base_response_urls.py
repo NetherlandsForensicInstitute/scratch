@@ -5,13 +5,12 @@ import pytest
 from pydantic import Field, HttpUrl, ValidationError
 
 import extractors.schemas as schemas_module
-from extractors.constants import LRFiles
 from extractors.schemas import (
-    LRResponse,
-    LRResponseURL,
     SupportedExtension,
-    URLContainer,
 )
+from processors.constants import LRFiles
+from processors.schemas import LRResponse, LRResponseURL
+from schemas import URLContainer
 
 _EMPTY_LR_STATS = {
     "lr_lower_ci": None,
@@ -94,7 +93,7 @@ class TestLRResponse:
     @pytest.fixture
     def lr_response(self) -> LRResponse:
         """LRResponse instance with a valid LRResponseURL and a non-zero lr value."""
-        return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL), lr=2.5, **_EMPTY_LR_STATS)
+        return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL), llr=2.5, **_EMPTY_LR_STATS)
 
     def test_serialized_output_is_flat(self, lr_response: LRResponse) -> None:
         """model_dump produces a flat dict with no nested 'urls' key."""
@@ -114,6 +113,6 @@ class TestLRResponse:
         with pytest.raises(ValidationError):
             LRResponse(
                 urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL),
-                lr="not-a-number",  # pyright: ignore[reportArgumentType]
+                llr="not-a-number",  # pyright: ignore[reportArgumentType]
                 **_EMPTY_LR_STATS,
             )
