@@ -23,7 +23,8 @@ def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> 
     Parse a scan file and load it as a ScanImage.
 
     :param scan_file: The path to the scan file to parse.
-    :param parameters: All parameters used in the pipeline.
+    :param step_size_x: The number of steps to skip in the X-direction.
+    :param step_size_y: The number of steps to skip in the Y-direction.
     :return: The parsed scan image data.
     """
     scan_image = subsample_scan_image(ScanImage.from_file(scan_file), step_size_x=step_size_x, step_size_y=step_size_y)
@@ -71,7 +72,8 @@ def surface_map_pipeline(  # noqa
 
     :param parsed_scan: The scan image data to generate a surface map from.
     :param output_path: The file path where the surface map image will be saved.
-    :param parameters: All parameters used in the pipeline.
+    :param light_sources: Iterable of LightSource objects representing directional lights.
+    :param observer: LightSource representing the observer/camera position.
     :return: The path to the saved surface map image file.
     """
     surface_scan_image = parsed_scan.model_copy()

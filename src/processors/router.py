@@ -78,7 +78,7 @@ async def processor_root() -> RedirectResponse:
 )
 async def calculate_score_impression(impression_params: CalculateScoreImpression) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
-    logger.debug("starting calculate score striation")
+    logger.debug("starting calculate score impression")
     vault = create_vault(impression_params.tag)
 
     try:
@@ -94,7 +94,7 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
 
     try:
         cmc_result = compare_surfaces(
-            refence_mark=mark_ref_processed,
+            reference_mark=mark_ref_processed,
             comparison_mark=mark_comp_processed,
             params=impression_params.comparison_params,
         )
