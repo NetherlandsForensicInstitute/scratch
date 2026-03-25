@@ -74,7 +74,7 @@ def create_scaled_profiles(
     comp_data = interp(x_scaled)
     return (
         Profile(heights=base.copy(), pixel_size=PIXEL_SIZE_M),
-        Profile(heights=comp_data, pixel_size=PIXEL_SIZE_M),
+        Profile(heights=comp_data.astype(float), pixel_size=PIXEL_SIZE_M),
     )
 
 

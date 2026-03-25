@@ -101,7 +101,7 @@ def _shift_profile(profile: Profile, shift_samples: float) -> Profile:
     rng = np.random.default_rng()
     new_data += rng.normal(0, np.nanstd(data) * 0.01, n)
 
-    return Profile(heights=new_data, pixel_size=profile.pixel_size)
+    return Profile(heights=new_data.astype(float), pixel_size=profile.pixel_size)
 
 
 def _striation_mark(profile: Profile, n_cols: int = 50) -> Mark:

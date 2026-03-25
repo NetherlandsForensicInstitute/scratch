@@ -200,4 +200,4 @@ def make_shifted_profile(
     # Add a small amount of noise
     new_data += np.random.normal(0, np.nanstd(data) * 0.01, n)
 
-    return Profile(heights=new_data, pixel_size=profile.pixel_size)
+    return Profile(heights=new_data.astype(float), pixel_size=profile.pixel_size)
