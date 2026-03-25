@@ -1,12 +1,15 @@
+import json
 from dataclasses import asdict
+from http import HTTPStatus
 
 from conversion.export.mark import load_mark_from_path, save_mark
 from conversion.export.profile import load_profile_from_path
 from conversion.surface_comparison.models import ProcessedMark
 from conversion.surface_comparison.pipeline import compare_surfaces
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 from loguru import logger
+from pydantic import ValidationError
 
 from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
 from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
@@ -67,23 +70,37 @@ async def processor_root() -> RedirectResponse:
     The score, together with plots, are saved and made available via URLs.
     """,
     include_in_schema=False,
+    responses={
+        HTTPStatus.NOT_FOUND: {"description": "mark file not found"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data or comparison failed"},
+    },
 )
 async def calculate_score_impression(impression_params: CalculateScoreImpression) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
     logger.debug("starting calculate score striation")
     vault = create_vault(impression_params.tag)
 
-    mark_ref = load_mark_from_path(path=impression_params.mark_dir_ref, stem="processed")
-    mark_ref_raw = load_mark_from_path(path=impression_params.mark_dir_ref, stem="mark")
+    try:
+        mark_ref = load_mark_from_path(path=impression_params.mark_dir_ref, stem="processed")
+        mark_ref_raw = load_mark_from_path(path=impression_params.mark_dir_ref, stem="mark")
+        mark_comp = load_mark_from_path(path=impression_params.mark_dir_comp, stem="processed")
+        mark_comp_raw = load_mark_from_path(path=impression_params.mark_dir_comp, stem="mark")
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
+    except (ValueError, json.JSONDecodeError, KeyError, ValidationError) as e:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
     mark_ref_processed = ProcessedMark(mark_ref, mark_ref_raw)
-    mark_comp = load_mark_from_path(path=impression_params.mark_dir_comp, stem="processed")
-    mark_comp_raw = load_mark_from_path(path=impression_params.mark_dir_comp, stem="mark")
     mark_comp_processed = ProcessedMark(mark_comp, mark_comp_raw)
     logger.debug("marks loaded")
 
-    cmc_result = compare_surfaces(
-        refence_mark=mark_ref_processed, comparison_mark=mark_comp_processed, params=impression_params.comparison_params
-    )
+    try:
+        cmc_result = compare_surfaces(
+            refence_mark=mark_ref_processed,
+            comparison_mark=mark_comp_processed,
+            params=impression_params.comparison_params,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
     logger.debug("CMC is calculated")
 
     save_impression_comparison_plots(
@@ -122,17 +139,25 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     The score, together with plots, are saved and made available via URLs.
     """,
     responses={
-        422: {"description": "Profiles could not be aligned due to insufficient overlap"},
+        HTTPStatus.NOT_FOUND: {"description": "mark or profile file not found"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "description": "invalid mark data or profiles could not be aligned due to insufficient overlap"
+        },
     },
 )
 async def calculate_score_striation(striation_params: CalculateScore) -> ComparisonResponseStriation:
     """Compare two striation profiles."""
     logger.debug("starting calculate score striation")
     vault = create_vault(striation_params.tag)
-    mark_ref = load_mark_from_path(path=striation_params.mark_dir_ref, stem="processed")
-    mark_comp = load_mark_from_path(path=striation_params.mark_dir_comp, stem="processed")
-    profile_ref = load_profile_from_path(path=striation_params.mark_dir_ref, stem="profile")
-    profile_comp = load_profile_from_path(path=striation_params.mark_dir_comp, stem="profile")
+    try:
+        mark_ref = load_mark_from_path(path=striation_params.mark_dir_ref, stem="processed")
+        mark_comp = load_mark_from_path(path=striation_params.mark_dir_comp, stem="processed")
+        profile_ref = load_profile_from_path(path=striation_params.mark_dir_ref, stem="profile")
+        profile_comp = load_profile_from_path(path=striation_params.mark_dir_comp, stem="profile")
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
+    except (ValueError, json.JSONDecodeError, KeyError, ValidationError) as e:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
     logger.debug("marks & profiles loaded")
     comparison_result = compare_striation_marks(
         mark_ref=mark_ref, mark_comp=mark_comp, profile_ref=profile_ref, profile_comp=profile_comp
@@ -190,11 +215,20 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     using the provided score and path to the LR system.
     The LR value, together with plots, are saved and made available via URLs.
     """,
+    responses={
+        HTTPStatus.NOT_FOUND: {"description": "mark file or LR system not found"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data or LR system could not be loaded"},
+    },
 )
 async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse:
     """Calculate likelihood ratio for impression mark comparison."""
     vault = create_vault(lr_input.tag)
-    result = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
+    try:
+        result = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
         lr=result.log_lr,
@@ -211,11 +245,20 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
     using the provided score and path to the LR system.
     The LR value, together with plots, are saved and made available via URLs.
     """,
+    responses={
+        HTTPStatus.NOT_FOUND: {"description": "mark file or LR system not found"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data or LR system could not be loaded"},
+    },
 )
 async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     """Calculate likelihood ratio for striation mark comparison."""
     vault = create_vault(lr_input.tag)
-    result = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
+    try:
+        result = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
         lr=result.log_lr,
