@@ -144,3 +144,23 @@ class TestProcessScan:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         error_detail = response.json()["detail"]
         assert any("scan_file" in str(err) for err in error_detail)
+
+
+def test_process_scan_returns_422_on_parse_error(
+    client: TestClient,
+    upload_scan: UploadScan,
+    directory_access,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a scan file that fails to parse returns 422 with a descriptive message."""
+
+    def raise_error(*args):
+        raise Exception("simulated parse failure")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        mp.setattr("preprocessors.router.parse_scan_pipeline", raise_error)
+        response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "could not parse scan file" in response.json()["detail"]

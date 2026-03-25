@@ -211,6 +211,26 @@ class TestPrepareMarkEndpoint:
             # TODO: retrieve tag and token from url and find file in vault to ensure correctness
 
 
+_MARK_ENDPOINT_CASES = [
+    pytest.param(
+        PreprocessorEndpoint.PREPARE_MARK_STRIATION,
+        PrepareMarkStriation,
+        PreprocessingStriationParams,
+        MarkType.APERTURE_SHEAR_STRIATION,
+        "preprocessors.router.process_prepare_striation_mark",
+        id="striation mark",
+    ),
+    pytest.param(
+        PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
+        PrepareMarkImpression,
+        PreprocessingImpressionParams,
+        MarkType.CHAMBER_IMPRESSION,
+        "preprocessors.router.process_prepare_impression_mark",
+        id="impression mark",
+    ),
+]
+
+
 @pytest.mark.parametrize(
     ("endpoint", "schema", "mark_parameters", "mark_type"),
     [
@@ -256,6 +276,134 @@ def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
         response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=wrong_mask)
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "schema", "mark_parameters", "mark_type", "controller_function"),
+    _MARK_ENDPOINT_CASES,
+)
+def test_prepare_mark_returns_422_on_scan_parse_error(
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mask: BinaryMask,
+    endpoint: PreprocessorEndpoint,
+    schema: type[PrepareMarkImpression | PrepareMarkStriation],
+    mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+    mark_type: MarkType,
+    controller_function: str,
+) -> None:
+    """Test that a 422 is returned when the scan file cannot be parsed."""
+    payload = schema(
+        project_name="test_project",
+        mark_type=mark_type,
+        scan_file=scan_directory / "circle.x3p",
+        mark_parameters=mark_parameters(),  # type: ignore
+        bounding_box_list=[],
+    ).model_dump(mode="json")
+
+    def raise_error(*args):
+        raise Exception("simulated parse failure")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        mp.setattr("preprocessors.router.parse_scan_pipeline", raise_error)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "could not parse scan file" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "schema", "mark_parameters", "mark_type", "controller_function"),
+    _MARK_ENDPOINT_CASES,
+)
+def test_prepare_mark_returns_422_on_processing_error(
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mask: BinaryMask,
+    endpoint: PreprocessorEndpoint,
+    schema: type[PrepareMarkImpression | PrepareMarkStriation],
+    mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+    mark_type: MarkType,
+    controller_function: str,
+) -> None:
+    """Test that a 422 is returned when mark processing raises a ValueError."""
+    payload = schema(
+        project_name="test_project",
+        mark_type=mark_type,
+        scan_file=scan_directory / "circle.x3p",
+        mark_parameters=mark_parameters(),  # type: ignore
+        bounding_box_list=[],
+    ).model_dump(mode="json")
+
+    def raise_value_error(*args, **kwargs):
+        raise ValueError("processing failed: empty mask")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        mp.setattr(controller_function, raise_value_error)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "processing failed" in response.json()["detail"]
+
+
+def test_edit_scan_returns_422_on_scan_parse_error(
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mask: BinaryMask,
+) -> None:
+    """Test that a 422 is returned when the scan file for edit-scan cannot be parsed."""
+    params = EditImage(
+        project_name="test",
+        scan_file=scan_directory / "circle.x3p",
+        cutoff_length=2 * micro,
+        terms=SurfaceOptions.PLANE,
+    ).model_dump(mode="json")
+
+    def raise_error(*args):
+        raise Exception("simulated parse failure")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        mp.setattr("preprocessors.router.parse_scan_pipeline", raise_error)
+        response = send_post_request_with_mask(client=client, endpoint="edit-scan", params=params, mask=mask)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "could not parse scan file" in response.json()["detail"]
+
+
+def test_edit_scan_returns_422_on_edit_error(
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mask: BinaryMask,
+) -> None:
+    """Test that a 422 is returned when edit_scan_image raises a ValueError."""
+    params = EditImage(
+        project_name="test",
+        scan_file=scan_directory / "circle.x3p",
+        cutoff_length=2 * micro,
+        terms=SurfaceOptions.PLANE,
+    ).model_dump(mode="json")
+
+    def raise_value_error(*args, **kwargs):
+        raise ValueError("edit processing failed")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        mp.setattr("preprocessors.router.edit_scan_image", raise_value_error)
+        response = send_post_request_with_mask(client=client, endpoint="edit-scan", params=params, mask=mask)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "edit processing failed" in response.json()["detail"]
 
 
 @pytest.mark.usefixtures("tmp_dir_api")

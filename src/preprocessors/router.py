@@ -95,8 +95,7 @@ async def preprocessor_root() -> RedirectResponse:
 """,
     response_description="Download URLs for the generated X3P scan, preview image, and surface map.",
     responses={
-        HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "could not parse scan file"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "scan file not found or could not be parsed"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
@@ -114,8 +113,6 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     vault = create_vault(upload_scan.tag)
     try:
         parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=f"could not parse scan file: {e}")
     parsed_scan.save_as_x3p(ProcessFiles.scan_image.get_file_path(vault.resource_path))
@@ -141,9 +138,9 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     The mask must have exactly the same shape (height × width) as the parsed scan image.
     """,
     responses={
-        HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
         HTTPStatus.UNPROCESSABLE_ENTITY: {
-            "description": "mask shape does not match image shape, or mark processing failed"
+            "description": "scan file not found or could not be parsed, "
+            "mask shape does not match image shape, or mark processing failed"
         },
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
@@ -156,8 +153,6 @@ async def prepare_mark_impression(
     vault = create_vault(params.tag)
     try:
         parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=f"could not parse scan file: {e}")
 
@@ -198,9 +193,9 @@ async def prepare_mark_impression(
     The mask must have exactly the same shape (height × width) as the parsed scan image.
     """,
     responses={
-        HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
         HTTPStatus.UNPROCESSABLE_ENTITY: {
-            "description": "mask shape does not match image shape, or mark processing failed"
+            "description": "scan file not found or could not be parsed, "
+            "mask shape does not match image shape, or mark processing failed"
         },
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
@@ -213,8 +208,6 @@ async def prepare_mark_striation(
     vault = create_vault(params.tag)
     try:
         parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=f"could not parse scan file: {e}")
 
@@ -255,9 +248,9 @@ async def prepare_mark_striation(
     Note: Image generation is currently not implemented.
 """,
     responses={
-        HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
         HTTPStatus.UNPROCESSABLE_ENTITY: {
-            "description": "mask shape does not match image shape, or could not parse scan file"
+            "description": "scan file not found or could not be parsed, "
+            "mask shape does not match image shape, or edit processing failed"
         },
         HTTPStatus.INTERNAL_SERVER_ERROR: {
             "description": "processing error",
@@ -277,8 +270,6 @@ async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: by
     logger.debug(f"Working directory created on: {vault.resource_path}")
     try:
         parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=f"could not parse scan file: {e}")
 

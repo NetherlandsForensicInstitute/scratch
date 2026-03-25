@@ -90,7 +90,86 @@ class TestMarkStriation:
             assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
 
 
+def _dummy_metadata() -> MarkMetadata:
+    return MarkMetadata(case_id="c", firearm_id="f", specimen_id="s", measurement_id="m", mark_id="mk")
+
+
+def _default_comparison_params() -> ComparisonParams:
+    return ComparisonParams(
+        cell_size=(50e-6, 50e-6),
+        search_angle_min=-5.0,
+        search_angle_max=5.0,
+        search_angle_step=5.0,
+        correlation_threshold=0.2,
+        minimum_fill_fraction=0.1,
+        angle_deviation_threshold=10.0,
+        position_threshold=0.001,
+    )
+
+
+def test_calculate_score_striation_returns_422_on_missing_file(
+    client: TestClient,
+    mark_dirs: tuple[Path, Path],
+) -> None:
+    """Test that a missing mark or profile file returns 422."""
+    mark_dir_ref, mark_dir_comp = mark_dirs
+    json_data = CalculateScore(
+        mark_dir_ref=mark_dir_ref,
+        mark_dir_comp=mark_dir_comp,
+        metadata_reference=_dummy_metadata(),
+        metadata_compared=_dummy_metadata(),
+    ).model_dump(mode="json")
+
+    with patch("processors.router.load_mark_from_path", side_effect=FileNotFoundError("mark not found")):
+        response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "mark not found" in response.json()["detail"]
+
+
 class TestMarkImpression:
+    def test_calculate_score_impression_returns_422_on_missing_file(
+        self,
+        client: TestClient,
+        impression_mark_dirs: tuple[Path, Path],
+    ) -> None:
+        """Test that a missing mark file returns 422."""
+        mark_dir_ref, mark_dir_comp = impression_mark_dirs
+        json_data = CalculateScoreImpression(
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
+            comparison_params=_default_comparison_params(),
+            metadata_reference=_dummy_metadata(),
+            metadata_compared=_dummy_metadata(),
+        ).model_dump(mode="json")
+
+        with patch("processors.router.load_mark_from_path", side_effect=FileNotFoundError("mark not found")):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "mark not found" in response.json()["detail"]
+
+    def test_calculate_score_impression_returns_422_on_comparison_error(
+        self,
+        client: TestClient,
+        impression_mark_dirs: tuple[Path, Path],
+    ) -> None:
+        """Test that a ValueError from compare_surfaces returns 422."""
+        mark_dir_ref, mark_dir_comp = impression_mark_dirs
+        json_data = CalculateScoreImpression(
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
+            comparison_params=_default_comparison_params(),
+            metadata_reference=_dummy_metadata(),
+            metadata_compared=_dummy_metadata(),
+        ).model_dump(mode="json")
+
+        with patch("processors.router.compare_surfaces", side_effect=ValueError("no overlap")):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "no overlap" in response.json()["detail"]
+
     @pytest.mark.integration
     def test_calculate_impression_mark(
         self,
@@ -167,6 +246,14 @@ class TestMarkImpression:
 
 
 class TestCalculateLRImpression:
+    def test_returns_422_on_error(self, client: TestClient, impression_kwargs: dict) -> None:
+        """Test that an exception from the LR pipeline returns 422."""
+        with patch("processors.router.process_lr_impression", side_effect=RuntimeError("LR system failure")):
+            json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
+            response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "LR system failure" in response.json()["detail"]
+
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
         self, client: TestClient, tmp_dir_api: None, impression_kwargs: dict, impression_reference_data: ModelSpecs
@@ -182,6 +269,14 @@ class TestCalculateLRImpression:
 
 
 class TestCalculateLRStriation:
+    def test_returns_422_on_error(self, client: TestClient, striation_kwargs: dict) -> None:
+        """Test that an exception from the LR pipeline returns 422."""
+        with patch("processors.router.process_lr_striation", side_effect=RuntimeError("LR system failure")):
+            json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
+            response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "LR system failure" in response.json()["detail"]
+
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
         self, client: TestClient, tmp_dir_api: None, striation_kwargs: dict, striation_reference_data: ModelSpecs
