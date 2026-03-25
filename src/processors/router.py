@@ -11,6 +11,7 @@ from loguru import logger
 from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
 from file_services import create_vault
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
+from processors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from processors.controller import (
     compare_striation_marks,
     process_lr_impression,
@@ -23,9 +24,6 @@ from processors.schemas import (
     CalculateLRStriation,
     CalculateScore,
     CalculateScoreImpression,
-)
-from response_constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
-from response_models import (
     ComparisonResponseImpression,
     ComparisonResponseImpressionURL,
     ComparisonResponseStriation,
@@ -81,7 +79,9 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     logger.debug("marks loaded")
 
     cmc_result = compare_surfaces(
-        refence_mark=mark_ref_processed, comparison_mark=mark_comp_processed, params=impression_params.comparison_params
+        reference_mark=mark_ref_processed,
+        comparison_mark=mark_comp_processed,
+        params=impression_params.comparison_params,
     )
     logger.debug("CMC is calculated")
 
@@ -155,7 +155,7 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     )
     surface_map_pipeline(
         comparison_result.mark_reference_aligned.scan_image,
-        ComparisonStriationFiles.mark_reference_aligned_surfacemap.get_file_path(vault.resource_path),
+        ComparisonStriationFiles.mark_reference_aligned_surface_map.get_file_path(vault.resource_path),
         LIGHT_SOURCES,
         OBSERVER,
     )
@@ -165,7 +165,7 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     )
     surface_map_pipeline(
         comparison_result.mark_compared_aligned.scan_image,
-        ComparisonStriationFiles.mark_compared_aligned_surfacemap.get_file_path(vault.resource_path),
+        ComparisonStriationFiles.mark_compared_aligned_surface_map.get_file_path(vault.resource_path),
         LIGHT_SOURCES,
         OBSERVER,
     )

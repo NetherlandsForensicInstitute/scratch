@@ -14,28 +14,25 @@ from constants import (
 )
 from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
-from response_constants import (
-    GeneratedImageFiles,
-    PrepareMarkImpressionFiles,
-    PrepareMarkStriationFiles,
-    ProcessFiles,
-)
-from response_models import (
-    GeneratedImages,
-    PrepareMarkResponseImpression,
-    PrepareMarkResponseStriation,
-    ProcessedDataAccess,
-)
 
+from .constants import GeneratedImageFiles, PrepareMarkImpressionFiles, PrepareMarkStriationFiles, ProcessFiles
 from .exceptions import ArrayShapeMismatchError
 from .pipelines import (
     parse_mask_pipeline,
     parse_scan_pipeline,
     preview_pipeline,
     surface_map_pipeline,
-    x3p_pipeline,
 )
-from .schemas import EditImage, PrepareMarkImpression, PrepareMarkStriation, UploadScan
+from .schemas import (
+    EditImage,
+    GeneratedImages,
+    PrepareMarkImpression,
+    PrepareMarkResponseImpression,
+    PrepareMarkResponseStriation,
+    PrepareMarkStriation,
+    ProcessedDataAccess,
+    UploadScan,
+)
 
 preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[RoutePrefix.PREPROCESSOR])
 
@@ -112,7 +109,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     """
     vault = create_vault(upload_scan.tag)
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
-    x3p_pipeline(parsed_scan, ProcessFiles.scan_image.get_file_path(vault.resource_path))
+    parsed_scan.save_as_x3p(ProcessFiles.scan_image.get_file_path(vault.resource_path))
     surface_map_pipeline(
         parsed_scan, ProcessFiles.surface_map_image.get_file_path(vault.resource_path), LIGHT_SOURCES, OBSERVER
     )

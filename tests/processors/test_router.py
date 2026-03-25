@@ -1,8 +1,10 @@
 from http import HTTPStatus
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from conversion.data_formats import MarkMetadata
+from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
 from conversion.surface_comparison.models import ComparisonParams
 from fastapi.testclient import TestClient
 from pydantic import HttpUrl
@@ -42,9 +44,9 @@ class TestMarkStriation:
             "comparison_overview",
             "filtered_compared_heatmap",
             "filtered_reference_heatmap",
-            "mark_reference_aligned_surfacemap",
+            "mark_reference_aligned_surface_map",
             "mark_reference_aligned_preview",
-            "mark_compared_aligned_surfacemap",
+            "mark_compared_aligned_surface_map",
             "mark_compared_aligned_preview",
         }
         expected_data = {
@@ -167,26 +169,28 @@ class TestMarkImpression:
 class TestCalculateLRImpression:
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
-        self,
-        client: TestClient,
-        tmp_dir_api: None,
-        impression_kwargs: dict,
+        self, client: TestClient, tmp_dir_api: None, impression_kwargs: dict, impression_reference_data: ModelSpecs
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
-        json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
-        response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
-        assert_lr_response_valid(client, response)
+        with (
+            patch("processors.controller.get_lr_system", return_value=DummyLRSystem()),
+            patch("processors.controller.get_reference_data_from_path", return_value=impression_reference_data),
+        ):
+            json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
+            response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
+            assert_lr_response_valid(client, response)
 
 
 class TestCalculateLRStriation:
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
-        self,
-        client: TestClient,
-        tmp_dir_api: None,
-        striation_kwargs: dict,
+        self, client: TestClient, tmp_dir_api: None, striation_kwargs: dict, striation_reference_data: ModelSpecs
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
-        json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
-        response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
-        assert_lr_response_valid(client, response)
+        with (
+            patch("processors.controller.get_lr_system", return_value=DummyLRSystem()),
+            patch("processors.controller.get_reference_data_from_path", return_value=striation_reference_data),
+        ):
+            json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
+            response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
+            assert_lr_response_valid(client, response)

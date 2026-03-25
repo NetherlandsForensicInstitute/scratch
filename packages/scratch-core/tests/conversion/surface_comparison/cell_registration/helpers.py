@@ -52,7 +52,7 @@ def make_surface(
         + rng.standard_normal((height, width)) * 0.05
     )
     if 0.0 < nan_ratio < 1:
-        surface[np.random.uniform(size=surface.shape) < nan_ratio] = np.nan
+        surface[rng.uniform(size=surface.shape) < nan_ratio] = np.nan
     return (surface * scale).astype(np.float64)
 
 

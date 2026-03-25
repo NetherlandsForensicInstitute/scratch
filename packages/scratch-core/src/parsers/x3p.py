@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import datetime as dt
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
@@ -71,7 +72,7 @@ def _set_record3_entries(x3p: X3Pfile, image: ScanImage) -> X3Pfile:
     return x3p
 
 
-def parse_to_x3p(image: ScanImage) -> X3Pfile:
+def convert_to_x3p(image: ScanImage) -> X3Pfile:
     """Convert ScanImage to X3Pfile."""
     file = X3Pfile()
     file = _set_record1_entries(file, image=image)
@@ -80,7 +81,7 @@ def parse_to_x3p(image: ScanImage) -> X3Pfile:
     return _set_record3_entries(file, image=image)
 
 
-def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
+def save_x3p(x3p: X3Pfile, output_path: Path) -> None:
     """
     Save an X3P file to disk.
 
@@ -91,4 +92,3 @@ def save_x3p(x3p: X3Pfile, output_path: Path) -> Path:
     """
 
     x3p.write(str(output_path))
-    return output_path

@@ -10,6 +10,7 @@ from conversion.plots.data_formats import StriationComparisonPlots
 from conversion.profile_correlator import Profile
 from fastapi import HTTPException
 
+from processors.constants import ComparisonImpressionFiles, ComparisonStriationFiles
 from processors.controller import (
     compare_striation_marks,
     save_impression_comparison_plots,
@@ -17,7 +18,6 @@ from processors.controller import (
     save_lr_striation_plot,
     save_striation_comparison_plots,
 )
-from response_constants import ComparisonImpressionFiles, ComparisonStriationFiles
 
 from ..helper_function import assert_valid_png, make_cell
 
@@ -107,8 +107,8 @@ class TestSaveComparisonPlots:
         )
 
         save_impression_comparison_plots(
-            mark_ref=Mock(leveled_mark=Mock(), filtered_mark=Mock()),
-            mark_comp=Mock(leveled_mark=Mock(), filtered_mark=Mock()),
+            mark_ref=Mock(raw_mark=Mock(), filtered_mark=Mock()),
+            mark_comp=Mock(raw_mark=Mock(), filtered_mark=Mock()),
             cmc_result=Mock(),
             comparison_params=Mock(),
             working_dir=tmp_path,
@@ -130,7 +130,7 @@ class TestSaveLrOverviewPlot:
         tmp_path: Path,
         mark_ref: Mark,
         mark_comp: Mark,
-        reference_data: ModelSpecs,
+        impression_reference_data: ModelSpecs,
         results_metadata: dict[str, str],
         metadata_reference: MarkMetadata,
         metadata_compared: MarkMetadata,
@@ -139,7 +139,7 @@ class TestSaveLrOverviewPlot:
         output = tmp_path / "lr_plot.png"
 
         save_lr_impression_plot(
-            reference_data=reference_data,
+            reference_data=impression_reference_data,
             mark_ref=mark_ref,
             mark_comp=mark_comp,
             cells=[
@@ -166,7 +166,7 @@ class TestSaveLrOverviewPlot:
         tmp_path: Path,
         mark_ref: Mark,
         mark_comp: Mark,
-        reference_data: ModelSpecs,
+        striation_reference_data: ModelSpecs,
         results_metadata: dict[str, str],
         metadata_reference: MarkMetadata,
         metadata_compared: MarkMetadata,
@@ -175,7 +175,7 @@ class TestSaveLrOverviewPlot:
         output = tmp_path / "lr_plot.png"
 
         save_lr_striation_plot(
-            reference_data=reference_data,
+            reference_data=striation_reference_data,
             mark_ref=mark_ref,
             mark_comp=mark_comp,
             mark_ref_aligned=mark_ref,
@@ -185,7 +185,7 @@ class TestSaveLrOverviewPlot:
             results_metadata=results_metadata,
             score=0.5,
             score_transformed=0.5,
-            reference_scores_transformed=reference_data.scores,
+            reference_scores_transformed=striation_reference_data.scores,
             lr=1.2,
             output_path=output,
         )

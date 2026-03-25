@@ -3,11 +3,22 @@ from pathlib import Path
 from typing import Self
 
 import numpy as np
+from PIL.Image import Image, fromarray
 from pydantic import Field
 from scipy.constants import micro
 
+from parsers import convert_to_x3p, save_x3p
 from parsers.loaders import _load_surface
-from .base import ConfigBaseModel, BinaryMask, FloatArray1D, DepthData
+
+from .base import (
+    BinaryMask,
+    ConfigBaseModel,
+    DepthData,
+    FloatArray1D,
+    FloatArray2D,
+    ImageRGBA,
+)
+from .models import NormalizationBounds
 
 
 class ScanImage(ConfigBaseModel):
@@ -53,6 +64,16 @@ class ScanImage(ConfigBaseModel):
         # TODO: Can we remove this?
         return self.width / 2 * self.scale_x, self.height / 2 * self.scale_y
 
+    def _to_pil_image(self, normalization_bounds: NormalizationBounds) -> Image:
+        """Get a rgba image from the scan data."""
+        return fromarray(
+            _grayscale_to_rgba(
+                scan_data=_normalize_2d_array(
+                    self.data, normalization_bounds=normalization_bounds
+                )
+            )
+        )
+
     @classmethod
     def from_file(cls, scan_file: Path) -> Self:
         """
@@ -71,3 +92,72 @@ class ScanImage(ConfigBaseModel):
             scale_y=step_y,
             meta_data=surface.metadata,
         )
+
+    def save_as_x3p(self, output_path: Path) -> None:
+        """
+        Convert a scan image to X3P format and save it to the specified path.
+
+        :param parsed_scan: The scan image data to convert to X3P format.
+        :param output_path: The file path where the X3P file will be saved.
+        """
+        save_x3p(convert_to_x3p(self), output_path=output_path)
+
+    def save_as_image(
+        self, output_path: Path, normalization_bounds: NormalizationBounds
+    ):
+        """
+        Convert ScanImage data to an Image and save it to the given output_path.
+
+        :param output_path: the given path to save the scan data.
+        :param normalization_bounds: the scaling needed for normalizing the ScanImage.
+        :return: the output path to where the image is saved.
+        """
+        self._to_pil_image(normalization_bounds=normalization_bounds).save(output_path)
+
+
+def _grayscale_to_rgba(scan_data: FloatArray2D) -> ImageRGBA:
+    """
+    Convert a 2D grayscale array to an 8-bit RGBA array.
+
+    The grayscale pixel values are assumed to be floating point values in the [0, 255] interval.
+    NaN values will be converted to black pixels with 100% transparency.
+
+    :param scan_data: The grayscale image data to be converted to an 8-bit RGBA image.
+    :returns: Array with the image data in 8-bit RGBA format.
+    """
+    gray_uint8 = np.nan_to_num(scan_data, nan=0.0).astype(np.uint8)
+    rgba = np.repeat(gray_uint8[..., np.newaxis], 4, axis=-1)
+    rgba[..., 3] = (~np.isnan(scan_data)).astype(np.uint8) * 255
+    return rgba
+
+
+def _normalize_2d_array(
+    array_to_normalize: FloatArray2D, normalization_bounds: NormalizationBounds
+) -> FloatArray2D:
+    """
+    Normalize a 2D intensity map to a specified output range.
+    The normalization is done by the steps:
+    1. apply min-max normalization to grayscale data
+    2. stretch / scale the normalized data from the unit range to a specified output range
+
+    :note: If all valid pixels have the same value (no contrast), the output
+    is filled with the midpoint of the output range. NaN pixels are preserved.
+
+    :param array_to_normalize: 2D array of input intensity values.
+    :param normalization_bounds: the scaling for normalization.
+    :returns: Normalized 2D intensity map with values in `[normalization_bounds.low, normalization_bounds.high]``.
+    """
+    imin = np.nanmin(array_to_normalize)
+    imax = np.nanmax(array_to_normalize)
+
+    if imax == imin:
+        fill_value = (normalization_bounds.low + normalization_bounds.high) / 2
+        result = np.full_like(array_to_normalize, fill_value)
+        result[np.isnan(array_to_normalize)] = np.nan
+        return result
+
+    norm = (array_to_normalize - imin) / (imax - imin)
+    return (
+        normalization_bounds.low
+        + (normalization_bounds.high - normalization_bounds.low) * norm
+    )

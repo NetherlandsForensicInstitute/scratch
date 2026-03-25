@@ -315,9 +315,9 @@ def plot_comparison_overview(
         title="Reference Surface A",
     )
 
-    ax_leveled_comp = fig.add_subplot(gs[1, 1])
+    ax_raw_comp = fig.add_subplot(gs[1, 1])
     plot_depth_map_on_axes(
-        ax_leveled_comp,
+        ax_raw_comp,
         fig,
         mark_compared_raw.scan_image.data,
         mark_compared_raw.scan_image.scale_x,

@@ -4,6 +4,7 @@ import numpy as np
 from loguru import logger
 from scipy.ndimage import generic_filter
 
+from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask, FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.filter import apply_gaussian_regression_filter
@@ -173,14 +174,13 @@ class Mask(ImageMutation):
         """
         self.mask = mask
 
-    @property
-    def skip_predicate(self) -> bool:
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
         """
         Determine whether the masking operation can be skipped.
 
         If the mask contains no masked pixels (i.e. all values are `True`),
         applying the mask would have no effect and the mutation is skipped.
-
+        :param scan_image: Input ScanImage to resample.
         :returns: bool `True` if the mutation can be skipped, otherwise `False`.
         """
         if self.mask.all():
@@ -355,8 +355,9 @@ class GaussianRegressionFilter(ImageMutation):  # pragma: no cover
         :returns: ScanImage with the filtered 2D array.
         """
         pixel_size = (scan_image.scale_y, scan_image.scale_x)
-        scan_image.data = apply_gaussian_regression_filter(
-            data=scan_image.data,
+        valid_region = get_bounding_box(mask=scan_image.valid_mask, margin=0)
+        scan_image.data[valid_region] = apply_gaussian_regression_filter(
+            data=scan_image.data[valid_region],
             cutoff_length=self.cutoff_length,
             pixel_size=pixel_size,
             regression_order=self.regression_order.value,

@@ -9,6 +9,7 @@ from conversion.preprocess_impression.parameters import PreprocessingImpressionP
 from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
     Field,
+    HttpUrl,
     PositiveFloat,
     PositiveInt,
     field_validator,
@@ -23,6 +24,7 @@ from models import (
     SupportedScanExtension,
 )
 from preprocessors.constants import SurfaceOptions
+from schemas import URLContainer
 
 
 def _update_schema(schema: dict[str, Any], attr_to_class: tuple[tuple[str, str], ...]) -> dict[str, Any]:
@@ -207,3 +209,74 @@ class EditImage(BaseParameters):
             ("terms", "SurfaceOptions"),
         )
         return _update_schema(schema, attr_to_class)
+
+
+class GeneratedImages(URLContainer):
+    preview_image: HttpUrl = Field(
+        ...,
+        description="RGBA preview image rendered from the parsed scan surface data.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/preview.png"],
+    )
+    surface_map_image: HttpUrl = Field(
+        ...,
+        description="Height-map visualization of the scan surface.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/surface_map.png"],
+    )
+
+
+class PrepareMarkResponse(GeneratedImages):
+    """Response model for prepared mark data access."""
+
+    mark_data: HttpUrl = Field(
+        ...,
+        description="Cropped, rotated, and resampled mark data before surface filtering.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/mark.npz"],
+    )
+    mark_meta: HttpUrl = Field(
+        ...,
+        description="Metadata for the mark data.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/mark.json"],
+    )
+    processed_data: HttpUrl = Field(
+        ...,
+        description="Mark surface data after filtering and preprocessing.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/processed.npz"],
+    )
+    processed_meta: HttpUrl = Field(
+        ...,
+        description="Metadata for the processed mark data.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/processed.json"],
+    )
+
+
+class PrepareMarkResponseStriation(PrepareMarkResponse):
+    """Response model for prepared striation mark data access."""
+
+    profile_data: HttpUrl = Field(
+        ...,
+        description="Mean or median profile of a striation mark.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/profile.npz"],
+    )
+
+
+class PrepareMarkResponseImpression(PrepareMarkResponse):
+    """Response model for prepared impression mark data access."""
+
+    leveled_data: HttpUrl = Field(
+        ...,
+        description="Leveled impression mark surface (before surface filtering is applied).",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/leveled.npz"],
+    )
+    leveled_meta: HttpUrl = Field(
+        ...,
+        description="Metadata for the leveled impression mark data.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/leveled.json"],
+    )
+
+
+class ProcessedDataAccess(GeneratedImages):
+    scan_image: HttpUrl = Field(
+        ...,
+        description="Subsampled X3P scan file, converted from the original upload.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/scan.x3p"],
+    )
