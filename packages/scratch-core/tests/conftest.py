@@ -9,7 +9,7 @@ from scipy.constants import micro
 
 from container_models.base import BinaryMask, DepthData
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkImpression, MarkStriation
 from conversion.profile_correlator import Profile
 
 from .conversion.helper_functions import make_mark
@@ -115,7 +115,7 @@ def impression_mark(scan_image: ScanImage) -> Mark:
         scan_image.data,
         scale_x=scan_image.scale_x,
         scale_y=scan_image.scale_y,
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
     )
 
 
@@ -128,7 +128,7 @@ def striation_mark() -> Mark:
         data,
         scale_x=0.5 * micro,
         scale_y=0.5 * micro,
-        mark_type=MarkType.BULLET_GEA_STRIATION,
+        mark_type=MarkStriation.BULLET_GEA_STRIATION,
     )
 
 

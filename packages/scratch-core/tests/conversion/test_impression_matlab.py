@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from container_models.base import FloatArray2D
-from conversion.data_formats import MarkType
+from conversion.data_formats import MarkImpression
 from .helper_functions import make_mark
 from conversion.preprocess_impression.preprocess_impression import (
     preprocess_impression_mark,
@@ -147,9 +147,9 @@ def run_python_preprocessing(
 ) -> tuple[FloatArray2D, FloatArray2D | None]:
     """Run Python preprocessing and return (processed, leveled) arrays."""
     mark_type = (
-        MarkType.BREECH_FACE_IMPRESSION
+        MarkImpression.BREECH_FACE_IMPRESSION
         if test_case.use_circle_center
-        else MarkType.FIRING_PIN_IMPRESSION
+        else MarkImpression.FIRING_PIN_IMPRESSION
     )
     impression_mark = make_mark(
         test_case.input_data,

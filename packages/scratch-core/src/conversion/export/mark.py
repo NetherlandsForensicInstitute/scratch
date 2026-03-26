@@ -6,14 +6,14 @@ with NPZ binary data, and load them back into memory.
 """
 
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
 import numpy as np
 from pydantic import Field
 from scipy.io import loadmat
 from container_models.base import ConfigBaseModel
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkStriation, MarkImpression
 from .utils import (
     check_if_file_exists,
     load_json,
@@ -21,13 +21,12 @@ from .utils import (
     save_as_compressed_binary,
     save_as_json,
 )
-from .validators import validate_enum_string
 
 
 class ExportedMarkData(ConfigBaseModel):
     """Validated data structure for exported Mark metadata."""
 
-    mark_type: Annotated[MarkType, validate_enum_string(MarkType)]
+    mark_type: MarkImpression | MarkStriation
     center: tuple[float, float]
     scale_x: float = Field(..., gt=0)
     scale_y: float = Field(..., gt=0)
@@ -55,13 +54,16 @@ def load_mark_from_mat_file(path: Path) -> Mark:
     """Load a `Mark` object from a .mat file."""
     parsed = loadmat(str(path))
     container = parsed["data_struct"][0, 0]
+    mark_string = str(container["mark_type"][0]).lower()
     mark = Mark(
         scan_image=ScanImage(
             data=np.asarray(container["depth_data"], dtype=np.float64),
             scale_x=float(container["xdim"][0]),
             scale_y=float(container["ydim"][0]),
         ),
-        mark_type=MarkType(str(container["mark_type"][0]).lower()),
+        mark_type=MarkImpression(mark_string)
+        if mark_string in MarkImpression
+        else MarkStriation(mark_string),
         # TODO: Parse `center` and `meta_data` from data struct
     )
     return mark

@@ -24,6 +24,12 @@ from container_models.scan_image import ScanImage
 
 
 class MarkType(StrEnum):
+    @property
+    def scale(self) -> float:
+        return 1.5e-6
+
+
+class MarkImpression(MarkType):
     # Impression marks
     BREECH_FACE_IMPRESSION = "breech face impression mark"
     CHAMBER_IMPRESSION = "chamber impression mark"
@@ -31,6 +37,22 @@ class MarkType(StrEnum):
     EXTRACTOR_IMPRESSION = "extractor impression mark"
     FIRING_PIN_IMPRESSION = "firing pin impression mark"
 
+    @property
+    def scale(self) -> float:
+        if self == MarkImpression.BREECH_FACE_IMPRESSION:
+            return 3.5e-6
+        return 1.5e-6
+
+    @staticmethod
+    def is_impression() -> bool:
+        return True  # TODO: not the way it supposed to be.
+
+    @staticmethod
+    def is_striation() -> bool:
+        return False  # TODO: not the way it supposed to be.
+
+
+class MarkStriation(MarkType):
     # Striation marks
     APERTURE_SHEAR_STRIATION = "aperture shear striation mark"
     BULLET_GEA_STRIATION = "bullet gea striation mark"
@@ -41,17 +63,13 @@ class MarkType(StrEnum):
     EXTRACTOR_STRIATION = "extractor striation mark"
     FIRING_PIN_DRAG_STRIATION = "firing pin drag striation mark"
 
-    def is_impression(self) -> bool:
-        return "IMPRESSION" in self.name
+    @staticmethod
+    def is_impression() -> bool:
+        return False  # TODO: not the way it supposed to be.
 
-    def is_striation(self) -> bool:
-        return "STRIATION" in self.name
-
-    @property
-    def scale(self) -> float:
-        if self == MarkType.BREECH_FACE_IMPRESSION:
-            return 3.5e-6
-        return 1.5e-6
+    @staticmethod
+    def is_striation() -> bool:
+        return True  # TODO: not the way it supposed to be.
 
 
 def validate_rectangle_corners(arr: FloatArray2D) -> FloatArray2D:
@@ -76,7 +94,7 @@ class Mark(ConfigBaseModel):
     """
 
     scan_image: ScanImage
-    mark_type: MarkType
+    mark_type: MarkImpression | MarkStriation
     meta_data: dict = Field(default_factory=dict)
     center_: tuple[float, float] | None = Field(default=None, alias="center")
 

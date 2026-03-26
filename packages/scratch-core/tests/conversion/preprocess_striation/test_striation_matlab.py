@@ -11,7 +11,7 @@ import pytest
 from scipy.constants import micro
 
 from container_models.base import DepthData
-from conversion.data_formats import MarkType
+from conversion.data_formats import MarkStriation, MarkImpression
 from ..helper_functions import make_mark
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
@@ -25,23 +25,23 @@ from ..helper_functions import (
 
 
 MARK_TYPE_MAPPING = {
-    "bullet lea striation": MarkType.BULLET_LEA_STRIATION,
-    "bullet gea striation": MarkType.BULLET_GEA_STRIATION,
-    "breech face impression": MarkType.BREECH_FACE_IMPRESSION,
-    "firing pin impression": MarkType.FIRING_PIN_IMPRESSION,
-    "firing pin drag": MarkType.FIRING_PIN_DRAG_STRIATION,
-    "chamber impression": MarkType.CHAMBER_IMPRESSION,
-    "ejector impression": MarkType.EJECTOR_IMPRESSION,
-    "extractor impression": MarkType.EXTRACTOR_IMPRESSION,
-    "aperture shear striation": MarkType.APERTURE_SHEAR_STRIATION,
-    "chamber striation": MarkType.CHAMBER_STRIATION,
-    "ejector striation": MarkType.EJECTOR_STRIATION,
-    "ejector port striation": MarkType.EJECTOR_PORT_STRIATION,
-    "extractor striation": MarkType.EXTRACTOR_STRIATION,
+    "bullet lea striation": MarkStriation.BULLET_LEA_STRIATION,
+    "bullet gea striation": MarkStriation.BULLET_GEA_STRIATION,
+    "breech face impression": MarkImpression.BREECH_FACE_IMPRESSION,
+    "firing pin impression": MarkImpression.FIRING_PIN_IMPRESSION,
+    "firing pin drag": MarkStriation.FIRING_PIN_DRAG_STRIATION,
+    "chamber impression": MarkImpression.CHAMBER_IMPRESSION,
+    "ejector impression": MarkImpression.EJECTOR_IMPRESSION,
+    "extractor impression": MarkImpression.EXTRACTOR_IMPRESSION,
+    "aperture shear striation": MarkStriation.APERTURE_SHEAR_STRIATION,
+    "chamber striation": MarkStriation.CHAMBER_STRIATION,
+    "ejector striation": MarkStriation.EJECTOR_STRIATION,
+    "ejector port striation": MarkStriation.EJECTOR_PORT_STRIATION,
+    "extractor striation": MarkStriation.EXTRACTOR_STRIATION,
 }
 
 
-def _string_to_mark_type(mark_type_str: str) -> MarkType:
+def _string_to_mark_type(mark_type_str: str) -> MarkStriation | MarkImpression:
     """Convert MATLAB mark type string to MarkType enum."""
     normalized = mark_type_str.lower().replace("_", " ").replace("mark", "").strip()
     for key, value in MARK_TYPE_MAPPING.items():

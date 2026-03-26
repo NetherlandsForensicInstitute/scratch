@@ -57,7 +57,7 @@ class TestResampleScanImage:
                 (10, 5),
                 id="downsample_y_only",
             ),
-            pytest.param(3.67, 3.67, (2.7, 2.7), id="floats are also fine"),
+            pytest.param(3.333, 3.333, (3.0, 3.0), id="floats are also fine"),
         ],
     )
     def test_resampling_changes_shape(

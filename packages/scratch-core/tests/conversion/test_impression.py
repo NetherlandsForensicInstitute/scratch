@@ -5,7 +5,7 @@ from scipy.constants import micro
 
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkImpression
 from conversion.filter.mark_filters import _apply_anti_aliasing
 from conversion.preprocess_impression.center import (
     _compute_map_center,
@@ -363,14 +363,18 @@ class TestAdjustForPlaneTilt:
 class TestApplyAntiAliasing:
     def test_returns_original_when_below_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
-        impression_mark = make_mark(data, mark_type=MarkType.BREECH_FACE_IMPRESSION)
+        impression_mark = make_mark(
+            data, mark_type=MarkImpression.BREECH_FACE_IMPRESSION
+        )
         result, cutoff = _apply_anti_aliasing(impression_mark, target_scale=1.4)
         assert result is impression_mark
         assert cutoff is None
 
     def test_applies_filter_when_above_threshold(self):
         data = np.random.default_rng(42).random((10, 10))
-        impression_mark = make_mark(data, mark_type=MarkType.BREECH_FACE_IMPRESSION)
+        impression_mark = make_mark(
+            data, mark_type=MarkImpression.BREECH_FACE_IMPRESSION
+        )
         _, cutoff = _apply_anti_aliasing(impression_mark, target_scale=2.0)
         assert cutoff == 2.0
 
@@ -399,7 +403,7 @@ class TestComputeCenterLocal:
             data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
         )
 
         center_local = compute_center_local(mark)
@@ -420,7 +424,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
@@ -443,7 +447,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         target_size = 2 * micro
         params = PreprocessingImpressionParams(
@@ -466,7 +470,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,  # 2x downsampling
@@ -489,7 +493,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             adjust_pixel_spacing=False,
@@ -512,7 +516,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=micro,  # No resampling
@@ -533,7 +537,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=micro,  # Same as input
@@ -553,7 +557,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,  # Different from input
@@ -573,7 +577,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
@@ -594,7 +598,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
@@ -615,7 +619,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
@@ -637,7 +641,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
@@ -657,7 +661,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
@@ -680,7 +684,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
@@ -713,7 +717,7 @@ class TestPreprocessImpressionMarkIntegration:
             data=data,
             scale_x=micro,
             scale_y=micro,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
         params = PreprocessingImpressionParams(
             pixel_size=micro,
@@ -772,12 +776,12 @@ class TestUpdateMarkData:
         """Mark type should be preserved."""
         impression_mark = make_mark(
             np.zeros((3, 3)),
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
         )
 
         result = update_mark_data(impression_mark, np.ones((3, 3)))
 
-        assert result.mark_type == MarkType.BREECH_FACE_IMPRESSION
+        assert result.mark_type == MarkImpression.BREECH_FACE_IMPRESSION
 
     def test_handles_nan_values(self):
         """Should handle NaN values in data."""
@@ -847,7 +851,7 @@ class TestMarkCenter:
             data,
             scale_x=4 * micro,
             scale_y=4 * micro,
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
         )
 
         center_x, center_y = impression_mark.center
@@ -863,7 +867,7 @@ class TestMarkCenter:
             data,
             scale_x=4 * micro,
             scale_y=4 * micro,
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
             center=(42.0, 17.0),
         )
 
@@ -877,7 +881,7 @@ class TestMarkCenter:
             data,
             scale_x=4 * micro,
             scale_y=4 * micro,
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
         )
 
         assert impression_mark.center == (101.5, 50.5)

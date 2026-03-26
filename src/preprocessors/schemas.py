@@ -4,9 +4,10 @@ from functools import cached_property
 from typing import Any
 
 import numpy as np
-from conversion.data_formats import BoundingBox, MarkType
+from conversion.data_formats import BoundingBox, MarkImpression, MarkStriation
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
+from fastapi import File, UploadFile
 from pydantic import (
     Field,
     HttpUrl,
@@ -90,7 +91,6 @@ class UploadScan(BaseParameters):
 
 
 class PrepareMarkBase(BaseParameters):
-    mark_type: MarkType = Field(..., description="Type of mark to prepare.")
     bounding_box_list: list[list[float]] | None = Field(
         None,
         description="Bounding box corners (4 × 2 array of [x, y] coordinates) "
@@ -122,14 +122,7 @@ class PrepareMarkBase(BaseParameters):
 
 class PrepareMarkStriation(PrepareMarkBase):
     mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
-
-    @field_validator("mark_type")
-    @classmethod
-    def must_be_striation(cls, v: MarkType) -> MarkType:
-        """Validate that the given mark type is a striation mark."""
-        if not v.is_striation():
-            raise ValueError(f"{v} is not a striation mark")
-        return v
+    mark_type: MarkStriation = Field(..., description="Type of mark to prepare.")
 
     @classmethod
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
@@ -141,14 +134,8 @@ class PrepareMarkStriation(PrepareMarkBase):
 
 class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
+    mark_type: MarkImpression = Field(..., description="Type of mark to prepare.")
 
-    @field_validator("mark_type")
-    @classmethod
-    def must_be_impression(cls, v: MarkType) -> MarkType:
-        """Validate that the given mark type is an impression mark."""
-        if not v.is_impression():
-            raise ValueError(f"{v} is not an impression mark")
-        return v
 
     @classmethod
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:

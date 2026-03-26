@@ -1,10 +1,10 @@
 """Unit tests for validate_enum_string function."""
 
 from enum import StrEnum, auto
+from typing import Annotated
 
 import pytest
 from pydantic import BaseModel, ValidationError
-from typing import Annotated
 
 from conversion.export.validators import validate_enum_string
 

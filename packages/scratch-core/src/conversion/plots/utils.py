@@ -13,8 +13,7 @@ from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
-from conversion.data_formats import MarkMetadata
-from conversion.data_formats import MarkType
+from conversion.data_formats import MarkMetadata, MarkStriation, MarkImpression
 from conversion.likelihood_ratio import ModelSpecs
 
 DEFAULT_COLORMAP = "viridis"
@@ -411,7 +410,7 @@ def _common_results_metadata(
     llr_data: LLRData,
     date_report: datetime.date,
     user_id: str,
-    mark_type: MarkType,
+    mark_type: MarkImpression | MarkStriation,
 ) -> dict[str, str]:
     """Results metadata fields shared across all mark types."""
     return {
@@ -429,7 +428,7 @@ def build_results_metadata_striation(
     llr_data: LLRData,
     date_report: datetime.date,
     user_id: str,
-    mark_type: MarkType,
+    mark_type: MarkImpression | MarkStriation,
     score: float,
     score_transform: float,
 ) -> dict[str, str]:
@@ -447,7 +446,7 @@ def build_results_metadata_impression(
     llr_data: LLRData,
     date_report: datetime.date,
     user_id: str,
-    mark_type: MarkType,
+    mark_type: MarkImpression | MarkStriation,
     score: int,
     n_cells: int,
     lr_system_path: Path,

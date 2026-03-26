@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkImpression
 from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
 from conversion.plots.utils import build_results_metadata_impression
 from conversion.profile_correlator import Profile
@@ -80,7 +80,7 @@ def dummy_mark() -> Mark:
             scale_x=1e-6,
             scale_y=1e-6,
         ),
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
     )
 
 
@@ -130,7 +130,7 @@ def results_metadata(impression_reference_data: ModelSpecs) -> dict[str, str]:
         llr_data=LLRData(features=np.array([5.19])),
         date_report=date(2023, 2, 16),
         user_id="test_user",
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
         score=4,
         n_cells=6,
         lr_system_path=Path("path/to/model"),

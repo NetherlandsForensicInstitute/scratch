@@ -6,7 +6,7 @@ import pytest
 from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkImpression, MarkStriation
 from conversion.export.mark import (
     ExportedMarkData,
     load_mark_from_path,
@@ -36,7 +36,7 @@ class TestExportedMarkData:
             )
         )
 
-        assert data.mark_type == MarkType.BREECH_FACE_IMPRESSION
+        assert data.mark_type == MarkImpression.BREECH_FACE_IMPRESSION
         assert data.center == (100.0, 200.0)
         assert data.scale_x == 1.5 * micro
         assert data.scale_y == 1.5 * micro
@@ -53,7 +53,7 @@ class TestExportedMarkData:
             )
         )
 
-        assert data.mark_type == MarkType.CHAMBER_IMPRESSION
+        assert data.mark_type == MarkImpression.CHAMBER_IMPRESSION
 
     def test_invalid_mark_type(self):
         """Test that invalid `mark_type` raises ValueError."""
@@ -101,7 +101,7 @@ class TestSaveAndLoadMark:
         """Test that `save_mark` creates both JSON and NPZ files."""
         impression_mark = Mark(
             scan_image=scan_image,
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
             meta_data={"test": "data"},
         )
 
@@ -115,7 +115,7 @@ class TestSaveAndLoadMark:
         nested_path = tmp_path / "nested" / "directory"
         impression_mark = Mark(
             scan_image=scan_image,
-            mark_type=MarkType.FIRING_PIN_IMPRESSION,
+            mark_type=MarkImpression.FIRING_PIN_IMPRESSION,
         )
 
         save_mark(impression_mark, nested_path / "test_mark")
@@ -128,7 +128,7 @@ class TestSaveAndLoadMark:
         """Test that saved JSON has correct structure."""
         impression_mark = Mark(
             scan_image=scan_image,
-            mark_type=MarkType.CHAMBER_STRIATION,
+            mark_type=MarkStriation.CHAMBER_STRIATION,
             meta_data={"key": "value"},
         )
 
@@ -151,7 +151,7 @@ class TestSaveAndLoadMark:
         """Test that `load_mark_from_path` correctly restores all meta-data in a `Mark` object."""
         original_mark = Mark(
             scan_image=scan_image,
-            mark_type=MarkType.EXTRACTOR_IMPRESSION,
+            mark_type=MarkImpression.EXTRACTOR_IMPRESSION,
             meta_data={"original": "data"},
             center=(123.4, 567.8),
         )
@@ -171,7 +171,7 @@ class TestSaveAndLoadMark:
         """Test that loaded binary data matches original data."""
         original_mark = Mark(
             scan_image=scan_image,
-            mark_type=MarkType.BULLET_GEA_STRIATION,
+            mark_type=MarkStriation.BULLET_GEA_STRIATION,
         )
 
         save_mark(original_mark, tmp_path / "test_mark")
@@ -187,7 +187,7 @@ class TestSaveAndLoadMark:
         """Test loading mark with computed (not explicit) center."""
         original_mark = Mark(
             scan_image=scan_image,
-            mark_type=MarkType.EJECTOR_STRIATION,
+            mark_type=MarkStriation.EJECTOR_STRIATION,
         )
         # Don't set explicit center - should compute from image dimensions
 
@@ -208,7 +208,7 @@ class TestSaveAndLoadMark:
         """Test that loading raises FileNotFoundError when NPZ is missing."""
         mark = Mark(
             scan_image=scan_image,
-            mark_type=MarkType.FIRING_PIN_DRAG_STRIATION,
+            mark_type=MarkStriation.FIRING_PIN_DRAG_STRIATION,
         )
 
         # Save only JSON
@@ -234,7 +234,7 @@ class TestSaveAndLoadMark:
 
         original_mark = Mark(
             scan_image=scan_image,
-            mark_type=MarkType.APERTURE_SHEAR_STRIATION,
+            mark_type=MarkStriation.APERTURE_SHEAR_STRIATION,
             meta_data=complex_meta,
         )
 
@@ -249,13 +249,13 @@ class TestSaveAndLoadMark:
         """Test saving and loading multiple marks in the same directory."""
         mark1 = Mark(
             scan_image=scan_image,
-            mark_type=MarkType.BREECH_FACE_IMPRESSION,
+            mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
             meta_data={"id": 1},
         )
 
         mark2 = Mark(
             scan_image=scan_image,
-            mark_type=MarkType.CHAMBER_IMPRESSION,
+            mark_type=MarkImpression.CHAMBER_IMPRESSION,
             meta_data={"id": 2},
         )
 
@@ -265,8 +265,8 @@ class TestSaveAndLoadMark:
         loaded_mark1 = load_mark_from_path(tmp_path, "mark1")
         loaded_mark2 = load_mark_from_path(tmp_path, "mark2")
 
-        assert loaded_mark1.mark_type == MarkType.BREECH_FACE_IMPRESSION
-        assert loaded_mark2.mark_type == MarkType.CHAMBER_IMPRESSION
+        assert loaded_mark1.mark_type == MarkImpression.BREECH_FACE_IMPRESSION
+        assert loaded_mark2.mark_type == MarkImpression.CHAMBER_IMPRESSION
         assert loaded_mark1.meta_data["id"] == 1
         assert loaded_mark2.meta_data["id"] == 2
 
@@ -277,7 +277,7 @@ class TestSaveAndLoadMark:
         # Act
         mark = load_mark_from_mat_file(path)
         # Asserts
-        assert mark.mark_type == MarkType.BREECH_FACE_IMPRESSION
+        assert mark.mark_type == MarkImpression.BREECH_FACE_IMPRESSION
         assert mark.scan_image.scale_x == pytest.approx(3.5e-6)
         assert mark.scan_image.scale_y == pytest.approx(3.5e-6)
         assert (mark.scan_image.width, mark.scan_image.height) == (1060, 1060)

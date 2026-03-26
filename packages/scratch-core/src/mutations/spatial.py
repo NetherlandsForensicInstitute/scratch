@@ -25,17 +25,16 @@ the image while adjusting its spatial representation.
 from typing import Self
 
 import numpy as np
-from loguru import logger
-from scipy.ndimage import binary_dilation, rotate
-from skimage.transform import resize
-
 from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import rotate_mask
 from exceptions import ImageShapeMismatchError
+from loguru import logger
 from mutations.base import ImageMutation
+from scipy.ndimage import binary_dilation, rotate
+from skimage.transform import resize
 
 
 class CropToMask(ImageMutation):
@@ -96,8 +95,57 @@ class CropToMask(ImageMutation):
         return scan_image
 
 
+class Subsample(ImageMutation):
+    """
+    Subsample a `ScanImage` by skipping pixels at fixed intervals.
+
+    This mutation reduces the spatial resolution of the image by selecting
+    every N-th pixel along the X and Y axes. No interpolation is performed;
+    pixel values are preserved exactly, and intermediate pixels are discarded.
+
+    The spatial scale of the image is updated accordingly to reflect the
+    increased distance between sampled pixels.
+
+    :param step_size_x: The step size in the X-direction (columns).
+    :param step_size_y: The step size in the Y-direction (rows).
+    :returns: A new `ScanImage` instance with subsampled data and updated scales.
+    """
+
+    def __init__(self, step_size_x: int, step_size_y: int) -> None:
+        self.step_x = step_size_x
+        self.step_y = step_size_y
+
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
+        if self.step_x == 1 and self.step_y == 1:
+            logger.info("No subsampling needed, returning original scan image")
+            return True
+        return False
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        width, height = scan_image.width, scan_image.height
+        if not (0 < self.step_x < width and 0 < self.step_y < height):
+            raise ValueError(
+                f"Step size should be positive and smaller than the image size: {(height, width)}"
+            )
+        logger.info(
+            f"Subsampling scan image with step sizes x: {self.step_x}, y: {self.step_y}"
+        )
+        return ScanImage(
+            data=scan_image.data[:: self.step_y, :: self.step_x].copy(),
+            scale_x=scan_image.scale_x * self.step_x,
+            scale_y=scan_image.scale_y * self.step_y,
+        )
+
+
 class Resample(ImageMutation):
-    def __init__(self, target_shape: tuple[float, float]) -> None:
+    def __init__(
+        self,
+        target_shape: tuple[float, float],
+        *,
+        anti_aliasing: bool | None = None,
+        preserve_range: bool = False,
+        order: int | None = None,
+    ) -> None:
         """
         Constructor for initiating the Resampling.
 
@@ -105,17 +153,33 @@ class Resample(ImageMutation):
         """
         self.target_shape_height = target_shape[0]
         self.target_shape_width = target_shape[1]
+        self.anti_aliasing = anti_aliasing
+        self.preserve_range = preserve_range
+        self.order = order
+
+    @classmethod
+    def for_upsampling(cls, target_shape: tuple[float, float]) -> Self:
+        return cls(
+            target_shape,
+            order=0,
+            anti_aliasing=False,
+            preserve_range=True,
+        )
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
         Resample the ScanImage object using the specified resampling factors.
 
-        :param image: Input ScanImage to resample.
+        :param scan_image: Input ScanImage to resample.
         :returns: The resampled ScanImage.
         """
         anti_aliasing = (
-            self.target_shape_height < scan_image.height
-            and self.target_shape_width < scan_image.width
+            (
+                self.target_shape_height < scan_image.height
+                and self.target_shape_width < scan_image.width
+            )
+            if self.anti_aliasing is None
+            else self.anti_aliasing
         )
         resampled_data = resize(
             image=scan_image.data,
@@ -125,9 +189,11 @@ class Resample(ImageMutation):
             ),
             mode="edge",
             anti_aliasing=anti_aliasing,
+            preserve_range=self.preserve_range,
+            order=self.order,
         )
-        scale_x_factor = scan_image.width / self.target_shape_width
-        scale_y_factor = scan_image.height / self.target_shape_height
+        scale_x_factor = scan_image.width / resampled_data.shape[1]
+        scale_y_factor = scan_image.height / resampled_data.shape[0]
 
         logger.debug(
             f"Resampling image array to new size: {round(self.target_shape_height, 1)}/{round(self.target_shape_width, 1)} with scale: x:{round(scale_x_factor, 1)}, y:{round(scale_y_factor, 1)}"
@@ -137,6 +203,7 @@ class Resample(ImageMutation):
             data=np.asarray(resampled_data, dtype=scan_image.data.dtype),
             scale_x=scan_image.scale_x * scale_x_factor,
             scale_y=scan_image.scale_y * scale_y_factor,
+            meta_data=scan_image.meta_data,
         )
 
 
@@ -198,3 +265,59 @@ class Rotate(ImageMutation):
             cval=np.nan,
         )
         return scan_image
+
+
+class MakeIsotropic(ImageMutation):
+    """
+    Resample a `ScanImage` to isotropic resolution (equal pixel spacing in X and Y).
+
+    If the input image already has equal scaling in both directions, the original
+    instance is returned unchanged. Otherwise, the image is upsampled to the
+    highest available resolution (i.e. the smallest scale value) using
+    nearest-neighbor interpolation.
+
+    This operation preserves the spatial content of the image while ensuring that
+    distances in both axes are represented uniformly. NaN values are preserved and
+    not interpolated.
+
+    :returns: A new `ScanImage` instance with isotropic scaling and updated data.
+    """
+
+    @staticmethod
+    def _is_isotropic(scan_image: ScanImage) -> bool:
+        """Check if a scan image is isotropic within tolerance."""
+        tolerance = 1e-16
+        return bool(np.isclose(scan_image.scale_x, scan_image.scale_y, atol=tolerance))
+
+    @staticmethod
+    def _get_target_shape(
+        scan_image: ScanImage, target_scale: float
+    ) -> tuple[int, int]:
+        """Get the target shape for a scan image given a target scale."""
+        height, width = (
+            int(round(scan_image.height * scan_image.scale_y / target_scale)),
+            int(round(scan_image.width * scan_image.scale_x / target_scale)),
+        )
+        return height, width
+
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
+        """
+        Determine whether image is already isotropic and should be skipped.
+
+        Skips computation if the image is already isotropic.
+
+        :param scan_image: Input ScanImage to resample.
+        :returns: True if image is already isotropic, False otherwise
+        """
+        if self._is_isotropic(scan_image):
+            logger.debug(
+                f"Image is already isotropic, with shape: {scan_image.data.shape}, conversion not needed."
+            )
+            return True
+        return False
+
+    def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
+        target_scale = min(scan_image.scale_x, scan_image.scale_y)
+        return Resample.for_upsampling(
+            self._get_target_shape(scan_image, target_scale)
+        )(scan_image)

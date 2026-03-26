@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkImpression
 
 
 @dataclass(frozen=True)
@@ -118,12 +118,12 @@ class ComparisonResult:
         return cmc_area / total_area
 
 
-_CELL_SIZE_BY_MARK_TYPE: dict[MarkType, tuple[float, float]] = {
-    MarkType.BREECH_FACE_IMPRESSION: (4.5e-4, 4.5e-4),
-    MarkType.CHAMBER_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkType.EJECTOR_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkType.EXTRACTOR_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkType.FIRING_PIN_IMPRESSION: (1.25e-4, 1.25e-4),
+_CELL_SIZE_BY_MARK_TYPE: dict[MarkImpression, tuple[float, float]] = {
+    MarkImpression.BREECH_FACE_IMPRESSION: (4.5e-4, 4.5e-4),
+    MarkImpression.CHAMBER_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkImpression.EJECTOR_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkImpression.EXTRACTOR_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkImpression.FIRING_PIN_IMPRESSION: (1.25e-4, 1.25e-4),
 }
 
 
@@ -156,7 +156,9 @@ class ComparisonParams(ConfigBaseModel):
     cell_size: tuple[PositiveFloat, PositiveFloat] = (4.5e-4, 4.5e-4)
 
     @classmethod
-    def for_mark_type(cls, mark_type: MarkType, **kwargs: Any) -> "ComparisonParams":
+    def for_mark_type(
+        cls, mark_type: MarkImpression, **kwargs: Any
+    ) -> "ComparisonParams":
         """Create a :class:`ComparisonParams` with the default cell size for *mark_type*.
 
         Any additional keyword arguments override the other defaults.
