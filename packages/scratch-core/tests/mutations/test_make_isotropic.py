@@ -87,14 +87,16 @@ class TestMakeIsotropic:
             int(round(scan_image.height * scaling_factor)),
             int(round(scan_image.width)),
         )
+        expected_scale_x = (scan_image.width / expected_shape[1]) * scale_fine
+        expected_scale_y = (scan_image.height / expected_shape[0]) * scale_coarse
 
         result = MakeIsotropic()(scan_image)
 
-        assert np.isclose(result.scale_x, scale_fine), (
-            f"Scale should be {scale_fine}, but got {result.scale_x}"
+        assert np.isclose(result.scale_x, expected_scale_x), (
+            f"Scale should be {expected_scale_x}, but got {result.scale_x}"
         )
-        assert np.isclose(result.scale_y, scale_fine), (
-            f"Scale should be {scale_fine}, but got {result.scale_y}"
+        assert np.isclose(result.scale_y, expected_scale_y), (
+            f"Scale should be {expected_scale_y}, but got {result.scale_y}"
         )
         assert result.data.shape == expected_shape, (
             f"Shape should be {expected_shape}, but got {result.data.shape}"
