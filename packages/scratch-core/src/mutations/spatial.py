@@ -192,8 +192,8 @@ class Resample(ImageMutation):
             preserve_range=self.preserve_range,
             order=self.order,
         )
-        scale_x_factor = scan_image.width / self.target_shape_width
-        scale_y_factor = scan_image.height / self.target_shape_height
+        scale_x_factor = scan_image.width / resampled_data.shape[1]
+        scale_y_factor = scan_image.height / resampled_data.shape[0]
 
         logger.debug(
             f"Resampling image array to new size: {round(self.target_shape_height, 1)}/{round(self.target_shape_width, 1)} with scale: x:{round(scale_x_factor, 1)}, y:{round(scale_y_factor, 1)}"
@@ -318,12 +318,6 @@ class MakeIsotropic(ImageMutation):
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         target_scale = min(scan_image.scale_x, scan_image.scale_y)
-        upsampled = Resample.for_upsampling(
+        return Resample.for_upsampling(
             self._get_target_shape(scan_image, target_scale)
         )(scan_image)
-        return ScanImage(
-            data=upsampled.data,
-            scale_x=target_scale,
-            scale_y=target_scale,
-            meta_data=scan_image.meta_data,
-        )
