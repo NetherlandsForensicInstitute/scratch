@@ -3,6 +3,7 @@ from typing import Sequence
 import numpy as np
 from itertools import combinations
 
+from container_models.base import FloatArray2D
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonResult,
@@ -253,23 +254,39 @@ def _find_consensus_parameters(
     :param cells: cells whose (center_reference, center_comparison) pairs are used for fitting
     :returns: consensus_translation, consensus_rotation_rad of reference (float) in radians, rotation_center_reference, rotation_center_comparison
     """
-    if len(cells) == 0:
-        raise ValueError("No cells found")
+    rotation_center_reference, rotation_center_comparison, consensus_translation = (
+        _get_translation(cells)
+    )
 
+    centers_reference_centered, centers_comparison_centered = _center(
+        cells, rotation_center_reference, rotation_center_comparison
+    )
+
+    consensus_rotation_rad = _get_rotation_angle(
+        centers_reference_centered, centers_comparison_centered
+    )
+
+    return (
+        consensus_translation,
+        consensus_rotation_rad,
+        rotation_center_reference,
+        rotation_center_comparison,
+    )
+
+
+def _get_translation(
+    cells: Sequence[Cell],
+) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
+    """
+    :param cells: cells whose (center_reference, center_comparison) are used for fitting
+    :returns: rotation_center_reference, rotation_center_comparison, consensus_translation
+    """
     centers_reference = np.array(
         [cell.center_reference for cell in cells], dtype=float
     )  # (N, 2)
     centers_comparison = np.array(
         [cell.center_comparison for cell in cells], dtype=float
     )  # (N, 2)
-
-    # Remove non_valid cells
-    valid = ~(
-        np.any(np.isnan(centers_reference), axis=1)
-        | np.any(np.isnan(centers_comparison), axis=1)
-    )
-    centers_reference = centers_reference[valid]
-    centers_comparison = centers_comparison[valid]
 
     # Compute centroids
     rotation_center_reference = centers_reference.mean(
@@ -278,6 +295,25 @@ def _find_consensus_parameters(
     rotation_center_comparison = centers_comparison.mean(
         axis=0
     )  # mean of comparison positions (2,)
+    consensus_translation = rotation_center_comparison - rotation_center_reference
+
+    return rotation_center_reference, rotation_center_comparison, consensus_translation
+
+
+def _center(
+    cells: Sequence[Cell],
+    rotation_center_reference: tuple[float, float],
+    rotation_center_comparison: tuple[float, float],
+) -> tuple[FloatArray2D, FloatArray2D]:
+    """
+    :param cells: cells whose (center_reference, center_comparison) are used for fitting
+    :param rotation_center_reference: rotation_center_reference
+    :param rotation_center_comparison: rotation_center_comparison
+
+    :returns: centers with respective means substracted
+    """
+    centers_reference = np.array([cell.center_reference for cell in cells])
+    centers_comparison = np.array([cell.center_comparison for cell in cells])
 
     centers_reference_centered = (
         centers_reference - rotation_center_reference
@@ -286,29 +322,39 @@ def _find_consensus_parameters(
         centers_comparison - rotation_center_comparison
     )  # centred comparison positions
 
-    # SVD for best-fit rotation (no reflection)
-    # M = centers_reference_centered^T * centers_comparison_centered
-    M = centers_reference_centered.T @ centers_comparison_centered  # (2, 2)
-    U, _, Vt = np.linalg.svd(M)
-    rotation_matrix = U @ Vt  # (2, 2)
+    return centers_reference_centered, centers_comparison_centered
 
-    # If det == -1 we have an unintended reflection; correct it by changing sign of last column of U.
+
+def _get_rotation_angle(
+    centers_reference_centered: FloatArray2D, centers_comparison_centered: FloatArray2D
+) -> float:
+    """
+    :param centers_reference_centered: centers_reference with cells_mean subtracted
+    :param centers_comparison_centered: centers_comparison with cells_mean subtracted
+    :return: consensus_rotation_rad
+    """
+    # SVD for best-fit rotation (no reflection)
+
+    cross_terms_matrix = (
+        centers_reference_centered.T @ centers_comparison_centered
+    )  # (2, 2)
+    left_singular_vectors, _, right_singular_vectors_transposed = np.linalg.svd(
+        cross_terms_matrix
+    )
+    rotation_matrix = (
+        left_singular_vectors @ right_singular_vectors_transposed
+    )  # (2, 2)
+
+    # If det == -1 we have an unintended reflection; correct it by changing sign of last column of left_singular_vectors.
     if np.linalg.det(rotation_matrix) == -1:
-        U[:, -1] *= -1
-        rotation_matrix = U @ Vt
+        left_singular_vectors[:, -1] *= -1
+        rotation_matrix = left_singular_vectors @ right_singular_vectors_transposed
 
     # Rotation angle: atan2(sin/cos)
     (cos, sin) = tuple(rotation_matrix[0])
-    consensus_rotation_rad = float(np.arctan2(sin, cos))  # -pi >= angle >= pi
+    consensus_rotation_rad = float(np.arctan2(sin, cos))  # -pi <= angle <= pi
 
-    consensus_translation = rotation_center_comparison - rotation_center_reference
-
-    return (
-        consensus_translation,
-        consensus_rotation_rad,
-        rotation_center_reference,
-        rotation_center_comparison,
-    )
+    return consensus_rotation_rad
 
 
 def _get_rotation_component_using_rotation_matrix(
@@ -320,7 +366,7 @@ def _get_rotation_component_using_rotation_matrix(
     :param center: center of rotation, shape (1 ,m)
     :param rotation_matrix: rotation matrix, shape (m, m)
 
-    :returns rotated data minus center, shape (n ,m)
+    :returns: rotated data minus center, shape (n ,m)
     """
 
     rotated = (data - center) @ rotation_matrix
