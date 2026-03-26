@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Annotated,Any
 
 import numpy as np
 from conversion.data_formats import BoundingBox, MarkType
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
-from conversion.preprocess_striation import PreprocessingStriationParams
-from fastapi import File, Form, UploadFile
+from fastapi import File, UploadFile
 from pydantic import (
     Field,
     HttpUrl,
@@ -70,9 +67,9 @@ class UploadScan(BaseParameters):
 
 
 class PrepareMarkBase(BaseParameters):
-    mark_type: MarkType = Field(..., description="Type of mark to prepare.")
-    bounding_box_list: list[float] | None = Field(
-        default_factory=list,
+    mark_type: MarkType
+    bounding_box_list: list[list[float]] | None = Field(
+        None,
         description="Bounding box corners (4 × 2 array of [x, y] coordinates) "
         "defining a rectangular crop region used to determine the rotation of the image.",
     )
@@ -175,6 +172,8 @@ class EditImage(BaseParameters):
         if self.scan_file.suffix.lower() != ".x3p":
             raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
         return self
+
+
 class GeneratedImages(URLContainer):
     preview_image: HttpUrl = Field(
         ...,
