@@ -27,7 +27,7 @@ from loguru import logger
 from lrmodule import get_lr_system
 from PIL import Image
 
-from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
+from processors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from processors.schemas import CalculateLRImpression, CalculateLRStriation
 
 
