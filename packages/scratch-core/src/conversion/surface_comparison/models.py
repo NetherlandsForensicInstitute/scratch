@@ -254,3 +254,17 @@ class GridCell:
     def cell_data_filled(self) -> FloatArray2D:
         """Cell data where NaN values are replaced with the sentinel value."""
         return np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
+
+
+@dataclass(frozen=True)
+class CMCTranslationRotation:
+    """
+    Mutable container for the best registration parameters found so far for one cell.
+    All positional attributes are in pixel coordinates of the (rotated) comparison image.
+    :param translation: shared translation from reference to comparison image, (x, y) meters.
+    :param rotation: shared rotation from reference to comparison image, degrees.
+
+    """
+
+    translation: tuple[float, float]
+    rotation: float

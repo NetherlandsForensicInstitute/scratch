@@ -8,6 +8,7 @@ from conversion.surface_comparison.models import (
     Cell,
     ComparisonResult,
     ComparisonParams,
+    CMCTranslationRotation,
 )
 
 
@@ -35,115 +36,114 @@ def classify_congruent_cells_consensus(
         rotation in degrees, and consensus translation in meters.
     :raises ValueError: If ``cells`` is empty.
     """
-    if not cells:
-        raise ValueError("Cannot identify CMC from an empty list.")
 
-    minimum_fill_fraction = params.minimum_fill_fraction
-    filtered_cells = _filter_cells(cells, minimum_fill_fraction)
-
-    if not filtered_cells:
-        raise ValueError(
-            f"Cannot identify CMC. There are no cells with fill fraction >= {minimum_fill_fraction}."
-        )
-
-    n_filtered_cells = len(filtered_cells)
-
-    max_distance = params.position_threshold  # in meters
-    max_abs_angle_distance = params.angle_deviation_threshold  # in degrees
-
-    # initialize solution: default to first cell as sole CMC
-    best_inliers_idx = []
-    criterion = np.inf
-
-    if n_filtered_cells == 1 or (
-        np.isinf(max_distance) and max_abs_angle_distance == 180
-    ):
-        # Then all filtered cells are inliers
-        best_inliers_idx = list(range(n_filtered_cells))
+    if len(cells) == 1:
+        # Then this cell is an inlier by definition
+        best_inlier_ids = [0]
 
     else:
-        for pair_idx in combinations(range(n_filtered_cells), 2):
-            # Seed: evaluate two-cell pair solution ---
-            cell_distances, cell_angle_distances = (
-                _get_cell_angle_and_position_distances(list(pair_idx), filtered_cells)
-            )
-            inliers_idx_current = np.where(
-                (cell_distances <= max_distance)
-                & (cell_angle_distances <= max_abs_angle_distance)
-            )[0].tolist()
+        best_inlier_ids = _find_best_inlier_ids(
+            cells, params.position_threshold, params.angle_deviation_threshold
+        )
 
-            criterion_current = _calculate_criterion(
-                inliers_idx_current,
-                cell_distances,
-                cell_angle_distances,
+    _update_congruent_cells(cells, best_inlier_ids)
+
+    consensus = _get_shared_translation_rotation(cells, reference_center)
+
+    return ComparisonResult(
+        cells=cells,
+        shared_rotation=consensus.rotation,
+        shared_translation=consensus.translation,
+    )
+
+
+def _find_best_inlier_ids(
+    cells: Sequence[Cell], max_distance: float, max_abs_angle_distance: float
+) -> list[int]:
+    """Core algorithm to find the best inlier ids. Loop over all indices pairs as initial solution, and iteratively refine this solution. Update global solution if refinement has more cells or if criterion improves for same amount of cells.
+
+    :param cells: list of cells.
+    :param max_distance: maximum distance to consider for consensus, in meters.
+    :param max_abs_angle_distance: maximum absolute angle deviation to consider for consensus, in degrees.
+
+    :returns: list of inlier cell ids, these will be the congruent cells
+    """
+
+    best_inlier_ids = []
+    criterion = np.inf
+    n_cells = len(cells)
+
+    for pair_ids in combinations(range(n_cells), 2):
+        # Initial solution: evaluate two-cell pair solution ---
+        cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
+            list(pair_ids), cells
+        )
+        inlier_ids_current = np.where(
+            (cell_distances <= max_distance)
+            & (cell_angle_distances <= max_abs_angle_distance)
+        )[0].tolist()
+
+        criterion_current = _calculate_criterion(
+            inlier_ids_current,
+            cell_distances,
+            cell_angle_distances,
+            max_distance,
+            max_abs_angle_distance,
+        )
+
+        if 2 < len(inlier_ids_current) < n_cells:
+            _refine(
+                inlier_ids_current,
+                criterion_current,
+                cells,
                 max_distance,
                 max_abs_angle_distance,
             )
 
-            if 2 < len(inliers_idx_current) < n_filtered_cells:
-                # Refinement: iteratively re-fit using all inliers ---
-                # make while loop pass for seed
-                inliers_idx_candidate = inliers_idx_current
+        # Accept current solution if it is better
+        if len(inlier_ids_current) > len(best_inlier_ids) or (
+            len(inlier_ids_current) == len(best_inlier_ids)
+            and criterion_current < criterion
+        ):
+            best_inlier_ids = inlier_ids_current
+            criterion = criterion_current
 
-                while len(inliers_idx_candidate) == len(inliers_idx_current):
-                    cell_distances, cell_angle_distances = (
-                        _get_cell_angle_and_position_distances(
-                            inliers_idx_current, filtered_cells
-                        )
-                    )
-                    inliers_idx_candidate = np.where(
-                        (cell_distances <= max_distance)
-                        & (cell_angle_distances <= max_abs_angle_distance)
-                    )[0].tolist()
+        if len(best_inlier_ids) == n_cells:
+            return best_inlier_ids  # outer loop short-circuit
 
-                    criterion_candidate = _calculate_criterion(
-                        inliers_idx_candidate,
-                        cell_distances,
-                        cell_angle_distances,
-                        max_distance,
-                        max_abs_angle_distance,
-                    )
+    return best_inlier_ids
 
-                    # Accept if strictly more inliers, or same count with lower criterion
-                    if len(inliers_idx_candidate) > len(inliers_idx_current) or (
-                        len(inliers_idx_candidate) == len(inliers_idx_current)
-                        and criterion_candidate < criterion_current
-                    ):
-                        criterion_current = criterion_candidate
-                        inliers_idx_current = inliers_idx_candidate
-                    else:
-                        # break while loop, also for len(inliers_idx_candidate) == len(inliers_idx_current) and criterion did not improve
-                        break
 
-            # Accept current solution if it is better
-            if len(inliers_idx_current) > len(best_inliers_idx) or (
-                len(inliers_idx_current) == len(best_inliers_idx)
-                and criterion_current < criterion
-            ):
-                best_inliers_idx = inliers_idx_current
-                criterion = criterion_current
-
-            if len(best_inliers_idx) == n_filtered_cells:
-                break  # outer loop short-circuit
-
-    # Update congruent cells
-    congruent_set = set(filtered_cells[i] for i in best_inliers_idx)
+def _update_congruent_cells(cells: Sequence[Cell], congruent_ids: list[int]) -> None:
+    """update cell.is_congruent property
+    :param cells: list of cells.
+    :param congruent_ids: list of cell ids that are congruent
+    """
+    congruent_set = set(cells[i] for i in congruent_ids)
 
     for cell in cells:
         cell.is_congruent = cell in congruent_set
 
-    # Estimate shared rotation and transformation
-    if len(best_inliers_idx) > 1:
-        # From CMC inliers
-        cmc_cells = [filtered_cells[i] for i in best_inliers_idx]
+
+def _get_shared_translation_rotation(
+    cells: Sequence[Cell], reference_center: tuple[float, float]
+) -> CMCTranslationRotation:
+    """Calculate shared rotation and transformation
+    :param cells: list of cells.
+    :param reference_center: reference center
+    :returns: shared rotation and transformation, in CMCTranslationRotation
+    """
+    cmc_cells = [cell for cell in cells if cell.is_congruent]
+
+    if len(cmc_cells) > 1:
         consensus_translation, consensus_rotation_rad, _, _ = (
             _find_consensus_parameters(cmc_cells)
         )
         consensus_rotation_deg = float(np.degrees(consensus_rotation_rad))
         consensus_translation = (consensus_translation[0], consensus_translation[1])
     else:
-        # There was only one filtered_cell
-        congruent_cell = filtered_cells[0]
+        # There was only one congruent cell
+        congruent_cell = cells[0]
         predicted_coordinate = list(
             _get_rotation_component_using_angle_degree(
                 np.array(congruent_cell.center_reference),
@@ -160,24 +160,11 @@ def classify_congruent_cells_consensus(
         )
         consensus_rotation_deg = congruent_cell.angle_deg
 
-    return ComparisonResult(
-        cells=cells,
-        shared_rotation=consensus_rotation_deg,
-        shared_translation=consensus_translation,
+    shared_parameters = CMCTranslationRotation(
+        translation=consensus_translation, rotation=consensus_rotation_deg
     )
 
-
-def _filter_cells(cells: list[Cell], minimum_fill_fraction: float) -> list[Cell]:
-    """Keep cells that have fill_fraction_reference >= minimum_fill_fraction.
-
-    :param cells: a list of Cells to filter
-    :param minimum_fill_fraction: minimum fill fraction of filtered cells
-    :returns: filtered_cells, a list of filtered cells
-    """
-    filtered_cells = [
-        cell for cell in cells if cell.fill_fraction_reference >= minimum_fill_fraction
-    ]
-    return filtered_cells
+    return shared_parameters
 
 
 def _calculate_criterion(
@@ -205,8 +192,56 @@ def _calculate_criterion(
     return criterion
 
 
+def _refine(
+    inlier_ids_current: list[int],
+    criterion_current: float,
+    cells: Sequence[Cell],
+    max_distance: float,
+    max_abs_angle_distance: float,
+) -> None:
+    """iteratively re-fit inlier_ids_current and criterion_current
+
+    :param inlier_ids_current: a list of inlier indices (used for least-squares Procrustus fit)
+    :param criterion_current: the current value of the criterion
+    :param cells: a list of cells
+    :param max_distance: maximum distance threshold (meters)
+    :param max_abs_angle_distance: maximum absolute angle threshold (degrees)
+    """
+
+    # initialize inlier_ids_candidate and make while loop pass for first iteration
+    inlier_ids_candidate = inlier_ids_current
+
+    while len(inlier_ids_candidate) == len(inlier_ids_current):
+        cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
+            inlier_ids_current, cells
+        )
+        inlier_ids_candidate = np.where(
+            (cell_distances <= max_distance)
+            & (cell_angle_distances <= max_abs_angle_distance)
+        )[0].tolist()
+
+        criterion_candidate = _calculate_criterion(
+            inlier_ids_candidate,
+            cell_distances,
+            cell_angle_distances,
+            max_distance,
+            max_abs_angle_distance,
+        )
+
+        # Accept if strictly more inlier, or same count with lower criterion
+        if len(inlier_ids_candidate) > len(inlier_ids_current) or (
+            len(inlier_ids_candidate) == len(inlier_ids_current)
+            and criterion_candidate < criterion_current
+        ):
+            criterion_current = criterion_candidate
+            inlier_ids_current = inlier_ids_candidate
+        else:
+            # we have our local optimum and return, also for len(inlier_ids_candidate) == len(inlier_ids_current) and criterion did not improve
+            return
+
+
 def _get_cell_angle_and_position_distances(
-    included_idx: list[int],
+    included_ids: list[int],
     cells: Sequence[
         Cell
     ],  # we use Sequence here for test mocking, where Cell is replaced by MagicMock which is allowed for Sequence but not for list
@@ -214,12 +249,12 @@ def _get_cell_angle_and_position_distances(
     """
     Calculate cell_distances and cell_angle_distances for all cells after finding consensus parameters.
 
-    :param included_idx: a list of included cell indices (used for least-squares fit)
+    :param included_ids: a list of included cell indices (used for least-squares fit)
     :param cells: a list of all filtered cells
     :param reference_rotation_center: global center [x, y] used as the fixed rotation point (meters)
     :returns: cell_distances (meters), cell_angle_distances in absolute degrees — both as np.ndarray of length len(cells)
     """
-    cells_for_least_squares = [cells[idx] for idx in included_idx]
+    cells_for_least_squares = [cells[ids] for ids in included_ids]
     (
         _,
         consensus_rotation_rad,
