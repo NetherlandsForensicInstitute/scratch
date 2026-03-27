@@ -9,17 +9,9 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 
 from constants import LIGHT_SOURCES, OBSERVER, ProcessorEndpoint, RoutePrefix
-from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
-from extractors.schemas import (
-    ComparisonResponseImpression,
-    ComparisonResponseImpressionURL,
-    ComparisonResponseStriation,
-    ComparisonResponseStriationURL,
-    LRResponse,
-    LRResponseURL,
-)
 from file_services import create_vault
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
+from processors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from processors.controller import (
     compare_striation_marks,
     process_lr_impression,
@@ -32,6 +24,12 @@ from processors.schemas import (
     CalculateLRStriation,
     CalculateScore,
     CalculateScoreImpression,
+    ComparisonResponseImpression,
+    ComparisonResponseImpressionURL,
+    ComparisonResponseStriation,
+    ComparisonResponseStriationURL,
+    LRResponse,
+    LRResponseURL,
 )
 
 processors = APIRouter(
@@ -63,26 +61,27 @@ async def processor_root() -> RedirectResponse:
     summary="Compare two impression marks.",
     description="""
     Reads preprocessed impression marks from the comparison and reference directories,
-    performs pairwise comparison, and calculates a score (correlation coefficient).
+    performs pairwise CMC (Congruent Matching Cells) comparison, and calculates a score.
     The score, together with plots, are saved and made available via URLs.
     """,
-    include_in_schema=False,
 )
 async def calculate_score_impression(impression_params: CalculateScoreImpression) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
-    logger.debug("starting calculate score striation")
+    logger.debug("starting calculate score impression")
     vault = create_vault(impression_params.tag)
 
     mark_ref = load_mark_from_path(path=impression_params.mark_dir_ref, stem="processed")
-    mark_ref_leveled = load_mark_from_path(path=impression_params.mark_dir_ref, stem="leveled")
-    mark_ref_processed = ProcessedMark(mark_ref, mark_ref_leveled)
+    mark_ref_raw = load_mark_from_path(path=impression_params.mark_dir_ref, stem="mark")
+    mark_ref_processed = ProcessedMark(mark_ref, mark_ref_raw)
     mark_comp = load_mark_from_path(path=impression_params.mark_dir_comp, stem="processed")
-    mark_comp_leveled = load_mark_from_path(path=impression_params.mark_dir_comp, stem="leveled")
-    mark_comp_processed = ProcessedMark(mark_comp, mark_comp_leveled)
+    mark_comp_raw = load_mark_from_path(path=impression_params.mark_dir_comp, stem="mark")
+    mark_comp_processed = ProcessedMark(mark_comp, mark_comp_raw)
     logger.debug("marks loaded")
 
     cmc_result = compare_surfaces(
-        refence_mark=mark_ref_processed, comparison_mark=mark_comp_processed, params=impression_params.comparison_params
+        reference_mark=mark_ref_processed,
+        comparison_mark=mark_comp_processed,
+        params=impression_params.comparison_params,
     )
     logger.debug("CMC is calculated")
 
@@ -118,7 +117,7 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     summary="Compare two striation profiles",
     description="""
     Reads preprocessed striation profiles from the comparison and reference directories,
-    performs pairwise comparison, and calculates a score (CMC).
+    performs pairwise comparison, and calculates a score (correlation coefficient).
     The score, together with plots, are saved and made available via URLs.
     """,
     responses={
@@ -156,7 +155,7 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     )
     surface_map_pipeline(
         comparison_result.mark_reference_aligned.scan_image,
-        ComparisonStriationFiles.mark_reference_aligned_surfacemap.get_file_path(vault.resource_path),
+        ComparisonStriationFiles.mark_reference_aligned_surface_map.get_file_path(vault.resource_path),
         LIGHT_SOURCES,
         OBSERVER,
     )
@@ -166,7 +165,7 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     )
     surface_map_pipeline(
         comparison_result.mark_compared_aligned.scan_image,
-        ComparisonStriationFiles.mark_compared_aligned_surfacemap.get_file_path(vault.resource_path),
+        ComparisonStriationFiles.mark_compared_aligned_surface_map.get_file_path(vault.resource_path),
         LIGHT_SOURCES,
         OBSERVER,
     )
@@ -197,9 +196,9 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
     result = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
-        lr=result.log_lr,
-        lr_lower_ci=result.log_lr_lower_ci,
-        lr_upper_ci=result.log_lr_upper_ci,
+        llr=result.log_lr,
+        llr_lower_ci=result.log_lr_lower_ci,
+        llr_upper_ci=result.log_lr_upper_ci,
     )
 
 
@@ -218,7 +217,7 @@ async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     result = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
-        lr=result.log_lr,
-        lr_lower_ci=result.log_lr_lower_ci,
-        lr_upper_ci=result.log_lr_upper_ci,
+        llr=result.log_lr,
+        llr_lower_ci=result.log_lr_lower_ci,
+        llr_upper_ci=result.log_lr_upper_ci,
     )

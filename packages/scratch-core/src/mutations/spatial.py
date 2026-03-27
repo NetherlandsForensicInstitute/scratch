@@ -45,13 +45,12 @@ class CropToMask(ImageMutation):
         self.mask = mask
         self.margin = margin
 
-    @property
-    def skip_predicate(self) -> bool:
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
         """
         Determine whether this crop should be skipped.
 
         Skips computation if the crop contains only ones.
-
+        :param scan_image: Input ScanImage to resample.
         :returns: True if the crop is empty, False otherwise
         """
         if self.mask.all():
@@ -151,13 +150,12 @@ class Rotate(ImageMutation):
         """
         self.rotation_angle = rotation_angle
 
-    @property
-    def skip_predicate(self) -> bool:
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
         """
         Determine whether this rotation should be skipped.
 
         Skips computation if the rotation is 0.
-
+        :param scan_image: Input ScanImage to resample.
         :returns: True if rotation angle is 0, False otherwise
         """
         if np.isclose(self.rotation_angle, 0.0):

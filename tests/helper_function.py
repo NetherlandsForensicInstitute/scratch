@@ -51,7 +51,7 @@ def make_cell(  # noqa: PLR0913
 
 def _save_impression_mark(dir_path: Path, mark: Mark) -> None:
     """Save mark files to a directory in the format load_mark_from_path expects."""
-    for stem in ("processed", "leveled", "aligned"):
+    for stem in ("processed", "leveled", "mark", "aligned"):
         save_mark(mark, dir_path / stem)
 
 
@@ -82,7 +82,7 @@ def assert_lr_response_valid(client: TestClient, response) -> None:
     """Assert that an LR endpoint response contains a valid LR and reachable PNG plot."""
     assert response.status_code == HTTPStatus.OK, response.json()
     data = response.json()
-    assert isinstance(data["lr"], float)
+    assert isinstance(data["llr"], float)
     assert HttpUrl(data["lr_overview_plot"])
     plot_response = client.get(data["lr_overview_plot"])
     assert plot_response.status_code == HTTPStatus.OK
@@ -121,12 +121,12 @@ def _impression_mark(data: np.ndarray) -> Mark:
 
 def _save_impression_marks(dir_path: Path, mark: Mark) -> None:
     """Save mark and profile files to a directory."""
-    for stem in ("processed", "leveled"):
+    for stem in ("processed", "leveled", "mark"):
         save_mark(mark, dir_path / stem)
 
 
 def _save_striation_mark_and_profile(dir_path: Path, profile: Profile, mark: Mark) -> None:
     """Save mark and profile files to a directory."""
-    for stem in ("processed", "aligned"):
+    for stem in ("processed", "aligned", "mark"):
         save_mark(mark, dir_path / stem)
     save_profile(profile, dir_path / "profile")

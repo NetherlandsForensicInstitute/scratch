@@ -17,7 +17,7 @@ from conversion.surface_comparison.models import (
 
 
 def compare_surfaces(
-    refence_mark: ProcessedMark,
+    reference_mark: ProcessedMark,
     comparison_mark: ProcessedMark,
     params: ComparisonParams,
 ) -> ComparisonResult:
@@ -39,7 +39,7 @@ def compare_surfaces(
     Both marks are expected to have already been pre-processed (leveled and band-pass filtered);
     only the ``filtered_mark`` image is currently used by the pipeline.
 
-    :param refence_mark: Pre-processed reference mark; its filtered scan image defines the grid and coordinate system.
+    :param reference_mark: Pre-processed reference mark; its filtered scan image defines the grid and coordinate system.
     :param comparison_mark: Pre-processed comparison mark to register against the reference.
     :param params: Algorithm parameters controlling cell size, fill-fraction thresholds, angle sweep, and CMC
         classification thresholds.
@@ -48,7 +48,7 @@ def compare_surfaces(
     """
 
     # Get the filtered images for the CMC pipeline
-    reference_image = refence_mark.filtered_mark.scan_image
+    reference_image = reference_mark.filtered_mark.scan_image
     comparison_image = comparison_mark.filtered_mark.scan_image
 
     # Step 1: Resample comparison so that both have the same pixel size

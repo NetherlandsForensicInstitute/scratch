@@ -10,7 +10,7 @@ from conversion.plots.data_formats import StriationComparisonPlots
 from conversion.profile_correlator import Profile
 from fastapi import HTTPException
 
-from extractors.constants import ComparisonImpressionFiles, ComparisonStriationFiles
+from processors.constants import ComparisonImpressionFiles, ComparisonStriationFiles
 from processors.controller import (
     compare_striation_marks,
     save_impression_comparison_plots,
@@ -92,8 +92,8 @@ class TestSaveComparisonPlots:
         img = self._dummy_image_array()
         mock_plots = Mock(
             comparison_overview=img,
-            leveled_reference_heatmap=img,
-            leveled_compared_heatmap=img,
+            raw_reference_heatmap=img,
+            raw_compared_heatmap=img,
             filtered_reference_heatmap=img,
             filtered_compared_heatmap=img,
             cell_reference_heatmap=img,
@@ -107,8 +107,8 @@ class TestSaveComparisonPlots:
         )
 
         save_impression_comparison_plots(
-            mark_ref=Mock(leveled_mark=Mock(), filtered_mark=Mock()),
-            mark_comp=Mock(leveled_mark=Mock(), filtered_mark=Mock()),
+            mark_ref=Mock(raw_mark=Mock(), filtered_mark=Mock()),
+            mark_comp=Mock(raw_mark=Mock(), filtered_mark=Mock()),
             cmc_result=Mock(),
             comparison_params=Mock(),
             working_dir=tmp_path,

@@ -13,8 +13,7 @@ class TestBaseMutations:
         return ScanImage(data=np.zeros((2, 2)), scale_x=1, scale_y=1)
 
     class FakeMutation(ImageMutation):
-        @property
-        def skip_predicate(self) -> bool:
+        def skip_predicate(self, scan_image: ScanImage) -> bool:
             return self.var == 3
 
         def __init__(self, var: int) -> None:
@@ -24,7 +23,11 @@ class TestBaseMutations:
             """Small edit to do a 'mutation'"""
             scan_image.scale_x = self.var
             scan_image.scale_y = self.var
-            return scan_image
+            return ScanImage(
+                data=scan_image.data,
+                scale_x=scan_image.scale_x,
+                scale_y=scan_image.scale_y,
+            )
 
     @pytest.mark.parametrize(
         "get_result",
@@ -47,11 +50,13 @@ class TestBaseMutations:
         result = get_result(mutation, scan_image)
         # Assert
         assert result.scale_x == updated_variable
+        assert id(result) != id(scan_image)
         assert result.scale_y == updated_variable
 
     def test_interface_skips_edit_image_with_predicate(self, scan_image: ScanImage):
+        # Arrange
         mutation = self.FakeMutation(var=3)
         # Act
         resulting_scan_image = mutation(scan_image=scan_image)
         # Assert
-        assert resulting_scan_image == scan_image, "Mutation should be skipped."
+        assert id(resulting_scan_image) == id(scan_image), "Mutation should be skipped."

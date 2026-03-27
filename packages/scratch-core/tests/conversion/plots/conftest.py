@@ -179,13 +179,13 @@ def impression_overview_marks() -> dict[str, Mark]:
     )
 
     return {
-        "reference_leveled": make_mark(
+        "reference_raw": make_mark(
             data_ref_lev,
             scale_x=scale_x,
             scale_y=scale_y,
             mark_type=MarkType.EJECTOR_IMPRESSION,
         ),
-        "compared_leveled": make_mark(
+        "compared_raw": make_mark(
             data_comp_lev,
             scale_x=scale_x,
             scale_y=scale_y,
