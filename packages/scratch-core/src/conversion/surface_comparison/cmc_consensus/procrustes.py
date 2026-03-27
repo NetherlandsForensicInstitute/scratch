@@ -60,17 +60,15 @@ def _get_translation(
         [cell.center_comparison for cell in cells], dtype=float
     )  # (N, 2)
 
-    # Compute centroids
-    rotation_center_reference = centers_reference.mean(
-        axis=0
-    )  # mean of reference positions (2,)
-    rotation_center_comparison = centers_comparison.mean(
+    reference_mean = centers_reference.mean(axis=0)  # mean of reference positions (2,)
+
+    comparison_mean = centers_comparison.mean(
         axis=0
     )  # mean of comparison positions (2,)
 
     return ConsensusParameters(
-        rotation_center_reference=rotation_center_reference,
-        rotation_center_comparison=rotation_center_comparison,
+        rotation_center_reference=reference_mean,
+        rotation_center_comparison=comparison_mean,
     )
 
 
