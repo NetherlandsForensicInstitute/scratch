@@ -90,13 +90,13 @@ class TestClassifyCongruentCells:
 
         expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
         if np.isnan(expected_rotation):
-            assert np.isnan(result.shared_rotation), (
+            assert np.isnan(result.estimated_rotation), (
                 f"[{matlab_test_case['name']}] Expected NaN consensus rotation, "
-                f"got {result.shared_rotation}"
+                f"got {result.estimated_rotation}"
             )
         else:
             np.testing.assert_allclose(
-                result.shared_rotation,
+                result.estimated_rotation,
                 expected_rotation,
                 atol=ANGLE_ATOL,
                 err_msg=f"[{matlab_test_case['name']}] Consensus rotation mismatch",
@@ -115,7 +115,7 @@ class TestClassifyCongruentCells:
         result = classify_congruent_cells_median(cells, params, rotation_center)
 
         expected_translation = matlab_test_case["outputs"]["consensus_translation"]
-        actual_translation = result.shared_translation
+        actual_translation = result.estimated_translation
         actual_translation = (actual_translation[0], -1 * actual_translation[1])
         if all(item is None for item in expected_translation):
             assert all(np.isnan(v) for v in actual_translation), (

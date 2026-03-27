@@ -2,18 +2,24 @@ import numpy as np
 import pytest
 from unittest.mock import patch, MagicMock
 
-from conversion.surface_comparison.cmc_classification_consensus import (
-    _calculate_criterion,
-    _get_cell_angle_and_position_distances,
-    _find_consensus_parameters,
+from conversion.surface_comparison.cmc_consensus.procrustes import (
+    find_consensus_parameters,
     _get_rotation_component_using_rotation_matrix,
-    _get_distances,
     _get_rotation_component_using_angle_degree,
     _build_2d_rotation_matrix,
+)
+
+from conversion.surface_comparison.cmc_consensus.criterion import (
+    calculate_criterion,
+    _get_cell_angle_and_position_distances,
+    _get_distances,
     _predict_positions,
     _get_distances_meters,
 )
+
 from conversion.surface_comparison.models import Cell
+
+from conversion.surface_comparison.cmc_consensus.models import ConsensusParameters
 
 
 class TestCriterion:
@@ -21,7 +27,7 @@ class TestCriterion:
         """Test that empty cell_ids returns np.inf."""
         cell_distances = np.array([1.0, 2.0, 3.0])
         cell_angle_distances = np.array([10.0, 20.0, 30.0])
-        result = _calculate_criterion(
+        result = calculate_criterion(
             [], cell_distances, cell_angle_distances, 10.0, 90.0
         )
         assert result == np.inf
@@ -34,7 +40,7 @@ class TestCriterion:
         max_distance = 10.0
         max_abs_angle_distance = 40.0
 
-        result = _calculate_criterion(
+        result = calculate_criterion(
             cell_ids,
             cell_distances,
             cell_angle_distances,
@@ -48,17 +54,23 @@ class TestCriterion:
 
 class TestGetCmcConsensus:
     def test_uses_only_included_idx_for_least_squares(self):
-        """Test that _find_consensus_parameters is called with only the included cells, not all cells."""
+        """Test that find_consensus_parameters is called with only the included cells, not all cells."""
         all_cells = [MagicMock(spec=Cell) for _ in range(5)]
         included_idx = [0, 2, 4]
 
+        mock_consensus_params = ConsensusParameters(
+            rotation_center_reference=np.array([0.0, 0.0]),
+            rotation_center_comparison=np.array([1.0, 1.0]),
+            rotation_rad=0.1,
+        )
+
         with (
             patch(
-                "conversion.surface_comparison.cmc_classification_consensus._find_consensus_parameters",
-                return_value=(None, 0.1, np.array([0.0, 0.0]), np.array([1.0, 1.0])),
+                "conversion.surface_comparison.cmc_consensus.criterion.find_consensus_parameters",
+                return_value=mock_consensus_params,
             ) as mock_find,
             patch(
-                "conversion.surface_comparison.cmc_classification_consensus._get_distances",
+                "conversion.surface_comparison.cmc_consensus.criterion._get_distances",
                 return_value=(np.zeros(5), np.zeros(5)),
             ),
         ):
@@ -81,7 +93,7 @@ class TestFindConsensusParameters:
         ],
     )
     def test_recovers_all_parameters(self, angle, translation):
-        """Test that all four outputs match known rotation, translation, and centers."""
+        """Test that all outputs match known rotation, translation, and centers."""
         translation = np.array(translation)
         cos_a, sin_a = np.cos(angle), np.sin(angle)
         rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
@@ -98,21 +110,26 @@ class TestFindConsensusParameters:
             for ref, comp in zip(centers_reference, centers_comparison)
         ]
 
-        (
-            consensus_translation,
-            consensus_rotation_rad,
-            rotation_center_reference,
-            rotation_center_comparison,
-        ) = _find_consensus_parameters(cells)
+        result = find_consensus_parameters(cells)
 
-        assert consensus_rotation_rad == pytest.approx(angle, abs=1e-6)
-        assert consensus_translation == pytest.approx(translation, abs=1e-6)
-        assert rotation_center_reference == pytest.approx(
-            centers_reference.mean(axis=0), abs=1e-6
+        expected_rotation_center_reference = centers_reference.mean(axis=0)
+        expected_rotation_center_comparison = centers_comparison.mean(axis=0)
+        expected_translation = (
+            expected_rotation_center_comparison - expected_rotation_center_reference
         )
-        assert rotation_center_comparison == pytest.approx(
-            centers_comparison.mean(axis=0), abs=1e-6
+
+        assert result.rotation_rad == pytest.approx(angle, abs=1e-6)
+        assert result.rotation_center_reference == pytest.approx(
+            expected_rotation_center_reference, abs=1e-6
         )
+        assert result.rotation_center_comparison == pytest.approx(
+            expected_rotation_center_comparison, abs=1e-6
+        )
+        # translation is derived from the two centers, so verify it is consistent
+        actual_translation = (
+            result.rotation_center_comparison - result.rotation_center_reference
+        )
+        assert actual_translation == pytest.approx(expected_translation, abs=1e-6)
 
 
 class TestRotationComponentWithRotationMatrix:
@@ -157,11 +174,11 @@ class TestGetDistances:
 
         with (
             patch(
-                "conversion.surface_comparison.cmc_classification_consensus._predict_positions",
+                "conversion.surface_comparison.cmc_consensus.criterion._predict_positions",
                 return_value=MagicMock(),
             ),
             patch(
-                "conversion.surface_comparison.cmc_classification_consensus._get_distances_meters",
+                "conversion.surface_comparison.cmc_consensus.criterion._get_distances_meters",
                 return_value=expected_distances.tolist(),
             ),
         ):
@@ -216,7 +233,9 @@ class TestBuild2dRotationMatrix:
 
 class TestPredictPositions:
     @pytest.mark.parametrize("consensus_rotation_rad", [np.pi / 6, -np.pi / 3])
-    @pytest.mark.parametrize("rotation_center_reference", [(0.0, 0.0), (3.0, -2.0)])
+    @pytest.mark.parametrize(
+        "rotation_center_reference", [np.array([0.0, 0.0]), np.array([3.0, -2.0])]
+    )
     @pytest.mark.parametrize("rotation_center_comparison", [(0.0, 0.0), (1.0, 5.0)])
     def test_predicts_correct_positions(
         self,

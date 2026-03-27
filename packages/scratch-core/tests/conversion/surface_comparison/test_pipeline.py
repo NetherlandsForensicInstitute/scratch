@@ -4,7 +4,7 @@ from typing import Callable
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkType
 from conversion.surface_comparison.cell_registration.core import coarse_registration
-from conversion.surface_comparison.cmc_classification_consensus import (
+from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
 from conversion.surface_comparison.cmc_classification_median import (

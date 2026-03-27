@@ -93,13 +93,13 @@ class ComparisonResult:
     Consolidated results of the CMC pipeline.
 
     :param cells: Per-cell registration and classification results.
-    :param shared_rotation: Rotation consensus across CMC cells (degrees).
-    :param shared_translation: Translation consensus across CMC cells (m)
+    :param estimated_rotation: Estimated rotation across CMC cells (degrees).
+    :param estimated_translation: Estimated translation across CMC cells (m)
     """
 
     cells: Sequence[Cell]
-    shared_rotation: float
-    shared_translation: tuple[float, float]
+    estimated_rotation: float
+    estimated_translation: tuple[float, float]
 
     @property
     def cell_count(self) -> int:
@@ -254,17 +254,3 @@ class GridCell:
     def cell_data_filled(self) -> FloatArray2D:
         """Cell data where NaN values are replaced with the sentinel value."""
         return np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
-
-
-@dataclass(frozen=True)
-class CMCTranslationRotation:
-    """
-    Mutable container for the best registration parameters found so far for one cell.
-    All positional attributes are in pixel coordinates of the (rotated) comparison image.
-    :param translation: shared translation from reference to comparison image, (x, y) meters.
-    :param rotation: shared rotation from reference to comparison image, degrees.
-
-    """
-
-    translation: tuple[float, float]
-    rotation: float

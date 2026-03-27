@@ -102,8 +102,8 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
         "score": cmc_result.cmc_count,
         "cmc_fraction": cmc_result.cmc_fraction,
         "cmc_area_fraction": cmc_result.cmc_area_fraction,
-        "shared_rotation": cmc_result.shared_rotation,
-        "shared_translation": cmc_result.shared_translation,
+        "estimated_rotation": cmc_result.estimated_rotation,
+        "estimated_translation": cmc_result.estimated_translation,
     }
     return ComparisonResponseImpression(
         urls=ComparisonResponseImpressionURL.from_enum(enum=ComparisonImpressionFiles, base_url=vault.access_url),

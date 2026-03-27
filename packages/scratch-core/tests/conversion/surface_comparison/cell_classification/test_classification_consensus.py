@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from conversion.surface_comparison.cmc_classification_consensus import (
+from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
 
@@ -67,15 +67,19 @@ class TestClassifyCongruentCells:
 
     def test_cmc_count(self, matlab_test_case: dict) -> None:
         """The number of CMC cells must match the MATLAB reference."""
+
+        # Arrange
+        expected_cmc_count = matlab_test_case["outputs"]["cmc_count"]
         cells, params, rotation_center_reference = build_test_inputs(
             matlab_test_case["inputs"]
         )
 
+        # Act
         result = classify_congruent_cells_consensus(
             cells, params, rotation_center_reference
         )
 
-        expected_cmc_count = matlab_test_case["outputs"]["cmc_count"]
+        # Assert
         assert result.cmc_count == expected_cmc_count, (
             f"[{matlab_test_case['name']}] CMC count mismatch: "
             f"expected {expected_cmc_count}, got {result.cmc_count}"
@@ -83,15 +87,19 @@ class TestClassifyCongruentCells:
 
     def test_cmc_flags(self, matlab_test_case: dict) -> None:
         """Per-cell congruence flags must match the MATLAB reference."""
+
+        # Arrange
+        expected_flags = matlab_test_case["outputs"]["is_congruent"]
         cells, params, rotation_center_reference = build_test_inputs(
             matlab_test_case["inputs"]
         )
 
+        # Act
         result = classify_congruent_cells_consensus(
             cells, params, rotation_center_reference
         )
 
-        expected_flags = matlab_test_case["outputs"]["is_congruent"]
+        # Assert
         if isinstance(expected_flags, bool):
             expected_flags = [expected_flags]
         actual_flags = [cell.is_congruent for cell in result.cells]
@@ -108,23 +116,26 @@ class TestClassifyCongruentCells:
         if matlab_test_case["name"] == "all_congruent_no_outliers":
             pytest.skip("consensus rotation not tested for all_congruent_no_outliers")
 
+        # Arrange
+        expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
         cells, params, rotation_center_reference = build_test_inputs(
             matlab_test_case["inputs"]
         )
 
+        # Act
         result = classify_congruent_cells_consensus(
             cells, params, rotation_center_reference
         )
 
-        expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
+        # Assert
         if np.isnan(expected_rotation):
-            assert np.isnan(result.shared_rotation), (
+            assert np.isnan(result.estimated_rotation), (
                 f"[{matlab_test_case['name']}] Expected NaN consensus rotation, "
-                f"got {result.shared_rotation}"
+                f"got {result.estimated_rotation}"
             )
         else:
             np.testing.assert_allclose(
-                result.shared_rotation,
+                result.estimated_rotation,
                 expected_rotation,
                 atol=ANGLE_ATOL,
                 err_msg=f"[{matlab_test_case['name']}] Consensus rotation mismatch",
@@ -141,21 +152,25 @@ class TestClassifyCongruentCells:
         if matlab_test_case["name"] == "all_congruent_no_outliers":
             pytest.skip("consensus rotation not tested for all_congruent_no_outliers")
 
+        # Arrange
+        expected_translation = matlab_test_case["outputs"]["consensus_translation"]
         cells, params, rotation_center_reference = build_test_inputs(
             matlab_test_case["inputs"]
         )
 
+        # Act
         result = classify_congruent_cells_consensus(
             cells, params, rotation_center_reference
         )
 
-        expected_translation = matlab_test_case["outputs"]["consensus_translation"]
-        actual_translation = result.shared_translation
+        actual_translation = result.estimated_translation
         actual_translation_list = list(actual_translation)
         actual_translation = (
             actual_translation_list[0],
             -1 * actual_translation_list[1],
         )
+
+        # Assert
         if all(item is None for item in expected_translation):
             assert all(np.isnan(v) for v in actual_translation), (
                 f"[{matlab_test_case['name']}] Expected NaN translation, "

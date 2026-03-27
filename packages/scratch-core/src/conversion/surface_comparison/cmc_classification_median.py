@@ -60,8 +60,8 @@ def classify_congruent_cells_median(
 
     result = ComparisonResult(
         cells=cells,
-        shared_rotation=float(np.degrees(median_angle)),
-        shared_translation=median_translation,
+        estimated_rotation=float(np.degrees(median_angle)),
+        estimated_translation=median_translation,
     )
     return result
 
