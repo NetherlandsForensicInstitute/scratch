@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+import numpy as np
 
 from container_models.base import FloatArray1D
 
@@ -29,7 +30,7 @@ class ConsensusParameters:
 
     rotation_center_reference: FloatArray1D  # (2,0)
     rotation_center_comparison: FloatArray1D  # (2,0)
-    rotation_rad: float | None = None
+    rotation_rad: float = np.nan
 
     @property
     def translation(self) -> FloatArray1D:
