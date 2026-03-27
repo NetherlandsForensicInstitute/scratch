@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from scipy.constants import mega
 
-from container_models.base import ConfigBaseModel, FloatArray2D
+from container_models.base import ConfigBaseModel, FloatArray2D, BinaryMask
 from conversion.data_formats import Mark, MarkType
 
 
@@ -246,3 +246,8 @@ class GridCell:
     def cell_data_filled(self) -> FloatArray2D:
         """Cell data where NaN values are replaced with the sentinel value."""
         return np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
+
+    @cached_property
+    def valid_mask(self) -> BinaryMask:
+        """Mask where the cell data has valid values (i.e. no NaNs)."""
+        return ~np.isnan(self.cell_data)

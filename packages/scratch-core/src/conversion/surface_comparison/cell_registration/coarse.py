@@ -131,6 +131,7 @@ def _find_best_match(
             score_map = _get_score_map(
                 comparison_array=rotated,
                 template=grid_cell.cell_data_filled,
+                template_mask=grid_cell.valid_mask,
             )
             score, x, y = _compute_best_score_from_maps(
                 score_map=score_map, fill_fraction_mask=fill_fraction_mask
@@ -237,7 +238,7 @@ def _compute_best_score_from_maps(
 
 
 def _get_score_map(
-    comparison_array: FloatArray2D, template: FloatArray2D
+    comparison_array: FloatArray2D, template: FloatArray2D, template_mask: BinaryMask
 ) -> FloatArray2D:
     """
     Compute a normalized cross-correlation score map for one reference cell.
@@ -248,6 +249,7 @@ def _get_score_map(
 
     :param comparison_array: NaN-free float32-compatible comparison image, padded by a full cell on each side.
     :param template: Reference grid cell whose ``cell_data`` is used as the template; must contain no NaN values.
+    :param template_mask: Mask with the pixel values that should be matched (i.e. no NaNs).
     :returns: Float64 score map of shape ``(H - cell_height + 1, W - cell_width + 1)`` with values in ``[-1, 1]``.
     """
 
@@ -255,5 +257,6 @@ def _get_score_map(
         image=comparison_array.astype(np.float32),
         templ=template.astype(np.float32),
         method=cv2.TM_CCOEFF_NORMED,
+        mask=template_mask.astype(np.uint8),
     )
     return np.asarray(score_map, dtype=np.float64)
