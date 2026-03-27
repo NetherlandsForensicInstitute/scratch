@@ -97,7 +97,7 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
 def test_coarse_registration_finds_angle(
     angle: float,
     classification_function: Callable,
-    plot: bool = True,
+    plot: bool = False,
 ):
     # Arrange
     scale = 1e-6
