@@ -17,16 +17,7 @@ def find_consensus_parameters(
 ) -> ConsensusParameters:
     """Least-squares 'Procrustes' rotation fit to find consensus rotation and translation parameters.
 
-    Explanation of the method:
-    Say we have two coordinate-pair lists [X] and [Y] where X_i is coupled with Y_i. And we want to find the rotation matrix R and translation of X to Y for which:
-    ||(X - rotation_center_X) R - (Y - rotation_center_Y)||F_2 is minimal. i.e. the Frobenius norm (in this application the sum of squared distances between the linearly transformed set of points and the target set of points) is minimal.
-    The rotation_centra yielding minimum Frobenius norm for the rotation operation are the coordinate means of X and Y. Note that this is a different coordinate system than the one used to find the rotation of individual cells during registration but this does not matter since optimal rotation angle is independent of coordinate system. We just want to find this rotation by minimizing the Frobenius norm and this centering minimizes the norm.
-    It immediately follows that optimal translation in this coordinate system is rotation_center_Y - rotation_center_X.
-    The optimal rotation can be found by completing the square in the Frobenius norm and observing that only the linear term
-    -2trace(R^T X_centered^T Y_centered) depends on R. Therefore, this term should be minimal. Now, regard X_centered^T Y_centered = M with singular_value_decomposition(M) = U Sigma V^T, with U and V orthonormal basis and Sigma a diagonal eigenvalue matrix.
-    For trace(R^T U Sigma V^T) to be maximal, since R, U and V are orthonormal matrices, you want: trace(R^T U Sigma V^T) = trace(Sigma). In order to achieve this (using the cyclic property of trace):
-    trace(R^T U Sigma V^T) = trace(V^T R^T U Sigma), so R^T = V U^T, so R = U V^T.
-    One last thing: since R is the collection of rotations and reflections, and physically we do not want reflections, we constrain the solution to reflections only by solving the above eigenvalue problem and, in case of reflection (determinant(R) = -1), reflecting the last axis of U (with the smallest eigenvalue, therefore yielding the minimal Frobenius norm given this contraint).
+    See README.md @ 'Explanation of Procrustes procedure' for details.
 
     :param cells: cells whose (center_reference, center_comparison) pairs are used for fitting
     :returns: consensus_parameters
