@@ -7,13 +7,11 @@ import numpy as np
 from conversion.data_formats import BoundingBox, MarkImpression, MarkStriation
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
-from fastapi import File, UploadFile
 from pydantic import (
     Field,
     HttpUrl,
     PositiveFloat,
     PositiveInt,
-    field_validator,
     model_validator,
 )
 from utils.constants import RegressionOrder
@@ -112,13 +110,6 @@ class PrepareMarkBase(BaseParameters):
         """
         return np.array(self.bounding_box_list) if self.bounding_box_list is not None else None
 
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("mark_type", "MarkType"),)
-        return _update_schema(schema, attr_to_class)
-
 
 class PrepareMarkStriation(PrepareMarkBase):
     mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
@@ -135,7 +126,6 @@ class PrepareMarkStriation(PrepareMarkBase):
 class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
     mark_type: MarkImpression = Field(..., description="Type of mark to prepare.")
-
 
     @classmethod
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:

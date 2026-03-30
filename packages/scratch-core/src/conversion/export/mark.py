@@ -6,10 +6,10 @@ with NPZ binary data, and load them back into memory.
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import numpy as np
-from pydantic import Field
+from pydantic import BeforeValidator, Field
 from scipy.io import loadmat
 from container_models.base import ConfigBaseModel
 from container_models.scan_image import ScanImage
@@ -23,10 +23,24 @@ from .utils import (
 )
 
 
+def _parse_mark_type(value: Any) -> MarkImpression | MarkStriation:
+    if isinstance(value, (MarkImpression, MarkStriation)):
+        return value
+    name = str(value).upper()
+    if name in MarkImpression.__members__:
+        return MarkImpression[name]
+    if name in MarkStriation.__members__:
+        return MarkStriation[name]
+    valid = list(MarkImpression.__members__) + list(MarkStriation.__members__)
+    raise ValueError(f"Invalid MarkType: '{value}'. Must be one of {valid}")
+
+
 class ExportedMarkData(ConfigBaseModel):
     """Validated data structure for exported Mark metadata."""
 
-    mark_type: MarkImpression | MarkStriation
+    mark_type: Annotated[
+        MarkImpression | MarkStriation, BeforeValidator(_parse_mark_type)
+    ]
     center: tuple[float, float]
     scale_x: float = Field(..., gt=0)
     scale_y: float = Field(..., gt=0)
