@@ -215,8 +215,8 @@ visualization and roughness analysis).
       ___/^^^\____/^\
 ```
 
-`correlate_profiles` compares two `Profile` objects using a brute-force search over all shifts and
-scale factors.
+`correlate_profiles` compares two `Profile` objects using a brute-force search over all shifts and a range of scale
+factors.
 
 **Algorithm:**
 
@@ -280,7 +280,7 @@ scale factors.
 4. **Fine registration** — currently a pass-through stub for future sub-pixel refinement.
 
 5. **CMC classification** — determine which cells are "congruent" (i.e., consistently registered):
-   - **Consensus angle**: compute a circular median of all cell registration angles. Apply the
+   - **Estimated angle**: compute a circular median of all cell registration angles. Apply the
      generalized ESD test (Rosner 1983) to reject statistical outliers, then tighten the inlier set
      to cells within 2× the `angle_deviation_threshold`. Recompute the median from inliers.
    - **Consensus translation**: rotate reference cell centers by the consensus angle, then take the
