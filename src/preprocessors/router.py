@@ -98,10 +98,8 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     description="""
     Applies user-defined masking and cropping to a scan, then performs
     mark-type-specific preprocessing (rotation, cropping, filtering) for impression marks.
-
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
-
     The mask must have exactly the same shape (height × width) as the parsed scan image.
     """,
     responses={
@@ -141,10 +139,8 @@ async def prepare_mark_impression(params: PrepareMarkImpression = Depends()) -> 
     description="""
     Applies user-defined masking and cropping to a scan, then performs
     mark-type-specific preprocessing (rotation, cropping, filtering) for striation marks.
-
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
-
     The mask must have exactly the same shape (height × width) as the parsed scan image.
     """,
     responses={
@@ -184,11 +180,8 @@ async def prepare_mark_striation(params: PrepareMarkStriation = Depends()) -> Pr
     description="""
     Parse and validate a scan file (X3P format only) with the provided edit parameters
     (mask, crop, subsampling). Creates a new vault for storing future outputs.
-
     The mask shape specified in `mask_parameters.shape` must exactly match the shape
     (height × width) of the parsed scan image.
-
-    Note: Image generation is currently not implemented.
 """,
     responses={
         HTTPStatus.BAD_REQUEST: {"description": "parse error"},
