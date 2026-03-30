@@ -70,8 +70,7 @@ async def processor_root() -> RedirectResponse:
     include_in_schema=False,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "mark file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data"},
-        HTTPStatus.BAD_REQUEST: {"description": "comparison failed"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data or comparison failed"},
     },
 )
 async def calculate_score_impression(impression_params: CalculateScoreImpression) -> ComparisonResponseImpression:
@@ -99,7 +98,7 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
             params=impression_params.comparison_params,
         )
     except ValueError as e:
-        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
     logger.debug("CMC is calculated")
 
     save_impression_comparison_plots(
@@ -140,7 +139,6 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     responses={
         HTTPStatus.NOT_FOUND: {"description": "mark or profile file not found"},
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data"},
-        HTTPStatus.BAD_REQUEST: {"description": "profiles could not be aligned due to insufficient overlap"},
     },
 )
 async def calculate_score_striation(striation_params: CalculateScore) -> ComparisonResponseStriation:

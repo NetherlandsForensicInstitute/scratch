@@ -123,7 +123,7 @@ def test_calculate_score_striation_returns_422_on_missing_file(
     with patch("processors.router.load_mark_from_path", side_effect=FileNotFoundError("mark not found")):
         response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
 
-    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.status_code == HTTPStatus.NOT_FOUND
     assert "mark not found" in response.json()["detail"]
 
 
@@ -146,7 +146,7 @@ class TestMarkImpression:
         with patch("processors.router.load_mark_from_path", side_effect=FileNotFoundError("mark not found")):
             response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.NOT_FOUND
         assert "mark not found" in response.json()["detail"]
 
     def test_calculate_score_impression_returns_422_on_comparison_error(
