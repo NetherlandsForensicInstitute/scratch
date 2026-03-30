@@ -11,17 +11,18 @@ import numpy as np
 import pytest
 from scipy.constants import micro
 
-from container_models.base import DepthData, BinaryMask, StriationProfile
+from container_models.base import BinaryMask, DepthData, StriationProfile
 from conversion.data_formats import MarkType
-from .helper_functions import make_mark
 from conversion.preprocess_striation import (
-    PreprocessingStriationParams,
     preprocess_striation_mark,
 )
+from conversion.preprocess_striation.pipeline import StriationParams
+
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
+    make_mark,
 )
 
 
@@ -170,7 +171,7 @@ def run_python_preprocessing(
         mark_type=mark_type,
     )
 
-    params = PreprocessingStriationParams(
+    params = StriationParams(
         highpass_cutoff=test_case.cutoff_hi * micro,
         lowpass_cutoff=test_case.cutoff_lo * micro,
         use_mean=test_case.use_mean,

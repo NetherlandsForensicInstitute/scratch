@@ -4,8 +4,6 @@ This module provides functions to preprocess 2D scan images of impression marks
 (e.g., breech face impressions) through leveling, filtering, and resampling steps.
 """
 
-from dataclasses import asdict
-
 from pydantic import BaseModel
 
 from container_models.base import DepthData
@@ -17,7 +15,6 @@ from conversion.filter import (
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import crop_to_mask
 from conversion.preprocess_impression.center import compute_center_local
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.resample import (
     needs_resampling,
     resample,
@@ -38,6 +35,18 @@ class ImpressionParams(BaseModel):
     lowpass_cutoff: float | None = 5.0e-6
     highpass_regression_order: int = 2
     lowpass_regression_order: int = 0
+
+    @property
+    def surface_terms(self) -> SurfaceTerms:
+        """Convert leveling flags to SurfaceTerms."""
+        terms = SurfaceTerms.NONE
+        if self.level_offset:
+            terms |= SurfaceTerms.OFFSET
+        if self.level_tilt:
+            terms |= SurfaceTerms.TILT_X | SurfaceTerms.TILT_Y
+        if self.level_2nd:
+            terms |= SurfaceTerms.ASTIG_45 | SurfaceTerms.DEFOCUS | SurfaceTerms.ASTIG_0
+        return terms
 
 
 def preprocess_impression_mark(
@@ -116,7 +125,7 @@ def preprocess_impression_mark(
     )
 
     # Build output metadata
-    mark.meta_data.update(**asdict(params))
+    mark.meta_data.update(**params.model_dump())
 
     return mark_filtered, mark_leveled_final
 

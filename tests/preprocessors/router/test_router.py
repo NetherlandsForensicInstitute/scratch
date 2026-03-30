@@ -1,10 +1,13 @@
 from http import HTTPStatus
+from io import BytesIO
 from pathlib import Path
 
 import numpy as np
 import pytest
 from container_models.base import BinaryMask
 from conversion.data_formats import MarkType
+from conversion.preprocess_impression.preprocess_impression import ImpressionParams
+from conversion.preprocess_striation.pipeline import StriationParams
 from fastapi.testclient import TestClient
 from httpx import Response
 from pydantic import HttpUrl
@@ -21,8 +24,6 @@ from preprocessors.schemas import (
     PrepareMarkResponseImpression,
     PrepareMarkResponseStriation,
     PrepareMarkStriation,
-    PreprocessingImpressionParams,
-    PreprocessingStriationParams,
 )
 from settings import get_settings
 
@@ -30,9 +31,13 @@ from settings import get_settings
 def send_post_request_with_mask(client: TestClient, endpoint: str, params: dict, mask: BinaryMask) -> Response:
     return client.post(
         f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{endpoint}",
-        params=params,
+        params={k: v for k, v in params.items() if v is not None},
         files={
-            "mask_data": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream"),
+            "mask_data": (
+                "mask.bin",
+                BytesIO(mask.tobytes(order="C")),
+                "application/octet-stream",
+            )
         },
         timeout=5,
     )
@@ -57,7 +62,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PreprocessorEndpoint.PREPARE_MARK_STRIATION,
             PrepareMarkStriation,
             PrepareMarkResponseStriation,
-            PreprocessingStriationParams,
+            StriationParams,
             MarkType.APERTURE_SHEAR_STRIATION,
             [
                 "preview_image",
@@ -75,7 +80,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
             PrepareMarkImpression,
             PrepareMarkResponseImpression,
-            PreprocessingImpressionParams,
+            ImpressionParams,
             MarkType.CHAMBER_IMPRESSION,
             [
                 "preview_image",
@@ -109,7 +114,7 @@ class TestPrepareMarkEndpoint:
         self,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         mark_type: str,
-        mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+        mark_parameters: type[StriationParams | ImpressionParams],
     ):
         """Generate the schema payload for the prepare-mark endpoint."""
         return schema.model_construct(
@@ -125,7 +130,7 @@ class TestPrepareMarkEndpoint:
         endpoint: PreprocessorEndpoint,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
-        mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+        mark_parameters: type[StriationParams | ImpressionParams],
         mark_type: str,
         mask: BinaryMask,
         expected_keys: list[str],
@@ -156,7 +161,7 @@ class TestPrepareMarkEndpoint:
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         endpoint: PreprocessorEndpoint,
-        mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
+        mark_parameters: StriationParams | ImpressionParams,
         mask: BinaryMask,
         mark_type: str,
         expected_keys: list[str],
@@ -185,7 +190,7 @@ class TestPrepareMarkEndpoint:
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         endpoint: PreprocessorEndpoint,
-        mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
+        mark_parameters: StriationParams | ImpressionParams,
         mask: BinaryMask,
         mark_type: str,
         expected_keys: list[str],
@@ -218,14 +223,14 @@ class TestPrepareMarkEndpoint:
         pytest.param(
             PreprocessorEndpoint.PREPARE_MARK_STRIATION,
             PrepareMarkStriation,
-            PreprocessingStriationParams,
+            StriationParams,
             MarkType.APERTURE_SHEAR_STRIATION,
             id="striation mark",
         ),
         pytest.param(
             PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
             PrepareMarkImpression,
-            PreprocessingImpressionParams,
+            ImpressionParams,
             MarkType.CHAMBER_IMPRESSION,
             id="impression mark",
         ),
@@ -238,17 +243,15 @@ def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
     monkeypatch: pytest.MonkeyPatch,
     endpoint: PreprocessorEndpoint,
     schema: type[PrepareMarkImpression | PrepareMarkStriation],
-    mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+    mark_parameters: type[StriationParams | ImpressionParams],
     mark_type: MarkType,
 ) -> None:
     """Test that a 422 is returned when the mask shape does not match the scan image shape."""
     wrong_mask = np.zeros(shape=(2, 2), dtype=np.bool_)  # 2x2, won't match the scan shape
-
-    payload = schema(
+    payload = schema.model_construct(
         project_name="test_project",
         mark_type=mark_type,
         scan_file=scan_directory / "circle.x3p",
-        mark_parameters=mark_parameters(),  # type: ignore
         bounding_box_list=[],
     ).model_dump(mode="json")
 

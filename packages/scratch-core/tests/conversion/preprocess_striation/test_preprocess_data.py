@@ -2,27 +2,29 @@
 Tests for preprocess_striation.py and related filter functions.
 """
 
+from math import ceil
+
 import numpy as np
 import pytest
-from math import ceil
 from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkType
-from ..helper_functions import make_mark
 from conversion.filter import (
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
 )
 from conversion.filter.gaussian import _apply_nan_weighted_gaussian_1d
 from conversion.preprocess_striation import (
-    PreprocessingStriationParams,
     apply_shape_noise_removal,
     fine_align_bullet_marks,
     preprocess_striation_mark,
 )
-from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
 from conversion.preprocess_striation.alignment import _detect_striation_angle
+from conversion.preprocess_striation.pipeline import StriationParams
+from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
+
+from ..helper_functions import make_mark
 
 
 def test_cutoff_to_gaussian_sigma():
@@ -336,7 +338,7 @@ def test_preprocess_striation_mark():
         scale_y=micro,
         mark_type=MarkType.BULLET_LEA_STRIATION,
     )
-    params = PreprocessingStriationParams(
+    params = StriationParams(
         highpass_cutoff=2e-3,
         lowpass_cutoff=2.5e-4,
         cut_borders_after_smoothing=False,

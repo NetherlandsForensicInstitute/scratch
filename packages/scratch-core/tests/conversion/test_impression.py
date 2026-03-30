@@ -15,7 +15,6 @@ from conversion.preprocess_impression.center import (
     _points_are_collinear,
     compute_center_local,
 )
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.preprocess_impression import (
     ImpressionParams,
     preprocess_impression_mark,
@@ -447,7 +446,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         target_size = 2 * micro
-        params =  ImpressionParams(
+        params = ImpressionParams(
             pixel_size=target_size,
             adjust_pixel_spacing=False,
         )

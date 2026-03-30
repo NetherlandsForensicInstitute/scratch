@@ -13,7 +13,6 @@ from scipy.constants import micro
 from container_models.base import DepthData
 from conversion.data_formats import MarkType
 from conversion.preprocess_striation import (
-    PreprocessingStriationParams,
     preprocess_striation_mark,
 )
 from conversion.preprocess_striation.pipeline import StriationParams

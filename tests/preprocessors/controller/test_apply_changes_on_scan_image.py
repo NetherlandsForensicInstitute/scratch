@@ -1,3 +1,4 @@
+import io
 from collections.abc import Callable
 from pathlib import Path
 
@@ -5,6 +6,7 @@ import numpy as np
 import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
+from fastapi import UploadFile
 from parsers import convert_to_x3p, save_x3p
 from scipy.constants import micro
 from utils.constants import RegressionOrder
@@ -35,6 +37,7 @@ def resample_twice_bigger(
     save_x3p(output_path=scan_file, x3p=convert_to_x3p(scan_image))
 
     mask = np.ones(shape=(2, 3), dtype=np.bool)
+    mask_file = UploadFile(file=io.BytesIO(mask.tobytes()), filename="mask.bin")
 
     params = EditImage(
         project_name="test",
@@ -44,6 +47,8 @@ def resample_twice_bigger(
         terms=SurfaceOptions.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=False,
+        mask_data=mask_file,
+        mask_is_bitpacked=False,
     )
 
     def assertions(result: ScanImage) -> None:
@@ -66,6 +71,7 @@ def mask_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage,
         ],
         dtype=np.bool,
     )
+    mask_file = UploadFile(file=io.BytesIO(mask.tobytes()), filename="mask.bin")
 
     params = EditImage(
         project_name="test",
@@ -75,6 +81,8 @@ def mask_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage,
         terms=SurfaceOptions.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=False,
+        mask_data=mask_file,
+        mask_is_bitpacked=False,
     )
 
     def assertions(result: ScanImage):
@@ -96,6 +104,7 @@ def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIma
         ],
         dtype=np.bool,
     )
+    mask_file = UploadFile(file=io.BytesIO(mask.tobytes()), filename="mask.bin")
 
     params = EditImage(
         project_name="test",
@@ -105,6 +114,8 @@ def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIma
         terms=SurfaceOptions.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
+        mask_data=mask_file,
+        mask_is_bitpacked=False,
     )
 
     def assertions(result: ScanImage):
@@ -126,7 +137,7 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
         ],
         dtype=np.bool,
     )
-
+    mask_file = UploadFile(file=io.BytesIO(mask.tobytes()), filename="mask.bin")
     params = EditImage(
         project_name="test",
         scan_file=scan_file,
@@ -135,6 +146,8 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
         terms=SurfaceOptions.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
+        mask_data=mask_file,
+        mask_is_bitpacked=False,
     )
 
     def assertions(result: ScanImage):

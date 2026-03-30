@@ -11,15 +11,16 @@ import pytest
 
 from container_models.base import FloatArray2D
 from conversion.data_formats import MarkType
-from .helper_functions import make_mark
 from conversion.preprocess_impression.preprocess_impression import (
+    ImpressionParams,
     preprocess_impression_mark,
 )
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
+    make_mark,
 )
 
 
@@ -32,7 +33,7 @@ class MatlabTestCase:
     input_data: FloatArray2D
     pixel_spacing: tuple[float, float]
     # Processing options
-    params: PreprocessingImpressionParams
+    params: ImpressionParams
     use_circle_center: bool
     # Expected output
     output_data: FloatArray2D
@@ -89,7 +90,7 @@ class MatlabTestCase:
                 lowpass_cutoff = cutoff_val
                 lowpass_order = int(f.get("n_order", 0))
 
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             adjust_pixel_spacing=meta.get("adjust_pixel_spacing", False),
             level_offset=level_offset,
             level_tilt=level_tilt,

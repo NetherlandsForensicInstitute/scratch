@@ -6,8 +6,6 @@ This module provides the high-level entry points for striation preprocessing:
 - Fine rotation to align striations horizontally and profile extraction
 """
 
-from dataclasses import asdict
-
 import numpy as np
 from pydantic import BaseModel
 
@@ -18,7 +16,6 @@ from conversion.filter import (
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
 )
-from conversion.preprocess_striation import PreprocessingStriationParams
 from conversion.preprocess_striation.alignment import fine_align_bullet_marks
 from conversion.preprocess_striation.shear import propagate_nan
 from conversion.profile_correlator import Profile
@@ -32,6 +29,7 @@ class StriationParams(BaseModel):
     angle_accuracy: float = 0.1
     max_iter: int = 25
     subsampling_factor: int = 1
+
 
 def preprocess_striation_mark(
     mark: Mark,
@@ -99,7 +97,7 @@ def preprocess_striation_mark(
     # Build meta_data with mask and total_angle
     aligned_meta_data = {
         **mark.meta_data,
-        **asdict(params),
+        **params.model_dump(),
         "total_angle": total_angle,
     }
 
