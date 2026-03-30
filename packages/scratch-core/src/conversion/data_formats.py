@@ -43,14 +43,6 @@ class MarkImpression(MarkType):
             return 3.5e-6
         return 1.5e-6
 
-    @staticmethod
-    def is_impression() -> bool:
-        return True  # TODO: not the way it supposed to be.
-
-    @staticmethod
-    def is_striation() -> bool:
-        return False  # TODO: not the way it supposed to be.
-
 
 class MarkStriation(MarkType):
     # Striation marks
@@ -62,14 +54,6 @@ class MarkStriation(MarkType):
     EJECTOR_PORT_STRIATION = "ejector port striation mark"
     EXTRACTOR_STRIATION = "extractor striation mark"
     FIRING_PIN_DRAG_STRIATION = "firing pin drag striation mark"
-
-    @staticmethod
-    def is_impression() -> bool:
-        return False  # TODO: not the way it supposed to be.
-
-    @staticmethod
-    def is_striation() -> bool:
-        return True  # TODO: not the way it supposed to be.
 
 
 def validate_rectangle_corners(arr: FloatArray2D) -> FloatArray2D:
