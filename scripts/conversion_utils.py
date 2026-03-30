@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from conversion.data_formats import MarkImpression, MarkStriation, MarkType
+from conversion.data_formats import MarkImpression, MarkStriation
 from conversion.surface_comparison.models import ComparisonParams
 from tqdm import tqdm
 
@@ -54,13 +54,13 @@ def run_parallel(
     return results
 
 
-_MARK_TYPE_FOLDER_MAP: list[tuple[str, MarkType]] = sorted(
-    ((mt.value.replace(" ", "_"), mt) for mt in MarkType),
+_MARK_TYPE_FOLDER_MAP: list[tuple[str, MarkImpression | MarkStriation]] = sorted(
+    ((mt.value.replace(" ", "_"), mt) for cls in (MarkImpression, MarkStriation) for mt in cls),
     key=lambda x: -len(x[0]),
 )
 
 
-def infer_mark_type(folder_name: str) -> MarkType | None:
+def infer_mark_type(folder_name: str) -> MarkImpression | MarkStriation | None:
     """Infer a :class:`MarkType` from a folder name.
 
     Handles suffixed variants (``_1``, ``_2``) and ``comparison_results`` folders.

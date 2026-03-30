@@ -159,7 +159,7 @@ def calculate_score(entry: ComparisonEntry, cfg: ConversionConfig) -> dict[str, 
         logger.warning("Processed dir missing for row %d", entry.row_index)
         return None
 
-    category = "impression" if entry.mark_type.is_impression() else "striation"
+    category = "impression" if isinstance(entry.mark_type, MarkImpression) else "striation"
     endpoint = f"processor/calculate-score-{category}"
 
     try:

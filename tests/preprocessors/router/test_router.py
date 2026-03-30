@@ -246,7 +246,7 @@ def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
 
     payload = schema(
         project_name="test_project",
-        mark_type=mark_type,
+        mark_type=mark_type,  # type: ignore[arg-type]
         scan_file=scan_directory / "circle.x3p",
         mark_parameters=mark_parameters(),  # type: ignore
         bounding_box_list=[],
