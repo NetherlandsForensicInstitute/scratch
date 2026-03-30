@@ -9,13 +9,14 @@ This module provides the high-level entry points for striation preprocessing:
 from dataclasses import asdict
 
 import numpy as np
+from pydantic import BaseModel
 
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
-    cutoff_to_gaussian_sigma,
     apply_striation_preserving_filter_1d,
+    cutoff_to_gaussian_sigma,
 )
 from conversion.preprocess_striation import PreprocessingStriationParams
 from conversion.preprocess_striation.alignment import fine_align_bullet_marks
@@ -23,9 +24,18 @@ from conversion.preprocess_striation.shear import propagate_nan
 from conversion.profile_correlator import Profile
 
 
+class StriationParams(BaseModel):
+    highpass_cutoff: float = 2e-3
+    lowpass_cutoff: float = 2.5e-4
+    cut_borders_after_smoothing: bool = True
+    use_mean: bool = True
+    angle_accuracy: float = 0.1
+    max_iter: int = 25
+    subsampling_factor: int = 1
+
 def preprocess_striation_mark(
     mark: Mark,
-    params: PreprocessingStriationParams,
+    params: StriationParams,
 ) -> tuple[Mark, Profile]:
     """
     Complete the preprocessing pipeline for striated marks.

@@ -12,17 +12,18 @@ from scipy.constants import micro
 
 from container_models.base import DepthData
 from conversion.data_formats import MarkType
-from ..helper_functions import make_mark
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_striation_mark,
 )
+from conversion.preprocess_striation.pipeline import StriationParams
+
 from ..helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
+    make_mark,
 )
-
 
 MARK_TYPE_MAPPING = {
     "bullet lea striation": MarkType.BULLET_LEA_STRIATION,
@@ -166,7 +167,7 @@ def run_python_preprocessing(
     test_case: MatlabTestCase,
 ) -> tuple[np.ndarray, np.ndarray | None, float | None]:
     """Run Python preprocess_striation_mark and return the results."""
-    params = PreprocessingStriationParams(
+    params = StriationParams(
         highpass_cutoff=test_case.cutoff_hi * micro,
         lowpass_cutoff=test_case.cutoff_lo * micro,
         use_mean=test_case.use_mean,

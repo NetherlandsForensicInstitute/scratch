@@ -8,9 +8,9 @@ from conversion.export.mark import save_mark
 from conversion.export.profile import save_profile
 from conversion.leveling.solver.utils import compute_image_center
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
-from conversion.preprocess_impression.preprocess_impression import preprocess_impression_mark
+from conversion.preprocess_impression.preprocess_impression import ImpressionParams, preprocess_impression_mark
 from conversion.preprocess_striation import PreprocessingStriationParams
-from conversion.preprocess_striation.pipeline import preprocess_striation_mark
+from conversion.preprocess_striation.pipeline import StriationParams, preprocess_striation_mark
 from conversion.resample import resample_mark
 from loguru import logger
 from mutations import CropToMask, GaussianRegressionFilter, LevelMap, Mask, Resample, Rotate
@@ -22,7 +22,7 @@ from skimage.transform import resize
 from constants import LIGHT_SOURCES, OBSERVER
 from preprocessors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
-from preprocessors.schemas import EditImage
+from preprocessors.schemas import EditImage, PrepareMarkStriation
 
 
 def _scan_image_to_mark(mask: BinaryMask, bounding_box: BoundingBox | None, scan_image: ScanImage) -> ScanImage:
@@ -87,7 +87,7 @@ def process_prepare_impression_mark(  # noqa: PLR0913
     mark_type: MarkType,
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
-    preprocess_parameters: PreprocessingImpressionParams,
+    preprocess_parameters: ImpressionParams,
     working_dir: Path,
 ) -> None:
     """Prepare impression mark data."""
@@ -103,7 +103,7 @@ def process_prepare_striation_mark(  # noqa: PLR0913
     mark_type: MarkType,
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
-    preprocess_parameters: PreprocessingStriationParams,
+    preprocess_parameters: StriationParams,
     working_dir: Path,
 ) -> None:
     """Prepare striation mark data."""

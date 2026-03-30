@@ -1,5 +1,7 @@
 from http import HTTPStatus
 
+from conversion.preprocess_impression.preprocess_impression import ImpressionParams
+from conversion.preprocess_striation.pipeline import StriationParams
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from loguru import logger
@@ -120,13 +122,13 @@ async def prepare_mark_impression(params: PrepareMarkImpression = Depends()) -> 
         )
     except ArrayShapeMismatchError as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
-
+    impression_params = ImpressionParams(**params.model_dump())
     process_prepare_impression_mark(
         scan_image=parsed_image,
         mark_type=params.mark_type,
         mask=parsed_mask,
         bounding_box=params.bounding_box,
-        preprocess_parameters=params.mark_parameters,
+        preprocess_parameters=impression_params,
         working_dir=vault.resource_path,
     )
     logger.info(f"Generated files saved to {vault}")
@@ -163,14 +165,14 @@ async def prepare_mark_striation(params: PrepareMarkStriation = Depends()) -> Pr
         )
     except ArrayShapeMismatchError as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
-
+    striation_params = StriationParams(**params.model_dump())
     process_prepare_striation_mark(
         working_dir=vault.resource_path,
         scan_image=parsed_image,
         mark_type=params.mark_type,
         mask=parsed_mask,
         bounding_box=params.bounding_box,
-        preprocess_parameters=params.mark_parameters,
+        preprocess_parameters=striation_params,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseStriation.from_enum(enum=PrepareMarkStriationFiles, base_url=vault.access_url)
