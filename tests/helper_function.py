@@ -96,7 +96,7 @@ def _shift_profile(profile: Profile, shift_samples: float) -> Profile:
     x_orig = np.arange(n)
     interpolator = interp1d(x_orig, data, kind="linear", fill_value=0, bounds_error=False)
     x_new = x_orig + shift_samples
-    new_data = interpolator(x_new)
+    new_data = interpolator(x_new).astype(np.float64)
 
     rng = np.random.default_rng()
     new_data += rng.normal(0, np.nanstd(data) * 0.01, n)

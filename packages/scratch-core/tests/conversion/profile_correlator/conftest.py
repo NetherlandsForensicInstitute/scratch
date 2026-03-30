@@ -195,7 +195,7 @@ def make_shifted_profile(
 
     # Create new coordinates with shift and scale
     x_new = x_orig * scale_factor + shift_samples
-    new_data = interpolator(x_new)
+    new_data = interpolator(x_new).astype(np.float64)
 
     # Add a small amount of noise
     new_data += np.random.normal(0, np.nanstd(data) * 0.01, n)
