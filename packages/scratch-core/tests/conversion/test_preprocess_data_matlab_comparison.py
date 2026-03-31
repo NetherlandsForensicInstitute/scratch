@@ -12,7 +12,7 @@ import pytest
 from scipy.constants import micro
 
 from container_models.base import DepthData, BinaryMask, StriationProfile
-from conversion.data_formats import MarkImpression, MarkStriation
+from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from .helper_functions import make_mark
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
@@ -25,22 +25,22 @@ from .helper_functions import (
 )
 
 
-def _string_to_mark_type(mark_type_str: str) -> MarkStriation | MarkImpression:
+def _string_to_mark_type(mark_type_str: str) -> MarkType:
     """Convert MATLAB mark type string to MarkType enum."""
     mapping = {
-        "bullet lea striation": MarkStriation.BULLET_LEA_STRIATION,
-        "bullet gea striation": MarkStriation.BULLET_GEA_STRIATION,
-        "breech face impression": MarkImpression.BREECH_FACE_IMPRESSION,
-        "firing pin impression": MarkImpression.FIRING_PIN_IMPRESSION,
-        "firing pin drag": MarkStriation.FIRING_PIN_DRAG_STRIATION,
-        "chamber impression": MarkImpression.CHAMBER_IMPRESSION,
-        "ejector impression": MarkImpression.EJECTOR_IMPRESSION,
-        "extractor impression": MarkImpression.EXTRACTOR_IMPRESSION,
-        "aperture shear striation": MarkStriation.APERTURE_SHEAR_STRIATION,
-        "chamber striation": MarkStriation.CHAMBER_STRIATION,
-        "ejector striation": MarkStriation.EJECTOR_STRIATION,
-        "ejector port striation": MarkStriation.EJECTOR_PORT_STRIATION,
-        "extractor striation": MarkStriation.EXTRACTOR_STRIATION,
+        "bullet lea striation": MarkStriationType.BULLET_LEA_STRIATION,
+        "bullet gea striation": MarkStriationType.BULLET_GEA_STRIATION,
+        "breech face impression": MarkImpressionType.BREECH_FACE_IMPRESSION,
+        "firing pin impression": MarkImpressionType.FIRING_PIN_IMPRESSION,
+        "firing pin drag": MarkStriationType.FIRING_PIN_DRAG_STRIATION,
+        "chamber impression": MarkImpressionType.CHAMBER_IMPRESSION,
+        "ejector impression": MarkImpressionType.EJECTOR_IMPRESSION,
+        "extractor impression": MarkImpressionType.EXTRACTOR_IMPRESSION,
+        "aperture shear striation": MarkStriationType.APERTURE_SHEAR_STRIATION,
+        "chamber striation": MarkStriationType.CHAMBER_STRIATION,
+        "ejector striation": MarkStriationType.EJECTOR_STRIATION,
+        "ejector port striation": MarkStriationType.EJECTOR_PORT_STRIATION,
+        "extractor striation": MarkStriationType.EXTRACTOR_STRIATION,
     }
     normalized = mark_type_str.lower().replace("_", " ").replace("mark", "").strip()
     for key, value in mapping.items():

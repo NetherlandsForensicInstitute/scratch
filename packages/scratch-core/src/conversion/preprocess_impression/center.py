@@ -4,7 +4,7 @@ from skimage.measure import CircleModel, ransac
 
 from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask, FloatArray2D
-from conversion.data_formats import Mark, MarkImpression
+from conversion.data_formats import Mark, MarkImpressionType
 from conversion.preprocess_impression.utils import Point2D
 
 RANDOM_SEED = 1234
@@ -121,7 +121,7 @@ def compute_center_local(mark: Mark) -> Point2D:
     :param mark: Input mark containing scan image and mark type.
     :return: Center (x, y) in meters, relative to image origin (top-left).
     """
-    use_circle = mark.mark_type == MarkImpression.BREECH_FACE_IMPRESSION
+    use_circle = mark.mark_type == MarkImpressionType.BREECH_FACE_IMPRESSION
     cx, cy = _compute_map_center(mark.scan_image.valid_mask, use_circle_fit=use_circle)
     return (
         cx * mark.scan_image.scale_x,

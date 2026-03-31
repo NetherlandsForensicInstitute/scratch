@@ -9,7 +9,7 @@ from matplotlib.figure import Figure
 
 from container_models.base import FloatArray, DepthData
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkImpression, MarkStriation
+from conversion.data_formats import Mark, MarkImpressionType, MarkType
 
 from numpy.typing import NDArray
 
@@ -80,7 +80,7 @@ def make_mark(
     data: DepthData,
     scale_x: float = 1.0,
     scale_y: float = 1.0,
-    mark_type: MarkImpression | MarkStriation = MarkImpression.EXTRACTOR_IMPRESSION,
+    mark_type: MarkType = MarkImpressionType.EXTRACTOR_IMPRESSION,
     center: tuple[float, float] | None = None,
     meta_data: dict[str, Any] | None = None,
 ) -> Mark:

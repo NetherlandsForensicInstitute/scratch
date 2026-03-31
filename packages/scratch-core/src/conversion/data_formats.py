@@ -29,7 +29,7 @@ class MarkType(StrEnum):
         return 1.5e-6
 
 
-class MarkImpression(MarkType):
+class MarkImpressionType(MarkType):
     # Impression marks
     BREECH_FACE_IMPRESSION = "breech face impression mark"
     CHAMBER_IMPRESSION = "chamber impression mark"
@@ -39,12 +39,12 @@ class MarkImpression(MarkType):
 
     @property
     def scale(self) -> float:
-        if self == MarkImpression.BREECH_FACE_IMPRESSION:
+        if self == MarkImpressionType.BREECH_FACE_IMPRESSION:
             return 3.5e-6
         return 1.5e-6
 
 
-class MarkStriation(MarkType):
+class MarkStriationType(MarkType):
     # Striation marks
     APERTURE_SHEAR_STRIATION = "aperture shear striation mark"
     BULLET_GEA_STRIATION = "bullet gea striation mark"
@@ -78,7 +78,7 @@ class Mark(ConfigBaseModel):
     """
 
     scan_image: ScanImage
-    mark_type: MarkImpression | MarkStriation
+    mark_type: MarkType
     meta_data: dict = Field(default_factory=dict)
     center_: tuple[float, float] | None = Field(default=None, alias="center")
 

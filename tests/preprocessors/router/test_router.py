@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from container_models.base import BinaryMask
-from conversion.data_formats import MarkImpression, MarkStriation
+from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from fastapi.testclient import TestClient
 from httpx import Response
 from pydantic import HttpUrl
@@ -57,7 +57,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkStriation,
             PrepareMarkResponseStriation,
             PreprocessingStriationParams,
-            MarkStriation.APERTURE_SHEAR_STRIATION,
+            MarkStriationType.APERTURE_SHEAR_STRIATION,
             [
                 "preview_image",
                 "surface_map_image",
@@ -75,7 +75,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkImpression,
             PrepareMarkResponseImpression,
             PreprocessingImpressionParams,
-            MarkImpression.CHAMBER_IMPRESSION,
+            MarkImpressionType.CHAMBER_IMPRESSION,
             [
                 "preview_image",
                 "surface_map_image",
@@ -219,14 +219,14 @@ class TestPrepareMarkEndpoint:
             PreprocessorEndpoint.PREPARE_MARK_STRIATION,
             PrepareMarkStriation,
             PreprocessingStriationParams,
-            MarkStriation.APERTURE_SHEAR_STRIATION,
+            MarkStriationType.APERTURE_SHEAR_STRIATION,
             id="striation mark",
         ),
         pytest.param(
             PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
             PrepareMarkImpression,
             PreprocessingImpressionParams,
-            MarkImpression.CHAMBER_IMPRESSION,
+            MarkImpressionType.CHAMBER_IMPRESSION,
             id="impression mark",
         ),
     ],
@@ -239,7 +239,7 @@ def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
     endpoint: PreprocessorEndpoint,
     schema: type[PrepareMarkImpression | PrepareMarkStriation],
     mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
-    mark_type: MarkImpression | MarkStriation,
+    mark_type: MarkType,
 ) -> None:
     """Test that a 422 is returned when the mask shape does not match the scan image shape."""
     wrong_mask = np.zeros(shape=(2, 2), dtype=np.bool_)  # 2x2, won't match the scan shape

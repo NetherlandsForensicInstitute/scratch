@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from conversion.data_formats import MarkImpression, MarkStriation
+from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from conversion.surface_comparison.models import ComparisonParams
 from tqdm import tqdm
 
@@ -54,13 +54,13 @@ def run_parallel(
     return results
 
 
-_MARK_TYPE_FOLDER_MAP: list[tuple[str, MarkImpression | MarkStriation]] = sorted(
-    ((mt.value.replace(" ", "_"), mt) for cls in (MarkImpression, MarkStriation) for mt in cls),
+_MARK_TYPE_FOLDER_MAP: list[tuple[str, MarkType]] = sorted(
+    ((mt.value.replace(" ", "_"), mt) for cls in (MarkImpressionType, MarkStriationType) for mt in cls),
     key=lambda x: -len(x[0]),
 )
 
 
-def infer_mark_type(folder_name: str) -> MarkImpression | MarkStriation | None:
+def infer_mark_type(folder_name: str) -> MarkType | None:
     """Infer a :class:`MarkType` from a folder name.
 
     Handles suffixed variants (``_1``, ``_2``) and ``comparison_results`` folders.
@@ -148,7 +148,7 @@ def _extract_metadata(mark_dir: Path) -> dict[str, str]:
     }
 
 
-def find_comparison_results(root: Path) -> Iterator[tuple[Path, MarkImpression | MarkStriation]]:
+def find_comparison_results(root: Path) -> Iterator[tuple[Path, MarkType]]:
     """Yield ``(results_folder, mark_type)`` for each ``results_table.mat`` found."""
     for mat in root.rglob("mark-comparison-results/*/results_table.mat"):
         mt = infer_mark_type(mat.parent.name)
@@ -164,7 +164,7 @@ class ComparisonEntry:
 
     mark_dir_ref: Path
     mark_dir_comp: Path
-    mark_type: MarkImpression | MarkStriation
+    mark_type: MarkType
     comparison_out: Path
     row_index: int
 
@@ -174,7 +174,7 @@ def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
     processed_ref = str(entry.mark_dir_ref)
     processed_comp = str(entry.mark_dir_comp)
 
-    if isinstance(entry.mark_type, MarkStriation):
+    if isinstance(entry.mark_type, MarkStriationType):
         return {
             "mark_dir_ref": processed_ref,
             "mark_dir_comp": processed_comp,

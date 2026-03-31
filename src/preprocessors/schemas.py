@@ -4,7 +4,7 @@ from functools import cached_property
 from typing import Any
 
 import numpy as np
-from conversion.data_formats import BoundingBox, MarkImpression, MarkStriation
+from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
@@ -113,7 +113,7 @@ class PrepareMarkBase(BaseParameters):
 
 class PrepareMarkStriation(PrepareMarkBase):
     mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
-    mark_type: MarkStriation = Field(..., description="Type of mark to prepare.")
+    mark_type: MarkStriationType = Field(..., description="Type of mark to prepare.")
 
     @classmethod
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
@@ -125,7 +125,7 @@ class PrepareMarkStriation(PrepareMarkBase):
 
 class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
-    mark_type: MarkImpression = Field(..., description="Type of mark to prepare.")
+    mark_type: MarkImpressionType = Field(..., description="Type of mark to prepare.")
 
     @classmethod
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:

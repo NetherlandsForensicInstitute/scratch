@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import requests
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkImpression
+from conversion.data_formats import MarkImpressionType
 from parsers import convert_to_x3p
 from tqdm import tqdm
 
@@ -138,7 +138,7 @@ def convert_mark(
     size_x, size_y = shape
     mask, bounding_box_list = extract_mask_and_bounding_box(struct, size_x, size_y)
 
-    is_impression = isinstance(mark_type, MarkImpression)
+    is_impression = isinstance(mark_type, MarkImpressionType)
     endpoint = f"preprocessor/prepare-mark-{'impression' if is_impression else 'striation'}"
     params = extract_impression_params(struct, mark_type) if is_impression else extract_striation_params(struct)
 

@@ -13,7 +13,12 @@ from pydantic import BeforeValidator, Field
 from scipy.io import loadmat
 from container_models.base import ConfigBaseModel
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkStriation, MarkImpression
+from conversion.data_formats import (
+    Mark,
+    MarkStriationType,
+    MarkImpressionType,
+    MarkType,
+)
 from .utils import (
     check_if_file_exists,
     load_json,
@@ -23,24 +28,22 @@ from .utils import (
 )
 
 
-def _parse_mark_type(value: Any) -> MarkImpression | MarkStriation:
-    if isinstance(value, (MarkImpression, MarkStriation)):
+def _parse_mark_type(value: Any) -> MarkType:
+    if isinstance(value, (MarkImpressionType, MarkStriationType)):
         return value
     name = str(value).upper()
-    if name in MarkImpression.__members__:
-        return MarkImpression[name]
-    if name in MarkStriation.__members__:
-        return MarkStriation[name]
-    valid = list(MarkImpression.__members__) + list(MarkStriation.__members__)
+    if name in MarkImpressionType.__members__:
+        return MarkImpressionType[name]
+    if name in MarkStriationType.__members__:
+        return MarkStriationType[name]
+    valid = list(MarkImpressionType.__members__) + list(MarkStriationType.__members__)
     raise ValueError(f"Invalid MarkType: '{value}'. Must be one of {valid}")
 
 
 class ExportedMarkData(ConfigBaseModel):
     """Validated data structure for exported Mark metadata."""
 
-    mark_type: Annotated[
-        MarkImpression | MarkStriation, BeforeValidator(_parse_mark_type)
-    ]
+    mark_type: Annotated[MarkType, BeforeValidator(_parse_mark_type)]
     center: tuple[float, float]
     scale_x: float = Field(..., gt=0)
     scale_y: float = Field(..., gt=0)
@@ -75,9 +78,9 @@ def load_mark_from_mat_file(path: Path) -> Mark:
             scale_x=float(container["xdim"][0]),
             scale_y=float(container["ydim"][0]),
         ),
-        mark_type=MarkImpression(mark_string)
-        if mark_string in MarkImpression
-        else MarkStriation(mark_string),
+        mark_type=MarkImpressionType(mark_string)
+        if mark_string in MarkImpressionType
+        else MarkStriationType(mark_string),
         # TODO: Parse `center` and `meta_data` from data struct
     )
     return mark

@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.data_formats import BoundingBox, Mark, MarkImpression, MarkStriation
+from conversion.data_formats import BoundingBox, Mark, MarkImpressionType, MarkStriationType, MarkType
 from conversion.export.mark import save_mark
 from conversion.export.profile import save_profile
 from conversion.leveling.solver.utils import compute_image_center
@@ -46,7 +46,7 @@ def _scan_image_to_mark(mask: BinaryMask, bounding_box: BoundingBox | None, scan
 
 
 def _extract_mark_from_scan(
-    scan_image: ScanImage, mark_type: MarkImpression | MarkStriation, mask: BinaryMask, bounding_box: BoundingBox | None
+    scan_image: ScanImage, mark_type: MarkType, mask: BinaryMask, bounding_box: BoundingBox | None
 ) -> Mark:
     """Parse a scan file and extract a mark by rotating, cropping, masking, and resampling."""
     logger.debug("mutating scan_image with given parameters")
@@ -84,7 +84,7 @@ def _save_outputs(
 
 def process_prepare_impression_mark(  # noqa: PLR0913
     scan_image: ScanImage,
-    mark_type: MarkImpression,
+    mark_type: MarkImpressionType,
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
     preprocess_parameters: PreprocessingImpressionParams,
@@ -100,7 +100,7 @@ def process_prepare_impression_mark(  # noqa: PLR0913
 
 def process_prepare_striation_mark(  # noqa: PLR0913
     scan_image: ScanImage,
-    mark_type: MarkStriation,
+    mark_type: MarkStriationType,
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
     preprocess_parameters: PreprocessingStriationParams,

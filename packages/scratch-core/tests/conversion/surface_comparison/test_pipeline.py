@@ -1,5 +1,5 @@
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkImpression
+from conversion.data_formats import Mark, MarkImpressionType
 from conversion.surface_comparison.cell_registration.core import coarse_registration
 from conversion.surface_comparison.cmc_classification import classify_congruent_cells
 from conversion.surface_comparison.grid import GridCell, generate_grid
@@ -26,7 +26,7 @@ def scan_image() -> ScanImage:
 def mark(scan_image: ScanImage) -> Mark:
     return Mark(
         scan_image=scan_image,
-        mark_type=MarkImpression.BREECH_FACE_IMPRESSION,
+        mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
     )
 
 

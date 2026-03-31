@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from conversion.data_formats import MarkImpression, MarkStriation
+from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from scipy import io as sio
 from scipy.constants import micro
 
@@ -122,16 +122,16 @@ def extract_mask_and_bounding_box(
     raise ValueError("All crop items produced empty masks")
 
 
-def extract_mark_type(struct: np.ndarray) -> MarkImpression | MarkStriation:
+def extract_mark_type(struct: np.ndarray) -> MarkType:
     """Extract the marktype, impression or striation."""
     mark_string = str(_scalar(struct["mark_type"])).lower()
     try:
-        return MarkImpression(mark_string)
+        return MarkImpressionType(mark_string)
     except ValueError:
-        return MarkStriation(mark_string)
+        return MarkStriationType(mark_string)
 
 
-def extract_impression_params(struct: np.ndarray, mark_type: MarkImpression | MarkStriation) -> dict[str, Any]:
+def extract_impression_params(struct: np.ndarray, mark_type: MarkType) -> dict[str, Any]:
     """Extract preprocessing parameters for impression marks from a MATLAB struct."""
     hi, lo = _scalar(struct["cutoff_hi"]), _scalar(struct["cutoff_lo"])
     return {

@@ -8,7 +8,7 @@ from math import ceil
 from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkStriation, MarkImpression
+from conversion.data_formats import MarkStriationType, MarkImpressionType
 from ..helper_functions import make_mark
 from conversion.filter import (
     apply_striation_preserving_filter_1d,
@@ -296,7 +296,7 @@ def test_fine_align_bullet_marks():
         striations,
         scale_x=micro,
         scale_y=micro,
-        mark_type=MarkStriation.BULLET_GEA_STRIATION,
+        mark_type=MarkStriationType.BULLET_GEA_STRIATION,
     )
     aligned_mark, detected_angle = fine_align_bullet_marks(
         mark=mark,
@@ -334,7 +334,7 @@ def test_preprocess_striation_mark():
         depth_data,
         scale_x=micro,
         scale_y=micro,
-        mark_type=MarkStriation.BULLET_LEA_STRIATION,
+        mark_type=MarkStriationType.BULLET_LEA_STRIATION,
     )
     params = PreprocessingStriationParams(
         highpass_cutoff=2e-3,
@@ -362,19 +362,19 @@ def test_preprocess_striation_mark():
 def test_mark_type_scale():
     """Test MarkType.scale property returns correct sampling distance."""
     assert np.isclose(
-        MarkStriation.BULLET_GEA_STRIATION.scale,
+        MarkStriationType.BULLET_GEA_STRIATION.scale,
         1.5 * micro,
         rtol=1e-09,
         atol=1e-09,
     )
     assert np.isclose(
-        MarkImpression.BREECH_FACE_IMPRESSION.scale,
+        MarkImpressionType.BREECH_FACE_IMPRESSION.scale,
         3.5 * micro,
         rtol=1e-09,
         atol=1e-09,
     )
     assert np.isclose(
-        MarkStriation.FIRING_PIN_DRAG_STRIATION.scale,
+        MarkStriationType.FIRING_PIN_DRAG_STRIATION.scale,
         1.5 * micro,
         rtol=1e-09,
         atol=1e-09,

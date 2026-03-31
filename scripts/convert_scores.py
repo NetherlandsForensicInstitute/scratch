@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 import requests
 import scipy.io as sio
-from conversion.data_formats import MarkImpression, MarkStriation, MarkType
+from conversion.data_formats import MarkImpressionType, MarkType
 from tqdm import tqdm
 
 from scripts.conversion_utils import (
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_comparisons(
-    results_folder: Path, mark_type: MarkImpression | MarkStriation, root: Path, output_dir: Path
+    results_folder: Path, mark_type: MarkType, root: Path, output_dir: Path
 ) -> list[ComparisonEntry]:
     """Load comparison pairs from a ``results_table.mat``."""
     mat_path = results_folder / "results_table.mat"
@@ -86,7 +86,7 @@ def find_marks(output_dir: Path, mark_type: MarkType | None = None) -> list[Path
     return sorted(marks)
 
 
-def find_all_mark_types(output_dir: Path) -> list[MarkImpression | MarkStriation]:
+def find_all_mark_types(output_dir: Path) -> list[MarkType]:
     """Discover all distinct :class:`MarkType` values present in the output."""
     # _find_marks already filters to known mark types
     types = {infer_mark_type(m.name) for m in find_marks(output_dir)}
@@ -122,7 +122,7 @@ def _different_source_pairs(
 
 def generate_pairs(
     output_dir: Path,
-    mark_type: MarkStriation | MarkImpression,
+    mark_type: MarkType,
     seed: int | None = None,
     same_source_only: bool = False,
 ) -> list[ComparisonEntry]:
@@ -159,7 +159,7 @@ def calculate_score(entry: ComparisonEntry, cfg: ConversionConfig) -> dict[str, 
         logger.warning("Processed dir missing for row %d", entry.row_index)
         return None
 
-    category = "impression" if isinstance(entry.mark_type, MarkImpression) else "striation"
+    category = "impression" if isinstance(entry.mark_type, MarkImpressionType) else "striation"
     endpoint = f"processor/calculate-score-{category}"
 
     try:
