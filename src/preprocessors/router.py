@@ -1,10 +1,10 @@
 from http import HTTPStatus
-from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, HTTPException
+from conversion.preprocess_impression.preprocess_impression import ImpressionParams
+from conversion.preprocess_striation.pipeline import StriationParams
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from loguru import logger
-from pydantic import BaseModel, Json
 
 from constants import (
     LIGHT_SOURCES,
@@ -14,6 +14,7 @@ from constants import (
 )
 from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
+from schemas import generate_description
 
 from .constants import GeneratedImageFiles, PrepareMarkImpressionFiles, PrepareMarkStriationFiles, ProcessFiles
 from .exceptions import ArrayShapeMismatchError
@@ -35,33 +36,6 @@ from .schemas import (
 )
 
 preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[RoutePrefix.PREPROCESSOR])
-
-
-def _generate_openapi_schema(model: type[BaseModel]) -> dict[str, Any]:
-    """Generate example fields in the Swagger docs for endpoints receiving multipart/form-data with a binary mask."""
-    return {
-        "requestBody": {
-            "content": {
-                "multipart/form-data": {
-                    "schema": {
-                        "properties": {
-                            "params": model.model_json_schema(),
-                            "mask_data": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
-                        },
-                        "required": ["params", "mask_data"],
-                    }
-                },
-                "application/json": {
-                    "schema": {
-                        "properties": {
-                            "params": model.model_json_schema(),
-                        },
-                        "required": ["params"],
-                    }
-                },
-            }
-        }
-    }
 
 
 @preprocessor_route.get(
@@ -122,43 +96,38 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 @preprocessor_route.post(
     path=f"/{PreprocessorEndpoint.PREPARE_MARK_IMPRESSION}",
     summary="Preprocess a scan into analysis-ready impression mark files.",
-    description="""
+    description=f"""
     Applies user-defined masking and cropping to a scan, then performs
     mark-type-specific preprocessing (rotation, cropping, filtering) for impression marks.
-
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
-
-    The mask must have exactly the same shape (height × width) as the parsed scan image.
+    {generate_description(PrepareMarkImpression)}
     """,
     responses={
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
-    openapi_extra=_generate_openapi_schema(model=PrepareMarkImpression),
 )
-async def prepare_mark_impression(
-    params: Annotated[Json[PrepareMarkImpression], Form(...)], mask_data: bytes = File(...)
-) -> PrepareMarkResponseImpression:
-    """Prepare the ScanFile, save it to the vault and return the URLs to access the files."""
+async def prepare_mark_impression(params: PrepareMarkImpression = Depends()) -> PrepareMarkResponseImpression:
+    """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(params.tag)
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-
+    byte_contents = await params.mask_data.read()
     try:
         parsed_mask = parse_mask_pipeline(
-            raw_data=mask_data,
+            raw_data=byte_contents,
             shape=parsed_image.data.shape,
             is_bitpacked=params.mask_is_bitpacked,
         )
     except ArrayShapeMismatchError as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
-
+    impression_params = ImpressionParams(**params.model_dump())
     process_prepare_impression_mark(
         scan_image=parsed_image,
         mark_type=params.mark_type,
         mask=parsed_mask,
         bounding_box=params.bounding_box,
-        preprocess_parameters=params.mark_parameters,
+        preprocess_parameters=impression_params,
         working_dir=vault.resource_path,
     )
     logger.info(f"Generated files saved to {vault}")
@@ -168,44 +137,39 @@ async def prepare_mark_impression(
 @preprocessor_route.post(
     path=f"/{PreprocessorEndpoint.PREPARE_MARK_STRIATION}",
     summary="Preprocess a scan into analysis-ready striation mark files.",
-    description="""
+    description=f"""
     Applies user-defined masking and cropping to a scan, then performs
     mark-type-specific preprocessing (rotation, cropping, filtering) for striation marks.
-
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
-
-    The mask must have exactly the same shape (height × width) as the parsed scan image.
+    {generate_description(PrepareMarkStriation)}
     """,
     responses={
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
-    openapi_extra=_generate_openapi_schema(model=PrepareMarkStriation),
 )
-async def prepare_mark_striation(
-    params: Annotated[Json[PrepareMarkStriation], Form(...)], mask_data: bytes = File(...)
-) -> PrepareMarkResponseStriation:
-    """Prepare the ScanFile, save it to the vault and return the URLs to access the files."""
+async def prepare_mark_striation(params: PrepareMarkStriation = Depends()) -> PrepareMarkResponseStriation:
+    """Prepare the ScanFile, save it to the vault and return the urls to acces the files."""
     vault = create_vault(params.tag)
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-
+    byte_contents = await params.mask_data.read()
     try:
         parsed_mask = parse_mask_pipeline(
-            raw_data=mask_data,
+            raw_data=byte_contents,
             shape=parsed_image.data.shape,
             is_bitpacked=params.mask_is_bitpacked,
         )
     except ArrayShapeMismatchError as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
-
+    striation_params = StriationParams(**params.model_dump())
     process_prepare_striation_mark(
         working_dir=vault.resource_path,
         scan_image=parsed_image,
         mark_type=params.mark_type,
         mask=parsed_mask,
         bounding_box=params.bounding_box,
-        preprocess_parameters=params.mark_parameters,
+        preprocess_parameters=striation_params,
     )
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseStriation.from_enum(enum=PrepareMarkStriationFiles, base_url=vault.access_url)
@@ -214,14 +178,12 @@ async def prepare_mark_striation(
 @preprocessor_route.post(
     path=f"/{PreprocessorEndpoint.EDIT_SCAN}",
     summary="Validate and parse a scan file with edit parameters.",
-    description="""
+    description=f"""
     Parse and validate a scan file (X3P format only) with the provided edit parameters
     (mask, crop, subsampling). Creates a new vault for storing future outputs.
-
     The mask shape specified in `mask_parameters.shape` must exactly match the shape
     (height × width) of the parsed scan image.
-
-    Note: Image generation is currently not implemented.
+    {generate_description(EditImage)}
 """,
     responses={
         HTTPStatus.BAD_REQUEST: {"description": "parse error"},
@@ -230,9 +192,8 @@ async def prepare_mark_striation(
             "description": "processing error",
         },
     },
-    openapi_extra=_generate_openapi_schema(model=EditImage),
 )
-async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: bytes = File(...)) -> GeneratedImages:
+async def edit_scan(params: EditImage = Depends()) -> GeneratedImages:
     """
     Validate and parse a scan file with edit parameters and mask.
 
@@ -243,10 +204,10 @@ async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: by
     vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-
+    byte_contents = await params.mask_data.read()
     try:
         parsed_mask = parse_mask_pipeline(
-            raw_data=mask_data,
+            raw_data=byte_contents,
             shape=parsed_image.data.shape,
             is_bitpacked=params.mask_is_bitpacked,
         )

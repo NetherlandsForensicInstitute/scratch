@@ -4,30 +4,54 @@ This module provides functions to preprocess 2D scan images of impression marks
 (e.g., breech face impressions) through leveling, filtering, and resampling steps.
 """
 
-from dataclasses import asdict
+from pydantic import BaseModel
 
 from container_models.base import DepthData
 from conversion.data_formats import Mark
 from conversion.filter import (
-    apply_gaussian_filter_mark,
     apply_filter_pipeline,
+    apply_gaussian_filter_mark,
 )
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import crop_to_mask
 from conversion.preprocess_impression.center import compute_center_local
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.resample import (
-    resample,
     needs_resampling,
+    resample,
 )
 from conversion.preprocess_impression.tilt import apply_tilt_correction
-from conversion.preprocess_impression.utils import update_mark_data, Point2D
+from conversion.preprocess_impression.utils import Point2D, update_mark_data
 from conversion.resample import get_scaling_factors, resample_array_2d
+
+
+class ImpressionParams(BaseModel):
+    pixel_size: float | None = None
+    adjust_pixel_spacing: bool = True
+    level_offset: bool = True
+    level_tilt: bool = True
+    level_2nd: bool = True
+    interp_method: str = "cubic"
+    highpass_cutoff: float | None = 250.0e-6
+    lowpass_cutoff: float | None = 5.0e-6
+    highpass_regression_order: int = 2
+    lowpass_regression_order: int = 0
+
+    @property
+    def surface_terms(self) -> SurfaceTerms:
+        """Convert leveling flags to SurfaceTerms."""
+        terms = SurfaceTerms.NONE
+        if self.level_offset:
+            terms |= SurfaceTerms.OFFSET
+        if self.level_tilt:
+            terms |= SurfaceTerms.TILT_X | SurfaceTerms.TILT_Y
+        if self.level_2nd:
+            terms |= SurfaceTerms.ASTIG_45 | SurfaceTerms.DEFOCUS | SurfaceTerms.ASTIG_0
+        return terms
 
 
 def preprocess_impression_mark(
     mark: Mark,
-    params: PreprocessingImpressionParams,
+    params: ImpressionParams,
 ) -> tuple[Mark, Mark]:
     """
     Preprocess trimmed impression image data.
@@ -101,7 +125,7 @@ def preprocess_impression_mark(
     )
 
     # Build output metadata
-    mark.meta_data.update(**asdict(params))
+    mark.meta_data.update(**params.model_dump())
 
     return mark_filtered, mark_leveled_final
 

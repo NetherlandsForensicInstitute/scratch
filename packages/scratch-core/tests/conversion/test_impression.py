@@ -15,8 +15,8 @@ from conversion.preprocess_impression.center import (
     _points_are_collinear,
     compute_center_local,
 )
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.preprocess_impression import (
+    ImpressionParams,
     preprocess_impression_mark,
 )
 from conversion.preprocess_impression.resample import needs_resampling
@@ -422,7 +422,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
             level_offset=True,
@@ -446,7 +446,7 @@ class TestPreprocessImpressionMarkIntegration:
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
         target_size = 2 * micro
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=target_size,
             adjust_pixel_spacing=False,
         )
@@ -468,7 +468,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=2 * micro,  # 2x downsampling
             adjust_pixel_spacing=False,
         )
@@ -491,7 +491,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             adjust_pixel_spacing=False,
             highpass_cutoff=50 * micro,  # Apply high-pass to create difference
         )
@@ -514,7 +514,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.BREECH_FACE_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=micro,  # No resampling
             adjust_pixel_spacing=False,
         )
@@ -535,7 +535,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=micro,  # Same as input
             adjust_pixel_spacing=False,
         )
@@ -555,7 +555,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=2 * micro,  # Different from input
             adjust_pixel_spacing=False,
         )
@@ -575,7 +575,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
             lowpass_cutoff=None,
@@ -596,7 +596,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
             highpass_cutoff=None,
@@ -617,7 +617,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
             lowpass_cutoff=None,
@@ -639,7 +639,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=True,
         )
@@ -659,7 +659,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
             level_offset=True,
@@ -682,7 +682,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
         )
@@ -715,7 +715,7 @@ class TestPreprocessImpressionMarkIntegration:
             scale_y=micro,
             mark_type=MarkType.FIRING_PIN_IMPRESSION,
         )
-        params = PreprocessingImpressionParams(
+        params = ImpressionParams(
             pixel_size=micro,
             adjust_pixel_spacing=False,
             level_offset=True,

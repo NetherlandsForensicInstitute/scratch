@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
 
-from pydantic import UUID4, AfterValidator, BaseModel, ConfigDict, Field, FilePath, StringConstraints
+from pydantic import UUID4, AfterValidator, BaseModel, ConfigDict, Field, FilePath
 
 from constants import RoutePrefix
 from settings import get_settings
@@ -83,7 +83,6 @@ def validate_relative_path(filepath: Path) -> Path:
     return filepath
 
 
-type ProjectTag = Annotated[str, StringConstraints(pattern=r"")]
 type ScanFile = Annotated[
     FilePath,
     AfterValidator(lambda filepath: validate_file_extension(filepath, SupportedScanExtension)),
@@ -119,7 +118,7 @@ class DirectoryAccess(BaseModelConfig):
             "Auto-generated to ensure no collisions with existing directories."
         ),
     )
-    tag: ProjectTag = Field(
+    tag: str = Field(
         ...,
         description=(
             "Project tag for directory organization. "

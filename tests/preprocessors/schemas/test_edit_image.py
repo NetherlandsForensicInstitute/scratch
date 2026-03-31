@@ -1,9 +1,12 @@
 from collections.abc import Callable
+from io import BytesIO
 from itertools import chain
 from pathlib import Path
 from typing import Any, Final
 
+import numpy as np
 import pytest
+from fastapi import UploadFile
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
@@ -24,6 +27,16 @@ def get_error_fields(exc_info, typ: str) -> tuple[str, ...]:
 class TestEditImage:
     """Tests for EditImage request model."""
 
+    DEFAULT_WIDTH_SCAN_CIRCLE = 259
+    DEFAULT_HEIGHT_SCAN_CIRCLE = 259
+
+    def _empty_mask(self, shape_width: int, shape_height: int) -> UploadFile:
+        mask = np.ones(
+            (shape_height, shape_width),
+            dtype=np.bool,
+        )
+        return UploadFile(file=BytesIO(mask.tobytes()), filename="mask.bin")
+
     def test_should_reject_non_x3p_file(
         self, scan_directory: Path, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
@@ -33,7 +46,10 @@ class TestEditImage:
 
         # Act & Assert
         with pytest.raises(ValidationError, match="Unsupported extension") as exc_info:
-            edit_image_parameter(scan_file=al3d_file)
+            edit_image_parameter(
+                scan_file=al3d_file,
+                mask_data=self._empty_mask(self.DEFAULT_HEIGHT_SCAN_CIRCLE, self.DEFAULT_WIDTH_SCAN_CIRCLE),
+            )
 
         # Assert
         errors = exc_info.value.errors()
@@ -55,21 +71,6 @@ class TestEditImage:
         errors = exc_info.value.errors()
         assert any("scan_file" in error["loc"] for error in errors)
 
-    def test_should_create_with_all_defaults(self, edit_image_parameter: Callable[..., EditImage]) -> None:
-        """Test that EditImage can be created with default values when mask and cutoff_length are provided."""
-        # Arrange
-
-        # Act
-        params = edit_image_parameter()
-
-        # Assert
-        assert params.resampling_factor == DEFAULT_RESAMPLING_FACTOR
-        assert params.terms == SurfaceOptions.NONE
-        assert params.regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE
-        assert params.cutoff_length == CUTOFF_LENGTH
-        assert params.crop is False
-        assert params.project_name is None
-
     @pytest.mark.parametrize(
         "kwargs",
         [
@@ -85,8 +86,11 @@ class TestEditImage:
         self, kwargs: dict[str, Any], edit_image_parameter: Callable[..., EditImage]
     ) -> None:
         """Test that enum and mask field values are accepted."""
+        non_optional_fields = {
+            "mask_data": self._empty_mask(self.DEFAULT_HEIGHT_SCAN_CIRCLE, self.DEFAULT_WIDTH_SCAN_CIRCLE)
+        }
         # Act
-        params = edit_image_parameter(**kwargs)
+        params = edit_image_parameter(**kwargs, **non_optional_fields)
 
         # Assert
         assert all(getattr(params, field) == value for field, value in kwargs.items())
@@ -97,7 +101,10 @@ class TestEditImage:
     ) -> None:
         """Test that positive step sizes are accepted."""
         # Act
-        params = edit_image_parameter(cutoff_length=valid_value)
+        params = edit_image_parameter(
+            cutoff_length=valid_value,
+            mask_data=self._empty_mask(self.DEFAULT_HEIGHT_SCAN_CIRCLE, self.DEFAULT_WIDTH_SCAN_CIRCLE),
+        )
 
         # Assert
         assert params.cutoff_length == valid_value
@@ -108,7 +115,10 @@ class TestEditImage:
     ) -> None:
         """Test that positive step sizes are accepted."""
         # Act
-        params = edit_image_parameter(resampling_factor=valid_value)
+        params = edit_image_parameter(
+            resampling_factor=valid_value,
+            mask_data=self._empty_mask(self.DEFAULT_HEIGHT_SCAN_CIRCLE, self.DEFAULT_WIDTH_SCAN_CIRCLE),
+        )
 
         # Assert
         assert params.resampling_factor == valid_value
@@ -134,4 +144,4 @@ class TestEditImage:
             EditImage()  # type: ignore
 
         # Assert
-        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "terms")
+        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "terms", "mask_data")

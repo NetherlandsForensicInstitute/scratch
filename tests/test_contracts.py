@@ -1,4 +1,3 @@
-import json
 from enum import StrEnum
 from http import HTTPStatus
 from pathlib import Path
@@ -42,7 +41,7 @@ type Interface = tuple[BaseModel, type[BaseModel]]
 def send_post_request_with_mask(endpoint: str, params: dict, mask_raw: bytes) -> Response:
     return requests.post(
         f"{get_settings().base_url}/{RoutePrefix.PREPROCESSOR}/{endpoint}",
-        data={"params": json.dumps(params, default=str)},
+        params=params,
         files={"mask_data": ("mask.bin", mask_raw, "application/octet-stream")},
         timeout=5,
     )
