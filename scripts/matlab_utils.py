@@ -123,10 +123,7 @@ def extract_mask_and_bounding_box(
 
 
 def extract_mark_type(struct: np.ndarray) -> MarkImpression | MarkStriation:
-    """Extract the marktype, impression or striation.
-
-    TODO: this is not needed anymore due to the endpoint already did this for us
-    """
+    """Extract the marktype, impression or striation."""
     mark_string = str(_scalar(struct["mark_type"])).lower()
     try:
         return MarkImpression(mark_string)
