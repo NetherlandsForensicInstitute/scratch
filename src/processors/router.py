@@ -46,8 +46,6 @@ _LOAD_EXCEPTIONS = (ValueError, json.JSONDecodeError, KeyError, ValidationError)
 def _load_or_raise(loader, *args, **kwargs):
     try:
         return loader(*args, **kwargs)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(exc))
     except _LOAD_EXCEPTIONS as exc:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(exc))
 
@@ -222,8 +220,8 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
     vault = create_vault(lr_input.tag)
     try:
         result = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
+    except FileNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
     return LRResponse(
@@ -252,8 +250,8 @@ async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     vault = create_vault(lr_input.tag)
     try:
         result = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
+    except FileNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
     return LRResponse(

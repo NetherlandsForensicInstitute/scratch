@@ -112,8 +112,8 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     vault = create_vault(upload_scan.tag)
     try:
         parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=f"scan file not found: {e}")
+    except FileNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=f"could not parse scan file: {e}")
     parsed_scan.save_as_x3p(ProcessFiles.scan_image.get_file_path(vault.resource_path))
@@ -154,8 +154,8 @@ async def prepare_mark_impression(
     vault = create_vault(params.tag)
     try:
         parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=f"scan file not found: {e}")
+    except FileNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=f"could not parse scan file: {e}")
 
@@ -211,8 +211,8 @@ async def prepare_mark_striation(
     vault = create_vault(params.tag)
     try:
         parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=f"scan file not found: {e}")
+    except FileNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=f"could not parse scan file: {e}")
 
@@ -275,8 +275,8 @@ async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: by
     logger.debug(f"Working directory created on: {vault.resource_path}")
     try:
         parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=f"scan file not found: {e}")
+    except FileNotFoundError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=f"could not parse scan file: {e}")
 
