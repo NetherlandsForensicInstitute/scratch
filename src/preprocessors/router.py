@@ -94,6 +94,7 @@ async def preprocessor_root() -> RedirectResponse:
     response_description="Download URLs for the generated X3P scan, preview image, and surface map.",
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "scan file could not be parsed"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
@@ -109,7 +110,12 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     :return: Access URLs for the generated files.
     """
     vault = create_vault(upload_scan.tag)
-    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
+    try:
+        parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
+    except FileNotFoundError:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=f"could not parse scan file: {e}")
     parsed_scan.save_as_x3p(ProcessFiles.scan_image.get_file_path(vault.resource_path))
     surface_map_pipeline(
         parsed_scan, ProcessFiles.surface_map_image.get_file_path(vault.resource_path), LIGHT_SOURCES, OBSERVER
