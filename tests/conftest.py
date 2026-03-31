@@ -56,6 +56,12 @@ def client():
 
 
 @pytest.fixture(scope="session")
+def non_raising_client():
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
+
+
+@pytest.fixture(scope="session")
 def scan_directory() -> Path:
     return PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
 

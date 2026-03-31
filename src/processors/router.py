@@ -95,14 +95,11 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     mark_comp_processed = ProcessedMark(mark_comp, mark_comp_raw)
     logger.debug("marks loaded")
 
-    try:
-        cmc_result = compare_surfaces(
-            reference_mark=mark_ref_processed,
-            comparison_mark=mark_comp_processed,
-            params=impression_params.comparison_params,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
+    cmc_result = compare_surfaces(
+        reference_mark=mark_ref_processed,
+        comparison_mark=mark_comp_processed,
+        params=impression_params.comparison_params,
+    )
     logger.debug("CMC is calculated")
 
     save_impression_comparison_plots(
@@ -212,18 +209,12 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "mark file or LR system not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mark file or LR system could not be loaded"},
     },
 )
 async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse:
     """Calculate likelihood ratio for impression mark comparison."""
     vault = create_vault(lr_input.tag)
-    try:
-        result = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
-    except FileNotFoundError:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
+    result = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
         llr=result.log_lr,
@@ -242,18 +233,12 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "mark file or LR system not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mark file or LR system could not be loaded"},
     },
 )
 async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     """Calculate likelihood ratio for striation mark comparison."""
     vault = create_vault(lr_input.tag)
-    try:
-        result = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
-    except FileNotFoundError:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
+    result = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
         llr=result.log_lr,

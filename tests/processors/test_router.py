@@ -190,12 +190,12 @@ class TestMarkImpression:
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "mark not found" in response.json()["detail"]
 
-    def test_calculate_score_impression_returns_422_on_comparison_error(
+    def test_calculate_score_impression_returns_500_on_comparison_error(
         self,
-        client: TestClient,
+        non_raising_client: TestClient,
         impression_mark_dirs: tuple[Path, Path],
     ) -> None:
-        """Test that a ValueError from compare_surfaces returns 422."""
+        """Test that a ValueError from compare_surfaces returns 500."""
         mark_dir_ref, mark_dir_comp = impression_mark_dirs
         json_data = CalculateScoreImpression(
             mark_dir_ref=mark_dir_ref,
@@ -206,10 +206,11 @@ class TestMarkImpression:
         ).model_dump(mode="json")
 
         with patch("processors.router.compare_surfaces", side_effect=ValueError("no overlap")):
-            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+            response = non_raising_client.post(
+                "/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data
+            )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert "no overlap" in response.json()["detail"]
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
 
     @pytest.mark.integration
     def test_calculate_impression_mark(
@@ -295,13 +296,14 @@ class TestCalculateLRImpression:
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "lr model not found" in response.json()["detail"]
 
-    def test_returns_422_on_error(self, client: TestClient, impression_kwargs: dict) -> None:
-        """Test that an exception from the LR pipeline returns 422."""
+    def test_returns_500_on_error(self, non_raising_client: TestClient, impression_kwargs: dict) -> None:
+        """Test that an exception from the LR pipeline returns 500."""
         with patch("processors.router.process_lr_impression", side_effect=RuntimeError("LR system failure")):
             json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
-            response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert "LR system failure" in response.json()["detail"]
+            response = non_raising_client.post(
+                f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data
+            )
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
 
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
@@ -326,13 +328,12 @@ class TestCalculateLRStriation:
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "lr model not found" in response.json()["detail"]
 
-    def test_returns_422_on_error(self, client: TestClient, striation_kwargs: dict) -> None:
-        """Test that an exception from the LR pipeline returns 422."""
+    def test_returns_500_on_error(self, non_raising_client: TestClient, striation_kwargs: dict) -> None:
+        """Test that an exception from the LR pipeline returns 500."""
         with patch("processors.router.process_lr_striation", side_effect=RuntimeError("LR system failure")):
             json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
-            response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert "LR system failure" in response.json()["detail"]
+            response = non_raising_client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
 
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
