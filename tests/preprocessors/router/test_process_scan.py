@@ -145,6 +145,25 @@ class TestProcessScan:
         assert any("scan_file" in str(err) for err in error_detail)
 
 
+def test_process_scan_returns_404_on_file_not_found(
+    client: TestClient,
+    upload_scan: UploadScan,
+    directory_access,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that a FileNotFoundError from parse_scan_pipeline returns 404."""
+
+    def raise_file_not_found(*args):
+        raise FileNotFoundError("scan.x3p not found")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        mp.setattr("preprocessors.router.parse_scan_pipeline", raise_file_not_found)
+        response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
 def test_process_scan_returns_422_on_parse_error(
     client: TestClient,
     upload_scan: UploadScan,

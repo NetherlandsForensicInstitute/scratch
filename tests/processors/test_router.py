@@ -107,6 +107,26 @@ def _default_comparison_params() -> ComparisonParams:
     )
 
 
+def test_calculate_score_striation_returns_422_on_invalid_mark_data(
+    client: TestClient,
+    mark_dirs: tuple[Path, Path],
+) -> None:
+    """Test that a validation error when loading mark data returns 422."""
+    mark_dir_ref, mark_dir_comp = mark_dirs
+    json_data = CalculateScore(
+        mark_dir_ref=mark_dir_ref,
+        mark_dir_comp=mark_dir_comp,
+        metadata_reference=_dummy_metadata(),
+        metadata_compared=_dummy_metadata(),
+    ).model_dump(mode="json")
+
+    with patch("processors.router.load_mark_from_path", side_effect=ValueError("invalid mark data")):
+        response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "invalid mark data" in response.json()["detail"]
+
+
 def test_calculate_score_striation_returns_422_on_missing_file(
     client: TestClient,
     mark_dirs: tuple[Path, Path],
@@ -128,6 +148,27 @@ def test_calculate_score_striation_returns_422_on_missing_file(
 
 
 class TestMarkImpression:
+    def test_calculate_score_impression_returns_422_on_invalid_mark_data(
+        self,
+        client: TestClient,
+        impression_mark_dirs: tuple[Path, Path],
+    ) -> None:
+        """Test that a validation error when loading mark data returns 422."""
+        mark_dir_ref, mark_dir_comp = impression_mark_dirs
+        json_data = CalculateScoreImpression(
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
+            comparison_params=_default_comparison_params(),
+            metadata_reference=_dummy_metadata(),
+            metadata_compared=_dummy_metadata(),
+        ).model_dump(mode="json")
+
+        with patch("processors.router.load_mark_from_path", side_effect=ValueError("invalid mark data")):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "invalid mark data" in response.json()["detail"]
+
     def test_calculate_score_impression_returns_422_on_missing_file(
         self,
         client: TestClient,
@@ -246,6 +287,14 @@ class TestMarkImpression:
 
 
 class TestCalculateLRImpression:
+    def test_returns_404_on_file_not_found(self, client: TestClient, impression_kwargs: dict) -> None:
+        """Test that a FileNotFoundError from the LR pipeline returns 404."""
+        with patch("processors.router.process_lr_impression", side_effect=FileNotFoundError("lr model not found")):
+            json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
+            response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert "lr model not found" in response.json()["detail"]
+
     def test_returns_422_on_error(self, client: TestClient, impression_kwargs: dict) -> None:
         """Test that an exception from the LR pipeline returns 422."""
         with patch("processors.router.process_lr_impression", side_effect=RuntimeError("LR system failure")):
@@ -269,6 +318,14 @@ class TestCalculateLRImpression:
 
 
 class TestCalculateLRStriation:
+    def test_returns_404_on_file_not_found(self, client: TestClient, striation_kwargs: dict) -> None:
+        """Test that a FileNotFoundError from the LR pipeline returns 404."""
+        with patch("processors.router.process_lr_striation", side_effect=FileNotFoundError("lr model not found")):
+            json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
+            response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert "lr model not found" in response.json()["detail"]
+
     def test_returns_422_on_error(self, client: TestClient, striation_kwargs: dict) -> None:
         """Test that an exception from the LR pipeline returns 422."""
         with patch("processors.router.process_lr_striation", side_effect=RuntimeError("LR system failure")):

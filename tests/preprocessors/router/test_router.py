@@ -353,6 +353,68 @@ def test_prepare_mark_returns_422_on_processing_error(
     assert "processing failed" in response.json()["detail"]
 
 
+@pytest.mark.parametrize(
+    ("endpoint", "schema", "mark_parameters", "mark_type", "controller_function"),
+    _MARK_ENDPOINT_CASES,
+)
+def test_prepare_mark_returns_404_on_file_not_found(
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mask: BinaryMask,
+    endpoint: PreprocessorEndpoint,
+    schema: type[PrepareMarkImpression | PrepareMarkStriation],
+    mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+    mark_type: MarkType,
+    controller_function: str,
+) -> None:
+    """Test that a FileNotFoundError from parse_scan_pipeline returns 404."""
+    payload = schema(
+        project_name="test_project",
+        mark_type=mark_type,
+        scan_file=scan_directory / "circle.x3p",
+        mark_parameters=mark_parameters(),  # type: ignore
+        bounding_box_list=[],
+    ).model_dump(mode="json")
+
+    def raise_file_not_found(*args):
+        raise FileNotFoundError("circle.x3p not found")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        mp.setattr("preprocessors.router.parse_scan_pipeline", raise_file_not_found)
+        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_edit_scan_returns_404_on_file_not_found(
+    client: TestClient,
+    directory_access: DirectoryAccess,
+    scan_directory: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mask: BinaryMask,
+) -> None:
+    """Test that a FileNotFoundError from parse_scan_pipeline returns 404."""
+    params = EditImage(
+        project_name="test",
+        scan_file=scan_directory / "circle.x3p",
+        cutoff_length=2 * micro,
+        terms=SurfaceOptions.PLANE,
+    ).model_dump(mode="json")
+
+    def raise_file_not_found(*args):
+        raise FileNotFoundError("circle.x3p not found")
+
+    with monkeypatch.context() as mp:
+        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        mp.setattr("preprocessors.router.parse_scan_pipeline", raise_file_not_found)
+        response = send_post_request_with_mask(client=client, endpoint="edit-scan", params=params, mask=mask)
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
 def test_edit_scan_returns_422_on_scan_parse_error(
     client: TestClient,
     directory_access: DirectoryAccess,

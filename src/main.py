@@ -2,7 +2,7 @@ import shutil
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
 from uvicorn import run
@@ -52,7 +52,7 @@ app.include_router(prefix_router)
 
 
 @app.exception_handler(FileNotFoundError)
-async def file_not_found_handler(exc: FileNotFoundError) -> JSONResponse:
+async def file_not_found_handler(request: Request, exc: FileNotFoundError) -> JSONResponse:
     """Return a 404 JSON response for unhandled FileNotFoundError exceptions."""
     logger.warning(f"File not found: {exc}")
     return JSONResponse(status_code=HTTPStatus.NOT_FOUND, content={"detail": str(exc) or "File not found"})
