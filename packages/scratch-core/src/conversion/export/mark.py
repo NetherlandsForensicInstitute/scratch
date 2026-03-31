@@ -71,16 +71,13 @@ def load_mark_from_mat_file(path: Path) -> Mark:
     """Load a `Mark` object from a .mat file."""
     parsed = loadmat(str(path))
     container = parsed["data_struct"][0, 0]
-    mark_string = str(container["mark_type"][0]).lower()
     mark = Mark(
         scan_image=ScanImage(
             data=np.asarray(container["depth_data"], dtype=np.float64),
             scale_x=float(container["xdim"][0]),
             scale_y=float(container["ydim"][0]),
         ),
-        mark_type=MarkImpressionType(mark_string)
-        if mark_string in MarkImpressionType
-        else MarkStriationType(mark_string),
+        mark_type=_parse_mark_type(str(container["mark_type"][0]).lower()),
         # TODO: Parse `center` and `meta_data` from data struct
     )
     return mark
