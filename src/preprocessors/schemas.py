@@ -17,7 +17,6 @@ from utils.constants import RegressionOrder
 
 from models import (
     BaseModelConfig,
-    ProjectTag,
     ScanFile,
     SupportedScanExtension,
 )
@@ -28,7 +27,7 @@ from schemas import URLContainer
 class BaseParameters(BaseModelConfig):
     """Base parameters for preprocessor operations including scan file."""
 
-    project_name: ProjectTag | None = Field(
+    project_name: str | None = Field(
         None,
         description=(
             "Optional project identifier for organizing edited scans. "
