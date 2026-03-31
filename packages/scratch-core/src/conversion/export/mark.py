@@ -31,11 +31,12 @@ from .utils import (
 def _parse_mark_type(value: Any) -> MarkType:
     if isinstance(value, (MarkImpressionType, MarkStriationType)):
         return value
-    name = str(value).upper()
-    if name in MarkImpressionType.__members__:
-        return MarkImpressionType[name]
-    if name in MarkStriationType.__members__:
-        return MarkStriationType[name]
+    s = str(value)
+    for enum_type in (MarkImpressionType, MarkStriationType):
+        if s in enum_type:
+            return enum_type(s)
+        if s.upper() in enum_type.__members__:
+            return enum_type[s.upper()]
     valid = list(MarkImpressionType.__members__) + list(MarkStriationType.__members__)
     raise ValueError(f"Invalid MarkType: '{value}'. Must be one of {valid}")
 
