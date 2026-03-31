@@ -10,7 +10,12 @@ import numpy as np
 from scipy.constants import micro
 
 from container_models.base import FloatArray2D, UInt8Array3D, FloatArray
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import (
+    Mark,
+    MarkStriationType,
+    MarkImpressionType,
+    MarkType,
+)
 from conversion.profile_correlator import Profile
 
 from ..helper_functions import make_mark
@@ -75,7 +80,7 @@ def create_synthetic_striation_mark(
         data=create_synthetic_striation_data(height, width, seed),
         scale_x=scale,
         scale_y=scale,
-        mark_type=MarkType.CHAMBER_STRIATION,
+        mark_type=MarkStriationType.CHAMBER_STRIATION,
         meta_data={"highpass_cutoff": 5, "lowpass_cutoff": 25},
     )
 
@@ -197,7 +202,7 @@ def create_synthetic_impression_mark(
     width: int = 120,
     scale: float = 1.5 * micro,
     seed: int = 42,
-    mark_type: MarkType = MarkType.FIRING_PIN_IMPRESSION,
+    mark_type: MarkType = MarkImpressionType.FIRING_PIN_IMPRESSION,
     rotation_deg: float = 0.0,
     rotation_mask_deg: float = 0.0,
 ) -> Mark:

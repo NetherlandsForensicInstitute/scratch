@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from scipy.constants import micro
 
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkStriationType
 from conversion.profile_correlator import Profile, AlignmentParameters
 from ..helper_functions import make_mark
 
@@ -160,7 +160,7 @@ def striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
         data,
         scale_x=profile.pixel_size,
         scale_y=profile.pixel_size,
-        mark_type=MarkType.BULLET_GEA_STRIATION,
+        mark_type=MarkStriationType.BULLET_GEA_STRIATION,
     )
 
 
@@ -195,7 +195,7 @@ def make_shifted_profile(
 
     # Create new coordinates with shift and scale
     x_new = x_orig * scale_factor + shift_samples
-    new_data = interpolator(x_new)
+    new_data = interpolator(x_new).astype(np.float64)
 
     # Add a small amount of noise
     new_data += np.random.normal(0, np.nanstd(data) * 0.01, n)

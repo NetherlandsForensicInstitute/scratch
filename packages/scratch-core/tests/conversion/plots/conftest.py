@@ -3,7 +3,7 @@ import pytest
 from scipy.constants import micro
 
 from container_models.base import FloatArray2D
-from conversion.data_formats import Mark, MarkType, MarkMetadata
+from conversion.data_formats import Mark, MarkMetadata, MarkImpressionType
 from conversion.plots.data_formats import (
     HistogramData,
     LlrTransformationData,
@@ -183,25 +183,25 @@ def impression_overview_marks() -> dict[str, Mark]:
             data_ref_lev,
             scale_x=scale_x,
             scale_y=scale_y,
-            mark_type=MarkType.EJECTOR_IMPRESSION,
+            mark_type=MarkImpressionType.EJECTOR_IMPRESSION,
         ),
         "compared_raw": make_mark(
             data_comp_lev,
             scale_x=scale_x,
             scale_y=scale_y,
-            mark_type=MarkType.EJECTOR_IMPRESSION,
+            mark_type=MarkImpressionType.EJECTOR_IMPRESSION,
         ),
         "reference_filtered": make_mark(
             data_ref_flt,
             scale_x=scale_x,
             scale_y=scale_y,
-            mark_type=MarkType.EJECTOR_IMPRESSION,
+            mark_type=MarkImpressionType.EJECTOR_IMPRESSION,
         ),
         "compared_filtered": make_mark(
             data_comp_flt,
             scale_x=scale_x,
             scale_y=scale_y,
-            mark_type=MarkType.EJECTOR_IMPRESSION,
+            mark_type=MarkImpressionType.EJECTOR_IMPRESSION,
         ),
     }
 

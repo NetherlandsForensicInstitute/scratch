@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from container_models.base import BinaryMask
-from conversion.data_formats import MarkType
+from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from fastapi.testclient import TestClient
 from httpx import Response
 from pydantic import HttpUrl
@@ -57,7 +57,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkStriation,
             PrepareMarkResponseStriation,
             PreprocessingStriationParams,
-            MarkType.APERTURE_SHEAR_STRIATION,
+            MarkStriationType.APERTURE_SHEAR_STRIATION,
             [
                 "preview_image",
                 "surface_map_image",
@@ -75,7 +75,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkImpression,
             PrepareMarkResponseImpression,
             PreprocessingImpressionParams,
-            MarkType.CHAMBER_IMPRESSION,
+            MarkImpressionType.CHAMBER_IMPRESSION,
             [
                 "preview_image",
                 "surface_map_image",
@@ -239,14 +239,14 @@ _MARK_ENDPOINT_CASES = [
             PreprocessorEndpoint.PREPARE_MARK_STRIATION,
             PrepareMarkStriation,
             PreprocessingStriationParams,
-            MarkType.APERTURE_SHEAR_STRIATION,
+            MarkStriationType.APERTURE_SHEAR_STRIATION,
             id="striation mark",
         ),
         pytest.param(
             PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
             PrepareMarkImpression,
             PreprocessingImpressionParams,
-            MarkType.CHAMBER_IMPRESSION,
+            MarkImpressionType.CHAMBER_IMPRESSION,
             id="impression mark",
         ),
     ],
@@ -266,7 +266,7 @@ def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
 
     payload = schema(
         project_name="test_project",
-        mark_type=mark_type,
+        mark_type=mark_type,  # type: ignore[arg-type]
         scan_file=scan_directory / "circle.x3p",
         mark_parameters=mark_parameters(),  # type: ignore
         bounding_box_list=[],
