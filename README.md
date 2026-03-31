@@ -12,7 +12,7 @@ git clone https://github.com/NetherlandsForensicInstitute/scratch.git
 cd scratch
 
 uv venv
-uv sync
+uv sync --all-packages --frozen
 uv run fastapi dev src/main.py
 ```
 
@@ -22,14 +22,13 @@ API will be available at: http://localhost:8000/docs (Swagger UI)
 
 The system is split into:
 
-- **API layer (`src/`)** – HTTP interface, file handling, orchestration
+- **API layer (`src/`)** – HTTP interface, file handling, orchestration, for documentation of the rest endpoitns, check
+  /docs in the api
 - **Core library (`scratch-core`)** – algorithms and signal processing [
   `scratch-core` documentation](./packages/scratch-core/README.md)
 - **Stats modules** – external statistical evaluation
 
-// Add here the draw.io diagram
-
-# Development Environment
+# Development
 
 This project uses **[Just](https://github.com/casey/just)** as a
 command runner. Dependencies are managed with
@@ -53,18 +52,14 @@ url = "https://<your domain>/<route>/simple"
 default = true
 ```
 
-```bash
-# Create and sync a virtual environment
-uv venv
-uv sync
-source ./.venv/bin/activate
-```
+#### pre-commit
+
+Install and set up pre-commit hooks:
 
 ```bash
 # Install pre-commit
 pre-commit install
 pre-commit install-hooks
-just check-quality # will run pre-commit for all files (not required)
 ```
 
 ### Usage
@@ -75,7 +70,38 @@ just check-quality # will run pre-commit for all files (not required)
 just api
 ```
 
+#### formatting
+
+```bash
+just check-quality
+```
+
+#### static typechecking
+
+for type checking we use `Pyright`
+
+```bash
+just check-static
+```
+
+for more `just` commands available in this project run:
+
+```bash
+just help
+```
+
 ### Project Structure
 
-This project tree
-follows: [fastapi-best-pactices](https://github.com/zhanymkanov/fastapi-best-practices?tab=readme-ov-file#fastapi-best-practices-)
+The backend is built with FastAPI and loosely follows the structure
+from [fastapi-best-pactices](https://github.com/zhanymkanov/fastapi-best-practices?tab=readme-ov-file#fastapi-best-practices-)
+
+This service is designed to operate as a worker/slave service for a larger Java application, which acts as the master
+system.
+Because of this architecture, the service itself does not maintain its own database. All state and orchestration are
+handled by the Java application.
+
+Instead, this service focuses solely on processing tasks (such as file conversion). It uses a local temp directory for
+intermediate file handling.
+
+When a file is processed successfully, the API returns a URL.
+This URL can then be used to retrieve the generated or converted file.
