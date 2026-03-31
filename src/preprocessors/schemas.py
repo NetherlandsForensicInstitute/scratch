@@ -98,7 +98,9 @@ class PrepareMarkStriation(PrepareMarkBase):
     angle_accuracy: float = 0.1
     max_iter: int = 25
     subsampling_factor: int = 1
-    mask_data: UploadFile = File()
+    mask_data: UploadFile = File(
+        ..., description="Mask given as binary data. The shape of the mask needs to be the same as scan_image."
+    )
 
     @field_validator("mark_type")
     @classmethod
@@ -120,7 +122,9 @@ class PrepareMarkImpression(PrepareMarkBase):
     lowpass_cutoff: float | None = 5.0e-6
     highpass_regression_order: int = 2
     lowpass_regression_order: int = 0
-    mask_data: UploadFile = File()
+    mask_data: UploadFile = File(
+        ..., description="Mask given as binary data. The shape of the mask needs to be the same as scan_image."
+    )
 
     @field_validator("mark_type")
     @classmethod
@@ -164,7 +168,9 @@ class EditImage(BaseParameters):
         'The expected bit-order for bit-packed arrays is "little".',
         examples=[True, False],
     )
-    mask_data: UploadFile = File()
+    mask_data: UploadFile = File(
+        ..., description="Mask given as binary data. The shape of the mask needs to be the same as scan_image."
+    )
 
     @model_validator(mode="after")
     def check_file_is_x3p(self):

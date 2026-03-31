@@ -14,6 +14,7 @@ from constants import (
 )
 from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
+from schemas import generate_description
 
 from .constants import GeneratedImageFiles, PrepareMarkImpressionFiles, PrepareMarkStriationFiles, ProcessFiles
 from .exceptions import ArrayShapeMismatchError
@@ -95,12 +96,12 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
 @preprocessor_route.post(
     path=f"/{PreprocessorEndpoint.PREPARE_MARK_IMPRESSION}",
     summary="Preprocess a scan into analysis-ready impression mark files.",
-    description="""
+    description=f"""
     Applies user-defined masking and cropping to a scan, then performs
     mark-type-specific preprocessing (rotation, cropping, filtering) for impression marks.
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
-    The mask must have exactly the same shape (height × width) as the parsed scan image.
+    {generate_description(PrepareMarkImpression)}
     """,
     responses={
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
@@ -136,12 +137,12 @@ async def prepare_mark_impression(params: PrepareMarkImpression = Depends()) -> 
 @preprocessor_route.post(
     path=f"/{PreprocessorEndpoint.PREPARE_MARK_STRIATION}",
     summary="Preprocess a scan into analysis-ready striation mark files.",
-    description="""
+    description=f"""
     Applies user-defined masking and cropping to a scan, then performs
     mark-type-specific preprocessing (rotation, cropping, filtering) for striation marks.
     Outputs two processed mark representations (.npz data and .json
     metadata) saved to the vault, returning URLs for file access.
-    The mask must have exactly the same shape (height × width) as the parsed scan image.
+    {generate_description(PrepareMarkStriation)}
     """,
     responses={
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
@@ -177,11 +178,12 @@ async def prepare_mark_striation(params: PrepareMarkStriation = Depends()) -> Pr
 @preprocessor_route.post(
     path=f"/{PreprocessorEndpoint.EDIT_SCAN}",
     summary="Validate and parse a scan file with edit parameters.",
-    description="""
+    description=f"""
     Parse and validate a scan file (X3P format only) with the provided edit parameters
     (mask, crop, subsampling). Creates a new vault for storing future outputs.
     The mask shape specified in `mask_parameters.shape` must exactly match the shape
     (height × width) of the parsed scan image.
+    {generate_description(EditImage)}
 """,
     responses={
         HTTPStatus.BAD_REQUEST: {"description": "parse error"},
