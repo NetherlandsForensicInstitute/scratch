@@ -174,19 +174,19 @@ def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
     processed_ref = str(entry.mark_dir_ref)
     processed_comp = str(entry.mark_dir_comp)
 
-    if isinstance(entry.mark_type, MarkStriationType):
+    if isinstance(entry.mark_type, MarkImpressionType):
         return {
             "mark_dir_ref": processed_ref,
             "mark_dir_comp": processed_comp,
             "metadata_reference": _extract_metadata(entry.mark_dir_ref),
             "metadata_compared": _extract_metadata(entry.mark_dir_comp),
+            "comparison_params": ComparisonParams.for_mark_type(entry.mark_type).model_dump(),
         }
     return {
         "mark_dir_ref": processed_ref,
         "mark_dir_comp": processed_comp,
         "metadata_reference": _extract_metadata(entry.mark_dir_ref),
         "metadata_compared": _extract_metadata(entry.mark_dir_comp),
-        "comparison_params": ComparisonParams.for_mark_type(entry.mark_type).model_dump(),
     }
 
 
