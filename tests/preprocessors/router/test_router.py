@@ -298,7 +298,7 @@ def test_prepare_mark_returns_500_on_scan_parse_error(
     """Test that a 500 is returned when the scan file cannot be parsed."""
     payload = schema(
         project_name="test_project",
-        mark_type=mark_type,
+        mark_type=mark_type,  # type: ignore[arg-type]
         scan_file=scan_directory / "circle.x3p",
         mark_parameters=mark_parameters(),  # type: ignore
         bounding_box_list=[],
@@ -334,7 +334,7 @@ def test_prepare_mark_returns_422_on_processing_error(
     """Test that a 422 is returned when mark processing raises a ValueError."""
     payload = schema(
         project_name="test_project",
-        mark_type=mark_type,
+        mark_type=mark_type,  # type: ignore[arg-type]
         scan_file=scan_directory / "circle.x3p",
         mark_parameters=mark_parameters(),  # type: ignore
         bounding_box_list=[],
@@ -371,7 +371,7 @@ def test_prepare_mark_returns_404_on_file_not_found(
     """Test that a FileNotFoundError from parse_scan_pipeline returns 404."""
     payload = schema(
         project_name="test_project",
-        mark_type=mark_type,
+        mark_type=mark_type,  # type: ignore[arg-type]
         scan_file=scan_directory / "circle.x3p",
         mark_parameters=mark_parameters(),  # type: ignore
         bounding_box_list=[],

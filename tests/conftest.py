@@ -1,3 +1,7 @@
+import matplotlib
+
+matplotlib.use("Agg")
+
 import pickle
 from collections.abc import Iterator
 from datetime import date
