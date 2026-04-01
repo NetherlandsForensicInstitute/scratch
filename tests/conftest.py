@@ -1,7 +1,3 @@
-import matplotlib
-
-matplotlib.use("Agg")
-
 import pickle
 from collections.abc import Iterator
 from datetime import date
@@ -61,6 +57,11 @@ def client():
 
 @pytest.fixture(scope="session")
 def non_raising_client():
+    """
+    Fixture for testing 500 HTTP status code.
+
+    By default, the mocked client will re-raise the Python exception, which we do not want.
+    """
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
