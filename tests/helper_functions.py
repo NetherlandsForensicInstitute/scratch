@@ -15,7 +15,7 @@ from scipy.interpolate import interp1d
 from starlette.testclient import TestClient
 
 
-def make_cell(  # noqa: PLR0913
+def make_cell(
     center_reference: tuple[float, float] = (0.0, 0.0),
     best_score: float = 0.8,
     is_congruent: bool = False,

@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from http import HTTPStatus
 
 from conversion.export.mark import load_mark_from_path, save_mark
 from conversion.export.profile import load_profile_from_path
@@ -64,6 +65,11 @@ async def processor_root() -> RedirectResponse:
     performs pairwise CMC (Congruent Matching Cells) comparison, and calculates a score.
     The score, together with plots, are saved and made available via URLs.
     """,
+    include_in_schema=False,
+    responses={
+        HTTPStatus.NOT_FOUND: {"description": "mark file not found"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data or comparison failed"},
+    },
 )
 async def calculate_score_impression(impression_params: CalculateScoreImpression) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
@@ -121,7 +127,8 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     The score, together with plots, are saved and made available via URLs.
     """,
     responses={
-        422: {"description": "Profiles could not be aligned due to insufficient overlap"},
+        HTTPStatus.NOT_FOUND: {"description": "mark or profile file not found"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data"},
     },
 )
 async def calculate_score_striation(striation_params: CalculateScore) -> ComparisonResponseStriation:
@@ -189,6 +196,9 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     using the provided score and path to the LR system.
     The LR value, together with plots, are saved and made available via URLs.
     """,
+    responses={
+        HTTPStatus.NOT_FOUND: {"description": "mark file or LR system not found"},
+    },
 )
 async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse:
     """Calculate likelihood ratio for impression mark comparison."""
@@ -210,6 +220,9 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
     using the provided score and path to the LR system.
     The LR value, together with plots, are saved and made available via URLs.
     """,
+    responses={
+        HTTPStatus.NOT_FOUND: {"description": "mark file or LR system not found"},
+    },
 )
 async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     """Calculate likelihood ratio for striation mark comparison."""

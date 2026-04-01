@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import patch
@@ -17,7 +18,24 @@ from processors.schemas import (
     CalculateScoreImpression,
 )
 
-from ..helper_function import assert_lr_response_valid
+from ..helper_functions import assert_lr_response_valid
+
+
+def _dummy_metadata() -> MarkMetadata:
+    return MarkMetadata(case_id="c", firearm_id="f", specimen_id="s", measurement_id="m", mark_id="mk")
+
+
+def _default_comparison_params() -> ComparisonParams:
+    return ComparisonParams(
+        cell_size=(50e-6, 50e-6),
+        search_angle_min=-5.0,
+        search_angle_max=5.0,
+        search_angle_step=5.0,
+        correlation_threshold=0.2,
+        minimum_fill_fraction=0.1,
+        angle_deviation_threshold=10.0,
+        position_threshold=0.001,
+    )
 
 
 def test_processors_placeholder(client: TestClient) -> None:
@@ -90,6 +108,37 @@ class TestMarkStriation:
             assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
 
 
+class TestMarkStriationExceptionHandlers:
+    """One test per exception type for the striation score endpoint."""
+
+    @pytest.fixture
+    def json_data(self, mark_dirs: tuple[Path, Path]) -> dict:
+        """Fixture for building a JSON-like dict."""
+        mark_dir_ref, mark_dir_comp = mark_dirs
+        return CalculateScore(
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
+            metadata_reference=_dummy_metadata(),
+            metadata_compared=_dummy_metadata(),
+        ).model_dump(mode="json")
+
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        with patch("processors.router.load_mark_from_path", raiser(FileNotFoundError("mark not found"))):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert "mark not found" in response.json()["detail"]
+
+    def test_value_error_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+        """ValueError propagates to the global 422 handler."""
+        with patch("processors.router.load_mark_from_path", raiser(ValueError("invalid mark data"))):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "invalid mark data" in response.json()["detail"]
+
+
 class TestMarkImpression:
     @pytest.mark.integration
     def test_calculate_impression_mark(
@@ -118,16 +167,7 @@ class TestMarkImpression:
         json_data = CalculateScoreImpression(
             mark_dir_ref=mark_dir_ref,
             mark_dir_comp=mark_dir_comp,
-            comparison_params=ComparisonParams(
-                cell_size=(50e-6, 50e-6),
-                search_angle_min=-5.0,
-                search_angle_max=5.0,
-                search_angle_step=5.0,
-                correlation_threshold=0.2,
-                minimum_fill_fraction=0.1,
-                angle_deviation_threshold=10.0,
-                position_threshold=0.001,
-            ),
+            comparison_params=_default_comparison_params(),
             metadata_reference=MarkMetadata(
                 case_id="case_ref",
                 firearm_id="firearm_ref",
@@ -166,31 +206,116 @@ class TestMarkImpression:
             assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
 
 
+class TestMarkImpressionExceptionHandlers:
+    """One test per exception type for the impression score endpoint."""
+
+    @pytest.fixture
+    def json_data(self, impression_mark_dirs: tuple[Path, Path]) -> dict:
+        """Fixture for building a JSON-like dict."""
+        mark_dir_ref, mark_dir_comp = impression_mark_dirs
+        return CalculateScoreImpression(
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
+            comparison_params=_default_comparison_params(),
+            metadata_reference=_dummy_metadata(),
+            metadata_compared=_dummy_metadata(),
+        ).model_dump(mode="json")
+
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        with patch("processors.router.load_mark_from_path", raiser(FileNotFoundError("mark not found"))):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_value_error_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+        """ValueError propagates to the global 422 handler."""
+        with patch("processors.router.load_mark_from_path", raiser(ValueError("invalid mark data"))):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def test_unhandled_exception_returns_500(
+        self, non_raising_client: TestClient, json_data: dict, raiser: Callable
+    ) -> None:
+        """An unhandled exception falls through to Starlette's default 500 handler."""
+        with patch("processors.router.compare_surfaces", raiser(RuntimeError("unexpected failure"))):
+            response = non_raising_client.post(
+                "/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data
+            )
+
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+
 class TestCalculateLRImpression:
+    @pytest.fixture
+    def json_data(self, impression_kwargs: dict) -> dict:
+        """Fixture for building a JSON-like dict."""
+        return CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
+
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        with patch("processors.router.process_lr_impression", raiser(FileNotFoundError("lr model not found"))):
+            response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert "lr model not found" in response.json()["detail"]
+
+    def test_unhandled_exception_returns_500(
+        self, non_raising_client: TestClient, json_data: dict, raiser: Callable
+    ) -> None:
+        """An unhandled exception falls through to Starlette's default 500 handler."""
+        with patch("processors.router.process_lr_impression", raiser(RuntimeError("LR system failure"))):
+            response = non_raising_client.post(
+                f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data
+            )
+
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
-        self, client: TestClient, tmp_dir_api: None, impression_kwargs: dict, impression_reference_data: ModelSpecs
+        self, client: TestClient, tmp_dir_api: None, json_data: dict, impression_reference_data: ModelSpecs
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
         with (
             patch("processors.controller.get_lr_system", return_value=DummyLRSystem()),
             patch("processors.controller.get_reference_data_from_path", return_value=impression_reference_data),
         ):
-            json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
             response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
             assert_lr_response_valid(client, response)
 
 
 class TestCalculateLRStriation:
+    @pytest.fixture
+    def json_data(self, striation_kwargs: dict) -> dict:
+        """Fixture for building a JSON-like dict."""
+        return CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
+
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        with patch("processors.router.process_lr_striation", raiser(FileNotFoundError("lr model not found"))):
+            response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert "lr model not found" in response.json()["detail"]
+
+    def test_unhandled_exception_returns_500(
+        self, non_raising_client: TestClient, json_data: dict, raiser: Callable
+    ) -> None:
+        """An unhandled exception falls through to Starlette's default 500 handler."""
+        with patch("processors.router.process_lr_striation", raiser(RuntimeError("LR system failure"))):
+            response = non_raising_client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
+
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
-        self, client: TestClient, tmp_dir_api: None, striation_kwargs: dict, striation_reference_data: ModelSpecs
+        self, client: TestClient, tmp_dir_api: None, json_data: dict, striation_reference_data: ModelSpecs
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
         with (
             patch("processors.controller.get_lr_system", return_value=DummyLRSystem()),
             patch("processors.controller.get_reference_data_from_path", return_value=striation_reference_data),
         ):
-            json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
             response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
             assert_lr_response_valid(client, response)
