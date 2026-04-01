@@ -52,7 +52,7 @@ def test_processors_placeholder(client: TestClient) -> None:
     response = client.get("/processor", follow_redirects=False)
     # Assert
     assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, "endpoint should redirect"
-    assert response.headers["location"] == "/docs#operations-tag-processor"
+    assert response.headers["location"] == "/docs#operations-tag-processor", "should redirect to processor docs"
 
 
 class TestMarkStriation:

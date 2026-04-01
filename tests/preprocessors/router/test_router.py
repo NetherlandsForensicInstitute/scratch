@@ -180,6 +180,7 @@ class TestPrepareMarkEndpoint:
         # Act
         response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
 
+        # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
         expected_absolute_file_paths = [file.get_file_path(directory_access.resource_path) for file in files]
         missing = {path.name for path in expected_absolute_file_paths if not path.exists()}

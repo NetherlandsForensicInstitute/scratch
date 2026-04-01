@@ -26,7 +26,10 @@ def upload_scan(scan_directory: Path) -> UploadScan:
 
 @pytest.fixture
 def post_process_scan(client: TestClient, upload_scan: UploadScan) -> Callable[[UploadScan | None], Response]:
-    """Fixture that provides a function to post to the process-scan endpoint."""
+    """Fixture that provides a function to post to the process-scan endpoint.
+
+    Uses upload_scan (AL3D) by default, but can accept a custom UploadScan model.
+    """
 
     def _post(input_model: UploadScan | None = None) -> Response:
         return client.post(PROCESS_SCAN_ROUTE, json=(input_model or upload_scan).model_dump(mode="json"))
@@ -143,11 +146,15 @@ class TestProcessScan:
             func(*args)
 
         # Act - send raw JSON to bypass Pydantic model construction
-        response = client.post(PROCESS_SCAN_ROUTE, json={"scan_file": str(path)})
+        response = client.post(
+            PROCESS_SCAN_ROUTE,
+            json={"scan_file": str(path)},
+        )
 
         # Assert - Pydantic validation should catch this
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert any("scan_file" in str(err) for err in response.json()["detail"])
+        error_detail = response.json()["detail"]
+        assert any("scan_file" in str(err) for err in error_detail)
 
 
 class TestProcessScanExceptionHandlers:
