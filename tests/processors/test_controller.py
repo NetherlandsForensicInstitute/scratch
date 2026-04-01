@@ -125,7 +125,7 @@ class TestSaveLrOverviewPlot:
     """Tests for saving LR overview plots as PNG files."""
 
     @pytest.mark.integration
-    def test_saves_png_impression(  # noqa: PLR0913
+    def test_saves_png_impression(
         self,
         tmp_path: Path,
         mark_ref: Mark,
@@ -161,7 +161,7 @@ class TestSaveLrOverviewPlot:
         assert_valid_png(output)
 
     @pytest.mark.integration
-    def test_saves_png_striation(  # noqa: PLR0913
+    def test_saves_png_striation(
         self,
         tmp_path: Path,
         mark_ref: Mark,

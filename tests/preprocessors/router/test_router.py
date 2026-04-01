@@ -120,7 +120,7 @@ class TestPrepareMarkEndpoint:
             mark_parameters=mark_parameters(),  # type: ignore
         ).model_dump(mode="json")
 
-    def test_prepare_mark_endpoint_returns_urls(  # noqa: PLR0913
+    def test_prepare_mark_endpoint_returns_urls(
         self,
         client: TestClient,
         endpoint: PreprocessorEndpoint,
@@ -149,7 +149,7 @@ class TestPrepareMarkEndpoint:
         for key in expected_keys:
             assert key in json_response, f"Response should contain URL for {key}"
 
-    def test_prepare_mark_endpoint_has_made_files_in_vault(  # noqa: PLR0913
+    def test_prepare_mark_endpoint_has_made_files_in_vault(
         self,
         client: TestClient,
         directory_access: DirectoryAccess,
@@ -178,7 +178,7 @@ class TestPrepareMarkEndpoint:
         missing = {path.name for path in expected_absolute_file_paths if not path.exists()}
         assert not missing, f"Expected: {', '.join(missing)} to be created"
 
-    def test_prepare_mark_endpoint_response_url_matches_folder_location(  # noqa: PLR0913
+    def test_prepare_mark_endpoint_response_url_matches_folder_location(
         self,
         client: TestClient,
         directory_access: DirectoryAccess,
