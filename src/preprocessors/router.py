@@ -240,7 +240,7 @@ async def prepare_mark_striation(
 """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape mismatch or edit processing failed"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
         HTTPStatus.INTERNAL_SERVER_ERROR: {
             "description": "processing error",
         },
@@ -268,10 +268,7 @@ async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: by
     except ArrayShapeMismatchError as e:
         raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
 
-    try:
-        edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
-    except ValueError as e:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
+    edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
     preview_pipeline(
         parsed_scan=edited_scan_image, output_path=GeneratedImageFiles.preview_image.get_file_path(vault.resource_path)
     )

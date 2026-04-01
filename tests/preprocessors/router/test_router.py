@@ -442,33 +442,6 @@ def test_edit_scan_returns_500_on_scan_parse_error(
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
 
 
-def test_edit_scan_returns_422_on_edit_error(
-    client: TestClient,
-    directory_access: DirectoryAccess,
-    scan_directory: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    mask: BinaryMask,
-) -> None:
-    """Test that a 422 is returned when edit_scan_image raises a ValueError."""
-    params = EditImage(
-        project_name="test",
-        scan_file=scan_directory / "circle.x3p",
-        cutoff_length=2 * micro,
-        terms=SurfaceOptions.PLANE,
-    ).model_dump(mode="json")
-
-    def raise_value_error(*args, **kwargs):
-        raise ValueError("edit processing failed")
-
-    with monkeypatch.context() as mp:
-        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
-        mp.setattr("preprocessors.router.edit_scan_image", raise_value_error)
-        response = send_post_request_with_mask(client=client, endpoint="edit-scan", params=params, mask=mask)
-
-    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-    assert "edit processing failed" in response.json()["detail"]
-
-
 @pytest.mark.usefixtures("tmp_dir_api")
 def test_edit_image_returns_valid_images(
     client: TestClient,
