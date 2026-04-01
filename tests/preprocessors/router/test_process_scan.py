@@ -23,15 +23,21 @@ def upload_scan(scan_directory: Path) -> UploadScan:
 
 @pytest.fixture
 def post_process_scan(client: TestClient, upload_scan: UploadScan) -> Callable[[UploadScan | None], Response]:
-    """Fixture that provides a function to post to the process-scan endpoint.
-
-    Uses upload_scan (AL3D) by default, but can accept a custom UploadScan model.
-    """
+    """Fixture that provides a function to post to the process-scan endpoint."""
 
     def _post(input_model: UploadScan | None = None) -> Response:
         return client.post(PROCESS_SCAN_ROUTE, json=(input_model or upload_scan).model_dump(mode="json"))
 
     return _post
+
+
+def _raiser(exc: Exception):
+    """Return a callable that raises the given exception, regardless of arguments."""
+
+    def _inner(*args, **kwargs):
+        raise exc
+
+    return _inner
 
 
 @pytest.mark.e2e
@@ -41,17 +47,12 @@ class TestProcessScanEndpoint:
 
     def test_process_scan_success_with_al3d_file(self, upload_scan: UploadScan, client: TestClient) -> None:
         """Test successful scan processing with AL3D input file."""
-        # Act I
         response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
 
-        # Assert - verify response
         assert response.status_code == HTTPStatus.OK
         result = ProcessedDataAccess.model_validate(response.json())
 
-        # Act II
         downloads = (client.get(str(url)) for _, url in result)
-
-        # Assert - verify response status codes
         assert all(download.status_code == HTTPStatus.OK for download in downloads)
 
 
@@ -67,16 +68,13 @@ class TestProcessScan:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that process-scan creates expected output files with correct URLs and file structure."""
-        # Arrange
         base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
         directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
-        # Act
         with monkeypatch.context() as mp:
             mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
             response = post_process_scan()
 
-        # Assert
         expected_response = ProcessedDataAccess(
             scan_image=HttpUrl(f"{base_url}/scan.x3p"),
             preview_image=HttpUrl(f"{base_url}/preview.png"),
@@ -84,8 +82,7 @@ class TestProcessScan:
         )
 
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"
-        response_model = ProcessedDataAccess.model_validate(response.json())
-        assert response_model == expected_response
+        assert ProcessedDataAccess.model_validate(response.json()) == expected_response
         assert (directory / "scan.x3p").exists()
         assert (directory / "preview.png").exists()
         assert (directory / "surface_map.png").exists()
@@ -97,23 +94,18 @@ class TestProcessScan:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that processing the same scan file twice overwrites existing output files."""
-        # Arrange
         monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
         directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
-        # Act I
         _ = post_process_scan()
         x3p_first_post_time = (directory / "scan.x3p").stat().st_mtime
         preview_first_post_time = (directory / "preview.png").stat().st_mtime
 
-        # Assert
         assert x3p_first_post_time
         assert preview_first_post_time
 
-        # Act II
         _ = post_process_scan()
 
-        # Assert
         assert (directory / "scan.x3p").stat().st_mtime > x3p_first_post_time
         assert (directory / "preview.png").stat().st_mtime > preview_first_post_time
 
@@ -127,58 +119,56 @@ class TestProcessScan:
     )
     def test_process_scan_bad_file(self, filename: str, overhead: str, client: TestClient, tmp_path: Path) -> None:
         """Test that invalid scan files (nonexistent, unsupported, or empty) are rejected with 422 status."""
-        # Arrange
         path = tmp_path / filename
         cmd, *args = overhead.strip().split()
         if func := getattr(path, cmd, None):
             func(*args)
 
-        # Act - send raw JSON to bypass Pydantic model construction
-        response = client.post(
-            PROCESS_SCAN_ROUTE,
-            json={"scan_file": str(path)},
+        response = client.post(PROCESS_SCAN_ROUTE, json={"scan_file": str(path)})
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert any("scan_file" in str(err) for err in response.json()["detail"])
+
+
+class TestProcessScanExceptionHandlers:
+    """Test that global exception handlers return correct HTTP responses for /process-scan."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_vault(self, monkeypatch: pytest.MonkeyPatch, directory_access: DirectoryAccess) -> None:
+        monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+
+    def test_file_not_found_returns_404(
+        self, client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        monkeypatch.setattr(
+            "preprocessors.router.parse_scan_pipeline", _raiser(FileNotFoundError("scan.x3p not found"))
         )
 
-        # Assert - Pydantic validation should catch this
+        response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert "scan.x3p not found" in response.json()["detail"]
+
+    def test_value_error_returns_422(
+        self, client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """ValueError propagates to the global 422 handler."""
+        monkeypatch.setattr(
+            "preprocessors.router.parse_scan_pipeline", _raiser(ValueError("could not parse scan file"))
+        )
+
+        response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
+
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        error_detail = response.json()["detail"]
-        assert any("scan_file" in str(err) for err in error_detail)
+        assert "could not parse scan file" in response.json()["detail"]
 
+    def test_unhandled_exception_returns_500(
+        self, non_raising_client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An unhandled exception falls through to Starlette's default 500 handler."""
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", _raiser(RuntimeError("unexpected failure")))
 
-def test_process_scan_returns_404_on_file_not_found(
-    client: TestClient,
-    upload_scan: UploadScan,
-    directory_access,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test that a FileNotFoundError from parse_scan_pipeline returns 404."""
+        response = non_raising_client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
 
-    def raise_file_not_found(*args):
-        raise FileNotFoundError("scan.x3p not found")
-
-    with monkeypatch.context() as mp:
-        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
-        mp.setattr("preprocessors.router.parse_scan_pipeline", raise_file_not_found)
-        response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
-
-    assert response.status_code == HTTPStatus.NOT_FOUND
-
-
-def test_process_scan_returns_422_on_parse_error(
-    client: TestClient,
-    upload_scan: UploadScan,
-    directory_access,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test that a scan file that fails to parse returns 422 with a descriptive message."""
-
-    def raise_error(*args):
-        raise Exception("simulated parse failure")
-
-    with monkeypatch.context() as mp:
-        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
-        mp.setattr("preprocessors.router.parse_scan_pipeline", raise_error)
-        response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
-
-    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-    assert "could not parse scan file" in response.json()["detail"]
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR

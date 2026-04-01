@@ -94,8 +94,6 @@ async def preprocessor_root() -> RedirectResponse:
     response_description="Download URLs for the generated X3P scan, preview image, and surface map.",
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "scan file could not be parsed"},
-        HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
     },
 )
 async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
@@ -110,12 +108,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     :return: Access URLs for the generated files.
     """
     vault = create_vault(upload_scan.tag)
-    try:
-        parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
-    except FileNotFoundError:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=f"could not parse scan file: {e}")
+    parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
     parsed_scan.save_as_x3p(ProcessFiles.scan_image.get_file_path(vault.resource_path))
     surface_map_pipeline(
         parsed_scan, ProcessFiles.surface_map_image.get_file_path(vault.resource_path), LIGHT_SOURCES, OBSERVER
@@ -140,8 +133,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape mismatch or mark processing failed"},
-        HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
     },
     openapi_extra=_generate_openapi_schema(model=PrepareMarkImpression),
 )
@@ -151,27 +143,20 @@ async def prepare_mark_impression(
     """Prepare the ScanFile, save it to the vault and return the URLs to access the files."""
     vault = create_vault(params.tag)
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
+    parsed_mask = parse_mask_pipeline(
+        raw_data=mask_data,
+        shape=parsed_image.data.shape,
+        is_bitpacked=params.mask_is_bitpacked,
+    )
+    process_prepare_impression_mark(
+        scan_image=parsed_image,
+        mark_type=params.mark_type,
+        mask=parsed_mask,
+        bounding_box=params.bounding_box,
+        preprocess_parameters=params.mark_parameters,
+        working_dir=vault.resource_path,
+    )
 
-    try:
-        parsed_mask = parse_mask_pipeline(
-            raw_data=mask_data,
-            shape=parsed_image.data.shape,
-            is_bitpacked=params.mask_is_bitpacked,
-        )
-    except ArrayShapeMismatchError as e:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
-
-    try:
-        process_prepare_impression_mark(
-            scan_image=parsed_image,
-            mark_type=params.mark_type,
-            mask=parsed_mask,
-            bounding_box=params.bounding_box,
-            preprocess_parameters=params.mark_parameters,
-            working_dir=vault.resource_path,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseImpression.from_enum(enum=PrepareMarkImpressionFiles, base_url=vault.access_url)
 
@@ -190,8 +175,7 @@ async def prepare_mark_impression(
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape mismatch or mark processing failed"},
-        HTTPStatus.INTERNAL_SERVER_ERROR: {"description": "image generation error"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
     },
     openapi_extra=_generate_openapi_schema(model=PrepareMarkStriation),
 )
@@ -201,27 +185,20 @@ async def prepare_mark_striation(
     """Prepare the ScanFile, save it to the vault and return the URLs to access the files."""
     vault = create_vault(params.tag)
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
+    parsed_mask = parse_mask_pipeline(
+        raw_data=mask_data,
+        shape=parsed_image.data.shape,
+        is_bitpacked=params.mask_is_bitpacked,
+    )
+    process_prepare_striation_mark(
+        working_dir=vault.resource_path,
+        scan_image=parsed_image,
+        mark_type=params.mark_type,
+        mask=parsed_mask,
+        bounding_box=params.bounding_box,
+        preprocess_parameters=params.mark_parameters,
+    )
 
-    try:
-        parsed_mask = parse_mask_pipeline(
-            raw_data=mask_data,
-            shape=parsed_image.data.shape,
-            is_bitpacked=params.mask_is_bitpacked,
-        )
-    except ArrayShapeMismatchError as e:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
-
-    try:
-        process_prepare_striation_mark(
-            working_dir=vault.resource_path,
-            scan_image=parsed_image,
-            mark_type=params.mark_type,
-            mask=parsed_mask,
-            bounding_box=params.bounding_box,
-            preprocess_parameters=params.mark_parameters,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseStriation.from_enum(enum=PrepareMarkStriationFiles, base_url=vault.access_url)
 
@@ -235,15 +212,10 @@ async def prepare_mark_striation(
 
     The mask shape specified in `mask_parameters.shape` must exactly match the shape
     (height × width) of the parsed scan image.
-
-    Note: Image generation is currently not implemented.
-""",
+    """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
-        HTTPStatus.INTERNAL_SERVER_ERROR: {
-            "description": "processing error",
-        },
     },
     openapi_extra=_generate_openapi_schema(model=EditImage),
 )
@@ -278,5 +250,6 @@ async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: by
         light_sources=LIGHT_SOURCES,
         observer=OBSERVER,
     )
+
     logger.info(f"Generated files saved to {vault}")
     return GeneratedImages.from_enum(enum=GeneratedImageFiles, base_url=vault.access_url)

@@ -1,3 +1,4 @@
+import json
 import shutil
 from contextlib import asynccontextmanager
 from http import HTTPStatus
@@ -5,12 +6,16 @@ from http import HTTPStatus
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pydantic import ValidationError
 from uvicorn import run
 
 from constants import LogLevel
 from helpers import setup_logging
+from preprocessors.exceptions import ArrayShapeMismatchError
 from routers import prefix_router
 from settings import get_settings
+
+_PARSE_EXCEPTIONS = (json.JSONDecodeError, ValidationError, ValueError, KeyError)
 
 
 @asynccontextmanager
@@ -54,8 +59,28 @@ app.include_router(prefix_router)
 @app.exception_handler(FileNotFoundError)
 async def file_not_found_handler(request: Request, exc: FileNotFoundError) -> JSONResponse:
     """Return a 404 JSON response for unhandled FileNotFoundError exceptions."""
-    logger.warning(f"File not found: {exc}")
-    return JSONResponse(status_code=HTTPStatus.NOT_FOUND, content={"detail": str(exc) or "File not found"})
+    message = str(exc) or "File not found"
+    logger.warning(message)
+    return JSONResponse(status_code=HTTPStatus.NOT_FOUND, content={"detail": message})
+
+
+@app.exception_handler(ArrayShapeMismatchError)
+async def array_shape_mismatch_handler(request: Request, exc: ArrayShapeMismatchError) -> JSONResponse:
+    """Return a 422 JSON response for unhandled ArrayShapeMismatchError exceptions."""
+    message = str(exc) or "Mask shape does not match image shape"
+    logger.warning(message)
+    return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
+
+
+async def parse_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Return a 422 JSON response for unhandled parse exceptions."""
+    message = str(exc) or "Data parsing error"
+    logger.warning(message)
+    return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
+
+
+for exc_type in _PARSE_EXCEPTIONS:
+    app.add_exception_handler(exc_type, parse_exception_handler)
 
 
 if __name__ == "__main__":

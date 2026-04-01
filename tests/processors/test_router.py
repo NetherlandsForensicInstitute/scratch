@@ -20,22 +20,43 @@ from processors.schemas import (
 from ..helper_function import assert_lr_response_valid
 
 
+def _raiser(exc: Exception):
+    """Return a callable that raises the given exception, regardless of arguments."""
+
+    def _inner(*args, **kwargs):
+        raise exc
+
+    return _inner
+
+
+def _dummy_metadata() -> MarkMetadata:
+    return MarkMetadata(case_id="c", firearm_id="f", specimen_id="s", measurement_id="m", mark_id="mk")
+
+
+def _default_comparison_params() -> ComparisonParams:
+    return ComparisonParams(
+        cell_size=(50e-6, 50e-6),
+        search_angle_min=-5.0,
+        search_angle_max=5.0,
+        search_angle_step=5.0,
+        correlation_threshold=0.2,
+        minimum_fill_fraction=0.1,
+        angle_deviation_threshold=10.0,
+        position_threshold=0.001,
+    )
+
+
 def test_processors_placeholder(client: TestClient) -> None:
     """Test that the processor root endpoint redirects to documentation."""
-    # Act
     response = client.get("/processor", follow_redirects=False)
-    # Assert
+
     assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, "endpoint should redirect"
-    assert response.headers["location"] == "/docs#operations-tag-processor", "should redirect to processor docs"
+    assert response.headers["location"] == "/docs#operations-tag-processor"
 
 
 class TestMarkStriation:
     @pytest.mark.integration
-    def test_calculate_striation_mark(
-        self,
-        client: TestClient,
-        mark_dirs: tuple[Path, Path],
-    ) -> None:
+    def test_calculate_striation_mark(self, client: TestClient, mark_dirs: tuple[Path, Path]) -> None:
         """Test the whole chain of the endpoint."""
         mark_dir_ref, mark_dir_comp = mark_dirs
         expected_images = {
@@ -68,11 +89,7 @@ class TestMarkStriation:
                 mark_id="mark_comp",
             ),
             metadata_reference=MarkMetadata(
-                case_id="ding",
-                firearm_id="dong",
-                specimen_id="spec_ref",
-                measurement_id="meas_ref",
-                mark_id="mark_ref",
+                case_id="ding", firearm_id="dong", specimen_id="spec_ref", measurement_id="meas_ref", mark_id="mark_ref"
             ),
         ).model_dump(mode="json")
         response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
@@ -81,143 +98,49 @@ class TestMarkStriation:
         response_data = response.json()
         assert response_data.keys() == (expected_images | expected_data)
 
-        url_keys = (expected_images | expected_data) - {"comparison_results"}
-        urls = {k: v for k, v in response_data.items() if k in url_keys}
+        urls = {
+            k: v for k, v in response_data.items() if k in (expected_images | expected_data) - {"comparison_results"}
+        }
         assert all(HttpUrl(url) for url in urls.values())
         assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
-
         for key in expected_images:
             assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
 
 
-def _dummy_metadata() -> MarkMetadata:
-    return MarkMetadata(case_id="c", firearm_id="f", specimen_id="s", measurement_id="m", mark_id="mk")
+class TestMarkStriationExceptionHandlers:
+    """One test per exception type for the striation score endpoint."""
 
-
-def _default_comparison_params() -> ComparisonParams:
-    return ComparisonParams(
-        cell_size=(50e-6, 50e-6),
-        search_angle_min=-5.0,
-        search_angle_max=5.0,
-        search_angle_step=5.0,
-        correlation_threshold=0.2,
-        minimum_fill_fraction=0.1,
-        angle_deviation_threshold=10.0,
-        position_threshold=0.001,
-    )
-
-
-def test_calculate_score_striation_returns_422_on_invalid_mark_data(
-    client: TestClient,
-    mark_dirs: tuple[Path, Path],
-) -> None:
-    """Test that a validation error when loading mark data returns 422."""
-    mark_dir_ref, mark_dir_comp = mark_dirs
-    json_data = CalculateScore(
-        mark_dir_ref=mark_dir_ref,
-        mark_dir_comp=mark_dir_comp,
-        metadata_reference=_dummy_metadata(),
-        metadata_compared=_dummy_metadata(),
-    ).model_dump(mode="json")
-
-    with patch("processors.router.load_mark_from_path", side_effect=ValueError("invalid mark data")):
-        response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
-
-    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-    assert "invalid mark data" in response.json()["detail"]
-
-
-def test_calculate_score_striation_returns_422_on_missing_file(
-    client: TestClient,
-    mark_dirs: tuple[Path, Path],
-) -> None:
-    """Test that a missing mark or profile file returns 422."""
-    mark_dir_ref, mark_dir_comp = mark_dirs
-    json_data = CalculateScore(
-        mark_dir_ref=mark_dir_ref,
-        mark_dir_comp=mark_dir_comp,
-        metadata_reference=_dummy_metadata(),
-        metadata_compared=_dummy_metadata(),
-    ).model_dump(mode="json")
-
-    with patch("processors.router.load_mark_from_path", side_effect=FileNotFoundError("mark not found")):
-        response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
-
-    assert response.status_code == HTTPStatus.NOT_FOUND
-    assert "mark not found" in response.json()["detail"]
-
-
-class TestMarkImpression:
-    def test_calculate_score_impression_returns_422_on_invalid_mark_data(
-        self,
-        client: TestClient,
-        impression_mark_dirs: tuple[Path, Path],
-    ) -> None:
-        """Test that a validation error when loading mark data returns 422."""
-        mark_dir_ref, mark_dir_comp = impression_mark_dirs
-        json_data = CalculateScoreImpression(
+    @pytest.fixture
+    def json_data(self, mark_dirs: tuple[Path, Path]) -> dict:
+        """Fixture for building a JSON-like dict."""
+        mark_dir_ref, mark_dir_comp = mark_dirs
+        return CalculateScore(
             mark_dir_ref=mark_dir_ref,
             mark_dir_comp=mark_dir_comp,
-            comparison_params=_default_comparison_params(),
             metadata_reference=_dummy_metadata(),
             metadata_compared=_dummy_metadata(),
         ).model_dump(mode="json")
 
-        with patch("processors.router.load_mark_from_path", side_effect=ValueError("invalid mark data")):
-            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
-
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert "invalid mark data" in response.json()["detail"]
-
-    def test_calculate_score_impression_returns_422_on_missing_file(
-        self,
-        client: TestClient,
-        impression_mark_dirs: tuple[Path, Path],
-    ) -> None:
-        """Test that a missing mark file returns 422."""
-        mark_dir_ref, mark_dir_comp = impression_mark_dirs
-        json_data = CalculateScoreImpression(
-            mark_dir_ref=mark_dir_ref,
-            mark_dir_comp=mark_dir_comp,
-            comparison_params=_default_comparison_params(),
-            metadata_reference=_dummy_metadata(),
-            metadata_compared=_dummy_metadata(),
-        ).model_dump(mode="json")
-
-        with patch("processors.router.load_mark_from_path", side_effect=FileNotFoundError("mark not found")):
-            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        with patch("processors.router.load_mark_from_path", _raiser(FileNotFoundError("mark not found"))):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
 
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "mark not found" in response.json()["detail"]
 
-    def test_calculate_score_impression_returns_500_on_comparison_error(
-        self,
-        non_raising_client: TestClient,
-        impression_mark_dirs: tuple[Path, Path],
-    ) -> None:
-        """Test that a ValueError from compare_surfaces returns 500."""
-        mark_dir_ref, mark_dir_comp = impression_mark_dirs
-        json_data = CalculateScoreImpression(
-            mark_dir_ref=mark_dir_ref,
-            mark_dir_comp=mark_dir_comp,
-            comparison_params=_default_comparison_params(),
-            metadata_reference=_dummy_metadata(),
-            metadata_compared=_dummy_metadata(),
-        ).model_dump(mode="json")
+    def test_value_error_returns_422(self, client: TestClient, json_data: dict) -> None:
+        """ValueError propagates to the global 422 handler."""
+        with patch("processors.router.load_mark_from_path", _raiser(ValueError("invalid mark data"))):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
 
-        with patch("processors.router.compare_surfaces", side_effect=ValueError("no overlap")):
-            response = non_raising_client.post(
-                "/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data
-            )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "invalid mark data" in response.json()["detail"]
 
-        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
 
+class TestMarkImpression:
     @pytest.mark.integration
-    def test_calculate_impression_mark(
-        self,
-        client: TestClient,
-        impression_mark_dirs: tuple[Path, Path],
-    ) -> None:
+    def test_calculate_impression_mark(self, client: TestClient, impression_mark_dirs: tuple[Path, Path]) -> None:
         """Test the whole chain of the impression comparison endpoint."""
         mark_dir_ref, mark_dir_comp = impression_mark_dirs
         expected_images = {
@@ -231,24 +154,12 @@ class TestMarkImpression:
             "cell_overlay",
             "cell_cross_correlation",
         }
-        expected_data = {
-            "cells",
-            "comparison_results",
-        }
+        expected_data = {"cells", "comparison_results"}
 
         json_data = CalculateScoreImpression(
             mark_dir_ref=mark_dir_ref,
             mark_dir_comp=mark_dir_comp,
-            comparison_params=ComparisonParams(
-                cell_size=(50e-6, 50e-6),
-                search_angle_min=-5.0,
-                search_angle_max=5.0,
-                search_angle_step=5.0,
-                correlation_threshold=0.2,
-                minimum_fill_fraction=0.1,
-                angle_deviation_threshold=10.0,
-                position_threshold=0.001,
-            ),
+            comparison_params=_default_comparison_params(),
             metadata_reference=MarkMetadata(
                 case_id="case_ref",
                 firearm_id="firearm_ref",
@@ -265,85 +176,124 @@ class TestMarkImpression:
             ),
         ).model_dump(mode="json")
 
-        response = client.post(
-            "/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION,
-            json=json_data,
-        )
+        response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
 
         assert response.status_code == HTTPStatus.OK, response.json()
         response_data = response.json()
         assert response_data.keys() == (expected_images | expected_data)
-
-        # Verify cells exist
         assert len(response_data["cells"]) > 0
 
-        # Verify image URLs
-        url_keys = expected_images
-        urls = {k: v for k, v in response_data.items() if k in url_keys}
+        urls = {k: v for k, v in response_data.items() if k in expected_images}
         assert all(HttpUrl(url) for url in urls.values())
         assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
-
         for key in expected_images:
             assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
 
 
+class TestMarkImpressionExceptionHandlers:
+    """One test per exception type for the impression score endpoint."""
+
+    @pytest.fixture
+    def json_data(self, impression_mark_dirs: tuple[Path, Path]) -> dict:
+        """Fixture for building a JSON-like dict."""
+        mark_dir_ref, mark_dir_comp = impression_mark_dirs
+        return CalculateScoreImpression(
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
+            comparison_params=_default_comparison_params(),
+            metadata_reference=_dummy_metadata(),
+            metadata_compared=_dummy_metadata(),
+        ).model_dump(mode="json")
+
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        with patch("processors.router.load_mark_from_path", _raiser(FileNotFoundError("mark not found"))):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_value_error_returns_422(self, client: TestClient, json_data: dict) -> None:
+        """ValueError propagates to the global 422 handler."""
+        with patch("processors.router.load_mark_from_path", _raiser(ValueError("invalid mark data"))):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def test_unhandled_exception_returns_500(self, non_raising_client: TestClient, json_data: dict) -> None:
+        """An unhandled exception falls through to Starlette's default 500 handler."""
+        with patch("processors.router.compare_surfaces", _raiser(RuntimeError("unexpected failure"))):
+            response = non_raising_client.post(
+                "/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data
+            )
+
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+
 class TestCalculateLRImpression:
-    def test_returns_404_on_file_not_found(self, client: TestClient, impression_kwargs: dict) -> None:
-        """Test that a FileNotFoundError from the LR pipeline returns 404."""
-        with patch("processors.router.process_lr_impression", side_effect=FileNotFoundError("lr model not found")):
-            json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
+    @pytest.fixture
+    def json_data(self, impression_kwargs: dict) -> dict:
+        """Fixture for building a JSON-like dict."""
+        return CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
+
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        with patch("processors.router.process_lr_impression", _raiser(FileNotFoundError("lr model not found"))):
             response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
+
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "lr model not found" in response.json()["detail"]
 
-    def test_returns_500_on_error(self, non_raising_client: TestClient, impression_kwargs: dict) -> None:
-        """Test that an exception from the LR pipeline returns 500."""
-        with patch("processors.router.process_lr_impression", side_effect=RuntimeError("LR system failure")):
-            json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
+    def test_unhandled_exception_returns_500(self, non_raising_client: TestClient, json_data: dict) -> None:
+        """An unhandled exception falls through to Starlette's default 500 handler."""
+        with patch("processors.router.process_lr_impression", _raiser(RuntimeError("LR system failure"))):
             response = non_raising_client.post(
                 f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data
             )
+
         assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
 
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
-        self, client: TestClient, tmp_dir_api: None, impression_kwargs: dict, impression_reference_data: ModelSpecs
+        self, client: TestClient, tmp_dir_api: None, json_data: dict, impression_reference_data: ModelSpecs
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
         with (
             patch("processors.controller.get_lr_system", return_value=DummyLRSystem()),
             patch("processors.controller.get_reference_data_from_path", return_value=impression_reference_data),
         ):
-            json_data = CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
             response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
             assert_lr_response_valid(client, response)
 
 
 class TestCalculateLRStriation:
-    def test_returns_404_on_file_not_found(self, client: TestClient, striation_kwargs: dict) -> None:
-        """Test that a FileNotFoundError from the LR pipeline returns 404."""
-        with patch("processors.router.process_lr_striation", side_effect=FileNotFoundError("lr model not found")):
-            json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
+    @pytest.fixture
+    def json_data(self, striation_kwargs: dict) -> dict:
+        """Fixture for building a JSON-like dict."""
+        return CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
+
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        with patch("processors.router.process_lr_striation", _raiser(FileNotFoundError("lr model not found"))):
             response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
+
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "lr model not found" in response.json()["detail"]
 
-    def test_returns_500_on_error(self, non_raising_client: TestClient, striation_kwargs: dict) -> None:
-        """Test that an exception from the LR pipeline returns 500."""
-        with patch("processors.router.process_lr_striation", side_effect=RuntimeError("LR system failure")):
-            json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
+    def test_unhandled_exception_returns_500(self, non_raising_client: TestClient, json_data: dict) -> None:
+        """An unhandled exception falls through to Starlette's default 500 handler."""
+        with patch("processors.router.process_lr_striation", _raiser(RuntimeError("LR system failure"))):
             response = non_raising_client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
+
         assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
 
     @pytest.mark.integration
     def test_returns_lr_and_plot_url(
-        self, client: TestClient, tmp_dir_api: None, striation_kwargs: dict, striation_reference_data: ModelSpecs
+        self, client: TestClient, tmp_dir_api: None, json_data: dict, striation_reference_data: ModelSpecs
     ) -> None:
         """Endpoint returns a float LR and a reachable plot URL."""
         with (
             patch("processors.controller.get_lr_system", return_value=DummyLRSystem()),
             patch("processors.controller.get_reference_data_from_path", return_value=striation_reference_data),
         ):
-            json_data = CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
             response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
             assert_lr_response_valid(client, response)
