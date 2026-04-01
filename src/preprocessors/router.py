@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, HTTPException
+from fastapi import APIRouter, File, Form
 from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import BaseModel, Json
@@ -16,7 +16,6 @@ from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
 from .constants import GeneratedImageFiles, PrepareMarkImpressionFiles, PrepareMarkStriationFiles, ProcessFiles
-from .exceptions import ArrayShapeMismatchError
 from .pipelines import (
     parse_mask_pipeline,
     parse_scan_pipeline,
@@ -114,7 +113,6 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
         parsed_scan, ProcessFiles.surface_map_image.get_file_path(vault.resource_path), LIGHT_SOURCES, OBSERVER
     )
     preview_pipeline(parsed_scan, ProcessFiles.preview_image.get_file_path(vault.resource_path))
-
     logger.info(f"Generated files saved to {vault}")
     return ProcessedDataAccess.from_enum(enum=ProcessFiles, base_url=vault.access_url)
 
@@ -156,7 +154,6 @@ async def prepare_mark_impression(
         preprocess_parameters=params.mark_parameters,
         working_dir=vault.resource_path,
     )
-
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseImpression.from_enum(enum=PrepareMarkImpressionFiles, base_url=vault.access_url)
 
@@ -198,7 +195,6 @@ async def prepare_mark_striation(
         bounding_box=params.bounding_box,
         preprocess_parameters=params.mark_parameters,
     )
-
     logger.info(f"Generated files saved to {vault}")
     return PrepareMarkResponseStriation.from_enum(enum=PrepareMarkStriationFiles, base_url=vault.access_url)
 
@@ -230,16 +226,11 @@ async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: by
     vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
-
-    try:
-        parsed_mask = parse_mask_pipeline(
-            raw_data=mask_data,
-            shape=parsed_image.data.shape,
-            is_bitpacked=params.mask_is_bitpacked,
-        )
-    except ArrayShapeMismatchError as e:
-        raise HTTPException(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, detail=str(e))
-
+    parsed_mask = parse_mask_pipeline(
+        raw_data=mask_data,
+        shape=parsed_image.data.shape,
+        is_bitpacked=params.mask_is_bitpacked,
+    )
     edited_scan_image = edit_scan_image(scan_image=parsed_image, edit_image_params=params, mask=parsed_mask)
     preview_pipeline(
         parsed_scan=edited_scan_image, output_path=GeneratedImageFiles.preview_image.get_file_path(vault.resource_path)
@@ -250,6 +241,5 @@ async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: by
         light_sources=LIGHT_SOURCES,
         observer=OBSERVER,
     )
-
     logger.info(f"Generated files saved to {vault}")
     return GeneratedImages.from_enum(enum=GeneratedImageFiles, base_url=vault.access_url)
