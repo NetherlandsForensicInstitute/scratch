@@ -1,14 +1,23 @@
 import numpy as np
 import pytest
 
+from computations.normalization import _normalize_2d_array
 from container_models.models import NormalizationBounds
-from container_models.scan_image import ScanImage, _normalize_2d_array
+from container_models.scan_image import ScanImage
 
-from ..helper_function import assert_nan_mask_preserved
+from ..helper_function import assert_nan_mask_preserved, NoScaleScanImage
 
 TEST_IMAGE_WIDTH = 10
 TEST_IMAGE_HEIGHT = 12
 TOLERANCE = 1e-5
+
+
+@pytest.fixture
+def image_with_nan_background() -> ScanImage:
+    image_size = 20
+    data = np.full((image_size, image_size), np.nan)
+    data[4:-4, 4:-4] = np.random.default_rng(42).uniform(0, 10, (12, 12))
+    return NoScaleScanImage(data=data)
 
 
 @pytest.mark.parametrize(
