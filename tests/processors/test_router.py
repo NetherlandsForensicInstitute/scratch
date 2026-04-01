@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import patch
@@ -17,16 +18,7 @@ from processors.schemas import (
     CalculateScoreImpression,
 )
 
-from ..helper_function import assert_lr_response_valid
-
-
-def _raiser(exc: Exception):
-    """Return a callable that raises the given exception, regardless of arguments."""
-
-    def _inner(*args, **kwargs):
-        raise exc
-
-    return _inner
+from ..helper_functions import assert_lr_response_valid
 
 
 def _dummy_metadata() -> MarkMetadata:
@@ -130,17 +122,17 @@ class TestMarkStriationExceptionHandlers:
             metadata_compared=_dummy_metadata(),
         ).model_dump(mode="json")
 
-    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict) -> None:
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
         """FileNotFoundError propagates to the global 404 handler."""
-        with patch("processors.router.load_mark_from_path", _raiser(FileNotFoundError("mark not found"))):
+        with patch("processors.router.load_mark_from_path", raiser(FileNotFoundError("mark not found"))):
             response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
 
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "mark not found" in response.json()["detail"]
 
-    def test_value_error_returns_422(self, client: TestClient, json_data: dict) -> None:
+    def test_value_error_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
         """ValueError propagates to the global 422 handler."""
-        with patch("processors.router.load_mark_from_path", _raiser(ValueError("invalid mark data"))):
+        with patch("processors.router.load_mark_from_path", raiser(ValueError("invalid mark data"))):
             response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -229,23 +221,25 @@ class TestMarkImpressionExceptionHandlers:
             metadata_compared=_dummy_metadata(),
         ).model_dump(mode="json")
 
-    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict) -> None:
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
         """FileNotFoundError propagates to the global 404 handler."""
-        with patch("processors.router.load_mark_from_path", _raiser(FileNotFoundError("mark not found"))):
+        with patch("processors.router.load_mark_from_path", raiser(FileNotFoundError("mark not found"))):
             response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
 
         assert response.status_code == HTTPStatus.NOT_FOUND
 
-    def test_value_error_returns_422(self, client: TestClient, json_data: dict) -> None:
+    def test_value_error_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
         """ValueError propagates to the global 422 handler."""
-        with patch("processors.router.load_mark_from_path", _raiser(ValueError("invalid mark data"))):
+        with patch("processors.router.load_mark_from_path", raiser(ValueError("invalid mark data"))):
             response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-    def test_unhandled_exception_returns_500(self, non_raising_client: TestClient, json_data: dict) -> None:
+    def test_unhandled_exception_returns_500(
+        self, non_raising_client: TestClient, json_data: dict, raiser: Callable
+    ) -> None:
         """An unhandled exception falls through to Starlette's default 500 handler."""
-        with patch("processors.router.compare_surfaces", _raiser(RuntimeError("unexpected failure"))):
+        with patch("processors.router.compare_surfaces", raiser(RuntimeError("unexpected failure"))):
             response = non_raising_client.post(
                 "/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data
             )
@@ -259,17 +253,19 @@ class TestCalculateLRImpression:
         """Fixture for building a JSON-like dict."""
         return CalculateLRImpression(**impression_kwargs).model_dump(mode="json")
 
-    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict) -> None:
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
         """FileNotFoundError propagates to the global 404 handler."""
-        with patch("processors.router.process_lr_impression", _raiser(FileNotFoundError("lr model not found"))):
+        with patch("processors.router.process_lr_impression", raiser(FileNotFoundError("lr model not found"))):
             response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data)
 
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "lr model not found" in response.json()["detail"]
 
-    def test_unhandled_exception_returns_500(self, non_raising_client: TestClient, json_data: dict) -> None:
+    def test_unhandled_exception_returns_500(
+        self, non_raising_client: TestClient, json_data: dict, raiser: Callable
+    ) -> None:
         """An unhandled exception falls through to Starlette's default 500 handler."""
-        with patch("processors.router.process_lr_impression", _raiser(RuntimeError("LR system failure"))):
+        with patch("processors.router.process_lr_impression", raiser(RuntimeError("LR system failure"))):
             response = non_raising_client.post(
                 f"/processor/{ProcessorEndpoint.CALCULATE_LR_IMPRESSION}", json=json_data
             )
@@ -295,17 +291,19 @@ class TestCalculateLRStriation:
         """Fixture for building a JSON-like dict."""
         return CalculateLRStriation(**striation_kwargs).model_dump(mode="json")
 
-    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict) -> None:
+    def test_file_not_found_returns_404(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
         """FileNotFoundError propagates to the global 404 handler."""
-        with patch("processors.router.process_lr_striation", _raiser(FileNotFoundError("lr model not found"))):
+        with patch("processors.router.process_lr_striation", raiser(FileNotFoundError("lr model not found"))):
             response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
 
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "lr model not found" in response.json()["detail"]
 
-    def test_unhandled_exception_returns_500(self, non_raising_client: TestClient, json_data: dict) -> None:
+    def test_unhandled_exception_returns_500(
+        self, non_raising_client: TestClient, json_data: dict, raiser: Callable
+    ) -> None:
         """An unhandled exception falls through to Starlette's default 500 handler."""
-        with patch("processors.router.process_lr_striation", _raiser(RuntimeError("LR system failure"))):
+        with patch("processors.router.process_lr_striation", raiser(RuntimeError("LR system failure"))):
             response = non_raising_client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
 
         assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR

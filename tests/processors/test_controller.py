@@ -19,7 +19,7 @@ from processors.controller import (
     save_striation_comparison_plots,
 )
 
-from ..helper_function import assert_valid_png, make_cell
+from ..helper_functions import assert_valid_png, make_cell
 
 
 class TestCompareStriationMarks:

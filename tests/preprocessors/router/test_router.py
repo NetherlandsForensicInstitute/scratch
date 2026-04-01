@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable
 from http import HTTPStatus
 from pathlib import Path
 
@@ -35,15 +36,6 @@ def send_post_request_with_mask(client: TestClient, endpoint: str, params: dict,
         files={"mask_data": ("mask.bin", mask.tobytes(order="C"), "application/octet-stream")},
         timeout=5,
     )
-
-
-def _raiser(exc: Exception):
-    """Return a callable that raises the given exception, regardless of arguments."""
-
-    def _inner(*args, **kwargs):
-        raise exc
-
-    return _inner
 
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
@@ -242,11 +234,16 @@ class TestPrepareMarkExceptionHandlers:
         ).model_dump(mode="json")
 
     def test_file_not_found_returns_404(
-        self, client: TestClient, striation_payload: dict, mask: BinaryMask, monkeypatch: pytest.MonkeyPatch
+        self,
+        client: TestClient,
+        striation_payload: dict,
+        mask: BinaryMask,
+        monkeypatch: pytest.MonkeyPatch,
+        raiser: Callable,
     ) -> None:
         """FileNotFoundError propagates to the global 404 handler."""
         monkeypatch.setattr(
-            "preprocessors.router.parse_scan_pipeline", _raiser(FileNotFoundError("circle.x3p not found"))
+            "preprocessors.router.parse_scan_pipeline", raiser(FileNotFoundError("circle.x3p not found"))
         )
 
         response = send_post_request_with_mask(
@@ -267,11 +264,16 @@ class TestPrepareMarkExceptionHandlers:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     def test_value_error_returns_422(
-        self, client: TestClient, striation_payload: dict, mask: BinaryMask, monkeypatch: pytest.MonkeyPatch
+        self,
+        client: TestClient,
+        striation_payload: dict,
+        mask: BinaryMask,
+        monkeypatch: pytest.MonkeyPatch,
+        raiser: Callable,
     ) -> None:
         """ValueError from mark processing propagates to the global 422 handler."""
         monkeypatch.setattr(
-            "preprocessors.router.process_prepare_striation_mark", _raiser(ValueError("processing failed: empty mask"))
+            "preprocessors.router.process_prepare_striation_mark", raiser(ValueError("processing failed: empty mask"))
         )
 
         response = send_post_request_with_mask(
@@ -282,10 +284,15 @@ class TestPrepareMarkExceptionHandlers:
         assert "processing failed" in response.json()["detail"]
 
     def test_unhandled_exception_returns_500(
-        self, non_raising_client: TestClient, striation_payload: dict, mask: BinaryMask, monkeypatch: pytest.MonkeyPatch
+        self,
+        non_raising_client: TestClient,
+        striation_payload: dict,
+        mask: BinaryMask,
+        monkeypatch: pytest.MonkeyPatch,
+        raiser: Callable,
     ) -> None:
         """An unhandled exception falls through to Starlette's default 500 handler."""
-        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", _raiser(RuntimeError("unexpected failure")))
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", raiser(RuntimeError("unexpected failure")))
 
         response = send_post_request_with_mask(
             non_raising_client, PreprocessorEndpoint.PREPARE_MARK_STRIATION, striation_payload, mask
@@ -312,11 +319,16 @@ class TestEditScanExceptionHandlers:
         ).model_dump(mode="json")
 
     def test_file_not_found_returns_404(
-        self, client: TestClient, edit_scan_params: dict, mask: BinaryMask, monkeypatch: pytest.MonkeyPatch
+        self,
+        client: TestClient,
+        edit_scan_params: dict,
+        mask: BinaryMask,
+        monkeypatch: pytest.MonkeyPatch,
+        raiser: Callable,
     ) -> None:
         """FileNotFoundError propagates to the global 404 handler."""
         monkeypatch.setattr(
-            "preprocessors.router.parse_scan_pipeline", _raiser(FileNotFoundError("circle.x3p not found"))
+            "preprocessors.router.parse_scan_pipeline", raiser(FileNotFoundError("circle.x3p not found"))
         )
 
         response = send_post_request_with_mask(client, "edit-scan", edit_scan_params, mask)
@@ -324,10 +336,15 @@ class TestEditScanExceptionHandlers:
         assert response.status_code == HTTPStatus.NOT_FOUND
 
     def test_unhandled_exception_returns_500(
-        self, non_raising_client: TestClient, edit_scan_params: dict, mask: BinaryMask, monkeypatch: pytest.MonkeyPatch
+        self,
+        non_raising_client: TestClient,
+        edit_scan_params: dict,
+        mask: BinaryMask,
+        monkeypatch: pytest.MonkeyPatch,
+        raiser: Callable,
     ) -> None:
         """An unhandled exception falls through to Starlette's default 500 handler."""
-        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", _raiser(RuntimeError("unexpected failure")))
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", raiser(RuntimeError("unexpected failure")))
 
         response = send_post_request_with_mask(non_raising_client, "edit-scan", edit_scan_params, mask)
 

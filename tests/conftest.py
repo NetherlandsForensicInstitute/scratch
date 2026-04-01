@@ -1,5 +1,5 @@
 import pickle
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -19,7 +19,7 @@ from constants import PROJECT_ROOT
 from main import app
 from models import DirectoryAccess
 from settings import Settings
-from tests.helper_function import (
+from tests.helper_functions import (
     _create_dummy_profile,
     _impression_mark,
     _save_impression_marks,
@@ -64,6 +64,19 @@ def non_raising_client():
     """
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
+
+
+@pytest.fixture(scope="session")
+def raiser() -> Callable[[Exception], Callable]:
+    """Define a factory for creating callables that will raise an Exception regardless of passed arguments."""
+
+    def _create(exc: Exception) -> Callable:
+        def _raise(*args, **kwargs):
+            raise exc
+
+        return _raise
+
+    return _create
 
 
 @pytest.fixture(scope="session")

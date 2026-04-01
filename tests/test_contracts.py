@@ -15,7 +15,7 @@ from requests import Response
 from models import DirectoryAccess
 from preprocessors.pipelines import parse_scan_pipeline
 from settings import get_settings
-from tests.helper_function import _save_impression_mark, _save_striation_mark_and_profile, make_cell
+from tests.helper_functions import _save_impression_mark, _save_striation_mark_and_profile, make_cell
 
 
 class RoutePrefix(StrEnum):
