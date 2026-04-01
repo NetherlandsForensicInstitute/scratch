@@ -17,10 +17,7 @@ PROCESS_SCAN_ROUTE = f"/{RoutePrefix.PREPROCESSOR}/{PreprocessorEndpoint.PROCESS
 
 @pytest.fixture(scope="module")
 def upload_scan(scan_directory: Path) -> UploadScan:
-    """Fixture that provides a function to post to the process-scan endpoint.
-
-    Uses upload_scan (AL3D) by default, but can accept a custom UploadScan model.
-    """
+    """Fixture that provides a default UploadScan model using Klein_non_replica_mode.al3d."""
     return UploadScan(scan_file=scan_directory / "Klein_non_replica_mode.al3d")  # type: ignore
 
 
