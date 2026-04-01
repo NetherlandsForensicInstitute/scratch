@@ -17,7 +17,10 @@ PROCESS_SCAN_ROUTE = f"/{RoutePrefix.PREPROCESSOR}/{PreprocessorEndpoint.PROCESS
 
 @pytest.fixture(scope="module")
 def upload_scan(scan_directory: Path) -> UploadScan:
-    """Fixture that provides a default UploadScan model using circle.al3d."""
+    """Fixture that provides a function to post to the process-scan endpoint.
+
+    Uses upload_scan (AL3D) by default, but can accept a custom UploadScan model.
+    """
     return UploadScan(scan_file=scan_directory / "Klein_non_replica_mode.al3d")  # type: ignore
 
 
@@ -47,12 +50,17 @@ class TestProcessScanEndpoint:
 
     def test_process_scan_success_with_al3d_file(self, upload_scan: UploadScan, client: TestClient) -> None:
         """Test successful scan processing with AL3D input file."""
+        # Act I
         response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
 
+        # Assert - verify response
         assert response.status_code == HTTPStatus.OK
         result = ProcessedDataAccess.model_validate(response.json())
 
+        # Act II
         downloads = (client.get(str(url)) for _, url in result)
+
+        # Assert - verify response status codes
         assert all(download.status_code == HTTPStatus.OK for download in downloads)
 
 
@@ -68,9 +76,11 @@ class TestProcessScan:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that process-scan creates expected output files with correct URLs and file structure."""
+        # Arrange
         base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
         directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
+        # Act
         with monkeypatch.context() as mp:
             mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
             response = post_process_scan()
@@ -81,8 +91,10 @@ class TestProcessScan:
             surface_map_image=HttpUrl(f"{base_url}/surface_map.png"),
         )
 
+        # Assert
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"
-        assert ProcessedDataAccess.model_validate(response.json()) == expected_response
+        response_model = ProcessedDataAccess.model_validate(response.json())
+        assert response_model == expected_response
         assert (directory / "scan.x3p").exists()
         assert (directory / "preview.png").exists()
         assert (directory / "surface_map.png").exists()
@@ -94,18 +106,23 @@ class TestProcessScan:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that processing the same scan file twice overwrites existing output files."""
+        # Arrange
         monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
         directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
+        # Act I
         _ = post_process_scan()
         x3p_first_post_time = (directory / "scan.x3p").stat().st_mtime
         preview_first_post_time = (directory / "preview.png").stat().st_mtime
 
+        # Assert
         assert x3p_first_post_time
         assert preview_first_post_time
 
+        # Act II
         _ = post_process_scan()
 
+        # Assert
         assert (directory / "scan.x3p").stat().st_mtime > x3p_first_post_time
         assert (directory / "preview.png").stat().st_mtime > preview_first_post_time
 
@@ -119,13 +136,16 @@ class TestProcessScan:
     )
     def test_process_scan_bad_file(self, filename: str, overhead: str, client: TestClient, tmp_path: Path) -> None:
         """Test that invalid scan files (nonexistent, unsupported, or empty) are rejected with 422 status."""
+        # Arrange
         path = tmp_path / filename
         cmd, *args = overhead.strip().split()
         if func := getattr(path, cmd, None):
             func(*args)
 
+        # Act - send raw JSON to bypass Pydantic model construction
         response = client.post(PROCESS_SCAN_ROUTE, json={"scan_file": str(path)})
 
+        # Assert - Pydantic validation should catch this
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         assert any("scan_file" in str(err) for err in response.json()["detail"])
 

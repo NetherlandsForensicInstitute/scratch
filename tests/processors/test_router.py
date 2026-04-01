@@ -48,15 +48,20 @@ def _default_comparison_params() -> ComparisonParams:
 
 def test_processors_placeholder(client: TestClient) -> None:
     """Test that the processor root endpoint redirects to documentation."""
+    # Act
     response = client.get("/processor", follow_redirects=False)
-
+    # Assert
     assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, "endpoint should redirect"
     assert response.headers["location"] == "/docs#operations-tag-processor"
 
 
 class TestMarkStriation:
     @pytest.mark.integration
-    def test_calculate_striation_mark(self, client: TestClient, mark_dirs: tuple[Path, Path]) -> None:
+    def test_calculate_striation_mark(
+        self,
+        client: TestClient,
+        mark_dirs: tuple[Path, Path],
+    ) -> None:
         """Test the whole chain of the endpoint."""
         mark_dir_ref, mark_dir_comp = mark_dirs
         expected_images = {
@@ -89,7 +94,11 @@ class TestMarkStriation:
                 mark_id="mark_comp",
             ),
             metadata_reference=MarkMetadata(
-                case_id="ding", firearm_id="dong", specimen_id="spec_ref", measurement_id="meas_ref", mark_id="mark_ref"
+                case_id="ding",
+                firearm_id="dong",
+                specimen_id="spec_ref",
+                measurement_id="meas_ref",
+                mark_id="mark_ref",
             ),
         ).model_dump(mode="json")
         response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_STRIATION, json=json_data)
@@ -98,11 +107,11 @@ class TestMarkStriation:
         response_data = response.json()
         assert response_data.keys() == (expected_images | expected_data)
 
-        urls = {
-            k: v for k, v in response_data.items() if k in (expected_images | expected_data) - {"comparison_results"}
-        }
+        url_keys = (expected_images | expected_data) - {"comparison_results"}
+        urls = {k: v for k, v in response_data.items() if k in url_keys}
         assert all(HttpUrl(url) for url in urls.values())
         assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
+
         for key in expected_images:
             assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
 
@@ -140,7 +149,11 @@ class TestMarkStriationExceptionHandlers:
 
 class TestMarkImpression:
     @pytest.mark.integration
-    def test_calculate_impression_mark(self, client: TestClient, impression_mark_dirs: tuple[Path, Path]) -> None:
+    def test_calculate_impression_mark(
+        self,
+        client: TestClient,
+        impression_mark_dirs: tuple[Path, Path],
+    ) -> None:
         """Test the whole chain of the impression comparison endpoint."""
         mark_dir_ref, mark_dir_comp = impression_mark_dirs
         expected_images = {
@@ -154,7 +167,10 @@ class TestMarkImpression:
             "cell_overlay",
             "cell_cross_correlation",
         }
-        expected_data = {"cells", "comparison_results"}
+        expected_data = {
+            "cells",
+            "comparison_results",
+        }
 
         json_data = CalculateScoreImpression(
             mark_dir_ref=mark_dir_ref,
@@ -176,16 +192,24 @@ class TestMarkImpression:
             ),
         ).model_dump(mode="json")
 
-        response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+        response = client.post(
+            "/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION,
+            json=json_data,
+        )
 
         assert response.status_code == HTTPStatus.OK, response.json()
         response_data = response.json()
         assert response_data.keys() == (expected_images | expected_data)
+
+        # Verify cells exist
         assert len(response_data["cells"]) > 0
 
-        urls = {k: v for k, v in response_data.items() if k in expected_images}
+        # Verify image URLs
+        url_keys = expected_images
+        urls = {k: v for k, v in response_data.items() if k in url_keys}
         assert all(HttpUrl(url) for url in urls.values())
         assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
+
         for key in expected_images:
             assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
 

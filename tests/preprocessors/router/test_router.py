@@ -48,10 +48,14 @@ def _raiser(exc: Exception):
 
 def test_pre_processors_placeholder(client: TestClient) -> None:
     """Test that the preprocessor root endpoint redirects to documentation."""
+    # Act
     response = client.get(f"/{RoutePrefix.PREPROCESSOR}", follow_redirects=False)
 
+    # Assert
     assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT, "endpoint should redirect"
-    assert response.headers["location"] == f"/docs#operations-tag-{RoutePrefix.PREPROCESSOR}"
+    assert response.headers["location"] == f"/docs#operations-tag-{RoutePrefix.PREPROCESSOR}", (
+        "should redirect to preprocessor docs"
+    )
 
 
 @pytest.mark.parametrize(
@@ -109,7 +113,12 @@ class TestPrepareMarkEndpoint:
         """Path to a dummy scan image file."""
         self.scan_file_path = scan_directory / "circle.x3p"
 
-    def get_schema_for_endpoint(self, schema, mark_type, mark_parameters):
+    def get_schema_for_endpoint(
+        self,
+        schema: type[PrepareMarkImpression | PrepareMarkStriation],
+        mark_type: str,
+        mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+    ) -> dict:
         """Generate the schema payload for the prepare-mark endpoint."""
         return schema(
             project_name="test_project",
@@ -120,60 +129,94 @@ class TestPrepareMarkEndpoint:
         ).model_dump(mode="json")
 
     def test_prepare_mark_endpoint_returns_urls(  # noqa: PLR0913
-        self, client, endpoint, schema, response_schema, mark_parameters, mark_type, mask, expected_keys, files
+        self,
+        client: TestClient,
+        endpoint: PreprocessorEndpoint,
+        schema: type[PrepareMarkImpression | PrepareMarkStriation],
+        response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
+        mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
+        mark_type: str,
+        mask: BinaryMask,
+        expected_keys: list[str],
+        files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
         """Test that the prepare-mark endpoint processes the request and returns file URLs."""
-        payload = self.get_schema_for_endpoint(schema=schema, mark_type=mark_type, mark_parameters=mark_parameters)
+        # Arrange
+        payload = self.get_schema_for_endpoint(
+            schema=schema,
+            mark_type=mark_type,
+            mark_parameters=mark_parameters,
+        )
 
+        # Act
         response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
+        json_response = response.json()
 
+        # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
         for key in expected_keys:
-            assert key in response.json(), f"Response should contain URL for {key}"
+            assert key in json_response, f"Response should contain URL for {key}"
 
     def test_prepare_mark_endpoint_has_made_files_in_vault(  # noqa: PLR0913
         self,
-        client,
-        directory_access,
-        schema,
-        response_schema,
-        endpoint,
-        mark_parameters,
-        mask,
-        mark_type,
-        expected_keys,
-        files,
+        client: TestClient,
+        directory_access: DirectoryAccess,
+        schema: type[PrepareMarkImpression | PrepareMarkStriation],
+        response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
+        endpoint: PreprocessorEndpoint,
+        mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
+        mask: BinaryMask,
+        mark_type: str,
+        expected_keys: list[str],
+        files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
         """Test that the prepare-mark endpoint creates files in the vault."""
-        payload = self.get_schema_for_endpoint(schema=schema, mark_type=mark_type, mark_parameters=mark_parameters)  # type: ignore
-
+        # Arrange
+        payload = self.get_schema_for_endpoint(
+            schema=schema,  # type: ignore
+            mark_type=mark_type,
+            mark_parameters=mark_parameters,  # type: ignore
+        )
+        # Act
         response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
 
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
-        missing = {p.name for p in [f.get_file_path(directory_access.resource_path) for f in files] if not p.exists()}
+        expected_absolute_file_paths = [file.get_file_path(directory_access.resource_path) for file in files]
+        missing = {path.name for path in expected_absolute_file_paths if not path.exists()}
         assert not missing, f"Expected: {', '.join(missing)} to be created"
 
     def test_prepare_mark_endpoint_response_url_matches_folder_location(  # noqa: PLR0913
         self,
-        client,
-        directory_access,
-        schema,
-        response_schema,
-        endpoint,
-        mark_parameters,
-        mask,
-        mark_type,
-        expected_keys,
-        files,
+        client: TestClient,
+        directory_access: DirectoryAccess,
+        schema: type[PrepareMarkImpression | PrepareMarkStriation],
+        response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
+        endpoint: PreprocessorEndpoint,
+        mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
+        mask: BinaryMask,
+        mark_type: str,
+        expected_keys: list[str],
+        files: type[PrepareMarkImpressionFiles | PrepareMarkStriationFiles],
     ) -> None:
         """Test that the URLs in the prepare-mark endpoint response match the vault folder location."""
-        payload = self.get_schema_for_endpoint(schema=schema, mark_type=mark_type, mark_parameters=mark_parameters)  # type: ignore
+        # Arrange
+        payload = self.get_schema_for_endpoint(
+            schema=schema,  # type: ignore
+            mark_type=mark_type,
+            mark_parameters=mark_parameters,  # type: ignore
+        )
 
+        # Act
         response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
 
+        # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
-        for key, url in response.json().items():
-            assert url.startswith(directory_access.access_url), f"URL for {key} should start with vault base URL"
+        json_response = response.json()
+        base_url = f"http://localhost:8000/preprocessor/files/{payload['project_name']}/"
+        for key, url in json_response.items():
+            expected_url_start = base_url
+            assert url.startswith(directory_access.access_url), f"URL for {key} should start with {expected_url_start}"
+            # TODO: retrieve tag and token from url and find file in vault to ensure correctness
 
 
 class TestPrepareMarkExceptionHandlers:
@@ -298,6 +341,7 @@ def test_edit_image_returns_valid_images(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Tests if the endpoint gives back the expected outcome."""
+    # Arrange
     base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
     directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
 
@@ -314,15 +358,18 @@ def test_edit_image_returns_valid_images(
         crop=True,
     ).model_dump(mode="json")
 
+    # Act
     with monkeypatch.context() as mp:
         mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
         response = send_post_request_with_mask(client=client, endpoint="edit-scan", params=params, mask=mask)
 
+    # Assert
     expected_response = GeneratedImages(
         preview_image=HttpUrl(f"{base_url}/preview.png"),
         surface_map_image=HttpUrl(f"{base_url}/surface_map.png"),
     )
     assert response.status_code == HTTPStatus.OK, "endpoint is alive"
-    assert GeneratedImages.model_validate(response.json()) == expected_response
+    response_model = GeneratedImages.model_validate(response.json())
+    assert response_model == expected_response
     assert (directory / "preview.png").exists()
     assert (directory / "surface_map.png").exists()
