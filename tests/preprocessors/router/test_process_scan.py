@@ -34,15 +34,6 @@ def post_process_scan(client: TestClient, upload_scan: UploadScan) -> Callable[[
     return _post
 
 
-def _raiser(exc: Exception):
-    """Return a callable that raises the given exception, regardless of arguments."""
-
-    def _inner(*args, **kwargs):
-        raise exc
-
-    return _inner
-
-
 @pytest.mark.e2e
 @pytest.mark.usefixtures("tmp_dir_api")
 class TestProcessScanEndpoint:
@@ -162,12 +153,10 @@ class TestProcessScanExceptionHandlers:
         monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
 
     def test_file_not_found_returns_404(
-        self, client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch
+        self, client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch, raiser: Callable
     ) -> None:
         """FileNotFoundError propagates to the global 404 handler."""
-        monkeypatch.setattr(
-            "preprocessors.router.parse_scan_pipeline", _raiser(FileNotFoundError("scan.x3p not found"))
-        )
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", raiser(FileNotFoundError("scan.x3p not found")))
 
         response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
 
@@ -175,12 +164,10 @@ class TestProcessScanExceptionHandlers:
         assert "scan.x3p not found" in response.json()["detail"]
 
     def test_value_error_returns_422(
-        self, client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch
+        self, client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch, raiser: Callable
     ) -> None:
         """ValueError propagates to the global 422 handler."""
-        monkeypatch.setattr(
-            "preprocessors.router.parse_scan_pipeline", _raiser(ValueError("could not parse scan file"))
-        )
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", raiser(ValueError("could not parse scan file")))
 
         response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
 
@@ -188,10 +175,10 @@ class TestProcessScanExceptionHandlers:
         assert "could not parse scan file" in response.json()["detail"]
 
     def test_unhandled_exception_returns_500(
-        self, non_raising_client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch
+        self, non_raising_client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch, raiser: Callable
     ) -> None:
         """An unhandled exception falls through to Starlette's default 500 handler."""
-        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", _raiser(RuntimeError("unexpected failure")))
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", raiser(RuntimeError("unexpected failure")))
 
         response = non_raising_client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
 
