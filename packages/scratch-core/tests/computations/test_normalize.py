@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from computations.filter import _normalize_2d_array
+from computations.normalization import _normalize_2d_array
 from container_models.models import NormalizationBounds
 from container_models.scan_image import ScanImage
 

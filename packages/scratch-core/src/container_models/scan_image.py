@@ -7,7 +7,7 @@ from PIL.Image import Image, fromarray
 from pydantic import Field
 from scipy.constants import micro
 
-from computations.filter import _grayscale_to_rgba, _normalize_2d_array
+from computations.normalization import _grayscale_to_rgba, _normalize_2d_array
 from parsers import convert_to_x3p, save_x3p
 from parsers.loaders import _load_surface
 
