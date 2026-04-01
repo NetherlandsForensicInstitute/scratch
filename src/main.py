@@ -59,7 +59,7 @@ app.include_router(prefix_router)
 @app.exception_handler(FileNotFoundError)
 async def file_not_found_handler(request: Request, exc: FileNotFoundError) -> JSONResponse:
     """Return a 404 JSON response for unhandled FileNotFoundError exceptions."""
-    message = str(exc) or "File not found"
+    message = f"File not found error: {exc}"
     logger.warning(message)
     return JSONResponse(status_code=HTTPStatus.NOT_FOUND, content={"detail": message})
 
@@ -67,14 +67,14 @@ async def file_not_found_handler(request: Request, exc: FileNotFoundError) -> JS
 @app.exception_handler(ArrayShapeMismatchError)
 async def array_shape_mismatch_handler(request: Request, exc: ArrayShapeMismatchError) -> JSONResponse:
     """Return a 422 JSON response for unhandled ArrayShapeMismatchError exceptions."""
-    message = str(exc) or "Mask shape does not match image shape"
+    message = f"Array shape mismatch error: {exc}"
     logger.warning(message)
     return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
 
 
 async def parse_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Return a 422 JSON response for unhandled parse exceptions."""
-    message = str(exc) or "Data parsing error"
+    message = f"Data parsing error: {exc}"
     logger.warning(message)
     return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
 
