@@ -78,9 +78,9 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
 
     mark_ref = load_mark_from_path(path=impression_params.mark_dir_ref, stem="processed")
     mark_ref_raw = load_mark_from_path(path=impression_params.mark_dir_ref, stem="mark")
+    mark_ref_processed = ProcessedMark(mark_ref, mark_ref_raw)
     mark_comp = load_mark_from_path(path=impression_params.mark_dir_comp, stem="processed")
     mark_comp_raw = load_mark_from_path(path=impression_params.mark_dir_comp, stem="mark")
-    mark_ref_processed = ProcessedMark(mark_ref, mark_ref_raw)
     mark_comp_processed = ProcessedMark(mark_comp, mark_comp_raw)
     logger.debug("marks loaded")
 
