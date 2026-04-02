@@ -1,5 +1,3 @@
-from typing import Sequence
-
 import numpy as np
 
 from container_models.base import FloatArray2D, FloatArray1D
@@ -13,7 +11,7 @@ from conversion.surface_comparison.cmc_consensus.models import (
 
 
 def find_consensus_parameters(
-    cells: Sequence[Cell],
+    cells: list[Cell],
 ) -> ConsensusParameters:
     """Least-squares 'Procrustes' rotation fit to find consensus rotation and translation parameters.
 
@@ -38,7 +36,7 @@ def find_consensus_parameters(
 
 
 def _get_translation(
-    cells: Sequence[Cell],
+    cells: list[Cell],
 ) -> ConsensusParameters:
     """
     :param cells: cells whose (center_reference, center_comparison) are used for fitting
@@ -64,7 +62,7 @@ def _get_translation(
 
 
 def _center(
-    cells: Sequence[Cell],
+    cells: list[Cell],
     rotation_center_reference: FloatArray1D,
     rotation_center_comparison: FloatArray1D,
 ) -> tuple[FloatArray2D, FloatArray2D]:
@@ -121,11 +119,13 @@ def _get_rotation_angle(
 
 
 def _get_rotation_component_using_rotation_matrix(
-    data: np.ndarray, center: np.ndarray, rotation_matrix: np.ndarray
-) -> np.ndarray:
+    data: FloatArray2D | FloatArray1D,
+    center: FloatArray2D,
+    rotation_matrix: FloatArray2D,
+) -> FloatArray2D:
     """Rotate data around center, return only rotation component (no offset by center).
 
-    :param data: data to be rotated, shape (n ,m), n cases with m features
+    :param data: data to be rotated, shape (n ,m), n cases with m features, or (m,) for one case
     :param center: center of rotation, shape (1 ,m)
     :param rotation_matrix: rotation matrix, shape (m, m)
 
@@ -138,14 +138,14 @@ def _get_rotation_component_using_rotation_matrix(
 
 
 def _get_rotation_component_using_angle_degree(
-    xy_data: np.ndarray, angle_deg: float, reference_center: np.ndarray
-) -> np.ndarray:
+    xy_data: FloatArray2D, angle_deg: float, reference_center: FloatArray2D
+) -> FloatArray2D:
     """Rotate data around center.
 
-    :param xy_data: data to be rotated, shape (n ,m), n cases with m features
+    :param xy_data: data to be rotated, shape (n ,2), n cases with 2 features, or (2,) for 1 case
     :param angle_deg: angle in degrees
-    :param reference_center: center of rotation, shape (m)
-    :returns rotated data, shape (n ,m)
+    :param reference_center: center of rotation, shape (2,)
+    :returns rotated data, shape (n ,2)
     """
     reference_center = reference_center.reshape(1, -1)
     angle_rad = np.radians(angle_deg)
@@ -156,7 +156,7 @@ def _get_rotation_component_using_angle_degree(
     )
 
 
-def _build_2d_rotation_matrix(angle_rad: float) -> np.ndarray:
+def _build_2d_rotation_matrix(angle_rad: float) -> FloatArray2D:
     """Build 2d rotation matrix from angle_rad.
 
      2-D rotation matrix  [[ cos, -sin], [sin,  cos]]

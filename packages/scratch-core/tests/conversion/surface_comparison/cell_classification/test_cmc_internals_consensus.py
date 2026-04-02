@@ -1,3 +1,5 @@
+from typing import cast
+
 import numpy as np
 import pytest
 from unittest.mock import patch, MagicMock
@@ -27,8 +29,9 @@ class TestCriterion:
         """Test that empty cell_ids returns np.inf."""
         cell_distances = np.array([1.0, 2.0, 3.0])
         cell_angle_distances = np.array([10.0, 20.0, 30.0])
+        inliers_idx = []
         result = calculate_criterion(
-            [], cell_distances, cell_angle_distances, 10.0, 90.0
+            cell_distances[inliers_idx], cell_angle_distances[inliers_idx], 10.0, 90.0
         )
         assert result == np.inf
 
@@ -41,9 +44,8 @@ class TestCriterion:
         max_abs_angle_distance = 40.0
 
         result = calculate_criterion(
-            cell_ids,
-            cell_distances,
-            cell_angle_distances,
+            cell_distances[cell_ids],
+            cell_angle_distances[cell_ids],
             max_distance,
             max_abs_angle_distance,
         )
@@ -55,7 +57,9 @@ class TestCriterion:
 class TestGetCmcConsensus:
     def test_uses_only_included_idx_for_least_squares(self):
         """Test that find_consensus_parameters is called with only the included cells, not all cells."""
-        all_cells = [MagicMock(spec=Cell) for _ in range(5)]  # type: ignore[list-item]
+        all_cells = cast(
+            list[Cell], [MagicMock(spec=Cell) for _ in range(5)]
+        )  # use cast in order to pass pyright which would error on list[Cell] =! list[Magicmock]
         included_idx = [0, 2, 4]
 
         mock_consensus_params = ConsensusParameters(
@@ -101,15 +105,17 @@ class TestFindConsensusParameters:
         centers_reference = np.array([[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]])
         centers_comparison = centers_reference @ rotation_matrix + translation
 
-        cells = [
-            MagicMock(
-                spec=Cell,
-                center_reference=ref.tolist(),
-                center_comparison=comp.tolist(),
-            )
-            for ref, comp in zip(centers_reference, centers_comparison)
-        ]
-
+        cells = cast(
+            list[Cell],
+            [
+                MagicMock(
+                    spec=Cell,
+                    center_reference=ref.tolist(),
+                    center_comparison=comp.tolist(),
+                )
+                for ref, comp in zip(centers_reference, centers_comparison)
+            ],
+        )  # use cast in order to pass pyright which would error on list[Cell] =! list[Magicmock]
         result = find_consensus_parameters(cells)
 
         expected_rotation_center_reference = centers_reference.mean(axis=0)
@@ -164,7 +170,9 @@ class TestGetDistances:
         consensus_rotation_deg = np.degrees(consensus_rotation_rad)
 
         cell_angle_degs = [10.0, -50.0, 0.0]
-        cells = [MagicMock(spec=Cell, angle_deg=a) for a in cell_angle_degs]
+        cells = cast(
+            list[Cell], [MagicMock(spec=Cell, angle_deg=a) for a in cell_angle_degs]
+        )  # use cast in order to pass pyright which would error on list[Cell] =! list[Magicmock]
 
         expected_distances = np.array([1.0, 2.0, 3.0])
         # The absolute residual is |cell.angle_deg - -consensus_rotation_deg|, since we use pixel_coordinates for rotation_angle of cells and mathematical coordinates here.
@@ -245,9 +253,14 @@ class TestPredictPositions:
     ):
         """Test that predicted positions match manual rotation + translation computation."""
         centers_reference = np.array([[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]])
-        cells = [
-            MagicMock(spec=Cell, center_reference=c.tolist()) for c in centers_reference
-        ]
+
+        cells = cast(
+            list[Cell],
+            [
+                MagicMock(spec=Cell, center_reference=c.tolist())
+                for c in centers_reference
+            ],
+        )
 
         cos_a, sin_a = np.cos(consensus_rotation_rad), np.sin(consensus_rotation_rad)
         rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
@@ -279,7 +292,10 @@ class TestGetDistancesMeters:
         self, centers_comparison, predicted_positions
     ):
         """Test that Euclidean distances between comparison centers and predicted positions are correct."""
-        cells = [MagicMock(spec=Cell, center_comparison=c) for c in centers_comparison]
+        cells = cast(
+            list[Cell],
+            [MagicMock(spec=Cell, center_comparison=c) for c in centers_comparison],
+        )
         predicted_positions = np.array(predicted_positions)
 
         expected = [
