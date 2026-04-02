@@ -17,7 +17,7 @@ from conversion.surface_comparison.cmc_classification_median import (
     _wrap_angles,
 )
 from conversion.surface_comparison.models import Cell, CellMetaData, ComparisonParams
-from conversion.data_formats import MarkType
+from conversion.data_formats import MarkImpressionType, MarkStriationType
 from ...helper_functions import make_cell
 
 
@@ -439,11 +439,13 @@ class TestComparisonParamsForMarkType:
 
     def test_known_mark_type_returns_instance_with_correct_cell_size(self) -> None:
         """A registered mark type must produce a ComparisonParams with the expected cell size."""
-        params = ComparisonParams.for_mark_type(MarkType.BREECH_FACE_IMPRESSION)
+        params = ComparisonParams.for_mark_type(
+            MarkImpressionType.BREECH_FACE_IMPRESSION
+        )
 
         assert params.cell_size == pytest.approx((4.5e-4, 4.5e-4))
 
     def test_unknown_mark_type_raises_value_error(self) -> None:
         """An unregistered mark type must raise ValueError."""
         with pytest.raises(ValueError, match="No default cell size registered"):
-            ComparisonParams.for_mark_type(MarkType.BULLET_LEA_STRIATION)
+            ComparisonParams.for_mark_type(MarkStriationType.BULLET_LEA_STRIATION)  # type: ignore

@@ -55,6 +55,7 @@ dev = [
   "rust-just>=1.43.0",
   "pyright>=1.1.407",
   "tqdm>=4.67.1",
+  "scipy-stubs~=1.16.3",
 ]
 
 [tool.ruff]
@@ -92,10 +93,11 @@ convention = "numpy"             # docstring type to use
 ignore-decorators = ["property"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/*.py" = [
-  "S101",  # Exclude the 'use of assert' warning in the test files
-  "D103",  # No docstring necessary for tests
-  "PT011", # No `match` parameter necessary for pytest.raises
+"**/tests/**/*.py" = [
+  "S101",    # Exclude the 'use of assert' warning in the test files
+  "D103",    # No docstring necessary for tests
+  "PT011",   # No `match` parameter necessary for pytest.raises
+  "PLR0913", # Pytest fixtures naturally lead to many function parameters
 ]
 
 [tool.ty.environment]

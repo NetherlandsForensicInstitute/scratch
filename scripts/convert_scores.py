@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 import requests
 import scipy.io as sio
-from conversion.data_formats import MarkType
+from conversion.data_formats import MarkImpressionType, MarkType
 from tqdm import tqdm
 
 from scripts.conversion_utils import (
@@ -159,7 +159,7 @@ def calculate_score(entry: ComparisonEntry, cfg: ConversionConfig) -> dict[str, 
         logger.warning("Processed dir missing for row %d", entry.row_index)
         return None
 
-    category = "impression" if entry.mark_type.is_impression() else "striation"
+    category = "impression" if isinstance(entry.mark_type, MarkImpressionType) else "striation"
     endpoint = f"processor/calculate-score-{category}"
 
     try:

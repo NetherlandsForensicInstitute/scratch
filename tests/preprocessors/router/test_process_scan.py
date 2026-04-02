@@ -17,7 +17,7 @@ PROCESS_SCAN_ROUTE = f"/{RoutePrefix.PREPROCESSOR}/{PreprocessorEndpoint.PROCESS
 
 @pytest.fixture(scope="module")
 def upload_scan(scan_directory: Path) -> UploadScan:
-    """Fixture that provides a default UploadScan model using circle.al3d."""
+    """Fixture that provides a default UploadScan model using Klein_non_replica_mode.al3d."""
     return UploadScan(scan_file=scan_directory / "Klein_non_replica_mode.al3d")  # type: ignore
 
 
@@ -76,13 +76,13 @@ class TestProcessScan:
             mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
             response = post_process_scan()
 
-        # Assert
         expected_response = ProcessedDataAccess(
             scan_image=HttpUrl(f"{base_url}/scan.x3p"),
             preview_image=HttpUrl(f"{base_url}/preview.png"),
             surface_map_image=HttpUrl(f"{base_url}/surface_map.png"),
         )
 
+        # Assert
         assert response.status_code == HTTPStatus.OK, "endpoint is alive"
         response_model = ProcessedDataAccess.model_validate(response.json())
         assert response_model == expected_response
@@ -143,3 +143,43 @@ class TestProcessScan:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         error_detail = response.json()["detail"]
         assert any("scan_file" in str(err) for err in error_detail)
+
+
+class TestProcessScanExceptionHandlers:
+    """Test that global exception handlers return correct HTTP responses for /process-scan."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_vault(self, monkeypatch: pytest.MonkeyPatch, directory_access: DirectoryAccess) -> None:
+        monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+
+    def test_file_not_found_returns_404(
+        self, client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch, raiser: Callable
+    ) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", raiser(FileNotFoundError("scan.x3p not found")))
+
+        response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert "scan.x3p not found" in response.json()["detail"]
+
+    def test_value_error_returns_422(
+        self, client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch, raiser: Callable
+    ) -> None:
+        """ValueError propagates to the global 422 handler."""
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", raiser(ValueError("could not parse scan file")))
+
+        response = client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "could not parse scan file" in response.json()["detail"]
+
+    def test_unhandled_exception_returns_500(
+        self, non_raising_client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch, raiser: Callable
+    ) -> None:
+        """An unhandled exception falls through to Starlette's default 500 handler."""
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", raiser(RuntimeError("unexpected failure")))
+
+        response = non_raising_client.post(PROCESS_SCAN_ROUTE, json=upload_scan.model_dump(mode="json"))
+
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR

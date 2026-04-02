@@ -1,11 +1,12 @@
 import json
+from collections.abc import Callable
 from http import HTTPStatus
 from pathlib import Path
 
 import numpy as np
 import pytest
 from container_models.base import BinaryMask
-from conversion.data_formats import MarkType
+from conversion.data_formats import MarkImpressionType, MarkStriationType
 from fastapi.testclient import TestClient
 from httpx import Response
 from pydantic import HttpUrl
@@ -57,7 +58,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkStriation,
             PrepareMarkResponseStriation,
             PreprocessingStriationParams,
-            MarkType.APERTURE_SHEAR_STRIATION,
+            MarkStriationType.APERTURE_SHEAR_STRIATION,
             [
                 "preview_image",
                 "surface_map_image",
@@ -75,7 +76,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PrepareMarkImpression,
             PrepareMarkResponseImpression,
             PreprocessingImpressionParams,
-            MarkType.CHAMBER_IMPRESSION,
+            MarkImpressionType.CHAMBER_IMPRESSION,
             [
                 "preview_image",
                 "surface_map_image",
@@ -109,7 +110,7 @@ class TestPrepareMarkEndpoint:
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         mark_type: str,
         mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
-    ):
+    ) -> dict:
         """Generate the schema payload for the prepare-mark endpoint."""
         return schema(
             project_name="test_project",
@@ -119,7 +120,7 @@ class TestPrepareMarkEndpoint:
             mark_parameters=mark_parameters(),  # type: ignore
         ).model_dump(mode="json")
 
-    def test_prepare_mark_endpoint_returns_urls(  # noqa: PLR0913
+    def test_prepare_mark_endpoint_returns_urls(
         self,
         client: TestClient,
         endpoint: PreprocessorEndpoint,
@@ -141,15 +142,14 @@ class TestPrepareMarkEndpoint:
 
         # Act
         response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=mask)
+        json_response = response.json()
 
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
-        json_response = response.json()
-
         for key in expected_keys:
             assert key in json_response, f"Response should contain URL for {key}"
 
-    def test_prepare_mark_endpoint_has_made_files_in_vault(  # noqa: PLR0913
+    def test_prepare_mark_endpoint_has_made_files_in_vault(
         self,
         client: TestClient,
         directory_access: DirectoryAccess,
@@ -178,7 +178,7 @@ class TestPrepareMarkEndpoint:
         missing = {path.name for path in expected_absolute_file_paths if not path.exists()}
         assert not missing, f"Expected: {', '.join(missing)} to be created"
 
-    def test_prepare_mark_endpoint_response_url_matches_folder_location(  # noqa: PLR0913
+    def test_prepare_mark_endpoint_response_url_matches_folder_location(
         self,
         client: TestClient,
         directory_access: DirectoryAccess,
@@ -212,51 +212,143 @@ class TestPrepareMarkEndpoint:
             # TODO: retrieve tag and token from url and find file in vault to ensure correctness
 
 
-@pytest.mark.parametrize(
-    ("endpoint", "schema", "mark_parameters", "mark_type"),
-    [
-        pytest.param(
-            PreprocessorEndpoint.PREPARE_MARK_STRIATION,
-            PrepareMarkStriation,
-            PreprocessingStriationParams,
-            MarkType.APERTURE_SHEAR_STRIATION,
-            id="striation mark",
-        ),
-        pytest.param(
-            PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
-            PrepareMarkImpression,
-            PreprocessingImpressionParams,
-            MarkType.CHAMBER_IMPRESSION,
-            id="impression mark",
-        ),
-    ],
-)
-def test_prepare_mark_returns_422_on_mask_shape_mismatch(  # noqa: PLR0913
-    client: TestClient,
-    directory_access: DirectoryAccess,
-    scan_directory: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    endpoint: PreprocessorEndpoint,
-    schema: type[PrepareMarkImpression | PrepareMarkStriation],
-    mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
-    mark_type: MarkType,
-) -> None:
-    """Test that a 422 is returned when the mask shape does not match the scan image shape."""
-    wrong_mask = np.zeros(shape=(2, 2), dtype=np.bool_)  # 2x2, won't match the scan shape
+class TestPrepareMarkExceptionHandlers:
+    """Test that global exception handlers return correct HTTP responses for prepare-mark endpoints.
 
-    payload = schema(
-        project_name="test_project",
-        mark_type=mark_type,
-        scan_file=scan_directory / "circle.x3p",
-        mark_parameters=mark_parameters(),  # type: ignore
-        bounding_box_list=[],
-    ).model_dump(mode="json")
+    One test per exception type; striation is used as the representative endpoint.
+    """
 
-    with monkeypatch.context() as mp:
-        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
-        response = send_post_request_with_mask(client=client, endpoint=endpoint, params=payload, mask=wrong_mask)
+    @pytest.fixture(autouse=True)
+    def _patch_vault(self, monkeypatch: pytest.MonkeyPatch, directory_access: DirectoryAccess) -> None:
+        monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
 
-    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    @pytest.fixture
+    def striation_payload(self, scan_directory: Path) -> dict:
+        """Fixture for building a JSON-like dict."""
+        return PrepareMarkStriation(
+            project_name="test_project",
+            mark_type=MarkStriationType.APERTURE_SHEAR_STRIATION,
+            scan_file=scan_directory / "circle.x3p",
+            bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
+            mark_parameters=PreprocessingStriationParams(),
+        ).model_dump(mode="json")
+
+    def test_file_not_found_returns_404(
+        self,
+        client: TestClient,
+        striation_payload: dict,
+        mask: BinaryMask,
+        monkeypatch: pytest.MonkeyPatch,
+        raiser: Callable,
+    ) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        monkeypatch.setattr(
+            "preprocessors.router.parse_scan_pipeline", raiser(FileNotFoundError("circle.x3p not found"))
+        )
+
+        response = send_post_request_with_mask(
+            client, PreprocessorEndpoint.PREPARE_MARK_STRIATION, striation_payload, mask
+        )
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert "circle.x3p not found" in response.json()["detail"]
+
+    def test_array_shape_mismatch_returns_422(self, client: TestClient, striation_payload: dict) -> None:
+        """A mask whose shape differs from the scan image triggers the global 422 handler."""
+        wrong_mask = np.zeros(shape=(2, 2), dtype=np.bool_)
+
+        response = send_post_request_with_mask(
+            client, PreprocessorEndpoint.PREPARE_MARK_STRIATION, striation_payload, wrong_mask
+        )
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def test_value_error_returns_422(
+        self,
+        client: TestClient,
+        striation_payload: dict,
+        mask: BinaryMask,
+        monkeypatch: pytest.MonkeyPatch,
+        raiser: Callable,
+    ) -> None:
+        """ValueError from mark processing propagates to the global 422 handler."""
+        monkeypatch.setattr(
+            "preprocessors.router.process_prepare_striation_mark", raiser(ValueError("processing failed: empty mask"))
+        )
+
+        response = send_post_request_with_mask(
+            client, PreprocessorEndpoint.PREPARE_MARK_STRIATION, striation_payload, mask
+        )
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "processing failed" in response.json()["detail"]
+
+    def test_unhandled_exception_returns_500(
+        self,
+        non_raising_client: TestClient,
+        striation_payload: dict,
+        mask: BinaryMask,
+        monkeypatch: pytest.MonkeyPatch,
+        raiser: Callable,
+    ) -> None:
+        """An unhandled exception falls through to Starlette's default 500 handler."""
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", raiser(RuntimeError("unexpected failure")))
+
+        response = send_post_request_with_mask(
+            non_raising_client, PreprocessorEndpoint.PREPARE_MARK_STRIATION, striation_payload, mask
+        )
+
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+class TestEditScanExceptionHandlers:
+    """Test that global exception handlers return correct HTTP responses for /edit-scan."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_vault(self, monkeypatch: pytest.MonkeyPatch, directory_access: DirectoryAccess) -> None:
+        monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+
+    @pytest.fixture
+    def edit_scan_params(self, scan_directory: Path) -> dict:
+        """Fixture for building a JSON-like dict."""
+        return EditImage(
+            project_name="test",
+            scan_file=scan_directory / "circle.x3p",
+            cutoff_length=2 * micro,
+            terms=SurfaceOptions.PLANE,
+        ).model_dump(mode="json")
+
+    def test_file_not_found_returns_404(
+        self,
+        client: TestClient,
+        edit_scan_params: dict,
+        mask: BinaryMask,
+        monkeypatch: pytest.MonkeyPatch,
+        raiser: Callable,
+    ) -> None:
+        """FileNotFoundError propagates to the global 404 handler."""
+        monkeypatch.setattr(
+            "preprocessors.router.parse_scan_pipeline", raiser(FileNotFoundError("circle.x3p not found"))
+        )
+
+        response = send_post_request_with_mask(client, "edit-scan", edit_scan_params, mask)
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_unhandled_exception_returns_500(
+        self,
+        non_raising_client: TestClient,
+        edit_scan_params: dict,
+        mask: BinaryMask,
+        monkeypatch: pytest.MonkeyPatch,
+        raiser: Callable,
+    ) -> None:
+        """An unhandled exception falls through to Starlette's default 500 handler."""
+        monkeypatch.setattr("preprocessors.router.parse_scan_pipeline", raiser(RuntimeError("unexpected failure")))
+
+        response = send_post_request_with_mask(non_raising_client, "edit-scan", edit_scan_params, mask)
+
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @pytest.mark.usefixtures("tmp_dir_api")
@@ -288,6 +380,7 @@ def test_edit_image_returns_valid_images(
     with monkeypatch.context() as mp:
         mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
         response = send_post_request_with_mask(client=client, endpoint="edit-scan", params=params, mask=mask)
+
     # Assert
     expected_response = GeneratedImages(
         preview_image=HttpUrl(f"{base_url}/preview.png"),

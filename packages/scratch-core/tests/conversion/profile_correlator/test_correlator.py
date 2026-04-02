@@ -71,7 +71,7 @@ def create_scaled_profiles(
     x_orig = np.arange(n)
     interp = interp1d(x_orig, base, kind="cubic", fill_value="extrapolate")  # type: ignore[arg-type]
     x_scaled = np.arange(n) / scale_factor
-    comp_data = interp(x_scaled)
+    comp_data = interp(x_scaled).astype(np.float64)
     return (
         Profile(heights=base.copy(), pixel_size=PIXEL_SIZE_M),
         Profile(heights=comp_data, pixel_size=PIXEL_SIZE_M),

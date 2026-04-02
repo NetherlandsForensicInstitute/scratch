@@ -24,6 +24,12 @@ from container_models.scan_image import ScanImage
 
 
 class MarkType(StrEnum):
+    @property
+    def scale(self) -> float:
+        return 1.5e-6
+
+
+class MarkImpressionType(MarkType):
     # Impression marks
     BREECH_FACE_IMPRESSION = "breech face impression mark"
     CHAMBER_IMPRESSION = "chamber impression mark"
@@ -31,6 +37,14 @@ class MarkType(StrEnum):
     EXTRACTOR_IMPRESSION = "extractor impression mark"
     FIRING_PIN_IMPRESSION = "firing pin impression mark"
 
+    @property
+    def scale(self) -> float:
+        if self == MarkImpressionType.BREECH_FACE_IMPRESSION:
+            return 3.5e-6
+        return 1.5e-6
+
+
+class MarkStriationType(MarkType):
     # Striation marks
     APERTURE_SHEAR_STRIATION = "aperture shear striation mark"
     BULLET_GEA_STRIATION = "bullet gea striation mark"
@@ -40,18 +54,6 @@ class MarkType(StrEnum):
     EJECTOR_PORT_STRIATION = "ejector port striation mark"
     EXTRACTOR_STRIATION = "extractor striation mark"
     FIRING_PIN_DRAG_STRIATION = "firing pin drag striation mark"
-
-    def is_impression(self) -> bool:
-        return "IMPRESSION" in self.name
-
-    def is_striation(self) -> bool:
-        return "STRIATION" in self.name
-
-    @property
-    def scale(self) -> float:
-        if self == MarkType.BREECH_FACE_IMPRESSION:
-            return 3.5e-6
-        return 1.5e-6
 
 
 def validate_rectangle_corners(arr: FloatArray2D) -> FloatArray2D:
