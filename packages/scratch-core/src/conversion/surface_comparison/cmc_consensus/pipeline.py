@@ -129,10 +129,9 @@ def _update_congruent_cells(cells: Sequence[Cell], congruent_ids: list[int]) -> 
     :param cells: list of cells.
     :param congruent_ids: list of cell ids that are congruent
     """
-    congruent_set = set(cells[i] for i in congruent_ids)
 
-    for cell in cells:
-        cell.is_congruent = cell in congruent_set
+    for i, cell in enumerate(cells):
+        cell.is_congruent = i in set(congruent_ids)
 
 
 def _get_estimated_translation_rotation(
