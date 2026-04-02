@@ -55,7 +55,7 @@ class TestCriterion:
 class TestGetCmcConsensus:
     def test_uses_only_included_idx_for_least_squares(self):
         """Test that find_consensus_parameters is called with only the included cells, not all cells."""
-        all_cells = [MagicMock(spec=Cell) for _ in range(5)]
+        all_cells = [MagicMock(spec=Cell) for _ in range(5)] # type: ignore[list-item] 
         included_idx = [0, 2, 4]
 
         mock_consensus_params = ConsensusParameters(
