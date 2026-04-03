@@ -42,6 +42,7 @@ from conversion.profile_correlator.statistics import (
     compute_normalized_square_based_roughness_differences,
 )
 from conversion.resample import resample_array_1d
+from scipy.signal import fftconvolve
 
 
 def correlate_profiles(
@@ -202,34 +203,55 @@ def _find_best_alignment(
     best_shift = None
     best_scale = None
 
+    # Pre-replace NaNs with 0 for FFT-based correlation
+    ref = heights_reference.copy()
+    ref_valid = ~np.isnan(ref)
+    ref[~ref_valid] = 0.0
+
     for scale in scale_factors:
         heights_compared_scaled = resample_array_1d(heights_compared, scale)
         len_compared = len(heights_compared_scaled)
-        # Calculate shift range (ensure minimum overlap)
-        min_shift = -(len_compared - min_overlap_samples)
-        max_shift = len_reference - min_overlap_samples
 
-        for shift in range(min_shift, max_shift + 1):
-            idx_compared_start, idx_reference_start, overlap_length = (
-                _calculate_idx_parameters(shift, len_compared, len_reference)
-            )  # Calculate overlap region for this shift
+        comp = heights_compared_scaled.copy()
+        comp_valid = ~np.isnan(comp)
+        comp[~comp_valid] = 0.0
 
-            if overlap_length < min_overlap_samples:
-                continue
+        # Count of valid overlapping samples at each shift
+        overlap_count = fftconvolve(
+            ref_valid.astype(float), comp_valid[::-1].astype(float), mode="full"
+        )
 
-            partial_reference = heights_reference[
-                idx_reference_start : idx_reference_start + overlap_length
-            ]
-            partial_compared = heights_compared_scaled[
-                idx_compared_start : idx_compared_start + overlap_length
-            ]
+        # Sum of valid reference and compared values at each shift
+        ref_sum = fftconvolve(ref, comp_valid[::-1].astype(float), mode="full")
+        comp_sum = fftconvolve(ref_valid.astype(float), comp[::-1], mode="full")
 
-            correlation = compute_cross_correlation(partial_reference, partial_compared)
+        # Sum of squares
+        ref_sq_sum = fftconvolve(ref ** 2, comp_valid[::-1].astype(float), mode="full")
+        comp_sq_sum = fftconvolve(ref_valid.astype(float), (comp ** 2)[::-1], mode="full")
 
-            if correlation and correlation > best_correlation:
-                best_correlation = correlation
-                best_shift = shift
-                best_scale = scale
+        # Cross product
+        cross = fftconvolve(ref, comp[::-1], mode="full")
+
+        # Pearson correlation at every shift
+        with np.errstate(invalid="ignore", divide="ignore"):
+            n = overlap_count
+            numerator = n * cross - ref_sum * comp_sum
+            denominator = np.sqrt(
+                (n * ref_sq_sum - ref_sum ** 2) * (n * comp_sq_sum - comp_sum ** 2)
+            )
+            correlations = np.where(
+                (n >= min_overlap_samples) & (denominator > 0),
+                numerator / denominator,
+                -np.inf,
+            )
+
+        # Map FFT output indices to shift values
+        # fftconvolve "full" output index k corresponds to shift = k - (len_compared - 1)
+        best_idx = np.argmax(correlations)
+        if correlations[best_idx] > best_correlation:
+            best_correlation = correlations[best_idx]
+            best_shift = int(best_idx) - (len_compared - 1)
+            best_scale = scale
 
     if best_shift is None or best_scale is None:
         return None
