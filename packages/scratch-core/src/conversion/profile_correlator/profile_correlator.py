@@ -35,7 +35,6 @@ from conversion.profile_correlator.data_types import (
 )
 from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.profile_correlator.statistics import (
-    compute_cross_correlation,
     compute_overlap_ratio,
     compute_roughness_sa,
     compute_roughness_sq,
@@ -226,8 +225,8 @@ def _find_best_alignment(
         comp_sum = fftconvolve(ref_valid.astype(float), comp[::-1], mode="full")
 
         # Sum of squares
-        ref_sq_sum = fftconvolve(ref ** 2, comp_valid[::-1].astype(float), mode="full")
-        comp_sq_sum = fftconvolve(ref_valid.astype(float), (comp ** 2)[::-1], mode="full")
+        ref_sq_sum = fftconvolve(ref**2, comp_valid[::-1].astype(float), mode="full")
+        comp_sq_sum = fftconvolve(ref_valid.astype(float), (comp**2)[::-1], mode="full")
 
         # Cross product
         cross = fftconvolve(ref, comp[::-1], mode="full")
@@ -237,7 +236,7 @@ def _find_best_alignment(
             n = overlap_count
             numerator = n * cross - ref_sum * comp_sum
             denominator = np.sqrt(
-                (n * ref_sq_sum - ref_sum ** 2) * (n * comp_sq_sum - comp_sum ** 2)
+                (n * ref_sq_sum - ref_sum**2) * (n * comp_sq_sum - comp_sum**2)
             )
             correlations = np.where(
                 (n >= min_overlap_samples) & (denominator > 0),

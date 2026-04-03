@@ -31,15 +31,9 @@ class TestCorrelateStriationMarksBasic:
         profile_compared = make_shifted_profile(profile_reference, 10.0, seed=43)
         mark_reference = striation_mark(profile_reference)
         mark_compared = striation_mark(profile_compared)
-        import time
-
-        t0 = time.perf_counter()
-        for _ in range(20):
-            result = correlate_striation_marks(
-                mark_reference, mark_compared, profile_reference, profile_compared
-            )
-        t1 = time.perf_counter()
-        print(f"time: {t1 - t0:.3f}s")
+        result = correlate_striation_marks(
+            mark_reference, mark_compared, profile_reference, profile_compared
+        )
         assert isinstance(result, MarkCorrelationResult)
 
     def test_aligned_marks_have_equal_row_count(self):
