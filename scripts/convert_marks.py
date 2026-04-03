@@ -31,8 +31,6 @@ from scripts.matlab_utils import (
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-_SENTINEL = object()
-
 
 def _resolve_converted_x3ps(
     marks: list[tuple[Path, Path]],
@@ -56,11 +54,32 @@ def _resolve_converted_x3ps(
     return converted
 
 
+def _download_result_files(result: dict[str, object], session: requests.Session) -> dict[str, bytes]:
+    """Download all file URLs from an API result dict.
+
+    Uses the provided session for connection reuse. Cleans up vault entries
+    even if a download fails partway through.
+    """
+    try:
+        downloaded = {}
+        for url in result.values():
+            if not isinstance(url, str) or not url.startswith("http"):
+                continue
+            filename = url.rsplit("/", 1)[-1]
+            resp = session.get(url, timeout=60)
+            resp.raise_for_status()
+            downloaded[filename] = resp.content
+        return downloaded
+    finally:
+        _cleanup_vault(result)
+
+
 def fetch_mark(
     mark_folder: Path,
     converted_x3p: Path,
     shape: tuple[int, int],
     cfg: ConversionConfig,
+    session: requests.Session,
 ) -> tuple[Path, dict[str, bytes]] | None:
     """Call the API and download results into memory.
 
@@ -96,16 +115,7 @@ def fetch_mark(
         files={"mask_data": ("mask.bin", io.BytesIO(mask_bytes), "application/octet-stream")},
     )
 
-    downloaded = {}
-    for url in result.values():
-        if not isinstance(url, str) or not url.startswith("http"):
-            continue
-        filename = url.rsplit("/", 1)[-1]
-        resp = requests.get(url, timeout=60)
-        resp.raise_for_status()
-        downloaded[filename] = resp.content
-
-    _cleanup_vault(result)
+    downloaded = _download_result_files(result, session)
     return mark_folder, downloaded
 
 
@@ -118,31 +128,44 @@ def _write_mark(mark_folder: Path, files: dict[str, bytes], cfg: ConversionConfi
 
 
 def _disk_writer(
-    result_queue: queue.Queue[tuple[Path, dict[str, bytes]] | object],
+    result_queue: queue.Queue[tuple[Path, dict[str, bytes]] | None],
     cfg: ConversionConfig,
     progress: tqdm,
 ) -> None:
     """Single-threaded consumer that serialises all disk writes."""
     while True:
         item = result_queue.get()
-        if item is _SENTINEL:
+        if item is None:
             break
-        mark_folder, files = item  # type: ignore[misc]
+        mark_folder, files = item
         _write_mark(mark_folder, files, cfg)
         progress.update(1)
 
 
 def _fetch_and_enqueue(
-    result_queue: queue.Queue[tuple[Path, dict[str, bytes]] | object],
+    result_queue: queue.Queue[tuple[Path, dict[str, bytes]] | None],
+    progress: tqdm,
     mark_folder: Path,
     converted_x3p: Path,
     shape: tuple[int, int],
     cfg: ConversionConfig,
+    session: requests.Session,
 ) -> None:
-    """Fetch a mark and put the result on the write queue."""
-    mark_result = fetch_mark(mark_folder, converted_x3p, shape, cfg)
-    if mark_result is not None:
-        result_queue.put(mark_result)
+    """
+    Fetch a mark and put the result on the write queue.
+
+    Logs and continues on failure so that one bad mark doesn't abort the batch.
+    Always updates *progress* so the bar reflects skipped and failed marks too.
+    """
+    try:
+        mark_result = fetch_mark(mark_folder, converted_x3p, shape, cfg, session)
+        if mark_result is not None:
+            result_queue.put(mark_result)
+        else:
+            progress.update(1)
+    except Exception:
+        logger.exception("Failed to fetch mark %s", mark_folder)
+        progress.update(1)
 
 
 def convert_marks_parallel(
@@ -152,23 +175,28 @@ def convert_marks_parallel(
     workers: int,
 ) -> None:
     """Fetch marks in parallel, write results sequentially via a single writer thread."""
-    write_queue: queue.Queue[tuple[Path, dict[str, bytes]] | object] = queue.Queue(maxsize=workers * 2)
+    write_queue = queue.Queue(maxsize=workers * 2)
 
-    progress = tqdm(total=len(marks), desc="Writing marks", unit=" marks")
+    progress = tqdm(total=len(marks), desc="Converting marks", unit=" marks")
     writer = threading.Thread(target=_disk_writer, args=(write_queue, cfg, progress), daemon=True)
     writer.start()
 
+    session = requests.Session()
     try:
         run_parallel(
-            ((mf, _fetch_and_enqueue, (write_queue, mf, *converted_x3ps[meas], cfg)) for meas, mf in marks),
+            (
+                (mf, _fetch_and_enqueue, (write_queue, progress, mf, *converted_x3ps[meas], cfg, session))
+                for meas, mf in marks
+            ),
             workers,
             "Fetching marks",
             " marks",
         )
     finally:
-        write_queue.put(_SENTINEL)
+        write_queue.put(None)
         writer.join()
         progress.close()
+        session.close()
 
 
 def main() -> None:

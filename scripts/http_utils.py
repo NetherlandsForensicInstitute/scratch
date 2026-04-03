@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 API_SEMAPHORE = threading.Semaphore(5)
 
 
-def _post_with_retry(  # noqa: PLR0913
+def _post_with_retry(
     url: str,
     body: dict | None = None,
     timeout: int = 300,

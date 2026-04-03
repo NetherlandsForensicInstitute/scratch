@@ -1,4 +1,5 @@
 import logging
+import os
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -115,3 +116,13 @@ def flatten_processed_folders(output_dir: Path) -> None:
         for f in contents:
             f.rename(parent / "db_processed.scratch")
         processed_dir.rmdir()
+
+
+def _find_existing_results(output_dir: Path) -> set[Path]:
+    """Find directories that already contain a ``comparison_results.json``."""
+    existing: set[Path] = set()
+    for dirpath, dirnames, filenames in os.walk(output_dir):
+        if "comparison_results.json" in filenames:
+            existing.add(Path(dirpath))
+            dirnames.clear()
+    return existing

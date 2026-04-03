@@ -31,7 +31,43 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def convert_measurement_x3p(measurement_folder: Path, cfg: ConversionConfig) -> tuple[Path, tuple[int, int]]:
+def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
+    """Load an X3P from path, parse it, and write the result atomically."""
+    scan = ScanImage.from_file(input_path)
+    x3p = convert_to_x3p(scan)
+
+    tmp = output_path.with_stem(f".{uuid.uuid4().hex}.tmp")
+    try:
+        x3p.write(str(tmp))
+        os.replace(tmp, output_path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
+
+    return scan.width, scan.height
+
+
+def _download_images(result: dict[str, object], output_dir: Path, session: requests.Session) -> None:
+    """Download preview/surface_map images, ensuring vault cleanup on failure."""
+    try:
+        for key in ("preview_image", "surface_map_image"):
+            if key not in result:
+                continue
+            url = result[key]
+            if not isinstance(url, str) or not url.startswith("http"):
+                continue
+            filename = url.rsplit("/", 1)[-1]
+            resp = session.get(url, timeout=60)
+            resp.raise_for_status()
+            (output_dir / filename).write_bytes(resp.content)
+    finally:
+        _cleanup_vault(result)
+
+
+def convert_measurement_x3p(
+    measurement_folder: Path, cfg: ConversionConfig, session: requests.Session
+) -> tuple[Path, tuple[int, int]]:
     """Convert a measurement.x3p and generate preview/surface_map images.
 
     :returns: (path to converted x3p, (size_x, size_y) pixel dimensions).
@@ -51,14 +87,20 @@ def convert_measurement_x3p(measurement_folder: Path, cfg: ConversionConfig) -> 
     save_shape(output_x3p, shape)
 
     result = _post_with_retry(f"{cfg.api_url}/preprocessor/process-scan", {"scan_file": str(output_x3p)})
-    for key in ("preview_image", "surface_map_image"):
-        if key in result:
-            url = result[key]
-            resp = requests.get(url, timeout=60)
-            resp.raise_for_status()
-            (output_x3p.parent / url.rsplit("/", 1)[-1]).write_bytes(resp.content)
-    _cleanup_vault(result)
+    _download_images(result, output_x3p.parent, session)
+
     return output_x3p, shape
+
+
+def _convert_measurement_safe(
+    measurement_folder: Path, cfg: ConversionConfig, session: requests.Session
+) -> tuple[Path, tuple[int, int]] | None:
+    """Convert measurement while logging errors instead of raising."""
+    try:
+        return convert_measurement_x3p(measurement_folder, cfg, session)
+    except Exception:
+        logger.exception("Failed to convert %s", measurement_folder)
+        return None
 
 
 def main() -> None:
@@ -79,33 +121,25 @@ def main() -> None:
     unique_measurements = list({mf for mf, _ in marks})
     logger.info(f"Found {len(unique_measurements)} unique measurements")
 
-    run_parallel(
-        ((mf, convert_measurement_x3p, (mf, cfg)) for mf in unique_measurements),
-        args.workers,
-        "Converting x3p",
-        " files",
-    )
+    session = requests.Session()
+    try:
+        results = run_parallel(
+            ((mf, _convert_measurement_safe, (mf, cfg, session)) for mf in unique_measurements),
+            args.workers,
+            "Converting x3p",
+            " files",
+        )
+    finally:
+        session.close()
+
+    failed = sum(1 for v in results.values() if v is None)
+    succeeded = len(results) - failed
+    if failed:
+        logger.warning("%d/%d measurements failed", failed, len(results))
 
     flatten_processed_folders(cfg.output_dir)
-    logger.info(f"Done: converted {len(unique_measurements)} x3p files")
+    logger.info(f"Done: {succeeded} converted, {failed} failed out of {len(unique_measurements)} measurements")
 
 
 if __name__ == "__main__":
     main()
-
-
-def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
-    """Load an X3P from path, parse it, and write the result atomically."""
-    scan = ScanImage.from_file(input_path)
-    x3p = convert_to_x3p(scan)
-
-    tmp = output_path.with_stem(f".{uuid.uuid4().hex}.tmp")
-    try:
-        x3p.write(str(tmp))
-        os.replace(tmp, output_path)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            tmp.unlink()
-        raise
-
-    return scan.width, scan.height
