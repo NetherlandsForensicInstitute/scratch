@@ -31,11 +31,9 @@ class TestCorrelateStriationMarksBasic:
         profile_compared = make_shifted_profile(profile_reference, 10.0, seed=43)
         mark_reference = striation_mark(profile_reference)
         mark_compared = striation_mark(profile_compared)
-
         result = correlate_striation_marks(
             mark_reference, mark_compared, profile_reference, profile_compared
         )
-
         assert isinstance(result, MarkCorrelationResult)
 
     def test_aligned_marks_have_equal_row_count(self):

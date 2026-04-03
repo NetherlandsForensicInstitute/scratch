@@ -35,13 +35,13 @@ from conversion.profile_correlator.data_types import (
 )
 from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.profile_correlator.statistics import (
-    compute_cross_correlation,
     compute_overlap_ratio,
     compute_roughness_sa,
     compute_roughness_sq,
     compute_normalized_square_based_roughness_differences,
 )
 from conversion.resample import resample_array_1d
+from scipy.signal import fftconvolve
 
 
 def correlate_profiles(
@@ -178,6 +178,56 @@ def _calculate_idx_parameters(
     return idx_compared_start, idx_reference_start, overlap_length
 
 
+def _correlations_at_all_shifts(
+    heights_reference: FloatArray1D,
+    heights_compared: FloatArray1D,
+    min_overlap_samples: int,
+) -> FloatArray1D:
+    """
+    Compute Pearson correlation between two profiles at every possible shift.
+
+    Uses FFT-based convolution to vectorize the computation. NaN values in
+    either profile are excluded from the calculation by replacing them with
+    zeros and tracking validity masks.
+
+    :param heights_reference: Reference profile heights. May contain NaN values.
+    :param heights_compared: Comparison profile heights. May contain NaN values.
+    :param min_overlap_samples: Minimum required number of valid overlapping
+        samples for a shift to produce a valid correlation.
+    :returns: Array of correlation values for each shift. Invalid shifts
+        (insufficient overlap or zero variance) are set to -inf.
+        Output index k corresponds to shift = k - (len(heights_compared) - 1).
+    """
+    ref = heights_reference.copy()
+    ref_valid = ~np.isnan(ref)
+    ref[~ref_valid] = 0.0
+
+    comp = heights_compared.copy()
+    comp_valid = ~np.isnan(comp)
+    comp[~comp_valid] = 0.0
+
+    overlap_count = fftconvolve(
+        ref_valid.astype(float), comp_valid[::-1].astype(float), mode="full"
+    )
+    ref_sum = fftconvolve(ref, comp_valid[::-1].astype(float), mode="full")
+    comp_sum = fftconvolve(ref_valid.astype(float), comp[::-1], mode="full")
+    ref_sq_sum = fftconvolve(ref**2, comp_valid[::-1].astype(float), mode="full")
+    comp_sq_sum = fftconvolve(ref_valid.astype(float), (comp**2)[::-1], mode="full")
+    cross = fftconvolve(ref, comp[::-1], mode="full")
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        n = overlap_count
+        numerator = n * cross - ref_sum * comp_sum
+        denominator = np.sqrt(
+            (n * ref_sq_sum - ref_sum**2) * (n * comp_sq_sum - comp_sum**2)
+        )
+        return np.where(
+            (n >= min_overlap_samples) & (denominator > 0),
+            numerator / denominator,
+            -np.inf,
+        )
+
+
 def _find_best_alignment(
     heights_reference: FloatArray1D,
     heights_compared: FloatArray1D,
@@ -188,7 +238,8 @@ def _find_best_alignment(
     Find the best alignment between two profiles using brute-force search.
 
     Tries all combinations of scale factors and shifts, returning the one
-    with maximum correlation.
+    with maximum correlation. The final correlation is verified using
+    direct Pearson computation on the overlapping segments.
 
     :param heights_reference: Reference profile heights.
     :param heights_compared: Comparison profile heights.
@@ -205,36 +256,20 @@ def _find_best_alignment(
     for scale in scale_factors:
         heights_compared_scaled = resample_array_1d(heights_compared, scale)
         len_compared = len(heights_compared_scaled)
-        # Calculate shift range (ensure minimum overlap)
-        min_shift = -(len_compared - min_overlap_samples)
-        max_shift = len_reference - min_overlap_samples
 
-        for shift in range(min_shift, max_shift + 1):
-            idx_compared_start, idx_reference_start, overlap_length = (
-                _calculate_idx_parameters(shift, len_compared, len_reference)
-            )  # Calculate overlap region for this shift
+        correlations = _correlations_at_all_shifts(
+            heights_reference, heights_compared_scaled, min_overlap_samples
+        )
 
-            if overlap_length < min_overlap_samples:
-                continue
-
-            partial_reference = heights_reference[
-                idx_reference_start : idx_reference_start + overlap_length
-            ]
-            partial_compared = heights_compared_scaled[
-                idx_compared_start : idx_compared_start + overlap_length
-            ]
-
-            correlation = compute_cross_correlation(partial_reference, partial_compared)
-
-            if correlation and correlation > best_correlation:
-                best_correlation = correlation
-                best_shift = shift
-                best_scale = scale
+        best_idx = np.argmax(correlations)
+        if correlations[best_idx] > best_correlation:
+            best_correlation = correlations[best_idx]
+            best_shift = int(best_idx) - (len_compared - 1)
+            best_scale = scale
 
     if best_shift is None or best_scale is None:
         return None
 
-    # Redo computations for best_scale and best_shift (instead of copying partial_reference and partial_compared above multiple times. This saves time.)
     heights_compared_scaled = resample_array_1d(heights_compared, best_scale)
     idx_compared_start, idx_reference_start, overlap_length = _calculate_idx_parameters(
         best_shift, len(heights_compared_scaled), len_reference
