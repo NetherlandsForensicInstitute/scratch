@@ -6,6 +6,7 @@ import numpy as np
 from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from scipy import io as sio
 from scipy.constants import micro
+from skimage.draw import polygon as draw_polygon
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -63,6 +64,12 @@ def _parse_rectangle(raw: Any) -> np.ndarray:
     return np.asarray(raw[0], dtype=float)
 
 
+def _parse_polygon(raw: Any) -> np.ndarray:
+    """Parse polygon crop parameters, returning (N, 2) vertex array."""
+    raw = _scalar(raw)
+    return np.asarray(raw[0], dtype=float)
+
+
 def _parse_crop_item(crop_item: np.ndarray, size_x: int, size_y: int) -> tuple[np.ndarray, list | None]:
     """Parse the crop item."""
     crop_type = str(_scalar(crop_item[0]))
@@ -81,11 +88,19 @@ def _parse_crop_item(crop_item: np.ndarray, size_x: int, size_y: int) -> tuple[n
     if crop_type == "rectangle":
         corners = _parse_rectangle(raw_params)
         corners[:, 1] = size_y - corners[:, 1]
-        x0, x1 = int(corners[:, 0].min()), int(corners[:, 0].max())
-        y0, y1 = int(corners[:, 1].min()), int(corners[:, 1].max())
+        rr, cc = draw_polygon(corners[:, 1], corners[:, 0], shape=(size_y, size_x))
         mask = np.zeros((size_y, size_x), dtype=bool)
-        mask[y0:y1, x0:x1] = True
+        mask[rr, cc] = True
         return mask, corners.tolist()
+
+    if crop_type == "polygon":
+        vertices = _parse_polygon(raw_params)
+        vertices[:, 1] = size_y - vertices[:, 1]
+
+        rr, cc = draw_polygon(vertices[:, 1], vertices[:, 0], shape=(size_y, size_x))
+        mask = np.zeros((size_y, size_x), dtype=bool)
+        mask[rr, cc] = True
+        return mask, None
 
     raise ValueError(f"Unknown crop type: {crop_type}")
 
@@ -97,8 +112,8 @@ def extract_mask_and_bounding_box(
 ) -> tuple[np.ndarray, list | None]:
     """Extract a boolean mask and optional bounding box from crop_info in a MATLAB struct.
 
-    Uses the first crop item. For ellipse/circle crops the bounding_box is None.
-    For rectangle crops the bounding_box is a (4, 2) float corners array.
+    Combines multiple crop items: foreground crops (is_foreground=1) are unioned,
+    then background crops (is_foreground=0) are subtracted.
 
     :returns: (mask, bounding_box) or None if no valid crop info found.
     """
@@ -112,14 +127,31 @@ def extract_mask_and_bounding_box(
     else:
         crop_items = [crop_raw]
 
-    # Try each crop item, return the first that produces a non-empty mask
-    for crop_item in crop_items:
-        mask, bbox = _parse_crop_item(crop_item, size_x, size_y)
-        if mask.any():
-            return mask, bbox
+    foreground_mask = np.zeros((size_y, size_x), dtype=bool)
+    background_mask = np.zeros((size_y, size_x), dtype=bool)
+    bounding_box = None
 
-    logger.warning("All crop items produced empty masks")
-    raise ValueError("All crop items produced empty masks")
+    for crop_item in crop_items:
+        is_foreground = bool(_scalar(crop_item[2]))
+        mask, bbox = _parse_crop_item(crop_item, size_x, size_y)
+
+        if is_foreground:
+            foreground_mask |= mask
+            if bbox is not None:
+                bounding_box = bbox
+        else:
+            background_mask |= mask
+
+    # If no foreground crops, start with everything selected
+    if not foreground_mask.any():
+        foreground_mask[:] = True
+
+    combined = foreground_mask & ~background_mask
+
+    if not combined.any():
+        raise ValueError("All crop items produced an empty mask after combining")
+
+    return combined, bounding_box
 
 
 def extract_mark_type(struct: np.ndarray) -> MarkType:

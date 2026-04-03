@@ -13,6 +13,7 @@ Two modes of operation:
 
 import argparse
 import logging
+import os
 from collections import defaultdict
 from itertools import combinations
 from pathlib import Path
@@ -24,18 +25,20 @@ import scipy.io as sio
 from conversion.data_formats import MarkImpressionType, MarkType
 from tqdm import tqdm
 
-from scripts.conversion_utils import (
+from scripts.comparison_utils import (
     ComparisonEntry,
-    ConversionConfig,
     _build_body,
     _firearm_dir,
     _resolve_mark_dir,
     _save_result,
     find_comparison_results,
     infer_mark_type,
+)
+from scripts.conversion_utils import (
+    ConversionConfig,
     run_parallel,
 )
-from scripts.http_utils import _post_with_retry, download_urls
+from scripts.http_utils import _cleanup_vault, _post_with_retry, download_urls
 from scripts.matlab_utils import unwrap_path
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
@@ -61,7 +64,7 @@ def extract_comparisons(
             _resolve_mark_dir(ref, output_dir),
             _resolve_mark_dir(comp, output_dir),
             mark_type,
-            out_base / f"{i:04d}",
+            out_base / f"{i // 1000:04d}" / f"{i:06d}",
             i,
         )
         for i in range(refs.shape[0])
@@ -145,14 +148,16 @@ def generate_pairs(
         logger.info(f"Generated {len(diff)} different-source pairs")
         pairs.extend(diff)
 
-    return [ComparisonEntry(a, b, mark_type, out_base / f"{i:04d}", i) for i, (a, b) in enumerate(pairs)]
+    return [
+        ComparisonEntry(a, b, mark_type, out_base / f"{i // 1000:04d}" / f"{i:06d}", i)
+        for i, (a, b) in enumerate(pairs)
+    ]
 
 
-def calculate_score(entry: ComparisonEntry, cfg: ConversionConfig) -> dict[str, Any] | None:
+def calculate_score(entry: ComparisonEntry, cfg: ConversionConfig, existing: set[Path]) -> dict[str, Any] | None:
     """Call the score endpoint for a single comparison pair."""
-    if (entry.comparison_out / "comparison_results.json").exists() and not cfg.force:
+    if entry.comparison_out in existing and not cfg.force:
         return None
-
     processed_ref = entry.mark_dir_ref
     processed_comp = entry.mark_dir_comp
     if not processed_ref.exists() or not processed_comp.exists():
@@ -163,7 +168,7 @@ def calculate_score(entry: ComparisonEntry, cfg: ConversionConfig) -> dict[str, 
     endpoint = f"processor/calculate-score-{category}"
 
     try:
-        result = _post_with_retry(f"{cfg.api_url}/{endpoint}", _build_body(entry))
+        result = _post_with_retry(f"{cfg.api_url}/{endpoint}", _build_body(entry, skip_plots=cfg.skip_plots))
     except requests.HTTPError as exc:
         if exc.response is not None and exc.response.status_code == 422:  # noqa: PLR2004
             try:
@@ -174,9 +179,9 @@ def calculate_score(entry: ComparisonEntry, cfg: ConversionConfig) -> dict[str, 
             _save_result(entry, error=detail)
             return {"error": detail}
         raise
-
     _save_result(entry, result=result)
     download_urls(result.get("urls", result), entry.comparison_out)
+    _cleanup_vault(result)
     return result
 
 
@@ -203,9 +208,10 @@ def get_pairs(
             all_entries.extend(entries)
     else:
         for folder, mt in tqdm(find_comparison_results(cfg.root), desc="Scanning", unit=" folders"):
-            entries = extract_comparisons(folder, mt, cfg.root, cfg.output_dir)
-            logger.info("Found %d comparisons in %s (%s)", len(entries), folder.name, mt.value)
-            all_entries.extend(entries)
+            if "striation" not in mt.value.lower():
+                entries = extract_comparisons(folder, mt, cfg.root, cfg.output_dir)
+                logger.info("Found %d comparisons in %s (%s)", len(entries), folder.name, mt.value)
+                all_entries.extend(entries)
 
     logger.info("Total comparisons: %d", len(all_entries))
     if limit:
@@ -227,8 +233,16 @@ def run_score_conversion(
         logger.warning("No comparisons to process")
         return
 
+    existing = set()
+    if not cfg.force:
+        for dirpath, dirnames, filenames in os.walk(cfg.output_dir):
+            if "comparison_results.json" in filenames:
+                existing.add(Path(dirpath))
+                dirnames.clear()  # no need to descend further
+        logger.info("Found %d existing results", len(existing))
+
     results = run_parallel(
-        ((e.row_index, calculate_score, (e, cfg)) for e in all_entries),
+        ((e.row_index, calculate_score, (e, cfg, existing)) for e in all_entries),
         workers,
         "Calculating scores",
         " comparisons",
@@ -249,10 +263,13 @@ def main() -> None:
     parser.add_argument(
         "--use_pairs_from_file", action="store_true", help="Read pairs from results_table.mat instead of generating"
     )
+    parser.add_argument("--skip-plots", action="store_true", help="Skip plot generation for faster bulk scoring")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for different-source sampling")
     args = parser.parse_args()
 
-    cfg = ConversionConfig(root=args.root, output_dir=args.output, api_url=args.api_url, force=args.force)
+    cfg = ConversionConfig(
+        root=args.root, output_dir=args.output, api_url=args.api_url, force=args.force, skip_plots=args.skip_plots
+    )
     run_score_conversion(
         cfg,
         workers=args.workers,
