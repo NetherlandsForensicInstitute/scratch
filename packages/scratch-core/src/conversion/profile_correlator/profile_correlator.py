@@ -178,6 +178,56 @@ def _calculate_idx_parameters(
     return idx_compared_start, idx_reference_start, overlap_length
 
 
+def _correlations_at_all_shifts(
+    heights_reference: FloatArray1D,
+    heights_compared: FloatArray1D,
+    min_overlap_samples: int,
+) -> FloatArray1D:
+    """
+    Compute Pearson correlation between two profiles at every possible shift.
+
+    Uses FFT-based convolution to vectorize the computation. NaN values in
+    either profile are excluded from the calculation by replacing them with
+    zeros and tracking validity masks.
+
+    :param heights_reference: Reference profile heights. May contain NaN values.
+    :param heights_compared: Comparison profile heights. May contain NaN values.
+    :param min_overlap_samples: Minimum required number of valid overlapping
+        samples for a shift to produce a valid correlation.
+    :returns: Array of correlation values for each shift. Invalid shifts
+        (insufficient overlap or zero variance) are set to -inf.
+        Output index k corresponds to shift = k - (len(heights_compared) - 1).
+    """
+    ref = heights_reference.copy()
+    ref_valid = ~np.isnan(ref)
+    ref[~ref_valid] = 0.0
+
+    comp = heights_compared.copy()
+    comp_valid = ~np.isnan(comp)
+    comp[~comp_valid] = 0.0
+
+    overlap_count = fftconvolve(
+        ref_valid.astype(float), comp_valid[::-1].astype(float), mode="full"
+    )
+    ref_sum = fftconvolve(ref, comp_valid[::-1].astype(float), mode="full")
+    comp_sum = fftconvolve(ref_valid.astype(float), comp[::-1], mode="full")
+    ref_sq_sum = fftconvolve(ref**2, comp_valid[::-1].astype(float), mode="full")
+    comp_sq_sum = fftconvolve(ref_valid.astype(float), (comp**2)[::-1], mode="full")
+    cross = fftconvolve(ref, comp[::-1], mode="full")
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        n = overlap_count
+        numerator = n * cross - ref_sum * comp_sum
+        denominator = np.sqrt(
+            (n * ref_sq_sum - ref_sum**2) * (n * comp_sq_sum - comp_sum**2)
+        )
+        return np.where(
+            (n >= min_overlap_samples) & (denominator > 0),
+            numerator / denominator,
+            -np.inf,
+        )
+
+
 def _find_best_alignment(
     heights_reference: FloatArray1D,
     heights_compared: FloatArray1D,
@@ -188,7 +238,8 @@ def _find_best_alignment(
     Find the best alignment between two profiles using brute-force search.
 
     Tries all combinations of scale factors and shifts, returning the one
-    with maximum correlation.
+    with maximum correlation. The final correlation is verified using
+    direct Pearson computation on the overlapping segments.
 
     :param heights_reference: Reference profile heights.
     :param heights_compared: Comparison profile heights.
@@ -202,50 +253,14 @@ def _find_best_alignment(
     best_shift = None
     best_scale = None
 
-    # Pre-replace NaNs with 0 for FFT-based correlation
-    ref = heights_reference.copy()
-    ref_valid = ~np.isnan(ref)
-    ref[~ref_valid] = 0.0
-
     for scale in scale_factors:
         heights_compared_scaled = resample_array_1d(heights_compared, scale)
         len_compared = len(heights_compared_scaled)
 
-        comp = heights_compared_scaled.copy()
-        comp_valid = ~np.isnan(comp)
-        comp[~comp_valid] = 0.0
-
-        # Count of valid overlapping samples at each shift
-        overlap_count = fftconvolve(
-            ref_valid.astype(float), comp_valid[::-1].astype(float), mode="full"
+        correlations = _correlations_at_all_shifts(
+            heights_reference, heights_compared_scaled, min_overlap_samples
         )
 
-        # Sum of valid reference and compared values at each shift
-        ref_sum = fftconvolve(ref, comp_valid[::-1].astype(float), mode="full")
-        comp_sum = fftconvolve(ref_valid.astype(float), comp[::-1], mode="full")
-
-        # Sum of squares
-        ref_sq_sum = fftconvolve(ref**2, comp_valid[::-1].astype(float), mode="full")
-        comp_sq_sum = fftconvolve(ref_valid.astype(float), (comp**2)[::-1], mode="full")
-
-        # Cross product
-        cross = fftconvolve(ref, comp[::-1], mode="full")
-
-        # Pearson correlation at every shift
-        with np.errstate(invalid="ignore", divide="ignore"):
-            n = overlap_count
-            numerator = n * cross - ref_sum * comp_sum
-            denominator = np.sqrt(
-                (n * ref_sq_sum - ref_sum**2) * (n * comp_sq_sum - comp_sum**2)
-            )
-            correlations = np.where(
-                (n >= min_overlap_samples) & (denominator > 0),
-                numerator / denominator,
-                -np.inf,
-            )
-
-        # Map FFT output indices to shift values
-        # fftconvolve "full" output index k corresponds to shift = k - (len_compared - 1)
         best_idx = np.argmax(correlations)
         if correlations[best_idx] > best_correlation:
             best_correlation = correlations[best_idx]
@@ -255,7 +270,6 @@ def _find_best_alignment(
     if best_shift is None or best_scale is None:
         return None
 
-    # Redo computations for best_scale and best_shift (instead of copying partial_reference and partial_compared above multiple times. This saves time.)
     heights_compared_scaled = resample_array_1d(heights_compared, best_scale)
     idx_compared_start, idx_reference_start, overlap_length = _calculate_idx_parameters(
         best_shift, len(heights_compared_scaled), len_reference

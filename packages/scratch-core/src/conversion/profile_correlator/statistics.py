@@ -22,42 +22,6 @@ from conversion.profile_correlator.data_types import (
 )
 
 
-def compute_cross_correlation(
-    profile_1: FloatArray1D,
-    profile_2: FloatArray1D,
-) -> float | None:
-    """
-    Compute cross-correlation between two profiles.
-
-    This function computes the Pearson correlation coefficient between two
-    1D profiles, properly handling NaN values by excluding them from the
-    calculation.
-
-    :param profile_1: First profile as a 1D array. May contain NaN values.
-    :param profile_2: Second profile as a 1D array. Must have the same length
-        as profile_1. May contain NaN values.
-    :returns: Correlation coefficient in the range [-1, 1]. Returns NaN if
-        there are fewer than 2 valid (non-NaN) overlapping samples or if
-        either profile has zero variance.
-    :raises ValueError: If profiles have different lengths.
-    """
-    profile_1 = profile_1.ravel()
-    profile_2 = profile_2.ravel()
-
-    if len(profile_1) != len(profile_2):
-        raise ValueError(
-            f"Profiles must have the same length. "
-            f"Got {len(profile_1)} and {len(profile_2)}."
-        )
-
-    valid_mask = ~(np.isnan(profile_1) | np.isnan(profile_2))
-
-    if np.sum(valid_mask) < 2:
-        return None
-
-    return float(np.corrcoef(profile_1[valid_mask], profile_2[valid_mask])[0, 1])
-
-
 def compute_roughness_sa(profile: FloatArray1D) -> float:
     """
     Compute arithmetic mean roughness (ISO 25178 Sa parameter) of a profile.
