@@ -10,6 +10,8 @@ import numpy as np
 
 from conversion.surface_comparison.utils import convert_pixels_to_meters
 
+SCORE_TOLERANCE = 0.01
+
 
 def convert_grid_cell_to_cell(grid_cell: GridCell, pixel_size: float) -> Cell:
     """Convert an instance of `GridCell` to an instance of `Cell`."""
@@ -178,6 +180,9 @@ def _ncc(
         max_per_angle, pos_per_angle = flat.max(dim=1)
         best_angle_idx = int(max_per_angle.argmax())
         best_score = float(max_per_angle[best_angle_idx])
+        if best_score > 1.0 + SCORE_TOLERANCE:
+            raise ValueError(f"NCC score {best_score} exceeds valid range [-1, 1]")
+        best_score = min(best_score, 1.0)
 
         score_w = score_maps.shape[3]
         best_pos = int(pos_per_angle[best_angle_idx])
