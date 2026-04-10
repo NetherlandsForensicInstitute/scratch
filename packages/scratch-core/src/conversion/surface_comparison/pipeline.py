@@ -5,7 +5,9 @@ from conversion.surface_comparison.cell_registration.core import (
     coarse_registration,
     fine_registration,
 )
-from conversion.surface_comparison.cmc_classification import classify_congruent_cells
+from conversion.surface_comparison.cmc_classification_median import (
+    classify_congruent_cells_median,
+)
 from conversion.surface_comparison.grid import generate_grid
 from conversion.surface_comparison.models import (
     ComparisonParams,
@@ -73,7 +75,7 @@ def compare_surfaces(
     cells = fine_registration(comparison_mark=comparison_mark, cells=cells)
 
     # Step 5: CMC classification
-    comparison_result = classify_congruent_cells(
+    comparison_result = classify_congruent_cells_median(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
     return comparison_result

@@ -242,3 +242,4 @@ ai-*.log
 chatgpt-*.json
 gemini-*.json
 CLAUDE.md
+/.devenv/

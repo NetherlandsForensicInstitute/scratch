@@ -1,9 +1,20 @@
+from itertools import product
+from typing import Callable
+
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType
 from conversion.surface_comparison.cell_registration.core import coarse_registration
-from conversion.surface_comparison.cmc_classification import classify_congruent_cells
+from conversion.surface_comparison.cmc_consensus.pipeline import (
+    classify_congruent_cells_consensus,
+)
+from conversion.surface_comparison.cmc_classification_median import (
+    classify_congruent_cells_median,
+)
 from conversion.surface_comparison.grid import GridCell, generate_grid
-from conversion.surface_comparison.models import ComparisonParams, GridSearchParams
+from conversion.surface_comparison.models import (
+    ComparisonParams,
+    GridSearchParams,
+)
 from conversion.surface_comparison.pipeline import compare_surfaces, ProcessedMark
 import numpy as np
 import pytest
@@ -73,8 +84,21 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("angle", [0, 60, -90, 150, -150])
-def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
+@pytest.mark.parametrize(
+    ("classification_function", "angle"),
+    list(
+        product(
+            [classify_congruent_cells_consensus, classify_congruent_cells_median],
+            [120, 60, -90, -150],
+        )
+    ),
+    ids=lambda x: x.__name__ if callable(x) else str(x),
+)
+def test_coarse_registration_finds_angle(
+    angle: float,
+    classification_function: Callable,
+    plot: bool = False,
+):
     # Arrange
     scale = 1e-6
     nan_fraction = 0.15
@@ -93,8 +117,6 @@ def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
     )
     params = ComparisonParams(
         cell_size=(cell_size[0] * scale, cell_size[1] * scale),
-        search_angle_min=-150,
-        search_angle_max=150,
         search_angle_step=30,
         minimum_fill_fraction=0.5,
     )
@@ -118,8 +140,10 @@ def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
         comparison_image=comparison_image,
         params=params,
     )
-    # TODO: add the fine_registration stage when implemented
-    classification = classify_congruent_cells(
+
+    # TODO implement run fine_registration when implemented
+
+    classification = classification_function(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
 
@@ -132,4 +156,4 @@ def test_coarse_registration_finds_angle(angle: float, plot: bool = False):
 
     # Assert
     assert all(cell.is_congruent for cell in classification.cells)
-    assert all(cell.angle_deg == pytest.approx(angle) for cell in cells)
+    assert all(c.angle_deg == pytest.approx(angle) for c in cells)
