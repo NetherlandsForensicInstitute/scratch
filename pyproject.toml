@@ -30,10 +30,6 @@ dependencies = [
   "opencv-python>=4.13.0.92",
 ]
 
-# https://docs.astral.sh/uv/concepts/projects/workspaces/
-[tool.uv.sources]
-scratch-core = { workspace = true }
-
 [tool.uv.workspace]
 members = ["packages/*"]
 exclude = ["**/__pycache__"]
@@ -139,3 +135,13 @@ output = "coverage.xml"
 [tool.deptry.per_rule_ignores]
 DEP002 = ["opencv-python"] # import cv2 is not recognized as opencv-python
 DEP003 = ["mutations"]   # part of scratch-core
+
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+scratch-core = { workspace = true }
+torch = { index = "pytorch-cu126" }
