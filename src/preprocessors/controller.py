@@ -6,7 +6,6 @@ from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox, Mark, MarkImpressionType, MarkStriationType, MarkType
 from conversion.export.mark import save_mark
 from conversion.export.profile import save_profile
-from conversion.leveling.solver.utils import compute_image_center
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.preprocess_impression import preprocess_impression_mark
 from conversion.preprocess_striation import PreprocessingStriationParams
@@ -129,16 +128,11 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: B
         ),
         dtype=np.bool_,
     )
-    reference_point_x, reference_point_y = compute_image_center(scan_image)
     pipeline = [
         Resample(target_shape=output_shape),
         Mask(mask=resampled_mask),
         *([CropToMask(mask=resampled_mask)] if edit_image_params.crop else []),
-        LevelMap(
-            x_reference_point=reference_point_x,
-            y_reference_point=reference_point_y,
-            terms=edit_image_params.terms.to_surface_terms(),
-        ),
+        LevelMap(terms=edit_image_params.terms.to_surface_terms()),
         GaussianRegressionFilter(
             regression_order=edit_image_params.regression_order,
             cutoff_length=edit_image_params.cutoff_length * micro,

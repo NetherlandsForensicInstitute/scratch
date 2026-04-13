@@ -89,7 +89,7 @@ def preprocess_impression_mark(
         )
 
     # Stage 8: Final leveling
-    mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms, mark.center)
+    mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms)
 
     # Prepare leveled-only output
     mark_leveled_final = _finalize_leveled_output(
@@ -109,11 +109,8 @@ def preprocess_impression_mark(
 def _level_mark(
     mark: Mark,
     terms: SurfaceTerms,
-    reference_point: Point2D | None = None,
 ) -> tuple[Mark, DepthData]:
-    result = level_map(
-        mark.scan_image, terms=terms, reference_point=reference_point or mark.center
-    )
+    result = level_map(mark.scan_image, terms=terms)
     leveled_mark = update_mark_data(mark, result.leveled_map)
     return leveled_mark, result.fitted_surface
 
@@ -156,6 +153,5 @@ def _finalize_leveled_output(
 
     # Apply PLANE-only leveling (after resampling, like MATLAB)
     rigid_terms = surface_terms & SurfaceTerms.PLANE
-    leveled_mark, _ = _level_mark(mark_restored, rigid_terms, reference_point)
-
+    leveled_mark, _ = _level_mark(mark_restored, rigid_terms)
     return leveled_mark
