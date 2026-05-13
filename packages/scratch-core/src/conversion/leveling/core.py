@@ -16,7 +16,8 @@ def level_map(scan_image: ScanImage, terms: SurfaceTerms) -> LevelingResult:
     :param terms: The surface terms to use in the fitting. Note: terms can be combined using bit-operators.
     :returns: An instance of `LevelingResult` containing the leveled scan data and estimated physical parameters.
     """
-    if terms == SurfaceTerms.NONE:
+    # We need at least 3 values for the least squares solver
+    if terms == SurfaceTerms.NONE or scan_image.valid_mask.sum() < 3:
         return LevelingResult(
             leveled_map=scan_image.data,
             fitted_surface=np.full_like(scan_image.data, 0.0),
