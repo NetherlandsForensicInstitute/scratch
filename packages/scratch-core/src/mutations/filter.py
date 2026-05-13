@@ -217,7 +217,10 @@ class LevelMap(ImageMutation):
         self.terms = terms
 
     def skip_predicate(self, scan_image: ScanImage) -> bool:
-        return self.terms == SurfaceTerms.NONE
+        if self.terms == SurfaceTerms.NONE:
+            return True
+        # We need at least 3 values for the least squares solver
+        return scan_image.valid_mask.sum() < 3
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
@@ -226,10 +229,6 @@ class LevelMap(ImageMutation):
         :param scan_image: The scan image containing the image data to level.
         :returns: scan_image with the array containing the leveled scan data (original data minus fitted surface).
         """
-        if scan_image.valid_mask.sum() < 3:
-            # We need at least 3 values for the least squares solver
-            return scan_image
-
         surface = Surface(
             height_data=scan_image.data,
             step_x=scan_image.scale_x,
