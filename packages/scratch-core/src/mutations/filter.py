@@ -216,8 +216,7 @@ class LevelMap(ImageMutation):
     def __init__(self, terms: SurfaceTerms) -> None:
         self.terms = terms
 
-    @property
-    def skip_predicate(self) -> bool:
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
         return self.terms == SurfaceTerms.NONE
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
