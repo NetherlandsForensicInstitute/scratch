@@ -55,3 +55,18 @@ class TestLevelMapIntegration:
             scan_image_with_nans.data,
             equal_nan=True,
         )
+
+    @pytest.mark.parametrize("terms", list(SurfaceTerms))
+    def test_map_level_has_effect(
+        self, scan_image_with_nans: ScanImage, terms: SurfaceTerms
+    ):
+        # Arrange
+        original_data = scan_image_with_nans.data.copy()
+        should_be_equal = terms == SurfaceTerms.NONE
+        level_map_mutator = LevelMap(terms=terms)
+        # Act
+        result = level_map_mutator(scan_image_with_nans)
+        # Assert
+        assert (
+            np.allclose(original_data, result.data, equal_nan=True) == should_be_equal
+        )

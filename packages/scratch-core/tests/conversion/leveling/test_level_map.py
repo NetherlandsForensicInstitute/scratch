@@ -38,3 +38,16 @@ def test_map_level_offset(scan_image_with_nans: ScanImage):
         scan_image_with_nans.data,
         equal_nan=True,
     )
+
+
+@pytest.mark.parametrize("terms", list(SurfaceTerms))
+def test_map_level_has_effect(scan_image_with_nans: ScanImage, terms: SurfaceTerms):
+    # Arrange
+    should_be_equal = terms == SurfaceTerms.NONE
+    # Act
+    result = level_map(scan_image_with_nans, terms)
+    # Assert
+    assert (
+        np.allclose(scan_image_with_nans.data, result.leveled_map, equal_nan=True)
+        == should_be_equal
+    )
