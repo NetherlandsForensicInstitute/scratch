@@ -3,13 +3,21 @@ from pathlib import Path
 from typing import Self
 
 import numpy as np
+from PIL.Image import Image, fromarray
 from pydantic import Field
 from scipy.constants import micro
 
+from computations.normalization import _grayscale_to_rgba, _normalize_2d_array
 from parsers import convert_to_x3p, save_x3p
 from parsers.loaders import _load_surface
 
-from .base import BinaryMask, ConfigBaseModel, DepthData, FloatArray1D
+from .base import (
+    BinaryMask,
+    ConfigBaseModel,
+    DepthData,
+    FloatArray1D,
+)
+from .models import NormalizationBounds
 
 
 class ScanImage(ConfigBaseModel):
@@ -55,6 +63,16 @@ class ScanImage(ConfigBaseModel):
         # TODO: Can we remove this?
         return self.width / 2 * self.scale_x, self.height / 2 * self.scale_y
 
+    def _to_pil_image(self, normalization_bounds: NormalizationBounds) -> Image:
+        """Get a rgba image from the scan data."""
+        return fromarray(
+            _grayscale_to_rgba(
+                scan_data=_normalize_2d_array(
+                    self.data, normalization_bounds=normalization_bounds
+                )
+            )
+        )
+
     @classmethod
     def from_file(cls, scan_file: Path) -> Self:
         """
@@ -82,3 +100,15 @@ class ScanImage(ConfigBaseModel):
         :param output_path: The file path where the X3P file will be saved.
         """
         save_x3p(convert_to_x3p(self), output_path=output_path)
+
+    def save_as_image(
+        self, output_path: Path, normalization_bounds: NormalizationBounds
+    ):
+        """
+        Convert ScanImage data to an Image and save it to the given output_path.
+
+        :param output_path: the given path to save the scan data.
+        :param normalization_bounds: the scaling needed for normalizing the ScanImage.
+        :return: the output path to where the image is saved.
+        """
+        self._to_pil_image(normalization_bounds=normalization_bounds).save(output_path)

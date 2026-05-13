@@ -15,11 +15,10 @@ from requests import Response
 from models import DirectoryAccess
 from preprocessors.pipelines import parse_scan_pipeline
 from settings import get_settings
-from tests.helper_function import _save_impression_mark, _save_striation_mark_and_profile, make_cell
+from tests.helper_functions import _save_impression_mark, _save_striation_mark_and_profile, make_cell
 
 
 class RoutePrefix(StrEnum):
-    COMPARATOR = "comparator"
     EXTRACTOR = "extractor"
     PREPROCESSOR = "preprocessor"
     PROCESSOR = "processor"
@@ -213,8 +212,8 @@ class TestContracts:
             },
             expected_urls={
                 "comparison_overview": ".png",
-                "leveled_reference_heatmap": ".png",
-                "leveled_compared_heatmap": ".png",
+                "raw_reference_heatmap": ".png",
+                "raw_compared_heatmap": ".png",
                 "filtered_reference_heatmap": ".png",
                 "filtered_compared_heatmap": ".png",
                 "cell_reference_heatmap": ".png",
@@ -258,8 +257,8 @@ class TestContracts:
                 },
             },
             expected_urls={
-                "mark_reference_aligned_surfacemap": ".png",
-                "mark_compared_aligned_surfacemap": ".png",
+                "mark_reference_aligned_surface_map": ".png",
+                "mark_compared_aligned_surface_map": ".png",
                 "filtered_reference_heatmap": ".png",
                 "comparison_overview": ".png",
                 "mark_reference_aligned_data": ".npz",
@@ -318,7 +317,7 @@ class TestContracts:
                 ],
             },
             expected_urls={"lr_overview_plot": ".png"},
-            expected_fields={"lr": float, "lr_lower_ci": float, "lr_upper_ci": float},
+            expected_fields={"llr": float, "llr_lower_ci": float, "llr_upper_ci": float},
         )
 
     @pytest.fixture
@@ -362,7 +361,7 @@ class TestContracts:
                 "score": 0.5,
             },
             expected_urls={"lr_overview_plot": ".png"},
-            expected_fields={"lr": float, "lr_lower_ci": float, "lr_upper_ci": float},
+            expected_fields={"llr": float, "llr_lower_ci": float, "llr_upper_ci": float},
         )
 
     @pytest.mark.parametrize(

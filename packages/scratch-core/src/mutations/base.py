@@ -102,14 +102,14 @@ class ImageMutation(ABC):
     the constructor.
     """
 
-    @property
-    def skip_predicate(self) -> bool:
+    def skip_predicate(self, scan_image: ScanImage) -> bool:
         """
         Determines whether this mutation should be skipped.
 
         This can be used for simple validations. For example:
         - `Resample` may skip execution if both scale factors are `1`.
-
+        :param scan_image:
+            The `ScanImage` to be modified.
         :return bool:
             - `True`  → skip `apply_on_image`
             - `False` → apply the mutation
@@ -129,7 +129,7 @@ class ImageMutation(ABC):
         :return ScanImage:
             The resulting `ScanImage`.
         """
-        if self.skip_predicate:
+        if self.skip_predicate(scan_image):
             return scan_image
         return self.apply_on_image(scan_image=scan_image)
 

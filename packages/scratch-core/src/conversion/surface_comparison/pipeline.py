@@ -5,7 +5,9 @@ from conversion.surface_comparison.cell_registration.core import (
     coarse_registration,
     fine_registration,
 )
-from conversion.surface_comparison.cmc_classification import classify_congruent_cells
+from conversion.surface_comparison.cmc_classification_median import (
+    classify_congruent_cells_median,
+)
 from conversion.surface_comparison.grid import generate_grid
 from conversion.surface_comparison.models import (
     ComparisonParams,
@@ -15,7 +17,7 @@ from conversion.surface_comparison.models import (
 
 
 def compare_surfaces(
-    refence_mark: ProcessedMark,
+    reference_mark: ProcessedMark,
     comparison_mark: ProcessedMark,
     params: ComparisonParams,
 ) -> ComparisonResult:
@@ -37,7 +39,7 @@ def compare_surfaces(
     Both marks are expected to have already been pre-processed (leveled and band-pass filtered);
     only the ``filtered_mark`` image is currently used by the pipeline.
 
-    :param refence_mark: Pre-processed reference mark; its filtered scan image defines the grid and coordinate system.
+    :param reference_mark: Pre-processed reference mark; its filtered scan image defines the grid and coordinate system.
     :param comparison_mark: Pre-processed comparison mark to register against the reference.
     :param params: Algorithm parameters controlling cell size, fill-fraction thresholds, angle sweep, and CMC
         classification thresholds.
@@ -46,7 +48,7 @@ def compare_surfaces(
     """
 
     # Get the filtered images for the CMC pipeline
-    reference_image = refence_mark.filtered_mark.scan_image
+    reference_image = reference_mark.filtered_mark.scan_image
     comparison_image = comparison_mark.filtered_mark.scan_image
 
     # Step 1: Resample comparison so that both have the same pixel size
@@ -73,7 +75,7 @@ def compare_surfaces(
     cells = fine_registration(comparison_mark=comparison_mark, cells=cells)
 
     # Step 5: CMC classification
-    comparison_result = classify_congruent_cells(
+    comparison_result = classify_congruent_cells_median(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
     return comparison_result

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkImpressionType
 
 
 @dataclass(frozen=True)
@@ -18,7 +18,7 @@ class ProcessedMark:
     """Container class for storing processed `Mark` instances."""
 
     filtered_mark: Mark
-    leveled_mark: Mark
+    raw_mark: Mark
 
 
 class CellMetaData(ConfigBaseModel):
@@ -85,13 +85,13 @@ class ComparisonResult:
     Consolidated results of the CMC pipeline.
 
     :param cells: Per-cell registration and classification results.
-    :param consensus_rotation: Rotation consensus across CMC cells (degrees).
-    :param consensus_translation: Translation consensus across CMC cells (m)
+    :param estimated_rotation: Estimated rotation across CMC cells (degrees).
+    :param estimated_translation: Estimated translation across CMC cells (m)
     """
 
     cells: Sequence[Cell]
-    consensus_rotation: float
-    consensus_translation: tuple[float, float]
+    estimated_rotation: float
+    estimated_translation: tuple[float, float]
 
     @property
     def cell_count(self) -> int:
@@ -118,12 +118,12 @@ class ComparisonResult:
         return cmc_area / total_area
 
 
-_CELL_SIZE_BY_MARK_TYPE: dict[MarkType, tuple[float, float]] = {
-    MarkType.BREECH_FACE_IMPRESSION: (4.5e-4, 4.5e-4),
-    MarkType.CHAMBER_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkType.EJECTOR_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkType.EXTRACTOR_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkType.FIRING_PIN_IMPRESSION: (1.25e-4, 1.25e-4),
+_CELL_SIZE_BY_MARK_TYPE: dict[MarkImpressionType, tuple[float, float]] = {
+    MarkImpressionType.BREECH_FACE_IMPRESSION: (4.5e-4, 4.5e-4),
+    MarkImpressionType.CHAMBER_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkImpressionType.EJECTOR_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkImpressionType.EXTRACTOR_IMPRESSION: (1.25e-4, 1.25e-4),
+    MarkImpressionType.FIRING_PIN_IMPRESSION: (1.25e-4, 1.25e-4),
 }
 
 
@@ -156,7 +156,9 @@ class ComparisonParams(ConfigBaseModel):
     cell_size: tuple[PositiveFloat, PositiveFloat] = (4.5e-4, 4.5e-4)
 
     @classmethod
-    def for_mark_type(cls, mark_type: MarkType, **kwargs: Any) -> "ComparisonParams":
+    def for_mark_type(
+        cls, mark_type: MarkImpressionType, **kwargs: Any
+    ) -> "ComparisonParams":
         """Create a :class:`ComparisonParams` with the default cell size for *mark_type*.
 
         Any additional keyword arguments override the other defaults.

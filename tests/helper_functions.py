@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkImpressionType, MarkStriationType
 from conversion.export.mark import save_mark
 from conversion.export.profile import save_profile
 from conversion.profile_correlator import Profile
@@ -15,7 +15,7 @@ from scipy.interpolate import interp1d
 from starlette.testclient import TestClient
 
 
-def make_cell(  # noqa: PLR0913
+def make_cell(
     center_reference: tuple[float, float] = (0.0, 0.0),
     best_score: float = 0.8,
     is_congruent: bool = False,
@@ -51,7 +51,7 @@ def make_cell(  # noqa: PLR0913
 
 def _save_impression_mark(dir_path: Path, mark: Mark) -> None:
     """Save mark files to a directory in the format load_mark_from_path expects."""
-    for stem in ("processed", "leveled", "aligned"):
+    for stem in ("processed", "leveled", "mark", "aligned"):
         save_mark(mark, dir_path / stem)
 
 
@@ -82,7 +82,7 @@ def assert_lr_response_valid(client: TestClient, response) -> None:
     """Assert that an LR endpoint response contains a valid LR and reachable PNG plot."""
     assert response.status_code == HTTPStatus.OK, response.json()
     data = response.json()
-    assert isinstance(data["lr"], float)
+    assert isinstance(data["llr"], float)
     assert HttpUrl(data["lr_overview_plot"])
     plot_response = client.get(data["lr_overview_plot"])
     assert plot_response.status_code == HTTPStatus.OK
@@ -96,7 +96,7 @@ def _shift_profile(profile: Profile, shift_samples: float) -> Profile:
     x_orig = np.arange(n)
     interpolator = interp1d(x_orig, data, kind="linear", fill_value=0, bounds_error=False)
     x_new = x_orig + shift_samples
-    new_data = interpolator(x_new)
+    new_data = interpolator(x_new).astype(np.float64)
 
     rng = np.random.default_rng()
     new_data += rng.normal(0, np.nanstd(data) * 0.01, n)
@@ -108,25 +108,25 @@ def _striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
     """Build a striation Mark by tiling a profile across columns."""
     data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
     scan_image = ScanImage(data=data, scale_x=profile.pixel_size, scale_y=profile.pixel_size)
-    return Mark(scan_image=scan_image, mark_type=MarkType.BULLET_GEA_STRIATION, center=None)
+    return Mark(scan_image=scan_image, mark_type=MarkStriationType.BULLET_GEA_STRIATION, center=None)
 
 
 def _impression_mark(data: np.ndarray) -> Mark:
     """Create an impression mark from 2D surface data."""
     return Mark(
         scan_image=ScanImage(data=data, scale_x=micro, scale_y=micro),
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
     )
 
 
 def _save_impression_marks(dir_path: Path, mark: Mark) -> None:
     """Save mark and profile files to a directory."""
-    for stem in ("processed", "leveled"):
+    for stem in ("processed", "leveled", "mark"):
         save_mark(mark, dir_path / stem)
 
 
 def _save_striation_mark_and_profile(dir_path: Path, profile: Profile, mark: Mark) -> None:
     """Save mark and profile files to a directory."""
-    for stem in ("processed", "aligned"):
+    for stem in ("processed", "aligned", "mark"):
         save_mark(mark, dir_path / stem)
     save_profile(profile, dir_path / "profile")

@@ -1,5 +1,5 @@
 import pickle
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkType
+from conversion.data_formats import Mark, MarkImpressionType
 from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
 from conversion.plots.utils import build_results_metadata_impression
 from conversion.profile_correlator import Profile
@@ -19,7 +19,7 @@ from constants import PROJECT_ROOT
 from main import app
 from models import DirectoryAccess
 from settings import Settings
-from tests.helper_function import (
+from tests.helper_functions import (
     _create_dummy_profile,
     _impression_mark,
     _save_impression_marks,
@@ -56,6 +56,30 @@ def client():
 
 
 @pytest.fixture(scope="session")
+def non_raising_client():
+    """
+    Fixture for testing 500 HTTP status code.
+
+    By default, the mocked client will re-raise the Python exception, which we do not want.
+    """
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
+
+
+@pytest.fixture(scope="session")
+def raiser() -> Callable[[Exception], Callable]:
+    """Define a factory for creating callables that will raise an Exception regardless of passed arguments."""
+
+    def _create(exc: Exception) -> Callable:
+        def _raise(*args, **kwargs):
+            raise exc
+
+        return _raise
+
+    return _create
+
+
+@pytest.fixture(scope="session")
 def scan_directory() -> Path:
     return PROJECT_ROOT / "packages/scratch-core/tests/resources/scans"
 
@@ -80,7 +104,7 @@ def dummy_mark() -> Mark:
             scale_x=1e-6,
             scale_y=1e-6,
         ),
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
     )
 
 
@@ -130,7 +154,7 @@ def results_metadata(impression_reference_data: ModelSpecs) -> dict[str, str]:
         llr_data=LLRData(features=np.array([5.19])),
         date_report=date(2023, 2, 16),
         user_id="test_user",
-        mark_type=MarkType.BREECH_FACE_IMPRESSION,
+        mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
         score=4,
         n_cells=6,
         lr_system_path=Path("path/to/model"),

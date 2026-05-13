@@ -39,11 +39,10 @@ class TestSurfaceMapPipeline:
         output_path = tmp_path / "surface_map.png"
 
         # Act
-        surface_map = surface_map_pipeline(parsed_al3d_file, output_path, light_sources, observer)
+        surface_map_pipeline(parsed_al3d_file, output_path, light_sources, observer)
 
         # Assert
-        assert surface_map == output_path
-        with Image.open(surface_map) as img:
+        with Image.open(output_path) as img:
             assert img.format == "PNG"
             assert img.size == parsed_al3d_file.data.shape
 
@@ -57,12 +56,10 @@ class TestSurfaceMapPipeline:
             LightSource(azimuth=270, elevation=45),  # West
         )
         observer = LightSource(azimuth=0, elevation=90)
-
+        output_path = tmp_path / "multi_light_surface_map.png"
         # Act
-        surface_map = surface_map_pipeline(
-            parsed_al3d_file, tmp_path / "multi_light_surface_map.png", light_sources, observer
-        )
+        surface_map_pipeline(parsed_al3d_file, output_path, light_sources, observer)
 
         # Assert
-        with Image.open(surface_map) as img:
+        with Image.open(output_path) as img:
             assert img.format == "PNG"

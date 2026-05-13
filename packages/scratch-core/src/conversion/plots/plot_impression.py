@@ -35,8 +35,8 @@ from conversion.surface_comparison.utils import _cells_correlation_to_grid
 
 
 def plot_impression_comparison_results(
-    mark_reference_leveled: Mark,
-    mark_compared_leveled: Mark,
+    mark_reference_raw: Mark,
+    mark_compared_raw: Mark,
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
     cmc_result: ComparisonResult,
@@ -47,8 +47,8 @@ def plot_impression_comparison_results(
     """
     Generate visualization results for impression mark comparison.
 
-    :param mark_reference_leveled: Reference mark after leveling.
-    :param mark_compared_leveled: Compared mark after leveling.
+    :param mark_reference_raw: Raw reference mark.
+    :param mark_compared_raw: Raw compared mark.
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.
     :param cmc_result: Result of the CMC algorithm
@@ -57,25 +57,25 @@ def plot_impression_comparison_results(
     :param metadata_compared: Metadata dict for compared mark display.
     :returns: ImpressionComparisonPlots with all rendered images.
     """
-    # Area-based plots (leveled + filtered surfaces)
-    leveled_ref = plot_depth_map_with_axes(
-        data=mark_reference_leveled.scan_image.data,
-        scale=mark_reference_leveled.scan_image.scale_x,
-        title="Leveled Reference Surface",
+    # Area-based plots (raw + filtered surfaces)
+    raw_ref = plot_depth_map_with_axes(
+        data=mark_reference_raw.scan_image.data,
+        scale=mark_reference_raw.scan_image.scale_x,
+        title="Raw Reference Surface",
     )
-    leveled_comp = plot_depth_map_with_axes(
-        data=mark_compared_leveled.scan_image.data,
-        scale=mark_compared_leveled.scan_image.scale_x,
-        title="Leveled Compared Surface",
+    raw_comp = plot_depth_map_with_axes(
+        data=mark_compared_raw.scan_image.data,
+        scale=mark_compared_raw.scan_image.scale_x,
+        title="Raw Compared Surface",
     )
     filtered_ref = plot_depth_map_with_axes(
         data=mark_reference_filtered.scan_image.data,
-        scale=mark_reference_leveled.scan_image.scale_x,
+        scale=mark_reference_filtered.scan_image.scale_x,
         title="Filtered Reference Surface",
     )
     filtered_comp = plot_depth_map_with_axes(
         data=mark_compared_filtered.scan_image.data,
-        scale=mark_compared_leveled.scan_image.scale_x,
+        scale=mark_compared_filtered.scan_image.scale_x,
         title="Filtered Compared Surface",
     )
 
@@ -110,8 +110,8 @@ def plot_impression_comparison_results(
     )
 
     comparison_overview = plot_comparison_overview(
-        mark_reference_leveled=mark_reference_leveled,
-        mark_compared_leveled=mark_compared_leveled,
+        mark_reference_raw=mark_reference_raw,
+        mark_compared_raw=mark_compared_raw,
         mark_reference_filtered=mark_reference_filtered,
         mark_compared_filtered=mark_compared_filtered,
         cmc_result=cmc_result,
@@ -122,8 +122,8 @@ def plot_impression_comparison_results(
 
     return ImpressionComparisonPlots(
         comparison_overview=comparison_overview,
-        leveled_reference_heatmap=leveled_ref,
-        leveled_compared_heatmap=leveled_comp,
+        raw_reference_heatmap=raw_ref,
+        raw_compared_heatmap=raw_comp,
         filtered_reference_heatmap=filtered_ref,
         filtered_compared_heatmap=filtered_comp,
         cell_reference_heatmap=cell_ref,
@@ -217,8 +217,8 @@ def plot_cell_correlation_heatmap(
 
 
 def plot_comparison_overview(
-    mark_reference_leveled: Mark,
-    mark_compared_leveled: Mark,
+    mark_reference_raw: Mark,
+    mark_compared_raw: Mark,
     mark_reference_filtered: Mark,
     mark_compared_filtered: Mark,
     cmc_result: ComparisonResult,
@@ -233,11 +233,12 @@ def plot_comparison_overview(
     Combines metadata tables, surface visualizations, and cell correlation
     heatmap into a single overview figure.
 
-    :param mark_reference_leveled: Reference mark after leveling.
-    :param mark_compared_leveled: Compared mark after leveling.
+    :param mark_reference_raw: Raw reference mark.
+    :param mark_compared_raw: Raw compared mark.
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.
-    :param cells: Cells to plot.
+    :param cmc_result: Result of the CMC algorithm
+    :param comparison_params: Parameters for the CMC algorithm.
     :param metadata_reference: Metadata object for reference mark display.
     :param metadata_compared: Metadata object for compared mark display.
     :param wrap_width: Maximum characters per line before wrapping.
@@ -251,7 +252,7 @@ def plot_comparison_overview(
 
     results_items = {
         "Date report": datetime.now().strftime("%Y-%m-%d"),
-        "Mark type": mark_reference_leveled.mark_type.value,
+        "Mark type": mark_reference_raw.mark_type.value,
         "Number of Cells": str(cmc_result.cell_count),
         "Number of CMCs": str(cmc_result.cmc_count),
         "CMC fraction": f"{cmc_result.cmc_fraction * 100:.2f} %",
@@ -304,22 +305,22 @@ def plot_comparison_overview(
         wrap_width=wrap_width,
     )
 
-    # Row 1: Leveled surfaces + Results
-    ax_leveled_ref = fig.add_subplot(gs[1, 0])
+    # Row 1: Raw surfaces + Results
+    ax_raw_ref = fig.add_subplot(gs[1, 0])
     plot_depth_map_on_axes(
-        ax_leveled_ref,
+        ax_raw_ref,
         fig,
-        mark_reference_leveled.scan_image.data,
-        mark_reference_leveled.scan_image.scale_x,
+        mark_reference_raw.scan_image.data,
+        mark_reference_raw.scan_image.scale_x,
         title="Reference Surface A",
     )
 
-    ax_leveled_comp = fig.add_subplot(gs[1, 1])
+    ax_raw_comp = fig.add_subplot(gs[1, 1])
     plot_depth_map_on_axes(
-        ax_leveled_comp,
+        ax_raw_comp,
         fig,
-        mark_compared_leveled.scan_image.data,
-        mark_compared_leveled.scan_image.scale_x,
+        mark_compared_raw.scan_image.data,
+        mark_compared_raw.scan_image.scale_x,
         title="Compared Surface B",
     )
 

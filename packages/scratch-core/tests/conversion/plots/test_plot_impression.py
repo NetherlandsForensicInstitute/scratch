@@ -121,8 +121,8 @@ class TestPlotComparisonOverview:
         sample_metadata_compared: MarkMetadata,
     ):
         result = plot_comparison_overview(
-            mark_reference_leveled=impression_sample_mark,
-            mark_compared_leveled=impression_sample_mark,
+            mark_reference_raw=impression_sample_mark,
+            mark_compared_raw=impression_sample_mark,
             mark_reference_filtered=impression_sample_mark,
             mark_compared_filtered=impression_sample_mark,
             cmc_result=impression_overview_cmc_result,
@@ -148,8 +148,8 @@ class TestPlotImpressionComparisonResults:
         sample_metadata_compared: MarkMetadata,
     ):
         result = plot_impression_comparison_results(
-            mark_reference_leveled=impression_sample_mark,
-            mark_compared_leveled=impression_sample_mark_compared,
+            mark_reference_raw=impression_sample_mark,
+            mark_compared_raw=impression_sample_mark_compared,
             mark_reference_filtered=impression_sample_mark,
             mark_compared_filtered=impression_sample_mark_compared_filtered,
             cmc_result=impression_overview_cmc_result,
@@ -160,8 +160,8 @@ class TestPlotImpressionComparisonResults:
 
         assert isinstance(result, ImpressionComparisonPlots)
         assert_valid_rgb_image(result.comparison_overview)
-        assert_valid_rgb_image(result.leveled_reference_heatmap)
-        assert_valid_rgb_image(result.leveled_compared_heatmap)
+        assert_valid_rgb_image(result.raw_reference_heatmap)
+        assert_valid_rgb_image(result.raw_compared_heatmap)
         assert_valid_rgb_image(result.filtered_reference_heatmap)
         assert_valid_rgb_image(result.filtered_compared_heatmap)
         assert_valid_rgb_image(result.cell_reference_heatmap)

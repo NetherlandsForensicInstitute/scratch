@@ -14,7 +14,6 @@ class MaskTypes(StrEnum):
 
 
 class RoutePrefix(StrEnum):
-    COMPARATOR = "comparator"
     EXTRACTOR = "extractor"
     PREPROCESSOR = "preprocessor"
     PROCESSOR = "processor"
@@ -41,10 +40,6 @@ class ProcessorEndpoint(StrEnum):
     CALCULATE_LR_STRIATION = "calculate-lr-striation"
 
 
-class ComparatorEndpoint(StrEnum):
-    ROOT = ""
-
-
 LIGHT_SOURCES = (
     LightSource(azimuth=90, elevation=45),
     LightSource(azimuth=180, elevation=45),
@@ -60,3 +55,13 @@ class LogLevel(StrEnum):
     WARNING = "WARNING"
     ERROR = "ERROR"
     CRITICAL = "CRITICAL"
+
+
+class UrlFiles(StrEnum):
+    def get_file_path(self, working_dir: Path) -> Path:
+        """Return path to the file with the given working directory."""
+        return working_dir / self.value
+
+    def generate_url(self, access_url: str) -> str:
+        """Generate the url to retrieve the file via the endpoint."""
+        return f"{access_url}/{self.value}"

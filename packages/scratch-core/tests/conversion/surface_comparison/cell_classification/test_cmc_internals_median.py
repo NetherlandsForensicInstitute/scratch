@@ -5,10 +5,10 @@ Unit tests for the private helper functions in cmc_classification.
 import numpy as np
 import pytest
 
-from conversion.surface_comparison.cmc_classification import (
+from conversion.surface_comparison.cmc_classification_median import (
     _circular_median,
-    _get_consensus_angle,
-    _get_consensus_translation,
+    _get_median_angle,
+    _get_median_translation,
     _get_esd_criterion,
     _get_threshold_criterion,
     _outliers_gesd,
@@ -17,8 +17,8 @@ from conversion.surface_comparison.cmc_classification import (
     _wrap_angles,
 )
 from conversion.surface_comparison.models import Cell, CellMetaData, ComparisonParams
-from conversion.data_formats import MarkType
-from ..helper_functions import make_cell
+from conversion.data_formats import MarkImpressionType, MarkStriationType
+from ...helper_functions import make_cell
 
 
 def test_cell_size_um_converts_meters_to_micrometers():
@@ -273,23 +273,23 @@ class TestGetThresholdCriterion:
 
 
 class TestGetConsensusAngle:
-    """Tests for _get_consensus_angle: three-step median-and-rejection procedure."""
+    """Tests for _get_median_angle: three-step median-and-rejection procedure."""
 
     def test_uniform_angles_returns_their_common_value(self) -> None:
-        """When all cells share the same angle the consensus must equal that angle."""
+        """When all cells share the same angle the median must equal that angle."""
         # Arrange
         angle_deg = 15.0
         cells = [make_cell(angle_deg=angle_deg) for _ in range(6)]
         threshold = np.radians(2.0)
 
         # Act
-        result = _get_consensus_angle(cells=cells, threshold=threshold)
+        result = _get_median_angle(cells=cells, threshold=threshold)
 
         # Assert
         np.testing.assert_allclose(np.degrees(result), angle_deg, atol=1e-6)
 
-    def test_single_extreme_outlier_does_not_shift_consensus(self) -> None:
-        """One extreme angle must be rejected so the consensus stays near the cluster."""
+    def test_single_extreme_outlier_does_not_shift_median(self) -> None:
+        """One extreme angle must be rejected so the median stays near the cluster."""
         # Arrange
         inlier_angle = 10.0
         cells = [make_cell(angle_deg=inlier_angle) for _ in range(7)]
@@ -297,9 +297,9 @@ class TestGetConsensusAngle:
         threshold = np.radians(2.0)
 
         # Act
-        result = _get_consensus_angle(cells=cells, threshold=threshold)
+        result = _get_median_angle(cells=cells, threshold=threshold)
 
-        # Assert — consensus must be near the inlier cluster, not pulled toward 170°
+        # Assert — median must be near the inlier cluster, not pulled toward 170°
         assert abs(np.degrees(result) - inlier_angle) < 1.0
 
     def test_outlier_cells_are_flagged_in_meta_data(self) -> None:
@@ -310,7 +310,7 @@ class TestGetConsensusAngle:
         threshold = np.radians(2.0)
 
         # Act
-        _get_consensus_angle(cells=cells, threshold=threshold)
+        _get_median_angle(cells=cells, threshold=threshold)
 
         # Assert — the extreme cell must be marked as an outlier
         assert cells[-1].meta_data.is_outlier
@@ -323,7 +323,7 @@ class TestGetConsensusAngle:
         threshold = np.radians(2.0)
 
         # Act
-        _get_consensus_angle(cells=cells, threshold=threshold)
+        _get_median_angle(cells=cells, threshold=threshold)
 
         # Assert — every residual must be a finite float
         for cell in cells:
@@ -331,10 +331,10 @@ class TestGetConsensusAngle:
 
 
 class TestGetConsensusTranslation:
-    """Tests for _get_consensus_translation: median offset after rotating reference centers."""
+    """Tests for _get_median_translation: median offset after rotating reference centers."""
 
     def test_zero_angle_and_zero_offset_gives_zero_translation(self) -> None:
-        """When reference and comparison centers coincide the consensus translation must be zero."""
+        """When reference and comparison centers coincide the median translation must be zero."""
         # Arrange
         cells = [
             make_cell(
@@ -348,15 +348,15 @@ class TestGetConsensusTranslation:
         rotation_center = (0.0, 0.0)
 
         # Act
-        tx, ty = _get_consensus_translation(
+        tx, ty = _get_median_translation(
             cells=cells, angle=0.0, rotation_center=rotation_center
         )
 
         # Assert
         np.testing.assert_allclose([tx, ty], [0.0, 0.0], atol=1e-12)
 
-    def test_uniform_offset_is_recovered_as_consensus(self) -> None:
-        """A constant displacement applied to every comparison center must equal the consensus."""
+    def test_uniform_offset_is_recovered_as_median(self) -> None:
+        """A constant displacement applied to every comparison center must equal the median."""
         # Arrange
         offset = (0.5, -0.3)
         centers = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
@@ -372,7 +372,7 @@ class TestGetConsensusTranslation:
         rotation_center = (0.0, 0.0)
 
         # Act
-        tx, ty = _get_consensus_translation(
+        tx, ty = _get_median_translation(
             cells=cells, angle=0.0, rotation_center=rotation_center
         )
 
@@ -380,7 +380,7 @@ class TestGetConsensusTranslation:
         np.testing.assert_allclose([tx, ty], list(offset), atol=1e-10)
 
     def test_outlier_cells_excluded_from_translation(self) -> None:
-        """Cells flagged as outliers must not influence the consensus translation."""
+        """Cells flagged as outliers must not influence the median translation."""
         # Arrange
         good_offset = (0.2, 0.1)
         centers = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
@@ -404,7 +404,7 @@ class TestGetConsensusTranslation:
         rotation_center = (0.0, 0.0)
 
         # Act
-        tx, ty = _get_consensus_translation(
+        tx, ty = _get_median_translation(
             cells=cells, angle=0.0, rotation_center=rotation_center
         )
 
@@ -426,9 +426,7 @@ class TestGetConsensusTranslation:
         rotation_center = (0.0, 0.0)
 
         # Act
-        _get_consensus_translation(
-            cells=cells, angle=0.0, rotation_center=rotation_center
-        )
+        _get_median_translation(cells=cells, angle=0.0, rotation_center=rotation_center)
 
         # Assert
         for cell in cells:
@@ -441,11 +439,13 @@ class TestComparisonParamsForMarkType:
 
     def test_known_mark_type_returns_instance_with_correct_cell_size(self) -> None:
         """A registered mark type must produce a ComparisonParams with the expected cell size."""
-        params = ComparisonParams.for_mark_type(MarkType.BREECH_FACE_IMPRESSION)
+        params = ComparisonParams.for_mark_type(
+            MarkImpressionType.BREECH_FACE_IMPRESSION
+        )
 
         assert params.cell_size == pytest.approx((4.5e-4, 4.5e-4))
 
     def test_unknown_mark_type_raises_value_error(self) -> None:
         """An unregistered mark type must raise ValueError."""
         with pytest.raises(ValueError, match="No default cell size registered"):
-            ComparisonParams.for_mark_type(MarkType.BULLET_LEA_STRIATION)
+            ComparisonParams.for_mark_type(MarkStriationType.BULLET_LEA_STRIATION)  # type: ignore

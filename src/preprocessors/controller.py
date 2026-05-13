@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
-from conversion.data_formats import BoundingBox, Mark, MarkType
+from conversion.data_formats import BoundingBox, Mark, MarkImpressionType, MarkStriationType, MarkType
 from conversion.export.mark import save_mark
 from conversion.export.profile import save_profile
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
@@ -19,7 +19,7 @@ from scipy.constants import micro
 from skimage.transform import resize
 
 from constants import LIGHT_SOURCES, OBSERVER
-from extractors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
+from preprocessors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 from preprocessors.pipelines import preview_pipeline, surface_map_pipeline
 from preprocessors.schemas import EditImage
 
@@ -83,7 +83,7 @@ def _save_outputs(
 
 def process_prepare_impression_mark(  # noqa: PLR0913
     scan_image: ScanImage,
-    mark_type: MarkType,
+    mark_type: MarkImpressionType,
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
     preprocess_parameters: PreprocessingImpressionParams,
@@ -99,7 +99,7 @@ def process_prepare_impression_mark(  # noqa: PLR0913
 
 def process_prepare_striation_mark(  # noqa: PLR0913
     scan_image: ScanImage,
-    mark_type: MarkType,
+    mark_type: MarkStriationType,
     mask: BinaryMask,
     bounding_box: BoundingBox | None,
     preprocess_parameters: PreprocessingStriationParams,

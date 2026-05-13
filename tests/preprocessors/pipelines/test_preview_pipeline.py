@@ -17,20 +17,21 @@ class TestPreviewPipeline:
         output_path = tmp_path / "preview.png"
 
         # Act
-        result_path = preview_pipeline(parsed_al3d_file, output_path)
+        preview_pipeline(parsed_al3d_file, output_path)
 
         # Assert
-        assert result_path == output_path
         assert output_path.exists()
         assert output_path.is_file()
         assert output_path.stat().st_size > 0
 
     def test_preview_is_valid_png_image(self, parsed_al3d_file: ScanImage, tmp_path: Path) -> None:
         """Test that the generated preview file is a valid PNG image that can be opened."""
+        # Arrange
+        output_path = tmp_path / "preview.png"
         # Act
-        preview = preview_pipeline(parsed_al3d_file, output_path=tmp_path / "preview.png")
+        preview_pipeline(parsed_al3d_file, output_path=output_path)
 
         # Assert - verify we can open the PNG file
-        with Image.open(preview) as img:
+        with Image.open(output_path) as img:
             assert img.format == "PNG"
             assert img.size == parsed_al3d_file.data.shape

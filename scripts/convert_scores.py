@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 import requests
 import scipy.io as sio
-from conversion.data_formats import MarkType
+from conversion.data_formats import MarkImpressionType, MarkType
 from tqdm import tqdm
 
 from scripts.conversion_utils import (
@@ -153,13 +153,13 @@ def calculate_score(entry: ComparisonEntry, cfg: ConversionConfig) -> dict[str, 
     if (entry.comparison_out / "comparison_results.json").exists() and not cfg.force:
         return None
 
-    processed_ref = entry.mark_dir_ref / "processed"
-    processed_comp = entry.mark_dir_comp / "processed"
+    processed_ref = entry.mark_dir_ref
+    processed_comp = entry.mark_dir_comp
     if not processed_ref.exists() or not processed_comp.exists():
         logger.warning("Processed dir missing for row %d", entry.row_index)
         return None
 
-    category = "impression" if entry.mark_type.is_impression() else "striation"
+    category = "impression" if isinstance(entry.mark_type, MarkImpressionType) else "striation"
     endpoint = f"processor/calculate-score-{category}"
 
     try:

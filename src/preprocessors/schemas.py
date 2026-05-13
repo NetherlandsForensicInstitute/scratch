@@ -4,19 +4,18 @@ from functools import cached_property
 from typing import Any
 
 import numpy as np
-from conversion.data_formats import BoundingBox, MarkType
+from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
     Field,
+    HttpUrl,
     PositiveFloat,
     PositiveInt,
-    field_validator,
     model_validator,
 )
 from utils.constants import RegressionOrder
 
-from constants import MaskTypes
 from models import (
     BaseModelConfig,
     ProjectTag,
@@ -24,6 +23,7 @@ from models import (
     SupportedScanExtension,
 )
 from preprocessors.constants import SurfaceOptions
+from schemas import URLContainer
 
 
 def _update_schema(schema: dict[str, Any], attr_to_class: tuple[tuple[str, str], ...]) -> dict[str, Any]:
@@ -71,15 +71,14 @@ class BaseParameters(BaseModelConfig):
 
 class UploadScan(BaseParameters):
     scale_x: PositiveFloat = Field(
-        1.0,
-        gt=0.0,
+        1e-6,
         description="Horizontal pixel size in meters (m). Defines physical spacing between pixels in x-direction.",
-        examples=[1.0, 0.5, 2.0],
+        examples=[1e-6, 3.5e-6, 5e-6],
     )
     scale_y: PositiveFloat = Field(
-        1.0,
+        1e-6,
         description="Vertical pixel size in meters (m). Defines physical spacing between pixels in y-direction.",
-        examples=[1.0, 0.5, 2.0],
+        examples=[1e-6, 3.5e-6, 5e-6],
     )
     step_size: PositiveInt = Field(
         1,
@@ -89,16 +88,11 @@ class UploadScan(BaseParameters):
     )
 
 
-class CropInfo(BaseModelConfig):
-    type: MaskTypes
-    data: dict
-    is_foreground: bool
-
-
 class PrepareMarkBase(BaseParameters):
-    mark_type: MarkType = Field(..., description="Type of mark to prepare.")
     bounding_box_list: list[list[float]] | None = Field(
-        None, description="Bounding box of a rectangular crop region used to determine the rotation of an image."
+        None,
+        description="Bounding box corners (4 × 2 array of [x, y] coordinates) "
+        "defining a rectangular crop region used to determine the rotation of the image.",
     )
     mask_is_bitpacked: bool = Field(
         default=False,
@@ -116,24 +110,10 @@ class PrepareMarkBase(BaseParameters):
         """
         return np.array(self.bounding_box_list) if self.bounding_box_list is not None else None
 
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("mark_type", "MarkType"),)
-        return _update_schema(schema, attr_to_class)
-
 
 class PrepareMarkStriation(PrepareMarkBase):
     mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
-
-    @field_validator("mark_type")
-    @classmethod
-    def must_be_striation(cls, v: MarkType) -> MarkType:
-        """Validate that the given mark type is a striation mark."""
-        if not v.is_striation():
-            raise ValueError(f"{v} is not a striation mark")
-        return v
+    mark_type: MarkStriationType = Field(..., description="Type of mark to prepare.")
 
     @classmethod
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
@@ -145,14 +125,7 @@ class PrepareMarkStriation(PrepareMarkBase):
 
 class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
-
-    @field_validator("mark_type")
-    @classmethod
-    def must_be_impression(cls, v: MarkType) -> MarkType:
-        """Validate that the given mark type is an impression mark."""
-        if not v.is_impression():
-            raise ValueError(f"{v} is not an impression mark")
-        return v
+    mark_type: MarkImpressionType = Field(..., description="Type of mark to prepare.")
 
     @classmethod
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
@@ -213,3 +186,74 @@ class EditImage(BaseParameters):
             ("terms", "SurfaceOptions"),
         )
         return _update_schema(schema, attr_to_class)
+
+
+class GeneratedImages(URLContainer):
+    preview_image: HttpUrl = Field(
+        ...,
+        description="RGBA preview image rendered from the parsed scan surface data.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/preview.png"],
+    )
+    surface_map_image: HttpUrl = Field(
+        ...,
+        description="Height-map visualization of the scan surface.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/surface_map.png"],
+    )
+
+
+class PrepareMarkResponse(GeneratedImages):
+    """Response model for prepared mark data access."""
+
+    mark_data: HttpUrl = Field(
+        ...,
+        description="Cropped, rotated, and resampled mark data before surface filtering.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/mark.npz"],
+    )
+    mark_meta: HttpUrl = Field(
+        ...,
+        description="Metadata for the mark data.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/mark.json"],
+    )
+    processed_data: HttpUrl = Field(
+        ...,
+        description="Mark surface data after filtering and preprocessing.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/processed.npz"],
+    )
+    processed_meta: HttpUrl = Field(
+        ...,
+        description="Metadata for the processed mark data.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/processed.json"],
+    )
+
+
+class PrepareMarkResponseStriation(PrepareMarkResponse):
+    """Response model for prepared striation mark data access."""
+
+    profile_data: HttpUrl = Field(
+        ...,
+        description="Mean or median profile of a striation mark.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/profile.npz"],
+    )
+
+
+class PrepareMarkResponseImpression(PrepareMarkResponse):
+    """Response model for prepared impression mark data access."""
+
+    leveled_data: HttpUrl = Field(
+        ...,
+        description="Leveled impression mark surface (before surface filtering is applied).",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/leveled.npz"],
+    )
+    leveled_meta: HttpUrl = Field(
+        ...,
+        description="Metadata for the leveled impression mark data.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/leveled.json"],
+    )
+
+
+class ProcessedDataAccess(GeneratedImages):
+    scan_image: HttpUrl = Field(
+        ...,
+        description="Subsampled X3P scan file, converted from the original upload.",
+        examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/scan.x3p"],
+    )

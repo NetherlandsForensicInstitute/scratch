@@ -31,8 +31,8 @@ class TestGenerateOverview:
     ) -> None:
         """Produce plot_results_overview.png and verify it is a valid RGB image."""
         results = plot_impression_comparison_results(
-            mark_reference_leveled=impression_overview_marks["reference_leveled"],
-            mark_compared_leveled=impression_overview_marks["compared_leveled"],
+            mark_reference_raw=impression_overview_marks["reference_raw"],
+            mark_compared_raw=impression_overview_marks["compared_raw"],
             mark_reference_filtered=impression_overview_marks["reference_filtered"],
             mark_compared_filtered=impression_overview_marks["compared_filtered"],
             cmc_result=impression_overview_cmc_result,

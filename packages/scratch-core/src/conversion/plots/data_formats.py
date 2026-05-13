@@ -84,8 +84,8 @@ class ImpressionComparisonPlots:
     Fields are None when the corresponding analysis was not performed.
 
     :param comparison_overview: Combined overview figure with all results.
-    :param leveled_reference_heatmap: Leveled reference preview image.
-    :param leveled_compared_heatmap: Leveled compared preview image.
+    :param raw_reference_heatmap: Raw reference preview image.
+    :param raw_compared_heatmap: Raw compared preview image.
     :param filtered_reference_heatmap: Filtered reference preview image.
     :param filtered_compared_heatmap: Filtered compared preview image.
     :param cell_reference_heatmap: Cell-preprocessed reference preview image.
@@ -95,8 +95,8 @@ class ImpressionComparisonPlots:
     """
 
     comparison_overview: ImageRGB
-    leveled_reference_heatmap: ImageRGB
-    leveled_compared_heatmap: ImageRGB
+    raw_reference_heatmap: ImageRGB
+    raw_compared_heatmap: ImageRGB
     filtered_reference_heatmap: ImageRGB
     filtered_compared_heatmap: ImageRGB
     cell_reference_heatmap: ImageRGB

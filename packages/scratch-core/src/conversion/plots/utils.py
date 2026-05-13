@@ -13,8 +13,7 @@ from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
-from conversion.data_formats import MarkMetadata
-from conversion.data_formats import MarkType
+from conversion.data_formats import MarkMetadata, MarkType
 from conversion.likelihood_ratio import ModelSpecs
 
 DEFAULT_COLORMAP = "viridis"

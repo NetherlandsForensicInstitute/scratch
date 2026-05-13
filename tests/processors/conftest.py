@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from conversion.data_formats import MarkMetadata
 
-from tests.helper_function import make_cell
+from tests.helper_functions import make_cell
 
 RESOURCES = Path(__file__).parent.parent.parent / "packages/scratch-core/tests/resources"
 
