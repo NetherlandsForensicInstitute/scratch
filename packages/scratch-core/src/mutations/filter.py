@@ -7,6 +7,7 @@ from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.filter import apply_gaussian_regression_filter
+from conversion.leveling import get_polynomial_degree
 from conversion.leveling.data_types import SurfaceTerms
 from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
@@ -207,10 +208,7 @@ class LevelMap(ImageMutation):
     to this data using a least-squares approach.
     The fitted surface is then subtracted from the original height data.
 
-    Parameters
-    ----------
-    terms : SurfaceTerms
-        Polynomial surface terms defining the fitted surface.
+    :param terms: The polynomial surface terms defining the fitted surface.
     """
 
     def __init__(self, terms: SurfaceTerms) -> None:
@@ -234,19 +232,7 @@ class LevelMap(ImageMutation):
             step_x=scan_image.scale_x,
             step_y=scan_image.scale_y,
         )
-        match self.terms:
-            case (
-                SurfaceTerms.TILT_X
-                | SurfaceTerms.TILT_Y
-                | SurfaceTerms.ASTIG_45
-                | SurfaceTerms.PLANE
-            ):
-                degree = 1
-            case SurfaceTerms.DEFOCUS | SurfaceTerms.ASTIG_0 | SurfaceTerms.SPHERE:
-                degree = 2
-            case _:
-                degree = 0
-
+        degree = get_polynomial_degree(self.terms)
         leveled, trend = surface.detrend_polynomial(
             degree=degree, inplace=False, return_trend=True
         )

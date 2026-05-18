@@ -5,6 +5,23 @@ from container_models.scan_image import ScanImage
 
 from surfalize import Surface
 
+_DEGREE_MAP = {
+    SurfaceTerms.OFFSET: 0,
+    SurfaceTerms.TILT_X: 1,
+    SurfaceTerms.TILT_Y: 1,
+    SurfaceTerms.ASTIG_45: 2,
+    SurfaceTerms.DEFOCUS: 2,
+    SurfaceTerms.ASTIG_0: 2,
+}
+
+
+def get_polynomial_degree(terms: SurfaceTerms) -> int:
+    """Get the highest polynomial degree present in the given surface terms."""
+    if not terms:
+        raise ValueError(f"No degree defined for {terms}")
+    degrees = [_DEGREE_MAP[term] for term in terms]
+    return max(degrees)
+
 
 def level_map(scan_image: ScanImage, terms: SurfaceTerms) -> LevelingResult:
     """
@@ -29,19 +46,7 @@ def level_map(scan_image: ScanImage, terms: SurfaceTerms) -> LevelingResult:
         step_x=scan_image.scale_x,
         step_y=scan_image.scale_y,
     )
-    match terms:
-        case (
-            SurfaceTerms.TILT_X
-            | SurfaceTerms.TILT_Y
-            | SurfaceTerms.ASTIG_45
-            | SurfaceTerms.PLANE
-        ):
-            degree = 1
-        case SurfaceTerms.DEFOCUS | SurfaceTerms.ASTIG_0 | SurfaceTerms.SPHERE:
-            degree = 2
-        case _:
-            degree = 0
-
+    degree = get_polynomial_degree(terms)
     leveled, trend = surface.detrend_polynomial(
         degree=degree, inplace=False, return_trend=True
     )
