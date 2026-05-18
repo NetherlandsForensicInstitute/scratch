@@ -21,7 +21,7 @@ from conversion.preprocess_impression.resample import (
     needs_resampling,
 )
 from conversion.preprocess_impression.tilt import apply_tilt_correction
-from conversion.preprocess_impression.utils import update_mark_data, Point2D
+from conversion.preprocess_impression.utils import update_mark_data
 from conversion.resample import get_scaling_factors, resample_array_2d
 
 
@@ -93,11 +93,7 @@ def preprocess_impression_mark(
 
     # Prepare leveled-only output
     mark_leveled_final = _finalize_leveled_output(
-        mark_anti_aliased,
-        fitted_surface,
-        params.pixel_size,
-        params.surface_terms,
-        mark.center,
+        mark_anti_aliased, fitted_surface, params.pixel_size, params.surface_terms
     )
 
     # Build output metadata
@@ -132,7 +128,6 @@ def _finalize_leveled_output(
     fitted_surface: DepthData,
     target_scale: float | None,
     surface_terms: SurfaceTerms,
-    reference_point: Point2D,
 ) -> Mark:
     """
     Prepare the leveled-only output.
@@ -140,7 +135,6 @@ def _finalize_leveled_output(
     :param mark: Mark after tilt correction, before SPHERE leveling.
     :param target_scale: Target pixel scale for resampling, or None to skip.
     :param surface_terms: Original surface terms (will be masked to PLANE).
-    :param reference_point: Reference point for leveling.
     :return: Final leveled mark.
     """
     # Add back fitted surface (restores curvature)
