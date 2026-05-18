@@ -14,7 +14,6 @@ from conversion.filter import (
 )
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import crop_to_mask
-from conversion.preprocess_impression.center import compute_center_local
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.resample import (
     resample,
@@ -118,9 +117,8 @@ def _prepare_mark(mark: Mark) -> Mark:
     :param mark: Input mark.
     :return: Cropped mark
     """
-    center_local = compute_center_local(mark)
     cropped_data = crop_to_mask(mark.scan_image.data, mark.scan_image.valid_mask)
-    return update_mark_data(mark, data=cropped_data, center=center_local)
+    return update_mark_data(mark, data=cropped_data)
 
 
 def _finalize_leveled_output(
