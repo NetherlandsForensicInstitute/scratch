@@ -14,14 +14,13 @@ from conversion.filter import (
 )
 from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import crop_to_mask
-from conversion.preprocess_impression.center import compute_center_local
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.resample import (
     resample,
     needs_resampling,
 )
 from conversion.preprocess_impression.tilt import apply_tilt_correction
-from conversion.preprocess_impression.utils import update_mark_data, Point2D
+from conversion.preprocess_impression.utils import update_mark_data
 from conversion.resample import get_scaling_factors, resample_array_2d
 
 
@@ -89,15 +88,11 @@ def preprocess_impression_mark(
         )
 
     # Stage 8: Final leveling
-    mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms, mark.center)
+    mark_filtered, _ = _level_mark(mark_filtered, params.surface_terms)
 
     # Prepare leveled-only output
     mark_leveled_final = _finalize_leveled_output(
-        mark_anti_aliased,
-        fitted_surface,
-        params.pixel_size,
-        params.surface_terms,
-        mark.center,
+        mark_anti_aliased, fitted_surface, params.pixel_size, params.surface_terms
     )
 
     # Build output metadata
@@ -109,11 +104,8 @@ def preprocess_impression_mark(
 def _level_mark(
     mark: Mark,
     terms: SurfaceTerms,
-    reference_point: Point2D | None = None,
 ) -> tuple[Mark, DepthData]:
-    result = level_map(
-        mark.scan_image, terms=terms, reference_point=reference_point or mark.center
-    )
+    result = level_map(mark.scan_image, terms=terms)
     leveled_mark = update_mark_data(mark, result.leveled_map)
     return leveled_mark, result.fitted_surface
 
@@ -125,9 +117,8 @@ def _prepare_mark(mark: Mark) -> Mark:
     :param mark: Input mark.
     :return: Cropped mark
     """
-    center_local = compute_center_local(mark)
     cropped_data = crop_to_mask(mark.scan_image.data, mark.scan_image.valid_mask)
-    return update_mark_data(mark, data=cropped_data, center=center_local)
+    return update_mark_data(mark, data=cropped_data)
 
 
 def _finalize_leveled_output(
@@ -135,7 +126,6 @@ def _finalize_leveled_output(
     fitted_surface: DepthData,
     target_scale: float | None,
     surface_terms: SurfaceTerms,
-    reference_point: Point2D,
 ) -> Mark:
     """
     Prepare the leveled-only output.
@@ -143,7 +133,6 @@ def _finalize_leveled_output(
     :param mark: Mark after tilt correction, before SPHERE leveling.
     :param target_scale: Target pixel scale for resampling, or None to skip.
     :param surface_terms: Original surface terms (will be masked to PLANE).
-    :param reference_point: Reference point for leveling.
     :return: Final leveled mark.
     """
     # Add back fitted surface (restores curvature)
@@ -156,6 +145,5 @@ def _finalize_leveled_output(
 
     # Apply PLANE-only leveling (after resampling, like MATLAB)
     rigid_terms = surface_terms & SurfaceTerms.PLANE
-    leveled_mark, _ = _level_mark(mark_restored, rigid_terms, reference_point)
-
+    leveled_mark, _ = _level_mark(mark_restored, rigid_terms)
     return leveled_mark

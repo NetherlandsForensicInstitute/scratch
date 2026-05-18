@@ -108,7 +108,7 @@ def _striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
     """Build a striation Mark by tiling a profile across columns."""
     data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
     scan_image = ScanImage(data=data, scale_x=profile.pixel_size, scale_y=profile.pixel_size)
-    return Mark(scan_image=scan_image, mark_type=MarkStriationType.BULLET_GEA_STRIATION, center=None)
+    return Mark(scan_image=scan_image, mark_type=MarkStriationType.BULLET_GEA_STRIATION)
 
 
 def _impression_mark(data: np.ndarray) -> Mark:
