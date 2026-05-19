@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
-from conversion.profile_correlator.profile_correlator import _correlations_at_all_shifts
+from conversion.profile_correlator.profile_correlator import _compute_cross_correlation
 
 
 class TestCorrelationsAtAllShifts:
@@ -10,7 +10,7 @@ class TestCorrelationsAtAllShifts:
     def test_identical_profiles_peak_at_zero_shift(self):
         """Identical profiles should have correlation 1.0 at shift 0."""
         profile = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        correlations = _correlations_at_all_shifts(
+        correlations = _compute_cross_correlation(
             profile, profile, min_overlap_samples=2
         )
         # Shift 0 corresponds to index len(profile) - 1
@@ -20,7 +20,7 @@ class TestCorrelationsAtAllShifts:
     def test_best_shift_is_zero_for_identical_profiles(self):
         """Best correlation should be at shift 0 for identical profiles."""
         profile = np.random.default_rng(42).normal(size=100)
-        correlations = _correlations_at_all_shifts(
+        correlations = _compute_cross_correlation(
             profile, profile, min_overlap_samples=20
         )
         best_idx = np.argmax(correlations)
@@ -31,7 +31,7 @@ class TestCorrelationsAtAllShifts:
         """Reversed profile should have correlation -1.0 at shift 0."""
         p1 = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         p2 = np.array([5.0, 4.0, 3.0, 2.0, 1.0])
-        correlations = _correlations_at_all_shifts(p1, p2, min_overlap_samples=2)
+        correlations = _compute_cross_correlation(p1, p2, min_overlap_samples=2)
         zero_shift_idx = len(p2) - 1
         assert_allclose(correlations[zero_shift_idx], -1.0, atol=1e-10)
 
@@ -42,7 +42,7 @@ class TestCorrelationsAtAllShifts:
         shift = 10
         reference = full_signal
         compared = full_signal[shift : shift + 20]
-        correlations = _correlations_at_all_shifts(
+        correlations = _compute_cross_correlation(
             reference, compared, min_overlap_samples=10
         )
         best_idx = np.argmax(correlations)
@@ -53,7 +53,7 @@ class TestCorrelationsAtAllShifts:
         """NaN values should not prevent finding the correct correlation."""
         p1 = np.array([1.0, np.nan, 3.0, 4.0, 5.0])
         p2 = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        correlations = _correlations_at_all_shifts(p1, p2, min_overlap_samples=2)
+        correlations = _compute_cross_correlation(p1, p2, min_overlap_samples=2)
         zero_shift_idx = len(p2) - 1
         assert correlations[zero_shift_idx] > 0.9
 
@@ -61,14 +61,14 @@ class TestCorrelationsAtAllShifts:
         """All-NaN profile should give -inf at every shift."""
         p1 = np.array([np.nan, np.nan, np.nan])
         p2 = np.array([1.0, 2.0, 3.0])
-        correlations = _correlations_at_all_shifts(p1, p2, min_overlap_samples=2)
+        correlations = _compute_cross_correlation(p1, p2, min_overlap_samples=2)
         assert np.all(np.isneginf(correlations))
 
     def test_constant_profile_returns_neg_inf(self):
         """Constant profile (zero variance) should give -inf."""
         p1 = np.array([5.0, 5.0, 5.0, 5.0, 5.0])
         p2 = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        correlations = _correlations_at_all_shifts(p1, p2, min_overlap_samples=2)
+        correlations = _compute_cross_correlation(p1, p2, min_overlap_samples=2)
         zero_shift_idx = len(p2) - 1
         assert np.isneginf(correlations[zero_shift_idx])
 
@@ -76,7 +76,7 @@ class TestCorrelationsAtAllShifts:
         """Shifts with too few overlapping samples should give -inf."""
         p1 = np.array([1.0, 2.0, 3.0])
         p2 = np.array([4.0, 5.0, 6.0])
-        correlations = _correlations_at_all_shifts(p1, p2, min_overlap_samples=3)
+        correlations = _compute_cross_correlation(p1, p2, min_overlap_samples=3)
         # At extreme shifts, overlap < 3 → should be -inf
         assert np.isneginf(correlations[0])
         assert np.isneginf(correlations[-1])
@@ -87,7 +87,7 @@ class TestCorrelationsAtAllShifts:
         reference = np.sin(x)
         shift = 10
         compared = np.sin(x[shift : shift + 100])
-        correlations = _correlations_at_all_shifts(
+        correlations = _compute_cross_correlation(
             reference, compared, min_overlap_samples=20
         )
         best_idx = np.argmax(correlations)

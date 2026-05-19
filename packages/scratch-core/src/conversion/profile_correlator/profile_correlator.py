@@ -178,7 +178,7 @@ def _calculate_idx_parameters(
     return idx_compared_start, idx_reference_start, overlap_length
 
 
-def _correlations_at_all_shifts(
+def _compute_cross_correlation(
     heights_reference: FloatArray1D,
     heights_compared: FloatArray1D,
     min_overlap_samples: int,
@@ -206,13 +206,16 @@ def _correlations_at_all_shifts(
     comp_valid = ~np.isnan(comp)
     comp[~comp_valid] = 0.0
 
-    overlap_count = fftconvolve(
-        ref_valid.astype(float), comp_valid[::-1].astype(float), mode="full"
-    )
-    ref_sum = fftconvolve(ref, comp_valid[::-1].astype(float), mode="full")
-    comp_sum = fftconvolve(ref_valid.astype(float), comp[::-1], mode="full")
-    ref_sq_sum = fftconvolve(ref**2, comp_valid[::-1].astype(float), mode="full")
-    comp_sq_sum = fftconvolve(ref_valid.astype(float), (comp**2)[::-1], mode="full")
+    # fftconvolve computes convolution; flipping the second argument (::-1)
+    # turns it into a cross-correlation, which is what we need here.
+    ref_valid_f = ref_valid.astype(float)
+    comp_valid_f = comp_valid[::-1].astype(float)
+
+    overlap_count = fftconvolve(ref_valid_f, comp_valid_f, mode="full")
+    ref_sum = fftconvolve(ref, comp_valid_f, mode="full")
+    comp_sum = fftconvolve(ref_valid_f, comp[::-1], mode="full")
+    ref_sq_sum = fftconvolve(ref**2, comp_valid_f, mode="full")
+    comp_sq_sum = fftconvolve(ref_valid_f, (comp**2)[::-1], mode="full")
     cross = fftconvolve(ref, comp[::-1], mode="full")
 
     with np.errstate(invalid="ignore", divide="ignore"):
@@ -257,7 +260,7 @@ def _find_best_alignment(
         heights_compared_scaled = resample_array_1d(heights_compared, scale)
         len_compared = len(heights_compared_scaled)
 
-        correlations = _correlations_at_all_shifts(
+        correlations = _compute_cross_correlation(
             heights_reference, heights_compared_scaled, min_overlap_samples
         )
 
