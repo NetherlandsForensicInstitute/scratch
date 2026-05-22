@@ -219,6 +219,9 @@ def _compute_cross_correlation(
     cross = fftconvolve(ref, comp[::-1], mode="full")
 
     with np.errstate(invalid="ignore", divide="ignore"):
+        # Pearson correlation rewritten in terms of sums to avoid computing means explicitly:
+        #   r = (n · Σxy - Σx · Σy) / √[ (n · Σx² - (Σx)²) · (n · Σy² - (Σy)²) ]
+        # where n is the number of valid overlapping samples at this shift.
         n = overlap_count
         numerator = n * cross - ref_sum * comp_sum
         denominator = np.sqrt(
