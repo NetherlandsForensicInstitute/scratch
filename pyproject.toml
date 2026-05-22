@@ -99,6 +99,9 @@ ignore-decorators = ["property"]
   "PT011",   # No `match` parameter necessary for pytest.raises
   "PLR0913", # Pytest fixtures naturally lead to many function parameters
 ]
+"**/scripts/*.py" = [
+  "PLR0913", # Scripts are allowed to have manu function parameters
+]
 
 [tool.ty.environment]
 python-version = "3.13"
