@@ -43,8 +43,7 @@ class MetadataParameters(BaseModelConfig):
     metadata_compared: MarkMetadata = Field(..., description="Metadata identifying the compared mark.")
 
 
-class CalculateScore(MarkDirectories, MetadataParameters):
-    skip_plots: bool = Field(default=False, description="Skip plot generation for faster bulk scoring")
+class CalculateScore(MarkDirectories, MetadataParameters): ...
 
 
 class CalculateScoreImpression(CalculateScore):
@@ -119,15 +118,15 @@ class CalculateLRStriation(CalculateLR):
 class ComparisonResponse(URLContainer):
     """Response model for comparison data access."""
 
-    filtered_reference_heatmap: HttpUrl | None = Field(
-        default=None,
+    filtered_reference_heatmap: HttpUrl = Field(
+        ...,
         description="Heatmap of the reference mark after surface filtering.",
         examples=[
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/filtered_reference_heatmap.png"
         ],
     )
-    comparison_overview: HttpUrl | None = Field(
-        default=None,
+    comparison_overview: HttpUrl = Field(
+        ...,
         description="Combined overview figure showing all comparison results.",
         examples=[
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/comparison_overview.png"
@@ -136,48 +135,48 @@ class ComparisonResponse(URLContainer):
 
 
 class ComparisonResponseImpressionURL(ComparisonResponse):
-    raw_reference_heatmap: HttpUrl | None = Field(
-        default=None,
+    raw_reference_heatmap: HttpUrl = Field(
+        ...,
         description="Heatmap of the raw reference mark.",
         examples=[
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/raw_reference_heatmap.png"
         ],
     )
-    raw_compared_heatmap: HttpUrl | None = Field(
-        default=None,
+    raw_compared_heatmap: HttpUrl = Field(
+        ...,
         description="Heatmap of the raw compared mark.",
         examples=[
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/raw_compared_heatmap.png"
         ],
     )
-    filtered_compared_heatmap: HttpUrl | None = Field(
-        default=None,
+    filtered_compared_heatmap: HttpUrl = Field(
+        ...,
         description="Heatmap of the compared mark after surface filtering.",
         examples=[
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/filtered_compared_heatmap.png"
         ],
     )
-    cell_reference_heatmap: HttpUrl | None = Field(
-        default=None,
+    cell_reference_heatmap: HttpUrl = Field(
+        ...,
         description="Heatmap of the reference mark after cell-level preprocessing.",
         examples=[
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/cell_reference_heatmap.png"
         ],
     )
-    cell_compared_heatmap: HttpUrl | None = Field(
-        default=None,
+    cell_compared_heatmap: HttpUrl = Field(
+        ...,
         description="Heatmap of the compared mark after cell-level preprocessing.",
         examples=[
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/cell_compared_heatmap.png"
         ],
     )
-    cell_overlay: HttpUrl | None = Field(
-        default=None,
+    cell_overlay: HttpUrl = Field(
+        ...,
         description="Surface overlay showing the cell grid with CMC classification status.",
         examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/cell_overlay.png"],
     )
-    cell_cross_correlation: HttpUrl | None = Field(
-        default=None,
+    cell_cross_correlation: HttpUrl = Field(
+        ...,
         description="Cell-based cross-correlation heatmap.",
         examples=[
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/cell_cross_correlation.png"
@@ -264,20 +263,20 @@ class ComparisonResponseStriationURL(ComparisonResponse):
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/mark_compared_aligned_preview.png"
         ],
     )
-    similarity_plot: HttpUrl | None = Field(
-        default=None,
+    similarity_plot: HttpUrl = Field(
+        ...,
         description="Plot of aligned striation profiles overlaid for visual comparison.",
         examples=["http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/similarity_plot.png"],
     )
-    filtered_compared_heatmap: HttpUrl | None = Field(
-        default=None,
+    filtered_compared_heatmap: HttpUrl = Field(
+        ...,
         description="Heatmap of the compared mark after surface filtering.",
         examples=[
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/filtered_compared_heatmap.png"
         ],
     )
-    side_by_side_heatmap: HttpUrl | None = Field(
-        default=None,
+    side_by_side_heatmap: HttpUrl = Field(
+        ...,
         description="Side-by-side heatmap of both marks for visual comparison.",
         examples=[
             "http://localhost:8000/preprocessor/files/70fadc78-caf5-492a-a426-1cf2bf675f8c/side_by_side_heatmap.png"

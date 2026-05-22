@@ -113,7 +113,7 @@ class ComparisonEntry:
     row_index: int
 
 
-def _build_body(entry: ComparisonEntry, skip_plots: bool = False) -> dict[str, Any]:
+def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
     """Build the API request body for a comparison."""
     processed_ref = str(entry.mark_dir_ref)
     processed_comp = str(entry.mark_dir_comp)
@@ -125,14 +125,12 @@ def _build_body(entry: ComparisonEntry, skip_plots: bool = False) -> dict[str, A
             "metadata_reference": _extract_metadata(entry.mark_dir_ref),
             "metadata_compared": _extract_metadata(entry.mark_dir_comp),
             "comparison_params": ComparisonParams.for_mark_type(entry.mark_type).model_dump(),
-            "skip_plots": skip_plots,
         }
     return {
         "mark_dir_ref": processed_ref,
         "mark_dir_comp": processed_comp,
         "metadata_reference": _extract_metadata(entry.mark_dir_ref),
         "metadata_compared": _extract_metadata(entry.mark_dir_comp),
-        "skip_plots": skip_plots,
     }
 
 

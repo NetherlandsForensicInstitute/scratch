@@ -66,7 +66,7 @@ def calculate_score(
     endpoint = f"processor/calculate-score-{category}"
 
     try:
-        result = _post_with_retry(f"{cfg.api_url}/{endpoint}", _build_body(entry, skip_plots=cfg.skip_plots))
+        result = _post_with_retry(f"{cfg.api_url}/{endpoint}", _build_body(entry))
     except requests.HTTPError as exc:
         if exc.response is not None and exc.response.status_code == 422:  # noqa: PLR2004
             try:
@@ -139,12 +139,11 @@ def main() -> None:
     parser.add_argument(
         "--use_pairs_from_file", action="store_true", help="Read pairs from results_table.mat instead of generating"
     )
-    parser.add_argument("--skip-plots", action="store_true", help="Skip plot generation for faster bulk scoring")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for different-source sampling")
     args = parser.parse_args()
 
     cfg = ConversionConfig(
-        root=args.root, output_dir=args.output, api_url=args.api_url, force=args.force, skip_plots=args.skip_plots
+        root=args.root, output_dir=args.output, api_url=args.api_url, force=args.force,
     )
     run_score_conversion(
         cfg,

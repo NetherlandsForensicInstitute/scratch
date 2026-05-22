@@ -91,18 +91,17 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     )
     logger.debug("CMC is calculated")
 
-    if not impression_params.skip_plots:
-        save_impression_comparison_plots(
-            mark_ref=mark_ref_processed,
-            mark_comp=mark_comp_processed,
-            cmc_result=cmc_result,
-            comparison_params=impression_params.comparison_params,
-            working_dir=vault.resource_path,
-            files_to_save=ComparisonImpressionFiles,
-            metadata_reference=impression_params.metadata_reference,
-            metadata_compared=impression_params.metadata_compared,
-        )
-        logger.debug(f"images saved in:{vault.resource_path}")
+    save_impression_comparison_plots(
+        mark_ref=mark_ref_processed,
+        mark_comp=mark_comp_processed,
+        cmc_result=cmc_result,
+        comparison_params=impression_params.comparison_params,
+        working_dir=vault.resource_path,
+        files_to_save=ComparisonImpressionFiles,
+        metadata_reference=impression_params.metadata_reference,
+        metadata_compared=impression_params.metadata_compared,
+    )
+    logger.debug(f"images saved in:{vault.resource_path}")
 
     comparison_results = {
         "n_cells": cmc_result.cell_count,
@@ -144,18 +143,15 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
     comparison_result = compare_striation_marks(
         mark_ref=mark_ref, mark_comp=mark_comp, profile_ref=profile_ref, profile_comp=profile_comp
     )
-    if not striation_params.skip_plots:
-        save_striation_comparison_plots(
-            mark_ref=mark_ref,
-            mark_comp=mark_comp,
-            mark_correlations=comparison_result,
-            working_dir=vault.resource_path,
-            files_to_save=ComparisonStriationFiles,
-            metadata_reference=striation_params.metadata_reference,
-            metadata_compared=striation_params.metadata_compared,
-        )
-        logger.debug(f"images saved in:{vault.resource_path}")
-
+    save_striation_comparison_plots(
+        mark_ref=mark_ref,
+        mark_comp=mark_comp,
+        mark_correlations=comparison_result,
+        working_dir=vault.resource_path,
+        files_to_save=ComparisonStriationFiles,
+        metadata_reference=striation_params.metadata_reference,
+        metadata_compared=striation_params.metadata_compared,
+    )
     save_mark(
         comparison_result.mark_reference_aligned,
         path=ComparisonStriationFiles.mark_reference_aligned_data.get_file_path(vault.resource_path),
@@ -184,7 +180,7 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
         comparison_result.mark_compared_aligned.scan_image,
         ComparisonStriationFiles.mark_compared_aligned_preview.get_file_path(vault.resource_path),
     )
-    logger.debug(f"marks saved in:{vault.resource_path}")
+    logger.debug(f"images saved in:{vault.resource_path}")
 
     return ComparisonResponseStriation(
         urls=ComparisonResponseStriationURL.from_enum(enum=ComparisonStriationFiles, base_url=vault.access_url),

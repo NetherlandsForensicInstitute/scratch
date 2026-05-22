@@ -21,7 +21,6 @@ class ConversionConfig:
     output_dir: Path
     api_url: str
     force: bool = False
-    skip_plots: bool = False
 
     def __post_init__(self) -> None:
         self.api_url = self.api_url.rstrip("/")
