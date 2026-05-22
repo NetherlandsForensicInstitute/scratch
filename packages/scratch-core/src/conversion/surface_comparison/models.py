@@ -85,13 +85,13 @@ class ComparisonResult:
     Consolidated results of the CMC pipeline.
 
     :param cells: Per-cell registration and classification results.
-    :param consensus_rotation: Rotation consensus across CMC cells (degrees).
-    :param consensus_translation: Translation consensus across CMC cells (m)
+    :param estimated_rotation: Estimated rotation across CMC cells (degrees).
+    :param estimated_translation: Estimated translation across CMC cells (m)
     """
 
     cells: Sequence[Cell]
-    consensus_rotation: float
-    consensus_translation: tuple[float, float]
+    estimated_rotation: float
+    estimated_translation: tuple[float, float]
 
     @property
     def cell_count(self) -> int:
