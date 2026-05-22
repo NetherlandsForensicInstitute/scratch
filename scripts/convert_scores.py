@@ -143,7 +143,10 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = ConversionConfig(
-        root=args.root, output_dir=args.output, api_url=args.api_url, force=args.force,
+        root=args.root,
+        output_dir=args.output,
+        api_url=args.api_url,
+        force=args.force,
     )
     run_score_conversion(
         cfg,
