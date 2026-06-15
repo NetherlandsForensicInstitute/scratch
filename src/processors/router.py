@@ -65,7 +65,6 @@ async def processor_root() -> RedirectResponse:
     performs pairwise CMC (Congruent Matching Cells) comparison, and calculates a score.
     The score, together with plots, are saved and made available via URLs.
     """,
-    include_in_schema=False,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "mark file not found"},
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data or comparison failed"},
