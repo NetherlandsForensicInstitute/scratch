@@ -14,8 +14,6 @@ from pydantic import (
     HttpUrl,
     NonNegativeInt,
     PositiveInt,
-    SerializerFunctionWrapHandler,
-    model_serializer,
     model_validator,
 )
 
@@ -312,10 +310,3 @@ class LRResponse(BaseModel):
         None,
         description="Upper bound of the log10 likelihood ratio confidence interval, or null if not computed.",
     )
-
-    @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Serialize model to flat json."""
-        data = handler(self)
-        urls = data.pop("urls")
-        return {**urls, **data}
