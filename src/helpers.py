@@ -1,9 +1,21 @@
 import datetime
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
 from constants import LogLevel
+
+
+def update_schema(schema: dict[str, Any], attr_to_class: tuple[tuple[str, str], ...]) -> dict[str, Any]:
+    """Update the model JSON schema for correctly rendering the `openapi_extra` fields."""
+    for attribute, class_name in attr_to_class:
+        updated = schema["$defs"][class_name]
+        for key in ("examples", "description"):
+            if value := schema["properties"][attribute].get(key):
+                updated[key] = value
+        schema["properties"][attribute] = updated
+    return schema
 
 
 def setup_logging(level: LogLevel = LogLevel.INFO):

@@ -35,7 +35,7 @@ class CellMetaData(ConfigBaseModel):
 
     is_outlier: bool
     residual_angle_deg: float = Field(ge=-180, le=180)
-    position_error: tuple[float, float]
+    position_error: tuple[float, float] = Field(..., examples=[-9.12, 6.8])
 
 
 class Cell(ConfigBaseModel):
@@ -55,12 +55,12 @@ class Cell(ConfigBaseModel):
         position error) populated by the classifier.
     """
 
-    center_reference: tuple[float, float]
-    cell_size: tuple[float, float]
+    center_reference: tuple[float, float] = Field(..., examples=[(4.5, 1.4)])
+    cell_size: tuple[float, float] = Field(..., examples=[(2.1, 1.90)])
     fill_fraction_reference: float = Field(ge=0.0, le=1.0)
     best_score: float = Field(ge=-1.0, le=1.0)
     angle_deg: float = Field(ge=-180, le=180)
-    center_comparison: tuple[float, float]
+    center_comparison: tuple[float, float] = Field(..., examples=[(5.6, 7.4)])
     is_congruent: bool
     meta_data: CellMetaData
 
