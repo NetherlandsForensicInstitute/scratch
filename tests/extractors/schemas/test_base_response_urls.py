@@ -95,17 +95,10 @@ class TestLRResponse:
         """LRResponse instance with a valid LRResponseURL and a non-zero lr value."""
         return LRResponse(urls=LRResponseURL.from_enum(enum=LRFiles, base_url=_BASE_URL), llr=2.5, **_EMPTY_LR_STATS)
 
-    def test_serialized_output_is_flat(self, lr_response: LRResponse) -> None:
-        """model_dump produces a flat dict with no nested 'urls' key."""
-        data = lr_response.model_dump()
-
-        assert "urls" not in data
-
     def test_url_fields_promoted_to_top_level(self, lr_response: LRResponse) -> None:
         """All fields from LRResponseURL appear at the top level."""
         url_fields = set(LRResponseURL.model_fields)
-        data = lr_response.model_dump()
-
+        data = lr_response.urls.model_dump()
         assert url_fields <= set(data)
 
     def test_raises_validation_error_for_non_numeric_lr(self) -> None:

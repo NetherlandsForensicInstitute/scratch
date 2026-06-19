@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from http import HTTPStatus
 
 from conversion.export.mark import load_mark_from_path, save_mark
@@ -25,6 +24,7 @@ from processors.schemas import (
     CalculateLRStriation,
     CalculateScore,
     CalculateScoreImpression,
+    ComparisonImpressionMetrics,
     ComparisonResponseImpression,
     ComparisonResponseImpressionURL,
     ComparisonResponseStriation,
@@ -65,7 +65,6 @@ async def processor_root() -> RedirectResponse:
     performs pairwise CMC (Congruent Matching Cells) comparison, and calculates a score.
     The score, together with plots, are saved and made available via URLs.
     """,
-    include_in_schema=False,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "mark file not found"},
         HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data or comparison failed"},
@@ -103,17 +102,17 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     )
     logger.debug(f"images saved in:{vault.resource_path}")
 
-    comparison_results = {
-        "n_cells": cmc_result.cell_count,
-        "score": cmc_result.cmc_count,
-        "cmc_fraction": cmc_result.cmc_fraction,
-        "cmc_area_fraction": cmc_result.cmc_area_fraction,
-        "estimated_rotation": cmc_result.estimated_rotation,
-        "estimated_translation": cmc_result.estimated_translation,
-    }
+    comparison_results = ComparisonImpressionMetrics(
+        n_cells=cmc_result.cell_count,
+        score=cmc_result.cmc_count,
+        cmc_fraction=cmc_result.cmc_fraction,
+        cmc_area_fraction=cmc_result.cmc_area_fraction,
+        estimated_rotation=cmc_result.estimated_rotation,
+        estimated_translation=cmc_result.estimated_translation,
+    )
     return ComparisonResponseImpression(
         urls=ComparisonResponseImpressionURL.from_enum(enum=ComparisonImpressionFiles, base_url=vault.access_url),
-        cells=[cell.model_dump() for cell in cmc_result.cells],
+        cells=list(cmc_result.cells),
         comparison_results=comparison_results,
     )
 
@@ -184,7 +183,7 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
 
     return ComparisonResponseStriation(
         urls=ComparisonResponseStriationURL.from_enum(enum=ComparisonStriationFiles, base_url=vault.access_url),
-        comparison_results=asdict(comparison_result.comparison_results),
+        comparison_results=comparison_result.comparison_results,
     )
 
 

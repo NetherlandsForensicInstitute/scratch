@@ -82,9 +82,10 @@ def assert_lr_response_valid(client: TestClient, response) -> None:
     """Assert that an LR endpoint response contains a valid LR and reachable PNG plot."""
     assert response.status_code == HTTPStatus.OK, response.json()
     data = response.json()
+    urls = data["urls"]
     assert isinstance(data["llr"], float)
-    assert HttpUrl(data["lr_overview_plot"])
-    plot_response = client.get(data["lr_overview_plot"])
+    assert HttpUrl(urls["lr_overview_plot"])
+    plot_response = client.get(urls["lr_overview_plot"])
     assert plot_response.status_code == HTTPStatus.OK
     assert plot_response.headers["content-type"] == "image/png"
 

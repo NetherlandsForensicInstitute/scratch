@@ -67,13 +67,8 @@ class TestMarkStriation:
             "mark_compared_aligned_surface_map",
             "mark_compared_aligned_preview",
         }
-        expected_data = {
-            "mark_reference_aligned_meta",
-            "mark_reference_aligned_data",
-            "mark_compared_aligned_data",
-            "mark_compared_aligned_meta",
-            "comparison_results",
-        }
+        expected_npz = {"mark_reference_aligned_data", "mark_compared_aligned_data"}
+        expected_json = {"mark_reference_aligned_meta", "mark_compared_aligned_meta"}
 
         json_data = CalculateScore(
             mark_dir_ref=mark_dir_ref,
@@ -97,15 +92,21 @@ class TestMarkStriation:
 
         assert response.status_code == HTTPStatus.OK, response.json()
         response_data = response.json()
-        assert response_data.keys() == (expected_images | expected_data)
+        assert set(response_data["urls"]) == (expected_images | expected_npz | expected_json)
 
-        url_keys = (expected_images | expected_data) - {"comparison_results"}
-        urls = {k: v for k, v in response_data.items() if k in url_keys}
-        assert all(HttpUrl(url) for url in urls.values())
-        assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
+        assert all(HttpUrl(url) for url in response_data["urls"].values())
+        assert all(client.get(url).status_code == HTTPStatus.OK for url in response_data["urls"].values())
 
         for key in expected_images:
-            assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
+            assert client.get(response_data["urls"][key]).headers["content-type"] == "image/png", f"{key} should be PNG"
+        for key in expected_npz:
+            assert client.get(response_data["urls"][key]).headers["content-type"] == "application/octet-stream", (
+                f"{key} should be NPZ"
+            )
+        for key in expected_json:
+            assert client.get(response_data["urls"][key]).headers["content-type"] == "application/octet-stream", (
+                f"{key} should be JSON"
+            )
 
 
 class TestMarkStriationExceptionHandlers:
@@ -191,19 +192,18 @@ class TestMarkImpression:
 
         assert response.status_code == HTTPStatus.OK, response.json()
         response_data = response.json()
-        assert response_data.keys() == (expected_images | expected_data)
+        assert set(response_data["urls"]) == expected_images
+        assert set(response_data) - {"urls"} == expected_data
 
         # Verify cells exist
         assert len(response_data["cells"]) > 0
 
         # Verify image URLs
-        url_keys = expected_images
-        urls = {k: v for k, v in response_data.items() if k in url_keys}
-        assert all(HttpUrl(url) for url in urls.values())
-        assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
+        assert all(HttpUrl(url) for url in response_data["urls"].values())
+        assert all(client.get(url).status_code == HTTPStatus.OK for url in response_data["urls"].values())
 
         for key in expected_images:
-            assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
+            assert client.get(response_data["urls"][key]).headers["content-type"] == "image/png", f"{key} should be PNG"
 
 
 class TestMarkImpressionExceptionHandlers:
