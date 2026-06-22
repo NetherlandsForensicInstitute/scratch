@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Sequence
+from typing import Sequence, Literal
 
 import matplotlib.pyplot as plt
 from scipy.constants import mega
@@ -341,6 +341,7 @@ def plot_comparison_overview(
         cells=cells,
         cell_label_prefix="A",
         show_all_cells=True,
+        space="reference",
     )
     ax_filtered_ref.set_title(
         "Filtered Reference Surface A", fontsize=12, fontweight="bold"
@@ -395,6 +396,7 @@ def _draw_cell_labels(
     cells: Sequence[Cell],
     cell_label_prefix: str,
     show_all_cells: bool,
+    space: Literal["reference", "comparison"] = "comparison",
 ) -> None:
     """
     Draw labeled cell rectangles on axes, colored by CMC status.
@@ -402,10 +404,9 @@ def _draw_cell_labels(
     CMC cells (above threshold) are drawn in black, non-CMC cells in red.
     CMC cells are drawn first so red outlines are not hidden by adjacent borders.
 
-    :param ax: Matplotlib axes to draw on.
-    :param cells: cells to draw
-    :param cell_label_prefix: Label prefix for cells ("A" or "B").
-    :param show_all_cells: If True, show all cells. If False, only show CMC cells.
+    :param space: ``"reference"`` draws cells at their grid positions
+        (``center_reference``, no rotation); ``"comparison"`` draws them at
+        their matched positions (``center_comparison`` / ``angle_deg``).
     """
     cmc_cells: list[tuple[int, Cell]] = []
     non_cmc_cells: list[tuple[int, Cell]] = []
@@ -424,14 +425,21 @@ def _draw_cell_labels(
 
     for color, labeled_cells in [("black", cmc_cells), ("red", non_cmc_cells)]:
         for idx, cell in labeled_cells:
-            cx = cell.center_comparison[0] * 1e6
-            cy = cell.center_comparison[1] * 1e6
+            if space == "reference":
+                # Regular grid position, axis-aligned (no rotation).
+                cx = cell.center_reference[0] * 1e6
+                cy = cell.center_reference[1] * 1e6
+                corners = base_corners.copy()
+            else:
+                # Matched position with the per-cell rotation applied.
+                cx = cell.center_comparison[0] * 1e6
+                cy = cell.center_comparison[1] * 1e6
+                angle = np.deg2rad(cell.angle_deg)
+                cos_a, sin_a = np.cos(angle), np.sin(angle)
+                rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+                corners = base_corners @ rot.T
 
-            angle = np.deg2rad(cell.angle_deg)
-            cos_a, sin_a = np.cos(angle), np.sin(angle)
-            rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-            corners = base_corners @ rot.T
-
+            corners = corners.copy()
             corners[:, 0] += cx
             corners[:, 1] += cy
 
@@ -440,14 +448,9 @@ def _draw_cell_labels(
             ax.plot(xs, ys, color=color, linestyle="-", linewidth=1.0)
 
             ax.text(
-                cx,
-                cy,
-                f"{cell_label_prefix}{idx}",
-                ha="center",
-                va="center",
-                fontsize=8,
-                color=color,
-                fontweight="bold",
+                cx, cy, f"{cell_label_prefix}{idx}",
+                ha="center", va="center",
+                fontsize=8, color=color, fontweight="bold",
             )
 
 
@@ -458,6 +461,7 @@ def plot_cell_overlay_on_axes(
     cells: Sequence[Cell],
     cell_label_prefix: str = "A",
     show_all_cells: bool = True,
+    space: Literal["reference", "comparison"] = "comparison",
 ) -> AxesImage:
     """
     Plot surface with cell grid overlay on given axes.
@@ -478,10 +482,14 @@ def plot_cell_overlay_on_axes(
     :param cells: cells to plot
     :param cell_label_prefix: Label prefix for cells ("A" for reference, "B" for compared).
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
+    :param space: Which positions to draw the cells at. ``"reference"`` draws
+        each cell at its regular-grid position (``center_reference``) with no
+        rotation — use for the reference surface. ``"comparison"`` draws each
+        cell at its matched, rotated position (``center_comparison`` /
+        ``angle_deg``) — use for the moved compared surface.
     """
     height, width = data.shape
 
-    # Plot the surface
     extent = (0, width * scale * mega, 0, height * scale * mega)
     im = ax.imshow(
         data * mega,
@@ -491,12 +499,12 @@ def plot_cell_overlay_on_axes(
         extent=extent,
     )
 
-    # Cell size in µm
     _draw_cell_labels(
         ax,
         cells=cells,
         cell_label_prefix=cell_label_prefix,
         show_all_cells=show_all_cells,
+        space=space,
     )
 
     ax.set_xlabel("X - Position [µm]", fontsize=11)
@@ -504,6 +512,7 @@ def plot_cell_overlay_on_axes(
     ax.tick_params(labelsize=10)
 
     return im
+
 
 
 def _plot_cell_heatmap_on_axes(
