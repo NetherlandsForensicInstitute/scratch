@@ -107,6 +107,7 @@ def plot_cmc_comparison_overview(
         cells=cells,
         cell_label_prefix="A",
         show_all_cells=True,
+        space="reference",
     )
     _plot_surface_with_colorbar(
         fig, ax_filtered_ref, im_ref, "Filtered Reference Surface A"
