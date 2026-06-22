@@ -404,6 +404,10 @@ def _draw_cell_labels(
     CMC cells (above threshold) are drawn in black, non-CMC cells in red.
     CMC cells are drawn first so red outlines are not hidden by adjacent borders.
 
+    :param ax: Matplotlib axes to draw on.
+    :param cells: cells to draw
+    :param cell_label_prefix: Label prefix for cells ("A" or "B").
+    :param show_all_cells: If True, show all cells. If False, only show CMC cells.
     :param space: ``"reference"`` draws cells at their grid positions
         (``center_reference``, no rotation); ``"comparison"`` draws them at
         their matched positions (``center_comparison`` / ``angle_deg``).
