@@ -448,9 +448,14 @@ def _draw_cell_labels(
             ax.plot(xs, ys, color=color, linestyle="-", linewidth=1.0)
 
             ax.text(
-                cx, cy, f"{cell_label_prefix}{idx}",
-                ha="center", va="center",
-                fontsize=8, color=color, fontweight="bold",
+                cx,
+                cy,
+                f"{cell_label_prefix}{idx}",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color=color,
+                fontweight="bold",
             )
 
 
@@ -512,7 +517,6 @@ def plot_cell_overlay_on_axes(
     ax.tick_params(labelsize=10)
 
     return im
-
 
 
 def _plot_cell_heatmap_on_axes(

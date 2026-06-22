@@ -278,6 +278,7 @@ class TestPlotCellOverlayOnAxes:
         assert len(ax.texts) == 1
         plt.close(fig)
 
+
 class TestPlotCellOverlaySpace:
     """Tests for the reference vs comparison drawing-space distinction.
 
@@ -304,9 +305,7 @@ class TestPlotCellOverlaySpace:
     @staticmethod
     def _is_axis_aligned(rect: np.ndarray, tol: float = 1e-6) -> bool:
         """True if every edge of the rectangle is horizontal or vertical."""
-        return all(
-            abs(dx) <= tol or abs(dy) <= tol for dx, dy in np.diff(rect, axis=0)
-        )
+        return all(abs(dx) <= tol or abs(dy) <= tol for dx, dy in np.diff(rect, axis=0))
 
     def test_reference_space_is_axis_aligned(
         self, impression_sample_depth_data: np.ndarray
