@@ -120,4 +120,4 @@ class ConfigBaseModel(BaseModel):
         for name in dir(type(instance)):
             attr = getattr(type(instance), name, None)
             if isinstance(attr, cached_property):
-                instance.__dict__.pop(name, None)
+                vars(instance).pop(name, None)
