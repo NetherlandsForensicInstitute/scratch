@@ -29,7 +29,6 @@ class TestExportedMarkData:
         data = ExportedMarkData.model_validate(
             dict(
                 mark_type="BREECH_FACE_IMPRESSION",
-                center=(100.0, 200.0),
                 scale_x=1.5 * micro,
                 scale_y=1.5 * micro,
                 meta_data={"key": "value"},
@@ -37,7 +36,6 @@ class TestExportedMarkData:
         )
 
         assert data.mark_type == MarkImpressionType.BREECH_FACE_IMPRESSION
-        assert data.center == (100.0, 200.0)
         assert data.scale_x == 1.5 * micro
         assert data.scale_y == 1.5 * micro
         assert data.meta_data == {"key": "value"}
@@ -47,7 +45,6 @@ class TestExportedMarkData:
         data = ExportedMarkData.model_validate(
             dict(
                 mark_type="chamber_impression",
-                center=(0.0, 0.0),
                 scale_x=1.0,
                 scale_y=1.0,
             )
@@ -61,7 +58,6 @@ class TestExportedMarkData:
             ExportedMarkData.model_validate(
                 dict(
                     mark_type="INVALID_TYPE",
-                    center=(0.0, 0.0),
                     scale_x=1.0,
                     scale_y=1.0,
                 )
@@ -75,7 +71,6 @@ class TestExportedMarkData:
                     mark_type="BREECH_FACE_IMPRESSION",
                     scale_x=0.0,
                     scale_y=0.0,
-                    center=(1.0, 1.0),
                 )
             )
 
@@ -84,7 +79,6 @@ class TestExportedMarkData:
         data = ExportedMarkData.model_validate(
             dict(
                 mark_type="EJECTOR_IMPRESSION",
-                center=(50.0, 50.0),
                 scale_x=2 * micro,
                 scale_y=2 * micro,
             )
@@ -138,7 +132,6 @@ class TestSaveAndLoadMark:
             data = json.load(f)
 
         assert "mark_type" in data
-        assert "center" in data
         assert "scale_x" in data
         assert "scale_y" in data
         assert "meta_data" in data
@@ -153,14 +146,12 @@ class TestSaveAndLoadMark:
             scan_image=scan_image,
             mark_type=MarkImpressionType.EXTRACTOR_IMPRESSION,
             meta_data={"original": "data"},
-            center=(123.4, 567.8),
         )
 
         save_mark(original_mark, tmp_path / "test_mark")
         loaded_mark = load_mark_from_path(tmp_path, "test_mark")
 
         assert loaded_mark.mark_type == original_mark.mark_type
-        assert loaded_mark.center == original_mark.center
         assert loaded_mark.meta_data == original_mark.meta_data
         assert loaded_mark.scan_image.scale_x == original_mark.scan_image.scale_x
         assert loaded_mark.scan_image.scale_y == original_mark.scan_image.scale_y
@@ -180,22 +171,6 @@ class TestSaveAndLoadMark:
         np.testing.assert_array_equal(
             loaded_mark.scan_image.data, original_mark.scan_image.data
         )
-
-    def test_load_mark_computed_center(
-        self, tmp_path: PosixPath, scan_image: ScanImage
-    ):
-        """Test loading mark with computed (not explicit) center."""
-        original_mark = Mark(
-            scan_image=scan_image,
-            mark_type=MarkStriationType.EJECTOR_STRIATION,
-        )
-        # Don't set explicit center - should compute from image dimensions
-
-        save_mark(original_mark, tmp_path / "test_mark")
-        loaded_mark = load_mark_from_path(tmp_path, "test_mark")
-
-        expected_center = (scan_image.height / 2, scan_image.width / 2)
-        assert loaded_mark.center == expected_center
 
     def test_load_mark_missing_json(self, tmp_path: PosixPath):
         """Test that loading raises FileNotFoundError when JSON is missing."""

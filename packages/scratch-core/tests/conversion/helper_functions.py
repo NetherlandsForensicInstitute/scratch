@@ -90,10 +90,9 @@ def make_mark(
         return Mark(
             scan_image=scan_image,
             mark_type=mark_type,
-            center=center,
             meta_data=meta_data,
         )
-    return Mark(scan_image=scan_image, mark_type=mark_type, center=center)
+    return Mark(scan_image=scan_image, mark_type=mark_type)
 
 
 def assert_plot_is_valid_image(fig: Figure, tmp_path: Path) -> None:

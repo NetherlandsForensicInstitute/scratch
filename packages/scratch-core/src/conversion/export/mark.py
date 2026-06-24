@@ -45,7 +45,6 @@ class ExportedMarkData(ConfigBaseModel):
     """Validated data structure for exported Mark metadata."""
 
     mark_type: Annotated[MarkType, BeforeValidator(_parse_mark_type)]
-    center: tuple[float, float]
     scale_x: float = Field(..., gt=0)
     scale_y: float = Field(..., gt=0)
     meta_data: dict[str, Any] = Field(default_factory=dict)
@@ -116,7 +115,6 @@ def load_mark_from_path(path: Path, stem: str) -> Mark:
         ),
         mark_type=meta.mark_type,
         meta_data=meta.meta_data,
-        center=meta.center,
     )
 
     return mark
