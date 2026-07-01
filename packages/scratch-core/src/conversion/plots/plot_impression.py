@@ -391,6 +391,42 @@ def plot_comparison_overview(
     return arr
 
 
+def _robust_color_limits(
+    data: FloatArray2D,
+    k: float = 3.0,
+) -> tuple[float, float]:
+    """
+    Compute color scale limits that exclude outliers via robust sigma clipping.
+
+    Uses median ± k * (1.4826 * MAD) rather than mean ± k*std. The MAD
+    (median absolute deviation) is not inflated by extreme outliers the way
+    the ordinary standard deviation is, so a heavy-tailed surface (a few very
+    deep/high pixels) still yields a tight, high-contrast clip. The 1.4826
+    factor rescales MAD to match std for normally distributed data, so `k`
+    keeps its usual "~k sigma" meaning. The bound is symmetric about the
+    median by construction, even when the data is skewed.
+
+    :param data: Surface data (may contain NaNs for masked/invalid pixels).
+    :param k: Number of (robust) standard deviations to clip at.
+    :return: (vmin, vmax) tuple in the same units as `data`.
+    """
+    finite = data[np.isfinite(data)]
+    if finite.size == 0:
+        return 0.0, 1.0
+
+    center = float(np.median(finite))
+    mad = float(np.median(np.abs(finite - center)))
+
+    if mad > 0.0:
+        scale = 1.4826 * mad
+    else:
+        # MAD degenerate (e.g. >50% identical values); fall back to std.
+        scale = float(np.std(finite))
+        if scale == 0.0:
+            return center - 1.0, center + 1.0
+
+    return center - k * scale, center + k * scale
+
 def _draw_cell_labels(
     ax: Axes,
     cells: Sequence[Cell],
@@ -403,6 +439,8 @@ def _draw_cell_labels(
 
     CMC cells (above threshold) are drawn in black, non-CMC cells in red.
     CMC cells are drawn first so red outlines are not hidden by adjacent borders.
+    In "comparison" space, labels are rotated to match the cell's angle_deg
+    so the text orientation follows the (possibly rotated) cell.
 
     :param ax: Matplotlib axes to draw on.
     :param cells: cells to draw
@@ -434,14 +472,16 @@ def _draw_cell_labels(
                 cx = cell.center_reference[0] * 1e6
                 cy = cell.center_reference[1] * 1e6
                 corners = base_corners.copy()
+                text_rotation = 0.0
             else:
                 # Matched position with the per-cell rotation applied.
                 cx = cell.center_comparison[0] * 1e6
                 cy = cell.center_comparison[1] * 1e6
-                angle = np.deg2rad(cell.angle_deg)
+                angle = np.deg2rad(-cell.angle_deg)
                 cos_a, sin_a = np.cos(angle), np.sin(angle)
                 rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
                 corners = base_corners @ rot.T
+                text_rotation = -cell.angle_deg
 
             corners = corners.copy()
             corners[:, 0] += cx
@@ -457,9 +497,11 @@ def _draw_cell_labels(
                 f"{cell_label_prefix}{idx}",
                 ha="center",
                 va="center",
-                fontsize=8,
+                fontsize=11,  # was 8
                 color=color,
                 fontweight="bold",
+                rotation=text_rotation,
+                rotation_mode="anchor",
             )
 
 
@@ -471,6 +513,7 @@ def plot_cell_overlay_on_axes(
     cell_label_prefix: str = "A",
     show_all_cells: bool = True,
     space: Literal["reference", "comparison"] = "comparison",
+    color_sigma: float = 3.0,
 ) -> AxesImage:
     """
     Plot surface with cell grid overlay on given axes.
@@ -479,11 +522,9 @@ def plot_cell_overlay_on_axes(
     threshold (CMC cells) are drawn with black outlines and labels, while
     cells below the threshold are drawn with red outlines and labels.
 
-    When ``cell_positions`` is provided, each cell is drawn as a (possibly
-    rotated) rectangle at the given position instead of at a regular grid
-    location. This is used for the compared surface where cells appear at
-    their matched positions (``Cell(i).vPos2`` / ``Cell(i).angle2`` in
-    MATLAB).
+    Color scaling clips to mean ± color_sigma*std of the data, so a few
+    extreme outlier pixels don't blow out the contrast for the rest of the
+    surface.
 
     :param ax: Matplotlib axes to plot on.
     :param data: Surface data in meters.
@@ -496,16 +537,24 @@ def plot_cell_overlay_on_axes(
         rotation — use for the reference surface. ``"comparison"`` draws each
         cell at its matched, rotated position (``center_comparison`` /
         ``angle_deg``) — use for the moved compared surface.
+    :param color_sigma: Number of standard deviations to clip the color
+        scale at, centered on the mean. Defaults to 3.0.
     """
     height, width = data.shape
 
     extent = (0, width * scale * mega, 0, height * scale * mega)
+
+    data_um = data * mega
+    vmin, vmax = _robust_color_limits(data_um, k=color_sigma)
+
     im = ax.imshow(
-        data * mega,
+        data_um,
         cmap=DEFAULT_COLORMAP,
         aspect="equal",
         origin="lower",
         extent=extent,
+        vmin=vmin,
+        vmax=vmax,
     )
 
     _draw_cell_labels(
@@ -521,7 +570,6 @@ def plot_cell_overlay_on_axes(
     ax.tick_params(labelsize=10)
 
     return im
-
 
 def _plot_cell_heatmap_on_axes(
     ax: Axes,
