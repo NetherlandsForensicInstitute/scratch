@@ -84,10 +84,10 @@ clean: (log "Delete all dirty files" "red")
 # Build an executable for the REST API
 build: (log "\nBuilding the REST API to an executable" "blue")
     uv run pyinstaller --onefile src/main.py --clean \
-    --hidden-import=numpy \
-    --hidden-import=numpy.core \
-    --hidden-import=numpy.core._methods \
-    --hidden-import=numpy.core._dtype_ctypes \
+    --collect-submodules=numpy \
+    --collect-submodules=scipy \
+    --collect-submodules=skimage \
+    --collect-submodules=cv2 \
     --collect-submodules=surfalize
 
 # Start API development server
