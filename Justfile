@@ -88,6 +88,7 @@ build: (log "\nBuilding the REST API to an executable" "blue")
     --collect-submodules=scipy \
     --collect-submodules=skimage \
     --collect-submodules=cv2 \
+    --collect-submodules=PIL \
     --collect-submodules=surfalize
 
 # Start API development server
