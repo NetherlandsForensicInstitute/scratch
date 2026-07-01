@@ -85,11 +85,11 @@ clean: (log "Delete all dirty files" "red")
 build: (log "\nBuilding the REST API to an executable" "blue")
     uv run pyinstaller --onefile src/main.py --clean \
     --collect-submodules=numpy \
-    --collect-submodules=scipy \
     --collect-submodules=skimage \
-    --collect-submodules=cv2 \
     --collect-submodules=PIL \
-    --collect-submodules=surfalize
+    --collect-submodules=surfalize \
+    --collect-all=cv2 \
+    --collect-all=scipy
 
 # Start API development server
 api: (log "Starting FastAPI development server")
