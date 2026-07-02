@@ -24,7 +24,7 @@ from routers import prefix_router
 from settings import get_settings
 
 cv2.setNumThreads(1)
-threadpool_limits(limits=2, user_api="blas")
+_thread_limiter = threadpool_limits(limits=2, user_api="blas")
 
 # env vars kunnen ook weg als threadpoolctl het overneemt
 _PARSE_EXCEPTIONS = (json.JSONDecodeError, ValidationError, ValueError, KeyError)

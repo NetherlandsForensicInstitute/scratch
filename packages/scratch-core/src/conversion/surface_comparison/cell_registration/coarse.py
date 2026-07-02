@@ -81,8 +81,10 @@ def match_cells(
         pad_size=(pad_width, pad_height),
     )
     # Execute parallel search
-    with ThreadPoolExecutor(max_workers=N_THREADS) as executor:
-        list(executor.map(_process_chunk, chunks))
+    # with ThreadPoolExecutor(max_workers=N_THREADS) as executor:
+    #     list(executor.map(_process_chunk, chunks))
+    for chunk in chunks:
+        _process_chunk(chunk)
 
     return [
         convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
