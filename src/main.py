@@ -3,6 +3,11 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import os
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
 import json
 import shutil
 from contextlib import asynccontextmanager
