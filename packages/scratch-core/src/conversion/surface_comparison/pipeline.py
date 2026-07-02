@@ -19,6 +19,7 @@ from conversion.surface_comparison.models import (
 
 logger = logging.getLogger(__name__)
 
+
 def compare_surfaces(
     reference_mark: ProcessedMark,
     comparison_mark: ProcessedMark,
