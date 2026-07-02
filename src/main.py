@@ -4,9 +4,11 @@ import matplotlib
 matplotlib.use("Agg")
 
 import os
+from os import cpu_count
 
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
+blas_threads = max(1, (cpu_count() or 4) // 4)
+os.environ["OMP_NUM_THREADS"] = str(blas_threads)
+os.environ["OPENBLAS_NUM_THREADS"] = str(blas_threads)
 
 import json
 import shutil
