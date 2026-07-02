@@ -84,10 +84,11 @@ clean: (log "Delete all dirty files" "red")
 # Build an executable for the REST API
 build: (log "\nBuilding the REST API to an executable" "blue")
     uv run pyinstaller --onefile src/main.py --clean --debug all \
-    --collect-submodules=skimage \
+    --collect-all=skimage \
     --collect-submodules=PIL \
     --collect-submodules=surfalize \
     --collect-all=numpy \
+    --copy-metadata=opencv-python \
     --collect-all=cv2 \
     --collect-all=scipy
 
