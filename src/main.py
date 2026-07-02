@@ -1,4 +1,5 @@
 # for Windows compatibility
+# ruff: noqa: E402
 import matplotlib
 
 matplotlib.use("Agg")
