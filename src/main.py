@@ -7,9 +7,12 @@ matplotlib.use("Agg")
 import os
 from os import cpu_count
 
+import cv2
+
 blas_threads = max(1, (cpu_count() or 4) // 4)
 os.environ["OMP_NUM_THREADS"] = str(blas_threads)
 os.environ["OPENBLAS_NUM_THREADS"] = str(blas_threads)
+cv2.setNumThreads(1)
 
 import json
 import shutil
@@ -39,7 +42,7 @@ async def _lifespan(_: FastAPI):
     This context manager configures the application with settings and
     manages the storage directory lifecycle.
     """
-    setup_logging(LogLevel.INFO)  # TODO: We can move this config of loglevel to env
+    setup_logging(LogLevel.DEBUG)  # TODO: We can move this config of loglevel to env
     settings = get_settings()
     settings.log_startup_config()
 
@@ -99,4 +102,7 @@ for exc_type in _PARSE_EXCEPTIONS:
 if __name__ == "__main__":
     settings = get_settings()
     logger.info("Starting server...")
+    import numpy as np
+
+    logger.debug(f"NumPy BLAS: {np.show_config()}")
     run(app, host=settings.api_host, port=settings.api_port, reload=False, workers=1)
