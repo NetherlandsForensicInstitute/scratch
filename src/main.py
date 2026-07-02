@@ -4,25 +4,17 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-import os
-from os import cpu_count
-
-import cv2
-
-blas_threads = max(1, (cpu_count() or 4) // 4)
-os.environ["OMP_NUM_THREADS"] = str(blas_threads)
-os.environ["OPENBLAS_NUM_THREADS"] = str(blas_threads)
-cv2.setNumThreads(1)
-
 import json
 import shutil
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 
+import cv2
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import ValidationError
+from threadpoolctl import threadpool_limits
 from uvicorn import run
 
 from constants import LogLevel
@@ -31,6 +23,10 @@ from preprocessors.exceptions import ArrayShapeMismatchError
 from routers import prefix_router
 from settings import get_settings
 
+cv2.setNumThreads(1)
+threadpool_limits(limits=2, user_api="blas")
+
+# env vars kunnen ook weg als threadpoolctl het overneemt
 _PARSE_EXCEPTIONS = (json.JSONDecodeError, ValidationError, ValueError, KeyError)
 
 
@@ -97,7 +93,6 @@ async def parse_exception_handler(request: Request, exc: Exception) -> JSONRespo
 
 for exc_type in _PARSE_EXCEPTIONS:
     app.add_exception_handler(exc_type, parse_exception_handler)
-
 
 if __name__ == "__main__":
     settings = get_settings()
