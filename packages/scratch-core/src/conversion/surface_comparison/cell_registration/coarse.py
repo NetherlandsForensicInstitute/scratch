@@ -11,7 +11,6 @@ from conversion.surface_comparison.cell_registration.utils import (
     pad_image_array,
 )
 
-from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from os import cpu_count
 from threading import Lock
