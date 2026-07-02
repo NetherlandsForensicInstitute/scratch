@@ -83,7 +83,7 @@ clean: (log "Delete all dirty files" "red")
 
 # Build an executable for the REST API
 build: (log "\nBuilding the REST API to an executable" "blue")
-    uv run pyinstaller --onefile src/main.py --clean \
+    uv run pyinstaller --onefile src/main.py --clean --debug all \
     --collect-submodules=numpy \
     --collect-submodules=skimage \
     --collect-submodules=PIL \

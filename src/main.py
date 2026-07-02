@@ -1,3 +1,7 @@
+# for Windows compatibility
+import matplotlib
+matplotlib.use("Agg")
+
 import json
 import shutil
 from contextlib import asynccontextmanager
