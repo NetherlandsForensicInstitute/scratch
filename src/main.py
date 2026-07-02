@@ -1,5 +1,6 @@
 # for Windows compatibility
 import matplotlib
+
 matplotlib.use("Agg")
 
 import json
