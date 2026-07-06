@@ -9,7 +9,6 @@ import shutil
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 
-import cv2
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
