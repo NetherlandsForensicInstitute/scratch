@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from container_models.base import BinaryMask, FloatArray2D, FloatArray1D
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.models import (
@@ -80,10 +82,8 @@ def match_cells(
         pad_size=(pad_width, pad_height),
     )
     # Execute parallel search
-    # with ThreadPoolExecutor(max_workers=N_THREADS) as executor:
-    #     list(executor.map(_process_chunk, chunks))
-    for chunk in chunks:
-        _process_chunk(chunk)
+    with ThreadPoolExecutor(max_workers=N_THREADS) as executor:
+        list(executor.map(_process_chunk, chunks))
 
     return [
         convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
