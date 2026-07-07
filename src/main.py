@@ -1,5 +1,6 @@
 # for Windows compatibility
 # ruff: noqa: E402
+import cv2
 import matplotlib
 
 matplotlib.use("Agg")
@@ -22,7 +23,7 @@ from preprocessors.exceptions import ArrayShapeMismatchError
 from routers import prefix_router
 from settings import get_settings
 
-# cv2.setNumThreads(1)
+cv2.setNumThreads(1)
 _thread_limiter = threadpool_limits(limits=1, user_api="blas")
 
 # env vars kunnen ook weg als threadpoolctl het overneemt
