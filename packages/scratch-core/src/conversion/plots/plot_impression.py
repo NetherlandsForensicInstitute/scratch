@@ -410,7 +410,9 @@ def _draw_cell_labels(
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
     :param space: ``"reference"`` draws cells at their grid positions
         (``center_reference``, no rotation); ``"comparison"`` draws them at
-        their matched positions (``center_comparison`` / ``angle_deg``).
+        their matched positions (``center_comparison`` / ``angle_deg``,
+        counter-clockwise positive, standard math/plot convention with
+        y-axis increasing upward).
     """
     cmc_cells: list[tuple[int, Cell]] = []
     non_cmc_cells: list[tuple[int, Cell]] = []
@@ -431,24 +433,26 @@ def _draw_cell_labels(
         for idx, cell in labeled_cells:
             if space == "reference":
                 # Regular grid position, axis-aligned (no rotation).
+                # convert m -> µm to match cell_size_um
                 cx = cell.center_reference[0] * 1e6
                 cy = cell.center_reference[1] * 1e6
-                corners = base_corners.copy()
+                corners_rotated = base_corners.copy()
             else:
                 # Matched position with the per-cell rotation applied.
+                # convert m -> µm to match cell_size_um
                 cx = cell.center_comparison[0] * 1e6
                 cy = cell.center_comparison[1] * 1e6
                 angle = np.deg2rad(cell.angle_deg)
                 cos_a, sin_a = np.cos(angle), np.sin(angle)
+                # Counter-clockwise rotation matrix (standard math convention,
+                # positive angle_deg = CCW when y-axis increases upward).
                 rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-                corners = base_corners @ rot.T
+                corners_rotated = base_corners @ rot.T
 
-            corners = corners.copy()
-            corners[:, 0] += cx
-            corners[:, 1] += cy
+            corners_translated = corners_rotated + [cx, cy]
 
-            xs = np.append(corners[:, 0], corners[0, 0])
-            ys = np.append(corners[:, 1], corners[0, 1])
+            xs = np.append(corners_translated[:, 0], corners_translated[0, 0])
+            ys = np.append(corners_translated[:, 1], corners_translated[0, 1])
             ax.plot(xs, ys, color=color, linestyle="-", linewidth=1.0)
 
             ax.text(
