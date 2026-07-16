@@ -1,4 +1,3 @@
-# for Windows compatibility
 # ruff: noqa: E402
 import cv2
 import matplotlib
@@ -23,10 +22,12 @@ from preprocessors.exceptions import ArrayShapeMismatchError
 from routers import prefix_router
 from settings import get_settings
 
+# Windows uses spawn, not fork: OpenCV and BLAS each reinit their own thread
+# pool per-thread, and under ThreadPoolExecutor these race and corrupt memory.
+# Not needed on Linux, where fork shares already-initialized state.
 cv2.setNumThreads(1)
 _thread_limiter = threadpool_limits(limits=1, user_api="blas")
 
-# env vars kunnen ook weg als threadpoolctl het overneemt
 _PARSE_EXCEPTIONS = (json.JSONDecodeError, ValidationError, ValueError, KeyError)
 
 
@@ -97,7 +98,4 @@ for exc_type in _PARSE_EXCEPTIONS:
 if __name__ == "__main__":
     settings = get_settings()
     logger.info("Starting server...")
-    import numpy as np
-
-    logger.debug(f"NumPy BLAS: {np.show_config()}")
     run(app, host=settings.api_host, port=settings.api_port, reload=False, workers=1)

@@ -1,18 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor
-
-from container_models.base import BinaryMask, FloatArray2D, FloatArray1D
-from container_models.scan_image import ScanImage
-from conversion.surface_comparison.models import (
-    ComparisonParams,
-    Cell,
-    GridCell,
-)
-from conversion.surface_comparison.utils import rotate_points
-from conversion.surface_comparison.cell_registration.utils import (
-    convert_grid_cell_to_cell,
-    pad_image_array,
-)
-
 from functools import partial
 from os import cpu_count
 from threading import Lock
@@ -20,6 +6,19 @@ from threading import Lock
 import cv2
 import numpy as np
 from skimage.transform import rotate
+
+from container_models.base import BinaryMask, FloatArray2D, FloatArray1D
+from container_models.scan_image import ScanImage
+from conversion.surface_comparison.cell_registration.utils import (
+    convert_grid_cell_to_cell,
+    pad_image_array,
+)
+from conversion.surface_comparison.models import (
+    ComparisonParams,
+    Cell,
+    GridCell,
+)
+from conversion.surface_comparison.utils import rotate_points
 
 N_THREADS = cpu_count() or 1
 
