@@ -1,5 +1,4 @@
-import logging
-
+from loguru import logger
 from conversion.resample import resample_scan_image_and_mask
 
 
@@ -17,7 +16,6 @@ from conversion.surface_comparison.models import (
     ProcessedMark,
 )
 
-logger = logging.getLogger(__name__)
 
 
 def compare_surfaces(
