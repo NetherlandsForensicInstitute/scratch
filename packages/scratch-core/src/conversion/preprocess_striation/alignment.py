@@ -178,9 +178,8 @@ def _detect_striation_angle(
     )
 
     # Calculate gradient and extract tilt angles
-    fy = np.gradient(smoothed, axis=0)
-    fx = np.gradient(smoothed, axis=1)
-    angles = _compute_tilt_angles_from_gradient(fx, fy)
+    fy, fx = np.gradient(smoothed)
+    angles = _compute_tilt_angles_from_gradient(np.asarray(fx), np.asarray(fy))
 
     # Filter outliers: keep only angles within expected range for fine alignment
     angles = angles[np.abs(angles) < np.radians(_MAX_GRADIENT_ANGLE_DEG)]
