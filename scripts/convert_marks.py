@@ -1,31 +1,25 @@
 """
-Convert MATLAB result folders to Python by calling the preprocessor API.
+Fetch marks from the preprocessor API using already-converted x3p files.
 
-Walks a nested folder structure, converts x3p files, extracts crop and
-preprocessing parameters from .mat files, and calls the local preprocessor
-API to regenerate marks.
+Expects that convert_x3ps.py has already been run, so that converted
+measurement.x3p and .shape sidecar files exist in the output directory.
 """
 
 import argparse
-import contextlib
 import io
 import json
 import logging
-import os
-import uuid
-from collections.abc import Iterator
-from datetime import datetime
+import queue
+import threading
 from pathlib import Path
 
 import numpy as np
 import requests
-from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkImpressionType
-from parsers import convert_to_x3p
 from tqdm import tqdm
 
-from scripts.conversion_utils import ConversionConfig, run_parallel
-from scripts.http_utils import _post_with_retry
+from scripts.conversion_utils import ConversionConfig, find_mark_folders, load_shape, run_parallel
+from scripts.http_utils import _cleanup_vault, _post_with_retry
 from scripts.matlab_utils import (
     extract_impression_params,
     extract_mark_type,
@@ -38,99 +32,63 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
-    """Load an X3P from path, parse it, and write the result."""
-    scan = ScanImage.from_file(input_path)
-    x3p = convert_to_x3p(scan)
+def _resolve_converted_x3ps(
+    marks: list[tuple[Path, Path]],
+    cfg: ConversionConfig,
+) -> dict[Path, tuple[Path, tuple[int, int]]]:
+    """Build a mapping from measurement folder to (converted x3p path, shape).
 
-    tmp = output_path.with_stem(f".{uuid.uuid4().hex}.tmp")
-    try:
-        x3p.write(str(tmp))
-        os.replace(tmp, output_path)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            tmp.unlink()
-        raise
-
-    return scan.width, scan.height
-
-
-def _save_shape(path: Path, shape: tuple[int, int]) -> None:
-    path.with_suffix(".shape").write_text(f"{shape[0]},{shape[1]}")
-
-
-def _load_shape(path: Path) -> tuple[int, int] | None:
-    shape_file = path.with_suffix(".shape")
-    if shape_file.exists():
-        x, y = shape_file.read_text().strip().split(",")
-        return int(x), int(y)
-    return None
-
-
-def find_mark_folders(root: Path) -> Iterator[tuple[Path, Path]]:
-    """Yield (measurement_folder, mark_folder) pairs found under root."""
-    for mark_mat in root.rglob("mark.mat"):
-        mf = mark_mat.parent
-        if (mf.parent / "measurement.x3p").exists():
-            yield mf.parent, mf
-
-
-def copy_db_scratch_files(root: Path, output_dir: Path) -> int:
-    """Copy all db.scratch files to output_dir, appending a conversion timestamp."""
-    db_files = list(root.rglob("db.scratch"))
-    for db_file in tqdm(db_files, desc="Copying db.scratch", unit=" files"):
-        out = output_dir / db_file.relative_to(root)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(db_file.read_text() + f"\nCONVERTED_DATE={datetime.now().isoformat()}\n")
-    return len(db_files)
-
-
-def convert_measurement_x3p(measurement_folder: Path, cfg: ConversionConfig) -> tuple[Path, tuple[int, int]]:
-    """Convert a measurement.x3p and generate preview/surface_map images.
-
-    :returns: (path to converted x3p, (size_x, size_y) pixel dimensions).
+    Raises if a required .shape sidecar is missing (run convert_x3ps.py first).
     """
-    original = measurement_folder / "measurement.x3p"
-    output_x3p = cfg.output_dir / measurement_folder.relative_to(cfg.root) / "measurement.x3p"
+    converted: dict[Path, tuple[Path, tuple[int, int]]] = {}
+    for meas_folder, _ in marks:
+        if meas_folder in converted:
+            continue
+        output_x3p = cfg.output_dir / meas_folder.relative_to(cfg.root) / "measurement.x3p"
+        if not output_x3p.exists():
+            raise FileNotFoundError(f"Converted x3p not found: {output_x3p}. Run convert_x3ps.py first.")
+        shape = load_shape(output_x3p)
+        if shape is None:
+            raise FileNotFoundError(f"Shape sidecar not found for {output_x3p}. Run convert_x3ps.py first.")
+        converted[meas_folder] = (output_x3p, shape)
+    return converted
 
-    if output_x3p.exists() and not cfg.force:
-        shape = _load_shape(output_x3p)
-        if shape is not None:
-            return output_x3p, shape
-        logger.warning("Missing shape file for %s, reconverting", output_x3p)
 
-    output_x3p.parent.mkdir(parents=True, exist_ok=True)
+def _download_result_files(result: dict[str, object], session: requests.Session) -> dict[str, bytes]:
+    """Download all file URLs from an API result dict.
 
-    shape = convert_x3p(original, output_x3p)
-    _save_shape(output_x3p, shape)
-
-    result = _post_with_retry(f"{cfg.api_url}/preprocessor/process-scan", {"scan_file": str(output_x3p)})
-    for key in ("preview", "surface_map"):
-        if key in result:
-            url = result[key]
-            resp = requests.get(url, timeout=60)
+    Uses the provided session for connection reuse. Cleans up vault entries
+    even if a download fails partway through.
+    """
+    try:
+        downloaded = {}
+        for url in result.values():
+            if not isinstance(url, str) or not url.startswith("http"):
+                continue
+            filename = url.rsplit("/", 1)[-1]
+            resp = session.get(url, timeout=60)
             resp.raise_for_status()
-            (output_x3p.parent / url.rsplit("/", 1)[-1]).write_bytes(resp.content)
+            downloaded[filename] = resp.content
+        return downloaded
+    finally:
+        _cleanup_vault(result)
 
-    return output_x3p, shape
 
-
-def convert_mark(
+def fetch_mark(
     mark_folder: Path,
     converted_x3p: Path,
     shape: tuple[int, int],
     cfg: ConversionConfig,
-) -> None:
-    """Process a single mark: extract params, call API, download results.
+    session: requests.Session,
+) -> tuple[Path, dict[str, bytes]] | None:
+    """Call the API and download results into memory.
 
-    Reads crop info and preprocessing parameters from mark.mat, builds the
-    API request as multipart form + file upload, and downloads the resulting
-    files into the output directory.
+    Returns None when the mark was already converted and --force is not set.
     """
     mark_dir = cfg.output_dir / mark_folder.relative_to(cfg.root)
 
     if (mark_dir / "mark.json").exists() and not cfg.force:
-        return
+        return None
 
     struct = load_mat_struct(mark_folder / "mark.mat")
     mark_type = extract_mark_type(struct)
@@ -157,37 +115,95 @@ def convert_mark(
         files={"mask_data": ("mask.bin", io.BytesIO(mask_bytes), "application/octet-stream")},
     )
 
+    downloaded = _download_result_files(result, session)
+    return mark_folder, downloaded
+
+
+def _write_mark(mark_folder: Path, files: dict[str, bytes], cfg: ConversionConfig) -> None:
+    """Write fetched mark data to disk (called from the single writer thread)."""
+    mark_dir = cfg.output_dir / mark_folder.relative_to(cfg.root)
     mark_dir.mkdir(parents=True, exist_ok=True)
-
-    for url in result.values():
-        if not isinstance(url, str) or not url.startswith("http"):
-            continue
-        filename = url.rsplit("/", 1)[-1]
-        resp = requests.get(url, timeout=60)
-        resp.raise_for_status()
-        (mark_dir / filename).write_bytes(resp.content)
+    for filename, content in files.items():
+        (mark_dir / filename).write_bytes(content)
 
 
-def flatten_processed_folders(output_dir: Path) -> None:
-    """Move db.scratch from processed/ subfolders and remove the subfolder."""
-    for processed_dir in output_dir.rglob("processed"):
-        if not processed_dir.is_dir():
-            continue
-        parent = processed_dir.parent
-        contents = list(processed_dir.iterdir())
-        unexpected = [f.name for f in contents if f.name != "db.scratch"]
-        if unexpected:
-            raise RuntimeError(f"Unexpected files in {processed_dir}: {unexpected}")
-        for f in contents:
-            f.rename(parent / "db_processed.scratch")
-        processed_dir.rmdir()
+def _disk_writer(
+    result_queue: queue.Queue[tuple[Path, dict[str, bytes]] | None],
+    cfg: ConversionConfig,
+    progress: tqdm,
+) -> None:
+    """Single-threaded consumer that serialises all disk writes."""
+    while True:
+        item = result_queue.get()
+        if item is None:
+            break
+        mark_folder, files = item
+        _write_mark(mark_folder, files, cfg)
+        progress.update(1)
+
+
+def _fetch_and_enqueue(
+    result_queue: queue.Queue[tuple[Path, dict[str, bytes]] | None],
+    progress: tqdm,
+    mark_folder: Path,
+    converted_x3p: Path,
+    shape: tuple[int, int],
+    cfg: ConversionConfig,
+    session: requests.Session,
+) -> None:
+    """
+    Fetch a mark and put the result on the write queue.
+
+    Logs and continues on failure so that one bad mark doesn't abort the batch.
+    Always updates *progress* so the bar reflects skipped and failed marks too.
+    """
+    try:
+        mark_result = fetch_mark(mark_folder, converted_x3p, shape, cfg, session)
+        if mark_result is not None:
+            result_queue.put(mark_result)
+        else:
+            progress.update(1)
+    except Exception:
+        logger.exception("Failed to fetch mark %s", mark_folder)
+        progress.update(1)
+
+
+def convert_marks_parallel(
+    marks: list[tuple[Path, Path]],
+    converted_x3ps: dict[Path, tuple[Path, tuple[int, int]]],
+    cfg: ConversionConfig,
+    workers: int,
+) -> None:
+    """Fetch marks in parallel, write results sequentially via a single writer thread."""
+    write_queue = queue.Queue(maxsize=workers * 2)
+
+    progress = tqdm(total=len(marks), desc="Converting marks", unit=" marks")
+    writer = threading.Thread(target=_disk_writer, args=(write_queue, cfg, progress), daemon=True)
+    writer.start()
+
+    session = requests.Session()
+    try:
+        run_parallel(
+            (
+                (mf, _fetch_and_enqueue, (write_queue, progress, mf, *converted_x3ps[meas], cfg, session))
+                for meas, mf in marks
+            ),
+            workers,
+            "Fetching marks",
+            " marks",
+        )
+    finally:
+        write_queue.put(None)
+        writer.join()
+        progress.close()
+        session.close()
 
 
 def main() -> None:
-    """Entry point: parse args and run the conversion pipeline."""
-    parser = argparse.ArgumentParser(description="Convert MATLAB results via Python API")
-    parser.add_argument("root", type=Path, help="Root folder to search")
-    parser.add_argument("output", type=Path, help="Output folder (mirrors input structure)")
+    """Entry point: fetch all marks using previously converted x3p files."""
+    parser = argparse.ArgumentParser(description="Fetch marks via the preprocessor API")
+    parser.add_argument("root", type=Path, help="Root folder to search (original MATLAB results)")
+    parser.add_argument("output", type=Path, help="Output folder (must contain converted x3ps)")
     parser.add_argument("--api-url", default="http://localhost:8000", help="Preprocessor API base URL")
     parser.add_argument("--workers", type=int, default=1, help="Number of parallel workers")
     parser.add_argument("--force", action="store_true", help="Reconvert even if output exists")
@@ -195,32 +211,21 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = ConversionConfig(root=args.root, output_dir=args.output, api_url=args.api_url, force=args.force)
-    cfg.output_dir.mkdir(parents=True, exist_ok=True)
-    copy_db_scratch_files(cfg.root, cfg.output_dir)
+
+    if not cfg.output_dir.exists():
+        raise FileNotFoundError(f"Output directory {cfg.output_dir} does not exist. Run convert_x3ps.py first.")
 
     marks = list(tqdm(find_mark_folders(cfg.root), desc="Scanning", unit=" marks"))
     if args.limit:
         marks = marks[: args.limit]
     logger.info(f"Found {len(marks)} marks")
 
-    unique_measurements = list({mf for mf, _ in marks})
-    converted_x3ps = run_parallel(
-        ((mf, convert_measurement_x3p, (mf, cfg)) for mf in unique_measurements),
-        args.workers,
-        "Converting x3p",
-        " files",
-    )
+    converted_x3ps = _resolve_converted_x3ps(marks, cfg)
+    logger.info(f"Resolved {len(converted_x3ps)} converted x3p files")
 
-    run_parallel(
-        ((mf, convert_mark, (mf, *converted_x3ps[meas], cfg)) for meas, mf in marks),
-        args.workers,
-        "Converting marks",
-        " marks",
-    )
+    convert_marks_parallel(marks, converted_x3ps, cfg, args.workers)
 
-    flatten_processed_folders(cfg.output_dir)
-
-    logger.info(f"Done: {len(marks)} marks, {len(converted_x3ps)} x3p files")
+    logger.info(f"Done: {len(marks)} marks processed")
 
 
 if __name__ == "__main__":

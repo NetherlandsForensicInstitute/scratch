@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conversion.data_formats import MarkMetadata
@@ -22,7 +23,7 @@ def metadata_compared() -> MarkMetadata:
 
 
 @pytest.fixture
-def base_kwargs(metadata_reference: MarkMetadata, metadata_compared: MarkMetadata) -> dict:
+def base_kwargs(metadata_reference: MarkMetadata, metadata_compared: MarkMetadata) -> dict[str, Any]:
     """Return the common kwargs required by all CalculateLR schemas."""
     return {
         "user_id": "AAAAA",
@@ -36,8 +37,8 @@ def base_kwargs(metadata_reference: MarkMetadata, metadata_compared: MarkMetadat
 def striation_kwargs(
     striation_lr_system_path: Path,
     mark_dirs: tuple[Path, Path],
-    base_kwargs: dict,
-) -> dict:
+    base_kwargs: dict[str, Any],
+) -> dict[str, Any]:
     mark_dir_ref, mark_dir_comp = mark_dirs
     return {
         "mark_dir_ref": mark_dir_ref,
@@ -54,8 +55,8 @@ def striation_kwargs(
 def impression_kwargs(
     impression_lr_system_path: Path,
     mark_dirs: tuple[Path, Path],
-    base_kwargs: dict,
-) -> dict:
+    base_kwargs: dict[str, Any],
+) -> dict[str, Any]:
     mark_dir_ref, mark_dir_comp = mark_dirs
     return {
         "mark_dir_ref": mark_dir_ref,

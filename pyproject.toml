@@ -28,6 +28,8 @@ dependencies = [
   "scikit-image>=0.25.2",
   "pillow>=12.0.0",
   "opencv-python>=4.13.0.92",
+  "matplotlib>=3.10.7",
+  "threadpoolctl>=3.6.0",
 ]
 
 # https://docs.astral.sh/uv/concepts/projects/workspaces/
@@ -98,6 +100,9 @@ ignore-decorators = ["property"]
   "D103",    # No docstring necessary for tests
   "PT011",   # No `match` parameter necessary for pytest.raises
   "PLR0913", # Pytest fixtures naturally lead to many function parameters
+]
+"**/scripts/*.py" = [
+  "PLR0913", # Scripts are allowed to have manu function parameters
 ]
 
 [tool.ty.environment]

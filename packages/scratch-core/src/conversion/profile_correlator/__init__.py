@@ -40,7 +40,6 @@ from conversion.profile_correlator.transforms import equalize_pixel_scale
 
 # Statistics functions
 from conversion.profile_correlator.statistics import (
-    compute_cross_correlation,
     compute_overlap_ratio,
     compute_roughness_sa,
     compute_roughness_sq,
@@ -63,7 +62,6 @@ __all__ = [
     # Transforms
     "equalize_pixel_scale",
     # Statistics
-    "compute_cross_correlation",
     "compute_overlap_ratio",
     "compute_roughness_sa",
     "compute_roughness_sq",
