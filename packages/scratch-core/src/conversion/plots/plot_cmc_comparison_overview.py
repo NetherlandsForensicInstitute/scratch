@@ -1,6 +1,7 @@
 from typing import Sequence
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
@@ -13,7 +14,7 @@ from conversion.plots.data_formats import (
     LlrTransformationData,
 )
 from conversion.plots.plot_impression import (
-    plot_cell_overlay_on_axes,
+    plot_cell_overlay_on_axes, _robust_color_limits,
 )
 from conversion.plots.plot_score_histograms import plot_score_histograms
 from conversion.plots.plot_score_llr_transformation import plot_score_llr_transformation
@@ -31,13 +32,57 @@ def _plot_surface_with_colorbar(
     ax: Axes,
     im: AxesImage,
     title: str,
+    color_sigma: float = 3.0,
+    extendfrac: float = 0.08,
 ) -> None:
-    """Plot a cell overlay on axes and add a colorbar."""
+    """
+    Plot a cell overlay on axes and add an outlier-aware colorbar.
+
+    The image is (re)clipped to mean ± color_sigma*std so the surface
+    colours and the colorbar agree: the main body spans the clipped range,
+    red lines mark that clipping boundary, and the true (unclipped) data
+    min/max appear at the tips of the extend triangles. Everything is read
+    back off ``im`` itself, so no data array needs to be passed in.
+
+    :param fig: Figure to attach the colorbar to.
+    :param ax: Axes the image was plotted on.
+    :param im: AxesImage returned by plot_cell_overlay_on_axes.
+    :param title: Axes title.
+    :param color_sigma: Std multiplier for the clip bounds (red lines).
+    :param extendfrac: Fraction of the colorbar length per extend triangle.
+    """
     ax.set_title(title, fontsize=12, fontweight="bold")
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    cbar = fig.colorbar(im, cax=cax, label="Scan Depth [µm]")
+
+    arr = np.ma.masked_invalid(im.get_array())
+
+    # Clip bounds (mean ± k*std), applied to the image so the *surface*
+    # colours are clipped too — this is what puts the red line at ~1.27
+    # instead of at the true max. If the image is already clipped upstream
+    # this is effectively a no-op, so it's safe to keep either way.
+    vmin, vmax = _robust_color_limits(arr.filled(np.nan), k=color_sigma)
+    im.set_clim(vmin, vmax)
+
+    cbar = fig.colorbar(
+        im, cax=cax, label="Scan Depth [µm]", extend="both", extendfrac=extendfrac
+    )
     cbar.ax.tick_params(labelsize=9)
+
+    # Red lines at the actual clip bounds (now ~±1.27, not the true max).
+    cbar.ax.axhline(vmin, color="red", linewidth=2)
+    cbar.ax.axhline(vmax, color="red", linewidth=2)
+
+    # Keep in-range ticks (dropping any that would crowd the tips), then add
+    # the true min/max at the triangle tips.
+    margin = 0.06 * (vmax - vmin)
+    default_ticks = [
+        t for t in cbar.get_ticks() if vmin + margin <= t <= vmax - margin
+    ]
+    cbar.set_ticks([vmin, *default_ticks, vmax])
+    cbar.set_ticklabels(
+        [f"{vmin:.2f}", *[f"{t:.2f}" for t in default_ticks], f"{vmax:.2f}"]
+    )
 
 
 def plot_cmc_comparison_overview(

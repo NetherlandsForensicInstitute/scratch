@@ -9,6 +9,7 @@ from conversion.surface_comparison.cell_registration.core import (
 from conversion.surface_comparison.cmc_classification_median import (
     classify_congruent_cells_median,
 )
+from conversion.surface_comparison.cmc_consensus.pipeline import classify_congruent_cells_consensus
 from conversion.surface_comparison.grid import generate_grid
 from conversion.surface_comparison.models import (
     ComparisonParams,
@@ -82,7 +83,7 @@ def compare_surfaces(
 
     # Step 5: CMC classification
     logger.debug("starting cmc classification")
-    comparison_result = classify_congruent_cells_median(
+    comparison_result = classify_congruent_cells_consensus(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
     return comparison_result
