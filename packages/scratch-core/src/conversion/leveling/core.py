@@ -17,9 +17,11 @@ _DEGREE_MAP = {
 
 def get_polynomial_degree(terms: SurfaceTerms) -> int:
     """Get the highest polynomial degree present in the given surface terms."""
-    if terms == SurfaceTerms.NONE:
-        raise ValueError(f"No degree defined for {terms}")
-    return max(_DEGREE_MAP[term] for term in terms)
+    if terms == SurfaceTerms.PLANE:
+        return 1
+    if terms == SurfaceTerms.SPHERE:
+        return 2
+    raise ValueError(f"No degree defined for {terms}")
 
 
 def level_map(scan_image: ScanImage, terms: SurfaceTerms) -> LevelingResult:

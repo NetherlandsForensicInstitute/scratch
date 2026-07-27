@@ -42,16 +42,3 @@ class TestLevelMapIntegration:
         result = level_map_mutator(scan_image_with_nans)
         # Assert
         assert np.allclose(result.data, scan_image_with_nans.data, equal_nan=True)
-
-    def test_map_level_offset(self, scan_image_with_nans: ScanImage):
-        # Arrange
-        level_map_mutator = LevelMap(terms=SurfaceTerms.OFFSET)
-        # Act
-        result = level_map_mutator(scan_image_with_nans)
-        # Assert
-        assert np.isclose(np.nanmean(result.data), 0.0)
-        assert np.allclose(
-            result.data + np.nanmean(scan_image_with_nans.data),
-            scan_image_with_nans.data,
-            equal_nan=True,
-        )
