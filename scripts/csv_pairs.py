@@ -33,13 +33,15 @@ logger = logging.getLogger(__name__)
 
 MarkType = MarkImpressionType | MarkStriationType
 
-#: ADJUST: location of the per-mark-type result folders, relative to ``cfg.root``.
-RESULTS_SUBDIR = Path("database") / "mark-comparison-results"
+#: Folder holding the per-mark-type result folders, inside the database folder.
+RESULTS_SUBDIR = Path("mark-comparison-results")
 
-#: ADJUST: candidate keys in the API response, most specific first.
-CCF_KEYS = ("ccf", "max_ccf", "ccf_score", "cross_correlation", "score")
-TOTAL_CELL_KEYS = ("n_cells", )
-MATCHING_CELL_KEYS = ("score")
+#: Keys in the API response. The metrics sit in a nested block
+#: (``ComparisonImpressionMetrics`` / ``StriationComparisonResults``).
+RESULTS_KEY = "comparison_results"
+MATCHING_CELLS_KEY = "score"
+TOTAL_CELLS_KEY = "n_cells"
+CCF_KEY = "correlation_coefficient"
 
 #: ADJUST: filename ``_save_result`` writes inside ``entry.comparison_out``.
 RESULT_FILENAMES = ("result.json", "results.json", "score.json")
@@ -115,32 +117,33 @@ def metric_columns(mark_type: MarkType) -> list[str]:
     return [c for c in score_columns(mark_type) if c not in ("status", "error")]
 
 
-def _search(result: Any, keys: tuple[str, ...]) -> Any:
-    """Breadth-first search for the first scalar value under any of ``keys``."""
-    queue: deque[Any] = deque([result])
-    while queue:
-        node = queue.popleft()
-        if isinstance(node, dict):
-            for key in keys:
-                value = node.get(key)
-                if value is not None and not isinstance(value, (dict, list)):
-                    return value
-            queue.extend(node.values())
-        elif isinstance(node, list):
-            queue.extend(node)
-    return None
-
-
 def extract_metrics(result: dict[str, Any] | None, mark_type: MarkType) -> dict[str, Any]:
     """Pull the score columns out of an API response."""
-    if result is None:
+    if not isinstance(result, dict):
         return {}
+
+    comparison_results = result.get(RESULTS_KEY)
+    if not isinstance(comparison_results, dict):
+        logger.warning("Response has no %r block; keys present: %s", RESULTS_KEY, ", ".join(sorted(result)))
+        return {}
+
     if isinstance(mark_type, MarkImpressionType):
-        return {
-            "total_cells": _search(result, TOTAL_CELL_KEYS),
-            "matching_cells": _search(result, MATCHING_CELL_KEYS),
+        metrics = {
+            "total_cells": comparison_results.get(TOTAL_CELLS_KEY),
+            "matching_cells": comparison_results.get(MATCHING_CELLS_KEY),
         }
-    return {"ccf": _search(result, CCF_KEYS)}
+    else:
+        metrics = {"ccf": comparison_results.get(CCF_KEY)}
+
+    missing = [name for name, value in metrics.items() if value is None]
+    if missing:
+        logger.warning(
+            "Response has no %s; %s keys: %s",
+            ", ".join(missing),
+            RESULTS_KEY,
+            ", ".join(sorted(comparison_results)),
+        )
+    return metrics
 
 
 # --------------------------------------------------------------------------
@@ -208,10 +211,45 @@ class CsvTask:
     entry: ComparisonEntry
 
 
+def mark_type_slug(mark_type: MarkType) -> str:
+    """Folder-safe name for a mark type, matching ``_MARK_TYPE_FOLDER_MAP``."""
+    return mark_type.value.replace(" ", "_")
+
+
+def database_folder(item: str) -> str:
+    """The database an item belongs to: its first path component below the root."""
+    parts = Path(normalise_item(item)).parts
+    return parts[0] if parts else ""
+
+
+def item_slug(item: str) -> str:
+    """Folder-safe identifier for an item path, keeping every path segment
+    below the database name so items that share a rep name (or any other
+    trailing folder name) don't collide.
+
+    e.g. "database/tool-entries/item123/rep1" -> "tool-entries__item123__rep1"
+    """
+    parts = Path(normalise_item(item)).parts[1:]  # drop the leading database name
+    return "__".join(parts) if parts else Path(normalise_item(item)).name
+
+
 def comparison_out_dir(cfg: ConversionConfig, mark_type: MarkType, row: PairRow) -> Path:
-    """Where the full result payload for this comparison is stored."""
-    folder = cfg.root / RESULTS_SUBDIR / f"{mark_type.value}_comparison_results"
-    return folder / f"{Path(row.ref).name}_vs_{Path(row.comp).name}"
+    """Where the full result payload for this comparison is stored.
+
+    Results are grouped by database pair, i.e.
+    ``<root>/database-comparisons/<db_a>__vs__<db_b>/<mark_type>_comparison_results/...``.
+    Same-database comparisons simply get a pair folder where both names are
+    the same (e.g. ``dbA__vs__dbA``). The pair name is sorted so a row with
+    ref/comp swapped still lands in the same folder.
+    """
+    db_ref = database_folder(row.ref)
+    db_comp = database_folder(row.comp)
+    if db_ref != db_comp:
+        logger.debug("Row %d compares across databases (%s vs %s)", row.index, db_ref, db_comp)
+
+    pair = "__vs__".join(sorted((db_ref, db_comp)))
+    folder = cfg.root / "database-comparisons" / pair / f"{mark_type_slug(mark_type)}_comparison_results"
+    return folder / f"{item_slug(row.ref)}_vs_{item_slug(row.comp)}"
 
 
 def build_tasks(cfg: ConversionConfig, rows: list[PairRow], base: Path, max_depth: int = 2) -> list[CsvTask]:
@@ -276,7 +314,7 @@ class ScoreWriter:
         self.rows = rows
         self.delimiter = delimiter
         self.flush_every = max(1, flush_every)
-        self.paths = {mt: out_dir / f"{csv_path.stem}_{mt.value}{csv_path.suffix}" for mt in mark_types}
+        self.paths = {mt: out_dir / f"{csv_path.stem}_{mark_type_slug(mt)}{csv_path.suffix}" for mt in mark_types}
         self.columns = {mt: score_columns(mt) for mt in mark_types}
         self.values: dict[MarkType, dict[int, dict[str, Any]]] = {mt: {} for mt in mark_types}
         self._pending: dict[MarkType, int] = defaultdict(int)

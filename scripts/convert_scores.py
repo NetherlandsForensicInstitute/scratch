@@ -67,6 +67,7 @@ class ScoreStatus(enum.Enum):
     SKIPPED_EXISTS = "skipped_exists"
     SKIPPED_MISSING = "skipped_missing"
     FAILED_VALIDATION = "failed_validation"
+    FAILED_CONNECTION = "failed_connection"
     FAILED_ERROR = "failed_error"
 
 
@@ -90,7 +91,8 @@ def calculate_score(
     try:
         result = _post_with_retry(f"{cfg.api_url}/{endpoint}", _build_body(entry))
     except requests.HTTPError as exc:
-        if exc.response is not None and exc.response.status_code == 422:  # noqa: PLR2004
+        status_code = exc.response.status_code if exc.response is not None else 0
+        if status_code == 422:  # noqa: PLR2004
             try:
                 detail = exc.response.json().get("detail", "unknown")
             except requests.JSONDecodeError:
@@ -98,27 +100,42 @@ def calculate_score(
             logger.info("Row %d validation error: %s", entry.row_index, detail)
             _save_result(entry, error=detail)
             return ScoreStatus.FAILED_VALIDATION, {"error": detail}
+        if status_code >= 500:  # noqa: PLR2004
+            # Server-side failure (OOM, worker restart): retryable, so no payload is written.
+            detail = exc.response.text[:200] if exc.response is not None else str(exc)
+            logger.warning("Row %d: HTTP %d: %s", entry.row_index, status_code, detail)
+            return ScoreStatus.FAILED_CONNECTION, {"error": f"HTTP {status_code}: {detail}"}
         raise
-    except Exception:
+    except requests.RequestException as exc:
+        # Transient network/transport failure (timeout, dropped connection, dead worker):
+        # deliberately no _save_result, so the pair is retried on the next run.
+        logger.warning("Row %d: %s: %s", entry.row_index, type(exc).__name__, exc)
+        return ScoreStatus.FAILED_CONNECTION, {"error": f"{type(exc).__name__}: {exc}"}
+    except Exception as exc:
         logger.exception("Row %d failed unexpectedly", entry.row_index)
-        _save_result(entry, error="unexpected error")
-        return ScoreStatus.FAILED_ERROR, None
+        detail = f"{type(exc).__name__}: {exc}"
+        _save_result(entry, error=detail)
+        return ScoreStatus.FAILED_ERROR, {"error": detail}
 
     _save_result(entry, result=result)
-    download_urls(result.get("urls", result), entry.comparison_out)
-    _cleanup_vault(result)
+    download_urls(result.get("urls", result), entry.comparison_out, skip=())
+
+    downloaded = [p for p in entry.comparison_out.glob("*") if p.suffix.lower() != ".json"]
+    if not downloaded:
+        logger.warning(
+            "Row %d: no files downloaded into %s; response keys: %s. Leaving the API vault in place.",
+            entry.row_index,
+            entry.comparison_out,
+            ", ".join(sorted(result)),
+        )
+    else:
+        _cleanup_vault(result)
     return ScoreStatus.COMPLETED, result
 
 
 def _log_counts(counts: dict[ScoreStatus, int]) -> None:
-    logger.info(
-        "Done: %d completed, %d skipped (exists), %d skipped (missing), %d validation errors, %d unexpected errors",
-        counts[ScoreStatus.COMPLETED],
-        counts[ScoreStatus.SKIPPED_EXISTS],
-        counts[ScoreStatus.SKIPPED_MISSING],
-        counts[ScoreStatus.FAILED_VALIDATION],
-        counts[ScoreStatus.FAILED_ERROR],
-    )
+    summary = ", ".join(f"{counts[status]} {status.value}" for status in ScoreStatus if counts.get(status))
+    logger.info("Done: %s", summary or "nothing processed")
 
 
 def run_score_conversion(

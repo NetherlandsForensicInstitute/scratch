@@ -69,14 +69,16 @@ def match_cells(
         params.minimum_fill_fraction,
         fill_value_comparison,
     )
+    rotated_shapes: dict[int, tuple[int, int]] = {}
     for grid_cell, (score, x, y, angle_idx) in zip(grid_cells, results):
         angle = float(angles[angle_idx])
-        rotated = _rotate_image(comparison_data, angle, fill_value=np.nan)
-        rot_h, rot_w = rotated.shape
+        if angle_idx not in rotated_shapes:
+            rotated_shapes[angle_idx] = _rotate_image(comparison_data, angle, fill_value=np.nan).shape
+        rot_h, rot_w = rotated_shapes[angle_idx]
 
         cell_center = (x + cell_width / 2, y + cell_height / 2)
         rotated_center = ((rot_w - 1) / 2, (rot_h - 1) / 2)
-
+        
         orig_x, orig_y = _unrotate_point(
             rotated_point=cell_center,
             original_image_center=padded_center,

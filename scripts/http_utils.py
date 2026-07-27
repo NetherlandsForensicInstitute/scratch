@@ -52,11 +52,12 @@ PLOT_FILENAMES = {
 }
 
 
-def download_urls(urls: dict | Any, dest: Path) -> None:
+def download_urls(urls: dict | Any, dest: Path, skip) -> None:
     """Download all HTTP URL values from an API response dict.
 
     :param urls: dict (or nested dict) whose values may be URL strings.
     :param dest: destination directory for downloaded files.
+    :param skip: filenames to leave on the server; pass ``()`` to fetch everything.
     """
     if not isinstance(urls, dict):
         return
@@ -64,7 +65,8 @@ def download_urls(urls: dict | Any, dest: Path) -> None:
         if not isinstance(url, str) or not url.startswith("http"):
             continue
         filename = url.rsplit("/", 1)[-1]
-        if filename in PLOT_FILENAMES:
+        if filename in skip:
+            logger.debug("Skipping %s", filename)
             continue
         try:
             resp = requests.get(url, timeout=60)
