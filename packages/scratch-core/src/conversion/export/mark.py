@@ -45,7 +45,6 @@ class ExportedMarkData(ConfigBaseModel):
     """Validated data structure for exported Mark metadata."""
 
     mark_type: Annotated[MarkType, BeforeValidator(_parse_mark_type)]
-    center: tuple[float, float]
     scale_x: float = Field(..., gt=0)
     scale_y: float = Field(..., gt=0)
     meta_data: dict[str, Any] = Field(default_factory=dict)
@@ -75,8 +74,8 @@ def load_mark_from_mat_file(path: Path) -> Mark:
     mark = Mark(
         scan_image=ScanImage(
             data=np.asarray(container["depth_data"], dtype=np.float64),
-            scale_x=float(container["xdim"].flat[0]),
-            scale_y=float(container["ydim"].flat[0]),
+            scale_x=float(container["xdim"].item()),
+            scale_y=float(container["ydim"].item()),
         ),
         mark_type=_parse_mark_type(str(container["mark_type"][0]).lower()),
         # TODO: Parse `center` and `meta_data` from data struct
@@ -116,7 +115,6 @@ def load_mark_from_path(path: Path, stem: str) -> Mark:
         ),
         mark_type=meta.mark_type,
         meta_data=meta.meta_data,
-        center=meta.center,
     )
 
     return mark

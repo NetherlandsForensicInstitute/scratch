@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from typing import Annotated, Self
 
 from conversion.data_formats import MarkMetadata
+from conversion.profile_correlator import StriationComparisonResults
 from conversion.surface_comparison.models import Cell, ComparisonParams
 from pydantic import (
     BaseModel,
@@ -13,8 +14,6 @@ from pydantic import (
     HttpUrl,
     NonNegativeInt,
     PositiveInt,
-    SerializerFunctionWrapHandler,
-    model_serializer,
     model_validator,
 )
 
@@ -184,26 +183,24 @@ class ComparisonResponseImpressionURL(ComparisonResponse):
     )
 
 
+class ComparisonImpressionMetrics(BaseModelConfig):
+    n_cells: int = Field(..., examples=[40])
+    score: int = Field(..., examples=[30])
+    cmc_fraction: float = Field(..., examples=[0.75])
+    cmc_area_fraction: float = Field(..., examples=[0.75])
+    estimated_rotation: float = Field(..., examples=[1.0])
+    estimated_translation: tuple[float, float] = Field(..., examples=[(-9.4, 10.1)])
+
+
 class ComparisonResponseImpression(URLContainer):
     urls: ComparisonResponseImpressionURL
-    cells: list[dict] = Field(
+    cells: list[Cell] = Field(
         default_factory=list,
         description="Per-cell CMC results for use in LR calculation.",
     )
-    comparison_results: dict = Field(
-        default_factory=dict,
+    comparison_results: ComparisonImpressionMetrics = Field(
         description="Impression comparison metrics including CMC counts, fractions, and consensus registration.",
     )
-
-    @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Serialize model to flat json."""
-        data = handler(self)
-        return {
-            **data["urls"],
-            "cells": data["cells"],
-            "comparison_results": data["comparison_results"],
-        }
 
 
 class ComparisonResponseStriationURL(ComparisonResponse):
@@ -286,19 +283,9 @@ class ComparisonResponseStriationURL(ComparisonResponse):
 
 class ComparisonResponseStriation(URLContainer):
     urls: ComparisonResponseStriationURL
-    comparison_results: dict = Field(
-        default_factory=dict,
+    comparison_results: StriationComparisonResults = Field(
         description="Striation comparison metrics including correlation, roughness, and alignment geometry.",
     )
-
-    @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Serialize model to flat json."""
-        data = handler(self)
-        return {
-            **data["urls"],
-            "comparison_results": data["comparison_results"],
-        }
 
 
 class LRResponseURL(URLContainer):
@@ -323,10 +310,3 @@ class LRResponse(BaseModel):
         None,
         description="Upper bound of the log10 likelihood ratio confidence interval, or null if not computed.",
     )
-
-    @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Serialize model to flat json."""
-        data = handler(self)
-        urls = data.pop("urls")
-        return {**urls, **data}

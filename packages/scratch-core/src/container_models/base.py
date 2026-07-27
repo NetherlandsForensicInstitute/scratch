@@ -119,5 +119,5 @@ class ConfigBaseModel(BaseModel):
         """Dynamically find and clear all cached_property values from instance."""
         for name in dir(type(instance)):
             attr = getattr(type(instance), name, None)
-            if isinstance(attr, cached_property):
-                vars(instance).pop(name, None)
+            if isinstance(attr, cached_property) and name in instance.__dict__:
+                delattr(instance, name)

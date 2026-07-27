@@ -389,14 +389,19 @@ class TestContracts:
         body = response.json()
         assert response.status_code == HTTPStatus.OK, response.text
 
-        expected_keys = data.expected_urls.keys() | data.expected_fields.keys()
-        assert expected_keys == body.keys(), "response keys should match expected keys"
+        if "urls" in body:
+            assert body["urls"].keys() == data.expected_urls.keys(), "response URLs should match expected URLs"
+            assert set(body) - {"urls"} == set(data.expected_fields), "response keys should match expected keys"
+        else:
+            assert body.keys() == (data.expected_fields | data.expected_urls).keys(), (
+                "response keys should match expected keys"
+            )
 
         for key, expected_type in data.expected_fields.items():
             assert isinstance(body[key], expected_type), f"{key}: expected {expected_type}, got {type(body[key])}"
 
         for key, expected_ext in data.expected_urls.items():
-            url = body[key]
+            url = body["urls"][key] if "urls" in body else body[key]
             assert HttpUrl(url), f"{key} should be a valid URL"
             file_response = requests.get(url, timeout=10)
             assert file_response.status_code == HTTPStatus.OK, f"{key} URL should be reachable"

@@ -16,6 +16,7 @@ from pydantic import (
 )
 from utils.constants import RegressionOrder
 
+from helpers import update_schema
 from models import (
     BaseModelConfig,
     ProjectTag,
@@ -24,17 +25,6 @@ from models import (
 )
 from preprocessors.constants import SurfaceOptions
 from schemas import URLContainer
-
-
-def _update_schema(schema: dict[str, Any], attr_to_class: tuple[tuple[str, str], ...]) -> dict[str, Any]:
-    """Update the model JSON schema for correctly rendering the `openapi_extra` fields."""
-    for attribute, class_name in attr_to_class:
-        updated = schema["$defs"][class_name]
-        for key in ("examples", "description"):
-            if value := schema["properties"][attribute].get(key):
-                updated[key] = value
-        schema["properties"][attribute] = updated
-    return schema
 
 
 class BaseParameters(BaseModelConfig):
@@ -66,7 +56,7 @@ class BaseParameters(BaseModelConfig):
             ("scan_file", "ScanFile"),
             ("project_name", "ProjectTag"),
         )
-        return _update_schema(schema, attr_to_class)
+        return update_schema(schema, attr_to_class)
 
 
 class UploadScan(BaseParameters):
@@ -119,8 +109,8 @@ class PrepareMarkStriation(PrepareMarkBase):
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
         """Override the base method."""
         schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("mark_parameters", "PreprocessingStriationParams"),)
-        return _update_schema(schema, attr_to_class)
+        attr_to_class = (("mark_parameters", "PreprocessingStriationParams"), ("mark_type", "MarkStriationType"))
+        return update_schema(schema, attr_to_class)
 
 
 class PrepareMarkImpression(PrepareMarkBase):
@@ -131,8 +121,8 @@ class PrepareMarkImpression(PrepareMarkBase):
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
         """Override the base method."""
         schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("mark_parameters", "PreprocessingImpressionParams"),)
-        return _update_schema(schema, attr_to_class)
+        attr_to_class = (("mark_parameters", "PreprocessingImpressionParams"), ("mark_type", "MarkImpressionType"))
+        return update_schema(schema, attr_to_class)
 
 
 class EditImage(BaseParameters):
@@ -185,7 +175,7 @@ class EditImage(BaseParameters):
             ("regression_order", "RegressionOrder"),
             ("terms", "SurfaceOptions"),
         )
-        return _update_schema(schema, attr_to_class)
+        return update_schema(schema, attr_to_class)
 
 
 class GeneratedImages(URLContainer):
