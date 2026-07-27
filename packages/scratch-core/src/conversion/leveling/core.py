@@ -30,15 +30,17 @@ def level_map(scan_image: ScanImage, terms: SurfaceTerms) -> LevelingResult:
             leveled_map=scan_image.data,
             fitted_surface=np.full_like(scan_image.data, 0.0),
         )
-    if scan_image.valid_mask.sum() < 3:
-        raise ValueError("At least 3 values are needed for the least squares solver.")
+    degree = get_polynomial_degree(terms)
+    if scan_image.valid_mask.sum() < 1 + degree:
+        raise ValueError(
+            f"At least {1 + degree} values are needed for the least squares solver."
+        )
 
     surface = Surface(
         height_data=scan_image.data,
         step_x=scan_image.scale_x,
         step_y=scan_image.scale_y,
     )
-    degree = get_polynomial_degree(terms)
     leveled, trend = surface.detrend_polynomial(
         degree=degree, inplace=False, return_trend=True
     )
