@@ -5,15 +5,6 @@ from container_models.scan_image import ScanImage
 
 from surfalize import Surface
 
-_DEGREE_MAP = {
-    SurfaceTerms.OFFSET: 0,
-    SurfaceTerms.TILT_X: 1,
-    SurfaceTerms.TILT_Y: 1,
-    SurfaceTerms.ASTIG_45: 2,
-    SurfaceTerms.DEFOCUS: 2,
-    SurfaceTerms.ASTIG_0: 2,
-}
-
 
 def get_polynomial_degree(terms: SurfaceTerms) -> int:
     """Get the highest polynomial degree present in the given surface terms."""
