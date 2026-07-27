@@ -76,7 +76,7 @@ def scan_image_replica(scans_dir: Path) -> ScanImage:
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="function")
 def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
     # add random NaN values
     rng = np.random.default_rng(42)
@@ -85,7 +85,7 @@ def scan_image_with_nans(scan_image_replica: ScanImage) -> ScanImage:
     return scan_image
 
 
-@pytest.fixture()
+@pytest.fixture(scope="function")
 def scan_image_rectangular_with_nans(scan_image_with_nans: ScanImage) -> ScanImage:
     """Build a `ScanImage` object` with non-square image data."""
     scan_image = ScanImage(
