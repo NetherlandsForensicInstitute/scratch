@@ -1,10 +1,9 @@
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
 
 from computations.constants import SurfaceTerms
 
 
-@dataclass(frozen=True)
-class PreprocessingImpressionParams:
+class PreprocessingImpressionParams(BaseModel):
     """Processing parameters for NIST preprocessing.
 
     :param pixel_size: Target pixel spacing in meters for resampling
@@ -19,7 +18,10 @@ class PreprocessingImpressionParams:
 
     pixel_size: float | None = None
     adjust_pixel_spacing: bool = True
-    surface_terms: SurfaceTerms = SurfaceTerms.SPHERE
+    surface_terms: SurfaceTerms = Field(
+        default=SurfaceTerms.SPHERE,
+        description="Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces.",
+    )
     interp_method: str = "cubic"
     highpass_cutoff: float | None = 250.0e-6
     lowpass_cutoff: float | None = 5.0e-6

@@ -41,7 +41,7 @@ def resample_twice_bigger(
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=0.5,
-        terms=SurfaceTerms.PLANE,
+        surface_terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=False,
     )
@@ -73,7 +73,7 @@ def mask_middle_pixels(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=1,
-        terms=SurfaceTerms.PLANE,
+        surface_terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=False,
     )
@@ -104,7 +104,7 @@ def crop_to_middle_pixels(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=1,
-        terms=SurfaceTerms.PLANE,
+        surface_terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
     )
@@ -134,7 +134,7 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=0.5,
-        terms=SurfaceTerms.PLANE,
+        surface_terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
     )
