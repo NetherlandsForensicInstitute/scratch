@@ -73,8 +73,8 @@ class TestEditImage:
     @pytest.mark.parametrize(
         "kwargs",
         [
-            {"terms": SurfaceTerms.PLANE},
-            {"terms": SurfaceTerms.SPHERE},
+            {"surface_terms": SurfaceTerms.PLANE},
+            {"surface_terms": SurfaceTerms.SPHERE},
             {"regression_order": RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE},
             {"regression_order": RegressionOrder.LOCAL_PLANAR},
             {"regression_order": RegressionOrder.LOCAL_QUADRATIC},
@@ -134,4 +134,4 @@ class TestEditImage:
             EditImage()  # type: ignore
 
         # Assert
-        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "terms")
+        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "surface_terms")

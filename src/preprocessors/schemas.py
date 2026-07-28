@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any
 
 import numpy as np
 from computations.constants import SurfaceTerms
@@ -16,7 +15,6 @@ from pydantic import (
 )
 from utils.constants import RegressionOrder
 
-from helpers import update_schema
 from models import (
     BaseModelConfig,
     ProjectTag,
@@ -46,16 +44,6 @@ class BaseParameters(BaseModelConfig):
     def tag(self) -> str:
         """Get the tag to use for directory naming."""
         return self.project_name or self.scan_file.stem
-
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (
-            ("scan_file", "ScanFile"),
-            ("project_name", "ProjectTag"),
-        )
-        return update_schema(schema, attr_to_class)
 
 
 class UploadScan(BaseParameters):
@@ -104,13 +92,6 @@ class PrepareMarkStriation(PrepareMarkBase):
     mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
     mark_type: MarkStriationType = Field(..., description="Type of mark to prepare.")
 
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("mark_parameters", "PreprocessingStriationParams"), ("mark_type", "MarkStriationType"))
-        return update_schema(schema, attr_to_class)
-
 
 class MarkParams(BaseModelConfig):
     pixel_size: float | None = Field(default=None)
@@ -126,24 +107,10 @@ class MarkParams(BaseModelConfig):
     highpass_regression_order: int = Field(default=2)
     lowpass_regression_order: int = Field(default=0)
 
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("surface_terms", "SurfaceTerms"),)
-        return update_schema(schema, attr_to_class)
-
 
 class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: MarkParams = Field(..., description="Preprocessor parameters.")
     mark_type: MarkImpressionType = Field(..., description="Type of mark to prepare.")
-
-    # @classmethod
-    # def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-    #     """Override the base method."""
-    #     schema = super().model_json_schema(*args, **kwargs)
-    #     attr_to_class = (("mark_parameters", "MarkParams"), ("mark_type", "MarkImpressionType"))
-    #     return update_schema(schema, attr_to_class)
 
 
 class EditImage(BaseParameters):
@@ -186,17 +153,6 @@ class EditImage(BaseParameters):
         if self.scan_file.suffix.lower() != ".x3p":
             raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
         return self
-
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        # Add schema for BaseParameters and EditImage to JSON model
-        attr_to_class = (
-            ("regression_order", "RegressionOrder"),
-            ("surface_terms", "SurfaceTerms"),
-        )
-        return update_schema(schema, attr_to_class)
 
 
 class GeneratedImages(URLContainer):

@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated, Any
 
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from fastapi import APIRouter, File, Form
 from fastapi.responses import RedirectResponse
 from loguru import logger
@@ -12,7 +13,6 @@ from constants import (
     PreprocessorEndpoint,
     RoutePrefix,
 )
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
@@ -37,8 +37,31 @@ from .schemas import (
 preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[RoutePrefix.PREPROCESSOR])
 
 
-def _inline_refs(schema: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any]:
-    """Recursively inline all $ref references using the provided definitions.
+def _resolve_ref(schema: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any] | None:
+    """Resolve a single $ref to its definition, merging any sibling properties.
+
+    Returns None if the ref cannot be resolved (not a $ref, or missing from defs).
+    """
+    if "$ref" not in schema:
+        return None
+
+    ref_key = schema["$ref"].removeprefix("#/$defs/")
+    if ref_key not in defs:
+        return None
+
+    # Start with the resolved definition (recursively inlined)
+    resolved = _inline_refs(defs[ref_key], defs)
+
+    # Merge any sibling properties (e.g. description, default) on top
+    for key, value in schema.items():
+        if key != "$ref":
+            resolved[key] = _inline_refs(value, defs)
+
+    return resolved
+
+
+def _inline_refs(schema: Any, defs: dict[str, Any]) -> Any:
+    """Recursively inline all $ref references using the provided $defs.
 
     This is needed for multipart/form-data schemas where $defs are nested
     inside the params property and JSON Pointer $ref resolution fails
@@ -46,30 +69,27 @@ def _inline_refs(schema: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any]
     nested schema location.
     """
     if isinstance(schema, dict):
-        if "$ref" in schema:
-            ref_path = schema["$ref"]
-            if ref_path.startswith("#/$defs/"):
-                key = ref_path[len("#/$defs/"):]
-                if key in defs:
-                    # Merge the referenced definition with any sibling properties
-                    resolved = _inline_refs(defs[key], defs)
-                    merged = {**resolved}
-                    for k, v in schema.items():
-                        if k != "$ref":
-                            merged[k] = _inline_refs(v, defs)
-                    return merged
-        return {k: _inline_refs(v, defs) for k, v in schema.items()}
+        # Try to resolve $ref first (takes priority over recursing into keys)
+        resolved = _resolve_ref(schema, defs)
+        if resolved is not None:
+            return resolved
+        return {key: _inline_refs(value, defs) for key, value in schema.items()}
+
     if isinstance(schema, list):
         return [_inline_refs(item, defs) for item in schema]
+
     return schema
 
 
 def _generate_openapi_schema(model: type[BaseModel]) -> dict[str, Any]:
-    """Generate example fields in the Swagger docs for endpoints receiving multipart/form-data with a binary mask."""
+    """Generate the OpenAPI schema for multipart/form-data endpoints.
+
+    Swagger UI cannot resolve $ref pointers when they're nested inside
+    multipart form-data schemas. This function inlines all references
+    so the docs render correctly.
+    """
     model_schema = model.model_json_schema()
-    # Extract $defs for ref resolution, then remove from model_schema
     defs = model_schema.pop("$defs", {})
-    # Inline all $ref references so they don't rely on $defs placement
     params_schema = _inline_refs(model_schema, defs)
 
     return {
@@ -86,9 +106,7 @@ def _generate_openapi_schema(model: type[BaseModel]) -> dict[str, Any]:
                 },
                 "application/json": {
                     "schema": {
-                        "properties": {
-                            "params": params_schema,
-                        },
+                        "properties": {"params": params_schema},
                         "required": ["params"],
                     }
                 },

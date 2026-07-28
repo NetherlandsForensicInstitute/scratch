@@ -97,7 +97,7 @@ class TestContracts:
                 "scan_file": scan_file,
                 "cutoff_length": cutoff_length,
                 "mask_is_bitpacked": False,
-                "terms": "plane",
+                "surface_terms": 2,
             },
             expected_urls={
                 "preview_image": ".png",
@@ -121,9 +121,7 @@ class TestContracts:
                 "mark_parameters": {
                     "pixel_size": None,
                     "adjust_pixel_spacing": True,
-                    "level_offset": True,
-                    "level_tilt": True,
-                    "level_2nd": True,
+                    "surface_terms": 2,
                     "interp_method": "cubic",
                     "highpass_cutoff": 250.0e-6,
                     "lowpass_cutoff": 5.0e-6,
