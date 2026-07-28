@@ -38,7 +38,8 @@ preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[Rout
 
 
 def _resolve_ref(schema: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any] | None:
-    """Resolve a single $ref to its definition, merging any sibling properties.
+    """
+    Resolve a single $ref to its definition, merging any sibling properties.
 
     Returns None if the ref cannot be resolved (not a $ref, or missing from defs).
     """
@@ -61,12 +62,12 @@ def _resolve_ref(schema: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any]
 
 
 def _inline_refs(schema: Any, defs: dict[str, Any]) -> Any:
-    """Recursively inline all $ref references using the provided $defs.
+    """
+    Recursively inline all $ref references using the provided $defs.
 
-    This is needed for multipart/form-data schemas where $defs are nested
-    inside the params property and JSON Pointer $ref resolution fails
-    because refs resolve relative to the OpenAPI document root, not the
-    nested schema location.
+    This is needed for multipart/form-data schemas where $defs are nested inside the params property
+    and JSON Pointer $ref resolution fails because refs resolve relative to the OpenAPI document root,
+    not the nested schema location.
     """
     if isinstance(schema, dict):
         # Try to resolve $ref first (takes priority over recursing into keys)
