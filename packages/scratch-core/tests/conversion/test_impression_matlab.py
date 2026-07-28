@@ -71,10 +71,10 @@ class MatlabTestCase:
         level_offset = 1 in level_params
         level_tilt = 2 in level_params and 3 in level_params
         level_2nd = 4 in level_params and 5 in level_params and 6 in level_params
-        surface_terms = SurfaceTerms.NONE
-        if level_offset and level_tilt and level_2nd:
+
+        if level_2nd:
             surface_terms = SurfaceTerms.SPHERE
-        elif level_offset and level_tilt:
+        elif level_tilt:
             surface_terms = SurfaceTerms.PLANE
         else:
             raise ValueError(
