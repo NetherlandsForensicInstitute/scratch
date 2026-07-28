@@ -9,7 +9,7 @@ class PreprocessingImpressionParams:
 
     :param pixel_size: Target pixel spacing in meters for resampling
     :param adjust_pixel_spacing: Adjust pixel spacing based on sample tilt
-    :param surface_terms: SurfaceTerms
+    :param surface_terms: SurfaceTerms for the leveling algorithm
     :param interp_method: Interpolation method ('nearest', 'linear', 'cubic')
     :param highpass_cutoff: High-pass filter cutoff length in meters (None to disable)
     :param lowpass_cutoff: Low-pass filter cutoff length in meters (None to disable)
