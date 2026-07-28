@@ -6,13 +6,14 @@ This module provides functions to preprocess 2D scan images of impression marks
 
 from dataclasses import asdict
 
+from computations.constants import SurfaceTerms
+from computations.spatial import level_map
 from container_models.base import DepthData
 from conversion.data_formats import Mark
 from conversion.filter import (
     apply_gaussian_filter_mark,
     apply_filter_pipeline,
 )
-from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import crop_to_mask
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.resample import (

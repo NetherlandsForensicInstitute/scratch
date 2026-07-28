@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from computations.constants import SurfaceTerms
 from container_models.scan_image import ScanImage
-from conversion.leveling.data_types import SurfaceTerms
 from mutations.filter import LevelMap
 
 

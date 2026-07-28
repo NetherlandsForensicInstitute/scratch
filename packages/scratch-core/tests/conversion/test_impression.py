@@ -3,6 +3,7 @@ import pytest
 from numpy.testing import assert_array_equal
 from scipy.constants import micro
 
+from computations.constants import SurfaceTerms
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType
@@ -385,9 +386,7 @@ class TestPreprocessImpressionMarkIntegration:
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
-            level_offset=True,
-            level_tilt=True,
-            level_2nd=False,
+            surface_terms=SurfaceTerms.PLANE,
         )
 
         filtered, leveled = preprocess_impression_mark(impression_mark, params)
@@ -600,9 +599,7 @@ class TestPreprocessImpressionMarkIntegration:
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
-            level_offset=True,
-            level_tilt=True,
-            level_2nd=True,
+            surface_terms=SurfaceTerms.SPHERE,
         )
 
         filtered, leveled = preprocess_impression_mark(impression_mark, params)
@@ -656,9 +653,7 @@ class TestPreprocessImpressionMarkIntegration:
         params = PreprocessingImpressionParams(
             pixel_size=micro,
             adjust_pixel_spacing=False,
-            level_offset=True,
-            level_tilt=True,
-            level_2nd=True,  # Remove curvature from filtered
+            surface_terms=SurfaceTerms.SPHERE,
             lowpass_cutoff=None,
             highpass_cutoff=None,
         )

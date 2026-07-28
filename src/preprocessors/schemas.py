@@ -4,6 +4,7 @@ from functools import cached_property
 from typing import Any
 
 import numpy as np
+from computations.constants import SurfaceTerms
 from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
@@ -23,7 +24,6 @@ from models import (
     ScanFile,
     SupportedScanExtension,
 )
-from preprocessors.constants import SurfaceOptions
 from schemas import URLContainer
 
 
@@ -138,7 +138,7 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: SurfaceOptions = Field(
+    terms: SurfaceTerms = Field(
         ...,
         description=(
             "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
@@ -173,7 +173,7 @@ class EditImage(BaseParameters):
         # Add schema for BaseParameters and EditImage to JSON model
         attr_to_class = (
             ("regression_order", "RegressionOrder"),
-            ("terms", "SurfaceOptions"),
+            ("terms", "SurfaceTerms"),
         )
         return update_schema(schema, attr_to_class)
 

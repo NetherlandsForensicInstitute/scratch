@@ -10,10 +10,10 @@ import numpy as np
 import pytest
 from scipy.constants import micro
 
+from computations.constants import SurfaceTerms
 from container_models.base import FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.get_cropped_image import get_cropped_image
-from conversion.leveling import SurfaceTerms
 from .helper_functions import (
     _compute_correlation,
     _crop_to_common_shape,
@@ -60,7 +60,7 @@ class MatlabTestCase:
 
     input_xdim: float = 3.5 * micro
     input_ydim: float = 3.5 * micro
-    terms: SurfaceTerms = field(default_factory=lambda: to_surface_terms("Plane"))
+    terms: SurfaceTerms = SurfaceTerms.PLANE
     regression_order: int = field(default_factory=lambda: to_regression_order("R0"))
     cutoff_length: float = 250.0
     resampling_factor: float | None = None

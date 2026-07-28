@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from computations.constants import SurfaceTerms
 from container_models.base import FloatArray2D
 from conversion.data_formats import MarkImpressionType
 from .helper_functions import make_mark
@@ -70,6 +71,15 @@ class MatlabTestCase:
         level_offset = 1 in level_params
         level_tilt = 2 in level_params and 3 in level_params
         level_2nd = 4 in level_params and 5 in level_params and 6 in level_params
+        surface_terms = SurfaceTerms.NONE
+        if level_offset and level_tilt and level_2nd:
+            surface_terms = SurfaceTerms.SPHERE
+        elif level_offset and level_tilt:
+            surface_terms = SurfaceTerms.PLANE
+        else:
+            raise ValueError(
+                f"Combination of input arguments not defined: [{level_offset, level_tilt, level_2nd}]"
+            )
 
         # Convert filter params
         filters = meta.get("filters", [])
@@ -91,9 +101,7 @@ class MatlabTestCase:
 
         params = PreprocessingImpressionParams(
             adjust_pixel_spacing=meta.get("adjust_pixel_spacing", False),
-            level_offset=level_offset,
-            level_tilt=level_tilt,
-            level_2nd=level_2nd,
+            surface_terms=surface_terms,
             pixel_size=target_pixel_spacing,
             highpass_cutoff=highpass_cutoff,
             lowpass_cutoff=lowpass_cutoff,

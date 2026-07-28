@@ -1,14 +1,12 @@
 import numpy as np
 from loguru import logger
-from surfalize import Surface
 from scipy.ndimage import generic_filter
 
-from computations.spatial import get_bounding_box
+from computations.constants import SurfaceTerms
+from computations.spatial import get_bounding_box, level_map
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.filter import apply_gaussian_regression_filter
-from conversion.leveling import get_polynomial_degree
-from conversion.leveling.data_types import SurfaceTerms
 from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
 from mutations.spatial import Resample
@@ -217,26 +215,17 @@ class LevelMap(ImageMutation):
     def skip_predicate(self, scan_image: ScanImage) -> bool:
         if self.terms == SurfaceTerms.NONE:
             return True
-        # We need at least 3 values for the least squares solver
-        return scan_image.valid_mask.sum() < 3
+        return False
 
     def apply_on_image(self, scan_image: ScanImage) -> ScanImage:
         """
         Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
-        This computation effectively acts as a high-pass filter on the image data.
+        This computation effectively acts as an in-place high-pass filter on the image data.
         :param scan_image: The scan image containing the image data to level.
         :returns: scan_image with the array containing the leveled scan data (original data minus fitted surface).
         """
-        surface = Surface(
-            height_data=scan_image.data,
-            step_x=scan_image.scale_x,
-            step_y=scan_image.scale_y,
-        )
-        degree = get_polynomial_degree(self.terms)
-        leveled, trend = surface.detrend_polynomial(
-            degree=degree, inplace=False, return_trend=True
-        )
-        scan_image.data = leveled.data
+        result = level_map(scan_image=scan_image, terms=self.terms)
+        scan_image.data = result.leveled_map
         return scan_image
 
 
