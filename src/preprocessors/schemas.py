@@ -6,7 +6,6 @@ from typing import Any
 import numpy as np
 from computations.constants import SurfaceTerms
 from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
     Field,
@@ -113,16 +112,38 @@ class PrepareMarkStriation(PrepareMarkBase):
         return update_schema(schema, attr_to_class)
 
 
-class PrepareMarkImpression(PrepareMarkBase):
-    mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
-    mark_type: MarkImpressionType = Field(..., description="Type of mark to prepare.")
+class MarkParams(BaseModelConfig):
+    pixel_size: float | None = Field(default=None)
+    adjust_pixel_spacing: bool = Field(default=True)
+    surface_terms: SurfaceTerms = Field(
+        default=SurfaceTerms.SPHERE,
+        description="Surface fitting model for leveling operations. "
+        "PLANE for planar surfaces, SPHERE for curved surfaces.",
+    )
+    interp_method: str = Field(default="cubic")
+    highpass_cutoff: float | None = Field(default=250.0e-6)
+    lowpass_cutoff: float | None = Field(default=5.0e-6)
+    highpass_regression_order: int = Field(default=2)
+    lowpass_regression_order: int = Field(default=0)
 
     @classmethod
     def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
         """Override the base method."""
         schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("mark_parameters", "PreprocessingImpressionParams"), ("mark_type", "MarkImpressionType"))
+        attr_to_class = (("surface_terms", "SurfaceTerms"),)
         return update_schema(schema, attr_to_class)
+
+
+class PrepareMarkImpression(PrepareMarkBase):
+    mark_parameters: MarkParams = Field(..., description="Preprocessor parameters.")
+    mark_type: MarkImpressionType = Field(..., description="Type of mark to prepare.")
+
+    # @classmethod
+    # def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
+    #     """Override the base method."""
+    #     schema = super().model_json_schema(*args, **kwargs)
+    #     attr_to_class = (("mark_parameters", "MarkParams"), ("mark_type", "MarkImpressionType"))
+    #     return update_schema(schema, attr_to_class)
 
 
 class EditImage(BaseParameters):

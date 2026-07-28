@@ -12,6 +12,7 @@ from constants import (
     PreprocessorEndpoint,
     RoutePrefix,
 )
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from file_services import create_vault
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
@@ -36,15 +37,48 @@ from .schemas import (
 preprocessor_route = APIRouter(prefix=f"/{RoutePrefix.PREPROCESSOR}", tags=[RoutePrefix.PREPROCESSOR])
 
 
+def _inline_refs(schema: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any]:
+    """Recursively inline all $ref references using the provided definitions.
+
+    This is needed for multipart/form-data schemas where $defs are nested
+    inside the params property and JSON Pointer $ref resolution fails
+    because refs resolve relative to the OpenAPI document root, not the
+    nested schema location.
+    """
+    if isinstance(schema, dict):
+        if "$ref" in schema:
+            ref_path = schema["$ref"]
+            if ref_path.startswith("#/$defs/"):
+                key = ref_path[len("#/$defs/"):]
+                if key in defs:
+                    # Merge the referenced definition with any sibling properties
+                    resolved = _inline_refs(defs[key], defs)
+                    merged = {**resolved}
+                    for k, v in schema.items():
+                        if k != "$ref":
+                            merged[k] = _inline_refs(v, defs)
+                    return merged
+        return {k: _inline_refs(v, defs) for k, v in schema.items()}
+    if isinstance(schema, list):
+        return [_inline_refs(item, defs) for item in schema]
+    return schema
+
+
 def _generate_openapi_schema(model: type[BaseModel]) -> dict[str, Any]:
     """Generate example fields in the Swagger docs for endpoints receiving multipart/form-data with a binary mask."""
+    model_schema = model.model_json_schema()
+    # Extract $defs for ref resolution, then remove from model_schema
+    defs = model_schema.pop("$defs", {})
+    # Inline all $ref references so they don't rely on $defs placement
+    params_schema = _inline_refs(model_schema, defs)
+
     return {
         "requestBody": {
             "content": {
                 "multipart/form-data": {
                     "schema": {
                         "properties": {
-                            "params": model.model_json_schema(),
+                            "params": params_schema,
                             "mask_data": {"type": "string", "format": "binary", "example": b"\x01\x00\x00\x01"},
                         },
                         "required": ["params", "mask_data"],
@@ -53,7 +87,7 @@ def _generate_openapi_schema(model: type[BaseModel]) -> dict[str, Any]:
                 "application/json": {
                     "schema": {
                         "properties": {
-                            "params": model.model_json_schema(),
+                            "params": params_schema,
                         },
                         "required": ["params"],
                     }
@@ -151,7 +185,7 @@ async def prepare_mark_impression(
         mark_type=params.mark_type,
         mask=parsed_mask,
         bounding_box=params.bounding_box,
-        preprocess_parameters=params.mark_parameters,
+        preprocess_parameters=PreprocessingImpressionParams(**params.mark_parameters.model_dump()),
         working_dir=vault.resource_path,
     )
     logger.info(f"Generated files saved to {vault}")
