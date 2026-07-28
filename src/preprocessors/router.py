@@ -83,11 +83,11 @@ def _inline_refs(schema: Any, defs: dict[str, Any]) -> Any:
 
 
 def _generate_openapi_schema(model: type[BaseModel]) -> dict[str, Any]:
-    """Generate the OpenAPI schema for multipart/form-data endpoints.
+    """
+    Generate the OpenAPI schema for multipart/form-data endpoints.
 
-    Swagger UI cannot resolve $ref pointers when they're nested inside
-    multipart form-data schemas. This function inlines all references
-    so the docs render correctly.
+    Swagger UI cannot resolve $ref pointers when they're nested inside multipart form-data schemas.
+    This function inlines all references so the docs render correctly.
     """
     model_schema = model.model_json_schema()
     defs = model_schema.pop("$defs", {})
