@@ -46,7 +46,7 @@ def level_map(scan_image: ScanImage, terms: SurfaceTerms) -> LevelingResult:
             leveled_map=scan_image.data,
             fitted_surface=np.full_like(scan_image.data, 0.0),
         )
-    polynomial_degree = terms  # semantic renaming of enum value
+    polynomial_degree = terms  # Semantic renaming of IntEnum value
     if scan_image.valid_mask.sum() < 1 + polynomial_degree:
         raise ValueError(
             f"At least {1 + polynomial_degree} values are needed for the least squares solver."
