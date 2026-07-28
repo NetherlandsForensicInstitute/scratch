@@ -52,12 +52,10 @@ def _resolve_ref(schema: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any]
 
     # Start with the resolved definition (recursively inlined)
     resolved = _inline_refs(defs[ref_key], defs)
-
     # Merge any sibling properties (e.g. description, default) on top
     for key, value in schema.items():
         if key != "$ref":
             resolved[key] = _inline_refs(value, defs)
-
     return resolved
 
 
@@ -75,7 +73,6 @@ def _inline_refs(schema: Any, defs: dict[str, Any]) -> Any:
         if resolved is not None:
             return resolved
         return {key: _inline_refs(value, defs) for key, value in schema.items()}
-
     if isinstance(schema, list):
         return [_inline_refs(item, defs) for item in schema]
 
