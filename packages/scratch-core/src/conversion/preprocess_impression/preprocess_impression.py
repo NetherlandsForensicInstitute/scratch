@@ -145,6 +145,9 @@ def _finalize_leveled_output(
         mark_restored = resample(mark_restored, target_scale)
 
     # Apply PLANE-only leveling (after resampling, like MATLAB)
-    rigid_terms = surface_terms & SurfaceTerms.PLANE
+    if surface_terms in (SurfaceTerms.PLANE, SurfaceTerms.SPHERE):
+        rigid_terms = SurfaceTerms.PLANE
+    else:
+        rigid_terms = SurfaceTerms.NONE
     leveled_mark, _ = _level_mark(mark_restored, rigid_terms)
     return leveled_mark

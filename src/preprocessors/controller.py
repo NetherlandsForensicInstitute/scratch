@@ -132,7 +132,7 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: B
         Resample(target_shape=output_shape),
         Mask(mask=resampled_mask),
         *([CropToMask(mask=resampled_mask)] if edit_image_params.crop else []),
-        LevelMap(terms=edit_image_params.terms.to_surface_terms()),
+        LevelMap(terms=edit_image_params.terms),
         GaussianRegressionFilter(
             regression_order=edit_image_params.regression_order,
             cutoff_length=edit_image_params.cutoff_length * micro,

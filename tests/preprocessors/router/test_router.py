@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from computations.constants import SurfaceTerms
 from container_models.base import BinaryMask
 from conversion.data_formats import MarkImpressionType, MarkStriationType
 from fastapi.testclient import TestClient
@@ -15,7 +16,7 @@ from utils.constants import RegressionOrder
 
 from constants import PreprocessorEndpoint, RoutePrefix
 from models import DirectoryAccess
-from preprocessors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles, SurfaceOptions
+from preprocessors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 from preprocessors.schemas import (
     EditImage,
     GeneratedImages,
@@ -315,7 +316,7 @@ class TestEditScanExceptionHandlers:
             project_name="test",
             scan_file=scan_directory / "circle.x3p",
             cutoff_length=2 * micro,
-            terms=SurfaceOptions.PLANE,
+            terms=SurfaceTerms.PLANE,
         ).model_dump(mode="json")
 
     def test_file_not_found_returns_404(
@@ -371,7 +372,7 @@ def test_edit_image_returns_valid_images(
         scan_file=scan_directory / "circle.x3p",
         cutoff_length=2 * micro,
         resampling_factor=0.5,
-        terms=SurfaceOptions.PLANE,
+        terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
     ).model_dump(mode="json")

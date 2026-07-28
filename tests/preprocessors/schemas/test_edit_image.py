@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
+from computations.constants import SurfaceTerms
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 from scipy.constants import micro
 
-from preprocessors.constants import SurfaceOptions
 from preprocessors.schemas import EditImage, RegressionOrder
 
 DEFAULT_RESAMPLING_FACTOR: Final[int] = 4
@@ -64,7 +64,7 @@ class TestEditImage:
 
         # Assert
         assert params.resampling_factor == DEFAULT_RESAMPLING_FACTOR
-        assert params.terms == SurfaceOptions.NONE
+        assert params.terms == SurfaceTerms.NONE
         assert params.regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE
         assert params.cutoff_length == CUTOFF_LENGTH
         assert params.crop is False
@@ -73,8 +73,8 @@ class TestEditImage:
     @pytest.mark.parametrize(
         "kwargs",
         [
-            {"terms": SurfaceOptions.PLANE},
-            {"terms": SurfaceOptions.SPHERE},
+            {"terms": SurfaceTerms.PLANE},
+            {"terms": SurfaceTerms.SPHERE},
             {"regression_order": RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE},
             {"regression_order": RegressionOrder.LOCAL_PLANAR},
             {"regression_order": RegressionOrder.LOCAL_QUADRATIC},
