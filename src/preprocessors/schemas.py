@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any
+from typing import Annotated, Any
 
 import numpy as np
 from computations.constants import SurfaceTerms
 from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType
+from conversion.export.validators import validate_enum_string
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
@@ -138,7 +139,7 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: SurfaceTerms = Field(
+    terms: Annotated[SurfaceTerms, validate_enum_string(SurfaceTerms)] = Field(
         ...,
         description=(
             "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."

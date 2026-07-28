@@ -16,7 +16,7 @@ from preprocessors.schemas import EditImage
 
 @pytest.fixture
 def scan_image():
-    width, height = 3, 3
+    width, height = 4, 4
     data = np.ones((height, width), dtype=float)
     data[1, 1] = 6
     scan_image = ScanImage(
@@ -54,15 +54,16 @@ def resample_twice_bigger(
 
 
 @pytest.fixture
-def mask_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage, BinaryMask, Callable]:
+def mask_middle_pixels(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage, BinaryMask, Callable]:
     scan_file = tmp_path / "scan.x3p"
     save_x3p(output_path=scan_file, x3p=convert_to_x3p(scan_image))
 
     mask = np.array(
         [
-            [1, 1, 1],
-            [1, 0, 1],
-            [1, 1, 1],
+            [1, 1, 1, 1],
+            [1, 0, 0, 1],
+            [1, 0, 0, 1],
+            [1, 1, 1, 1],
         ],
         dtype=np.bool,
     )
@@ -78,21 +79,22 @@ def mask_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage,
     )
 
     def assertions(result: ScanImage):
-        assert np.isnan(result.data[1, 1]), "Pixel value in the middle needs to be masked out."
+        assert np.isnan(result.data[2, 2]), "Pixel value in the middle needs to be masked out."
 
     return params, mask, assertions
 
 
 @pytest.fixture
-def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage, BinaryMask, Callable]:
+def crop_to_middle_pixels(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage, BinaryMask, Callable]:
     scan_file = tmp_path / "scan.x3p"
     save_x3p(output_path=scan_file, x3p=convert_to_x3p(scan_image))
 
     mask = np.array(
         [
-            [0, 0, 0],
-            [0, 1, 0],
-            [0, 0, 0],
+            [0, 0, 0, 0],
+            [0, 1, 1, 0],
+            [0, 1, 1, 0],
+            [0, 0, 0, 0],
         ],
         dtype=np.bool,
     )
@@ -108,7 +110,7 @@ def crop_to_middle_pixel(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIma
     )
 
     def assertions(result: ScanImage):
-        assert result.data.shape == (1, 1), "cropped to the middle pixel"
+        assert result.data.shape == (2, 2), "cropped to the middle pixel"
 
     return params, mask, assertions
 
@@ -144,7 +146,7 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
 
 
 @pytest.mark.parametrize(
-    "fixture_name", ["resample_twice_bigger", "mask_middle_pixel", "crop_to_middle_pixel", "crop_to_resized_image"]
+    "fixture_name", ["resample_twice_bigger", "mask_middle_pixels", "crop_to_middle_pixels", "crop_to_resized_image"]
 )
 def test_apply_change_on_scan_image(fixture_name: str, request: pytest.FixtureRequest, scan_image: ScanImage) -> None:
     """Test the different parameters of EditScan in apply_changes_on_scan_image."""
