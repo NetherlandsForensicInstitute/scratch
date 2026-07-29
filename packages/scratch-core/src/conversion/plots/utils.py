@@ -5,6 +5,7 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
+from matplotlib.text import Text
 
 from container_models.base import FloatArray2D, ImageRGB
 
@@ -119,34 +120,41 @@ def overview_figure_height(
     return max(minimum, min(maximum, base + max_metadata_rows * 0.12))
 
 
-def _fit_fontsize(
+def _fit_cell_label_fontsizes(
     ax: Axes,
-    label: str,
+    texts: list[Text],
     cell_w_um: float,
-    max_fontsize: float = 11.0,
-    min_fontsize: float = 4.0,
     fill: float = 0.85,
-) -> float:
+    min_fontsize: float = 3.0,
+    max_fontsize: float = 11.0,
+) -> None:
     """
-    Font size that keeps `label` inside a cell of width `cell_w_um`.
+    Shrink already-placed cell labels so each fits inside its cell.
 
-    Converts the cell width from data units to points, then divides by the
-    label length (a character is roughly 0.6 em wide for most fonts).
+    Measures the rendered width of each label and scales its font size to
+    the cell width. A draw is forced first: with ``aspect="equal"`` the data
+    box is only fitted inside the axes at draw time, so ``ax.transData`` is
+    not final before then — reading it earlier overestimates the cell width
+    (badly, for tall/narrow surfaces) and the labels come out too large.
 
-    :param ax: Axes the label will be drawn on.
-    :param label: The text to fit.
+    :param ax: Axes the labels were drawn on.
+    :param texts: Text objects returned by ax.text.
     :param cell_w_um: Cell width in data units (µm).
-    :param max_fontsize: Never exceed this (short labels stay readable).
-    :param min_fontsize: Never go below this (unreadable past this point).
     :param fill: Fraction of the cell width the text may occupy.
-    :returns: Font size in points.
+    :param min_fontsize: Lower clamp.
+    :param max_fontsize: Upper clamp.
     """
-    # Data units -> display pixels -> points (72 pt per inch).
+    fig = ax.figure
+    fig.canvas.draw()
+
     origin = ax.transData.transform((0.0, 0.0))
     edge = ax.transData.transform((cell_w_um, 0.0))
-    width_px = abs(edge[0] - origin[0])
-    width_pt = width_px * 72.0 / ax.figure.dpi
+    cell_px = abs(edge[0] - origin[0])
 
-    # ~0.6 em per character is a good approximation for DejaVu Sans.
-    size = (width_pt * fill) / (max(len(label), 1) * 0.5)
-    return float(np.clip(size, min_fontsize, max_fontsize))
+    renderer = fig.canvas.get_renderer()
+    for text in texts:
+        bbox = text.get_window_extent(renderer=renderer)
+        if bbox.width <= 0:
+            continue
+        scaled = text.get_fontsize() * (cell_px * fill) / bbox.width
+        text.set_fontsize(float(np.clip(scaled, min_fontsize, max_fontsize)))

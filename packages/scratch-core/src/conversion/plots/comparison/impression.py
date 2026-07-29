@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Sequence, Any
+from typing import Sequence, Any, Literal
 
 import matplotlib.pyplot as plt
 from scipy.constants import mega
@@ -92,6 +92,9 @@ def plot_impression_comparison_results(
         scale=scale,
         cells=cmc_result.cells,
         cell_label_prefix="A",
+        space="reference",
+        show_all_cells=True,
+        title="Reference Surface A — All Cells",
     )
     cell_comp = plot_cell_grid_overlay(
         data=mark_compared_filtered.scan_image.data,
@@ -99,11 +102,17 @@ def plot_impression_comparison_results(
         cells=cmc_result.cells,
         cell_label_prefix="B",
         show_all_cells=False,
+        space="comparison",
+        title="Compared Surface B — CMC Cells",
     )
     cell_overlay = plot_cell_grid_overlay(
-        data=mark_reference_filtered.scan_image.data,
-        scale=scale,
+        data=mark_compared_filtered.scan_image.data,
+        scale=mark_compared_filtered.scan_image.scale_x,
         cells=cmc_result.cells,
+        title="Compared Surface B — All Cells",
+        cell_label_prefix="B",
+        show_all_cells=True,
+        space="comparison",
     )
     ref_data = mark_reference_filtered.scan_image.data
     surface_extent_um = (
@@ -143,6 +152,8 @@ def plot_cell_grid_overlay(
     data: FloatArray2D,
     scale: float,
     cells: Sequence[Cell],
+    space: Literal["reference", "comparison"],
+    title: str = "Cell Grid Overlay",
     cell_label_prefix: str = "A",
     show_all_cells: bool = True,
 ) -> ImageRGB:
@@ -155,6 +166,8 @@ def plot_cell_grid_overlay(
     :param data: Surface data in meters.
     :param scale: Pixel scale in meters.
     :param cells: Cells to plot.
+    :param space: which space to plot the cells on
+    :param title: title of the plot
     :param cell_label_prefix: Label prefix for cells ("A" for reference, "B" for compared).
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
     :returns: RGB image as uint8 array.
@@ -170,8 +183,9 @@ def plot_cell_grid_overlay(
             cells=cells,
             cell_label_prefix=cell_label_prefix,
             show_all_cells=show_all_cells,
+            space=space,
         )
-        _plot_surface_with_colorbar(fig, ax, im, title="Cell Grid Overlay")
+        _plot_surface_with_colorbar(fig, ax, im, title=title)
 
     return render_single_panel((fig_width, fig_height), draw)
 
@@ -245,8 +259,9 @@ def plot_impression_comparison_overview(
     scale_x_um = mark_reference_filtered.scan_image.scale_x * mega
     scale_y_um = mark_reference_filtered.scan_image.scale_y * mega
 
-    results_items = build_impression_results_metadata(cells, cmc_result, comparison_params, mark_reference_raw,
-                                                      scale_x_um, scale_y_um)
+    results_items = build_impression_results_metadata(
+        cells, cmc_result, comparison_params, mark_reference_raw, scale_x_um, scale_y_um
+    )
 
     max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
         metadata_compared, metadata_reference, wrap_width
@@ -365,9 +380,14 @@ def plot_impression_comparison_overview(
     )
 
 
-def build_impression_results_metadata(cells: Sequence[Cell], cmc_result: ComparisonResult,
-                                      comparison_params: ComparisonParams, mark_reference_raw: Mark, scale_x_um: float,
-                                      scale_y_um: float) -> dict[str | Any, str | Any]:
+def build_impression_results_metadata(
+    cells: Sequence[Cell],
+    cmc_result: ComparisonResult,
+    comparison_params: ComparisonParams,
+    mark_reference_raw: Mark,
+    scale_x_um: float,
+    scale_y_um: float,
+) -> dict[str | Any, str | Any]:
     """Set up the overview of metadata to show in the plot."""
     results_items = {
         "Date report": datetime.now().strftime("%Y-%m-%d"),

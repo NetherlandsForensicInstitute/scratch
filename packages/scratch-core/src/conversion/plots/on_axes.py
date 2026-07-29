@@ -161,15 +161,31 @@ def plot_depth_map_on_axes(
     cbar.ax.axhline(vmin, color="red", linewidth=2)
     cbar.ax.axhline(vmax, color="red", linewidth=2)
 
-    # True min/max at the triangle tips. In transAxes the rectangle fills
-    # [0, 1]; each triangle adds `extendfrac` beyond that.
+    # Drop regular ticks that would crowd the red lines / tip labels.
     margin = 0.06 * (vmax - vmin)
     cbar.set_ticks([t for t in cbar.get_ticks() if vmin + margin <= t <= vmax - margin])
-    tip_kw = dict(
-        transform=cbar.ax.transAxes, ha="left", va="center", fontsize=10, clip_on=False
+
+    # True min/max at the triangle tips. Anchor to the colorbar's right edge
+    # (transAxes x=1.0) with a fixed offset in points, matching how matplotlib
+    # places the regular tick labels — an offset in axes fraction would scale
+    # with the colorbar width and drift between subplots.
+    tick_pad_pt = (
+        cbar.ax.yaxis.majorTicks[0].get_pad() if cbar.ax.yaxis.majorTicks else 3.5
     )
-    cbar.ax.text(2.6, 1.0 + extendfrac, f"{true_max:.2f}", **tip_kw)
-    cbar.ax.text(2.6, -extendfrac, f"{true_min:.2f}", **tip_kw)
+    tip_kw = dict(
+        xycoords=cbar.ax.transAxes,
+        textcoords="offset points",
+        ha="left",
+        va="center",
+        fontsize=10,
+        annotation_clip=False,
+    )
+    cbar.ax.annotate(
+        f"{true_max:.2f}", xy=(1.0, 1.0 + extendfrac), xytext=(tick_pad_pt, 0), **tip_kw
+    )
+    cbar.ax.annotate(
+        f"{true_min:.2f}", xy=(1.0, -extendfrac), xytext=(tick_pad_pt, 0), **tip_kw
+    )
 
 
 def plot_depth_map_with_axes(
@@ -252,7 +268,7 @@ def _plot_surface_with_colorbar(
     :param ax: Axes the image was plotted on.
     :param im: AxesImage returned by plot_cell_overlay_on_axes.
     :param title: Axes title.
-    :param color_sigma: Std multiplier for the clip bounds (red lines).
+    :param color_sigma: MAD multiplier for the clip bounds (red lines).
     :param extendfrac: Fraction of the colorbar length per extend triangle.
     """
     ax.set_title(title, fontsize=12, fontweight="bold")
@@ -268,6 +284,11 @@ def _plot_surface_with_colorbar(
     vmin, vmax = _robust_color_limits(arr.filled(np.nan), k=color_sigma)
     im.set_clim(vmin, vmax)
 
+    if arr.count():
+        true_min, true_max = float(arr.min()), float(arr.max())
+    else:
+        true_min, true_max = vmin, vmax
+
     cbar = fig.colorbar(
         im, cax=cax, label="Scan Depth [µm]", extend="both", extendfrac=extendfrac
     )
@@ -277,11 +298,28 @@ def _plot_surface_with_colorbar(
     cbar.ax.axhline(vmin, color="red", linewidth=2)
     cbar.ax.axhline(vmax, color="red", linewidth=2)
 
-    # Keep in-range ticks (dropping any that would crowd the tips), then add
-    # the true min/max at the triangle tips.
+    # Drop regular ticks that would crowd the red lines / tip labels.
     margin = 0.06 * (vmax - vmin)
-    default_ticks = [t for t in cbar.get_ticks() if vmin + margin <= t <= vmax - margin]
-    cbar.set_ticks([vmin, *default_ticks, vmax])
-    cbar.set_ticklabels(
-        [f"{vmin:.2f}", *[f"{t:.2f}" for t in default_ticks], f"{vmax:.2f}"]
+    cbar.set_ticks([t for t in cbar.get_ticks() if vmin + margin <= t <= vmax - margin])
+
+    # True min/max at the triangle tips. Anchor to the colorbar's right edge
+    # (transAxes x=1.0) with a fixed offset in points, matching how matplotlib
+    # places the regular tick labels — an offset in axes fraction would scale
+    # with the colorbar width and drift between subplots.
+    tick_pad_pt = (
+        cbar.ax.yaxis.majorTicks[0].get_pad() if cbar.ax.yaxis.majorTicks else 3.5
+    )
+    tip_kw = dict(
+        xycoords=cbar.ax.transAxes,
+        textcoords="offset points",
+        ha="left",
+        va="center",
+        fontsize=9,
+        annotation_clip=False,
+    )
+    cbar.ax.annotate(
+        f"{true_max:.2f}", xy=(1.0, 1.0 + extendfrac), xytext=(tick_pad_pt, 0), **tip_kw
+    )
+    cbar.ax.annotate(
+        f"{true_min:.2f}", xy=(1.0, -extendfrac), xytext=(tick_pad_pt, 0), **tip_kw
     )

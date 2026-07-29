@@ -4,11 +4,12 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
+from matplotlib.text import Text
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.constants import mega
 
 from container_models.base import FloatArray2D
-from conversion.plots.utils import DEFAULT_COLORMAP, _fit_fontsize
+from conversion.plots.utils import DEFAULT_COLORMAP, _fit_cell_label_fontsizes
 from conversion.plots.on_axes import _robust_color_limits
 
 from conversion.surface_comparison.models import Cell
@@ -51,9 +52,15 @@ def _draw_cell_labels(
     w_um, h_um = cells[0].cell_size_um
     half_w_um, half_h_um = w_um / 2, h_um / 2
     base_corners = np.array(
-        [[-half_w_um, -half_h_um], [half_w_um, -half_h_um], [half_w_um, half_h_um], [-half_w_um, half_h_um]]
+        [
+            [-half_w_um, -half_h_um],
+            [half_w_um, -half_h_um],
+            [half_w_um, half_h_um],
+            [-half_w_um, half_h_um],
+        ]
     )
 
+    labels: list[Text] = []
     for color, labeled_cells in [("black", cmc_cells), ("red", non_cmc_cells)]:
         for idx, cell in labeled_cells:
             if space == "reference":
@@ -80,19 +87,21 @@ def _draw_cell_labels(
             ys = np.append(corners_translated[:, 1], corners_translated[0, 1])
             ax.plot(xs, ys, color=color, linestyle="-", linewidth=1.0)
 
-            label = f"{cell_label_prefix}{idx}"
-            ax.text(
-                cx,
-                cy,
-                label,
-                ha="center",
-                va="center",
-                fontsize=_fit_fontsize(ax, label, w_um),
-                color=color,
-                fontweight="bold",
-                rotation=text_rotation,
-                rotation_mode="anchor",
+            labels.append(
+                ax.text(
+                    cx,
+                    cy,
+                    f"{cell_label_prefix}{idx}",
+                    ha="center",
+                    va="center",
+                    fontsize=9,  # placeholder, rescaled below
+                    color=color,
+                    fontweight="bold",
+                    rotation=text_rotation,
+                    rotation_mode="anchor",
+                )
             )
+    _fit_cell_label_fontsizes(ax, labels, w_um)
 
 
 def plot_cell_overlay_on_axes(
@@ -181,18 +190,29 @@ def _plot_cell_heatmap_on_axes(
     :param cell_label_prefix: Prefix for cell labels.
     """
     w_um, h_um = surface_extent_um
+    half_w_um, half_h_um = (v / 2 for v in cells[0].cell_size_um)
+    centers_x = [c.center_reference[0] * 1e6 for c in cells]
+    centers_y = [c.center_reference[1] * 1e6 for c in cells]
+    grid_extent = (
+        min(centers_x) - half_w_um,
+        max(centers_x) + half_w_um,
+        min(centers_y) - half_h_um,
+        max(centers_y) + half_h_um,
+    )
 
     im = ax.imshow(
         cell_correlations,
         cmap=DEFAULT_COLORMAP,
         aspect="equal",
         origin="lower",
-        extent=(0, w_um, 0, h_um),
+        extent=grid_extent,
         vmin=0,
         vmax=1,
+        interpolation="nearest",
     )
     tile_w_um = w_um / cell_correlations.shape[1]
 
+    labels: list[Text] = []
     for idx, cell in enumerate(cells, start=1):
         if np.isnan(cell.best_score):
             continue
@@ -200,17 +220,20 @@ def _plot_cell_heatmap_on_axes(
         cx = cell.center_reference[0] * 1e6
         cy = cell.center_reference[1] * 1e6
         color = "blue" if cell.is_congruent else "red"
-        label = f"{cell_label_prefix}{idx}"
-        ax.text(
-            cx,
-            cy,
-            label,
-            ha="center",
-            va="center",
-            fontsize=_fit_fontsize(ax, label, tile_w_um),
-            color=color,
-            fontweight="bold",
+
+        labels.append(
+            ax.text(
+                cx,
+                cy,
+                f"{cell_label_prefix}{idx}",
+                ha="center",
+                va="center",
+                fontsize=9,  # placeholder, rescaled below
+                color=color,
+                fontweight="bold",
+            )
         )
+    _fit_cell_label_fontsizes(ax, labels, tile_w_um)
 
     ax.set_title("Cell ACCF Distribution", fontsize=12, fontweight="bold")
     ax.tick_params(labelsize=10)

@@ -266,8 +266,9 @@ def plot_striation_comparison_overview(
     )
 
 
-def build_striation_results_metadata(mark_reference: Mark, metrics: StriationComparisonResults) -> dict[
-    str | Any, str | Any]:
+def build_striation_results_metadata(
+    mark_reference: Mark, metrics: StriationComparisonResults
+) -> dict[str | Any, str | Any]:
     """Set up the overview of metadata to show in the plot."""
     results_items = {
         "Date report": datetime.now().strftime("%Y-%m-%d"),

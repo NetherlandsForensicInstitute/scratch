@@ -18,9 +18,9 @@ from conversion.likelihood_ratio.results_metadata import (
 )
 from conversion.plots.comparison.impression import plot_impression_comparison_results
 from conversion.plots.comparison.striation import plot_striation_comparison_results
-from conversion.plots.likelihood_ratio.data_formats import HistogramData, LlrTransformationData
 from conversion.plots.likelihood_ratio.ccf_overview import plot_ccf_comparison_overview
 from conversion.plots.likelihood_ratio.cmc_overview import plot_cmc_comparison_overview
+from conversion.plots.likelihood_ratio.data_formats import HistogramData, LlrTransformationData
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from conversion.surface_comparison.models import Cell, ComparisonParams, ComparisonResult, ProcessedMark
 from fastapi import HTTPException
