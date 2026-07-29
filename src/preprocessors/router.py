@@ -1,7 +1,6 @@
 from http import HTTPStatus
 from typing import Annotated
 
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from fastapi import APIRouter, File, Form
 from fastapi.responses import RedirectResponse
 from loguru import logger
@@ -126,7 +125,7 @@ async def prepare_mark_impression(
         mark_type=params.mark_type,
         mask=parsed_mask,
         bounding_box=params.bounding_box,
-        preprocess_parameters=PreprocessingImpressionParams(**params.mark_parameters.model_dump()),
+        preprocess_parameters=params.mark_parameters,
         working_dir=vault.resource_path,
     )
     logger.info(f"Generated files saved to {vault}")
