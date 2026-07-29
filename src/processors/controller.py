@@ -6,18 +6,21 @@ from pathlib import Path
 import numpy as np
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.export.mark import load_mark_from_path
-from conversion.likelihood_ratio import (
+from conversion.likelihood_ratio.likelihood_ratio import (
     ModelSpecs,
     calculate_lr_impression,
     calculate_lr_striation,
     get_reference_data_from_path,
 )
-from conversion.plots.data_formats import HistogramData, LlrTransformationData
-from conversion.plots.plot_ccf_comparison_overview import plot_ccf_comparison_overview
-from conversion.plots.plot_cmc_comparison_overview import plot_cmc_comparison_overview
-from conversion.plots.plot_impression import plot_impression_comparison_results
-from conversion.plots.plot_striation import plot_striation_comparison_results
-from conversion.plots.utils import build_results_metadata_impression, build_results_metadata_striation
+from conversion.likelihood_ratio.results_metadata import (
+    build_results_metadata_impression,
+    build_results_metadata_striation,
+)
+from conversion.plots.comparison.impression import plot_impression_comparison_results
+from conversion.plots.comparison.striation import plot_striation_comparison_results
+from conversion.plots.likelihood_ratio.data_formats import HistogramData, LlrTransformationData
+from conversion.plots.likelihood_ratio.ccf_overview import plot_ccf_comparison_overview
+from conversion.plots.likelihood_ratio.cmc_overview import plot_cmc_comparison_overview
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from conversion.surface_comparison.models import Cell, ComparisonParams, ComparisonResult, ProcessedMark
 from fastapi import HTTPException

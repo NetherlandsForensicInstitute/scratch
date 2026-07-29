@@ -4,8 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 
-from conversion.plots.data_formats import DensityData, HistogramData
-from conversion.plots.plot_score_histograms import plot_score_histograms
+from conversion.plots.likelihood_ratio.data_formats import DensityData, HistogramData
+from conversion.plots.likelihood_ratio.distributions import (
+    plot_score_histograms,
+)
 from matplotlib.figure import Figure
 from scipy.stats import gaussian_kde
 

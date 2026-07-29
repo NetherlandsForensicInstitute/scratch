@@ -6,17 +6,15 @@ from conversion.surface_comparison.cell_registration.core import (
     coarse_registration,
     fine_registration,
 )
-from conversion.surface_comparison.cmc_classification_median import (
-    classify_congruent_cells_median,
+from conversion.surface_comparison.cmc_consensus.pipeline import (
+    classify_congruent_cells_consensus,
 )
-from conversion.surface_comparison.cmc_consensus.pipeline import classify_congruent_cells_consensus
 from conversion.surface_comparison.grid import generate_grid
 from conversion.surface_comparison.models import (
     ComparisonParams,
     ComparisonResult,
     ProcessedMark,
 )
-
 
 
 def compare_surfaces(

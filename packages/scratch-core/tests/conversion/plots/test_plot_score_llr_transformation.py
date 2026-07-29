@@ -5,8 +5,10 @@ from pathlib import Path
 import pytest
 
 from container_models.base import FloatArray1D
-from conversion.plots.data_formats import LlrTransformationData
-from conversion.plots.plot_score_llr_transformation import plot_score_llr_transformation
+from conversion.plots.likelihood_ratio.data_formats import LlrTransformationData
+from conversion.plots.likelihood_ratio.distributions import (
+    plot_score_llr_transformation,
+)
 
 from ..helper_functions import assert_plot_is_valid_image
 

@@ -6,17 +6,11 @@ from matplotlib import pyplot as plt
 from scipy.constants import micro
 
 from conversion.data_formats import Mark, MarkMetadata
-from conversion.plots.data_formats import (
-    ImpressionComparisonPlots,
-)
-from conversion.plots.plot_impression import (
-    _plot_cell_heatmap_on_axes,
-    plot_cell_overlay_on_axes,
-    plot_cell_correlation_heatmap,
-    plot_cell_grid_overlay,
-    plot_comparison_overview,
-    plot_impression_comparison_results,
-)
+from conversion.plots.cell_overlays import _plot_cell_heatmap_on_axes, plot_cell_overlay_on_axes
+from conversion.plots.comparison.data_formats import ImpressionComparisonPlots
+from conversion.plots.comparison.impression import plot_cell_grid_overlay, plot_cell_correlation_heatmap, \
+    plot_impression_comparison_results, plot_impression_comparison_overview
+
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonResult,
@@ -120,7 +114,7 @@ class TestPlotComparisonOverview:
         sample_metadata_reference: MarkMetadata,
         sample_metadata_compared: MarkMetadata,
     ):
-        result = plot_comparison_overview(
+        result = plot_impression_comparison_overview(
             mark_reference_raw=impression_sample_mark,
             mark_compared_raw=impression_sample_mark,
             mark_reference_filtered=impression_sample_mark,

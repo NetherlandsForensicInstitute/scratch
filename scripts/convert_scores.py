@@ -71,7 +71,7 @@ class ScoreStatus(enum.Enum):
     FAILED_ERROR = "failed_error"
 
 
-def calculate_score(
+def calculate_score(  # noqa: PLR0911
     entry: ComparisonEntry, cfg: ConversionConfig, existing: set[Path]
 ) -> tuple[ScoreStatus, dict[str, Any] | None]:
     """Call the score endpoint for a single comparison pair.

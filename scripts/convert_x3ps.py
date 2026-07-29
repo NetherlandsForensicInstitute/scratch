@@ -179,10 +179,7 @@ def main() -> None:
     session = requests.Session()
     try:
         results = run_parallel(
-            (
-                (mf, _convert_measurement_safe, (mf, cfg, session, args.skip_conversion))
-                for mf in unique_measurements
-            ),
+            ((mf, _convert_measurement_safe, (mf, cfg, session, args.skip_conversion)) for mf in unique_measurements),
             args.workers,
             "Converting x3p" if not args.skip_conversion else "Reprocessing x3p",
             " files",

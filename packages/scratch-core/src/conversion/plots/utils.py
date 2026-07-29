@@ -1,20 +1,12 @@
-import datetime
-import textwrap
-from pathlib import Path
-from typing import Literal, cast
+from typing import Callable, cast
 
-import numpy as np
 import matplotlib.pyplot as plt
-from lir import LLRData
+import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
-from matplotlib.transforms import Bbox
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from container_models.base import FloatArray2D, ImageRGB, StriationProfile
-from conversion.data_formats import MarkMetadata, MarkType
-from conversion.likelihood_ratio import ModelSpecs
+from container_models.base import FloatArray2D, ImageRGB
 
 DEFAULT_COLORMAP = "viridis"
 
@@ -31,6 +23,54 @@ def figure_to_array(fig: Figure) -> ImageRGB:
     buf = canvas.buffer_rgba()
     arr = np.asarray(buf)
     return arr[:, :, :3].copy()
+
+
+def finish_figure(fig: Figure) -> ImageRGB:
+    """Rasterize a figure to an RGB array and close it (always closes)."""
+    try:
+        return figure_to_array(fig)
+    finally:
+        plt.close(fig)
+
+
+def render_single_panel(
+    figsize: tuple[float, float],
+    draw: Callable[[Figure, Axes], None],
+    tight_layout_kwargs: dict | None = None,
+) -> ImageRGB:
+    """
+    Render a single-axes figure to an RGB array.
+
+    Creates the figure, hands (fig, ax) to ``draw``, applies tight_layout,
+    then rasterizes and closes.
+
+    :param figsize: (width, height) in inches.
+    :param draw: Callback that plots onto the given figure and axes.
+    :param tight_layout_kwargs: Extra kwargs for fig.tight_layout.
+    :returns: RGB image as uint8 array.
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+    draw(fig, ax)
+    fig.tight_layout(**(tight_layout_kwargs or {}))
+    return finish_figure(fig)
+
+
+def finish_overview(
+    fig: Figure,
+    tight_layout_kwargs: dict,
+    subplots_adjust_kwargs: dict,
+) -> ImageRGB:
+    """
+    Apply tight_layout + subplots_adjust to an overview figure, then rasterize.
+
+    :param fig: Figure to finalize.
+    :param tight_layout_kwargs: kwargs for fig.tight_layout.
+    :param subplots_adjust_kwargs: kwargs for fig.subplots_adjust.
+    :returns: RGB image as uint8 array.
+    """
+    fig.tight_layout(**tight_layout_kwargs)
+    fig.subplots_adjust(**subplots_adjust_kwargs)
+    return finish_figure(fig)
 
 
 def get_figure_dimensions(
@@ -54,226 +94,9 @@ def get_figure_dimensions(
     return fig_height, fig_width
 
 
-def plot_profiles_on_axes(
-    ax: Axes,
-    profile_reference: StriationProfile,
-    profile_compared: StriationProfile,
-    scale: float,
-    score: float,
-    title: str,
-) -> None:
-    """
-    Plot two aligned profiles on the given axes.
-
-    :param ax: Matplotlib axes to plot on.
-    :param profile_reference: Reference profile (aligned, 2D).
-    :param profile_compared: Compared profile (aligned, 2D).
-    :param scale: scale of the profiles in meters.
-    :param score: Pre-computed correlation coefficient.
-    :param title: Prefix for the title before the correlation value.
-    """
-    x1 = np.arange(len(profile_reference)) * scale * 1e6
-    x2 = np.arange(len(profile_compared)) * scale * 1e6
-
-    y1 = profile_reference * 1e6
-    y2 = profile_compared * 1e6
-
-    ax.plot(x1, y1, "b-", label="Reference Profile A", linewidth=1.5)
-    ax.plot(x2, y2, "r-", label="Compared Profile B", linewidth=1.5)
-
-    ax.set_xlabel("Profile Length [µm]", fontsize=11)
-    ax.set_ylabel("Profile Height [µm]", fontsize=11)
-    ax.set_title(f"{title}: {score:.5f}", fontsize=12, fontweight="bold")
-    ax.tick_params(labelsize=10)
-    ax.legend(loc="upper right", fontsize=10)
-    ax.grid(True, alpha=0.3)
-
-
-def plot_side_by_side_on_axes(
-    ax: Axes,
-    fig: Figure,
-    data_ref: FloatArray2D,
-    data_comp: FloatArray2D,
-    scale: float,
-    title: str = "Reference Surface A / Moved Compared Surface B",
-    colorbar_width: str = "2.5%",
-    colorbar_pad: float = 0.05,
-    aspect: Literal["equal", "auto"] = "equal",
-) -> None:
-    """
-    Plot two surfaces side by side on the given axes.
-
-    :param ax: Matplotlib axes to plot on.
-    :param fig: Figure (needed for colorbar).
-    :param data_ref: Reference data in meters.
-    :param data_comp: Compared data in meters.
-    :param scale: Scale of the data in meters.
-    :param title: Title for the plot.
-    :param colorbar_width: Width of colorbar as percentage of axes.
-    :param colorbar_pad: Padding between plot and colorbar.
-    :param aspect: Matplotlib aspect argument passed to imshow.
-    """
-    gap_width = int(np.ceil(min(data_ref.shape[1], data_comp.shape[1]) / 100))
-    gap = np.full((data_ref.shape[0], gap_width), np.nan)
-    combined = np.hstack([data_ref, gap, data_comp])
-
-    plot_depth_map_on_axes(
-        ax,
-        fig,
-        combined,
-        scale,
-        title,
-        colorbar_width=colorbar_width,
-        colorbar_pad=colorbar_pad,
-        aspect=aspect,
-    )
-
-
-def plot_depth_map_on_axes(
-    ax: Axes,
-    fig: Figure,
-    data: FloatArray2D,
-    scale: float,
-    title: str,
-    colorbar_width: str = "5%",
-    colorbar_pad: float = 0.05,
-    aspect: Literal["equal", "auto"] = "equal",
-) -> None:
-    """
-    Plot a depth map on the given axes.
-
-    :param ax: Matplotlib axes to plot on.
-    :param fig: Figure (needed for colorbar).
-    :param data: Data to plot in meters.
-    :param scale: Scale of the data in meters.
-    :param title: Title for the plot.
-    :param colorbar_width: Width of colorbar as percentage of axes.
-    :param colorbar_pad: Padding between plot and colorbar.
-    :param aspect: Matplotlib aspect argument passed to imshow.
-    """
-    height, width = data.shape
-    extent = (0, width * scale * 1e6, 0, height * scale * 1e6)
-
-    im = ax.imshow(
-        data * 1e6,
-        cmap=DEFAULT_COLORMAP,
-        aspect=aspect,
-        origin="lower",
-        extent=extent,
-    )
-    ax.set_xlabel("X - Position [µm]", fontsize=11)
-    ax.set_ylabel("Y - Position [µm]", fontsize=11)
-    ax.set_title(title, fontsize=12, fontweight="bold")
-    ax.tick_params(labelsize=10)
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size=colorbar_width, pad=colorbar_pad)
-    cbar = fig.colorbar(im, cax=cax, label="Scan Depth [µm]")
-    cbar.ax.tick_params(labelsize=10)
-
-
-def metadata_to_table_data(
-    metadata: dict[str, str], wrap_width: int
-) -> list[list[str]]:
-    """
-    Convert metadata dictionary to table rows with text wrapping.
-
-    Long values are wrapped across multiple rows, with the key only
-    appearing on the first row.
-
-    :param metadata: Dictionary of metadata key-value pairs.
-    :param wrap_width: Maximum character width before wrapping values.
-    :returns: Table rows as list of [key, value] string pairs.
-    """
-    table_data: list[list[str]] = []
-    for k, v in metadata.items():
-        wrapped_lines = textwrap.wrap(str(v), width=wrap_width)
-        if not wrapped_lines:
-            wrapped_lines = [""]
-
-        table_data.append([f"{k}:" if k else "", wrapped_lines[0]])
-
-        for line in wrapped_lines[1:]:
-            table_data.append(["", line])
-    return table_data
-
-
-def _calculate_text_height(
-    text: str, wrap_width: int, line_height: float = 1.5
-) -> float:
-    """Calculate the number of lines needed for wrapped text."""
-    if not text:
-        return line_height
-    wrapped = textwrap.wrap(str(text), width=wrap_width)
-    return max(1, len(wrapped)) * line_height
-
-
-def _calculate_table_rows(metadata: dict, wrap_width: int = 25) -> int:
-    """Calculate total number of display rows including wrapped lines."""
-    total_rows = 0
-    for key, value in metadata.items():
-        key_lines = len(textwrap.wrap(f"{key}:", width=wrap_width))
-        value_lines = len(textwrap.wrap(str(value), width=wrap_width))
-        total_rows += max(key_lines, value_lines)
-    return total_rows
-
-
-def get_col_widths(
-    side_margin: float,
-    table_data: list[list[str]],
-) -> tuple[float, float]:
-    """
-    Calculate column widths for a two-column table based on content length.
-
-    The key column width is proportional to the longest key relative to the
-    longest value, clamped between 35% and 50% of the available width.
-
-    :param side_margin: Margin on each side as a fraction of total width (0-0.5).
-    :param table_data: List of (key, value) string pairs representing table rows.
-    :returns: Tuple of (key_column_width, value_column_width) as fractions of
-        total width, accounting for side margins.
-    """
-    available_width = 1.0 - 2 * side_margin
-
-    max_key_len = max(len(row[0]) for row in table_data)
-    max_val_len = max(len(row[1]) for row in table_data)
-    total_len = max_key_len + max_val_len
-
-    key_ratio = max(0.35, min(0.5, max_key_len / total_len))
-    key_width = key_ratio * available_width
-    val_width = (1.0 - key_ratio) * available_width
-    return key_width, val_width
-
-
-def get_bounding_box(side_margin: float, table_data: list[list[str]]) -> Bbox:
-    """
-    Calculate bounding box dimensions for a table with adaptive row heights.
-
-    Row height adapts to content: fewer rows get more generous spacing,
-    while many rows use compact spacing to fit. The table is vertically
-    centered within the available space.
-
-    :param side_margin: Margin on each side as a fraction of total width (0-0.5).
-    :param table_data: List of rows, where each row is a list of cell strings.
-    :returns: Bounding box with (left, bottom, width, height) as fractions
-        suitable for use as a matplotlib table bbox parameter.
-    """
-    n_rows = len(table_data)
-    available_width = 1.0 - 2 * side_margin
-
-    # Adaptive row height - more rows = tighter spacing, fewer rows = more space
-    if n_rows <= 5:
-        row_height_fraction = 0.14
-    elif n_rows <= 8:
-        row_height_fraction = 0.10
-    else:
-        row_height_fraction = 0.07
-
-    table_height = min(0.92, n_rows * row_height_fraction)
-    table_height = max(table_height, 0.5)
-    bottom = (1.0 - table_height) / 2
-
-    return Bbox.from_bounds(side_margin, bottom, available_width, table_height)
+def side_by_side_gap_width(data_ref: FloatArray2D, data_comp: FloatArray2D) -> int:
+    """Gap width in pixels between two surfaces plotted side by side."""
+    return int(np.ceil(min(data_ref.shape[1], data_comp.shape[1]) / 100))
 
 
 def get_height_ratios(metadata_height: float, *row_heights: float) -> list[float]:
@@ -289,173 +112,41 @@ def get_height_ratios(metadata_height: float, *row_heights: float) -> list[float
     return [h / total for h in heights]
 
 
-def get_metadata_dimensions(
-    metadata_compared: MarkMetadata, metadata_reference: MarkMetadata, wrap_width: int
-) -> tuple[int, float]:
-    """
-    Calculate metadata section dimensions based on content.
-
-    Determines the number of display rows needed for the larger of the two
-    metadata dictionaries (accounting for text wrapping), and computes an
-    appropriate height ratio with a minimum to ensure readability.
-
-    :param metadata_compared: Metadata dictionary for the compared profile.
-    :param metadata_reference: Metadata dictionary for the reference profile.
-    :param wrap_width: Maximum characters per line before wrapping.
-    :returns: Tuple of (max_metadata_rows, metadata_height_ratio) where
-        max_metadata_rows is the number of wrapped text rows and
-        metadata_height_ratio is the relative height for the metadata row.
-    """
-    # Calculate content-based heights
-    meta_reference_rows = _calculate_table_rows(
-        metadata_reference.to_display_dict(), wrap_width
-    )
-    meta_compared_rows = _calculate_table_rows(
-        metadata_compared.to_display_dict(), wrap_width
-    )
-
-    # Row 0: based on max metadata content (with minimum for readability)
-    max_metadata_rows = max(meta_reference_rows, meta_compared_rows)
-    metadata_height_ratio = max(
-        0.12, max_metadata_rows * 0.022
-    )  # Increased minimum and scale
-    return max_metadata_rows, metadata_height_ratio
+def overview_figure_height(
+    max_metadata_rows: int, base: float, minimum: float, maximum: float
+) -> float:
+    """Figure height for an overview: base + metadata rows, clamped to [min, max]."""
+    return max(minimum, min(maximum, base + max_metadata_rows * 0.12))
 
 
-def plot_depth_map_with_axes(
-    data: FloatArray2D,
-    scale: float,
-    title: str,
-) -> ImageRGB:
-    """
-    Plot a depth map rendering of a mark.
-
-    :param data: data to plot in meters.
-    :param scale: scale of the data in meters.
-    :param title: Title for the plot.
-    :returns: RGB image as uint8 array with shape (H, W, 3).
-    """
-    height, width = data.shape
-    fig_height, fig_width = get_figure_dimensions(height, width)
-
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-    plot_depth_map_on_axes(ax, fig, data, scale, title)
-
-    fig.tight_layout()
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr
-
-
-def draw_metadata_box(
+def _fit_fontsize(
     ax: Axes,
-    metadata: dict[str, str],
-    title: str | None = None,
-    draw_border: bool = True,
-    wrap_width: int = 25,
-    side_margin: float = 0.06,
-) -> None:
-    """Draw a metadata box with key-value pairs."""
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_xticks([])
-    ax.set_yticks([])
+    label: str,
+    cell_w_um: float,
+    max_fontsize: float = 11.0,
+    min_fontsize: float = 4.0,
+    fill: float = 0.85,
+) -> float:
+    """
+    Font size that keeps `label` inside a cell of width `cell_w_um`.
 
-    for spine in ax.spines.values():
-        spine.set_visible(draw_border)
-        spine.set_linewidth(1.5)
-        spine.set_edgecolor("black")
+    Converts the cell width from data units to points, then divides by the
+    label length (a character is roughly 0.6 em wide for most fonts).
 
-    if title:
-        ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
+    :param ax: Axes the label will be drawn on.
+    :param label: The text to fit.
+    :param cell_w_um: Cell width in data units (µm).
+    :param max_fontsize: Never exceed this (short labels stay readable).
+    :param min_fontsize: Never go below this (unreadable past this point).
+    :param fill: Fraction of the cell width the text may occupy.
+    :returns: Font size in points.
+    """
+    # Data units -> display pixels -> points (72 pt per inch).
+    origin = ax.transData.transform((0.0, 0.0))
+    edge = ax.transData.transform((cell_w_um, 0.0))
+    width_px = abs(edge[0] - origin[0])
+    width_pt = width_px * 72.0 / ax.figure.dpi
 
-    table_data = metadata_to_table_data(metadata, wrap_width=wrap_width)
-    col_widths = get_col_widths(side_margin, table_data)
-    bounding_box = get_bounding_box(side_margin, table_data)
-
-    table = ax.table(
-        cellText=table_data,
-        cellLoc="left",
-        colWidths=col_widths,
-        loc="upper center",
-        edges="open",
-        bbox=bounding_box,
-    )
-
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-
-    for i in range(len(table_data)):
-        table[i, 0].set_text_props(fontweight="bold", ha="right")
-        table[i, 0].PAD = 0.02
-        table[i, 1].set_text_props(ha="left")
-        table[i, 1].PAD = 0.02
-
-
-def _format_lr(llr_data: LLRData) -> str:
-    """Format a single log-LR value with optional confidence interval."""
-    if len(llr_data.llrs) > 1:
-        raise ValueError(f"expected single LR value, got {len(llr_data.llrs)}")
-
-    log_lr = llr_data.llrs[0]
-
-    if llr_data.llr_intervals is not None:
-        lower, upper = llr_data.llr_intervals[0, 0], llr_data.llr_intervals[0, 1]
-        return f"{log_lr:.2f} ({lower:.2f}, {upper:.2f})"
-    return f"{log_lr:.2f}"
-
-
-def _common_results_metadata(
-    reference_data: ModelSpecs,
-    llr_data: LLRData,
-    date_report: datetime.date,
-    user_id: str,
-    mark_type: MarkType,
-) -> dict[str, str]:
-    """Results metadata fields shared across all mark types."""
-    return {
-        "Date report": date_report.isoformat(),
-        "User ID": user_id,
-        "Mark type": mark_type.value,
-        "LogLR (5%, 95%)": _format_lr(llr_data),
-        "# of KM scores": str(len(reference_data.km_scores)),
-        "# of KNM scores": str(len(reference_data.knm_scores)),
-    }
-
-
-def build_results_metadata_striation(
-    reference_data: ModelSpecs,
-    llr_data: LLRData,
-    date_report: datetime.date,
-    user_id: str,
-    mark_type: MarkType,
-    score: float,
-    score_transform: float,
-) -> dict[str, str]:
-    return {
-        **_common_results_metadata(
-            reference_data, llr_data, date_report, user_id, mark_type
-        ),
-        "Score type": "CCF",
-        "Score (transform)": f"{score:.2f} ({score_transform:.2f})",
-    }
-
-
-def build_results_metadata_impression(
-    reference_data: ModelSpecs,
-    llr_data: LLRData,
-    date_report: datetime.date,
-    user_id: str,
-    mark_type: MarkType,
-    score: int,
-    n_cells: int,
-    lr_system_path: Path,
-) -> dict[str, str]:
-    return {
-        **_common_results_metadata(
-            reference_data, llr_data, date_report, user_id, mark_type
-        ),
-        "LR system path": str(lr_system_path),
-        "Score type": "CMC",
-        "Score (transform)": f"{score} of {n_cells}",
-    }
+    # ~0.6 em per character is a good approximation for DejaVu Sans.
+    size = (width_pt * fill) / (max(len(label), 1) * 0.5)
+    return float(np.clip(size, min_fontsize, max_fontsize))

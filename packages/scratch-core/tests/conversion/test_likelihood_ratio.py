@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from lir.data.models import FeatureData
 
-from conversion.likelihood_ratio import (
+from conversion.likelihood_ratio.likelihood_ratio import (
     get_reference_data_from_path,
     DummyLRSystem,
     ModelSpecs,
@@ -77,11 +77,11 @@ class TestGetReferenceDataFromPath:
 
         with (
             patch(
-                "conversion.likelihood_ratio.get_lr_system",
+                "conversion.likelihood_ratio.likelihood_ratio.get_lr_system",
                 return_value=DummyLRSystem(),
             ),
             patch(
-                "conversion.likelihood_ratio.get_reference_data", return_value=mock_ref
+                "conversion.likelihood_ratio.likelihood_ratio.get_reference_data", return_value=mock_ref
             ),
             pytest.raises(ValueError, match="reference data must have labels"),
         ):

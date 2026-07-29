@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from conversion.data_formats import MarkMetadata
-from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
+from conversion.likelihood_ratio.likelihood_ratio import DummyLRSystem, ModelSpecs
 from conversion.surface_comparison.models import ComparisonParams
 from fastapi.testclient import TestClient
 from pydantic import HttpUrl

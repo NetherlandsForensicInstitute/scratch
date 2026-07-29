@@ -8,18 +8,22 @@ from matplotlib.transforms import Bbox
 
 from conversion.data_formats import MarkMetadata
 from conversion.plots.utils import (
-    draw_metadata_box,
     figure_to_array,
-    get_bounding_box,
-    get_col_widths,
     get_figure_dimensions,
     get_height_ratios,
-    get_metadata_dimensions,
-    metadata_to_table_data,
-    plot_depth_map_on_axes,
-    plot_depth_map_with_axes,
+)
+from conversion.plots.on_axes import (
     plot_profiles_on_axes,
     plot_side_by_side_on_axes,
+    plot_depth_map_on_axes,
+    plot_depth_map_with_axes,
+)
+from conversion.plots.metadata_tables import (
+    metadata_to_table_data,
+    get_col_widths,
+    get_bounding_box,
+    get_metadata_dimensions,
+    draw_metadata_box,
 )
 
 from .helper_functions import (

@@ -113,7 +113,7 @@ def score_columns(mark_type: MarkType) -> list[str]:
 
 
 def metric_columns(mark_type: MarkType) -> list[str]:
-    """The score columns proper, without the bookkeeping ones."""
+    """Get the score columns proper, without the bookkeeping ones."""
     return [c for c in score_columns(mark_type) if c not in ("status", "error")]
 
 
@@ -212,20 +212,19 @@ class CsvTask:
 
 
 def mark_type_slug(mark_type: MarkType) -> str:
-    """Folder-safe name for a mark type, matching ``_MARK_TYPE_FOLDER_MAP``."""
+    """Get folder-safe name for a mark type, matching ``_MARK_TYPE_FOLDER_MAP``."""
     return mark_type.value.replace(" ", "_")
 
 
 def database_folder(item: str) -> str:
-    """The database an item belongs to: its first path component below the root."""
+    """Get the database an item belongs to: its first path component below the root."""
     parts = Path(normalise_item(item)).parts
     return parts[0] if parts else ""
 
 
 def item_slug(item: str) -> str:
-    """Folder-safe identifier for an item path, keeping every path segment
-    below the database name so items that share a rep name (or any other
-    trailing folder name) don't collide.
+    """
+    Get the identifier for an item path.
 
     e.g. "database/tool-entries/item123/rep1" -> "tool-entries__item123__rep1"
     """
@@ -356,7 +355,9 @@ class ScoreWriter:
 
         if recovered:
             done = sum(1 for s in recovered.values() if s.get("status") in DONE_STATUSES)
-            logger.info("Resuming %s: %d rows already scored, %d other outcomes", path.name, done, len(recovered) - done)
+            logger.info(
+                "Resuming %s: %d rows already scored, %d other outcomes", path.name, done, len(recovered) - done
+            )
         return recovered
 
     def recorded_status(self, mark_type: MarkType, row_index: int) -> str | None:

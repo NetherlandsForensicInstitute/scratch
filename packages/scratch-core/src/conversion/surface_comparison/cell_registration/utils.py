@@ -202,24 +202,28 @@ def _batched_match(
     minimum_fill_fraction: float,
     fill_value: float,
     angle_chunk: int = 20,
-        template_chunk: int = 32
+    template_chunk: int = 32,
 ) -> list[tuple[float, int, int, int]]:
     """Full-resolution matching using batched GPU operations, chunked to avoid OOM."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     best = [(-np.inf, 0, 0, 0) for _ in templates]
 
     for chunk_start in range(0, len(angles), angle_chunk):
-        angle_chunk_values = angles[chunk_start: chunk_start + angle_chunk]
-        batch, valid_batch, _ = _prepare_rotated_batch(image, angle_chunk_values, fill_value)
+        angle_chunk_values = angles[chunk_start : chunk_start + angle_chunk]
+        batch, valid_batch, _ = _prepare_rotated_batch(
+            image, angle_chunk_values, fill_value
+        )
         batch_gpu = torch.from_numpy(batch).to(device)
         valid_gpu = torch.from_numpy(valid_batch).to(device)
 
         try:
             for t_start in range(0, len(templates), template_chunk):
-                sub = templates[t_start: t_start + template_chunk]
+                sub = templates[t_start : t_start + template_chunk]
                 while True:
                     try:
-                        chunk_results = _ncc(batch_gpu, valid_gpu, sub, minimum_fill_fraction, device)
+                        chunk_results = _ncc(
+                            batch_gpu, valid_gpu, sub, minimum_fill_fraction, device
+                        )
                         break
                     except torch.cuda.OutOfMemoryError:
                         torch.cuda.empty_cache()
@@ -227,7 +231,9 @@ def _batched_match(
                             raise
                         template_chunk = max(1, len(sub) // 2)
                         sub = sub[:template_chunk]
-                        logger.warning("CUDA OOM, retrying with template_chunk=%d", template_chunk)
+                        logger.warning(
+                            "CUDA OOM, retrying with template_chunk=%d", template_chunk
+                        )
                 for i, (score, x, y, local_idx) in enumerate(chunk_results):
                     if score > best[t_start + i][0]:
                         best[t_start + i] = (score, x, y, chunk_start + local_idx)
@@ -235,6 +241,7 @@ def _batched_match(
             del batch_gpu, valid_gpu
             torch.cuda.empty_cache()
     return best
+
 
 def _rotate_image(
     image: FloatArray2D,

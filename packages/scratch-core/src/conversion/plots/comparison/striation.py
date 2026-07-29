@@ -1,23 +1,31 @@
 from datetime import datetime
+from typing import Any
 
 import matplotlib.pyplot as plt
-import numpy as np
 from scipy.constants import mega
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import Mark, MarkMetadata
-from conversion.plots.data_formats import StriationComparisonPlots
+from conversion.plots.comparison.data_formats import StriationComparisonPlots
 from conversion.profile_correlator import StriationComparisonResults, Profile
 from conversion.plots.utils import (
-    draw_metadata_box,
-    figure_to_array,
+    finish_overview,
+    render_single_panel,
     get_figure_dimensions,
     get_height_ratios,
-    get_metadata_dimensions,
-    plot_depth_map_on_axes,
-    plot_depth_map_with_axes,
+    overview_figure_height,
+    side_by_side_gap_width,
+)
+from conversion.plots.on_axes import (
     plot_profiles_on_axes,
     plot_side_by_side_on_axes,
+    plot_depth_map_on_axes,
+    plot_depth_map_with_axes,
+)
+from conversion.plots.metadata_tables import (
+    get_metadata_dimensions,
+    draw_metadata_box,
+    draw_metadata_pair,
 )
 
 
@@ -59,7 +67,7 @@ def plot_striation_comparison_results(
     )
 
     # Comparison overview
-    comparison_overview = plot_comparison_overview(
+    comparison_overview = plot_striation_comparison_overview(
         mark_reference=mark_reference,
         mark_compared=mark_compared,
         mark_reference_aligned=mark_reference_aligned,
@@ -109,20 +117,18 @@ def plot_similarity(
     :param score: Pre-computed correlation coefficient from ProfileCorrelatorSingle.
     :returns: RGB image as uint8 array with shape (H, W, 3).
     """
-    fig, ax = plt.subplots(figsize=(10, 4))
-
-    plot_profiles_on_axes(
-        ax,
-        profile_reference,
-        profile_compared,
-        scale,
-        score,
-        title="Similarity Score (Correlation Coefficient)",
+    return render_single_panel(
+        (10, 4),
+        lambda fig, ax: plot_profiles_on_axes(
+            ax,
+            profile_reference,
+            profile_compared,
+            scale,
+            score,
+            title="Similarity Score (Correlation Coefficient)",
+        ),
+        tight_layout_kwargs={"h_pad": 3.0},
     )
-    fig.tight_layout(h_pad=3.0)
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr
 
 
 def plot_side_by_side_surfaces(
@@ -139,22 +145,21 @@ def plot_side_by_side_surfaces(
     :returns: RGB image as uint8 array with shape (H, W, 3).
     """
     # Create combined data for size calculation
-    gap_width = int(np.ceil(min(data_reference.shape[1], data_compared.shape[1]) / 100))
+    gap_width = side_by_side_gap_width(data_reference, data_compared)
     combined_width = data_reference.shape[1] + gap_width + data_compared.shape[1]
     height = data_reference.shape[0]
 
     fig_height, fig_width = get_figure_dimensions(height, combined_width)
 
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-    plot_side_by_side_on_axes(ax, fig, data_reference, data_compared, scale)
+    return render_single_panel(
+        (fig_width, fig_height),
+        lambda fig, ax: plot_side_by_side_on_axes(
+            ax, fig, data_reference, data_compared, scale
+        ),
+    )
 
-    fig.tight_layout()
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr
 
-
-def plot_comparison_overview(
+def plot_striation_comparison_overview(
     mark_reference: Mark,
     mark_compared: Mark,
     mark_reference_aligned: Mark,
@@ -169,33 +174,14 @@ def plot_comparison_overview(
     """Generate the main results overview figure with dynamic sizing."""
 
     # Build results metadata
-    results_items = {
-        "Date report": datetime.now().strftime("%Y-%m-%d"),
-        "Mark type": mark_reference.mark_type.value,
-        "Correlation Coefficient": f"{metrics.correlation_coefficient:.4f}",
-        "Sq(A)": f"{metrics.sq_ref * mega:.4f} µm",
-        "Sq(B)": f"{metrics.sq_comp * mega:.4f} µm",
-        "Sq(B-A)": f"{metrics.sq_diff * mega:.4f} µm",
-        "Sq(B) / Sq(A)": f"{metrics.sq_ratio:.4f} %",
-        "Sign. Diff. DsAB": f"{metrics.ds_normalized_combined * 100:.2f} %",
-        "Overlap": f"{metrics.overlap_ratio * 100:.2f} %",
-        "Data spacing": f"{metrics.pixel_size * mega:.4f} µm",
-        "Cutoff length low-pass filter": f"{val:.0f} µm"
-        if (val := mark_reference.meta_data.get("lowpass_cutoff")) is not None
-        else "N/A",
-        "Cutoff length high-pass filter": f"{val:.0f} µm"
-        if (val := mark_reference.meta_data.get("highpass_cutoff")) is not None
-        else "N/A",
-    }
+    results_items = build_striation_results_metadata(mark_reference, metrics)
 
     max_metadata_rows, metadata_height_ratio = get_metadata_dimensions(
         metadata_compared, metadata_reference, wrap_width
     )
     height_ratios = get_height_ratios(metadata_height_ratio, 0.32, 0.22, 0.20)
 
-    # Adjust figure height based on content
-    fig_height = 13 + (max_metadata_rows * 0.12)
-    fig_height = max(12, min(16, fig_height))
+    fig_height = overview_figure_height(max_metadata_rows, 13, 12, 16)
 
     fig = plt.figure(figsize=(14, fig_height))
 
@@ -207,28 +193,30 @@ def plot_comparison_overview(
         hspace=0.35,
         wspace=0.25,
     )
-
-    # Row 0: Metadata tables — span full width as two equal columns
+    # Row 0 spans full width as two equal metadata columns.
     gs_meta = gs[0, :].subgridspec(1, 2, wspace=0.15)
 
+    # Layout — row 0: metadata pair; row 1: two filtered surfaces + results;
+    # row 2: side-by-side; row 3: profile plot.
     ax_meta_reference = fig.add_subplot(gs_meta[0, 0])
-    draw_metadata_box(
-        ax_meta_reference,
-        metadata_reference.to_display_dict(),
-        "Reference Profile (A)",
-        wrap_width=wrap_width,
-    )
-
     ax_meta_compared = fig.add_subplot(gs_meta[0, 1])
-    draw_metadata_box(
+    ax_reference = fig.add_subplot(gs[1, 0])
+    ax_compared = fig.add_subplot(gs[1, 1])
+    ax_results = fig.add_subplot(gs[1, 2])
+    ax_side = fig.add_subplot(gs[2, :2])
+    ax_profile = fig.add_subplot(gs[3, :])
+
+    # Row 0: metadata tables
+    draw_metadata_pair(
+        ax_meta_reference,
         ax_meta_compared,
-        metadata_compared.to_display_dict(),
-        "Compared Profile (B)",
+        metadata_reference,
+        metadata_compared,
+        noun="Profile",
         wrap_width=wrap_width,
     )
 
-    # Row 1: Filtered surfaces + Results
-    ax_reference = fig.add_subplot(gs[1, 0])
+    # Row 1: filtered surfaces + results metadata
     plot_depth_map_on_axes(
         ax_reference,
         fig,
@@ -236,8 +224,6 @@ def plot_comparison_overview(
         mark_reference.scan_image.scale_x,
         title="Filtered Reference Surface A",
     )
-
-    ax_compared = fig.add_subplot(gs[1, 1])
     plot_depth_map_on_axes(
         ax_compared,
         fig,
@@ -245,14 +231,11 @@ def plot_comparison_overview(
         mark_compared.scan_image.scale_x,
         title="Filtered Compared Surface B",
     )
-
-    ax_results = fig.add_subplot(gs[1, 2])
     draw_metadata_box(
         ax_results, results_items, draw_border=False, wrap_width=wrap_width
     )
 
-    # Row 2: Side-by-side
-    ax_side = fig.add_subplot(gs[2, :2])
+    # Row 2: side-by-side
     plot_side_by_side_on_axes(
         ax_side,
         fig,
@@ -261,8 +244,7 @@ def plot_comparison_overview(
         mark_reference.scan_image.scale_x,
     )
 
-    # Row 3: Profile plot
-    ax_profile = fig.add_subplot(gs[3, :])
+    # Row 3: profile plot
     plot_profiles_on_axes(
         ax_profile,
         profile_reference.heights,
@@ -272,8 +254,33 @@ def plot_comparison_overview(
         title="Reference Profile A / Moved Compared Profile B. Correlation Coefficient",
     )
 
-    fig.tight_layout(pad=0.8, h_pad=1.2, w_pad=0.8)
-    fig.subplots_adjust(left=0.06, right=0.98, top=0.96, bottom=0.06)
-    arr = figure_to_array(fig)
-    plt.close(fig)
-    return arr
+    return finish_overview(
+        fig,
+        tight_layout_kwargs={"pad": 0.8, "h_pad": 1.2, "w_pad": 0.8},
+        subplots_adjust_kwargs={
+            "left": 0.06,
+            "right": 0.98,
+            "top": 0.96,
+            "bottom": 0.06,
+        },
+    )
+
+
+def build_striation_results_metadata(mark_reference: Mark, metrics: StriationComparisonResults) -> dict[
+    str | Any, str | Any]:
+    """Set up the overview of metadata to show in the plot."""
+    results_items = {
+        "Date report": datetime.now().strftime("%Y-%m-%d"),
+        "Mark type": mark_reference.mark_type.value,
+        "Correlation Coefficient": f"{metrics.correlation_coefficient:.4f}",
+        "Overlap ratio": f"{metrics.overlap_ratio * 100:.2f} %",
+        "Overlap length": f"{metrics.overlap_length * mega:.4f} µm",
+        "Data spacing": f"{metrics.pixel_size * mega:.4f} µm",
+        "Cutoff length low-pass filter": f"{val:.0f} µm"
+        if (val := mark_reference.meta_data.get("lowpass_cutoff")) is not None
+        else "N/A",
+        "Cutoff length high-pass filter": f"{val:.0f} µm"
+        if (val := mark_reference.meta_data.get("highpass_cutoff")) is not None
+        else "N/A",
+    }
+    return results_items
