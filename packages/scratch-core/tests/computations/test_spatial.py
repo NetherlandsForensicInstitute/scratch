@@ -1,10 +1,14 @@
+from pathlib import Path
+
+import numpy as np
+import pytest
+
 from computations.spatial import level_map
 from container_models.scan_image import ScanImage
-import pytest
-import numpy as np
-
 from conversion.data_formats import SurfaceTerms
-from .constants import RESOURCES_DIR
+
+TEST_ROOT = Path(__file__).parent
+RESOURCES_DIR = TEST_ROOT / "resources"
 
 
 @pytest.mark.integration

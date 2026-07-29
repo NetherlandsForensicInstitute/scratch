@@ -10,9 +10,7 @@ from mutations.filter import LevelMap
 
 @pytest.mark.integration
 class TestLevelMapIntegration:
-    RESOURCES_DIR = (
-        Path(__file__).parent.parent / "conversion" / "leveling" / "resources"
-    )
+    RESOURCES_DIR = Path(__file__).parent.parent / "computations" / "resources"
 
     @pytest.mark.parametrize(
         "surface_terms, verified_file_name",
