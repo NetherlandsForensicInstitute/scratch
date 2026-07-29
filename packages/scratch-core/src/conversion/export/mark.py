@@ -74,8 +74,8 @@ def load_mark_from_mat_file(path: Path) -> Mark:
     mark = Mark(
         scan_image=ScanImage(
             data=np.asarray(container["depth_data"], dtype=np.float64),
-            scale_x=float(container["xdim"].flat[0]),
-            scale_y=float(container["ydim"].flat[0]),
+            scale_x=float(container["xdim"].item()),
+            scale_y=float(container["ydim"].item()),
         ),
         mark_type=_parse_mark_type(str(container["mark_type"][0]).lower()),
         # TODO: Parse `center` and `meta_data` from data struct
