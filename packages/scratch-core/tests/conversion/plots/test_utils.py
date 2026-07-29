@@ -7,12 +7,12 @@ from matplotlib.figure import Figure
 from matplotlib.transforms import Bbox
 
 from conversion.data_formats import MarkMetadata
-from plots import (
+from plots.utils import (
     figure_to_array,
     get_figure_dimensions,
     get_height_ratios,
 )
-from plots import (
+from plots.on_axes import (
     plot_profiles_on_axes,
     plot_side_by_side_on_axes,
     plot_depth_map_on_axes,

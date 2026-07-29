@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from container_models.base import FloatArray1D
-from plots import LlrTransformationData
+from plots.likelihood_ratio.data_formats import LlrTransformationData
 from plots.likelihood_ratio.distributions import (
     plot_score_llr_transformation,
 )

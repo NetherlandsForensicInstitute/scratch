@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.likelihood_ratio.likelihood_ratio import ModelSpecs
-from plots.comparison.data_formats import StriationComparisonPlots
 from conversion.profile_correlator import Profile
 from fastapi import HTTPException
+from plots.comparison.data_formats import StriationComparisonPlots
 
 from processors.constants import ComparisonImpressionFiles, ComparisonStriationFiles
 from processors.controller import (

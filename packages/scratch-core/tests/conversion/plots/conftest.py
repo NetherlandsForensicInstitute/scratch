@@ -4,10 +4,6 @@ from scipy.constants import micro
 
 from container_models.base import FloatArray2D
 from conversion.data_formats import Mark, MarkMetadata, MarkImpressionType
-from plots import (
-    HistogramData,
-    LlrTransformationData,
-)
 from conversion.profile_correlator import (
     StriationComparisonResults,
     Profile,
@@ -19,6 +15,7 @@ from conversion.surface_comparison.models import (
     ComparisonParams,
     ComparisonResult,
 )
+from plots.likelihood_ratio.data_formats import HistogramData, LlrTransformationData
 from .helper_functions import (
     create_synthetic_impression_data,
     create_synthetic_impression_mark,

@@ -10,7 +10,7 @@ from conversion.profile_correlator import StriationComparisonResults, Profile
 from plots.comparison.impression import (
     plot_impression_comparison_results,
 )
-from plots import plot_striation_comparison_results
+from plots.comparison.striation import plot_striation_comparison_results
 from conversion.surface_comparison.models import (
     ComparisonResult,
     ComparisonParams,

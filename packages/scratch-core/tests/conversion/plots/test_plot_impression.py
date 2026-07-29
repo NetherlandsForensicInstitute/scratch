@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from scipy.constants import micro
 
 from conversion.data_formats import Mark, MarkMetadata
-from plots import (
+from plots.cell_overlays import (
     _plot_cell_heatmap_on_axes,
     plot_cell_overlay_on_axes,
 )
@@ -41,6 +41,7 @@ class TestPlotCellGridOverlay:
             data=impression_sample_depth_data,
             scale=1.5 * micro,
             cells=impression_overview_cells,
+            space="comparison",
         )
         assert_valid_rgb_image(result)
 
@@ -54,6 +55,7 @@ class TestPlotCellGridOverlay:
             scale=1.5 * micro,
             cells=impression_overview_cells,
             show_all_cells=False,
+            space="comparison",
         )
         assert_valid_rgb_image(result)
 
@@ -66,6 +68,7 @@ class TestPlotCellGridOverlay:
             data=impression_sample_depth_data,
             scale=1.5 * micro,
             cells=impression_overview_cells,
+            space="comparison",
         )
         assert_valid_rgb_image(result)
 

@@ -4,11 +4,11 @@ import numpy as np
 import pytest
 
 from conversion.data_formats import Mark, MarkMetadata
-from plots import (
+from plots.likelihood_ratio.data_formats import (
     HistogramData,
     LlrTransformationData,
 )
-from plots import (
+from plots.likelihood_ratio.cmc_overview import (
     plot_cmc_comparison_overview,
 )
 from conversion.surface_comparison.models import Cell

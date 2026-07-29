@@ -16,11 +16,6 @@ from conversion.likelihood_ratio.results_metadata import (
     build_results_metadata_impression,
     build_results_metadata_striation,
 )
-from plots.comparison.impression import plot_impression_comparison_results
-from plots import plot_striation_comparison_results
-from plots import plot_ccf_comparison_overview
-from plots import plot_cmc_comparison_overview
-from plots import HistogramData, LlrTransformationData
 from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from conversion.surface_comparison.models import Cell, ComparisonParams, ComparisonResult, ProcessedMark
 from fastapi import HTTPException
@@ -29,6 +24,11 @@ from lir.util import probability_to_logodds
 from loguru import logger
 from lrmodule import get_lr_system
 from PIL import Image
+from plots.comparison.impression import plot_impression_comparison_results
+from plots.comparison.striation import plot_striation_comparison_results
+from plots.likelihood_ratio.ccf_overview import plot_ccf_comparison_overview
+from plots.likelihood_ratio.cmc_overview import plot_cmc_comparison_overview
+from plots.likelihood_ratio.data_formats import HistogramData, LlrTransformationData
 
 from processors.constants import ComparisonImpressionFiles, ComparisonStriationFiles, LRFiles
 from processors.schemas import CalculateLRImpression, CalculateLRStriation
