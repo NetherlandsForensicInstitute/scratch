@@ -2,11 +2,11 @@ import pytest
 from scipy.constants import micro
 
 from conversion.data_formats import MarkMetadata
-from conversion.plots.comparison.striation import (
+from plots import (
     plot_similarity,
     plot_striation_comparison_results,
 )
-from conversion.plots.comparison.striation import plot_striation_comparison_overview
+from plots import plot_striation_comparison_overview
 from .helper_functions import assert_valid_rgb_image, create_synthetic_striation_data
 
 

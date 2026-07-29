@@ -2,12 +2,12 @@ import numpy as np
 import pytest
 
 from conversion.data_formats import MarkMetadata
-from conversion.plots.likelihood_ratio.data_formats import (
+from plots import (
     DensityData,
     HistogramData,
     LlrTransformationData,
 )
-from conversion.plots.likelihood_ratio.ccf_overview import (
+from plots import (
     plot_ccf_comparison_overview,
 )
 

@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 
-from conversion.plots.likelihood_ratio.data_formats import DensityData, HistogramData
-from conversion.plots.likelihood_ratio.distributions import (
+from plots import DensityData, HistogramData
+from plots.likelihood_ratio.distributions import (
     plot_score_histograms,
 )
 from matplotlib.figure import Figure

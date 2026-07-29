@@ -9,8 +9,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.constants import mega
 
 from container_models.base import FloatArray2D
-from conversion.plots.utils import DEFAULT_COLORMAP, _fit_cell_label_fontsizes
-from conversion.plots.on_axes import _robust_color_limits
+from plots.utils import DEFAULT_COLORMAP, _fit_cell_label_fontsizes
+from plots.on_axes import _robust_color_limits
 
 from conversion.surface_comparison.models import Cell
 

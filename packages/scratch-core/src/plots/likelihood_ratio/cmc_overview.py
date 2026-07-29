@@ -4,22 +4,22 @@ import matplotlib.pyplot as plt
 
 from container_models.base import ImageRGB
 from conversion.data_formats import Mark, MarkMetadata
-from conversion.plots.likelihood_ratio.data_formats import (
+from plots.likelihood_ratio.data_formats import (
     HistogramData,
     LlrTransformationData,
 )
-from conversion.plots.cell_overlays import plot_cell_overlay_on_axes
-from conversion.plots.likelihood_ratio.distributions import (
+from plots.cell_overlays import plot_cell_overlay_on_axes
+from plots.likelihood_ratio.distributions import (
     plot_score_histograms,
     plot_score_llr_transformation,
 )
-from conversion.plots.utils import (
+from plots.utils import (
     finish_overview,
     get_height_ratios,
     overview_figure_height,
 )
-from conversion.plots.on_axes import _plot_surface_with_colorbar
-from conversion.plots.metadata_tables import (
+from plots.on_axes import _plot_surface_with_colorbar
+from plots.metadata_tables import (
     get_metadata_dimensions,
     draw_metadata_box,
     draw_metadata_pair,

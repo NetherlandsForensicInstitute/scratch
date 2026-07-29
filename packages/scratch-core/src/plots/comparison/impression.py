@@ -8,25 +8,25 @@ from matplotlib.figure import Figure
 
 from container_models.base import FloatArray2D, ImageRGB
 from conversion.data_formats import Mark, MarkMetadata
-from conversion.plots.cell_overlays import (
+from plots.cell_overlays import (
     plot_cell_overlay_on_axes,
     _plot_cell_heatmap_on_axes,
 )
-from conversion.plots.comparison.data_formats import ImpressionComparisonPlots
+from plots.comparison.data_formats import ImpressionComparisonPlots
 
-from conversion.plots.utils import (
+from plots.utils import (
     finish_overview,
     render_single_panel,
     get_figure_dimensions,
     get_height_ratios,
     overview_figure_height,
 )
-from conversion.plots.on_axes import (
+from plots.on_axes import (
     plot_depth_map_on_axes,
     plot_depth_map_with_axes,
     _plot_surface_with_colorbar,
 )
-from conversion.plots.metadata_tables import (
+from plots.metadata_tables import (
     get_metadata_dimensions,
     draw_metadata_box,
     draw_metadata_pair,

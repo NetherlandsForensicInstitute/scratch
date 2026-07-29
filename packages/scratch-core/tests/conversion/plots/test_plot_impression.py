@@ -6,12 +6,12 @@ from matplotlib import pyplot as plt
 from scipy.constants import micro
 
 from conversion.data_formats import Mark, MarkMetadata
-from conversion.plots.cell_overlays import (
+from plots import (
     _plot_cell_heatmap_on_axes,
     plot_cell_overlay_on_axes,
 )
-from conversion.plots.comparison.data_formats import ImpressionComparisonPlots
-from conversion.plots.comparison.impression import (
+from plots.comparison.data_formats import ImpressionComparisonPlots
+from plots.comparison.impression import (
     plot_cell_grid_overlay,
     plot_cell_correlation_heatmap,
     plot_impression_comparison_results,

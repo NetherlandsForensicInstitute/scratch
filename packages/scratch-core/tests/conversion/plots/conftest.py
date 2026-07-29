@@ -4,7 +4,7 @@ from scipy.constants import micro
 
 from container_models.base import FloatArray2D
 from conversion.data_formats import Mark, MarkMetadata, MarkImpressionType
-from conversion.plots.likelihood_ratio.data_formats import (
+from plots import (
     HistogramData,
     LlrTransformationData,
 )

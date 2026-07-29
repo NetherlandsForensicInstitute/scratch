@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib.axes import Axes
 
-from conversion.plots.likelihood_ratio.data_formats import (
+from plots.likelihood_ratio.data_formats import (
     HistogramData,
     LlrTransformationData,
 )

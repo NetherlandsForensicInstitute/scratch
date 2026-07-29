@@ -7,10 +7,10 @@ import pytest
 
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.profile_correlator import StriationComparisonResults, Profile
-from conversion.plots.comparison.impression import (
+from plots.comparison.impression import (
     plot_impression_comparison_results,
 )
-from conversion.plots.comparison.striation import plot_striation_comparison_results
+from plots import plot_striation_comparison_results
 from conversion.surface_comparison.models import (
     ComparisonResult,
     ComparisonParams,

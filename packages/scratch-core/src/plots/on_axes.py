@@ -7,7 +7,7 @@ from matplotlib.image import AxesImage
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from container_models.base import StriationProfile, FloatArray2D, ImageRGB
-from conversion.plots.utils import (
+from plots.utils import (
     side_by_side_gap_width,
     DEFAULT_COLORMAP,
     get_figure_dimensions,

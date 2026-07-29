@@ -6,9 +6,9 @@ from scipy.constants import mega
 
 from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from conversion.data_formats import Mark, MarkMetadata
-from conversion.plots.comparison.data_formats import StriationComparisonPlots
+from plots.comparison.data_formats import StriationComparisonPlots
 from conversion.profile_correlator import StriationComparisonResults, Profile
-from conversion.plots.utils import (
+from plots.utils import (
     finish_overview,
     render_single_panel,
     get_figure_dimensions,
@@ -16,13 +16,13 @@ from conversion.plots.utils import (
     overview_figure_height,
     side_by_side_gap_width,
 )
-from conversion.plots.on_axes import (
+from plots.on_axes import (
     plot_profiles_on_axes,
     plot_side_by_side_on_axes,
     plot_depth_map_on_axes,
     plot_depth_map_with_axes,
 )
-from conversion.plots.metadata_tables import (
+from plots.metadata_tables import (
     get_metadata_dimensions,
     draw_metadata_box,
     draw_metadata_pair,
