@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
+from typing import Annotated
 
 import numpy as np
 from computations.constants import SurfaceTerms
@@ -14,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 from utils.constants import RegressionOrder
+from utils.validators import validate_enum_string
 
 from models import (
     BaseModelConfig,
@@ -22,6 +24,8 @@ from models import (
     SupportedScanExtension,
 )
 from schemas import URLContainer
+
+SurfaceTermsAnnotated = Annotated[SurfaceTerms, validate_enum_string(SurfaceTerms)]
 
 
 class BaseParameters(BaseModelConfig):
@@ -96,10 +100,12 @@ class PrepareMarkStriation(PrepareMarkBase):
 class MarkParams(BaseModelConfig):
     pixel_size: float | None = Field(default=None)
     adjust_pixel_spacing: bool = Field(default=True)
-    surface_terms: SurfaceTerms = Field(
+    surface_terms: SurfaceTermsAnnotated = Field(
         default=SurfaceTerms.SPHERE,
         description="Surface fitting model for leveling operations. "
-        "PLANE for planar surfaces, SPHERE for curved surfaces.",
+        "PLANE for planar surfaces, SPHERE for curved surfaces. "
+        "Accepts string (e.g. 'plane', 'PLANE') or int (e.g. 1) values.",
+        examples=["plane", "sphere"],
     )
     interp_method: str = Field(default="cubic")
     highpass_cutoff: float | None = Field(default=250.0e-6)
@@ -126,11 +132,13 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    surface_terms: SurfaceTerms = Field(
+    surface_terms: SurfaceTermsAnnotated = Field(
         ...,
         description=(
-            "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
+            "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces. "
+            "Accepts string (e.g. 'plane', 'PLANE') or int (e.g. 1) values."
         ),
+        examples=["plane", "sphere"],
     )
     regression_order: RegressionOrder = Field(
         default=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,

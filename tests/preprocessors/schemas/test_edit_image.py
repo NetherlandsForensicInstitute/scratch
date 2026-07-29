@@ -91,6 +91,34 @@ class TestEditImage:
         # Assert
         assert all(getattr(params, field) == value for field, value in kwargs.items())
 
+    @pytest.mark.parametrize(
+        ("input_value", "expected"),
+        [
+            ("plane", SurfaceTerms.PLANE),
+            ("PLANE", SurfaceTerms.PLANE),
+            ("Plane", SurfaceTerms.PLANE),
+            ("sphere", SurfaceTerms.SPHERE),
+            ("SPHERE", SurfaceTerms.SPHERE),
+            ("none", SurfaceTerms.NONE),
+            ("NONE", SurfaceTerms.NONE),
+            (1, SurfaceTerms.PLANE),
+            (2, SurfaceTerms.SPHERE),
+            (0, SurfaceTerms.NONE),
+        ],
+    )
+    def test_should_accept_string_and_int_for_surface_terms(
+        self,
+        input_value: str | int,
+        expected: SurfaceTerms,
+        edit_image_parameter: Callable[..., EditImage],
+    ) -> None:
+        """Test that surface_terms accepts both string and int values (non-breaking API)."""
+        # Act
+        params = edit_image_parameter(surface_terms=input_value)
+
+        # Assert
+        assert params.surface_terms == expected
+
     @given(valid_value=st.floats(min_value=micro, max_value=3, allow_nan=False, allow_infinity=False))
     def test_should_accept_positive_cutoff_length(
         self, valid_value: float, edit_image_parameter: Callable[..., EditImage]
