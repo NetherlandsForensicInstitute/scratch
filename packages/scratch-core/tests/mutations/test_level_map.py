@@ -15,7 +15,7 @@ class TestLevelMapIntegration:
     )
 
     @pytest.mark.parametrize(
-        "terms, verified_file_name",
+        "surface_terms, verified_file_name",
         [
             [SurfaceTerms.PLANE, "baseline_level_map_plane.npy"],
             [SurfaceTerms.SPHERE, "baseline_level_map_sphere.npy"],
@@ -25,11 +25,11 @@ class TestLevelMapIntegration:
         self,
         scan_image_with_nans: ScanImage,
         verified_file_name: str,
-        terms: SurfaceTerms,
+        surface_terms: SurfaceTerms,
     ):
         # Arrange
         verified = np.load(self.RESOURCES_DIR / verified_file_name)
-        level_map_mutator = LevelMap(terms=terms)
+        level_map_mutator = LevelMap(surface_terms=surface_terms)
         # Act
         result = level_map_mutator(scan_image_with_nans)
         # Assert
@@ -37,7 +37,7 @@ class TestLevelMapIntegration:
 
     def test_map_level_none(self, scan_image_with_nans: ScanImage):
         # Arrange
-        level_map_mutator = LevelMap(terms=SurfaceTerms.NONE)
+        level_map_mutator = LevelMap(surface_terms=SurfaceTerms.NONE)
         # Act
         result = level_map_mutator(scan_image_with_nans)
         # Assert

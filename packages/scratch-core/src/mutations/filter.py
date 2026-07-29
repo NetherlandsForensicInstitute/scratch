@@ -206,14 +206,14 @@ class LevelMap(ImageMutation):
     to this data using a least-squares approach.
     The fitted surface is then subtracted from the original height data.
 
-    :param terms: The polynomial surface terms defining the fitted surface.
+    :param surface_terms: The polynomial surface terms defining the fitted surface.
     """
 
-    def __init__(self, terms: SurfaceTerms) -> None:
-        self.terms = terms
+    def __init__(self, surface_terms: SurfaceTerms) -> None:
+        self.surface_terms = surface_terms
 
     def skip_predicate(self, scan_image: ScanImage) -> bool:
-        if self.terms == SurfaceTerms.NONE:
+        if self.surface_terms == SurfaceTerms.NONE:
             return True
         return False
 
@@ -224,7 +224,7 @@ class LevelMap(ImageMutation):
         :param scan_image: The scan image containing the image data to level.
         :returns: scan_image with the array containing the leveled scan data (original data minus fitted surface).
         """
-        result = level_map(scan_image=scan_image, terms=self.terms)
+        result = level_map(scan_image=scan_image, surface_terms=self.surface_terms)
         scan_image.data = result.leveled_map
         return scan_image
 

@@ -179,7 +179,7 @@ def run_python_preprocessing(test_case: MatlabTestCase) -> FloatArray2D:
     return get_cropped_image(
         scan_image=scan_image,
         mask=test_case.input_mask.astype(bool),
-        terms=test_case.terms,
+        surface_terms=test_case.terms,
         cutoff_length=test_case.cutoff_length * micro,
         regression_order=test_case.regression_order,
         resampling_factors=resampling_factors,

@@ -10,7 +10,7 @@ from conversion.get_cropped_image import get_cropped_image
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "terms, regression_order",
+    "surface_terms, regression_order",
     [
         (SurfaceTerms.PLANE, 0),
         (SurfaceTerms.PLANE, 1),
@@ -23,13 +23,13 @@ from conversion.get_cropped_image import get_cropped_image
 def test_get_cropped_image(
     scan_image_replica: ScanImage,
     mask_array: BinaryMask,
-    terms: SurfaceTerms,
+    surface_terms: SurfaceTerms,
     regression_order: int,
 ):
     result = get_cropped_image(
         scan_image=scan_image_replica,
         mask=mask_array,
-        terms=terms,
+        surface_terms=surface_terms,
         regression_order=regression_order,
         cutoff_length=250 * micro,
         resampling_factors=(2, 2),

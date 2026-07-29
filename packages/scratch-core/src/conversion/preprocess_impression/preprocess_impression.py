@@ -101,9 +101,9 @@ def preprocess_impression_mark(
 
 def _level_mark(
     mark: Mark,
-    terms: SurfaceTerms,
+    surface_terms: SurfaceTerms,
 ) -> tuple[Mark, DepthData]:
-    result = level_map(mark.scan_image, terms=terms)
+    result = level_map(mark.scan_image, surface_terms=surface_terms)
     leveled_mark = update_mark_data(mark, result.leveled_map)
     return leveled_mark, result.fitted_surface
 

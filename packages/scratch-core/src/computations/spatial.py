@@ -31,22 +31,22 @@ def get_bounding_box(mask: BinaryMask, margin: int) -> tuple[slice, slice]:
     return slice(y_min, y_max), slice(x_min, x_max)
 
 
-def level_map(scan_image: ScanImage, terms: SurfaceTerms) -> LevelingResult:
+def level_map(scan_image: ScanImage, surface_terms: SurfaceTerms) -> LevelingResult:
     """
     Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
 
     This computation effectively acts as a high-pass filter on the image data.
 
     :param scan_image: The scan image containing the image data to level.
-    :param terms: The surface terms to use in the fitting. Note: terms can be combined using bit-operators.
+    :param surface_terms: The surface terms to use in the fitting.
     :returns: An instance of `LevelingResult` containing the leveled scan data and estimated physical parameters.
     """
-    if terms == SurfaceTerms.NONE:
+    if surface_terms == SurfaceTerms.NONE:
         return LevelingResult(
             leveled_map=scan_image.data,
             fitted_surface=np.full_like(scan_image.data, 0.0),
         )
-    polynomial_degree = terms  # Semantic renaming of IntEnum value
+    polynomial_degree = surface_terms  # Semantic renaming of IntEnum value
     if scan_image.valid_mask.sum() < 1 + polynomial_degree:
         raise ValueError(
             f"At least {1 + polynomial_degree} values are needed for the least squares solver."
