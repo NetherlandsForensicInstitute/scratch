@@ -3,9 +3,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from computations.constants import SurfaceTerms
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
+from conversion.data_formats import SurfaceTerms
 from parsers import convert_to_x3p, save_x3p
 from scipy.constants import micro
 from utils.constants import RegressionOrder

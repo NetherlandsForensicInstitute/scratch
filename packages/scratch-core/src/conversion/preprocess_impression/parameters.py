@@ -1,10 +1,8 @@
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
+from conversion.data_formats import SurfaceTerms, SurfaceTermsAnnotated
 
-from computations.constants import SurfaceTerms
 
-
-@dataclass(frozen=True)
-class PreprocessingImpressionParams:
+class PreprocessingImpressionParams(BaseModel):
     """Processing parameters for NIST preprocessing.
 
     :param pixel_size: Target pixel spacing in meters for resampling
@@ -17,11 +15,18 @@ class PreprocessingImpressionParams:
     :param lowpass_regression_order: Order of the local polynomial fit (0, 1, or 2) in low pass filters.
     """
 
-    pixel_size: float | None = None
-    adjust_pixel_spacing: bool = True
-    surface_terms: SurfaceTerms = SurfaceTerms.SPHERE
-    interp_method: str = "cubic"
-    highpass_cutoff: float | None = 250.0e-6
-    lowpass_cutoff: float | None = 5.0e-6
-    highpass_regression_order: int = 2
-    lowpass_regression_order: int = 0
+    pixel_size: float | None = Field(default=None)
+    adjust_pixel_spacing: bool = Field(default=True)
+    surface_terms: SurfaceTermsAnnotated = Field(
+        default=SurfaceTerms.SPHERE,
+        description=(
+            "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces. "
+            "Accepts string (e.g. 'plane', 'PLANE') or int (e.g. 1) values."
+        ),
+        examples=["plane", "sphere"],
+    )
+    interp_method: str = Field(default="cubic")
+    highpass_cutoff: float | None = Field(default=250.0e-6)
+    lowpass_cutoff: float | None = Field(default=5.0e-6)
+    highpass_regression_order: int = Field(default=2)
+    lowpass_regression_order: int = Field(default=0)

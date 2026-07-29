@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from computations.constants import SurfaceTerms
+from conversion.data_formats import SurfaceTerms
 
 SINGLE_TERMS = list(SurfaceTerms)
 COMBINED_TERMS = [SurfaceTerms.PLANE, SurfaceTerms.SPHERE]

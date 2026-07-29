@@ -3,10 +3,10 @@ import pytest
 from numpy.testing import assert_array_equal
 from scipy.constants import micro
 
-from computations.constants import SurfaceTerms
+
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkImpressionType
+from conversion.data_formats import Mark, MarkImpressionType, SurfaceTerms
 from conversion.filter.mark_filters import _apply_anti_aliasing
 from conversion.preprocess_impression.center import (
     _compute_map_center,

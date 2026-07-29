@@ -1,10 +1,10 @@
 import numpy as np
-from computations.constants import SurfaceTerms
 from container_models.models import LevelingResult
 from container_models.scan_image import ScanImage
 
 from surfalize import Surface
 from container_models.base import BinaryMask
+from conversion.data_formats import SurfaceTerms
 
 
 def get_bounding_box(mask: BinaryMask, margin: int) -> tuple[slice, slice]:

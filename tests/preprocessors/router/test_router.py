@@ -5,9 +5,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from computations.constants import SurfaceTerms
 from container_models.base import BinaryMask
-from conversion.data_formats import MarkImpressionType, MarkStriationType
+from conversion.data_formats import MarkImpressionType, MarkStriationType, SurfaceTerms
 from fastapi.testclient import TestClient
 from httpx import Response
 from pydantic import HttpUrl
@@ -20,11 +19,11 @@ from preprocessors.constants import PrepareMarkImpressionFiles, PrepareMarkStria
 from preprocessors.schemas import (
     EditImage,
     GeneratedImages,
-    MarkParams,
     PrepareMarkImpression,
     PrepareMarkResponseImpression,
     PrepareMarkResponseStriation,
     PrepareMarkStriation,
+    PreprocessingImpressionParams,
     PreprocessingStriationParams,
 )
 from settings import get_settings
@@ -76,7 +75,7 @@ def test_pre_processors_placeholder(client: TestClient) -> None:
             PreprocessorEndpoint.PREPARE_MARK_IMPRESSION,
             PrepareMarkImpression,
             PrepareMarkResponseImpression,
-            MarkParams,
+            PreprocessingImpressionParams,
             MarkImpressionType.CHAMBER_IMPRESSION,
             [
                 "preview_image",
@@ -110,7 +109,7 @@ class TestPrepareMarkEndpoint:
         self,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         mark_type: str,
-        mark_parameters: type[PreprocessingStriationParams | MarkParams],
+        mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
     ) -> dict:
         """Generate the schema payload for the prepare-mark endpoint."""
         return schema(
@@ -127,7 +126,7 @@ class TestPrepareMarkEndpoint:
         endpoint: PreprocessorEndpoint,
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
-        mark_parameters: type[PreprocessingStriationParams | MarkParams],
+        mark_parameters: type[PreprocessingStriationParams | PreprocessingImpressionParams],
         mark_type: str,
         mask: BinaryMask,
         expected_keys: list[str],
@@ -157,7 +156,7 @@ class TestPrepareMarkEndpoint:
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         endpoint: PreprocessorEndpoint,
-        mark_parameters: PreprocessingStriationParams | MarkParams,
+        mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mask: BinaryMask,
         mark_type: str,
         expected_keys: list[str],
@@ -186,7 +185,7 @@ class TestPrepareMarkEndpoint:
         schema: type[PrepareMarkImpression | PrepareMarkStriation],
         response_schema: type[PrepareMarkResponseImpression | PrepareMarkResponseStriation],
         endpoint: PreprocessorEndpoint,
-        mark_parameters: PreprocessingStriationParams | MarkParams,
+        mark_parameters: PreprocessingStriationParams | PreprocessingImpressionParams,
         mask: BinaryMask,
         mark_type: str,
         expected_keys: list[str],

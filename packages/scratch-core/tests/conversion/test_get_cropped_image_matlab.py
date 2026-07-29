@@ -10,9 +10,10 @@ import numpy as np
 import pytest
 from scipy.constants import micro
 
-from computations.constants import SurfaceTerms
+
 from container_models.base import FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
+from conversion.data_formats import SurfaceTerms
 from conversion.get_cropped_image import get_cropped_image
 from .helper_functions import (
     _compute_correlation,
@@ -20,11 +21,6 @@ from .helper_functions import (
     _compute_difference_stats,
 )
 
-LEVEL_METHOD_MAP = {
-    "none": SurfaceTerms.NONE,
-    "plane": SurfaceTerms.PLANE,
-    "sphere": SurfaceTerms.SPHERE,
-}
 
 FILTER_METHOD_MAP = {
     "r0": 0,
@@ -35,10 +31,8 @@ FILTER_METHOD_MAP = {
 
 def to_surface_terms(level_method: str) -> SurfaceTerms:
     """Convert level method to SurfaceTerms."""
-    key = level_method.strip().lower()
-    if key not in LEVEL_METHOD_MAP:
-        raise ValueError(f"Unknown level method: {level_method}")
-    return LEVEL_METHOD_MAP[key]
+    key = level_method.strip().upper()
+    return SurfaceTerms[key]
 
 
 def to_regression_order(filter_method: str) -> int:

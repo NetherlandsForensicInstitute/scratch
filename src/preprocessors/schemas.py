@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Annotated
 
 import numpy as np
-from computations.constants import SurfaceTerms
-from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType
+from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType, SurfaceTermsAnnotated
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
     Field,
@@ -15,7 +14,6 @@ from pydantic import (
     model_validator,
 )
 from utils.constants import RegressionOrder
-from utils.validators import validate_enum_string
 
 from models import (
     BaseModelConfig,
@@ -24,8 +22,6 @@ from models import (
     SupportedScanExtension,
 )
 from schemas import URLContainer
-
-SurfaceTermsAnnotated = Annotated[SurfaceTerms, validate_enum_string(SurfaceTerms)]
 
 
 class BaseParameters(BaseModelConfig):
@@ -97,25 +93,8 @@ class PrepareMarkStriation(PrepareMarkBase):
     mark_type: MarkStriationType = Field(..., description="Type of mark to prepare.")
 
 
-class MarkParams(BaseModelConfig):
-    pixel_size: float | None = Field(default=None)
-    adjust_pixel_spacing: bool = Field(default=True)
-    surface_terms: SurfaceTermsAnnotated = Field(
-        default=SurfaceTerms.SPHERE,
-        description="Surface fitting model for leveling operations. "
-        "PLANE for planar surfaces, SPHERE for curved surfaces. "
-        "Accepts string (e.g. 'plane', 'PLANE') or int (e.g. 1) values.",
-        examples=["plane", "sphere"],
-    )
-    interp_method: str = Field(default="cubic")
-    highpass_cutoff: float | None = Field(default=250.0e-6)
-    lowpass_cutoff: float | None = Field(default=5.0e-6)
-    highpass_regression_order: int = Field(default=2)
-    lowpass_regression_order: int = Field(default=0)
-
-
 class PrepareMarkImpression(PrepareMarkBase):
-    mark_parameters: MarkParams = Field(..., description="Preprocessor parameters.")
+    mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
     mark_type: MarkImpressionType = Field(..., description="Type of mark to prepare.")
 
 

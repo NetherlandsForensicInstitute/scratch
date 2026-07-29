@@ -6,8 +6,6 @@ This module provides the high-level entry points for striation preprocessing:
 - Fine rotation to align striations horizontally and profile extraction
 """
 
-from dataclasses import asdict
-
 import numpy as np
 
 from container_models.base import FloatArray2D
@@ -89,7 +87,7 @@ def preprocess_striation_mark(
     # Build meta_data with mask and total_angle
     aligned_meta_data = {
         **mark.meta_data,
-        **asdict(params),
+        **(params.model_dump()),
         "total_angle": total_angle,
     }
 

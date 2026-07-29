@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
-from computations.constants import SurfaceTerms
+from conversion.data_formats import SurfaceTerms
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError

@@ -9,9 +9,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from computations.constants import SurfaceTerms
 from container_models.base import FloatArray2D
-from conversion.data_formats import MarkImpressionType
+from conversion.data_formats import MarkImpressionType, SurfaceTerms
 from .helper_functions import make_mark
 from conversion.preprocess_impression.preprocess_impression import (
     preprocess_impression_mark,

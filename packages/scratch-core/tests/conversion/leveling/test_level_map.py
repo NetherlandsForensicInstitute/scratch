@@ -1,8 +1,9 @@
-from computations.constants import SurfaceTerms
 from computations.spatial import level_map
 from container_models.scan_image import ScanImage
 import pytest
 import numpy as np
+
+from conversion.data_formats import SurfaceTerms
 from .constants import RESOURCES_DIR
 
 

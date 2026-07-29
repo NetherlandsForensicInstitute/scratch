@@ -4,12 +4,9 @@ This module provides functions to preprocess 2D scan images of impression marks
 (e.g., breech face impressions) through leveling, filtering, and resampling steps.
 """
 
-from dataclasses import asdict
-
-from computations.constants import SurfaceTerms
 from computations.spatial import level_map
 from container_models.base import DepthData
-from conversion.data_formats import Mark
+from conversion.data_formats import Mark, SurfaceTerms
 from conversion.filter import (
     apply_gaussian_filter_mark,
     apply_filter_pipeline,
@@ -97,7 +94,7 @@ def preprocess_impression_mark(
     )
 
     # Build output metadata
-    mark.meta_data.update(**asdict(params))
+    mark.meta_data.update(**params.model_dump())
 
     return mark_filtered, mark_leveled_final
 

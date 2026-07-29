@@ -1,9 +1,10 @@
 import pytest
 from scipy.constants import micro
 
-from computations.constants import SurfaceTerms
+
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
+from conversion.data_formats import SurfaceTerms
 from conversion.get_cropped_image import get_cropped_image
 
 

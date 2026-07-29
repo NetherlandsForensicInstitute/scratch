@@ -2,10 +2,10 @@ import numpy as np
 from loguru import logger
 from scipy.ndimage import generic_filter
 
-from computations.constants import SurfaceTerms
 from computations.spatial import get_bounding_box, level_map
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
+from conversion.data_formats import SurfaceTerms
 from conversion.filter import apply_gaussian_regression_filter
 from exceptions import ImageShapeMismatchError
 from mutations.base import ImageMutation
