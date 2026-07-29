@@ -121,7 +121,7 @@ class TestContracts:
                 "mark_parameters": {
                     "pixel_size": None,
                     "adjust_pixel_spacing": True,
-                    "surface_terms": 2,
+                    "surface_terms": "sphere",
                     "interp_method": "cubic",
                     "highpass_cutoff": 250.0e-6,
                     "lowpass_cutoff": 5.0e-6,
