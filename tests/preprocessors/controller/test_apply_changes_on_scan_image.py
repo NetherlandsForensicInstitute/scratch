@@ -79,7 +79,7 @@ def mask_middle_pixels(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage
     )
 
     def assertions(result: ScanImage):
-        assert np.isnan(result.data[2, 2]), "Pixel value in the middle needs to be masked out."
+        assert np.isnan(result.data[2, 2]), "Pixel values in the middle need to be masked out."
 
     return params, mask, assertions
 
@@ -110,7 +110,7 @@ def crop_to_middle_pixels(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
     )
 
     def assertions(result: ScanImage):
-        assert result.data.shape == (2, 2), "cropped to the middle pixel"
+        assert result.data.shape == (2, 2), "cropped to the middle pixels"
 
     return params, mask, assertions
 

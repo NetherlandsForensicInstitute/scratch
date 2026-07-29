@@ -97,7 +97,7 @@ class TestContracts:
                 "scan_file": scan_file,
                 "cutoff_length": cutoff_length,
                 "mask_is_bitpacked": False,
-                "surface_terms": 2,
+                "surface_terms": "plane",
             },
             expected_urls={
                 "preview_image": ".png",

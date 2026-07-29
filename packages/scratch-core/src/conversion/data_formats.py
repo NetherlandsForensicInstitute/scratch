@@ -24,11 +24,7 @@ from utils.validators import validate_enum_string
 
 
 class SurfaceTerms(IntEnum):
-    """
-    Surface fitting options exposed by the API.
-
-    These options represent the surface leveling options and the values represent their respective polynomial degree.
-    """
+    """Surface fitting options used in the leveling filter. The values represent their respective polynomial degree."""
 
     NONE = 0
     PLANE = 1
