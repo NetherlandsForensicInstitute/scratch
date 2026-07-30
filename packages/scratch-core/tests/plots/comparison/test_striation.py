@@ -7,7 +7,7 @@ from plots.comparison.striation import (
     plot_striation_comparison_results,
     plot_striation_comparison_overview,
 )
-from .helper_functions import assert_valid_rgb_image, create_synthetic_striation_data
+from ..helper_functions import assert_valid_rgb_image, create_synthetic_striation_data
 
 
 @pytest.mark.integration

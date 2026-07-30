@@ -23,8 +23,8 @@ from .helper_functions import (
     create_synthetic_profile,
     create_synthetic_striation_data,
     create_synthetic_striation_mark,
-    make_mark,
 )
+from ..helper_functions import make_mark
 
 
 @pytest.fixture

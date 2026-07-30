@@ -5,7 +5,7 @@ from computations.normalization import _normalize_2d_array
 from container_models.models import NormalizationBounds
 from container_models.scan_image import ScanImage
 
-from ..helper_function import assert_nan_mask_preserved, NoScaleScanImage
+from ..helper_functions import assert_nan_mask_preserved, NoScaleScanImage
 
 TEST_IMAGE_WIDTH = 10
 TEST_IMAGE_HEIGHT = 12

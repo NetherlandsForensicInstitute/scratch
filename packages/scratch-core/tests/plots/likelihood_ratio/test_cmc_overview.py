@@ -13,7 +13,7 @@ from plots.likelihood_ratio.cmc_overview import (
 )
 from conversion.surface_comparison.models import Cell
 
-from .helper_functions import assert_valid_rgb_image
+from ..helper_functions import assert_valid_rgb_image
 
 
 @pytest.mark.integration
