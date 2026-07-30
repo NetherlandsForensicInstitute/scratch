@@ -266,3 +266,33 @@ class TestPlotCellOverlaySpace:
         assert cx == pytest.approx(cell.center_comparison[0])
         assert not self._is_axis_aligned(rect)
         plt.close(fig)
+
+
+class TestCellOverlayColorSigma:
+    def test_color_sigma_affects_image_clim(self, impression_sample_depth_data):
+        cells = [make_cell((30e-6, 75e-6), 0.9, is_congruent=True)]
+
+        fig, ax = plt.subplots()
+        im_tight = plot_cell_overlay_on_axes(
+            ax,
+            impression_sample_depth_data,
+            scale=1.5 * micro,
+            cells=cells,
+            color_sigma=1.0,
+        )
+        tight = im_tight.get_clim()
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        im_wide = plot_cell_overlay_on_axes(
+            ax,
+            impression_sample_depth_data,
+            scale=1.5 * micro,
+            cells=cells,
+            color_sigma=5.0,
+        )
+        wide = im_wide.get_clim()
+        plt.close(fig)
+
+        assert wide[0] < tight[0]
+        assert wide[1] > tight[1]

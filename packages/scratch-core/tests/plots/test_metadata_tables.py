@@ -9,6 +9,7 @@ from plots.metadata_tables import (
     get_bounding_box,
     get_metadata_dimensions,
     draw_metadata_box,
+    _calculate_table_rows,
 )
 
 
@@ -213,3 +214,56 @@ class TestDrawMetadataBox:
         metadata = {"Key": "Value", "": "", "Other": "Data"}
         draw_metadata_box(ax, metadata)
         plt.close(fig)
+
+
+class TestCalculateTableRows:
+    def test_one_row_per_short_entry(self):
+        metadata = {"A": "1", "B": "2", "C": "3"}
+        assert _calculate_table_rows(metadata, wrap_width=25) == 3
+
+    def test_wrapped_value_adds_rows(self):
+        metadata = {"Key": "A" * 100}
+        assert _calculate_table_rows(metadata, wrap_width=25) == 4
+
+    def test_empty_dict_is_zero_rows(self):
+        assert _calculate_table_rows({}, wrap_width=25) == 0
+
+    def test_empty_value_still_occupies_one_row(self):
+        assert _calculate_table_rows({"Key": ""}, wrap_width=25) == 1
+
+    def test_non_string_values_are_stringified(self):
+        assert _calculate_table_rows({"N": 42, "F": 3.14}, wrap_width=25) == 2
+
+    def test_smaller_wrap_width_gives_more_rows(self):
+        metadata = {"Key": "word " * 20}
+        assert _calculate_table_rows(metadata, wrap_width=10) > _calculate_table_rows(
+            metadata, wrap_width=40
+        )
+
+    def test_agrees_with_rendered_table_for_normal_metadata(self):
+        """
+        _calculate_table_rows sizes the figure; metadata_to_table_data builds
+        the actual rows. For realistic metadata (keys shorter than wrap_width)
+        the two must agree, or the row gets clipped or over-padded.
+        """
+        metadata = {
+            "Case": "firearms",
+            "Firearm": "firearm_1_-_known_match",
+            "Specimen": "bullet_1",
+            "Measurement": "striated_mark_measurement_extended",
+        }
+        counted = _calculate_table_rows(metadata, wrap_width=25)
+        rendered = len(metadata_to_table_data(metadata, wrap_width=25))
+        assert counted == rendered
+
+    @pytest.mark.xfail(
+        reason="_calculate_table_rows counts wrapped key lines, but "
+        "metadata_to_table_data only wraps values, so a key longer than "
+        "wrap_width over-estimates the row count.",
+        strict=True,
+    )
+    def test_long_key_overestimates_rendered_rows(self):
+        metadata = {"K" * 60: "short"}
+        counted = _calculate_table_rows(metadata, wrap_width=25)
+        rendered = len(metadata_to_table_data(metadata, wrap_width=25))
+        assert counted == rendered

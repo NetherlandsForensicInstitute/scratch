@@ -137,7 +137,7 @@ def plot_cell_overlay_on_axes(
         cell at its matched, rotated position (``center_comparison`` /
         ``angle_deg``) — use for the moved compared surface.
     :param color_sigma: Number of robust standard deviations (median ±
-        color_sigma * 1.4826*MAD) to clip the color scale at. Defaults to 3.0.
+        color_sigma * 1.4826*MAD) to clip the color scale at.
     """
     height, width = data.shape
 
