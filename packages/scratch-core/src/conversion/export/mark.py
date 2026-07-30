@@ -43,6 +43,7 @@ def _parse_mark_type(value: Any) -> MarkType:
 
 class ExportedMarkData(ConfigBaseModel):
     """Validated data structure for exported Mark metadata."""
+
     model_config = ConfigDict(extra="ignore")
     mark_type: Annotated[MarkType, BeforeValidator(_parse_mark_type)]
     scale_x: float = Field(..., gt=0)
