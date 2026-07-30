@@ -1,6 +1,10 @@
 import numpy as np
+from container_models.models import LevelingResult
+from container_models.scan_image import ScanImage
 
+from surfalize import Surface
 from container_models.base import BinaryMask
+from conversion.data_formats import SurfaceTerms
 
 
 def get_bounding_box(mask: BinaryMask, margin: int) -> tuple[slice, slice]:
@@ -25,3 +29,34 @@ def get_bounding_box(mask: BinaryMask, margin: int) -> tuple[slice, slice]:
         raise ValueError("Slice results in y_min >= y_max. Margin may be too large.")
 
     return slice(y_min, y_max), slice(x_min, x_max)
+
+
+def level_map(scan_image: ScanImage, surface_terms: SurfaceTerms) -> LevelingResult:
+    """
+    Compute the leveled map by fitting polynomial terms and subtracting them from the image data.
+
+    This computation effectively acts as a high-pass filter on the image data.
+
+    :param scan_image: The scan image containing the image data to level.
+    :param surface_terms: The surface terms to use in the fitting.
+    :returns: An instance of `LevelingResult` containing the leveled scan data and estimated physical parameters.
+    """
+    if surface_terms == SurfaceTerms.NONE:
+        return LevelingResult(
+            leveled_map=scan_image.data,
+            fitted_surface=np.full_like(scan_image.data, 0.0),
+        )
+    polynomial_degree = surface_terms  # Semantic renaming of IntEnum value
+    if scan_image.valid_mask.sum() < 1 + polynomial_degree:
+        raise ValueError(
+            f"At least {1 + polynomial_degree} values are needed for the least squares solver."
+        )
+    surface = Surface(
+        height_data=scan_image.data,
+        step_x=scan_image.scale_x,
+        step_y=scan_image.scale_y,
+    )
+    leveled, trend = surface.detrend_polynomial(
+        degree=polynomial_degree, inplace=False, return_trend=True
+    )
+    return LevelingResult(leveled_map=leveled.data, fitted_surface=trend.data)

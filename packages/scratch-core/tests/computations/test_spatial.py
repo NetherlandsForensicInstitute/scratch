@@ -1,8 +1,14 @@
-from conversion.leveling import level_map, SurfaceTerms
-from container_models.scan_image import ScanImage
-import pytest
+from pathlib import Path
+
 import numpy as np
-from .constants import RESOURCES_DIR
+import pytest
+
+from computations.spatial import level_map
+from container_models.scan_image import ScanImage
+from conversion.data_formats import SurfaceTerms
+
+TEST_ROOT = Path(__file__).parent
+RESOURCES_DIR = TEST_ROOT / "resources"
 
 
 @pytest.mark.integration
@@ -26,24 +32,3 @@ def test_map_level_none_has_no_effect(scan_image_with_nans: ScanImage):
     result = level_map(scan_image_with_nans, SurfaceTerms.NONE)
     assert result
     assert np.allclose(result.leveled_map, scan_image_with_nans.data, equal_nan=True)
-
-
-@pytest.mark.integration
-@pytest.mark.parametrize(
-    "terms",
-    [
-        SurfaceTerms.OFFSET,
-        SurfaceTerms.ASTIG_0,
-        SurfaceTerms.ASTIG_45,
-        SurfaceTerms.DEFOCUS,
-        SurfaceTerms.TILT_X,
-        SurfaceTerms.TILT_Y,
-        SurfaceTerms.TILT_X | SurfaceTerms.TILT_Y,
-        SurfaceTerms.OFFSET | SurfaceTerms.ASTIG_0 | SurfaceTerms.ASTIG_45,
-    ],
-)
-def test_map_level_raises_on_incorrect_term(
-    scan_image_with_nans: ScanImage, terms: SurfaceTerms
-):
-    with pytest.raises(ValueError, match="No degree defined for"):
-        _ = level_map(scan_image_with_nans, terms)

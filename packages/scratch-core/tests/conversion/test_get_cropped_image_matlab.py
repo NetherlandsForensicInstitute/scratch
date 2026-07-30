@@ -10,21 +10,17 @@ import numpy as np
 import pytest
 from scipy.constants import micro
 
+
 from container_models.base import FloatArray2D, BinaryMask
 from container_models.scan_image import ScanImage
+from conversion.data_formats import SurfaceTerms
 from conversion.get_cropped_image import get_cropped_image
-from conversion.leveling import SurfaceTerms
 from .helper_functions import (
     _compute_correlation,
     _crop_to_common_shape,
     _compute_difference_stats,
 )
 
-LEVEL_METHOD_MAP = {
-    "none": SurfaceTerms.NONE,
-    "plane": SurfaceTerms.PLANE,
-    "sphere": SurfaceTerms.SPHERE,
-}
 
 FILTER_METHOD_MAP = {
     "r0": 0,
@@ -35,10 +31,8 @@ FILTER_METHOD_MAP = {
 
 def to_surface_terms(level_method: str) -> SurfaceTerms:
     """Convert level method to SurfaceTerms."""
-    key = level_method.strip().lower()
-    if key not in LEVEL_METHOD_MAP:
-        raise ValueError(f"Unknown level method: {level_method}")
-    return LEVEL_METHOD_MAP[key]
+    key = level_method.strip().upper()
+    return SurfaceTerms[key]
 
 
 def to_regression_order(filter_method: str) -> int:
@@ -60,7 +54,7 @@ class MatlabTestCase:
 
     input_xdim: float = 3.5 * micro
     input_ydim: float = 3.5 * micro
-    terms: SurfaceTerms = field(default_factory=lambda: to_surface_terms("Plane"))
+    terms: SurfaceTerms = SurfaceTerms.PLANE
     regression_order: int = field(default_factory=lambda: to_regression_order("R0"))
     cutoff_length: float = 250.0
     resampling_factor: float | None = None
@@ -185,7 +179,7 @@ def run_python_preprocessing(test_case: MatlabTestCase) -> FloatArray2D:
     return get_cropped_image(
         scan_image=scan_image,
         mask=test_case.input_mask.astype(bool),
-        terms=test_case.terms,
+        surface_terms=test_case.terms,
         cutoff_length=test_case.cutoff_length * micro,
         regression_order=test_case.regression_order,
         resampling_factors=resampling_factors,
