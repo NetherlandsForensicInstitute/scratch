@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any
 
 import numpy as np
-from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType
+from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType, SurfaceTermsAnnotated
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
@@ -16,14 +15,12 @@ from pydantic import (
 )
 from utils.constants import RegressionOrder
 
-from helpers import update_schema
 from models import (
     BaseModelConfig,
     ProjectTag,
     ScanFile,
     SupportedScanExtension,
 )
-from preprocessors.constants import SurfaceOptions
 from schemas import URLContainer
 
 
@@ -47,16 +44,6 @@ class BaseParameters(BaseModelConfig):
     def tag(self) -> str:
         """Get the tag to use for directory naming."""
         return self.project_name or self.scan_file.stem
-
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (
-            ("scan_file", "ScanFile"),
-            ("project_name", "ProjectTag"),
-        )
-        return update_schema(schema, attr_to_class)
 
 
 class UploadScan(BaseParameters):
@@ -105,24 +92,10 @@ class PrepareMarkStriation(PrepareMarkBase):
     mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
     mark_type: MarkStriationType = Field(..., description="Type of mark to prepare.")
 
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("mark_parameters", "PreprocessingStriationParams"), ("mark_type", "MarkStriationType"))
-        return update_schema(schema, attr_to_class)
-
 
 class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
     mark_type: MarkImpressionType = Field(..., description="Type of mark to prepare.")
-
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("mark_parameters", "PreprocessingImpressionParams"), ("mark_type", "MarkImpressionType"))
-        return update_schema(schema, attr_to_class)
 
 
 class EditImage(BaseParameters):
@@ -138,11 +111,13 @@ class EditImage(BaseParameters):
         description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
         examples=[2, 4, 8],
     )
-    terms: SurfaceOptions = Field(
+    surface_terms: SurfaceTermsAnnotated = Field(
         ...,
         description=(
-            "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
+            "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces. "
+            "Accepts string (e.g. 'plane', 'PLANE') or int (e.g. 1) values."
         ),
+        examples=["plane", "sphere"],
     )
     regression_order: RegressionOrder = Field(
         default=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
@@ -165,17 +140,6 @@ class EditImage(BaseParameters):
         if self.scan_file.suffix.lower() != ".x3p":
             raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
         return self
-
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        # Add schema for BaseParameters and EditImage to JSON model
-        attr_to_class = (
-            ("regression_order", "RegressionOrder"),
-            ("terms", "SurfaceOptions"),
-        )
-        return update_schema(schema, attr_to_class)
 
 
 class GeneratedImages(URLContainer):
