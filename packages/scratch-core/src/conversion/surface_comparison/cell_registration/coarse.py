@@ -1,5 +1,3 @@
-from os import cpu_count
-
 import numpy as np
 
 from container_models.scan_image import ScanImage
@@ -15,8 +13,6 @@ from conversion.surface_comparison.models import (
     GridCell,
 )
 from conversion.surface_comparison.utils import rotate_points
-
-N_THREADS = cpu_count() or 1
 
 
 def match_cells(

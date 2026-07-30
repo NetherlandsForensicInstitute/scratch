@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
+from conversion.data_formats import SurfaceTerms
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 from scipy.constants import micro
 
-from preprocessors.constants import SurfaceOptions
 from preprocessors.schemas import EditImage, RegressionOrder
 
 DEFAULT_RESAMPLING_FACTOR: Final[int] = 4
@@ -64,7 +64,7 @@ class TestEditImage:
 
         # Assert
         assert params.resampling_factor == DEFAULT_RESAMPLING_FACTOR
-        assert params.terms == SurfaceOptions.NONE
+        assert params.surface_terms == SurfaceTerms.NONE
         assert params.regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE
         assert params.cutoff_length == CUTOFF_LENGTH
         assert params.crop is False
@@ -73,8 +73,8 @@ class TestEditImage:
     @pytest.mark.parametrize(
         "kwargs",
         [
-            {"terms": SurfaceOptions.PLANE},
-            {"terms": SurfaceOptions.SPHERE},
+            {"surface_terms": SurfaceTerms.PLANE},
+            {"surface_terms": SurfaceTerms.SPHERE},
             {"regression_order": RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE},
             {"regression_order": RegressionOrder.LOCAL_PLANAR},
             {"regression_order": RegressionOrder.LOCAL_QUADRATIC},
@@ -90,6 +90,34 @@ class TestEditImage:
 
         # Assert
         assert all(getattr(params, field) == value for field, value in kwargs.items())
+
+    @pytest.mark.parametrize(
+        ("input_value", "expected"),
+        [
+            ("plane", SurfaceTerms.PLANE),
+            ("PLANE", SurfaceTerms.PLANE),
+            ("Plane", SurfaceTerms.PLANE),
+            ("sphere", SurfaceTerms.SPHERE),
+            ("SPHERE", SurfaceTerms.SPHERE),
+            ("none", SurfaceTerms.NONE),
+            ("NONE", SurfaceTerms.NONE),
+            (1, SurfaceTerms.PLANE),
+            (2, SurfaceTerms.SPHERE),
+            (0, SurfaceTerms.NONE),
+        ],
+    )
+    def test_should_accept_string_and_int_for_surface_terms(
+        self,
+        input_value: str | int,
+        expected: SurfaceTerms,
+        edit_image_parameter: Callable[..., EditImage],
+    ) -> None:
+        """Test that surface_terms accepts both string and int values (non-breaking API)."""
+        # Act
+        params = edit_image_parameter(surface_terms=input_value)
+
+        # Assert
+        assert params.surface_terms == expected
 
     @given(valid_value=st.floats(min_value=micro, max_value=3, allow_nan=False, allow_infinity=False))
     def test_should_accept_positive_cutoff_length(
@@ -134,4 +162,4 @@ class TestEditImage:
             EditImage()  # type: ignore
 
         # Assert
-        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "terms")
+        assert get_error_fields(exc_info, "missing") == ("scan_file", "cutoff_length", "surface_terms")

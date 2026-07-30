@@ -1,15 +1,16 @@
 import pytest
 from scipy.constants import micro
 
+
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
+from conversion.data_formats import SurfaceTerms
 from conversion.get_cropped_image import get_cropped_image
-from conversion.leveling import SurfaceTerms
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "terms, regression_order",
+    "surface_terms, regression_order",
     [
         (SurfaceTerms.PLANE, 0),
         (SurfaceTerms.PLANE, 1),
@@ -22,13 +23,13 @@ from conversion.leveling import SurfaceTerms
 def test_get_cropped_image(
     scan_image_replica: ScanImage,
     mask_array: BinaryMask,
-    terms: SurfaceTerms,
+    surface_terms: SurfaceTerms,
     regression_order: int,
 ):
     result = get_cropped_image(
         scan_image=scan_image_replica,
         mask=mask_array,
-        terms=terms,
+        surface_terms=surface_terms,
         regression_order=regression_order,
         cutoff_length=250 * micro,
         resampling_factors=(2, 2),

@@ -1,5 +1,5 @@
 from typing import Annotated
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 import json
 
 from container_models.base import (
@@ -20,6 +20,18 @@ from container_models.base import (
     serialize_ndarray,
 )
 from container_models.scan_image import ScanImage
+from utils.validators import validate_enum_string
+
+
+class SurfaceTerms(IntEnum):
+    """Surface fitting options used in the leveling filter. The values represent their respective polynomial degree."""
+
+    NONE = 0
+    PLANE = 1
+    SPHERE = 2
+
+
+SurfaceTermsAnnotated = Annotated[SurfaceTerms, validate_enum_string(SurfaceTerms)]
 
 
 class MarkType(StrEnum):

@@ -70,7 +70,7 @@ Example
         Resample(factors=Point(2, 2)),
         Mask(mask=np.zeros((5, 5), dtype=bool)),
         LevelMap(
-            terms=SurfaceTerms.ASTIG_0,
+            surface_terms=SurfaceTerms.PLANE,
             solver=solve_least_squares,
             reference_point=Point(3, 3),
         ),

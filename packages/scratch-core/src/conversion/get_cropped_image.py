@@ -1,9 +1,10 @@
 import numpy as np
 
+from computations.spatial import level_map
 from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
+from conversion.data_formats import SurfaceTerms
 from conversion.filter import apply_gaussian_regression_filter
-from conversion.leveling import SurfaceTerms, level_map
 from conversion.mask import mask_and_crop_scan_image
 from conversion.resample import resample_scan_image_and_mask
 
@@ -11,7 +12,7 @@ from conversion.resample import resample_scan_image_and_mask
 def get_cropped_image(
     scan_image: ScanImage,
     mask: BinaryMask,
-    terms: SurfaceTerms,
+    surface_terms: SurfaceTerms,
     cutoff_length: float,
     regression_order: int = 0,
     resampling_factors: tuple[float, float] | None = None,
@@ -22,7 +23,7 @@ def get_cropped_image(
 
     :param scan_image: ScanImage to be processed.
     :param mask: Mask indicating fore/background to be applied to the data in `scan_image`.
-    :param terms: The surface terms to be used in the fitting. Note: terms can be combined using bit-operators.
+    :param surface_terms: The surface terms to be used in the fitting.
     :param cutoff_length: Cutoff wavelength in physical units.
     :param regression_order: Filter regression order used when filtering the data.
     :param resampling_factors: The resampling factors for the X- and Y-axis scales.
@@ -45,7 +46,9 @@ def get_cropped_image(
         )
 
     # Level the image data
-    level_result = level_map(scan_image=resampled_scan_image, terms=terms)
+    level_result = level_map(
+        scan_image=resampled_scan_image, surface_terms=surface_terms
+    )
 
     # Filter the leveled results using a Gaussian regression filter
     data_filtered = apply_gaussian_regression_filter(
