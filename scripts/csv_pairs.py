@@ -229,6 +229,8 @@ def item_slug(item: str) -> str:
     e.g. "database/tool-entries/item123/rep1" -> "tool-entries__item123__rep1"
     """
     parts = Path(normalise_item(item)).parts[1:]  # drop the leading database name
+    if parts and parts[0] == "tool-entries":
+        parts = parts[1:]  # drop the known "tool-entries" segment
     return "__".join(parts) if parts else Path(normalise_item(item)).name
 
 
@@ -247,7 +249,7 @@ def comparison_out_dir(cfg: ConversionConfig, mark_type: MarkType, row: PairRow)
         logger.debug("Row %d compares across databases (%s vs %s)", row.index, db_ref, db_comp)
 
     pair = "__vs__".join(sorted((db_ref, db_comp)))
-    folder = cfg.root / "database-comparisons_test" / pair / f"{mark_type_slug(mark_type)}_comparison_results"
+    folder = cfg.root / "database-comparisons" / pair / f"{mark_type_slug(mark_type)}_comparison_results"
     return folder / f"{item_slug(row.ref)}_vs_{item_slug(row.comp)}"
 
 
