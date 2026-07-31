@@ -1,14 +1,13 @@
 from container_models.scan_image import ScanImage
-from conversion.surface_comparison.cell_registration.coarse import match_cells
+from conversion.surface_comparison.cell_registration.match_cells import match_cells
 from conversion.surface_comparison.grid import GridCell
 from conversion.surface_comparison.models import (
     ComparisonParams,
     Cell,
-    ProcessedMark,
 )
 
 
-def coarse_registration(
+def registration(
     grid_cells: list[GridCell],
     comparison_image: ScanImage,
     params: ComparisonParams,
@@ -28,8 +27,3 @@ def coarse_registration(
         grid_cells=grid_cells, comparison_image=comparison_image, params=params
     )
     return matched_cells
-
-
-def fine_registration(comparison_mark: ProcessedMark, cells: list[Cell]) -> list[Cell]:
-    """TODO: Implement this function."""
-    return cells

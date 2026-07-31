@@ -140,7 +140,7 @@ class TestFitCellLabelFontsizes:
     def test_narrow_cell_shrinks_label(self):
         fig, ax, label = self._axes_with_label()
         _fit_cell_label_fontsizes(ax, [label], cell_w_um=2.0)
-        assert label.get_fontsize() < 11.0
+        assert float(label.get_fontsize()) < 11.0
         plt.close(fig)
 
     def test_respects_min_fontsize_clamp(self):
@@ -158,12 +158,12 @@ class TestFitCellLabelFontsizes:
     def test_wider_cell_allows_larger_font(self):
         fig, ax, narrow = self._axes_with_label()
         _fit_cell_label_fontsizes(ax, [narrow], cell_w_um=5.0)
-        narrow_size = narrow.get_fontsize()
+        narrow_size = float(narrow.get_fontsize())
         plt.close(fig)
 
         fig, ax, wide = self._axes_with_label()
         _fit_cell_label_fontsizes(ax, [wide], cell_w_um=20.0)
-        wide_size = wide.get_fontsize()
+        wide_size = float(wide.get_fontsize())
         plt.close(fig)
 
         assert wide_size > narrow_size
@@ -171,12 +171,12 @@ class TestFitCellLabelFontsizes:
     def test_longer_label_gets_smaller_font(self):
         fig, ax, short = self._axes_with_label("A1")
         _fit_cell_label_fontsizes(ax, [short], cell_w_um=10.0)
-        short_size = short.get_fontsize()
+        short_size = float(short.get_fontsize())
         plt.close(fig)
 
         fig, ax, long = self._axes_with_label("A1234567")
         _fit_cell_label_fontsizes(ax, [long], cell_w_um=10.0)
-        long_size = long.get_fontsize()
+        long_size = float(long.get_fontsize())
         plt.close(fig)
 
         assert long_size < short_size

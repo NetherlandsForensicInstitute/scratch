@@ -3,7 +3,7 @@ from typing import Callable
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType
-from conversion.surface_comparison.cell_registration.core import coarse_registration
+from conversion.surface_comparison.cell_registration.core import registration
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
@@ -66,7 +66,7 @@ def test_compare_surfaces_runs(mark: Mark, params: ComparisonParams):
 def test_coarse_registration_runs(
     grid_cell: GridCell, scan_image: ScanImage, params: ComparisonParams
 ):
-    cells = coarse_registration(
+    cells = registration(
         grid_cells=[grid_cell],
         comparison_image=scan_image,
         params=params,
@@ -135,7 +135,7 @@ def test_coarse_registration_finds_angle(
         cell_size=params.cell_size,
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
-    cells = coarse_registration(
+    cells = registration(
         grid_cells=grid_cells,
         comparison_image=comparison_image,
         params=params,

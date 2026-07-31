@@ -3,8 +3,7 @@ from conversion.resample import resample_scan_image_and_mask
 
 
 from conversion.surface_comparison.cell_registration.core import (
-    coarse_registration,
-    fine_registration,
+    registration,
 )
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
@@ -67,19 +66,15 @@ def compare_surfaces(
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
 
-    # Step 3: Coarse registration
+    # Step 3: Registration
     logger.debug("starting coarse registration")
-    cells = coarse_registration(
+    cells = registration(
         grid_cells=grid_cells,
         comparison_image=comparison_image,
         params=params,
     )
 
-    # Step 4: Fine registration
-    logger.debug("starting fine registration")
-    cells = fine_registration(comparison_mark=comparison_mark, cells=cells)
-
-    # Step 5: CMC classification
+    # Step 4: CMC classification
     logger.debug("starting cmc classification")
     comparison_result = classify_congruent_cells_consensus(
         cells=cells, params=params, reference_center=reference_image.center_meters

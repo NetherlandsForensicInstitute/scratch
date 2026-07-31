@@ -12,7 +12,7 @@ import pytest
 from skimage.transform import rotate
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cell_registration.core import (
-    coarse_registration,
+    registration,
 )
 from conversion.surface_comparison.models import GridCell, ComparisonParams
 from .helpers import (
@@ -29,7 +29,7 @@ def test_coarse_registration_returns_one_cell_per_grid_cell(
     grid_cells, comparison_image, params = identical_match_inputs
 
     # Act
-    cells = coarse_registration(
+    cells = registration(
         grid_cells=grid_cells,
         comparison_image=comparison_image,
         params=params,
@@ -46,7 +46,7 @@ def test_coarse_registration_self_match_score_near_one(
     grid_cells, comparison_image, params = identical_match_inputs
 
     # Act
-    cells = coarse_registration(
+    cells = registration(
         grid_cells=grid_cells,
         comparison_image=comparison_image,
         params=params,
@@ -63,7 +63,7 @@ def test_coarse_registration_self_match_angle_is_zero(
     grid_cells, comparison_image, params = identical_match_inputs
 
     # Act
-    cells = coarse_registration(
+    cells = registration(
         grid_cells=grid_cells,
         comparison_image=comparison_image,
         params=params,
@@ -82,7 +82,7 @@ def test_coarse_registration_matches_translation(
     grid_cells, reference_image, params = identical_match_inputs
 
     # Act
-    cells = coarse_registration(
+    cells = registration(
         grid_cells=grid_cells,
         comparison_image=reference_image,
         params=params,
@@ -118,7 +118,7 @@ def test_coarse_registration_matches_angle(
     comparison_image = reference_image.model_copy(update={"data": rotated})
 
     # Act
-    cells = coarse_registration(
+    cells = registration(
         grid_cells=grid_cells,
         comparison_image=comparison_image,
         params=ComparisonParams(
