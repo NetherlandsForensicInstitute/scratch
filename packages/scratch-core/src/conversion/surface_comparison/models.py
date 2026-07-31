@@ -181,6 +181,8 @@ class ComparisonParams(ConfigBaseModel):
     search_angle_min: float = -180.0
     search_angle_max: float = 180.0
     search_angle_step: float = Field(default=5.0, gt=0.0)
+    # Reduction factor for the coarse registration stage. ``None`` searches everything at full resolution.
+    registration_reduction: int | None = 6
 
 
 @dataclass(frozen=False)

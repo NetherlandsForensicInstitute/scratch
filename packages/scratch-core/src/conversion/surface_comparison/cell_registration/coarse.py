@@ -8,6 +8,7 @@ import torch
 
 from container_models.base import FloatArray2D
 from conversion.surface_comparison.cell_registration.utils import (
+    REJECTED_SCORE,
     _prepare_rotated_batch,
     _prepare_templates,
     canvas_to_image,
@@ -25,6 +26,7 @@ DEFAULT_N_CANDIDATES = 3
 DEFAULT_JOBS_PER_CHUNK = 256
 #: A coarse pixel with less than this fraction of valid sub-pixels is treated as missing.
 _COARSE_VALIDITY_THRESHOLD = 0.5
+_MIN_COARSE_CELL = 20
 
 
 def downsample(image: FloatArray2D, factor: int) -> FloatArray2D:
@@ -93,7 +95,7 @@ def _top_candidates(
         for _ in range(n_candidates):
             position = int(surface.argmax())
             y, x = divmod(position, width)
-            if float(surface[y, x]) <= -1.0:
+            if float(surface[y, x]) <= REJECTED_SCORE:
                 break
             found.append((x, y, int(angles[y, x])))
             surface[
@@ -183,7 +185,7 @@ def _refine(
             index, left, top, angle = origins[position]
             if value > best[index][0]:
                 best[index] = (
-                    float(value),
+                    min(max(float(value), -1.0), 1.0),
                     left + int(flat % out_width),
                     top + int(flat // out_width),
                     float(angle),
@@ -241,6 +243,15 @@ def coarse_to_fine_match(
     coarse_image = downsample(image, reduction)
     coarse_templates = [downsample(template, reduction) for template in templates]
     coarse_shape = coarse_templates[0].shape
+    if min(coarse_shape) < _MIN_COARSE_CELL:
+        logger.warning(
+            "Coarse cells are %dx%d px at reduction %d; below roughly %d px the coarse stage "
+            "localises poorly. Consider a smaller reduction for this cell size.",
+            coarse_shape[1],
+            coarse_shape[0],
+            reduction,
+            _MIN_COARSE_CELL,
+        )
     coarse_canvas = (
         max(rotated_shape(*coarse_image.shape, float(a))[0] for a in sorted_angles),
         max(rotated_shape(*coarse_image.shape, float(a))[1] for a in sorted_angles),

@@ -22,6 +22,10 @@ _FFT_RADICES = (2, 3, 5, 7)
 #: (on globally standardised data) are treated as constant and rejected.
 _VARIANCE_EPS = 1e-8
 _TINY = 1e-12
+#: Marker written into score maps at positions that fail the fill or variance gate. It must sit
+#: outside the valid Pearson range: -1.0 is a legitimate score (perfect anti-correlation), so using
+#: it as a sentinel makes a genuinely inverted cell indistinguishable from a masked-out one.
+REJECTED_SCORE = -2.0
 #: Fraction of free memory the chunk planner is allowed to commit.
 _MEMORY_FRACTION = 0.6
 _DEFAULT_CPU_BUDGET = 4 * 1024**3
@@ -507,7 +511,7 @@ def iter_score_maps(
     Computes ``r = sum(W * T') / (sqrt(sum((W - mean(W))^2)) * ||T'||)`` where ``T'`` is the centred,
     unit-norm template. Because ``T'`` sums to zero, the local mean of ``W`` cancels out of the
     numerator, so only the local sum and sum of squares are needed - both from summed-area tables
-    rather than extra transforms. Rejected positions are set to -1.
+    rather than extra transforms. Rejected positions are set to :data:`REJECTED_SCORE`.
 
     Both the exhaustive and the coarse-to-fine search consume this, so the scoring math has exactly
     one implementation.
@@ -560,7 +564,7 @@ def iter_score_maps(
         scores = _correlate_valid(
             image_fft, block, fft_height, fft_width, out_height, out_width
         )
-        scores.div_(denominator).masked_fill_(rejected, -1.0)
+        scores.div_(denominator).masked_fill_(rejected, REJECTED_SCORE)
         yield start, scores
 
 
@@ -584,7 +588,8 @@ def paired_score_maps(
     :param templates: Centred unit-norm templates ``(n, 1, cell_height, cell_width)``, aligned with *batch*.
     :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
     :param standardisation: Global ``(mean, standard_deviation)`` of the comparison image.
-    :returns: Scores ``(n, 1, out_height, out_width)``, rejected positions set to -1.
+    :returns: Scores ``(n, 1, out_height, out_width)``, rejected positions set to
+        :data:`REJECTED_SCORE`.
     """
     n, _, height, width = batch.shape
     cell_height, cell_width = templates.shape[2], templates.shape[3]
@@ -618,7 +623,7 @@ def paired_score_maps(
     del image_fft, template_fft
 
     scores = scores[..., :out_height, :out_width].contiguous()
-    scores.div_(denominator).masked_fill_(~position_ok, -1.0)
+    scores.div_(denominator).masked_fill_(~position_ok, REJECTED_SCORE)
     return scores
 
 
@@ -781,5 +786,6 @@ def batched_match(
                 score,
                 index,
             )
-        best[index] = (min(score, 1.0), x, y, angle)
+        # A cell whose every position was rejected still reports the floor of the valid range.
+        best[index] = (min(max(score, -1.0), 1.0), x, y, angle)
     return best

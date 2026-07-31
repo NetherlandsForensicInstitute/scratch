@@ -2,9 +2,7 @@ from loguru import logger
 from conversion.resample import resample_scan_image_and_mask
 
 
-from conversion.surface_comparison.cell_registration.core import (
-    registration,
-)
+from conversion.surface_comparison.cell_registration.match_cells import match_cells
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
@@ -67,11 +65,9 @@ def compare_surfaces(
     )
 
     # Step 3: Registration
-    logger.debug("starting coarse registration")
-    cells = registration(
-        grid_cells=grid_cells,
-        comparison_image=comparison_image,
-        params=params,
+    logger.debug("starting cell registration")
+    cells = match_cells(
+        grid_cells=grid_cells, comparison_image=comparison_image, params=params
     )
 
     # Step 4: CMC classification

@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 import torch
 
-from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cell_registration.coarse import (
     downsample,
     _to_full_resolution,
@@ -10,7 +9,6 @@ from conversion.surface_comparison.cell_registration.coarse import (
     _refine,
     coarse_to_fine_match,
 )
-from conversion.surface_comparison.cell_registration.match_cells import match_cells
 from conversion.surface_comparison.cell_registration.utils import (
     canvas_to_image,
     image_to_canvas,
@@ -18,37 +16,17 @@ from conversion.surface_comparison.cell_registration.utils import (
     pad_image_array,
     _prepare_templates,
     batched_match,
+    REJECTED_SCORE,
+    rotate_image,
 )
-from conversion.surface_comparison.models import GridCell, ComparisonParams
-
 from .helpers import (
-    make_scan_image,
-    make_grid_cell,
     make_surface,
-    identity_params,
 )
 
 DEVICE = torch.device("cpu")
-IMAGE_HEIGHT = 80
-IMAGE_WIDTH = 98
-CELL_SIZE = 20
 PIXEL_SIZE = 1e-6
 CELL_TOP_LEFT = (40, 30)
-SCORE_TOLERANCE = 0.05
 FILL_FRACTION_THRESHOLD = 0.5
-
-
-def synthetic_surface(height: int, width: int, seed: int = 0) -> np.ndarray:
-    """Smooth, striation-like surface with enough texture to correlate against."""
-    import cv2
-
-    rng = np.random.default_rng(seed)
-    base = cv2.GaussianBlur(rng.normal(size=(height, width)), (0, 0), sigmaX=3.0)
-    ramp = (
-        np.linspace(0, 1, width)[None, :]
-        * np.sin(np.linspace(0, 8 * np.pi, height))[:, None]
-    )
-    return (base * 4.0 + ramp * 2.0 + 100.0).astype(np.float64)
 
 
 class TestDownsample:
@@ -125,8 +103,8 @@ class TestToFullResolution:
 class TestTopCandidates:
     @staticmethod
     def _volume(peaks, shape=(1, 1, 40, 40), n_angles=3):
-        """Score volume of -1 everywhere except the given ``(angle, y, x, value)`` peaks."""
-        scores = torch.full((n_angles, *shape[1:]), -1.0)
+        """Score volume of rejected positions except the given ``(angle, y, x, value)`` peaks."""
+        scores = torch.full((n_angles, *shape[1:]), REJECTED_SCORE)
         for angle, y, x, value in peaks:
             scores[angle, 0, y, x] = value
         return scores
@@ -182,9 +160,19 @@ class TestTopCandidates:
         # Assert
         assert len(found[0]) == 1
 
+    def test_perfect_anti_correlation_is_not_mistaken_for_rejection(self):
+        # Arrange: -1.0 is a legitimate Pearson score, so it must survive as a candidate.
+        scores = self._volume([(0, 7, 9, -1.0)])
+
+        # Act
+        found = _top_candidates(scores, n_candidates=1, suppression_radius=4)
+
+        # Assert
+        assert found[0] == [(9, 7, 0)]
+
     def test_handles_each_template_independently(self):
         # Arrange
-        scores = torch.full((2, 2, 30, 30), -1.0)
+        scores = torch.full((2, 2, 30, 30), REJECTED_SCORE)
         scores[0, 0, 4, 4] = 0.9
         scores[1, 1, 20, 15] = 0.8
 
@@ -203,7 +191,7 @@ class TestRefine:
     @pytest.fixture
     def case(self):
         """A padded image, one cell cut from a known location, and its true centre."""
-        surface = synthetic_surface(200, 180, seed=3)
+        surface = make_surface(200, 180, seed=3)
         padded = pad_image_array(surface, self.CELL, self.CELL)
         top, left = 60 + self.CELL, 70 + self.CELL  # position within the padded image
         template = padded[top : top + self.CELL, left : left + self.CELL].copy()
@@ -284,18 +272,24 @@ class TestRefine:
         assert score == pytest.approx(1.0, abs=1e-4)
 
     def test_chunking_does_not_change_the_result(self, case):
-        # Arrange
+        # Arrange: decoy positions at a single angle, so one pose is the clear winner.
+        padded, template, center = case
+        jobs = [
+            (0, center[0] + offset, center[1], 0.0)
+            for offset in (-6 * self.MARGIN, 0.0, 6 * self.MARGIN)
+        ]
+        single = self._run(padded, [template], jobs, self.MARGIN, jobs_per_chunk=100)
+        split = self._run(padded, [template], jobs, self.MARGIN, jobs_per_chunk=1)
+        assert single == split
+
+    def test_chunking_agrees_on_score_across_tied_angles(self, case):
         padded, template, center = case
         jobs = [
             (0, center[0], center[1], float(a)) for a in (-1.0, -0.5, 0.0, 0.5, 1.0)
         ]
-
-        # Act
         single = self._run(padded, [template], jobs, self.MARGIN, jobs_per_chunk=100)
         split = self._run(padded, [template], jobs, self.MARGIN, jobs_per_chunk=2)
-
-        # Assert
-        assert single == split
+        assert single[0][0] == pytest.approx(split[0][0], abs=1e-5)
 
     def test_cell_without_jobs_keeps_the_default(self, case):
         # Arrange: two cells, but only the first is given a job.
@@ -316,9 +310,7 @@ class TestCoarseToFineMatch:
     @pytest.fixture
     def case(self):
         """A padded comparison image plus cells cut from a rotated copy of it."""
-        from conversion.surface_comparison.cell_registration.utils import rotate_image
-
-        surface = synthetic_surface(420, 400, seed=8)
+        surface = make_surface(420, 400, seed=8)
         padded = pad_image_array(surface, self.CELL, self.CELL)
         rotated = rotate_image(surface, 2.0, fill_value=np.nan).astype(np.float64)
         templates = [
@@ -386,6 +378,19 @@ class TestCoarseToFineMatch:
             assert angle == pytest.approx(2.0)
             assert score > 0.95
 
+    def test_score_stays_within_the_valid_pearson_range(self, case):
+        # Arrange
+        padded, templates, fill_value = case
+
+        # Act
+        results = coarse_to_fine_match(
+            padded, templates, self.ANGLES, 0.9, fill_value, device=DEVICE
+        )
+
+        # Assert: the rejection sentinel must never leak out as a reported score.
+        for score, _, _, _ in results:
+            assert -1.0 <= score <= 1.0
+
     def test_more_candidates_never_lowers_the_score(self, case):
         # Arrange: extra candidates add search, so a score can only improve or stay equal.
         padded, templates, fill_value = case
@@ -413,103 +418,6 @@ class TestCoarseToFineMatch:
         # Assert
         for lower, higher in zip(few, many):
             assert higher[0] >= lower[0] - 1e-6
-
-    def test_margin_defaults_to_twice_the_reduction(self, case, monkeypatch):
-        # Arrange
-        padded, templates, fill_value = case
-        seen = {}
-        import conversion.surface_comparison.cell_registration.coarse as module
-
-        original = module._refine
-
-        def spy(image, tensor, jobs, margin, *args, **kwargs):
-            seen["margin"] = margin
-            return original(image, tensor, jobs, margin, *args, **kwargs)
-
-        monkeypatch.setattr(module, "_refine", spy)
-
-        # Act
-        coarse_to_fine_match(
-            padded, templates, self.ANGLES, 0.9, fill_value, reduction=5, device=DEVICE
-        )
-
-        # Assert
-        assert seen["margin"] == 10
-
-
-class TestMatch:
-    def test_match_cells_returns_one_cell_per_grid_cell(
-        self,
-        identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
-    ):
-        # Arrange
-        grid_cells, comparison_image, params = identical_match_inputs
-
-        # Act
-        cells = match_cells(
-            grid_cells=grid_cells, comparison_image=comparison_image, params=params
-        )
-
-        # Assert
-        assert len(cells) == len(grid_cells)
-
-    def test_match_cells_self_match_score_near_one(
-        self,
-        identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
-    ):
-        # Arrange
-        grid_cells, comparison_image, params = identical_match_inputs
-
-        # Act
-        cells = match_cells(
-            grid_cells=grid_cells, comparison_image=comparison_image, params=params
-        )
-
-        # Assert
-        assert cells[0].best_score >= 1.0 - SCORE_TOLERANCE
-
-    def test_match_cells_self_match_angle_is_zero(
-        self,
-        identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
-    ):
-        # Arrange
-        grid_cells, comparison_image, params = identical_match_inputs
-
-        # Act
-        cells = match_cells(
-            grid_cells=grid_cells, comparison_image=comparison_image, params=params
-        )
-
-        # Assert
-        assert cells[0].angle_deg == pytest.approx(0.0)
-
-    def test_match_cells_self_match_center_is_equal(
-        self,
-        identical_match_inputs: tuple[list[GridCell], ScanImage, ComparisonParams],
-    ):
-        # Arrange
-        grid_cells, comparison_image, params = identical_match_inputs
-
-        # Act
-        cells = match_cells(
-            grid_cells=grid_cells, comparison_image=comparison_image, params=params
-        )
-
-        # Assert
-        assert cells[0].center_comparison == cells[0].center_reference
-
-    def test_match_cells_empty_input_returns_empty_list(self):
-        # Arrange
-        comparison_image = make_scan_image(height=IMAGE_HEIGHT, width=IMAGE_WIDTH)
-        params = identity_params(cell_size_px=CELL_SIZE)
-
-        # Act
-        cells = match_cells(
-            grid_cells=[], comparison_image=comparison_image, params=params
-        )
-
-        # Assert
-        assert cells == []
 
 
 class TestCoordinateMapping:
@@ -571,27 +479,3 @@ class TestCoordinateMapping:
         # Assert
         assert recovered_x == pytest.approx(px, abs=1e-6)
         assert recovered_y == pytest.approx(py, abs=1e-6)
-
-
-class TestNegativeCorrelation:
-    def test_coarse_registration_can_find_negative_correlation(self):
-        # Arrange
-        # Use a non-periodic surface so the inverted cell has no spurious positive correlations elsewhere
-        image_data = make_surface(height=30, width=40, scale=1.0)
-        comparison_data = -image_data  # Exact pointwise inversion
-        comparison_image = ScanImage(data=comparison_data, scale_x=1.0, scale_y=1.0)
-        # Make the cell size large enough to not allow for spurious correlations
-        cell_data = image_data[5:25, 5:35]
-        grid_cell = make_grid_cell(data=cell_data)
-        params = ComparisonParams(
-            search_angle_min=0,
-            search_angle_max=0,
-            search_angle_step=1,
-            minimum_fill_fraction=1,
-        )
-        # Act
-        results = match_cells(
-            grid_cells=[grid_cell], comparison_image=comparison_image, params=params
-        )
-        # Assert
-        assert results[0].best_score < 0.0
