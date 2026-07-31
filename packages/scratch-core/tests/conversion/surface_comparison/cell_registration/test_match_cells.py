@@ -1,4 +1,6 @@
+import numpy as np
 import pytest
+from skimage.transform import rotate
 
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cell_registration.match_cells import match_cells
@@ -88,6 +90,32 @@ class TestMatch:
 
         # Assert
         assert cells == []
+
+    @pytest.mark.parametrize("reduction", [None, 4], ids=["exhaustive", "coarse"])
+    @pytest.mark.parametrize("angle", [0, 60, -40])
+    def test_match_cells_recovers_a_large_rotation(
+        self, identical_match_inputs, angle, reduction
+    ):
+        # Arrange: a sweep far wider than production uses, since marks are occasionally
+        # presented at a wholly different orientation.
+        grid_cells, reference_image, _ = identical_match_inputs
+        rotated = rotate(
+            reference_image.data, angle=angle, order=0, resize=True, cval=np.nan
+        )
+        comparison_image = reference_image.model_copy(update={"data": rotated})
+
+        # Act
+        cells = match_cells(
+            grid_cells=grid_cells,
+            comparison_image=comparison_image,
+            params=ComparisonParams(
+                search_angle_min=-80, search_angle_max=80, search_angle_step=20
+            ),
+            reduction=reduction,
+        )
+
+        # Assert
+        assert cells[0].angle_deg == pytest.approx(angle)
 
 
 class TestNegativeCorrelation:

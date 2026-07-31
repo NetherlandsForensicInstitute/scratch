@@ -8,6 +8,7 @@ from conversion.surface_comparison.cell_registration.coarse import (
     _top_candidates,
     _refine,
     coarse_to_fine_match,
+    effective_reduction,
 )
 from conversion.surface_comparison.cell_registration.utils import (
     canvas_to_image,
@@ -479,3 +480,38 @@ class TestCoordinateMapping:
         # Assert
         assert recovered_x == pytest.approx(px, abs=1e-6)
         assert recovered_y == pytest.approx(py, abs=1e-6)
+
+
+class TestEffectiveReduction:
+    def test_leaves_a_workable_reduction_alone(self):
+        assert effective_reduction((150, 150), 6) == 6
+
+    def test_caps_reduction_for_small_cells(self):
+        # Arrange: a 20px cell at reduction 6 would leave a 4x4 coarse cell, which cannot localise.
+        # Act / Assert
+        assert effective_reduction((20, 20), 6) == 2
+
+    def test_uses_the_shorter_side(self):
+        assert effective_reduction((120, 24), 6) == 3
+
+    def test_never_returns_less_than_one(self):
+        assert effective_reduction((4, 4), 6) == 1
+
+    def test_tiny_cells_fall_back_to_the_exhaustive_search(self):
+        # Arrange: a cell too small for any useful reduction must still register correctly.
+        surface = make_surface(160, 150, seed=5)
+        padded = pad_image_array(surface, 12, 12)
+        template = padded[70 : 70 + 12, 60 : 60 + 12].copy()
+        angles = np.array([-1.0, 0.0, 1.0])
+        fill_value = float(np.nanmean(surface))
+
+        # Act
+        exhaustive = batched_match(
+            padded, [template], angles, 0.9, fill_value, device=DEVICE
+        )
+        coarse = coarse_to_fine_match(
+            padded, [template], angles, 0.9, fill_value, reduction=6, device=DEVICE
+        )
+
+        # Assert
+        assert coarse == exhaustive

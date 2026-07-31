@@ -17,6 +17,7 @@ from conversion.surface_comparison.cell_registration.utils import (
     paired_score_maps,
     rotated_crop,
     rotated_shape,
+    batched_match,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,23 @@ DEFAULT_N_CANDIDATES = 3
 DEFAULT_JOBS_PER_CHUNK = 256
 #: A coarse pixel with less than this fraction of valid sub-pixels is treated as missing.
 _COARSE_VALIDITY_THRESHOLD = 0.5
-_MIN_COARSE_CELL = 20
+#: Smallest coarse cell, per side, that can still localise reliably. Below roughly this the coarse
+#: stage has too few pixels to discriminate and silently returns the wrong pose - measured on a
+#: large-rotation case, a 4x4 coarse cell picked the wrong angle entirely while 5x5 did not.
+#: ``reduction`` is capped so this holds, because the failure is silent and the caller cannot be
+#: expected to re-derive it for every cell size.
+_MIN_COARSE_CELL = 8
+
+
+def effective_reduction(cell_shape: tuple[int, int], reduction: int) -> int:
+    """
+    Cap *reduction* so the coarse cell keeps at least :data:`_MIN_COARSE_CELL` pixels per side.
+
+    :param cell_shape: ``(cell_height, cell_width)`` at full resolution.
+    :param reduction: Requested reduction factor.
+    :returns: The reduction actually usable for this cell size, at least 1.
+    """
+    return max(1, min(reduction, min(cell_shape) // _MIN_COARSE_CELL))
 
 
 def downsample(image: FloatArray2D, factor: int) -> FloatArray2D:
@@ -232,6 +249,24 @@ def coarse_to_fine_match(
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    usable = effective_reduction(cell_shape, reduction)
+    if usable != reduction:
+        logger.info(
+            "Reduction capped from %d to %d: cells are %dx%d px, and a coarse cell below %d px "
+            "per side cannot localise reliably.",
+            reduction,
+            usable,
+            cell_shape[1],
+            cell_shape[0],
+            _MIN_COARSE_CELL,
+        )
+    if usable < 2:
+        # Nothing left to gain; the coarse stage would be full resolution.
+        return batched_match(
+            image, templates, angles, minimum_fill_fraction, fill_value, device=device
+        )
+    reduction = usable
     if margin is None:
         margin = 2 * reduction
 
