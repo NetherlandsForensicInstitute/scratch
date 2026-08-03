@@ -32,10 +32,12 @@ from scripts.conversion_utils import (
     run_parallel,
     save_shape,
 )
-from scripts.http_utils import _cleanup_vault, _post_with_retry
+from scripts.http_utils import _post_with_retry, download_result_files
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+_PREVIEW_KEYS = ("preview_image", "surface_map_image")
 
 
 def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
@@ -55,23 +57,6 @@ def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
     return scan.width, scan.height
 
 
-def _download_images(result: dict[str, object], output_dir: Path, session: requests.Session) -> None:
-    """Download preview/surface_map images, ensuring vault cleanup on failure."""
-    try:
-        for key in ("preview_image", "surface_map_image"):
-            if key not in result:
-                continue
-            url = result[key]
-            if not isinstance(url, str) or not url.startswith("http"):
-                continue
-            filename = url.rsplit("/", 1)[-1]
-            resp = session.get(url, timeout=60)
-            resp.raise_for_status()
-            (output_dir / filename).write_bytes(resp.content)
-    finally:
-        _cleanup_vault(result)
-
-
 def convert_measurement_x3p(
     measurement_folder: Path,
     cfg: ConversionConfig,
@@ -87,10 +72,10 @@ def convert_measurement_x3p(
         from root to the mirrored path under output, then sent to the preprocessor API.
     :returns: (path to the x3p under output, (size_x, size_y) pixel dimensions, or None if unknown).
     """
+    original = measurement_folder / "measurement.x3p"
     output_x3p = cfg.output_dir / measurement_folder.relative_to(cfg.root) / "measurement.x3p"
 
     if skip_conversion:
-        original = measurement_folder / "measurement.x3p"
         if not original.exists():
             raise FileNotFoundError(f"Expected an existing x3p at {original}, but it's missing")
 
@@ -101,8 +86,6 @@ def convert_measurement_x3p(
             shutil.copy2(original, output_x3p)
             shape = load_shape(output_x3p)  # likely None — no fresh conversion happened to produce one
     else:
-        original = measurement_folder / "measurement.x3p"
-
         if output_x3p.exists() and not cfg.force:
             shape = load_shape(output_x3p)
             if shape is not None:
@@ -110,12 +93,13 @@ def convert_measurement_x3p(
             logger.warning("Missing shape file for %s, reconverting", output_x3p)
 
         output_x3p.parent.mkdir(parents=True, exist_ok=True)
-
         shape = convert_x3p(original, output_x3p)
         save_shape(output_x3p, shape)
 
     result = _post_with_retry(f"{cfg.api_url}/preprocessor/process-scan", {"scan_file": str(output_x3p)})
-    _download_images(result, output_x3p.parent, session)
+    downloaded = download_result_files(result, session, keys=_PREVIEW_KEYS)
+    for filename, content in downloaded.items():
+        (output_x3p.parent / filename).write_bytes(content)
 
     return output_x3p, shape
 

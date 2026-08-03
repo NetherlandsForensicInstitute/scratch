@@ -1,7 +1,6 @@
 import json
 import logging
 from collections import defaultdict
-from collections.abc import Iterator
 from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
@@ -10,11 +9,8 @@ from typing import Any
 import numpy as np
 from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from conversion.surface_comparison.models import ComparisonParams
-from scipy import io as sio
-from tqdm import tqdm
 
-from scripts.conversion_utils import ConversionConfig, parse_db_scratch
-from scripts.matlab_utils import unwrap_path
+from scripts.conversion_utils import parse_db_scratch
 
 logger = logging.getLogger(__name__)
 _MARK_TYPE_FOLDER_MAP: list[tuple[str, MarkType]] = sorted(
@@ -33,29 +29,6 @@ def infer_mark_type(folder_name: str) -> MarkType | None:
         if fragment in lower:
             return mt
     return None
-
-
-_tool_entries_root_cache: dict[Path, Path | None] = {}
-
-
-def _get_tool_entries_root(output_dir: Path) -> Path | None:
-    """Find (and cache) the parent of the ``tool-entries`` folder under *output_dir*."""
-    if output_dir not in _tool_entries_root_cache:
-        _tool_entries_root_cache[output_dir] = next(
-            (c.parent for c in output_dir.rglob("tool-entries") if c.is_dir()), None
-        )
-    return _tool_entries_root_cache[output_dir]
-
-
-def _resolve_mark_dir(relative_path: str, output_dir: Path) -> Path:
-    """Map a MATLAB-relative mark path to the converted output directory."""
-    parts = relative_path.replace("\\", "/").strip("/").split("/")
-    try:
-        suffix = "/".join(parts[parts.index("tool-entries") :])
-    except ValueError:
-        suffix = "/".join(parts)
-    te_root = _get_tool_entries_root(output_dir)
-    return (te_root / suffix) if te_root else (output_dir / suffix)
 
 
 def _firearm_dir(mark_dir: Path) -> Path:
@@ -92,16 +65,6 @@ def _extract_metadata(mark_dir: Path) -> dict[str, str]:
     }
 
 
-def find_comparison_results(root: Path) -> Iterator[tuple[Path, MarkType]]:
-    """Yield ``(results_folder, mark_type)`` for each ``results_table.mat`` found."""
-    for mat in root.rglob("mark-comparison-results/*/results_table.mat"):
-        mt = infer_mark_type(mat.parent.name)
-        if mt is None:
-            logger.warning("Cannot infer mark type from %s, skipping", mat.parent.name)
-            continue
-        yield mat.parent, mt
-
-
 @dataclass
 class ComparisonEntry:
     """A single comparison pair with pre-resolved paths."""
@@ -115,23 +78,15 @@ class ComparisonEntry:
 
 def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
     """Build the API request body for a comparison."""
-    processed_ref = str(entry.mark_dir_ref)
-    processed_comp = str(entry.mark_dir_comp)
-
-    if isinstance(entry.mark_type, MarkImpressionType):
-        return {
-            "mark_dir_ref": processed_ref,
-            "mark_dir_comp": processed_comp,
-            "metadata_reference": _extract_metadata(entry.mark_dir_ref),
-            "metadata_compared": _extract_metadata(entry.mark_dir_comp),
-            "comparison_params": ComparisonParams.for_mark_type(entry.mark_type).model_dump(),
-        }
-    return {
-        "mark_dir_ref": processed_ref,
-        "mark_dir_comp": processed_comp,
+    body = {
+        "mark_dir_ref": str(entry.mark_dir_ref),
+        "mark_dir_comp": str(entry.mark_dir_comp),
         "metadata_reference": _extract_metadata(entry.mark_dir_ref),
         "metadata_compared": _extract_metadata(entry.mark_dir_comp),
     }
+    if isinstance(entry.mark_type, MarkImpressionType):
+        body["comparison_params"] = ComparisonParams.for_mark_type(entry.mark_type).model_dump()
+    return body
 
 
 def _save_result(entry: ComparisonEntry, result: dict[str, Any] | None = None, error: str | None = None) -> None:
@@ -149,39 +104,6 @@ def _save_result(entry: ComparisonEntry, result: dict[str, Any] | None = None, e
         "comparison_results": result.get("comparison_results") if result else None,
     }
     (entry.comparison_out / "comparison_results.json").write_text(json.dumps(output, indent=2, default=str))
-
-
-def extract_comparisons(
-    results_folder: Path, mark_type: MarkType, root: Path, output_dir: Path
-) -> list[ComparisonEntry]:
-    """Load comparison pairs from a ``results_table.mat``."""
-    mat_path = results_folder / "results_table.mat"
-    rt = sio.loadmat(str(mat_path), squeeze_me=False)["results_table"][0, 0]
-    out_base = output_dir / results_folder.relative_to(root)
-
-    refs = rt["pathReference"]
-    comps = rt["pathCompare"]
-
-    if refs.shape[0] == 1:
-        raise ValueError(f"Unexpected results_table layout in {mat_path}: refs shape {refs.shape}")
-
-    entries = []
-    for i in range(refs.shape[0]):
-        ref = unwrap_path(refs[i, 0] if refs.ndim > 1 else refs[i])
-        comp = unwrap_path(comps[i, 0] if comps.ndim > 1 else comps[i])
-        if not ref or not comp:
-            logger.debug("Skipping row %d: empty path (ref=%r, comp=%r)", i, ref, comp)
-            continue
-        entries.append(
-            ComparisonEntry(
-                _resolve_mark_dir(ref, output_dir),
-                _resolve_mark_dir(comp, output_dir),
-                mark_type,
-                out_base / f"{i // 1000:04d}" / f"{i:06d}",
-                i,
-            )
-        )
-    return entries
 
 
 def find_marks(output_dir: Path, mark_type: MarkType | None = None) -> list[Path]:
@@ -283,37 +205,3 @@ def generate_pairs(
         ComparisonEntry(a, b, mark_type, out_base / f"{i // 1000:04d}" / f"{i:06d}", i)
         for i, (a, b) in enumerate(pairs)
     ]
-
-
-def get_pairs(
-    cfg: ConversionConfig, use_pairs_from_file: bool, limit: int | None, seed: int | None
-) -> list[ComparisonEntry]:
-    """
-    Collect comparison pairs either from results_table.mat files or by generating them.
-
-    :param cfg: pipeline configuration.
-    :param use_pairs_from_file: if False, generate same- and different-source pairs from
-        all mark types found in the output directory. Otherwise, read pairs
-        from ``results_table.mat`` files under the root.
-    :param limit: if set, return at most this many pairs.
-    :param seed: random seed for different-source pair sampling (only used
-        when *generate* is True).
-    :returns: list of comparison entries ready for score calculation.
-    """
-    all_entries = []
-    if not use_pairs_from_file:
-        for mt in find_all_mark_types(cfg.output_dir):
-            entries = generate_pairs(cfg.output_dir, mt, seed=seed)
-            logger.info("Generated %d pairs for '%s'", len(entries), mt.value)
-            all_entries.extend(entries)
-    else:
-        for folder, mt in tqdm(find_comparison_results(cfg.root), desc="Scanning", unit=" folders"):
-            entries = extract_comparisons(folder, mt, cfg.root, cfg.output_dir)
-            logger.info("Found %d comparisons in %s (%s)", len(entries), folder.name, mt.value)
-            all_entries.extend(entries)
-
-    logger.info("Total comparisons: %d", len(all_entries))
-    if limit:
-        all_entries = all_entries[:limit]
-
-    return all_entries

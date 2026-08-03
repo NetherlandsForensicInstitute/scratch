@@ -23,15 +23,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-# ADJUST: check the actual name of the striation enum in conversion.data_formats.
-from conversion.data_formats import MarkImpressionType, MarkStriationType
+from conversion.data_formats import MarkImpressionType, MarkType
 
-from scripts.comparison_utils import ComparisonEntry
+from scripts.comparison_utils import ComparisonEntry, infer_mark_type
 from scripts.conversion_utils import ConversionConfig
 
 logger = logging.getLogger(__name__)
-
-MarkType = MarkImpressionType | MarkStriationType
 
 #: Folder holding the per-mark-type result folders, inside the database folder.
 RESULTS_SUBDIR = Path("mark-comparison-results")
@@ -43,33 +40,11 @@ MATCHING_CELLS_KEY = "score"
 TOTAL_CELLS_KEY = "n_cells"
 CCF_KEY = "correlation_coefficient"
 
-#: ADJUST: filename ``_save_result`` writes inside ``entry.comparison_out``.
-RESULT_FILENAMES = ("result.json", "results.json", "score.json")
+#: Filename ``_save_result`` writes inside ``entry.comparison_out``.
+RESULT_FILENAMES = ("comparison_results.json",)
 
 #: Statuses that count as "already done" when resuming.
 DONE_STATUSES = frozenset({"completed", "skipped_exists"})
-
-
-# --------------------------------------------------------------------------
-# mark types
-# --------------------------------------------------------------------------
-#: Mark-type folder fragments, longest first so the most specific one wins.
-_MARK_TYPE_FOLDER_MAP: list[tuple[str, MarkType]] = sorted(
-    ((mt.value.replace(" ", "_"), mt) for cls in (MarkImpressionType, MarkStriationType) for mt in cls),
-    key=lambda x: -len(x[0]),
-)
-
-
-def infer_mark_type(folder_name: str) -> MarkType | None:
-    """Infer a :class:`MarkType` from a folder name.
-
-    Handles suffixed variants (``_1``, ``_2``) and ``comparison_results`` folders.
-    """
-    lower = folder_name.lower()
-    for fragment, mark_type in _MARK_TYPE_FOLDER_MAP:
-        if fragment in lower:
-            return mark_type
-    return None
 
 
 def mark_dirs(base: Path, item: str, max_depth: int = 2) -> dict[MarkType, Path]:
@@ -146,9 +121,6 @@ def extract_metrics(result: dict[str, Any] | None, mark_type: MarkType) -> dict[
     return metrics
 
 
-# --------------------------------------------------------------------------
-# reading the input CSV
-# --------------------------------------------------------------------------
 def normalise_item(value: str) -> str:
     """Clean a CSV item path so it can safely be joined onto a base folder.
 
@@ -175,15 +147,19 @@ class PairRow:
         return normalise_item(self.fields[1])
 
 
+def _read_nonblank_rows(csv_path: Path, delimiter: str, encoding: str = "utf-8") -> list[list[str]]:
+    """Read a CSV file, skipping fully blank lines."""
+    with csv_path.open(newline="", encoding=encoding) as fh:
+        return [row for row in csv.reader(fh, delimiter=delimiter) if any(cell.strip() for cell in row)]
+
+
 def read_pairs_csv(csv_path: Path, base: Path, delimiter: str = ",") -> tuple[list[str] | None, list[PairRow]]:
     """Read the pair CSV, auto-detecting whether the first line is a header.
 
     :returns: a ``(header_or_none, rows)`` tuple.  All original columns are
         preserved verbatim so the file can be copied out again.
     """
-    with csv_path.open(newline="", encoding="utf-8-sig") as fh:
-        raw = [row for row in csv.reader(fh, delimiter=delimiter) if any(cell.strip() for cell in row)]
-
+    raw = _read_nonblank_rows(csv_path, delimiter, encoding="utf-8-sig")
     if not raw:
         raise ValueError(f"{csv_path} contains no usable rows")
 
@@ -198,9 +174,6 @@ def read_pairs_csv(csv_path: Path, base: Path, delimiter: str = ",") -> tuple[li
     return header, rows
 
 
-# --------------------------------------------------------------------------
-# building tasks
-# --------------------------------------------------------------------------
 @dataclass
 class CsvTask:
     """A single (row, mark type) comparison to run."""
@@ -275,6 +248,24 @@ def build_tasks(cfg: ConversionConfig, rows: list[PairRow], base: Path, max_dept
     return tasks
 
 
+def tasks_from_entries(entries: list[ComparisonEntry], base: Path) -> list[CsvTask]:
+    """
+    Wrap already-built comparison entries (e.g. generated pairs) as CSV-style tasks.
+
+    Each entry gets its own synthetic single-row "CSV" of two columns (ref, comp),
+    with paths shown relative to *base* for readability.
+    """
+    tasks = []
+    for i, entry in enumerate(entries):
+        fields = [
+            str(entry.mark_dir_ref.relative_to(base)),
+            str(entry.mark_dir_comp.relative_to(base)),
+        ]
+        row = PairRow(index=i, fields=fields)
+        tasks.append(CsvTask(task_id=i, row=row, mark_type=entry.mark_type, entry=entry))
+    return tasks
+
+
 def find_result_file(comparison_out: Path) -> Path | None:
     """Locate an already-saved result payload, if there is one."""
     for name in RESULT_FILENAMES:
@@ -284,9 +275,6 @@ def find_result_file(comparison_out: Path) -> Path | None:
     return next(iter(sorted(comparison_out.glob("*.json"))), None) if comparison_out.is_dir() else None
 
 
-# --------------------------------------------------------------------------
-# writing the output CSVs
-# --------------------------------------------------------------------------
 class ScoreWriter:
     """Keeps one scored copy of the input CSV per mark type up to date on disk.
 
@@ -328,15 +316,13 @@ class ScoreWriter:
             self._write(mark_type)
         logger.info("Writing scored copies to %s", ", ".join(p.name for p in self.paths.values()))
 
-    # -- resume ------------------------------------------------------------
     def _read_previous(self, mark_type: MarkType) -> dict[int, dict[str, Any]]:
         """Load the scores from an earlier run of this same CSV."""
         path = self.paths[mark_type]
         if not path.is_file():
             return {}
 
-        with path.open(newline="", encoding="utf-8") as fh:
-            raw = [row for row in csv.reader(fh, delimiter=self.delimiter) if any(cell.strip() for cell in row)]
+        raw = _read_nonblank_rows(path, self.delimiter)
         if self.header is not None and raw:
             raw.pop(0)
 
@@ -371,7 +357,6 @@ class ScoreWriter:
         scores = self.values.get(mark_type, {}).get(row_index, {})
         return any(scores.get(col) not in (None, "") for col in metric_columns(mark_type))
 
-    # -- writing -----------------------------------------------------------
     def record(self, mark_type: MarkType, row_index: int, values: dict[str, Any]) -> None:
         """Store the scores for one comparison and flush if due."""
         with self._lock:

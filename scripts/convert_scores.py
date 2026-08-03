@@ -1,26 +1,23 @@
 """
 Calculate scores for mark comparisons via the Python API.
 
-Three modes of operation:
+Two modes of operation:
 
-1. **From results_table.mat** (``--use_pairs_from_file``): reads comparison
-   pairs from the mark-comparison-results folder structure in an existing
-   MATLAB database.
-
-2. **Generated pairs** (default): discovers all processed marks in the output
+1. **Generated pairs** (default): discovers all processed marks in the output
    directory, groups them by firearm, and generates all same-source pairs plus
    an equal number of random different-source pairs.
 
-3. **From a CSV** (``--pairs-csv``): reads item pairs from the first two
+2. **From a CSV** (``--pairs-csv``): reads item pairs from the first two
    columns of a CSV file.  Each item folder may hold several mark types, so a
-   row expands into one comparison per shared mark type.  The input CSV is
-   copied once per mark type with the scores appended (CCF for striation
-   marks, total and matching cell counts for impression marks), updated after
-   every comparison.  Re-running the same command picks up where an
-   interrupted run stopped; ``--retry-failed`` also re-runs the rows that
-   errored.  The full result payloads are still saved to the usual
-   ``<root>/database/mark-comparison-results/<mark_type>_comparison_results``
-   folders.
+   row expands into one comparison per shared mark type.
+
+Either way, results are written as one scored, resumable CSV per mark type
+(CCF for striation marks, total and matching cell counts for impression
+marks), rewritten after every completed comparison.  Re-running the same
+command picks up where an interrupted run stopped; ``--retry-failed`` also
+re-runs the rows that errored.  The full result payloads are still saved to
+the usual ``<root>/database/mark-comparison-results/<mark_type>_comparison_results``
+folders (CSV mode) or ``<output>/generated-comparison-results/...`` (generated mode).
 """
 
 import argparse
@@ -28,6 +25,7 @@ import enum
 import json
 import logging
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -38,13 +36,10 @@ from scripts.comparison_utils import (
     ComparisonEntry,
     _build_body,
     _save_result,
-    get_pairs,
+    find_all_mark_types,
+    generate_pairs,
 )
-from scripts.conversion_utils import (
-    ConversionConfig,
-    _find_existing_results,
-    run_parallel,
-)
+from scripts.conversion_utils import ConversionConfig, run_parallel
 from scripts.csv_pairs import (
     DONE_STATUSES,
     CsvTask,
@@ -53,11 +48,15 @@ from scripts.csv_pairs import (
     extract_metrics,
     find_result_file,
     read_pairs_csv,
+    tasks_from_entries,
 )
 from scripts.http_utils import _cleanup_vault, _post_with_retry, download_urls
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+GENERATED_CSV_NAME = Path("generated_pairs.csv")
+GENERATED_HEADER = ["item_ref", "item_comp"]
 
 
 class ScoreStatus(enum.Enum):
@@ -118,9 +117,8 @@ def calculate_score(  # noqa: PLR0911
         return ScoreStatus.FAILED_ERROR, {"error": detail}
 
     _save_result(entry, result=result)
-    download_urls(result.get("urls", result), entry.comparison_out, skip=())
+    downloaded = download_urls(result.get("urls", result), entry.comparison_out, skip=())
 
-    downloaded = [p for p in entry.comparison_out.glob("*") if p.suffix.lower() != ".json"]
     if not downloaded:
         logger.warning(
             "Row %d: no files downloaded into %s; response keys: %s. Leaving the API vault in place.",
@@ -138,40 +136,53 @@ def _log_counts(counts: dict[ScoreStatus, int]) -> None:
     logger.info("Done: %s", summary or "nothing processed")
 
 
-def run_score_conversion(
-    cfg: ConversionConfig,
-    workers: int = 1,
-    limit: int | None = None,
-    use_pairs_from_file: bool = False,
-    seed: int | None = None,
-) -> None:
-    """Run the full score conversion pipeline."""
-    all_entries = get_pairs(cfg, use_pairs_from_file, limit, seed)
-    if not all_entries:
-        logger.warning("No comparisons to process")
-        return
+def _run_scoring(work: Iterable[tuple[int, Any, tuple]], ids: list[int], workers: int) -> dict[ScoreStatus, int]:
+    """Run parallel scoring and tally the outcome counts.
 
-    existing: set[Path] = set()
-    if not cfg.force:
-        existing = _find_existing_results(cfg.output_dir)
-        logger.info("Found %d existing results", len(existing))
-
-    results = run_parallel(
-        ((e.row_index, calculate_score, (e, cfg, existing)) for e in all_entries),
-        workers,
-        "Calculating scores",
-        " comparisons",
-    )
-
+    Missing entries (e.g. a worker crashed before recording anything) count as
+    FAILED_ERROR rather than being silently dropped from the tally.
+    """
+    results = run_parallel(work, workers, "Calculating scores", " comparisons")
     counts: dict[ScoreStatus, int] = defaultdict(int)
-    for status, _ in results.values():
+    for item_id in ids:
+        status, _ = results.get(item_id, (ScoreStatus.FAILED_ERROR, None))
         counts[status] += 1
-    _log_counts(counts)
+    return counts
 
 
-# --------------------------------------------------------------------------
-# CSV mode
-# --------------------------------------------------------------------------
+def get_tasks(
+    cfg: ConversionConfig,
+    limit: int | None = None,
+    seed: int | None = None,
+    csv_path: Path | None = None,
+    base: Path | None = None,
+    delimiter: str = ",",
+    max_depth: int = 2,
+) -> tuple[list[str] | None, list[CsvTask]]:
+    """
+    Collect comparison tasks, either from a CSV of item pairs or generated from all mark types found in the directory.
+
+    :returns: a ``(header, tasks)`` tuple. ``header`` is the original CSV
+        header (or ``None`` if the input had none) when *csv_path* is given,
+        otherwise a synthetic two-column header for the generated pairs.
+    """
+    if csv_path is not None:
+        base = base or cfg.output_dir
+        header, rows = read_pairs_csv(csv_path, base, delimiter)
+        if limit is not None:
+            rows = rows[:limit]
+        return header, build_tasks(cfg, rows, base, max_depth)
+
+    all_entries = []
+    for mt in find_all_mark_types(cfg.output_dir):
+        entries = generate_pairs(cfg.output_dir, mt, seed=seed)
+        logger.info("Generated %d pairs for '%s'", len(entries), mt.value)
+        all_entries.extend(entries)
+    if limit:
+        all_entries = all_entries[:limit]
+    return GENERATED_HEADER, tasks_from_entries(all_entries, cfg.output_dir)
+
+
 def _load_saved_result(comparison_out: Path) -> dict[str, Any] | None:
     """Read a previously saved result payload from disk."""
     path = find_result_file(comparison_out)
@@ -230,47 +241,46 @@ def _existing_results(tasks: list[CsvTask], writer: ScoreWriter, retry_failed: b
     return existing
 
 
-def run_csv_score_conversion(
+def run_score_conversion(
     cfg: ConversionConfig,
-    csv_path: Path,
     workers: int = 1,
     limit: int | None = None,
-    base: Path | None = None,
+    seed: int | None = None,
+    csv_path: Path | None = None,
+    csv_base: Path | None = None,
     out_dir: Path | None = None,
     delimiter: str = ",",
     flush_every: int = 1,
     retry_failed: bool = False,
     max_depth: int = 2,
 ) -> None:
-    """Score the pairs listed in ``csv_path``, writing one scored CSV per mark type.
+    """Score comparison pairs and write one scored, resumable CSV per mark type.
 
-    :param base: folder the CSV items are relative to; defaults to the
-        processed-mark output directory.
+    :param csv_path: if set, read pairs from this CSV instead of generating them.
+    :param csv_base: folder the CSV items are relative to (CSV mode only).
     :param out_dir: where the scored CSV copies are written; defaults to next
-        to the input CSV.
+        to the input CSV (CSV mode) or under the output directory (generated mode).
     :param flush_every: rewrite a scored CSV after this many comparisons.
-    :param retry_failed: re-run rows that ended in an error last time.
-    :param max_depth: how deep below an item folder to look for mark folders.
+    :param retry_failed: re-run rows that ended in an error last time (CSV mode only).
+    :param max_depth: how deep below an item folder to look for mark folders (CSV mode only).
     """
-    base = base or cfg.output_dir
-    out_dir = out_dir or csv_path.parent
-
-    header, rows = read_pairs_csv(csv_path, base, delimiter)
-    if limit is not None:
-        rows = rows[:limit]
-
-    tasks = build_tasks(cfg, rows, base, max_depth)
+    header, tasks = get_tasks(
+        cfg, limit=limit, seed=seed, csv_path=csv_path, base=csv_base, delimiter=delimiter, max_depth=max_depth
+    )
     if not tasks:
         logger.warning("No comparisons to process")
         return
-    logger.info("Expanded %d rows into %d comparisons", len(rows), len(tasks))
+    logger.info("Total comparisons: %d", len(tasks))
+
+    out_dir = out_dir or (csv_path.parent if csv_path is not None else cfg.output_dir / "generated-comparison-results")
+    writer_csv_path = csv_path if csv_path is not None else GENERATED_CSV_NAME
 
     writer = ScoreWriter(
         out_dir=out_dir,
-        csv_path=csv_path,
+        csv_path=writer_csv_path,
         header=header,
-        rows=rows,
-        mark_types=list(dict.fromkeys(t.mark_type for t in tasks)),
+        rows=[task.row for task in tasks],
+        mark_types=list(dict.fromkeys(task.mark_type for task in tasks)),
         delimiter=delimiter,
         flush_every=flush_every,
         resume=not cfg.force,
@@ -280,19 +290,14 @@ def run_csv_score_conversion(
     logger.info("%d of %d comparisons already done", len(existing), len(tasks))
 
     try:
-        results = run_parallel(
+        counts = _run_scoring(
             ((t.task_id, score_and_record, (t, cfg, existing, writer)) for t in tasks),
+            [t.task_id for t in tasks],
             workers,
-            "Calculating scores",
-            " comparisons",
         )
     finally:
         writer.flush()
 
-    counts: dict[ScoreStatus, int] = defaultdict(int)
-    for task in tasks:
-        status, _ = results.get(task.task_id, (ScoreStatus.FAILED_ERROR, None))
-        counts[status] += 1
     _log_counts(counts)
 
 
@@ -305,63 +310,37 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=1, help="Parallel workers")
     parser.add_argument("--force", action="store_true", help="Recalculate existing results")
     parser.add_argument("--limit", type=int, default=None, help="Process at most N comparisons (or N CSV rows)")
-    parser.add_argument(
-        "--use_pairs_from_file", action="store_true", help="Read pairs from results_table.mat instead of generating"
-    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed for different-source sampling")
-
-    csv_group = parser.add_argument_group("CSV pairs")
-    csv_group.add_argument("--pairs-csv", type=Path, default=None, help="CSV whose first two columns are item pairs")
-    csv_group.add_argument(
+    parser.add_argument("--pairs-csv", type=Path, default=None, help="CSV whose first two columns are item pairs")
+    parser.add_argument(
         "--csv-base",
         choices=("output", "root"),
         default="output",
         help="Folder the CSV items are relative to (default: the output folder with processed marks)",
     )
-    csv_group.add_argument("--csv-out-dir", type=Path, default=None, help="Where to write the scored CSV copies")
-    csv_group.add_argument("--csv-delimiter", default=",", help="CSV delimiter")
-    csv_group.add_argument(
+    parser.add_argument("--csv-out-dir", type=Path, default=None, help="Where to write the scored CSV copies")
+    parser.add_argument("--csv-delimiter", default=",", help="CSV delimiter")
+    parser.add_argument(
         "--csv-flush-every", type=int, default=1, help="Rewrite a scored CSV after this many comparisons"
     )
-    csv_group.add_argument("--retry-failed", action="store_true", help="Re-run rows that errored on a previous run")
-    csv_group.add_argument(
+    parser.add_argument("--retry-failed", action="store_true", help="Re-run rows that errored on a previous run")
+    parser.add_argument(
         "--csv-max-depth", type=int, default=2, help="How deep below an item folder to look for mark folders"
     )
     args = parser.parse_args()
 
-    if args.pairs_csv and args.use_pairs_from_file:
-        parser.error("--pairs-csv and --use_pairs_from_file are mutually exclusive")
-
-    cfg = ConversionConfig(
-        root=args.root,
-        output_dir=args.output,
-        api_url=args.api_url,
-        force=args.force,
-    )
-
-    if args.pairs_csv:
-        run_csv_score_conversion(
-            cfg,
-            csv_path=args.pairs_csv,
-            workers=args.workers,
-            limit=args.limit,
-            base=args.root if args.csv_base == "root" else args.output,
-            out_dir=args.csv_out_dir,
-            delimiter=args.csv_delimiter,
-            flush_every=args.csv_flush_every,
-            retry_failed=args.retry_failed,
-            max_depth=args.csv_max_depth,
-        )
-        return
+    cfg = ConversionConfig(root=args.root, output_dir=args.output, api_url=args.api_url, force=args.force)
 
     run_score_conversion(
         cfg,
         workers=args.workers,
         limit=args.limit,
-        use_pairs_from_file=args.use_pairs_from_file,
         seed=args.seed,
+        csv_path=args.pairs_csv,
+        csv_base=(args.root if args.csv_base == "root" else args.output) if args.pairs_csv else None,
+        out_dir=args.csv_out_dir,
+        delimiter=args.csv_delimiter,
+        flush_every=args.csv_flush_every,
+        retry_failed=args.retry_failed,
+        max_depth=args.csv_max_depth,
     )
-
-
-if __name__ == "__main__":
-    main()

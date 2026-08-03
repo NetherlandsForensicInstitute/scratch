@@ -19,7 +19,7 @@ from conversion.data_formats import MarkImpressionType
 from tqdm import tqdm
 
 from scripts.conversion_utils import ConversionConfig, find_mark_folders, load_shape, run_parallel
-from scripts.http_utils import _cleanup_vault, _post_with_retry
+from scripts.http_utils import _post_with_retry, download_result_files
 from scripts.matlab_utils import (
     extract_impression_params,
     extract_mark_type,
@@ -52,26 +52,6 @@ def _resolve_converted_x3ps(
             raise FileNotFoundError(f"Shape sidecar not found for {output_x3p}. Run convert_x3ps.py first.")
         converted[meas_folder] = (output_x3p, shape)
     return converted
-
-
-def _download_result_files(result: dict[str, object], session: requests.Session) -> dict[str, bytes]:
-    """Download all file URLs from an API result dict.
-
-    Uses the provided session for connection reuse. Cleans up vault entries
-    even if a download fails partway through.
-    """
-    try:
-        downloaded = {}
-        for url in result.values():
-            if not isinstance(url, str) or not url.startswith("http"):
-                continue
-            filename = url.rsplit("/", 1)[-1]
-            resp = session.get(url, timeout=60)
-            resp.raise_for_status()
-            downloaded[filename] = resp.content
-        return downloaded
-    finally:
-        _cleanup_vault(result)
 
 
 def fetch_mark(
@@ -115,7 +95,7 @@ def fetch_mark(
         files={"mask_data": ("mask.bin", io.BytesIO(mask_bytes), "application/octet-stream")},
     )
 
-    downloaded = _download_result_files(result, session)
+    downloaded = download_result_files(result, session)
     return mark_folder, downloaded
 
 
