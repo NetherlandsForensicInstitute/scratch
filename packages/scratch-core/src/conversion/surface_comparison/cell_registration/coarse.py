@@ -34,7 +34,7 @@ _COARSE_VALIDITY_THRESHOLD = 0.5
 #: expected to re-derive it for every cell size.
 _MIN_COARSE_CELL = 8
 DEFAULT_ANGLE_MARGIN = 2
-_COARSE_ANGLE_UNCERTAINTY = 6.0   # degrees
+_COARSE_ANGLE_UNCERTAINTY = 6.0  # degrees
 
 
 def effective_reduction(cell_shape: tuple[int, int], reduction: int) -> int:
@@ -134,6 +134,7 @@ def _angle_window(angles: np.ndarray, angle_margin: int | None) -> int | None:
     needed = int(np.ceil(_COARSE_ANGLE_UNCERTAINTY / step))
     window = max(angle_margin, needed)
     return None if 2 * window + 1 >= len(angles) else window
+
 
 def _refine(
     image: FloatArray2D,
