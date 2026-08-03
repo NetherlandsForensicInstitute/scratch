@@ -281,7 +281,11 @@ class TestRefine:
         ]
         single = self._run(padded, [template], jobs, self.MARGIN, jobs_per_chunk=100)
         split = self._run(padded, [template], jobs, self.MARGIN, jobs_per_chunk=1)
-        assert single == split
+        # Assert: the pose must be identical; the score differs by float32 FFT noise, since chunk
+        # size changes the batch handed to the transform.
+        assert [result[1:] for result in single] == [result[1:] for result in split]
+        for one, other in zip(single, split):
+            assert one[0] == pytest.approx(other[0], abs=1e-6)
 
     def test_chunking_agrees_on_score_across_tied_angles(self, case):
         padded, template, center = case

@@ -287,9 +287,10 @@ def coarse_to_fine_match(
             reduction,
             _MIN_COARSE_CELL,
         )
+    height, width = coarse_image.shape
     coarse_canvas = (
-        max(rotated_shape(*coarse_image.shape, float(a))[0] for a in sorted_angles),
-        max(rotated_shape(*coarse_image.shape, float(a))[1] for a in sorted_angles),
+        max(rotated_shape(height, width, float(a))[0] for a in sorted_angles),
+        max(rotated_shape(height, width, float(a))[1] for a in sorted_angles),
     )
     coarse_batch, coarse_valid = _prepare_rotated_batch(
         coarse_image, sorted_angles, fill_value, coarse_canvas

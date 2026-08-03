@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Any
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -172,7 +172,9 @@ def plot_depth_map_on_axes(
     tick_pad_pt = (
         cbar.ax.yaxis.majorTicks[0].get_pad() if cbar.ax.yaxis.majorTicks else 3.5
     )
-    tip_kw = dict(
+    if tick_pad_pt is None:
+        tick_pad_pt = 3.5
+    tip_kw: dict[str, Any] = dict(
         xycoords=cbar.ax.transAxes,
         textcoords="offset points",
         ha="left",
@@ -275,7 +277,10 @@ def _plot_surface_with_colorbar(
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
 
-    arr = np.ma.masked_invalid(im.get_array())
+    data = im.get_array()
+    if data is None:
+        raise ValueError("image has no data")
+    arr = np.ma.masked_invalid(data)
 
     # Clip bounds (median ± k*MAD), applied to the image so the *surface*
     # colours are clipped too — this is what puts the red line at ~1.27
@@ -309,7 +314,9 @@ def _plot_surface_with_colorbar(
     tick_pad_pt = (
         cbar.ax.yaxis.majorTicks[0].get_pad() if cbar.ax.yaxis.majorTicks else 3.5
     )
-    tip_kw = dict(
+    if tick_pad_pt is None:
+        tick_pad_pt = 3.5
+    tip_kw: dict[str, Any] = dict(
         xycoords=cbar.ax.transAxes,
         textcoords="offset points",
         ha="left",

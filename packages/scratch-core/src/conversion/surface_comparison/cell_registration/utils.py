@@ -204,7 +204,7 @@ def rotated_crop(
         flags=cv2.INTER_NEAREST,
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=float(fill_value),
-    )
+    ).astype(np.float64)
 
 
 def canvas_to_image(

@@ -151,9 +151,8 @@ def _fit_cell_label_fontsizes(
     edge = ax.transData.transform((cell_w_um, 0.0))
     cell_px = abs(edge[0] - origin[0])
 
-    renderer = fig.canvas.get_renderer()
     for text in texts:
-        bbox = text.get_window_extent(renderer=renderer)
+        bbox = text.get_window_extent()
         if bbox.width <= 0:
             continue
         scaled = text.get_fontsize() * (cell_px * fill) / bbox.width

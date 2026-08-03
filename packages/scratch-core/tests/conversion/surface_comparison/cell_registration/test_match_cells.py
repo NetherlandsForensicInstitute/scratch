@@ -100,7 +100,11 @@ class TestMatch:
         # presented at a wholly different orientation.
         grid_cells, reference_image, _ = identical_match_inputs
         rotated = rotate(
-            reference_image.data, angle=angle, order=0, resize=True, cval=np.nan
+            reference_image.data,
+            angle=angle,
+            order=0,
+            resize=True,
+            cval=np.nan,  # type: ignore[arg-type]  # skimage stub types cval as int
         )
         comparison_image = reference_image.model_copy(update={"data": rotated})
 
@@ -129,7 +133,7 @@ class TestNegativeCorrelation:
             height=30, width=40, scale=1.0, pixel_size=1.0
         )
         # Large enough that no spurious match can outscore the true inversion.
-        cell_data = -comparison_image.data[5:25, 5:35]
+        cell_data = -comparison_image.data[2:28, 2:38]
         grid_cell = make_grid_cell(data=cell_data)
         params = ComparisonParams(
             search_angle_min=0,
