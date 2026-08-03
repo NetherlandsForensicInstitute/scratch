@@ -33,6 +33,8 @@ _COARSE_VALIDITY_THRESHOLD = 0.5
 #: ``reduction`` is capped so this holds, because the failure is silent and the caller cannot be
 #: expected to re-derive it for every cell size.
 _MIN_COARSE_CELL = 8
+DEFAULT_ANGLE_MARGIN = 2
+_COARSE_ANGLE_UNCERTAINTY = 6.0  # degrees
 
 
 def effective_reduction(cell_shape: tuple[int, int], reduction: int) -> int:
@@ -121,6 +123,17 @@ def _top_candidates(
             ] = -np.inf
         results.append(found)
     return results
+
+
+def _angle_window(angles: np.ndarray, angle_margin: int | None) -> int | None:
+    if angle_margin is None or len(angles) < 2:
+        return None
+    step = float(np.min(np.diff(np.sort(angles))))
+    if step <= 0:
+        return None
+    needed = int(np.ceil(_COARSE_ANGLE_UNCERTAINTY / step))
+    window = max(angle_margin, needed)
+    return None if 2 * window + 1 >= len(angles) else window
 
 
 def _refine(
@@ -314,21 +327,27 @@ def coarse_to_fine_match(
     # refinement stage: full resolution
     jobs: list[tuple[int, float, float, float]] = []
     unusable: list[int] = []
+    ordered = np.sort(angles)
+    step = float(np.min(np.diff(ordered))) if len(ordered) > 1 else 0.0
+    window = _angle_window(angles, angle_margin=DEFAULT_ANGLE_MARGIN)
     for index in range(len(templates)):
         if not is_non_constant[index] or not candidates[index]:
             unusable.append(index)
             continue
         for x, y, angle_index in candidates[index]:
+            angle = float(sorted_angles[angle_index])
             center_x, center_y = canvas_to_image(
-                x,
-                y,
-                coarse_shape,
-                coarse_image.shape,
-                float(sorted_angles[angle_index]),
+                x, y, coarse_shape, coarse_image.shape, angle
             )
             full_x = _to_full_resolution(center_x, reduction)
             full_y = _to_full_resolution(center_y, reduction)
-            jobs.extend((index, full_x, full_y, float(a)) for a in sorted_angles)
+            if window is None:
+                trials = sorted_angles
+            else:
+                # The sweep may wrap, so select by angular distance rather than by index.
+                distance = np.abs((ordered - angle + 180.0) % 360.0 - 180.0)
+                trials = ordered[distance <= window * step + 1e-9]
+            jobs.extend((index, full_x, full_y, float(a)) for a in trials)
 
     fine_tensor, _ = _prepare_templates(templates, device)
     results = _refine(
