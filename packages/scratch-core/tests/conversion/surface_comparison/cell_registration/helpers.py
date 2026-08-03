@@ -28,17 +28,21 @@ def make_surface(
     seed: int = 0,
 ) -> DepthData:
     """
-    Return a deterministic, non-periodic 2-D height map.
+    Return a deterministic, non-periodic 2-D height map with structure at several scales.
 
-    Built from a sum of decaying exponentials with irrational frequencies so
-    that no integer pixel shift produces an exact repeat.
+    A smooth global trend plus band-limited random layers at octave scales, plus fine noise.
+    The multi-scale structure matters: a surface of smooth trend plus white noise localises a
+    cell fine at full resolution, but the noise averages away under downsampling and leaves
+    nothing for a coarse search to lock onto. A deterministic ripple survives downsampling but
+    repeats, which is worse still - it produces many near-equal matches. Random layers give
+    features that both survive averaging and stay unique.
 
     :param height: Number of rows.
     :param width: Number of columns.
-    :param scale: Multiplicative scale applied to the whole array — use e.g.
-        ``1e-6`` to simulate µm-scale surface data.
+    :param scale: Multiplicative scale applied to the whole array - use e.g. ``1e-6`` to
+        simulate µm-scale surface data.
     :param nan_ratio: The ratio of NaN values randomly generated.
-    :param seed: Random seed for the small noise component.
+    :param seed: Random seed.
     :returns: ``(height, width)`` float64 array.
     """
     rng = np.random.default_rng(seed)
@@ -46,11 +50,26 @@ def make_surface(
     x = np.linspace(0.0, 1.0, width)
     Y, X = np.meshgrid(y, x, indexing="ij")
 
-    surface = (
-        np.exp(-3.0 * Y) * np.cos(7.391 * X)
-        + np.exp(-2.0 * X) * np.sin(5.123 * Y)
-        + rng.standard_normal((height, width)) * 0.05
+    surface = np.exp(-3.0 * Y) * np.cos(7.391 * X) + np.exp(-2.0 * X) * np.sin(
+        5.123 * Y
     )
+
+    for octave, amplitude in ((8, 0.6), (16, 0.3), (32, 0.15)):
+        control = rng.standard_normal((octave, octave))
+        rows = np.linspace(0, octave - 1, height)
+        cols = np.linspace(0, octave - 1, width)
+        row_index = np.clip(rows.astype(int), 0, octave - 2)
+        col_index = np.clip(cols.astype(int), 0, octave - 2)
+        row_frac = (rows - row_index)[:, None]
+        col_frac = (cols - col_index)[None, :]
+        surface = surface + amplitude * (
+            control[row_index][:, col_index] * (1 - row_frac) * (1 - col_frac)
+            + control[row_index + 1][:, col_index] * row_frac * (1 - col_frac)
+            + control[row_index][:, col_index + 1] * (1 - row_frac) * col_frac
+            + control[row_index + 1][:, col_index + 1] * row_frac * col_frac
+        )
+
+    surface = surface + rng.standard_normal((height, width)) * 0.05
     if 0.0 < nan_ratio < 1:
         surface[rng.uniform(size=surface.shape) < nan_ratio] = np.nan
     return (surface * scale).astype(np.float64)
