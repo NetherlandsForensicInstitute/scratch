@@ -2,13 +2,15 @@ import numpy as np
 import torch
 
 from container_models.scan_image import ScanImage
+from conversion.resample import resample_array_2d
 from conversion.surface_comparison.cell_registration.coarse import coarse_to_fine_match
 from conversion.surface_comparison.cell_registration.utils import (
-    batched_match,
     canvas_to_image,
     convert_grid_cell_to_cell,
+    fill_nan_with_local_mean,
     pad_image_array,
 )
+from conversion.surface_comparison.grid import extract_patch
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonParams,
@@ -17,82 +19,166 @@ from conversion.surface_comparison.models import (
 
 
 def match_cells(
-    grid_cells: list[GridCell],
-    comparison_image: ScanImage,
-    params: ComparisonParams,
-    device: "torch.device | None" = None,
-    reduction: int | None = None,
-    search_options: dict | None = None,
+        grid_cells: list[GridCell],
+        reference_image: ScanImage,
+        comparison_image: ScanImage,
+        params: ComparisonParams,
+        device: "torch.device | None" = None,
 ) -> list[Cell]:
     """
     Find the best-matching position and angle for each grid cell in the comparison image.
 
-    For each angle in the configured sweep, the padded comparison image is rotated and a normalized
-    cross-correlation score map is computed per cell. Positions whose comparison-patch fill fraction
-    falls below ``params.minimum_fill_fraction`` are masked out. The rotation and translation that
-    together yield the highest unmasked score are stored in each cell's :class:`GridSearchParams`.
+    Two-stage search, both stages sharing the same underlying scoring code (see
+    :mod:`cell_registration.utils` and :func:`cell_registration.coarse.coarse_to_fine_match`):
 
-    The comparison image is padded by a full cell in each direction before the search so that cells that
-    lie near the image boundary can still be matched. After unrotating the cell center, the padding offset
-    is subtracted back when the best position is recorded, so all stored coordinates are in the original
-    (unpadded) pixel space.
+    1. **Coarse**: the reference and comparison images are downsampled together, once, to a shared
+       pixel scale capped at ``params.max_size`` pixels on the longer side, and an exhaustive
+       translation + rotation sweep runs on that pair, keeping ``params.n_candidates`` candidate
+       poses per cell.
+    2. **Fine**: each candidate is refined at full resolution, searching ``params.fine_n_pixels``
+       pixels of translation and ``params.fine_m_degrees`` degrees of rotation (1-degree steps)
+       around that candidate's own position and angle.
 
-    The search itself runs on GPU when one is available and on CPU otherwise, using the same code path;
-    see :func:`batched_match`.
+    *reference_image* and *comparison_image* may be at different native pixel scales; both are
+    resampled to a common scale from their original data in a single interpolation pass each -
+    deliberately not by resampling once to align scale and again to cap size, which would chain two
+    lossy resizes to reach one target.
+
+    Coarse-stage templates are *not* obtained by downsampling each cell's patch in isolation.
+    Downsampling the whole reference image once and then extracting each coarse cell from it (via
+    the same :func:`~conversion.surface_comparison.grid.extract_patch` used to build the full
+    resolution grid) gives every template's edge pixels the same neighbouring context the
+    comparison canvas gets; downsampling per-cell would compute those edges from cell-local data
+    only, which the comparison canvas' edges never do, silently penalising the true match.
+
+    NaNs are handled explicitly throughout: the comparison images keep NaN outside real data (the
+    search consumes it directly to compute a per-position fill fraction and reject sparse windows);
+    grid cells fill NaN with their own valid-pixel mean rather than a scene-wide value, so a missing
+    pixel drops out of the correlation entirely instead of behaving like real, flat surface data.
 
     :param grid_cells: Reference grid cells to register; all cells must have the same size.
-    :param comparison_image: Comparison scan image to search over.
-    :param params: Algorithm parameters (angle sweep bounds, step, fill-fraction threshold).
+    :param reference_image: Reference scan image the grid cells were generated from.
+    :param comparison_image: Comparison scan image to search over, at its own native pixel scale.
+    :param params: Algorithm parameters (angle sweep, coarse/fine search configuration).
     :param device: Optional torch device override; defaults to CUDA when available. Mainly useful
         for benchmarking and for cross-device reproducibility checks.
-    :param reduction: When set, locate cells with an exhaustive sweep at this reduction factor and
-        then refine at full resolution, instead of searching everything at full resolution. The
-        angle sweep stays global either way, so grossly misoriented marks are still found. Leave as
-        ``None`` for the exhaustive search.
-    :param search_options: Extra keyword arguments forwarded to the search, e.g.
-        ``{"n_candidates": 2, "margin": 12}``. Ignored when *reduction* is ``None``.
     :returns: List of :class:`Cell` objects with the best registration result per grid cell.
     """
     if not grid_cells:
         return []
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    fill_value_comparison = float(np.nanmean(comparison_image.data))
-    pixel_size = comparison_image.scale_x  # Assumes isotropic image
+    pixel_size = reference_image.scale_x  # Assumes isotropic image; the shared output scale.
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
-    pad_width, pad_height = cell_width, cell_height  # Set pad size to cell size
 
-    comparison_data = pad_image_array(
-        comparison_image.data, pad_width=pad_width, pad_height=pad_height
+    # --- Bring the comparison image to the reference's pixel scale, in one pass. ---
+    scale_match_factor = max(1.0, pixel_size / comparison_image.scale_x)
+    if scale_match_factor > 1.0:
+        comparison_full_data = resample_array_2d(
+            comparison_image.data,
+            factors=(scale_match_factor, scale_match_factor),
+            interpolation=params.downsample_interpolation,
+        )
+    else:
+        comparison_full_data = comparison_image.data
+
+    # --- Cap the shared canvas to params.max_size for the coarse stage. ---
+    largest_dimension = max(
+        reference_image.height,
+        reference_image.width,
+        comparison_full_data.shape[0],
+        comparison_full_data.shape[1],
     )
+    cap_factor = max(1.0, largest_dimension / params.max_size)
+
+    fill_value_full = float(np.nanmean(comparison_full_data))
+    comparison_full_padded = pad_image_array(
+        comparison_full_data, pad_width=cell_width, pad_height=cell_height
+    )
+    templates_full = [grid_cell.cell_data_filled for grid_cell in grid_cells]
+
+    if cap_factor > 1.0:
+        # Single pass directly from the raw comparison data, combining scale-match and size-cap
+        # into one interpolation instead of shrinking the already-resampled comparison_full again.
+        combined_factor = scale_match_factor * cap_factor
+        comparison_coarse_data = resample_array_2d(
+            comparison_image.data,
+            factors=(combined_factor, combined_factor),
+            interpolation=params.downsample_interpolation,
+        )
+        reference_coarse_data = resample_array_2d(
+            reference_image.data,
+            factors=(cap_factor, cap_factor),
+            interpolation=params.downsample_interpolation,
+        )
+        reference_coarse = ScanImage(
+            data=reference_coarse_data,
+            scale_x=reference_image.scale_x * cap_factor,
+            scale_y=reference_image.scale_y * cap_factor,
+        )
+        coarse_cell_width = max(1, round(cell_width / cap_factor))
+        coarse_cell_height = max(1, round(cell_height / cap_factor))
+
+        templates_coarse = []
+        for grid_cell in grid_cells:
+            coarse_top_left = (
+                round(grid_cell.top_left[0] / cap_factor),
+                round(grid_cell.top_left[1] / cap_factor),
+            )
+            patch = extract_patch(
+                scan_image=reference_coarse,
+                coordinates=coarse_top_left,
+                patch_size=(coarse_cell_width, coarse_cell_height),
+                fill_value=np.nan,
+            )
+            templates_coarse.append(fill_nan_with_local_mean(patch))
+
+        fill_value_coarse = float(np.nanmean(comparison_coarse_data))
+        comparison_coarse_padded = pad_image_array(
+            comparison_coarse_data, pad_width=coarse_cell_width, pad_height=coarse_cell_height
+        )
+    else:
+        # Images already fit within max_size: coarse and fine would search the same resolution, so
+        # reuse the full-resolution arrays and let coarse_to_fine_match take its single-pass shortcut.
+        templates_coarse = templates_full
+        comparison_coarse_padded = comparison_full_padded
+        fill_value_coarse = fill_value_full
+
     angles = np.arange(
         params.search_angle_min,
         params.search_angle_max + params.search_angle_step,
         params.search_angle_step,
     )
 
-    search = batched_match if reduction is None else coarse_to_fine_match
-    extra = (
-        {} if reduction is None else {"reduction": reduction, **(search_options or {})}
-    )
-    results = search(
-        image=comparison_data,
-        templates=[grid_cell.cell_data_filled for grid_cell in grid_cells],
+    results = coarse_to_fine_match(
+        image_full=comparison_full_padded,
+        image_coarse=comparison_coarse_padded,
+        templates_full=templates_full,
+        templates_coarse=templates_coarse,
+        cap_factor=cap_factor,
         angles=angles,
         minimum_fill_fraction=params.minimum_fill_fraction,
-        fill_value=fill_value_comparison,
+        fill_value_full=fill_value_full,
+        fill_value_coarse=fill_value_coarse,
+        n_candidates=params.n_candidates,
+        position_margin=params.fine_n_pixels,
+        angle_margin_degrees=params.fine_m_degrees,
+        template_batch_size=params.template_batch_size,
+        angle_batch_size=params.angle_batch_size,
+        fine_batch_size=params.fine_batch_size,
         device=device,
-        **extra,
     )
 
     for grid_cell, (score, x, y, angle) in zip(grid_cells, results):
         center_x, center_y = canvas_to_image(
-            x, y, (cell_height, cell_width), comparison_data.shape, angle
+            x, y, (cell_height, cell_width), comparison_full_padded.shape, angle
         )
         grid_cell.grid_search_params.update(
             score=score,
             angle=angle,
-            center_x=center_x - pad_width,  # Undo the padding
-            center_y=center_y - pad_height,  # Undo the padding
+            center_x=center_x - cell_width,  # Undo the padding
+            center_y=center_y - cell_height,  # Undo the padding
         )
 
     return [

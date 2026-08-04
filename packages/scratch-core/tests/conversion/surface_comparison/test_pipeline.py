@@ -84,9 +84,9 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
     ids=lambda x: x.__name__ if callable(x) else str(x),
 )
 def test_coarse_registration_finds_angle(
-    angle: float,
-    classification_function: Callable,
-    plot: bool = False,
+        angle: float,
+        classification_function: Callable,
+        plot: bool = False,
 ):
     # Arrange
     scale = 1e-6
@@ -126,11 +126,10 @@ def test_coarse_registration_finds_angle(
     )
     cells = match_cells(
         grid_cells=grid_cells,
+        reference_image=reference_image,
         comparison_image=comparison_image,
         params=params,
     )
-
-    # TODO implement run fine_registration when implemented
 
     classification = classification_function(
         cells=cells, params=params, reference_center=reference_image.center_meters

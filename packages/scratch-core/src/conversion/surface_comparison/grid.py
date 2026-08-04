@@ -9,7 +9,7 @@ from conversion.surface_comparison.utils import convert_meters_to_pixels
 
 
 def generate_grid(
-    scan_image: ScanImage, cell_size: tuple[float, float], minimum_fill_fraction: float
+        scan_image: ScanImage, cell_size: tuple[float, float], minimum_fill_fraction: float
 ) -> list[GridCell]:
     """
     Generate a centered grid of cells covering the image. The image is assumed to be isotropic.
@@ -26,8 +26,6 @@ def generate_grid(
     xs = _tile_axis(scan_image.width, cell_width)
     ys = _tile_axis(scan_image.height, cell_height)
 
-    nan_fill_value = float(np.nanmean(scan_image.data))  # TODO: Do we want this value?
-
     output = []
     for y in ys:
         for x in xs:
@@ -41,7 +39,6 @@ def generate_grid(
                 top_left=(x, y),
                 cell_data=cell_data,
                 grid_search_params=GridSearchParams(),
-                nan_fill_value=nan_fill_value,
             )
             if cell.fill_fraction < minimum_fill_fraction:
                 continue
@@ -50,10 +47,10 @@ def generate_grid(
 
 
 def extract_patch(
-    scan_image: ScanImage,
-    coordinates: tuple[int, int],
-    patch_size: tuple[int, int],
-    fill_value: float = np.nan,
+        scan_image: ScanImage,
+        coordinates: tuple[int, int],
+        patch_size: tuple[int, int],
+        fill_value: float = np.nan,
 ) -> FloatArray2D:
     """
     Extract a rectangular patch from a scan image, padding with fill_value

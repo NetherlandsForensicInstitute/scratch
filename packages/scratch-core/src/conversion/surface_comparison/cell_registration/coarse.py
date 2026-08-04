@@ -2,150 +2,40 @@ from __future__ import annotations
 
 import logging
 
-import cv2
 import numpy as np
 import torch
 
 from container_models.base import FloatArray2D
 from conversion.surface_comparison.cell_registration.utils import (
-    REJECTED_SCORE,
-    _prepare_rotated_batch,
-    _prepare_templates,
+    DEFAULT_FINE_BATCH_SIZE,
+    batched_match,
     canvas_to_image,
+    default_batch_size,
     image_to_canvas,
-    iter_score_maps,
     paired_score_maps,
     rotated_crop,
-    rotated_shape,
-    batched_match,
+    search_candidates,
+    _prepare_templates,
 )
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_REDUCTION = 6
-DEFAULT_N_CANDIDATES = 3
-DEFAULT_JOBS_PER_CHUNK = 256
-#: A coarse pixel with less than this fraction of valid sub-pixels is treated as missing.
-_COARSE_VALIDITY_THRESHOLD = 0.5
-#: Smallest coarse cell, per side, that can still localise reliably. Below roughly this the coarse
-#: stage has too few pixels to discriminate and silently returns the wrong pose - measured on a
-#: large-rotation case, a 4x4 coarse cell picked the wrong angle entirely while 5x5 did not.
-#: ``reduction`` is capped so this holds, because the failure is silent and the caller cannot be
-#: expected to re-derive it for every cell size.
-_MIN_COARSE_CELL = 8
-DEFAULT_ANGLE_MARGIN = 2
-_COARSE_ANGLE_UNCERTAINTY = 6.0  # degrees
 
-
-def effective_reduction(cell_shape: tuple[int, int], reduction: int) -> int:
-    """
-    Cap *reduction* so the coarse cell keeps at least :data:`_MIN_COARSE_CELL` pixels per side.
-
-    :param cell_shape: ``(cell_height, cell_width)`` at full resolution.
-    :param reduction: Requested reduction factor.
-    :returns: The reduction actually usable for this cell size, at least 1.
-    """
-    return max(1, min(reduction, min(cell_shape) // _MIN_COARSE_CELL))
-
-
-def downsample(image: FloatArray2D, factor: int) -> FloatArray2D:
-    """
-    Reduce *image* by *factor* using area averaging, propagating missing data correctly.
-
-    ``cv2.INTER_AREA`` averages over each source block, so NaN anywhere in a block would poison the
-    whole output pixel. Instead the valid pixels are averaged among themselves, and a coarse pixel
-    is marked missing only when most of its source block was missing.
-
-    :param image: Input 2D array, NaN where data is missing.
-    :param factor: Integer reduction factor.
-    :returns: Float64 array of shape ``(ceil(height / factor), ceil(width / factor))``.
-    """
-    height, width = image.shape
-    size = (int(np.ceil(width / factor)), int(np.ceil(height / factor)))
-
-    valid = np.isfinite(image)
-    filled = np.where(valid, image, 0.0).astype(np.float32)
-
-    mean_of_filled = cv2.resize(filled, size, interpolation=cv2.INTER_AREA)
-    mean_of_valid = cv2.resize(
-        valid.astype(np.float32), size, interpolation=cv2.INTER_AREA
-    )
-
-    with np.errstate(invalid="ignore", divide="ignore"):
-        result = mean_of_filled / mean_of_valid
-    result[mean_of_valid < _COARSE_VALIDITY_THRESHOLD] = np.nan
-    return np.asarray(result, dtype=np.float64)
-
-
-def _to_full_resolution(coarse_value: float, factor: int) -> float:
+def _to_full_resolution(coarse_value: float, factor: float) -> float:
     """Map a coordinate in a block-averaged image back to the original grid."""
     return coarse_value * factor + (factor - 1) / 2.0
 
 
-def _top_candidates(
-    scores: torch.Tensor, n_candidates: int, suppression_radius: int
-) -> list[list[tuple[int, int, int]]]:
-    """
-    Extract the strongest well-separated peaks per template from a score volume.
-
-    A candidate is a *location*, so the angle axis is reduced away first and each location competes
-    only against other locations. After a peak is taken its neighbourhood is suppressed, otherwise
-    the candidates would all be one blurred maximum.
-
-    Only the location is kept, not its angle. At useful reduction factors the area averaging blurs
-    out the detail that discriminates rotation, so the coarse angle ranking is not informative:
-    trusting it dropped exact agreement from 12/12 to 5/12 in testing. Refinement therefore retries
-    the whole sweep at each location. The coarse stage decides *where*, not *at what angle*.
-
-    :param scores: ``(n_angles, n_templates, height, width)``.
-    :param n_candidates: Peaks to keep per template.
-    :param suppression_radius: Half-width of the suppressed neighbourhood, in pixels.
-    :returns: Per template, a list of ``(x, y, angle_index)`` ordered by score, where the angle
-        index is used only to map the location back to image coordinates.
-    """
-    best_over_angles, best_angle = scores.max(dim=0)
-    n_templates, _, width = best_over_angles.shape
-
-    results = []
-    for index in range(n_templates):
-        surface = best_over_angles[index].clone()
-        angles = best_angle[index]
-        found: list[tuple[int, int, int]] = []
-        for _ in range(n_candidates):
-            position = int(surface.argmax())
-            y, x = divmod(position, width)
-            if float(surface[y, x]) <= REJECTED_SCORE:
-                break
-            found.append((x, y, int(angles[y, x])))
-            surface[
-                max(0, y - suppression_radius) : y + suppression_radius + 1,
-                max(0, x - suppression_radius) : x + suppression_radius + 1,
-            ] = -np.inf
-        results.append(found)
-    return results
-
-
-def _angle_window(angles: np.ndarray, angle_margin: int | None) -> int | None:
-    if angle_margin is None or len(angles) < 2:
-        return None
-    step = float(np.min(np.diff(np.sort(angles))))
-    if step <= 0:
-        return None
-    needed = int(np.ceil(_COARSE_ANGLE_UNCERTAINTY / step))
-    window = max(angle_margin, needed)
-    return None if 2 * window + 1 >= len(angles) else window
-
-
 def _refine(
-    image: FloatArray2D,
-    templates: torch.Tensor,
-    jobs: list[tuple[int, float, float, float]],
-    margin: int,
-    minimum_fill_fraction: float,
-    fill_value: float,
-    standardisation: tuple[float, float],
-    jobs_per_chunk: int,
-    default_angle: float,
+        image: FloatArray2D,
+        templates: torch.Tensor,
+        jobs: list[tuple[int, float, float, float]],
+        margin: int,
+        minimum_fill_fraction: float,
+        fill_value: float,
+        standardisation: tuple[float, float],
+        batch_size: int,
+        default_angle: float,
 ) -> list[tuple[float, int, int, float]]:
     """
     Score every candidate pose at full resolution, batched across all cells at once.
@@ -163,7 +53,7 @@ def _refine(
     :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
     :param fill_value: Value substituted for NaN.
     :param standardisation: Global ``(mean, standard_deviation)`` of the comparison image.
-    :param jobs_per_chunk: Jobs scored per batch.
+    :param batch_size: Jobs scored per batch.
     :param default_angle: Angle recorded for cells with no viable candidate.
     :returns: Per template, ``(score, x, y, angle_deg)`` with ``x``/``y`` on the rotated canvas.
     """
@@ -176,8 +66,8 @@ def _refine(
         (-np.inf, 0, 0, default_angle) for _ in range(n_templates)
     ]
 
-    for start in range(0, len(jobs), jobs_per_chunk):
-        block = jobs[start : start + jobs_per_chunk]
+    for start in range(0, len(jobs), batch_size):
+        block = jobs[start: start + batch_size]
         crops = np.empty((len(block), 1, crop_height, crop_width), dtype=np.float32)
         validities = np.empty_like(crops)
         origins = []
@@ -210,7 +100,7 @@ def _refine(
         del scores
 
         for position, (value, flat) in enumerate(
-            zip(values.tolist(), positions.tolist())
+                zip(values.tolist(), positions.tolist())
         ):
             index, left, top, angle = origins[position]
             if value > best[index][0]:
@@ -224,152 +114,145 @@ def _refine(
 
 
 def coarse_to_fine_match(
-    image: FloatArray2D,
-    templates: list[np.ndarray],
-    angles: np.ndarray,
-    minimum_fill_fraction: float,
-    fill_value: float,
-    reduction: int = DEFAULT_REDUCTION,
-    n_candidates: int = DEFAULT_N_CANDIDATES,
-    margin: int | None = None,
-    jobs_per_chunk: int = DEFAULT_JOBS_PER_CHUNK,
-    device: torch.device | None = None,
+        image_full: FloatArray2D,
+        image_coarse: FloatArray2D,
+        templates_full: list[np.ndarray],
+        templates_coarse: list[np.ndarray],
+        cap_factor: float,
+        angles: np.ndarray,
+        minimum_fill_fraction: float,
+        fill_value_full: float,
+        fill_value_coarse: float,
+        n_candidates: int = 3,
+        position_margin: int = 5,
+        angle_margin_degrees: float = 5.0,
+        template_batch_size: int | None = None,
+        angle_batch_size: int | None = None,
+        fine_batch_size: int | None = None,
+        device: torch.device | None = None,
 ) -> list[tuple[float, int, int, float]]:
     """
-    Two-stage search: exhaustive at reduced resolution, then local at full resolution.
+    Two-stage search: exhaustive sweep on a downsampled image pair, then local refinement at full
+    resolution.
 
-    Drop-in replacement for :func:`batched_match` with the same return contract. The angle sweep
-    stays global at both stages, so grossly misoriented marks are still found; only the
-    *translation* search becomes local, and only once a candidate location has been found.
+    Drop-in replacement for :func:`~conversion.surface_comparison.cell_registration.utils.batched_match`
+    with the same return contract, built from exactly the same search primitive
+    (:func:`~conversion.surface_comparison.cell_registration.utils.search_candidates`): the coarse
+    stage calls it for the full angle sweep with ``n_candidates`` peaks per cell, and refinement
+    calls the pairwise variant of the same scoring code (:func:`paired_score_maps`) on small crops
+    around each candidate.
 
-    :param image: Padded comparison image, NaN outside the original data.
-    :param templates: Reference cell data, all the same shape and free of NaN.
-    :param angles: Angle sweep in degrees.
+    Translation and rotation are not independent, so refinement does not re-run the whole angle
+    sweep: it searches a local window of ``angle_margin_degrees``, in 1-degree steps, centred on
+    each *candidate's own* coarse-stage angle, together with a ``position_margin``-pixel translation
+    window around its position (translation is effectively free: the sliding-window correlation
+    evaluates every position in that window in one shot).
+
+    :param image_full: Padded comparison image at full resolution, NaN outside the original data.
+    :param image_coarse: Padded comparison image downsampled for the coarse stage, same convention.
+    :param templates_full: Reference cell data at full resolution, all the same shape, free of NaN.
+    :param templates_coarse: The same cells downsampled for the coarse stage, free of NaN, aligned
+        1:1 with *templates_full*.
+    :param cap_factor: How many full-resolution pixels one coarse pixel spans (>= 1).
+    :param angles: Angle sweep in degrees, used for the coarse stage.
     :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
-    :param fill_value: Value substituted for NaN in the comparison image.
-    :param reduction: Coarse-stage reduction factor.
+    :param fill_value_full: Value substituted for NaN in *image_full*.
+    :param fill_value_coarse: Value substituted for NaN in *image_coarse*.
     :param n_candidates: Coarse peaks retained per cell for refinement.
-    :param margin: Refinement search radius in pixels; defaults to ``2 * reduction``.
-    :param jobs_per_chunk: Candidate poses scored per refinement batch.
+    :param position_margin: Refinement translation search radius, in full-resolution pixels.
+    :param angle_margin_degrees: Refinement angle search radius, in degrees (1-degree steps).
+    :param template_batch_size: Templates correlated per chunk in the coarse stage. ``None`` picks
+        a device default.
+    :param angle_batch_size: Angles processed per chunk in the coarse stage. ``None`` picks a
+        device default.
+    :param fine_batch_size: Refinement jobs scored per chunk. ``None`` picks a device default.
     :param device: Torch device; defaults to CUDA when available.
-    :returns: Per template, ``(score, x, y, angle_deg)`` with ``x``/``y`` in rotated-canvas pixels.
+    :returns: Per template, ``(score, x, y, angle_deg)`` with ``x``/``y`` in full-resolution
+        rotated-canvas pixels.
     """
-    if not templates:
+    if not templates_full:
         return []
-    cell_shape = templates[0].shape
-    if any(template.shape != cell_shape for template in templates):
-        raise ValueError("All templates must have the same shape.")
+    if len(templates_full) != len(templates_coarse):
+        raise ValueError("templates_full and templates_coarse must be aligned 1:1.")
+    cell_shape = templates_full[0].shape
+    if any(template.shape != cell_shape for template in templates_full):
+        raise ValueError("All full-resolution templates must have the same shape.")
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    usable = effective_reduction(cell_shape, reduction)
-    if usable != reduction:
-        logger.info(
-            "Reduction capped from %d to %d: cells are %dx%d px, and a coarse cell below %d px "
-            "per side cannot localise reliably.",
-            reduction,
-            usable,
-            cell_shape[1],
-            cell_shape[0],
-            _MIN_COARSE_CELL,
-        )
-    if usable < 2:
-        # Nothing left to gain; the coarse stage would be full resolution.
+    if cap_factor <= 1.0:
+        # The coarse stage would search the same resolution as refinement; skip straight to one
+        # exhaustive pass instead of doing the same work twice.
         return batched_match(
-            image, templates, angles, minimum_fill_fraction, fill_value, device=device
+            image_full,
+            templates_full,
+            angles,
+            minimum_fill_fraction,
+            fill_value_full,
+            device=device,
+            template_batch_size=template_batch_size,
+            angle_batch_size=angle_batch_size,
         )
-    reduction = usable
-    if margin is None:
-        margin = 2 * reduction
+
+    coarse_shape = templates_coarse[0].shape
+    candidates, is_usable = search_candidates(
+        image_coarse,
+        templates_coarse,
+        angles,
+        minimum_fill_fraction,
+        fill_value_coarse,
+        n_candidates=n_candidates,
+        template_batch_size=template_batch_size,
+        angle_batch_size=angle_batch_size,
+        device=device,
+    )
 
     angles = np.asarray(angles, dtype=np.float64)
-    sorted_angles = angles[np.lexsort((angles, np.abs(angles)))]
-    default_angle = float(sorted_angles[0])
+    default_angle = float(np.sort(angles)[0])
 
-    # coarse stage: find candidate locations
-    coarse_image = downsample(image, reduction)
-    coarse_templates = [downsample(template, reduction) for template in templates]
-    coarse_shape = coarse_templates[0].shape
-    if min(coarse_shape) < _MIN_COARSE_CELL:
-        logger.warning(
-            "Coarse cells are %dx%d px at reduction %d; below roughly %d px the coarse stage "
-            "localises poorly. Consider a smaller reduction for this cell size.",
-            coarse_shape[1],
-            coarse_shape[0],
-            reduction,
-            _MIN_COARSE_CELL,
-        )
-    height, width = coarse_image.shape
-    coarse_canvas = (
-        max(rotated_shape(height, width, float(a))[0] for a in sorted_angles),
-        max(rotated_shape(height, width, float(a))[1] for a in sorted_angles),
-    )
-    coarse_batch, coarse_valid = _prepare_rotated_batch(
-        coarse_image, sorted_angles, fill_value, coarse_canvas
-    )
-    coarse_tensor, is_non_constant = _prepare_templates(coarse_templates, device)
-
-    candidates: list[list[tuple[int, int, int]]] = []
-    for _, scores in iter_score_maps(
-        torch.from_numpy(coarse_batch).to(device),
-        torch.from_numpy(coarse_valid).to(device),
-        coarse_tensor,
-        minimum_fill_fraction,
-        max(1, min(len(templates), 8)),
-        (float(np.nanmean(coarse_image)), float(np.nanstd(coarse_image))),
-    ):
-        candidates.extend(_top_candidates(scores, n_candidates, max(coarse_shape) // 2))
-        del scores
-    if device.type == "cuda":
-        torch.cuda.empty_cache()
-
-    # refinement stage: full resolution
     jobs: list[tuple[int, float, float, float]] = []
     unusable: list[int] = []
-    ordered = np.sort(angles)
-    step = float(np.min(np.diff(ordered))) if len(ordered) > 1 else 0.0
-    window = _angle_window(angles, angle_margin=DEFAULT_ANGLE_MARGIN)
-    for index in range(len(templates)):
-        if not is_non_constant[index] or not candidates[index]:
+    trial_offsets = np.arange(
+        -angle_margin_degrees, angle_margin_degrees + 1.0, 1.0
+    )
+    for index in range(len(templates_full)):
+        if not is_usable[index]:
             unusable.append(index)
             continue
-        for x, y, angle_index in candidates[index]:
-            angle = float(sorted_angles[angle_index])
+        for _score, x, y, angle in candidates[index]:
             center_x, center_y = canvas_to_image(
-                x, y, coarse_shape, coarse_image.shape, angle
+                x, y, coarse_shape, image_coarse.shape, angle
             )
-            full_x = _to_full_resolution(center_x, reduction)
-            full_y = _to_full_resolution(center_y, reduction)
-            if window is None:
-                trials = sorted_angles
-            else:
-                # The sweep may wrap, so select by angular distance rather than by index.
-                distance = np.abs((ordered - angle + 180.0) % 360.0 - 180.0)
-                trials = ordered[distance <= window * step + 1e-9]
-            jobs.extend((index, full_x, full_y, float(a)) for a in trials)
+            full_x = _to_full_resolution(center_x, cap_factor)
+            full_y = _to_full_resolution(center_y, cap_factor)
+            jobs.extend(
+                (index, full_x, full_y, float(angle + offset)) for offset in trial_offsets
+            )
 
-    fine_tensor, _ = _prepare_templates(templates, device)
+    fine_batch_size = fine_batch_size or default_batch_size(device, DEFAULT_FINE_BATCH_SIZE)
+    fine_tensor, _ = _prepare_templates(templates_full, device)
     results = _refine(
-        image.astype(np.float32),
+        image_full.astype(np.float32),
         fine_tensor,
         jobs,
-        margin,
+        position_margin,
         minimum_fill_fraction,
-        fill_value,
-        (float(np.nanmean(image)), float(np.nanstd(image))),
-        jobs_per_chunk,
+        fill_value_full,
+        (float(np.nanmean(image_full)), float(np.nanstd(image_full))),
+        fine_batch_size,
         default_angle,
     )
     for index in unusable:
-        # A constant reference cell has no defined correlation.
+        # A constant reference cell, or one with no viable coarse candidate, has no defined match.
         results[index] = (-1.0, 0, 0, default_angle)
 
     logger.debug(
-        "Coarse-to-fine: reduction %d, %d candidates, margin %d px, %d refinement jobs.",
-        reduction,
+        "Coarse-to-fine: cap factor %.2f, %d candidates/cell, +/-%d px, +/-%.1f deg, %d refinement jobs.",
+        cap_factor,
         n_candidates,
-        margin,
+        position_margin,
+        angle_margin_degrees,
         len(jobs),
     )
     return results

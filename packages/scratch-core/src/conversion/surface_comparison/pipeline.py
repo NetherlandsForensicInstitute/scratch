@@ -1,6 +1,4 @@
 from loguru import logger
-from conversion.resample import resample_scan_image_and_mask
-
 
 from conversion.surface_comparison.cell_registration.match_cells import match_cells
 from conversion.surface_comparison.cmc_consensus.pipeline import (
@@ -15,23 +13,21 @@ from conversion.surface_comparison.models import (
 
 
 def compare_surfaces(
-    reference_mark: ProcessedMark,
-    comparison_mark: ProcessedMark,
-    params: ComparisonParams,
+        reference_mark: ProcessedMark,
+        comparison_mark: ProcessedMark,
+        params: ComparisonParams,
 ) -> ComparisonResult:
     """
     Run the full CMC pipeline to compare two cartridge-case surface marks.
 
-    Executes the five-step pipeline:
+    Executes the four-step pipeline:
 
-    1. **Resample** — the comparison image is resampled to match the pixel size of the reference image so both
-        share a common coordinate grid.
-    2. **Generate grid** — a centered rectangular grid of cells is placed over the reference image; cells with
+    1. **Generate grid** — a centered rectangular grid of cells is placed over the reference image; cells with
         insufficient valid data are discarded.
-    3. **Coarse registration** — each reference cell is matched against the comparison image over a configurable
-        angle sweep to find the best-scoring translation and rotation.
-    4. **Fine registration** — currently a pass-through stub; intended for sub-pixel refinement.
-    5. **CMC classification** — consensus angle and translation are estimated across all cells and each cell is
+    2. **Coarse-to-fine registration** — the reference and comparison images (which may be at different native
+        pixel scales) are brought to a shared scale and downsampled for an exhaustive coarse sweep, then each
+        cell is refined locally at full resolution. See :func:`match_cells` for the full description.
+    3. **CMC classification** — consensus angle and translation are estimated across all cells and each cell is
         labeled as congruent or not.
 
     Both marks are expected to have already been pre-processed (leveled and band-pass filtered);
@@ -39,8 +35,8 @@ def compare_surfaces(
 
     :param reference_mark: Pre-processed reference mark; its filtered scan image defines the grid and coordinate system.
     :param comparison_mark: Pre-processed comparison mark to register against the reference.
-    :param params: Algorithm parameters controlling cell size, fill-fraction thresholds, angle sweep, and CMC
-        classification thresholds.
+    :param params: Algorithm parameters controlling cell size, fill-fraction thresholds, angle sweep, coarse/fine
+        search configuration, and CMC classification thresholds.
     :returns: A :class:`ComparisonResult` containing per-cell registration results, the consensus rotation and
         translation, and CMC counts.
     """
@@ -49,14 +45,7 @@ def compare_surfaces(
     reference_image = reference_mark.filtered_mark.scan_image
     comparison_image = comparison_mark.filtered_mark.scan_image
 
-    # Step 1: Resample comparison so that both have the same pixel size
-    logger.debug("starting resample")
-    pixel_size = reference_image.scale_x  # Assumes isotropic image
-    comparison_image, _ = resample_scan_image_and_mask(
-        scan_image=comparison_image, target_scale=pixel_size, preserve_aspect_ratio=True
-    )
-
-    # Step 2: Generate grid cells
+    # Step 1: Generate grid cells
     logger.debug("starting grid generation")
     grid_cells = generate_grid(
         scan_image=reference_image,
@@ -64,13 +53,16 @@ def compare_surfaces(
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
 
-    # Step 3: Registration
+    # Step 2: Coarse-to-fine registration (scale alignment happens inside match_cells)
     logger.debug("starting cell registration")
     cells = match_cells(
-        grid_cells=grid_cells, comparison_image=comparison_image, params=params
+        grid_cells=grid_cells,
+        reference_image=reference_image,
+        comparison_image=comparison_image,
+        params=params,
     )
 
-    # Step 4: CMC classification
+    # Step 3: CMC classification
     logger.debug("starting cmc classification")
     comparison_result = classify_congruent_cells_consensus(
         cells=cells, params=params, reference_center=reference_image.center_meters

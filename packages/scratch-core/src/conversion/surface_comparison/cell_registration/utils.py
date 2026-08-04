@@ -26,26 +26,31 @@ _TINY = 1e-12
 #: outside the valid Pearson range: -1.0 is a legitimate score (perfect anti-correlation), so using
 #: it as a sentinel makes a genuinely inverted cell indistinguishable from a masked-out one.
 REJECTED_SCORE = -2.0
-#: Fraction of free memory the chunk planner is allowed to commit.
-_MEMORY_FRACTION = 0.6
-_DEFAULT_CPU_BUDGET = 4 * 1024**3
-#: Upper bound on angles per chunk, and on templates correlated together.
+
+#: Recommended batch sizes, used whenever the caller doesn't pin one explicitly. Small batches win
+#: on both devices: a realistic sweep is already far past the point where extra batching improves
+#: throughput, so larger batches only inflate the working set - on CPU it stops fitting in cache, on
+#: GPU it wastes memory for no speed. Measured on a 1500x1500 canvas, 150px cells, 30 cells, 21
+#: angles, 12-core host with CUDA available:
 #:
-#: Small chunks win on both devices. A realistic sweep is already far past the point where extra
-#: batching improves throughput, so larger chunks only inflate the working set: on CPU it stops
-#: fitting in cache, and on GPU it wastes memory for no speed. Measured at 1500x1500, 150px cells,
-#: 30 cells, 21 angles on a 12-core host with CUDA:
+#:   CUDA (angles=64, templates=32) -> 1.55 s, 16.63 GB   CPU (16, 4) -> 13.63 s
+#:   CUDA (angles=16, templates= 8) -> 1.48 s,  9.51 GB   CPU ( 8, 1) -> 14.07 s
+#:   CUDA (angles= 8, templates= 4) -> 1.21 s,  2.65 GB   CPU ( 2, 1) -> 13.75 s
+#:   CUDA (angles= 4, templates= 2) -> 1.25 s,  0.80 GB   CPU ( 1, 1) -> 12.47 s
 #:
-#:   CUDA (64, 32) -> 1.55 s, 16.63 GB     CPU (16, 4) -> 13.63 s
-#:   CUDA (16,  8) -> 1.48 s,  9.51 GB     CPU ( 8, 1) -> 14.07 s
-#:   CUDA ( 8,  4) -> 1.21 s,  2.65 GB     CPU ( 2, 1) -> 13.75 s
-#:   CUDA ( 4,  2) -> 1.25 s,  0.80 GB     CPU ( 1, 1) -> 12.47 s
-#:
-#: The CUDA setting below trades ~3% speed for ~3x less memory relative to (8, 4), which buys
-#: headroom for larger scans, since peak allocation grows with image area. Re-tune with
-#: ``tune_chunk_shape.py`` if the hardware or typical scan size changes.
-_MAX_ANGLES_PER_CHUNK = {"cuda": 8, "cpu": 1}
-_MAX_TEMPLATES_PER_CHUNK = {"cuda": 4, "cpu": 1}
+#: The defaults below trade ~3% GPU speed for ~3x less memory relative to (8, 4), which buys
+#: headroom for larger scans; CPU throughput is essentially flat, so its defaults are chosen only to
+#: keep peak memory low. Re-measure for your own hardware/scan sizes rather than trusting these as a
+#: general rule - that's the point of leaving both configurable.
+DEFAULT_ANGLE_BATCH_SIZE = {"cuda": 8, "cpu": 2}
+DEFAULT_TEMPLATE_BATCH_SIZE = {"cuda": 4, "cpu": 1}
+#: Refinement jobs (candidate pose x trial angle) scored together in one padded-crop batch.
+DEFAULT_FINE_BATCH_SIZE = {"cuda": 256, "cpu": 64}
+
+
+def default_batch_size(device: torch.device, sizes: dict[str, int], fallback: int = 1) -> int:
+    """Look up a recommended batch size for *device*, from one of the ``DEFAULT_*`` tables above."""
+    return sizes.get(device.type, fallback)
 
 
 def convert_grid_cell_to_cell(grid_cell: GridCell, pixel_size: float) -> Cell:
@@ -76,8 +81,24 @@ def convert_grid_cell_to_cell(grid_cell: GridCell, pixel_size: float) -> Cell:
     return cell
 
 
+def fill_nan_with_local_mean(array: FloatArray2D) -> FloatArray2D:
+    """
+    Replace NaN with the array's own valid-pixel mean (0.0 if none are valid).
+
+    See :meth:`GridCell.cell_data_filled` for why this specific choice of fill value matters: once
+    the template-preparation step centers the array on its own mean, every filled pixel becomes
+    exactly zero and drops out of the correlation, variance, and norm entirely.
+
+    :param array: Input 2D array, possibly containing NaN.
+    :returns: Copy of *array* with NaN replaced.
+    """
+    local_mean = np.nanmean(array)
+    fill_value = float(local_mean) if np.isfinite(local_mean) else 0.0
+    return np.nan_to_num(array, nan=fill_value, copy=True)
+
+
 def pad_image_array(
-    array: FloatArray2D, pad_width: int, pad_height: int, fill_value: float = np.nan
+        array: FloatArray2D, pad_width: int, pad_height: int, fill_value: float = np.nan
 ) -> FloatArray2D:
     """
     Pad a 2D array symmetrically with a constant fill value.
@@ -94,7 +115,7 @@ def pad_image_array(
     height, width = array.shape
     new_shape = height + 2 * pad_height, width + 2 * pad_width
     output = np.full(shape=new_shape, fill_value=fill_value, dtype=array.dtype)
-    output[pad_height : pad_height + height, pad_width : pad_width + width] = array
+    output[pad_height: pad_height + height, pad_width: pad_width + width] = array
     return output
 
 
@@ -123,9 +144,9 @@ def rotated_shape(height: int, width: int, angle_deg: float) -> tuple[int, int]:
 
 
 def rotate_image(
-    image: FloatArray2D,
-    angle_deg: float,
-    fill_value: float = np.nan,
+        image: FloatArray2D,
+        angle_deg: float,
+        fill_value: float = np.nan,
 ) -> FloatArray2D:
     """
     Rotate *image* by *angle_deg* degrees, growing the canvas so no data is clipped.
@@ -166,13 +187,13 @@ def rotate_image(
 
 
 def rotated_crop(
-    image: FloatArray2D,
-    angle_deg: float,
-    left: int,
-    top: int,
-    crop_width: int,
-    crop_height: int,
-    fill_value: float = np.nan,
+        image: FloatArray2D,
+        angle_deg: float,
+        left: int,
+        top: int,
+        crop_width: int,
+        crop_height: int,
+        fill_value: float = np.nan,
 ) -> FloatArray2D:
     """
     Produce a crop of the rotated canvas without rotating the whole image.
@@ -208,11 +229,11 @@ def rotated_crop(
 
 
 def canvas_to_image(
-    x: float,
-    y: float,
-    cell_shape: tuple[int, int],
-    image_shape: tuple[int, int],
-    angle_deg: float,
+        x: float,
+        y: float,
+        cell_shape: tuple[int, int],
+        image_shape: tuple[int, int],
+        angle_deg: float,
 ) -> tuple[float, float]:
     """
     Map a matched window on a rotated canvas back to a cell centre in the unrotated image.
@@ -241,11 +262,11 @@ def canvas_to_image(
 
 
 def image_to_canvas(
-    center_x: float,
-    center_y: float,
-    cell_shape: tuple[int, int],
-    image_shape: tuple[int, int],
-    angle_deg: float,
+        center_x: float,
+        center_y: float,
+        cell_shape: tuple[int, int],
+        image_shape: tuple[int, int],
+        angle_deg: float,
 ) -> tuple[float, float]:
     """
     Map a cell centre in the unrotated image to a window's top-left corner on the rotated canvas.
@@ -299,10 +320,10 @@ def next_fast_len(target: int) -> int:
 
 
 def box_sum(
-    values: torch.Tensor,
-    window_height: int,
-    window_width: int,
-    accumulate_dtype: torch.dtype = torch.float64,
+        values: torch.Tensor,
+        window_height: int,
+        window_width: int,
+        accumulate_dtype: torch.dtype = torch.float64,
 ) -> torch.Tensor:
     """
     Sum over every window with its **top-left corner** at ``[y, x]``, via a summed-area table.
@@ -324,21 +345,21 @@ def box_sum(
     integral = torch.nn.functional.pad(values.to(accumulate_dtype), (1, 0, 1, 0))
     integral = integral.cumsum_(dim=-1).cumsum_(dim=-2)
     result = (
-        integral[..., window_height:, window_width:]
-        - integral[..., :-window_height, window_width:]
-        - integral[..., window_height:, :-window_width]
-        + integral[..., :-window_height, :-window_width]
+            integral[..., window_height:, window_width:]
+            - integral[..., :-window_height, window_width:]
+            - integral[..., window_height:, :-window_width]
+            + integral[..., :-window_height, :-window_width]
     )
     return result.to(torch.float32)
 
 
 def _correlate_valid(
-    image_fft: torch.Tensor,
-    templates: torch.Tensor,
-    fft_height: int,
-    fft_width: int,
-    out_height: int,
-    out_width: int,
+        image_fft: torch.Tensor,
+        templates: torch.Tensor,
+        fft_height: int,
+        fft_width: int,
+        out_height: int,
+        out_width: int,
 ) -> torch.Tensor:
     """
     Cross-correlate a pre-transformed image batch with a block of templates ("valid" mode).
@@ -368,10 +389,10 @@ def _correlate_valid(
 
 
 def _prepare_rotated_batch(
-    image: FloatArray2D,
-    angles: np.ndarray,
-    fill_value: float,
-    canvas_shape: tuple[int, int],
+        image: FloatArray2D,
+        angles: np.ndarray,
+        fill_value: float,
+        canvas_shape: tuple[int, int],
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Rotate *image* at every angle in *angles* and stack the results into a fixed-size batch.
@@ -406,7 +427,7 @@ def _prepare_rotated_batch(
 
 
 def _prepare_templates(
-    templates: list[np.ndarray], device: torch.device
+        templates: list[np.ndarray], device: torch.device
 ) -> tuple[torch.Tensor, np.ndarray]:
     """
     Stack templates onto *device*, centred and scaled to unit norm.
@@ -426,84 +447,13 @@ def _prepare_templates(
     return tensor, is_non_constant
 
 
-def _available_bytes(device: torch.device) -> int:
-    """Memory the chunk planner may commit on *device*."""
-    if device.type == "cuda":
-        free_bytes, _ = torch.cuda.mem_get_info(device)
-        return int(free_bytes * _MEMORY_FRACTION)
-    try:
-        import psutil
-
-        return int(psutil.virtual_memory().available * _MEMORY_FRACTION)
-    except Exception:  # pragma: no cover - psutil is optional
-        logger.debug("psutil unavailable; falling back to a fixed CPU memory budget.")
-        return _DEFAULT_CPU_BUDGET
-
-
-def plan_chunks(
-    device: torch.device,
-    n_angles: int,
-    n_templates: int,
-    fft_height: int,
-    fft_width: int,
-    memory_budget: int | None = None,
-) -> tuple[int, int]:
-    """
-    Choose ``(angles_per_chunk, templates_per_chunk)`` that fit a memory budget.
-
-    This is the only place where CPU and CUDA are treated differently, and only as a tuning knob:
-    the algorithm below is identical on both. The estimate is deliberately coarse and conservative;
-    pass *memory_budget* explicitly to pin it in benchmarks.
-
-    :param device: Target device.
-    :param n_angles: Total number of angles in the sweep.
-    :param n_templates: Total number of grid cells.
-    :param fft_height: Transform height for the largest rotated canvas.
-    :param fft_width: Transform width for the largest rotated canvas.
-    :param memory_budget: Byte budget; defaults to a fraction of free device memory.
-    :returns: ``(angles_per_chunk, templates_per_chunk)``, both at least 1.
-    """
-    if memory_budget is None:
-        memory_budget = _available_bytes(device)
-
-    complex_bytes = fft_height * (fft_width // 2 + 1) * 8
-    real_bytes = fft_height * fft_width * 4
-    # Live per angle: image half-spectrum, rotated batch, validity mask, two box-sum outputs,
-    # plus (transiently) one float64 summed-area table.
-    per_angle = complex_bytes + 4 * real_bytes + 2 * real_bytes
-    # Live per (angle, template) pair: the complex product, the inverse transform, and its
-    # contiguous "valid" slice.
-    per_pair = complex_bytes + 2 * real_bytes
-
-    angles_per_chunk = max(1, min(n_angles, _MAX_ANGLES_PER_CHUNK.get(device.type, 8)))
-    while (
-        angles_per_chunk > 1
-        and angles_per_chunk * (per_angle + per_pair) > memory_budget
-    ):
-        angles_per_chunk //= 2
-
-    remaining = memory_budget - angles_per_chunk * per_angle
-    templates_per_chunk = (
-        int(remaining // (angles_per_chunk * per_pair)) if remaining > 0 else 1
-    )
-    templates_per_chunk = max(
-        1,
-        min(
-            n_templates,
-            templates_per_chunk,
-            _MAX_TEMPLATES_PER_CHUNK.get(device.type, 1),
-        ),
-    )
-    return angles_per_chunk, templates_per_chunk
-
-
 def iter_score_maps(
-    batch: torch.Tensor,
-    valid: torch.Tensor,
-    templates: torch.Tensor,
-    minimum_fill_fraction: float,
-    templates_per_chunk: int,
-    standardisation: tuple[float, float],
+        batch: torch.Tensor,
+        valid: torch.Tensor,
+        templates: torch.Tensor,
+        minimum_fill_fraction: float,
+        templates_per_chunk: int,
+        standardisation: tuple[float, float],
 ):
     """
     Yield normalised cross-correlation maps for one batch of rotated images.
@@ -560,7 +510,7 @@ def iter_score_maps(
     del batch
 
     for start in range(0, n_templates, templates_per_chunk):
-        block = templates[start : start + templates_per_chunk]
+        block = templates[start: start + templates_per_chunk]
         scores = _correlate_valid(
             image_fft, block, fft_height, fft_width, out_height, out_width
         )
@@ -569,11 +519,11 @@ def iter_score_maps(
 
 
 def paired_score_maps(
-    batch: torch.Tensor,
-    valid: torch.Tensor,
-    templates: torch.Tensor,
-    minimum_fill_fraction: float,
-    standardisation: tuple[float, float],
+        batch: torch.Tensor,
+        valid: torch.Tensor,
+        templates: torch.Tensor,
+        minimum_fill_fraction: float,
+        standardisation: tuple[float, float],
 ) -> torch.Tensor:
     """
     Correlate each image in *batch* against its own template, pairwise rather than all-against-all.
@@ -605,7 +555,7 @@ def paired_score_maps(
 
     local_sum = box_sum(batch, cell_height, cell_width)
     local_variation = (
-        box_sum(batch * batch, cell_height, cell_width) - local_sum.square() / n_pixels
+            box_sum(batch * batch, cell_height, cell_width) - local_sum.square() / n_pixels
     )
     del local_sum
 
@@ -627,100 +577,77 @@ def paired_score_maps(
     return scores
 
 
-def _match_chunk(
-    batch: torch.Tensor,
-    valid: torch.Tensor,
-    templates: torch.Tensor,
-    minimum_fill_fraction: float,
-    templates_per_chunk: int,
-    standardisation: tuple[float, float],
-) -> list[tuple[float, int, int, int]]:
-    """
-    Best ``(score, x, y, angle_index_within_chunk)`` per template for one angle chunk.
-
-    :param batch: Rotated image batch ``(n_angles, 1, height, width)``.
-    :param valid: Validity mask, 1.0 where the pixel holds real data.
-    :param templates: Centred unit-norm templates.
-    :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
-    :param templates_per_chunk: Templates correlated per iteration.
-    :param standardisation: Global ``(mean, standard_deviation)`` of the comparison image.
-    :returns: Per template, ``(score, x, y, angle_index_within_chunk)``.
-    """
-    device = batch.device
-    n_angles = batch.shape[0]
-    out_width = batch.shape[3] - templates.shape[3] + 1
-
-    results: list[tuple[float, int, int, int]] = []
-    for _, scores in iter_score_maps(
-        batch,
-        valid,
-        templates,
-        minimum_fill_fraction,
-        templates_per_chunk,
-        standardisation,
-    ):
-        n_block = scores.shape[1]
-        best_per_angle, position_per_angle = scores.reshape(n_angles, n_block, -1).max(
-            dim=2
+def _clamp_score(score: float, index: int) -> float:
+    """Clamp a score into the valid Pearson range, warning if it overshot by more than tolerance."""
+    if score > 1.0 + SCORE_TOLERANCE:
+        logger.warning(
+            "NCC score %.4f exceeds the valid range [-1, 1] for cell %d; clamping.", score, index
         )
-        del scores
-        best_value, best_angle = best_per_angle.max(dim=0)
-        best_position = position_per_angle[
-            best_angle, torch.arange(n_block, device=device)
-        ]
-        for value, angle_index, position in zip(
-            best_value.tolist(), best_angle.tolist(), best_position.tolist()
-        ):
-            results.append(
-                (
-                    float(value),
-                    int(position % out_width),
-                    int(position // out_width),
-                    int(angle_index),
-                )
-            )
-    return results
+    return min(max(score, -1.0), 1.0)
 
 
-def batched_match(
-    image: FloatArray2D,
-    templates: list[np.ndarray],
-    angles: np.ndarray,
-    minimum_fill_fraction: float,
-    fill_value: float,
-    device: torch.device | None = None,
-    memory_budget: int | None = None,
-) -> list[tuple[float, int, int, float]]:
+def search_candidates(
+        image: FloatArray2D,
+        templates: list[np.ndarray],
+        angles: np.ndarray,
+        minimum_fill_fraction: float,
+        fill_value: float,
+        n_candidates: int = 1,
+        suppression_radius: int | None = None,
+        template_batch_size: int | None = None,
+        angle_batch_size: int | None = None,
+        device: torch.device | None = None,
+) -> tuple[list[list[tuple[float, int, int, float]]], list[bool]]:
     """
-    Find the best (score, position, angle) for every template over the full angle sweep.
+    Exhaustive translation + rotation sweep; the top *n_candidates* poses per template.
 
-    One code path serves CPU and CUDA; only the chunk sizes differ, via :func:`plan_chunks`.
+    This is the one implementation of "search every position and angle" in the codebase.
+    :func:`batched_match` (single best pose, the exhaustive matcher and the empirical reference for
+    :func:`~conversion.surface_comparison.cell_registration.coarse.coarse_to_fine_match`) is a thin
+    wrapper around this with ``n_candidates=1``; the coarse stage of the coarse-to-fine search calls
+    it directly with ``n_candidates > 1`` to keep several candidate poses per cell for local
+    refinement. Both consume exactly the same :func:`iter_score_maps` scoring code.
 
-    Angles are processed in order of increasing ``|angle|``. This makes the rotated canvases within
-    a chunk close in size (so less of the batch is padding), and it makes the tie-break meaningful:
-    ``torch.max`` returns the first maximal index, so exact ties resolve to the smallest ``|angle|``,
-    then the smallest ``y``, then the smallest ``x``.
+    Angles are processed in order of increasing ``|angle|`` and in chunks of *angle_batch_size*, so
+    that: (a) rotated canvases within a chunk are close in size (less of the batch is padding), and
+    (b) ties resolve to the smallest ``|angle|``, then the smallest ``y``, then the smallest ``x``
+    (``torch.max``/``argmax`` return the first maximal index, and chunks are visited in that order).
 
     :param image: Padded comparison image, NaN outside the original data.
     :param templates: Reference cell data, all the same shape and free of NaN.
     :param angles: Angle sweep in degrees.
     :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
     :param fill_value: Value substituted for NaN in the comparison image.
+    :param n_candidates: Number of well-separated peaks to keep per template.
+    :param suppression_radius: Half-width, in pixels, of the neighbourhood suppressed around each
+        accepted peak before looking for the next one. Defaults to half the cell's longer side.
+    :param template_batch_size: Templates correlated per chunk. ``None`` picks a device default.
+    :param angle_batch_size: Angles processed per chunk. ``None`` picks a device default.
     :param device: Torch device; defaults to CUDA when available.
-    :param memory_budget: Optional explicit byte budget for chunk planning.
-    :returns: Per template, ``(score, x, y, angle_deg)`` with ``x``/``y`` in rotated-canvas pixels.
+    :returns: ``(candidates, is_usable)``. *candidates* holds, per template, up to *n_candidates*
+        ``(score, x, y, angle_deg)`` tuples ordered by score, with ``x``/``y`` in rotated-canvas
+        pixels; a template with no viable candidate (a constant cell, or every position rejected)
+        gets a single placeholder ``(-1.0, 0, 0, angles[0])`` entry. *is_usable* is ``False`` for
+        exactly those placeholder templates, so callers don't need to pattern-match the placeholder.
     """
     if not templates:
-        return []
+        return [], []
     cell_shape = templates[0].shape
     if any(template.shape != cell_shape for template in templates):
         raise ValueError("All templates must have the same shape.")
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    angle_batch_size = angle_batch_size or default_batch_size(device, DEFAULT_ANGLE_BATCH_SIZE)
+    template_batch_size = template_batch_size or default_batch_size(
+        device, DEFAULT_TEMPLATE_BATCH_SIZE
+    )
+    if suppression_radius is None:
+        suppression_radius = max(cell_shape) // 2
 
     angles = np.asarray(angles, dtype=np.float64)
     sorted_angles = angles[np.lexsort((angles, np.abs(angles)))]
+    default_angle = float(sorted_angles[0])
 
     cell_height, cell_width = cell_shape
     height, width = image.shape
@@ -729,63 +656,123 @@ def batched_match(
         max(shape[0] for shape in shapes),
         max(shape[1] for shape in shapes),
     )
-    fft_height = next_fast_len(canvas_shape[0] + cell_height - 1)
-    fft_width = next_fast_len(canvas_shape[1] + cell_width - 1)
-
-    angles_per_chunk, templates_per_chunk = plan_chunks(
-        device, len(sorted_angles), len(templates), fft_height, fft_width, memory_budget
-    )
-    logger.debug(
-        "Matching %d templates over %d angles on %s (chunks: %d angles x %d templates).",
-        len(templates),
-        len(sorted_angles),
-        device,
-        angles_per_chunk,
-        templates_per_chunk,
-    )
+    out_height = canvas_shape[0] - cell_height + 1
+    out_width = canvas_shape[1] - cell_width + 1
 
     template_tensor, is_non_constant = _prepare_templates(templates, device)
     standardisation = (float(np.nanmean(image)), float(np.nanstd(image)))
+    n_templates = len(templates)
 
-    best: list[tuple[float, int, int, float]] = [
-        (-np.inf, 0, 0, float(sorted_angles[0])) for _ in templates
-    ]
-    for start in range(0, len(sorted_angles), angles_per_chunk):
-        chunk_angles = sorted_angles[start : start + angles_per_chunk]
-        batch, valid = _prepare_rotated_batch(
-            image, chunk_angles, fill_value, canvas_shape
-        )
+    best_score = torch.full((n_templates, out_height, out_width), REJECTED_SCORE, device=device)
+    best_angle_index = torch.zeros(
+        (n_templates, out_height, out_width), dtype=torch.long, device=device
+    )
+
+    logger.debug(
+        "Matching %d templates over %d angles on %s (chunks: %d angles x %d templates).",
+        n_templates,
+        len(sorted_angles),
+        device,
+        angle_batch_size,
+        template_batch_size,
+    )
+
+    for angle_start in range(0, len(sorted_angles), angle_batch_size):
+        chunk_angles = sorted_angles[angle_start: angle_start + angle_batch_size]
+        batch, valid = _prepare_rotated_batch(image, chunk_angles, fill_value, canvas_shape)
         batch_tensor = torch.from_numpy(batch).to(device)
         valid_tensor = torch.from_numpy(valid).to(device)
         try:
-            chunk_results = _match_chunk(
-                batch_tensor,
-                valid_tensor,
-                template_tensor,
-                minimum_fill_fraction,
-                templates_per_chunk,
-                standardisation,
-            )
+            for template_start, scores in iter_score_maps(
+                    batch_tensor,
+                    valid_tensor,
+                    template_tensor,
+                    minimum_fill_fraction,
+                    template_batch_size,
+                    standardisation,
+            ):
+                block = scores.shape[1]
+                chunk_best, chunk_best_within = scores.max(dim=0)
+                del scores
+                dest = slice(template_start, template_start + block)
+                better = chunk_best > best_score[dest]
+                best_score[dest] = torch.where(better, chunk_best, best_score[dest])
+                best_angle_index[dest] = torch.where(
+                    better, angle_start + chunk_best_within, best_angle_index[dest]
+                )
         finally:
             del batch_tensor, valid_tensor
             if device.type == "cuda":
                 torch.cuda.empty_cache()
 
-        for index, (score, x, y, angle_index) in enumerate(chunk_results):
-            if score > best[index][0]:
-                best[index] = (score, x, y, float(chunk_angles[angle_index]))
-
-    for index, (score, x, y, angle) in enumerate(best):
+    results: list[list[tuple[float, int, int, float]]] = []
+    is_usable: list[bool] = []
+    for index in range(n_templates):
         if not is_non_constant[index]:
             # A constant reference cell has no defined correlation.
-            best[index] = (-1.0, 0, 0, float(sorted_angles[0]))
+            results.append([(-1.0, 0, 0, default_angle)])
+            is_usable.append(False)
             continue
-        if score > 1.0 + SCORE_TOLERANCE:
-            logger.warning(
-                "NCC score %.4f exceeds the valid range [-1, 1] for cell %d; clamping.",
-                score,
-                index,
-            )
-        # A cell whose every position was rejected still reports the floor of the valid range.
-        best[index] = (min(max(score, -1.0), 1.0), x, y, angle)
-    return best
+
+        surface = best_score[index].clone()
+        angle_index = best_angle_index[index]
+        found: list[tuple[float, int, int, float]] = []
+        for _ in range(n_candidates):
+            position = int(surface.argmax())
+            y, x = divmod(position, out_width)
+            score = float(surface[y, x])
+            if score <= REJECTED_SCORE:
+                break
+            angle = float(sorted_angles[int(angle_index[y, x])])
+            found.append((_clamp_score(score, index), x, y, angle))
+            surface[
+                max(0, y - suppression_radius): y + suppression_radius + 1,
+                max(0, x - suppression_radius): x + suppression_radius + 1,
+            ] = -np.inf
+        results.append(found or [(-1.0, 0, 0, default_angle)])
+        is_usable.append(bool(found))
+    return results, is_usable
+
+
+def batched_match(
+        image: FloatArray2D,
+        templates: list[np.ndarray],
+        angles: np.ndarray,
+        minimum_fill_fraction: float,
+        fill_value: float,
+        device: torch.device | None = None,
+        template_batch_size: int | None = None,
+        angle_batch_size: int | None = None,
+) -> list[tuple[float, int, int, float]]:
+    """
+    Find the single best (score, position, angle) for every template over the full angle sweep.
+
+    Convenience wrapper around :func:`search_candidates` with ``n_candidates=1``. Useful both as a
+    plain exhaustive matcher (no coarse stage at all - the natural ground truth to check
+    :func:`~conversion.surface_comparison.cell_registration.coarse.coarse_to_fine_match` against on
+    a small image) and as the coarse-to-fine search's own fallback when the images are already
+    smaller than the configured coarse-stage cap, in which case "coarse" and "fine" resolution
+    coincide and the two-stage search would just redo the same work twice.
+
+    :param image: Padded comparison image, NaN outside the original data.
+    :param templates: Reference cell data, all the same shape and free of NaN.
+    :param angles: Angle sweep in degrees.
+    :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
+    :param fill_value: Value substituted for NaN in the comparison image.
+    :param device: Torch device; defaults to CUDA when available.
+    :param template_batch_size: Templates correlated per chunk. ``None`` picks a device default.
+    :param angle_batch_size: Angles processed per chunk. ``None`` picks a device default.
+    :returns: Per template, ``(score, x, y, angle_deg)`` with ``x``/``y`` in rotated-canvas pixels.
+    """
+    candidates, _is_usable = search_candidates(
+        image,
+        templates,
+        angles,
+        minimum_fill_fraction,
+        fill_value,
+        n_candidates=1,
+        template_batch_size=template_batch_size,
+        angle_batch_size=angle_batch_size,
+        device=device,
+    )
+    return [found[0] for found in candidates]
