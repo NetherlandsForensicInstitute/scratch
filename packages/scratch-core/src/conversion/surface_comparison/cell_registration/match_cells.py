@@ -75,8 +75,8 @@ def match_cells(
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
 
     # --- Bring the comparison image to the reference's pixel scale, in one pass. ---
-    scale_match_factor = max(1.0, pixel_size / comparison_image.scale_x)
-    if scale_match_factor > 1.0:
+    scale_match_factor = pixel_size / comparison_image.scale_x
+    if scale_match_factor != 1.0:
         comparison_full_data = resample_array_2d(
             comparison_image.data,
             factors=(scale_match_factor, scale_match_factor),
