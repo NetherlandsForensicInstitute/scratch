@@ -137,7 +137,7 @@ class TestSearchCandidates:
         template = surface[10:20, 10:20].copy()
         canvas = np.full((120, 120), float(np.nanmean(surface)))
         for top, left in [(10, 10), (60, 60), (10, 90)]:
-            canvas[top: top + 10, left: left + 10] = template
+            canvas[top : top + 10, left : left + 10] = template
         return canvas, template
 
     def test_returns_requested_number_of_candidates(self, multi_peak_case):
@@ -179,8 +179,13 @@ class TestSearchCandidates:
 
         angles = np.union1d(np.arange(-8.0, 8.001, 1.0), [5.0])
         candidates, is_usable = search_candidates(
-            padded, [template], angles, 0.9, float(np.nanmean(surface)),
-            n_candidates=1, device=DEVICE,
+            padded,
+            [template],
+            angles,
+            0.9,
+            float(np.nanmean(surface)),
+            n_candidates=1,
+            device=DEVICE,
         )
         assert is_usable == [True]
         assert candidates[0][0][3] == pytest.approx(5.0, abs=1.0)
@@ -201,7 +206,7 @@ class TestSearchCandidates:
         positions = [(x, y) for _, x, y, _ in candidates[0]]
         # With a large suppression radius, candidates must be well separated from each other.
         for i, (x0, y0) in enumerate(positions):
-            for x1, y1 in positions[i + 1:]:
+            for x1, y1 in positions[i + 1 :]:
                 assert max(abs(x0 - x1), abs(y0 - y1)) >= 15
 
     #
@@ -269,7 +274,7 @@ class TestRefine:
         surface = make_surface(200, 180, seed=3)
         padded = pad_image_array(surface, self.CELL, self.CELL)
         top, left = 60 + self.CELL, 70 + self.CELL  # position within the padded image
-        template = padded[top: top + self.CELL, left: left + self.CELL].copy()
+        template = padded[top : top + self.CELL, left : left + self.CELL].copy()
         center = (left + self.CELL / 2, top + self.CELL / 2)
         return padded, template, center
 
@@ -393,7 +398,7 @@ class TestCoarseToFineMatch:
         padded_full = pad_image_array(surface, self.CELL, self.CELL)
         rotated = rotate_image(surface, 2.0, fill_value=np.nan).astype(np.float64)
         templates_full = [
-            rotated[top: top + self.CELL, left: left + self.CELL].copy()
+            rotated[top : top + self.CELL, left : left + self.CELL].copy()
             for top, left in [(120, 130), (200, 210), (260, 140)]
         ]
         assert all(np.isfinite(t).all() for t in templates_full)
@@ -405,12 +410,14 @@ class TestCoarseToFineMatch:
         rotated_coarse = downsample(rotated, cap_factor)
         templates_coarse = [
             rotated_coarse[
-                round(top / cap_factor): round(top / cap_factor) + coarse_cell,
-                round(left / cap_factor): round(left / cap_factor) + coarse_cell,
+                round(top / cap_factor) : round(top / cap_factor) + coarse_cell,
+                round(left / cap_factor) : round(left / cap_factor) + coarse_cell,
             ].copy()
             for top, left in [(120, 130), (200, 210), (260, 140)]
         ]
-        templates_coarse = [np.nan_to_num(t, nan=float(np.nanmean(t))) for t in templates_coarse]
+        templates_coarse = [
+            np.nan_to_num(t, nan=float(np.nanmean(t))) for t in templates_coarse
+        ]
 
         return {
             "image_full": padded_full,
@@ -423,10 +430,18 @@ class TestCoarseToFineMatch:
 
     def test_returns_empty_for_no_templates(self):
         assert (
-                coarse_to_fine_match(
-                    np.zeros((10, 10)), np.zeros((10, 10)), [], [], 1.0, self.ANGLES, 0.9, 0.0, 0.0
-                )
-                == []
+            coarse_to_fine_match(
+                np.zeros((10, 10)),
+                np.zeros((10, 10)),
+                [],
+                [],
+                1.0,
+                self.ANGLES,
+                0.9,
+                0.0,
+                0.0,
+            )
+            == []
         )
 
     def test_rejects_templates_of_differing_shapes(self):

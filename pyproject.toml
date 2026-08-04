@@ -143,4 +143,3 @@ DEP003 = ["mutations"]   # part of scratch-core
 
 [tool.uv.sources]
 scratch-core = { workspace = true }
-
