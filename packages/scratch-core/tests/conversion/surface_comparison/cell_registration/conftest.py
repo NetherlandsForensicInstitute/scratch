@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 from _pytest.fixtures import SubRequest
 
@@ -42,7 +41,6 @@ def identical_match_inputs(
         CELL_TOP_LEFT[1] : CELL_TOP_LEFT[1] + CELL_SIZE,
         CELL_TOP_LEFT[0] : CELL_TOP_LEFT[0] + CELL_SIZE,
     ]
-    nan_fill_value = float(np.nanmean(scan_image.data))  # TODO: Do we want this value?
     grid_cell = make_grid_cell(data=cell_data, top_left=CELL_TOP_LEFT)
     params = identity_params(cell_size_px=CELL_SIZE, pixel_size=PIXEL_SIZE)
     return [grid_cell], scan_image, params
