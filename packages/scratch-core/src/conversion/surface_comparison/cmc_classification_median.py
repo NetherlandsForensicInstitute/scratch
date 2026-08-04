@@ -1,11 +1,11 @@
 import numpy as np
 from scipy.stats import t
 
-from container_models.base import BoolArray1D, FloatArray1D
+from container_models.base import FloatArray1D, BoolArray1D
 from conversion.surface_comparison.models import (
     Cell,
-    ComparisonParams,
     ComparisonResult,
+    ComparisonParams,
 )
 from conversion.surface_comparison.utils import rotate_points
 

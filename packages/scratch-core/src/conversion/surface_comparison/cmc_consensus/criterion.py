@@ -1,6 +1,6 @@
 import numpy as np
 
-from container_models.base import FloatArray1D, FloatArray2D
+from container_models.base import FloatArray2D, FloatArray1D
 from conversion.surface_comparison.cmc_consensus.procrustes import (
     _build_2d_rotation_matrix,
     _get_rotation_component_using_rotation_matrix,

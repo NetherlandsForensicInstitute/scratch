@@ -1,11 +1,12 @@
 import numpy as np
 
-from container_models.base import FloatArray1D, FloatArray2D
-from conversion.surface_comparison.cmc_consensus.models import (
-    ConsensusParameters,
-)
+from container_models.base import FloatArray2D, FloatArray1D
 from conversion.surface_comparison.models import (
     Cell,
+)
+
+from conversion.surface_comparison.cmc_consensus.models import (
+    ConsensusParameters,
 )
 
 

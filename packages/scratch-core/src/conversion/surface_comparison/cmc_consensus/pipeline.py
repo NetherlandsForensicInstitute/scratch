@@ -1,22 +1,22 @@
-from itertools import combinations
-
 import numpy as np
+from itertools import combinations
 
 from conversion.surface_comparison.cmc_consensus.criterion import (
     _get_cell_angle_and_position_distances,
     calculate_criterion,
 )
-from conversion.surface_comparison.cmc_consensus.models import (
-    CMCTranslationRotation,
-)
 from conversion.surface_comparison.cmc_consensus.procrustes import (
-    _get_rotation_component_using_angle_degree,
     find_consensus_parameters,
+    _get_rotation_component_using_angle_degree,
 )
 from conversion.surface_comparison.models import (
     Cell,
-    ComparisonParams,
     ComparisonResult,
+    ComparisonParams,
+)
+
+from conversion.surface_comparison.cmc_consensus.models import (
+    CMCTranslationRotation,
 )
 
 
