@@ -197,10 +197,10 @@ class ComparisonParams(ConfigBaseModel):
             "pixel scale; images already at or below this size are left alone."
         ),
     )
-    downsample_interpolation: Literal["area", "linear", "nearest", "cubic"] = Field(
+    resample_interpolation: Literal["area", "linear", "nearest", "cubic"] = Field(
         default="area",
         description=(
-            "Interpolation used whenever an image is downsampled (pixel-scale alignment and the "
+            "Interpolation used whenever an image is resampled (pixel-scale alignment and the "
             "coarse-stage size cap): one of 'area', 'linear', 'nearest', 'cubic'. 'area' is the "
             "recommended default for shrinking images; the others are exposed to make it easy to "
             "empirically compare algorithms on real data instead of assuming one is better."

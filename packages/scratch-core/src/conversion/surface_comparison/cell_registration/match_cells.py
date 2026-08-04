@@ -80,7 +80,7 @@ def match_cells(
         comparison_full_data = resample_array_2d(
             comparison_image.data,
             factors=(scale_match_factor, scale_match_factor),
-            interpolation=params.downsample_interpolation,
+            interpolation=params.resample_interpolation,
         )
     else:
         comparison_full_data = comparison_image.data
@@ -108,12 +108,12 @@ def match_cells(
         comparison_coarse_data = resample_array_2d(
             comparison_image.data,
             factors=(combined_factor, combined_factor),
-            interpolation=params.downsample_interpolation,
+            interpolation=params.resample_interpolation,
         )
         reference_coarse_data = resample_array_2d(
             reference_image.data,
             factors=(cap_factor, cap_factor),
-            interpolation=params.downsample_interpolation,
+            interpolation=params.resample_interpolation,
         )
         reference_coarse = ScanImage(
             data=reference_coarse_data,
