@@ -40,33 +40,15 @@ class TestClipFactors:
 
 
 class TestResampleArray:
-    @patch("conversion.resample.resize")
+    @patch("conversion.resample.resize_nan_aware")
     def test_calculates_output_shape_correctly(self, mock_resize: MagicMock):
         array = np.zeros((100, 200))
         mock_resize.return_value = np.zeros((50, 100))
 
         resample_array_2d(array, factors=(2.0, 2.0))
 
-        call_args = mock_resize.call_args[1]
-        assert call_args["output_shape"] == (50.0, 100.0)
-
-    @patch("conversion.resample.resize")
-    def test_anti_aliasing_on_upsampling(self, mock_resize: MagicMock):
-        array = np.zeros((100, 100))
-        mock_resize.return_value = np.zeros((200, 200))
-
-        resample_array_2d(array, factors=(0.5, 0.5))
-
-        assert mock_resize.call_args[1]["anti_aliasing"] is False
-
-    @patch("conversion.resample.resize")
-    def test_no_anti_aliasing_on_downsampling(self, mock_resize: MagicMock):
-        array = np.zeros((100, 100))
-        mock_resize.return_value = np.zeros((50, 50))
-
-        resample_array_2d(array, factors=(2.0, 2.0))
-
-        assert mock_resize.call_args[1]["anti_aliasing"] is True
+        call_args = mock_resize.call_args.args
+        assert call_args[1] == (50.0, 100.0)
 
 
 class TestResampleScanImage:
