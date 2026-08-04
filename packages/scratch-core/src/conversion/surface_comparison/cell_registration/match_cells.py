@@ -92,6 +92,7 @@ def match_cells(
         comparison_full_data.shape[0],
         comparison_full_data.shape[1],
     )
+    # Compute the downsampling multiplier derived from the maximum size limit
     cap_factor = max(1.0, largest_dimension / params.max_size)
 
     fill_value_full = float(np.nanmean(comparison_full_data))
