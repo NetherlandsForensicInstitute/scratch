@@ -141,12 +141,6 @@ output = "coverage.xml"
 DEP002 = ["opencv-python"] # import cv2 is not recognized as opencv-python
 DEP003 = ["mutations"]   # part of scratch-core
 
-
-[[tool.uv.index]]
-name = "pytorch-cu126"
-url = "https://download.pytorch.org/whl/cu126"
-explicit = true
-
 [tool.uv.sources]
 scratch-core = { workspace = true }
-torch = { index = "pytorch-cu126" }
+
