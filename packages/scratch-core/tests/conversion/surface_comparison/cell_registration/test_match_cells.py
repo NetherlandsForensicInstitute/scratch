@@ -4,11 +4,12 @@ from skimage.transform import rotate
 
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cell_registration.match_cells import match_cells
-from conversion.surface_comparison.models import GridCell, ComparisonParams
+from conversion.surface_comparison.models import ComparisonParams, GridCell
+
 from .helpers import (
-    make_scan_image,
     identity_params,
     make_grid_cell,
+    make_scan_image,
 )
 
 SCORE_TOLERANCE = 0.05
@@ -27,7 +28,10 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=grid_cells, comparison_image=comparison_image, params=params
+            grid_cells=grid_cells,
+            reference_image=comparison_image,
+            comparison_image=comparison_image,
+            params=params,
         )
 
         # Assert
@@ -42,7 +46,10 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=grid_cells, comparison_image=comparison_image, params=params
+            grid_cells=grid_cells,
+            reference_image=comparison_image,
+            comparison_image=comparison_image,
+            params=params,
         )
 
         # Assert
@@ -57,7 +64,10 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=grid_cells, comparison_image=comparison_image, params=params
+            grid_cells=grid_cells,
+            reference_image=comparison_image,
+            comparison_image=comparison_image,
+            params=params,
         )
 
         # Assert
@@ -72,7 +82,10 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=grid_cells, comparison_image=comparison_image, params=params
+            grid_cells=grid_cells,
+            reference_image=comparison_image,
+            comparison_image=comparison_image,
+            params=params,
         )
 
         # Assert
@@ -85,37 +98,48 @@ class TestMatch:
 
         # Act
         cells = match_cells(
-            grid_cells=[], comparison_image=comparison_image, params=params
+            grid_cells=[],
+            reference_image=comparison_image,
+            comparison_image=comparison_image,
+            params=params,
         )
 
         # Assert
         assert cells == []
 
-    @pytest.mark.parametrize("reduction", [None, 4], ids=["exhaustive", "coarse"])
+    @pytest.mark.parametrize("max_size", [1000, 800], ids=["exhaustive", "coarse"])
     @pytest.mark.parametrize("angle", [0, 60, -40])
     def test_match_cells_recovers_a_large_rotation(
-        self, identical_match_inputs, angle, reduction
+        self, identical_match_inputs, angle, max_size
     ):
         # Arrange: a sweep far wider than production uses, since marks are occasionally
         # presented at a wholly different orientation.
         grid_cells, reference_image, _ = identical_match_inputs
+
+        # order=1 (bilinear) prevents pixelation artifacts during rotation;
+        # resize=True expands canvas to preserve all grid cell features without clipping.
         rotated = rotate(
             reference_image.data,
             angle=angle,
-            order=0,
+            order=1,
             resize=True,
-            cval=np.nan,  # type: ignore[arg-type]  # skimage stub types cval as int
+            cval=np.nan,  # type: ignore[arg-type]
         )
         comparison_image = reference_image.model_copy(update={"data": rotated})
+
+        params = ComparisonParams(
+            search_angle_min=-80,
+            search_angle_max=80,
+            search_angle_step=20,
+            max_size=max_size,
+        )
 
         # Act
         cells = match_cells(
             grid_cells=grid_cells,
+            reference_image=reference_image,
             comparison_image=comparison_image,
-            params=ComparisonParams(
-                search_angle_min=-80, search_angle_max=80, search_angle_step=20
-            ),
-            reduction=reduction,
+            params=params,
         )
 
         # Assert
@@ -123,8 +147,8 @@ class TestMatch:
 
 
 class TestNegativeCorrelation:
-    @pytest.mark.parametrize("reduction", [None, 4], ids=["exhaustive", "coarse"])
-    def test_registration_can_find_negative_correlation(self, reduction):
+    @pytest.mark.parametrize("max_size", [1000, 20], ids=["exhaustive", "coarse"])
+    def test_registration_can_find_negative_correlation(self, max_size):
         # Arrange: a non-periodic surface, so the inverted cell has no spurious positive
         # correlations elsewhere. Negating the cell rather than the comparison keeps the helper
         # usable and gives a bit-identical score map, since Pearson correlation flips sign
@@ -135,19 +159,21 @@ class TestNegativeCorrelation:
         # Large enough that no spurious match can outscore the true inversion.
         cell_data = -comparison_image.data[2:28, 2:38]
         grid_cell = make_grid_cell(data=cell_data)
+
         params = ComparisonParams(
             search_angle_min=0,
             search_angle_max=0,
             search_angle_step=1,
             minimum_fill_fraction=1,
+            max_size=max_size,
         )
 
         # Act
         results = match_cells(
             grid_cells=[grid_cell],
+            reference_image=comparison_image,
             comparison_image=comparison_image,
             params=params,
-            reduction=reduction,
         )
 
         # Assert

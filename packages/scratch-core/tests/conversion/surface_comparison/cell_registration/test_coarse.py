@@ -2,23 +2,24 @@ import numpy as np
 import pytest
 import torch
 
+from conversion.resample import resize_nan_aware
 from conversion.surface_comparison.cell_registration.coarse import (
-    _to_full_resolution,
     _refine,
+    _to_full_resolution,
     coarse_to_fine_match,
 )
 from conversion.surface_comparison.cell_registration.utils import (
-    canvas_to_image,
-    image_to_canvas,
-    rotated_shape,
-    pad_image_array,
+    REJECTED_SCORE,
     _prepare_templates,
     batched_match,
-    search_candidates,
-    REJECTED_SCORE,
+    canvas_to_image,
+    image_to_canvas,
+    pad_image_array,
     rotate_image,
+    rotated_shape,
+    search_candidates,
 )
-from conversion.resample import resize_nan_aware
+
 from .helpers import (
     make_surface,
 )
@@ -209,24 +210,32 @@ class TestSearchCandidates:
             for x1, y1 in positions[i + 1 :]:
                 assert max(abs(x0 - x1), abs(y0 - y1)) >= 15
 
-    #
-    # def test_perfect_anti_correlation_is_not_mistaken_for_rejection(self):
-    #     surface = make_surface(60, 60, seed=2)
-    #     template = surface[10:20, 10:20].copy()
-    #     canvas = surface.copy()
-    #     canvas[10:20, 10:20] = 2 * np.nanmean(template) - template
-    #     padded = pad_image_array(canvas, 20, 20)
-    #
-    #     candidates, is_usable = search_candidates(
-    #         padded, [template], np.array([0.0]), 0.9, float(np.nanmean(padded)),
-    #         n_candidates=1, device=DEVICE,
-    #     )
-    #     assert is_usable == [True]
-    #     score, x, y, angle = candidates[0][0]
-    #     center_x, center_y = canvas_to_image(x, y, template.shape, padded.shape, angle)
-    #     assert center_x == pytest.approx(20 + 15, abs=1.0)
-    #     assert center_y == pytest.approx(20 + 15, abs=1.0)
-    #     assert score == pytest.approx(-1.0, abs=1e-3)
+    def test_perfect_anti_correlation_is_not_mistaken_for_rejection(self):
+        # Arrange: Match template and canvas dimensions so there is only 1 candidate position.
+        surface = make_surface(20, 20, seed=2)
+        template = surface.copy()
+
+        # Invert canvas for perfect anti-correlation (-1.0)
+        canvas = 2 * np.nanmean(template) - template
+
+        # Zero padding ensures argmax cannot choose a misaligned position with higher score
+        padded = pad_image_array(canvas, 0, 0)
+
+        # Act
+        candidates, is_usable = search_candidates(
+            padded,
+            [template],
+            np.array([0.0]),
+            0.9,
+            float(np.nanmean(padded)),
+            n_candidates=1,
+            device=DEVICE,
+        )
+
+        # Assert
+        assert is_usable == [True]
+        score, x, y, angle = candidates[0][0]
+        assert score == pytest.approx(-1.0, abs=1e-3)
 
     def test_handles_each_template_independently(self):
         surface = make_surface(120, 120, seed=6)

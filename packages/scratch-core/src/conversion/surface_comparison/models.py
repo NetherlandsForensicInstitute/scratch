@@ -203,7 +203,7 @@ class ComparisonParams(ConfigBaseModel):
         ),
     )
     n_candidates: int = Field(
-        default=3,
+        default=4,
         ge=1,
         description="Candidate (x, y, angle) poses kept per cell from the coarse stage, for refinement.",
     )
