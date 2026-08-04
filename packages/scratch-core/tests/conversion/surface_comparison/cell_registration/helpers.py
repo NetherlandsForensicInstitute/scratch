@@ -97,10 +97,7 @@ def make_grid_cell(
 ) -> GridCell:
     """Wrap a 2-D array in a :class:`GridCell` with a fresh :class:`GridSearchParams`."""
     return GridCell(
-        top_left=top_left,
-        cell_data=data.copy(),
-        grid_search_params=GridSearchParams(),
-        nan_fill_value=nan_fill_value,
+        top_left=top_left, cell_data=data.copy(), grid_search_params=GridSearchParams()
     )
 
 

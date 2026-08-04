@@ -736,8 +736,8 @@ def search_candidates(
             angle = float(sorted_angles[int(angle_index[y, x])])
             found.append((_clamp_score(score, index), x, y, angle))
             surface[
-                max(0, y - suppression_radius) : y + suppression_radius + 1,
-                max(0, x - suppression_radius) : x + suppression_radius + 1,
+                max(0, y - suppression_radius) : y + suppression_radius + 1,  # type: ignore
+                max(0, x - suppression_radius) : x + suppression_radius + 1,  # type: ignore
             ] = -np.inf
         results.append(found or [(-1.0, 0, 0, default_angle)])
         is_usable.append(bool(found))

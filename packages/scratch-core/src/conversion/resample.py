@@ -164,7 +164,9 @@ def resample_array_2d(
         return np.asarray(resized > 0.5, dtype=array.dtype)  # type: ignore[return-value]
 
     resized = resize_nan_aware(
-        array, (new_height, new_width), interpolation=interpolation
+        array,  # type: ignore
+        (new_height, new_width),
+        interpolation=interpolation,
     )
     return np.asarray(resized, dtype=array.dtype)  # type: ignore[return-value]
 
