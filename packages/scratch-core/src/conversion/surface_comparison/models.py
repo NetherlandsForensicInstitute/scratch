@@ -134,14 +134,18 @@ _CELL_SIZE_BY_MARK_TYPE: dict[MarkImpressionType, tuple[float, float]] = {
 class ComparisonParams(ConfigBaseModel):
     """
     Parameters for the Congruent Matching Cells (CMC) algorithm.
+
     Use :meth:`for_mark_type` to construct an instance with mark-type-appropriate
     defaults (e.g. cell size) rather than constructing directly.
+
     Supported mark types and their default cell sizes:
+
     - ``BREECH_FACE_IMPRESSION``: 450 × 450 μm
     - ``CHAMBER_IMPRESSION``: 125 × 125 μm
     - ``EJECTOR_IMPRESSION``: 125 × 125 μm
     - ``EXTRACTOR_IMPRESSION``: 125 × 125 μm
     - ``FIRING_PIN_IMPRESSION``: 125 × 125 μm
+
     :param cell_size: Nominal cell size [width, height] in meters.
     :param minimum_fill_fraction: Minimum fraction of valid pixels required in a
         reference cell for it to be processed.
