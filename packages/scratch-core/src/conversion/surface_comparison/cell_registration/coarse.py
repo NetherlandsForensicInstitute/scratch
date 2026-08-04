@@ -8,6 +8,7 @@ import torch
 from container_models.base import FloatArray2D
 from conversion.surface_comparison.cell_registration.utils import (
     DEFAULT_FINE_BATCH_SIZE,
+    _prepare_templates,
     batched_match,
     canvas_to_image,
     default_batch_size,
@@ -15,7 +16,6 @@ from conversion.surface_comparison.cell_registration.utils import (
     paired_score_maps,
     rotated_crop,
     search_candidates,
-    _prepare_templates,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,15 +27,15 @@ def _to_full_resolution(coarse_value: float, factor: float) -> float:
 
 
 def _refine(
-        image: FloatArray2D,
-        templates: torch.Tensor,
-        jobs: list[tuple[int, float, float, float]],
-        margin: int,
-        minimum_fill_fraction: float,
-        fill_value: float,
-        standardisation: tuple[float, float],
-        batch_size: int,
-        default_angle: float,
+    image: FloatArray2D,
+    templates: torch.Tensor,
+    jobs: list[tuple[int, float, float, float]],
+    margin: int,
+    minimum_fill_fraction: float,
+    fill_value: float,
+    standardisation: tuple[float, float],
+    batch_size: int,
+    default_angle: float,
 ) -> list[tuple[float, int, int, float]]:
     """
     Score every candidate pose at full resolution, batched across all cells at once.
@@ -67,7 +67,7 @@ def _refine(
     ]
 
     for start in range(0, len(jobs), batch_size):
-        block = jobs[start: start + batch_size]
+        block = jobs[start : start + batch_size]
         crops = np.empty((len(block), 1, crop_height, crop_width), dtype=np.float32)
         validities = np.empty_like(crops)
         origins = []
@@ -100,7 +100,7 @@ def _refine(
         del scores
 
         for position, (value, flat) in enumerate(
-                zip(values.tolist(), positions.tolist())
+            zip(values.tolist(), positions.tolist())
         ):
             index, left, top, angle = origins[position]
             if value > best[index][0]:
@@ -114,22 +114,22 @@ def _refine(
 
 
 def coarse_to_fine_match(
-        image_full: FloatArray2D,
-        image_coarse: FloatArray2D,
-        templates_full: list[np.ndarray],
-        templates_coarse: list[np.ndarray],
-        cap_factor: float,
-        angles: np.ndarray,
-        minimum_fill_fraction: float,
-        fill_value_full: float,
-        fill_value_coarse: float,
-        n_candidates: int = 3,
-        position_margin: int = 5,
-        angle_margin_degrees: float = 5.0,
-        template_batch_size: int | None = None,
-        angle_batch_size: int | None = None,
-        fine_batch_size: int | None = None,
-        device: torch.device | None = None,
+    image_full: FloatArray2D,
+    image_coarse: FloatArray2D,
+    templates_full: list[np.ndarray],
+    templates_coarse: list[np.ndarray],
+    cap_factor: float,
+    angles: np.ndarray,
+    minimum_fill_fraction: float,
+    fill_value_full: float,
+    fill_value_coarse: float,
+    n_candidates: int = 3,
+    position_margin: int = 5,
+    angle_margin_degrees: float = 5.0,
+    template_batch_size: int | None = None,
+    angle_batch_size: int | None = None,
+    fine_batch_size: int | None = None,
+    device: torch.device | None = None,
 ) -> list[tuple[float, int, int, float]]:
     """
     Two-stage search: exhaustive sweep on a downsampled image pair, then local refinement at full
@@ -213,9 +213,7 @@ def coarse_to_fine_match(
 
     jobs: list[tuple[int, float, float, float]] = []
     unusable: list[int] = []
-    trial_offsets = np.arange(
-        -angle_margin_degrees, angle_margin_degrees + 1.0, 1.0
-    )
+    trial_offsets = np.arange(-angle_margin_degrees, angle_margin_degrees + 1.0, 1.0)
     for index in range(len(templates_full)):
         if not is_usable[index]:
             unusable.append(index)
@@ -227,10 +225,13 @@ def coarse_to_fine_match(
             full_x = _to_full_resolution(center_x, cap_factor)
             full_y = _to_full_resolution(center_y, cap_factor)
             jobs.extend(
-                (index, full_x, full_y, float(angle + offset)) for offset in trial_offsets
+                (index, full_x, full_y, float(angle + offset))
+                for offset in trial_offsets
             )
 
-    fine_batch_size = fine_batch_size or default_batch_size(device, DEFAULT_FINE_BATCH_SIZE)
+    fine_batch_size = fine_batch_size or default_batch_size(
+        device, DEFAULT_FINE_BATCH_SIZE
+    )
     fine_tensor, _ = _prepare_templates(templates_full, device)
     results = _refine(
         image_full.astype(np.float32),

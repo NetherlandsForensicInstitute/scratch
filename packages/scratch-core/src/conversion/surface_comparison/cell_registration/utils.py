@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
-from functools import lru_cache
+from functools import cache
 
 import cv2
 import numpy as np
@@ -48,7 +48,9 @@ DEFAULT_TEMPLATE_BATCH_SIZE = {"cuda": 4, "cpu": 1}
 DEFAULT_FINE_BATCH_SIZE = {"cuda": 256, "cpu": 64}
 
 
-def default_batch_size(device: torch.device, sizes: dict[str, int], fallback: int = 1) -> int:
+def default_batch_size(
+    device: torch.device, sizes: dict[str, int], fallback: int = 1
+) -> int:
     """Look up a recommended batch size for *device*, from one of the ``DEFAULT_*`` tables above."""
     return sizes.get(device.type, fallback)
 
@@ -98,7 +100,7 @@ def fill_nan_with_local_mean(array: FloatArray2D) -> FloatArray2D:
 
 
 def pad_image_array(
-        array: FloatArray2D, pad_width: int, pad_height: int, fill_value: float = np.nan
+    array: FloatArray2D, pad_width: int, pad_height: int, fill_value: float = np.nan
 ) -> FloatArray2D:
     """
     Pad a 2D array symmetrically with a constant fill value.
@@ -115,7 +117,7 @@ def pad_image_array(
     height, width = array.shape
     new_shape = height + 2 * pad_height, width + 2 * pad_width
     output = np.full(shape=new_shape, fill_value=fill_value, dtype=array.dtype)
-    output[pad_height: pad_height + height, pad_width: pad_width + width] = array
+    output[pad_height : pad_height + height, pad_width : pad_width + width] = array
     return output
 
 
@@ -144,9 +146,9 @@ def rotated_shape(height: int, width: int, angle_deg: float) -> tuple[int, int]:
 
 
 def rotate_image(
-        image: FloatArray2D,
-        angle_deg: float,
-        fill_value: float = np.nan,
+    image: FloatArray2D,
+    angle_deg: float,
+    fill_value: float = np.nan,
 ) -> FloatArray2D:
     """
     Rotate *image* by *angle_deg* degrees, growing the canvas so no data is clipped.
@@ -187,13 +189,13 @@ def rotate_image(
 
 
 def rotated_crop(
-        image: FloatArray2D,
-        angle_deg: float,
-        left: int,
-        top: int,
-        crop_width: int,
-        crop_height: int,
-        fill_value: float = np.nan,
+    image: FloatArray2D,
+    angle_deg: float,
+    left: int,
+    top: int,
+    crop_width: int,
+    crop_height: int,
+    fill_value: float = np.nan,
 ) -> FloatArray2D:
     """
     Produce a crop of the rotated canvas without rotating the whole image.
@@ -229,11 +231,11 @@ def rotated_crop(
 
 
 def canvas_to_image(
-        x: float,
-        y: float,
-        cell_shape: tuple[int, int],
-        image_shape: tuple[int, int],
-        angle_deg: float,
+    x: float,
+    y: float,
+    cell_shape: tuple[int, int],
+    image_shape: tuple[int, int],
+    angle_deg: float,
 ) -> tuple[float, float]:
     """
     Map a matched window on a rotated canvas back to a cell centre in the unrotated image.
@@ -262,11 +264,11 @@ def canvas_to_image(
 
 
 def image_to_canvas(
-        center_x: float,
-        center_y: float,
-        cell_shape: tuple[int, int],
-        image_shape: tuple[int, int],
-        angle_deg: float,
+    center_x: float,
+    center_y: float,
+    cell_shape: tuple[int, int],
+    image_shape: tuple[int, int],
+    angle_deg: float,
 ) -> tuple[float, float]:
     """
     Map a cell centre in the unrotated image to a window's top-left corner on the rotated canvas.
@@ -298,7 +300,7 @@ def image_to_canvas(
 # --------------------------------------------------------------------------------------
 
 
-@lru_cache(maxsize=None)
+@cache
 def next_fast_len(target: int) -> int:
     """
     Smallest integer ``>= target`` that factors entirely into :data:`_FFT_RADICES`.
@@ -320,10 +322,10 @@ def next_fast_len(target: int) -> int:
 
 
 def box_sum(
-        values: torch.Tensor,
-        window_height: int,
-        window_width: int,
-        accumulate_dtype: torch.dtype = torch.float64,
+    values: torch.Tensor,
+    window_height: int,
+    window_width: int,
+    accumulate_dtype: torch.dtype = torch.float64,
 ) -> torch.Tensor:
     """
     Sum over every window with its **top-left corner** at ``[y, x]``, via a summed-area table.
@@ -345,21 +347,21 @@ def box_sum(
     integral = torch.nn.functional.pad(values.to(accumulate_dtype), (1, 0, 1, 0))
     integral = integral.cumsum_(dim=-1).cumsum_(dim=-2)
     result = (
-            integral[..., window_height:, window_width:]
-            - integral[..., :-window_height, window_width:]
-            - integral[..., window_height:, :-window_width]
-            + integral[..., :-window_height, :-window_width]
+        integral[..., window_height:, window_width:]
+        - integral[..., :-window_height, window_width:]
+        - integral[..., window_height:, :-window_width]
+        + integral[..., :-window_height, :-window_width]
     )
     return result.to(torch.float32)
 
 
 def _correlate_valid(
-        image_fft: torch.Tensor,
-        templates: torch.Tensor,
-        fft_height: int,
-        fft_width: int,
-        out_height: int,
-        out_width: int,
+    image_fft: torch.Tensor,
+    templates: torch.Tensor,
+    fft_height: int,
+    fft_width: int,
+    out_height: int,
+    out_width: int,
 ) -> torch.Tensor:
     """
     Cross-correlate a pre-transformed image batch with a block of templates ("valid" mode).
@@ -389,10 +391,10 @@ def _correlate_valid(
 
 
 def _prepare_rotated_batch(
-        image: FloatArray2D,
-        angles: np.ndarray,
-        fill_value: float,
-        canvas_shape: tuple[int, int],
+    image: FloatArray2D,
+    angles: np.ndarray,
+    fill_value: float,
+    canvas_shape: tuple[int, int],
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Rotate *image* at every angle in *angles* and stack the results into a fixed-size batch.
@@ -427,7 +429,7 @@ def _prepare_rotated_batch(
 
 
 def _prepare_templates(
-        templates: list[np.ndarray], device: torch.device
+    templates: list[np.ndarray], device: torch.device
 ) -> tuple[torch.Tensor, np.ndarray]:
     """
     Stack templates onto *device*, centred and scaled to unit norm.
@@ -448,12 +450,12 @@ def _prepare_templates(
 
 
 def iter_score_maps(
-        batch: torch.Tensor,
-        valid: torch.Tensor,
-        templates: torch.Tensor,
-        minimum_fill_fraction: float,
-        templates_per_chunk: int,
-        standardisation: tuple[float, float],
+    batch: torch.Tensor,
+    valid: torch.Tensor,
+    templates: torch.Tensor,
+    minimum_fill_fraction: float,
+    templates_per_chunk: int,
+    standardisation: tuple[float, float],
 ):
     """
     Yield normalised cross-correlation maps for one batch of rotated images.
@@ -510,7 +512,7 @@ def iter_score_maps(
     del batch
 
     for start in range(0, n_templates, templates_per_chunk):
-        block = templates[start: start + templates_per_chunk]
+        block = templates[start : start + templates_per_chunk]
         scores = _correlate_valid(
             image_fft, block, fft_height, fft_width, out_height, out_width
         )
@@ -519,11 +521,11 @@ def iter_score_maps(
 
 
 def paired_score_maps(
-        batch: torch.Tensor,
-        valid: torch.Tensor,
-        templates: torch.Tensor,
-        minimum_fill_fraction: float,
-        standardisation: tuple[float, float],
+    batch: torch.Tensor,
+    valid: torch.Tensor,
+    templates: torch.Tensor,
+    minimum_fill_fraction: float,
+    standardisation: tuple[float, float],
 ) -> torch.Tensor:
     """
     Correlate each image in *batch* against its own template, pairwise rather than all-against-all.
@@ -555,7 +557,7 @@ def paired_score_maps(
 
     local_sum = box_sum(batch, cell_height, cell_width)
     local_variation = (
-            box_sum(batch * batch, cell_height, cell_width) - local_sum.square() / n_pixels
+        box_sum(batch * batch, cell_height, cell_width) - local_sum.square() / n_pixels
     )
     del local_sum
 
@@ -581,22 +583,24 @@ def _clamp_score(score: float, index: int) -> float:
     """Clamp a score into the valid Pearson range, warning if it overshot by more than tolerance."""
     if score > 1.0 + SCORE_TOLERANCE:
         logger.warning(
-            "NCC score %.4f exceeds the valid range [-1, 1] for cell %d; clamping.", score, index
+            "NCC score %.4f exceeds the valid range [-1, 1] for cell %d; clamping.",
+            score,
+            index,
         )
     return min(max(score, -1.0), 1.0)
 
 
 def search_candidates(
-        image: FloatArray2D,
-        templates: list[np.ndarray],
-        angles: np.ndarray,
-        minimum_fill_fraction: float,
-        fill_value: float,
-        n_candidates: int = 1,
-        suppression_radius: int | None = None,
-        template_batch_size: int | None = None,
-        angle_batch_size: int | None = None,
-        device: torch.device | None = None,
+    image: FloatArray2D,
+    templates: list[np.ndarray],
+    angles: np.ndarray,
+    minimum_fill_fraction: float,
+    fill_value: float,
+    n_candidates: int = 1,
+    suppression_radius: int | None = None,
+    template_batch_size: int | None = None,
+    angle_batch_size: int | None = None,
+    device: torch.device | None = None,
 ) -> tuple[list[list[tuple[float, int, int, float]]], list[bool]]:
     """
     Exhaustive translation + rotation sweep; the top *n_candidates* poses per template.
@@ -638,7 +642,9 @@ def search_candidates(
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    angle_batch_size = angle_batch_size or default_batch_size(device, DEFAULT_ANGLE_BATCH_SIZE)
+    angle_batch_size = angle_batch_size or default_batch_size(
+        device, DEFAULT_ANGLE_BATCH_SIZE
+    )
     template_batch_size = template_batch_size or default_batch_size(
         device, DEFAULT_TEMPLATE_BATCH_SIZE
     )
@@ -663,7 +669,9 @@ def search_candidates(
     standardisation = (float(np.nanmean(image)), float(np.nanstd(image)))
     n_templates = len(templates)
 
-    best_score = torch.full((n_templates, out_height, out_width), REJECTED_SCORE, device=device)
+    best_score = torch.full(
+        (n_templates, out_height, out_width), REJECTED_SCORE, device=device
+    )
     best_angle_index = torch.zeros(
         (n_templates, out_height, out_width), dtype=torch.long, device=device
     )
@@ -678,18 +686,20 @@ def search_candidates(
     )
 
     for angle_start in range(0, len(sorted_angles), angle_batch_size):
-        chunk_angles = sorted_angles[angle_start: angle_start + angle_batch_size]
-        batch, valid = _prepare_rotated_batch(image, chunk_angles, fill_value, canvas_shape)
+        chunk_angles = sorted_angles[angle_start : angle_start + angle_batch_size]
+        batch, valid = _prepare_rotated_batch(
+            image, chunk_angles, fill_value, canvas_shape
+        )
         batch_tensor = torch.from_numpy(batch).to(device)
         valid_tensor = torch.from_numpy(valid).to(device)
         try:
             for template_start, scores in iter_score_maps(
-                    batch_tensor,
-                    valid_tensor,
-                    template_tensor,
-                    minimum_fill_fraction,
-                    template_batch_size,
-                    standardisation,
+                batch_tensor,
+                valid_tensor,
+                template_tensor,
+                minimum_fill_fraction,
+                template_batch_size,
+                standardisation,
             ):
                 block = scores.shape[1]
                 chunk_best, chunk_best_within = scores.max(dim=0)
@@ -726,8 +736,8 @@ def search_candidates(
             angle = float(sorted_angles[int(angle_index[y, x])])
             found.append((_clamp_score(score, index), x, y, angle))
             surface[
-                max(0, y - suppression_radius): y + suppression_radius + 1,
-                max(0, x - suppression_radius): x + suppression_radius + 1,
+                max(0, y - suppression_radius) : y + suppression_radius + 1,
+                max(0, x - suppression_radius) : x + suppression_radius + 1,
             ] = -np.inf
         results.append(found or [(-1.0, 0, 0, default_angle)])
         is_usable.append(bool(found))
@@ -735,14 +745,14 @@ def search_candidates(
 
 
 def batched_match(
-        image: FloatArray2D,
-        templates: list[np.ndarray],
-        angles: np.ndarray,
-        minimum_fill_fraction: float,
-        fill_value: float,
-        device: torch.device | None = None,
-        template_batch_size: int | None = None,
-        angle_batch_size: int | None = None,
+    image: FloatArray2D,
+    templates: list[np.ndarray],
+    angles: np.ndarray,
+    minimum_fill_fraction: float,
+    fill_value: float,
+    device: torch.device | None = None,
+    template_batch_size: int | None = None,
+    angle_batch_size: int | None = None,
 ) -> list[tuple[float, int, int, float]]:
     """
     Find the single best (score, position, angle) for every template over the full angle sweep.

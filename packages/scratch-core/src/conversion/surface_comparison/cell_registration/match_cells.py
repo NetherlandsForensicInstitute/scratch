@@ -19,11 +19,11 @@ from conversion.surface_comparison.models import (
 
 
 def match_cells(
-        grid_cells: list[GridCell],
-        reference_image: ScanImage,
-        comparison_image: ScanImage,
-        params: ComparisonParams,
-        device: "torch.device | None" = None,
+    grid_cells: list[GridCell],
+    reference_image: ScanImage,
+    comparison_image: ScanImage,
+    params: ComparisonParams,
+    device: "torch.device | None" = None,
 ) -> list[Cell]:
     """
     Find the best-matching position and angle for each grid cell in the comparison image.
@@ -69,7 +69,9 @@ def match_cells(
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    pixel_size = reference_image.scale_x  # Assumes isotropic image; the shared output scale.
+    pixel_size = (
+        reference_image.scale_x
+    )  # Assumes isotropic image; the shared output scale.
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
 
     # --- Bring the comparison image to the reference's pixel scale, in one pass. ---
@@ -136,7 +138,9 @@ def match_cells(
 
         fill_value_coarse = float(np.nanmean(comparison_coarse_data))
         comparison_coarse_padded = pad_image_array(
-            comparison_coarse_data, pad_width=coarse_cell_width, pad_height=coarse_cell_height
+            comparison_coarse_data,
+            pad_width=coarse_cell_width,
+            pad_height=coarse_cell_height,
         )
     else:
         # Images already fit within max_size: coarse and fine would search the same resolution, so

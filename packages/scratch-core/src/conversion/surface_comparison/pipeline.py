@@ -13,9 +13,9 @@ from conversion.surface_comparison.models import (
 
 
 def compare_surfaces(
-        reference_mark: ProcessedMark,
-        comparison_mark: ProcessedMark,
-        params: ComparisonParams,
+    reference_mark: ProcessedMark,
+    comparison_mark: ProcessedMark,
+    params: ComparisonParams,
 ) -> ComparisonResult:
     """
     Run the full CMC pipeline to compare two cartridge-case surface marks.

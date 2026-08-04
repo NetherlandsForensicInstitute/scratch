@@ -1,4 +1,4 @@
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 import cv2
 import numpy as np
@@ -27,14 +27,14 @@ NAN_AWARE_VALIDITY_THRESHOLD = 0.5
 
 
 def resample_scan_image_and_mask(
-        scan_image: ScanImage,
-        mask: Optional[BinaryMask] = None,
-        factors: Optional[tuple[float, float]] = None,
-        target_scale: float = 4e-6,
-        only_downsample: bool = True,
-        preserve_aspect_ratio: bool = True,
-        interpolation: str = "area",
-) -> tuple[ScanImage, Optional[BinaryMask]]:
+    scan_image: ScanImage,
+    mask: BinaryMask | None = None,
+    factors: tuple[float, float] | None = None,
+    target_scale: float = 4e-6,
+    only_downsample: bool = True,
+    preserve_aspect_ratio: bool = True,
+    interpolation: str = "area",
+) -> tuple[ScanImage, BinaryMask | None]:
     """
     Resample the input image and optionally its corresponding mask.
 
@@ -58,14 +58,16 @@ def resample_scan_image_and_mask(
         factors = _clip_factors(factors, preserve_aspect_ratio)
     if np.allclose(factors, 1.0):
         return scan_image, mask
-    image = _resample_scan_image(scan_image, factors=factors, interpolation=interpolation)
+    image = _resample_scan_image(
+        scan_image, factors=factors, interpolation=interpolation
+    )
     if mask is not None:
         mask = resample_array_2d(mask, factors=factors, interpolation=interpolation)
     return image, mask
 
 
 def resample_mark(
-        mark: Mark, only_downsample: bool = False, interpolation: str = "area"
+    mark: Mark, only_downsample: bool = False, interpolation: str = "area"
 ) -> Mark:
     """Resample a Mark so that the scale matches the scale specific for the mark type.
 
@@ -84,7 +86,7 @@ def resample_mark(
 
 
 def _resample_scan_image(
-        image: ScanImage, factors: tuple[float, float], interpolation: str = "area"
+    image: ScanImage, factors: tuple[float, float], interpolation: str = "area"
 ) -> ScanImage:
     """
     Resample the ScanImage object using the specified resampling factors.
@@ -94,7 +96,9 @@ def _resample_scan_image(
     :param interpolation: One of "area", "linear", "nearest", "cubic".
     :returns: The resampled ScanImage.
     """
-    image_array_resampled = resample_array_2d(image.data, factors=factors, interpolation=interpolation)
+    image_array_resampled = resample_array_2d(
+        image.data, factors=factors, interpolation=interpolation
+    )
     return ScanImage(
         data=image_array_resampled,
         scale_x=image.scale_x * factors[0],
@@ -103,8 +107,8 @@ def _resample_scan_image(
 
 
 def resample_array_1d(
-        data: FloatArray1D,
-        factor: float,
+    data: FloatArray1D,
+    factor: float,
 ) -> FloatArray1D:
     """
     Resample a 1D array with anti-aliasing.
@@ -128,9 +132,9 @@ def resample_array_1d(
 
 
 def resample_array_2d(
-        array: T,
-        factors: tuple[float, float],
-        interpolation: str = "area",
+    array: T,
+    factors: tuple[float, float],
+    interpolation: str = "area",
 ) -> T:
     """
     Resample a 2D array using the specified resampling factors, propagating NaN correctly.
@@ -159,14 +163,16 @@ def resample_array_2d(
         )
         return np.asarray(resized > 0.5, dtype=array.dtype)  # type: ignore[return-value]
 
-    resized = resize_nan_aware(array, (new_height, new_width), interpolation=interpolation)
+    resized = resize_nan_aware(
+        array, (new_height, new_width), interpolation=interpolation
+    )
     return np.asarray(resized, dtype=array.dtype)  # type: ignore[return-value]
 
 
 def resize_nan_aware(
-        array: FloatArray2D,
-        target_shape: tuple[int, int],
-        interpolation: str = "area",
+    array: FloatArray2D,
+    target_shape: tuple[int, int],
+    interpolation: str = "area",
 ) -> FloatArray2D:
     """
     Resize a 2D float array to *target_shape*, correctly propagating missing (NaN) data.
@@ -211,8 +217,8 @@ def resize_nan_aware(
 
 
 def get_scaling_factors(
-        scales: tuple[float, float],
-        target_scale: float,
+    scales: tuple[float, float],
+    target_scale: float,
 ) -> tuple[float, float]:
     """
     Calculate the multipliers for a target scale.
@@ -226,8 +232,8 @@ def get_scaling_factors(
 
 
 def _clip_factors(
-        factors: tuple[float, float],
-        preserve_aspect_ratio: bool,
+    factors: tuple[float, float],
+    preserve_aspect_ratio: bool,
 ) -> tuple[float, float]:
     """Clip the scaling factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
     if preserve_aspect_ratio:

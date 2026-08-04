@@ -1,9 +1,10 @@
-from functools import cached_property
-from typing import Any, Literal
-import numpy as np
-from pydantic import Field, field_validator, PositiveFloat
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cached_property
+from typing import Any, Literal
+
+import numpy as np
+from pydantic import Field, PositiveFloat, field_validator
 from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
@@ -36,8 +37,10 @@ class Cell(ConfigBaseModel):
     @classmethod
     def check_upper_bound_with_tol(cls, value: float | None):
         tol = 1e-6
-        if value is None: return value
-        if value > 1.0 + tol: raise ValueError(f"value must be ≤ 1.0 (+{tol} tolerance)")
+        if value is None:
+            return value
+        if value > 1.0 + tol:
+            raise ValueError(f"value must be ≤ 1.0 (+{tol} tolerance)")
         return min(value, 1.0)
 
     @field_validator("angle_deg", mode="before")
@@ -60,18 +63,23 @@ class ComparisonResult:
     estimated_translation: tuple[float, float]
 
     @property
-    def cell_count(self) -> int: return len(self.cells)
+    def cell_count(self) -> int:
+        return len(self.cells)
 
     @property
-    def cmc_count(self) -> int: return sum(c.is_congruent for c in self.cells)
+    def cmc_count(self) -> int:
+        return sum(c.is_congruent for c in self.cells)
 
     @property
-    def cmc_fraction(self) -> float: return self.cmc_count / self.cell_count
+    def cmc_fraction(self) -> float:
+        return self.cmc_count / self.cell_count
 
     @property
     def cmc_area_fraction(self) -> float:
         total_area = sum(cell.fill_fraction_reference for cell in self.cells)
-        cmc_area = sum(cell.fill_fraction_reference for cell in self.cells if cell.is_congruent)
+        cmc_area = sum(
+            cell.fill_fraction_reference for cell in self.cells if cell.is_congruent
+        )
         return cmc_area / total_area
 
 
@@ -88,9 +96,13 @@ class ComparisonParams(ConfigBaseModel):
     cell_size: tuple[PositiveFloat, PositiveFloat] = (4.5e-4, 4.5e-4)
 
     @classmethod
-    def for_mark_type(cls, mark_type: MarkImpressionType, **kwargs: Any) -> "ComparisonParams":
+    def for_mark_type(
+        cls, mark_type: MarkImpressionType, **kwargs: Any
+    ) -> "ComparisonParams":
         if mark_type not in _CELL_SIZE_BY_MARK_TYPE:
-            raise ValueError(f"No default cell size registered for mark type: {mark_type!r}")
+            raise ValueError(
+                f"No default cell size registered for mark type: {mark_type!r}"
+            )
         return cls(cell_size=_CELL_SIZE_BY_MARK_TYPE[mark_type], **kwargs)
 
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
@@ -161,7 +173,9 @@ class GridSearchParams:
     angle: float = 0.0
     score: float = float("-inf")
 
-    def update(self, center_x: float, center_y: float, angle: float, score: float) -> None:
+    def update(
+        self, center_x: float, center_y: float, angle: float, score: float
+    ) -> None:
         self.center_x = center_x
         self.center_y = center_y
         self.angle = angle
@@ -175,10 +189,12 @@ class GridCell:
     grid_search_params: GridSearchParams
 
     @property
-    def width(self) -> int: return self.cell_data.shape[1]
+    def width(self) -> int:
+        return self.cell_data.shape[1]
 
     @property
-    def height(self) -> int: return self.cell_data.shape[0]
+    def height(self) -> int:
+        return self.cell_data.shape[0]
 
     @property
     def center(self) -> tuple[float, float]:
