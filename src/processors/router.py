@@ -1,10 +1,11 @@
 from http import HTTPStatus
 
+from conversion.data_formats import MarkImpressionType
 from conversion.export.mark import load_mark_from_path, save_mark
 from conversion.export.profile import load_profile_from_path
-from conversion.surface_comparison.models import ProcessedMark
+from conversion.surface_comparison.models import ComparisonParams, ProcessedMark
 from conversion.surface_comparison.pipeline import compare_surfaces
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 from loguru import logger
 
@@ -67,7 +68,7 @@ async def processor_root() -> RedirectResponse:
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "mark file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data or comparison failed"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data, mark type mismatch, or comparison failed"},
     },
 )
 async def calculate_score_impression(impression_params: CalculateScoreImpression) -> ComparisonResponseImpression:
@@ -83,10 +84,33 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     mark_comp_processed = ProcessedMark(mark_comp, mark_comp_raw)
     logger.debug("marks loaded")
 
+    if mark_ref.mark_type != mark_comp.mark_type:
+        message = (
+            f"Mark type mismatch: reference mark has type {mark_ref.mark_type}, "
+            f"while comparison mark has type {mark_comp.mark_type}"
+        )
+        logger.error(message)
+        raise HTTPException(HTTPStatus.UNPROCESSABLE_ENTITY, message)
+    if not isinstance(mark_ref.mark_type, MarkImpressionType):
+        message = f"Mark type mismatch: expected a MarkImpressionType but got {mark_ref.mark_type}"
+        logger.error(message)
+        raise HTTPException(HTTPStatus.UNPROCESSABLE_ENTITY, message)
+
+    # Update cell size when explicitly passed, or use default value based on mark type
+    comparison_params = ComparisonParams.for_mark_type(
+        mark_type=mark_ref.mark_type, **impression_params.comparison_params.model_dump(exclude={"cell_size"})
+    )
+    if comparison_params.cell_size != impression_params.comparison_params.cell_size:
+        logger.warning(
+            f"Warning: cell size ({impression_params.comparison_params.cell_size}) is different "
+            f"than default value {comparison_params.cell_size} for {mark_ref.mark_type}"
+        )
+        comparison_params.cell_size = impression_params.comparison_params.cell_size
+
     cmc_result = compare_surfaces(
         reference_mark=mark_ref_processed,
         comparison_mark=mark_comp_processed,
-        params=impression_params.comparison_params,
+        params=comparison_params,
     )
     logger.debug("CMC is calculated")
 

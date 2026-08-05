@@ -27,7 +27,7 @@ def _dummy_metadata() -> MarkMetadata:
 
 def _default_comparison_params() -> ComparisonParams:
     return ComparisonParams(
-        cell_size=(50e-6, 50e-6),
+        cell_size=(5e-5, 5e-5),
         search_angle_min=-5.0,
         search_angle_max=5.0,
         search_angle_step=5.0,
