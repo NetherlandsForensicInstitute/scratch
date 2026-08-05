@@ -113,9 +113,13 @@ def _striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
 
 
 def _impression_mark(data: np.ndarray) -> Mark:
-    """Create an impression mark from 2D surface data."""
+    """Create an impression mark from 2D surface data.
+
+    Uses scale_x=1e-5 so that the default BREECH_FACE_IMPRESSION cell size
+    (450 µm) maps to ~45 pixels, fitting in a 100x100 image.
+    """
     return Mark(
-        scan_image=ScanImage(data=data, scale_x=micro, scale_y=micro),
+        scan_image=ScanImage(data=data, scale_x=1e-5, scale_y=1e-5),
         mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
     )
 

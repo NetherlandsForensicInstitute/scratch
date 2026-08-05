@@ -29,7 +29,6 @@ def _dummy_metadata() -> MarkMetadata:
 
 def _default_comparison_params() -> ComparisonParams:
     return ComparisonParams(
-        cell_size=(5e-5, 5e-5),
         search_angle_min=-5.0,
         search_angle_max=5.0,
         search_angle_step=5.0,
@@ -247,25 +246,6 @@ class TestMarkImpressionExceptionHandlers:
             )
 
         assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
-
-    def test_warning_logged_when_cell_size_differs_from_default(
-        self, client: TestClient, impression_mark_dirs: tuple[Path, Path], caplog
-    ) -> None:
-        """A warning is logged when the provided cell size differs from the mark-type default."""
-        mark_dir_ref, mark_dir_comp = impression_mark_dirs
-        # Default cell size for BREECH_FACE_IMPRESSION is (4.5e-4, 4.5e-4); (5e-5, 5e-5) triggers a warning
-        json_data = CalculateScoreImpression(
-            mark_dir_ref=mark_dir_ref,
-            mark_dir_comp=mark_dir_comp,
-            comparison_params=_default_comparison_params(),
-            metadata_reference=_dummy_metadata(),
-            metadata_compared=_dummy_metadata(),
-        ).model_dump(mode="json")
-
-        response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
-
-        assert response.status_code == HTTPStatus.OK, response.json()
-        assert any("cell size" in msg.lower() and "different" in msg.lower() for msg in caplog.messages)
 
     def test_mark_type_mismatch_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
         """422 is returned when reference and comparison marks have different mark types."""

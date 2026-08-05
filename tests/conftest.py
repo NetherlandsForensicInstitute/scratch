@@ -98,11 +98,13 @@ def mask_raw(mask: BinaryMask) -> bytes:
 
 @pytest.fixture
 def dummy_mark() -> Mark:
+    # Use scale_x=1e-5 so that the default BREECH_FACE_IMPRESSION cell size
+    # (450 µm) maps to ~45 pixels, fitting in a 50x50 image.
     return Mark(
         scan_image=ScanImage(
             data=np.random.default_rng(42).random((50, 50)).astype(np.float64),
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=1e-5,
+            scale_y=1e-5,
         ),
         mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
     )

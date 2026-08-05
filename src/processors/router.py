@@ -3,7 +3,7 @@ from http import HTTPStatus
 from conversion.data_formats import MarkImpressionType
 from conversion.export.mark import load_mark_from_path, save_mark
 from conversion.export.profile import load_profile_from_path
-from conversion.surface_comparison.models import ComparisonParams, ProcessedMark
+from conversion.surface_comparison.models import ProcessedMark
 from conversion.surface_comparison.pipeline import compare_surfaces
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
@@ -96,21 +96,10 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
         logger.error(message)
         raise HTTPException(HTTPStatus.UNPROCESSABLE_ENTITY, message)
 
-    # Update cell size when explicitly passed, or use default value based on mark type
-    comparison_params = ComparisonParams.for_mark_type(
-        mark_type=mark_ref.mark_type, **impression_params.comparison_params.model_dump(exclude={"cell_size"})
-    )
-    if comparison_params.cell_size != impression_params.comparison_params.cell_size:
-        logger.warning(
-            f"Warning: cell size ({impression_params.comparison_params.cell_size}) is different "
-            f"than default value {comparison_params.cell_size} for {mark_ref.mark_type}"
-        )
-        comparison_params.cell_size = impression_params.comparison_params.cell_size
-
     cmc_result = compare_surfaces(
         reference_mark=mark_ref_processed,
         comparison_mark=mark_comp_processed,
-        params=comparison_params,
+        params=impression_params.comparison_params,
     )
     logger.debug("CMC is calculated")
 

@@ -12,6 +12,7 @@ from conversion.surface_comparison.cmc_classification_median import (
 )
 from conversion.surface_comparison.grid import generate_grid
 from conversion.surface_comparison.models import (
+    _CELL_SIZE_BY_MARK_TYPE,
     ComparisonParams,
     ComparisonResult,
     ProcessedMark,
@@ -64,9 +65,11 @@ def compare_surfaces(
 
     # Step 2: Generate grid cells
     logger.debug("starting grid generation")
+    mark_type = reference_mark.filtered_mark.mark_type
+    cell_size = _CELL_SIZE_BY_MARK_TYPE[mark_type]
     grid_cells = generate_grid(
         scan_image=reference_image,
-        cell_size=params.cell_size,
+        cell_size=cell_size,
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
 
