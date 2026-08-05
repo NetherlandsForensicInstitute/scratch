@@ -119,12 +119,14 @@ def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
     processed_comp = str(entry.mark_dir_comp)
 
     if isinstance(entry.mark_type, MarkImpressionType):
+        # Build params with default values; cell_size is derived from mark_type at runtime
+        params = ComparisonParams().model_dump()
         return {
             "mark_dir_ref": processed_ref,
             "mark_dir_comp": processed_comp,
             "metadata_reference": _extract_metadata(entry.mark_dir_ref),
             "metadata_compared": _extract_metadata(entry.mark_dir_comp),
-            "comparison_params": ComparisonParams.for_mark_type(entry.mark_type).model_dump(),
+            "comparison_params": params,
         }
     return {
         "mark_dir_ref": processed_ref,

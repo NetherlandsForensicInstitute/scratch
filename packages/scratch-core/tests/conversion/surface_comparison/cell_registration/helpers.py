@@ -85,17 +85,8 @@ def make_grid_cell(
     )
 
 
-def identity_params(
-    cell_size_px: int = 0,
-    pixel_size: float = 1e-5,
-) -> ComparisonParams:
-    """
-    Return :class:`ComparisonParams` configured for a zero-angle identity test.
-
-    :param cell_size_px: Unused (kept for backward compatibility); cell size is
-        now derived from mark type at pipeline runtime.
-    :param pixel_size: Unused (kept for backward compatibility).
-    """
+def identity_params() -> ComparisonParams:
+    """Return :class:`ComparisonParams` configured for a zero-angle identity test."""
     return ComparisonParams(
         minimum_fill_fraction=0.5,
         correlation_threshold=0.5,
