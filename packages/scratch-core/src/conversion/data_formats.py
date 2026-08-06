@@ -39,6 +39,10 @@ class MarkType(StrEnum):
     def scale(self) -> float:
         return 1.5e-6
 
+    @property
+    def cell_size(self) -> tuple[float, float]:
+        return 1.25e-4, 1.25e-4
+
 
 class MarkImpressionType(MarkType):
     # Impression marks
@@ -53,6 +57,12 @@ class MarkImpressionType(MarkType):
         if self == MarkImpressionType.BREECH_FACE_IMPRESSION:
             return 3.5e-6
         return 1.5e-6
+
+    @property
+    def cell_size(self) -> tuple[float, float]:
+        if self == MarkImpressionType.BREECH_FACE_IMPRESSION:
+            return 4.5e-4, 4.5e-4
+        return 1.25e-4, 1.25e-4
 
 
 class MarkStriationType(MarkType):

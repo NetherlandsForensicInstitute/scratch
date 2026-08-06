@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
-from conversion.data_formats import Mark, MarkImpressionType, MarkType
+from conversion.data_formats import Mark
 
 
 @dataclass(frozen=True)
@@ -117,32 +117,11 @@ class ComparisonResult:
         return cmc_area / total_area
 
 
-_CELL_SIZE_BY_MARK_TYPE: dict[MarkType, tuple[float, float]] = {
-    MarkImpressionType.BREECH_FACE_IMPRESSION: (4.5e-4, 4.5e-4),
-    MarkImpressionType.CHAMBER_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkImpressionType.EJECTOR_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkImpressionType.EXTRACTOR_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkImpressionType.FIRING_PIN_IMPRESSION: (1.25e-4, 1.25e-4),
-}
-
-
 class ComparisonParams(ConfigBaseModel):
     """
     Parameters for the Congruent Matching Cells (CMC) algorithm.
 
-    Cell size is not a configurable parameter; it is derived from the mark type
-    using :data:`_CELL_SIZE_BY_MARK_TYPE` at pipeline runtime.
-
-    Supported mark types and their cell sizes:
-
-    - ``BREECH_FACE_IMPRESSION``: 450 × 450 μm
-    - ``CHAMBER_IMPRESSION``: 125 × 125 μm
-    - ``EJECTOR_IMPRESSION``: 125 × 125 μm
-    - ``EXTRACTOR_IMPRESSION``: 125 × 125 μm
-    - ``FIRING_PIN_IMPRESSION``: 125 × 125 μm
-
-    :param minimum_fill_fraction: Minimum fraction of valid pixels required in a
-        reference cell for it to be processed.
+    :param minimum_fill_fraction: Minimum fraction of valid pixels required in a reference cell for it to be processed.
     :param correlation_threshold: Minimum per-cell ACCF score for CMC classification.
     :param angle_deviation_threshold: Maximum absolute angular deviation from consensus for CMC (degrees).
     :param position_threshold: Maximum positional deviation from consensus for CMC (m).
