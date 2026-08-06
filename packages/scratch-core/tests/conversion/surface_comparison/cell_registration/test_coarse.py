@@ -91,7 +91,7 @@ class TestMatch:
     def test_match_cells_empty_input_returns_empty_list(self):
         # Arrange
         comparison_image = make_scan_image(height=IMAGE_HEIGHT, width=IMAGE_WIDTH)
-        params = identity_params(cell_size_px=CELL_SIZE)
+        params = identity_params()
 
         # Act
         cells = match_cells(

@@ -28,8 +28,10 @@ from .cell_registration.helpers import plot_cell_registration_results
 
 @pytest.fixture(scope="module")
 def scan_image() -> ScanImage:
+    # Use a scale where the default BREECH_FACE_IMPRESSION cell size (450 µm) maps to ~45 pixels
+    # 4.5e-4 m / 1e-5 m/pixel = 45 pixels
     return ScanImage(
-        data=np.zeros(shape=(100, 100), dtype=np.float64), scale_x=1, scale_y=1
+        data=np.zeros(shape=(100, 100), dtype=np.float64), scale_x=1e-5, scale_y=1e-5
     )
 
 
@@ -43,7 +45,7 @@ def mark(scan_image: ScanImage) -> Mark:
 
 @pytest.fixture(scope="module")
 def params() -> ComparisonParams:
-    return ComparisonParams(cell_size=(20, 20))
+    return ComparisonParams()
 
 
 @pytest.fixture(scope="module")
@@ -75,9 +77,10 @@ def test_coarse_registration_runs(
 
 
 def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
+    # cell_size in meters; with scale_x=1e-5, (2e-4, 2e-4) m = 20 pixels
     cells = generate_grid(
         scan_image=scan_image,
-        cell_size=params.cell_size,
+        cell_size=(2e-4, 2e-4),
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
     assert cells
@@ -116,7 +119,6 @@ def test_coarse_registration_finds_angle(
         scale_y=scale,
     )
     params = ComparisonParams(
-        cell_size=(cell_size[0] * scale, cell_size[1] * scale),
         search_angle_step=30,
         minimum_fill_fraction=0.5,
     )
@@ -132,7 +134,7 @@ def test_coarse_registration_finds_angle(
     # Act
     grid_cells = generate_grid(
         scan_image=reference_image,
-        cell_size=params.cell_size,
+        cell_size=(cell_size[0] * scale, cell_size[1] * scale),
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
     cells = coarse_registration(

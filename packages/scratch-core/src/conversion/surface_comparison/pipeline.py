@@ -64,9 +64,10 @@ def compare_surfaces(
 
     # Step 2: Generate grid cells
     logger.debug("starting grid generation")
+    mark_type = reference_mark.filtered_mark.mark_type
     grid_cells = generate_grid(
         scan_image=reference_image,
-        cell_size=params.cell_size,
+        cell_size=mark_type.cell_size,
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
 
