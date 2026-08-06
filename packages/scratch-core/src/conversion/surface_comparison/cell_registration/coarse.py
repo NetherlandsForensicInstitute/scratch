@@ -5,7 +5,7 @@ import logging
 import cv2
 import numpy as np
 import torch
-
+from loguru import logger
 from container_models.base import FloatArray2D
 from conversion.surface_comparison.cell_registration.utils import (
     REJECTED_SCORE,
@@ -20,7 +20,6 @@ from conversion.surface_comparison.cell_registration.utils import (
     batched_match,
 )
 
-logger = logging.getLogger(__name__)
 
 DEFAULT_REDUCTION = 6
 DEFAULT_N_CANDIDATES = 3
@@ -288,7 +287,9 @@ def coarse_to_fine_match(
     default_angle = float(sorted_angles[0])
 
     # coarse stage: find candidate locations
+    logger.debug(f"before reduction {image.shape}")
     coarse_image = downsample(image, reduction)
+    logger.debug(f"after reduction {coarse_image.shape}")
     coarse_templates = [downsample(template, reduction) for template in templates]
     coarse_shape = coarse_templates[0].shape
     if min(coarse_shape) < _MIN_COARSE_CELL:

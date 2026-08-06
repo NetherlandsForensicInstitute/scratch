@@ -66,8 +66,13 @@ def compare_surfaces(
 
     # Step 3: Registration
     logger.debug("starting cell registration")
+    logger.debug(f"number of cells {len(grid_cells)}")
+    logger.debug(f"cell width {grid_cells[0].width}", )
+    logger.debug(f"cell height {grid_cells[0].height}",)
+    logger.debug(f"comp image shape {comparison_image.data.shape}", )
+    logger.debug(f"reduction {params.registration_reduction}", )
     cells = match_cells(
-        grid_cells=grid_cells, comparison_image=comparison_image, params=params
+        grid_cells=grid_cells, comparison_image=comparison_image, params=params, reduction=params.registration_reduction
     )
 
     # Step 4: CMC classification
