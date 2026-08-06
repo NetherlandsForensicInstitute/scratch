@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
+from textwrap import dedent
 from typing import Any, Literal
 
 import numpy as np
@@ -224,12 +225,12 @@ class ComparisonParams(ConfigBaseModel):
 
     # --- Fine stage: local search around each coarse candidate, on the original-resolution images ---
     fine_n_pixels: int = Field(
-        default=5,
+        default=15,
         ge=0,
         description="Fine-stage translation margin: search ±N pixels around each candidate's position.",
     )
     fine_m_degrees: float = Field(
-        default=5.0,
+        default=15.0,
         ge=0.0,
         description="Fine-stage angle margin: search ±M degrees, in 1-degree steps, around each candidate's angle.",
     )
@@ -237,6 +238,26 @@ class ComparisonParams(ConfigBaseModel):
         default=None,
         ge=1,
         description="Refinement jobs (candidate pose x trial angle) processed per chunk. None picks a device-based default.",
+    )
+
+    # --- Template NaN fill strategy ---
+    template_nan_fill_strategy: Literal["local_mean", "global_mean"] = Field(
+        default="local_mean",
+        description=dedent("""
+            Strategy for filling NaN pixels in reference templates before correlation.
+
+            Normalized cross-correlation subtracts each template's mean (zero-mean normalization),
+            so the choice of fill value determines whether missing pixels contribute to the score:
+
+            - local_mean: fill with each cell's own valid-pixel mean. After mean subtraction,
+              filled pixels become exactly zero and contribute nothing to correlation, so missing
+              pixels are treated as no information rather than real surface data.
+
+            - global_mean: fill with the reference image's global mean (computed at runtime).
+              After mean subtraction, filled pixels retain a non-zero value and contribute to the
+              correlation. This can bias results because missing data is treated as real surface
+              information with a specific intensity, potentially inflating scores.
+            """),
     )
 
 
@@ -278,11 +299,14 @@ class GridCell:
     :param top_left: Tuple containing the top-left pixel coordinates (x, y) corresponding to the reference image.
     :param cell_data: 2D array containing the sliced image data from the reference image.
     :param grid_search_params: An instance of `GridSearchParams` for keeping track of intermediate search results.
+    :param nan_fill_value: Optional fill value for NaN pixels. When provided, NaN are replaced with
+        this value; when None, each cell's own valid-pixel mean is used.
     """
 
     top_left: tuple[int, int]
     cell_data: FloatArray2D
     grid_search_params: GridSearchParams
+    nan_fill_value: float | None = None
 
     @property
     def width(self) -> int:
@@ -303,16 +327,16 @@ class GridCell:
     @cached_property
     def cell_data_filled(self) -> FloatArray2D:
         """
-        Cell data with NaNs filled by this cell's *own* valid-pixel mean, not a scene-wide value.
+        Cell data with NaNs filled, either with an explicit value or the cell's own mean.
 
-        The registration search centers every template on its own mean before correlating (see
-        ``_prepare_templates`` in ``cell_registration_utils.py``). Filling with the cell's own mean
-        means every originally-missing pixel becomes exactly zero once centered, so it contributes
-        nothing to the correlation sum, the template's variance, or its norm: a missing pixel is
-        treated as "no information", rather than as a real, flat patch of surface. Filling with an
-        unrelated global value (e.g. the whole reference image's mean) does not have this property
-        and biases cells with a lower fill fraction.
+        When ``nan_fill_value`` is provided, NaN pixels are replaced with that value (matching the
+        main branch's behaviour of using the reference image's global mean). When None (default),
+        each cell's own valid-pixel mean is used: after template centering, filled pixels become
+        exactly zero and contribute nothing to correlation, so missing pixels are treated as
+        "no information" rather than as real surface data.
         """
+        if self.nan_fill_value is not None:
+            return np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
         local_mean = np.nanmean(self.cell_data)
         fill_value = float(local_mean) if np.isfinite(local_mean) else 0.0
         return np.nan_to_num(self.cell_data, nan=fill_value, copy=True)

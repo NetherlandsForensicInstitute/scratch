@@ -1,6 +1,6 @@
 from itertools import product
 from typing import Callable
-
+from conversion.surface_comparison.grid import generate_grid
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType
 from conversion.surface_comparison.cell_registration.match_cells import match_cells
@@ -10,7 +10,7 @@ from conversion.surface_comparison.cmc_consensus.pipeline import (
 from conversion.surface_comparison.cmc_classification_median import (
     classify_congruent_cells_median,
 )
-from conversion.surface_comparison.grid import GridCell, generate_grid
+from conversion.surface_comparison.grid import GridCell
 from conversion.surface_comparison.models import (
     ComparisonParams,
     GridSearchParams,
@@ -61,6 +61,87 @@ def test_compare_surfaces_runs(mark: Mark, params: ComparisonParams):
         reference_mark=processed_mark, comparison_mark=processed_mark, params=params
     )
     assert results
+
+
+def test_template_nan_fill_strategy_local_mean():
+    """Verify local_mean strategy fills NaNs with each cell's own mean."""
+    # Arrange
+    scale = 1e-6
+    rng = np.random.default_rng(seed=42)
+    # Create reference image with NaNs
+    data = rng.uniform(0.1, 0.9, size=(100, 100)) * scale
+    data[10:30, 10:30] = np.nan  # block of NaNs in top-left region
+    data[60:80, 60:80] = np.nan  # block of NaNs in bottom-right region
+    reference_image = ScanImage(data=data, scale_x=scale, scale_y=scale)
+    params = ComparisonParams(
+        cell_size=(20 * scale, 20 * scale),
+        template_nan_fill_strategy="local_mean",
+        minimum_fill_fraction=0.5,
+    )
+
+    # Act
+    # With local_mean, nan_fill_value should be None
+    grid_cells = generate_grid(
+        scan_image=reference_image,
+        cell_size=params.cell_size,
+        minimum_fill_fraction=params.minimum_fill_fraction,
+        nan_fill_value=None,
+    )
+
+    # Assert
+    # Find cells with NaNs and verify they use their own local mean
+    cells_with_nans = [c for c in grid_cells if np.any(np.isnan(c.cell_data))]
+    assert len(cells_with_nans) > 0, "Expected some cells to contain NaNs"
+
+    for cell in cells_with_nans:
+        local_mean = float(np.nanmean(cell.cell_data))
+        filled = cell.cell_data_filled
+        # All NaN positions should be filled with the cell's own local mean
+        nan_mask = np.isnan(cell.cell_data)
+        assert np.all(filled[nan_mask] == local_mean), (
+            f"local_mean strategy: NaN positions not filled with cell mean. "
+            f"Expected {local_mean}, got unique values: {np.unique(filled[nan_mask])}"
+        )
+
+
+def test_template_nan_fill_strategy_global_mean():
+    """Verify global_mean strategy fills NaNs with the reference image's global mean."""
+    # Arrange
+    scale = 1e-6
+    rng = np.random.default_rng(seed=42)
+    # Create reference image with NaNs
+    data = rng.uniform(0.1, 0.9, size=(100, 100)) * scale
+    data[10:30, 10:30] = np.nan  # block of NaNs in top-left region
+    data[60:80, 60:80] = np.nan  # block of NaNs in bottom-right region
+    reference_image = ScanImage(data=data, scale_x=scale, scale_y=scale)
+    params = ComparisonParams(
+        cell_size=(20 * scale, 20 * scale),
+        template_nan_fill_strategy="global_mean",
+        minimum_fill_fraction=0.5,
+    )
+    # With global_mean, nan_fill_value should be the global mean of the reference image
+    global_mean = float(np.nanmean(reference_image.data))
+
+    # Act
+    grid_cells = generate_grid(
+        scan_image=reference_image,
+        cell_size=params.cell_size,
+        minimum_fill_fraction=params.minimum_fill_fraction,
+        nan_fill_value=global_mean,
+    )
+
+    # Assert
+    # Find cells with NaNs and verify they all use the same global mean
+    cells_with_nans = [c for c in grid_cells if np.any(np.isnan(c.cell_data))]
+    assert len(cells_with_nans) > 0, "Expected some cells to contain NaNs"
+
+    for cell in cells_with_nans:
+        filled = cell.cell_data_filled
+        nan_mask = np.isnan(cell.cell_data)
+        assert np.all(filled[nan_mask] == global_mean), (
+            f"global_mean strategy: NaN positions not filled with global mean. "
+            f"Expected {global_mean}, got unique values: {np.unique(filled[nan_mask])}"
+        )
 
 
 def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):

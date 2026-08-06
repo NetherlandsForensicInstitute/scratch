@@ -1,3 +1,5 @@
+import numpy as np
+
 from loguru import logger
 
 from conversion.surface_comparison.cell_registration.match_cells import match_cells
@@ -47,10 +49,21 @@ def compare_surfaces(
 
     # Step 1: Generate grid cells
     logger.debug("starting grid generation")
+
+    # Determine NaN fill value for templates based on strategy
+    nan_fill_value: float | None = None
+    if params.template_nan_fill_strategy == "global_mean":
+        nan_fill_value = float(np.nanmean(reference_image.data))
+        logger.debug(
+            "Using global mean ({:.4f}) for NaN filling (template_nan_fill_strategy=global_mean)",
+            nan_fill_value,
+        )
+
     grid_cells = generate_grid(
         scan_image=reference_image,
         cell_size=params.cell_size,
         minimum_fill_fraction=params.minimum_fill_fraction,
+        nan_fill_value=nan_fill_value,
     )
 
     # Step 2: Coarse-to-fine registration (scale alignment happens inside match_cells)

@@ -17,6 +17,12 @@ from conversion.surface_comparison.models import (
     GridCell,
 )
 
+from loguru import logger
+
+#: Minimum coarse cell size for reliable matching. If downsampling would produce cells smaller
+#: than this, the cap factor is reduced to keep coarse cells above this threshold.
+_MIN_COARSE_CELL = 8
+
 
 def match_cells(
     grid_cells: list[GridCell],
@@ -92,8 +98,36 @@ def match_cells(
         comparison_full_data.shape[0],
         comparison_full_data.shape[1],
     )
-    # Compute the downsampling multiplier derived from the maximum size limit
-    cap_factor = max(1.0, largest_dimension / params.max_size)
+
+    # Compute the raw downsampling multiplier derived from the maximum size limit
+    raw_cap_factor = max(1.0, largest_dimension / params.max_size)
+
+    # Apply a lower bound based on cell size: coarse cells must not become too small.
+    # If cap_factor is too large, coarse cells shrink and matching becomes unreliable.
+    cell_min_dim = min(cell_width, cell_height)
+    min_allowed_cap = max(1.0, cell_min_dim / _MIN_COARSE_CELL)
+    cap_factor = min(raw_cap_factor, min_allowed_cap)
+
+    if raw_cap_factor > min_allowed_cap:
+        logger.info(
+            "Reduced cap factor from {:.2f} to {:.2f}: cells are {}x{} px, "
+            "and a coarse cell below {} px cannot localise reliably.",
+            raw_cap_factor,
+            cap_factor,
+            cell_width,
+            cell_height,
+            _MIN_COARSE_CELL,
+        )
+
+    logger.info(
+        "Coarse stage config: largest_dim={}, max_size={}, raw_cap={:.2f}, "
+        "effective_cap={:.2f}, coarse_stage_runs={}",
+        largest_dimension,
+        params.max_size,
+        raw_cap_factor,
+        cap_factor,
+        cap_factor > 1.0,
+    )
 
     fill_value_full = float(np.nanmean(comparison_full_data))
     comparison_full_padded = pad_image_array(
@@ -123,6 +157,15 @@ def match_cells(
         coarse_cell_width = max(1, round(cell_width / cap_factor))
         coarse_cell_height = max(1, round(cell_height / cap_factor))
 
+        logger.info(
+            "Coarse stage: {}x{} px cells -> {}x{} px coarse cells (cap={:.2f})",
+            cell_width,
+            cell_height,
+            coarse_cell_width,
+            coarse_cell_height,
+            cap_factor,
+        )
+
         templates_coarse = []
         for grid_cell in grid_cells:
             coarse_top_left = (
@@ -149,6 +192,13 @@ def match_cells(
         templates_coarse = templates_full
         comparison_coarse_padded = comparison_full_padded
         fill_value_coarse = fill_value_full
+        logger.info(
+            "Coarse stage skipped: images fit within max_size ({} px), "
+            "matching at full resolution ({} x {} px)",
+            params.max_size,
+            reference_image.width,
+            reference_image.height,
+        )
 
     angles = np.arange(
         params.search_angle_min,
