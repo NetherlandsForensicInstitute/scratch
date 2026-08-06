@@ -286,7 +286,6 @@ def impression_overview_cells() -> list[Cell]:
 @pytest.fixture
 def impression_overview_comparison_params() -> ComparisonParams:
     return ComparisonParams(
-        cell_size=(1e-3, 1e-3),
         minimum_fill_fraction=0.5,
         correlation_threshold=0.25,
         angle_deviation_threshold=6.0,

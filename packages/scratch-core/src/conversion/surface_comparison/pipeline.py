@@ -59,9 +59,10 @@ def compare_surfaces(
             nan_fill_value,
         )
 
+    mark_type = reference_mark.filtered_mark.mark_type
     grid_cells = generate_grid(
         scan_image=reference_image,
-        cell_size=params.cell_size,
+        cell_size=mark_type.cell_size,
         minimum_fill_fraction=params.minimum_fill_fraction,
         nan_fill_value=nan_fill_value,
     )
