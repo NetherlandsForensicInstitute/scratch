@@ -212,7 +212,14 @@ def coarse_to_fine_match(
 
     jobs: list[tuple[int, float, float, float]] = []
     unusable: list[int] = []
-    trial_offsets = np.arange(-angle_margin_degrees, angle_margin_degrees + 1.0, 1.0)
+    # Trial on the sweep grid rather than in 1-degree steps. The coarse angle is only reliable
+    # to about one sweep step, and reporting angles off-grid widens the residual distribution
+    # that angle_deviation_threshold gates on. Measured on a real pair: mean |residual| for
+    # partial-fill cells 5.12 deg on-grid vs 6.00 deg at 1-degree steps, against a 6.0 threshold,
+    # which is what costs the marginal border cells.
+    step = float(np.min(np.diff(np.sort(angles)))) if len(angles) > 1 else 1.0
+    n_steps = int(np.ceil(angle_margin_degrees / step))
+    trial_offsets = np.arange(-n_steps, n_steps + 1) * step
     for index in range(len(templates_full)):
         if not is_usable[index]:
             unusable.append(index)

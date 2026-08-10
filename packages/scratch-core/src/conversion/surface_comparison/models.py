@@ -148,7 +148,7 @@ class ComparisonParams(ConfigBaseModel):
 
     # --- Coarse stage: exhaustive translation + rotation sweep on a downsampled image pair ---
     max_size: int = Field(
-        default=512,
+        default=256,
         gt=0,
         description=(
             "Largest permitted dimension (pixels) of the comparison canvas used for the coarse "
@@ -199,7 +199,7 @@ class ComparisonParams(ConfigBaseModel):
 
     # --- Template NaN fill strategy ---
     template_nan_fill_strategy: Literal["local_mean", "global_mean"] = Field(
-        default="local_mean",
+        default="global_mean",
         description=dedent("""
             Strategy for filling NaN pixels in reference templates before correlation.
 

@@ -22,7 +22,7 @@ from conversion.surface_comparison.template_fill import fill_template_nan
 
 #: Minimum coarse cell size for reliable matching. If downsampling would produce cells smaller
 #: than this, the cap factor is reduced to keep coarse cells above this threshold.
-_MIN_COARSE_CELL = 8
+_MIN_COARSE_CELL = 20
 
 
 def match_cells(
@@ -167,8 +167,8 @@ def match_cells(
             scale_x=reference_image.scale_x * cap_factor,
             scale_y=reference_image.scale_y * cap_factor,
         )
-        coarse_cell_width = max(1, round(cell_width / cap_factor))
-        coarse_cell_height = max(1, round(cell_height / cap_factor))
+        coarse_cell_width = max(1, int(np.ceil(cell_width / cap_factor)))
+        coarse_cell_height = max(1, int(np.ceil(cell_height / cap_factor)))
 
         logger.info(
             "Coarse stage: {}x{} px cells -> {}x{} px coarse cells (cap={:.2f})",
