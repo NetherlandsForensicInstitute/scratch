@@ -58,18 +58,26 @@ def match_cells(
     comparison canvas gets; downsampling per-cell would compute those edges from cell-local data
     only, which the comparison canvas' edges never do, silently penalising the true match.
 
-    NaNs are handled explicitly throughout: the comparison images keep NaN outside real data (the
-    search consumes it directly to compute a per-position fill fraction and reject sparse windows);
-    grid cells fill NaN with their own valid-pixel mean rather than a scene-wide value, so a missing
-    pixel drops out of the correlation entirely instead of behaving like real, flat surface data.
+    NaNs are handled explicitly throughout. The comparison images keep NaN outside real data: the
+    search consumes it directly to compute a per-position fill fraction and reject sparse windows.
+    Reference templates fill NaN according to ``params.template_nan_fill_strategy``, resolved once
+    in the pipeline and carried on each cell as ``GridCell.nan_fill_value`` - by default each
+    cell's own valid-pixel mean, so that after template centering a missing pixel is exactly zero
+    and drops out of the correlation entirely instead of behaving like real, flat surface data.
+    Coarse and full-resolution templates are filled with the *same* resolved value, both via
+    :func:`~conversion.surface_comparison.template_fill.fill_template_nan`: the coarse stage is what
+    chooses each cell's candidate locations, so filling it differently would change where a cell
+    matches, not merely how that match is refined.
 
-    :param grid_cells: Reference grid cells to register; all cells must have the same size.
+    :param grid_cells: Reference grid cells to register; all cells must have the same size and the
+        same ``nan_fill_value``.
     :param reference_image: Reference scan image the grid cells were generated from.
     :param comparison_image: Comparison scan image to search over, at its own native pixel scale.
     :param params: Algorithm parameters (angle sweep, coarse/fine search configuration).
     :param device: Optional torch device override; defaults to CUDA when available. Mainly useful
         for benchmarking and for cross-device reproducibility checks.
     :returns: List of :class:`Cell` objects with the best registration result per grid cell.
+    :raises ValueError: If the grid cells do not all share the same ``nan_fill_value``.
     """
     if not grid_cells:
         return []

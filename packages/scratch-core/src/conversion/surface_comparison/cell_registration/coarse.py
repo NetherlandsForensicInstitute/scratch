@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 
 import numpy as np
 import torch
@@ -18,7 +17,7 @@ from conversion.surface_comparison.cell_registration.utils import (
     search_candidates,
 )
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def _to_full_resolution(coarse_value: float, factor: float) -> float:
@@ -249,7 +248,8 @@ def coarse_to_fine_match(
         results[index] = (-1.0, 0, 0, default_angle)
 
     logger.debug(
-        "Coarse-to-fine: cap factor %.2f, %d candidates/cell, +/-%d px, +/-%.1f deg, %d refinement jobs.",
+        "Coarse-to-fine: cap factor {:.2f}, {} candidates/cell, +/-{} px, +/-{:.1f} deg, "
+        "{} refinement jobs.",
         cap_factor,
         n_candidates,
         position_margin,

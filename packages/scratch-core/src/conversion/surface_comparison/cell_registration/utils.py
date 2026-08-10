@@ -598,7 +598,7 @@ def _clamp_score(score: float, index: int) -> float:
     """Clamp a score into the valid Pearson range, warning if it overshot by more than tolerance."""
     if score > 1.0 + SCORE_TOLERANCE:
         logger.warning(
-            "NCC score %.4f exceeds the valid range [-1, 1] for cell %d; clamping.",
+            "NCC score {:.4f} exceeds the valid range [-1, 1] for cell {}; clamping.",
             score,
             index,
         )
@@ -703,7 +703,7 @@ def search_candidates(
     )
 
     logger.debug(
-        "Matching %d templates over %d angles on %s (chunks: %d angles x %d templates).",
+        "Matching {} templates over {} angles on {} (chunks: {} angles x {} templates).",
         n_templates,
         len(sorted_angles),
         device,
