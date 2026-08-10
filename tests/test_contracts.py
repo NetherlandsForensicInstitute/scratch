@@ -204,7 +204,6 @@ class TestContracts:
                     "mark_id": "mark_2",
                 },
                 "comparison_params": {
-                    "cell_size": [25e-6, 25e-6],
                     "minimum_fill_fraction": 0.1,
                 },
             },

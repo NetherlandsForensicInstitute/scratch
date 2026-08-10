@@ -3,8 +3,10 @@ from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 import pytest
-from conversion.data_formats import MarkMetadata
+from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark, MarkImpressionType, MarkMetadata, MarkStriationType
 from conversion.likelihood_ratio.likelihood_ratio import DummyLRSystem, ModelSpecs
 from conversion.surface_comparison.models import ComparisonParams
 from fastapi.testclient import TestClient
@@ -27,7 +29,6 @@ def _dummy_metadata() -> MarkMetadata:
 
 def _default_comparison_params() -> ComparisonParams:
     return ComparisonParams(
-        cell_size=(50e-6, 50e-6),
         search_angle_min=-5.0,
         search_angle_max=5.0,
         search_angle_step=5.0,
@@ -245,6 +246,43 @@ class TestMarkImpressionExceptionHandlers:
             )
 
         assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+    def test_mark_type_mismatch_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+        """422 is returned when reference and comparison marks have different mark types."""
+        ref_mark = Mark(
+            scan_image=ScanImage(data=np.array([[0.0]]), scale_x=1e-6, scale_y=1e-6),
+            mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
+        )
+        comp_mark = Mark(
+            scan_image=ScanImage(data=np.array([[0.0]]), scale_x=1e-6, scale_y=1e-6),
+            mark_type=MarkStriationType.BULLET_LEA_STRIATION,
+        )
+
+        def load_side_effect(*args, **kwargs):
+            path = kwargs.get("path", args[0] if args else "")
+            return ref_mark if "ref" in str(path) else comp_mark
+
+        with patch("processors.router.load_mark_from_path", side_effect=load_side_effect):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "Mark type mismatch" in response.json()["detail"]
+
+    def test_non_impression_mark_type_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+        """422 is returned when the mark type is not an impression type."""
+        striation_mark = Mark(
+            scan_image=ScanImage(data=np.array([[0.0]]), scale_x=1e-6, scale_y=1e-6),
+            mark_type=MarkStriationType.BULLET_LEA_STRIATION,
+        )
+
+        def load_side_effect(*args, **kwargs):
+            return striation_mark
+
+        with patch("processors.router.load_mark_from_path", side_effect=load_side_effect):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "expected a MarkImpressionType" in response.json()["detail"]
 
 
 class TestCalculateLRImpression:

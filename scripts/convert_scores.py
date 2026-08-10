@@ -92,10 +92,13 @@ def calculate_score(  # noqa: PLR0911
     except requests.HTTPError as exc:
         status_code = exc.response.status_code if exc.response is not None else 0
         if status_code == 422:  # noqa: PLR2004
-            try:
-                detail = exc.response.json().get("detail", "unknown")
-            except requests.JSONDecodeError:
-                detail = exc.response.text[:200]
+            if exc.response is None:
+                detail = "unknown"
+            else:
+                try:
+                    detail = exc.response.json().get("detail", "unknown")
+                except requests.JSONDecodeError:
+                    detail = exc.response.text[:200]
             logger.info("Row %d validation error: %s", entry.row_index, detail)
             _save_result(entry, error=detail)
             return ScoreStatus.FAILED_VALIDATION, {"error": detail}
