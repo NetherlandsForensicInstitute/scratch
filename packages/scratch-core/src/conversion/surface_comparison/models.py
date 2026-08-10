@@ -3,7 +3,6 @@ from functools import cached_property
 
 import numpy as np
 from pydantic import Field, field_validator
-
 from dataclasses import dataclass
 from textwrap import dedent
 from typing import Literal
@@ -12,6 +11,7 @@ from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
 from conversion.data_formats import Mark
+from conversion.surface_comparison.template_fill import fill_template_nan
 
 
 @dataclass(frozen=True)
@@ -284,16 +284,9 @@ class GridCell:
     @cached_property
     def cell_data_filled(self) -> FloatArray2D:
         """
-        Cell data with NaNs filled, either with an explicit value or the cell's own mean.
+        Cell data with NaN filled per :func:`fill_template_nan`.
 
-        When ``nan_fill_value`` is provided, NaN pixels are replaced with that value (matching the
-        main branch's behaviour of using the reference image's global mean). When None (default),
-        each cell's own valid-pixel mean is used: after template centering, filled pixels become
-        exactly zero and contribute nothing to correlation, so missing pixels are treated as
-        "no information" rather than as real surface data.
+        ``nan_fill_value`` carries the resolved ``template_nan_fill_strategy``: an explicit value
+        for ``global_mean``, ``None`` for ``local_mean``.
         """
-        if self.nan_fill_value is not None:
-            return np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
-        local_mean = np.nanmean(self.cell_data)
-        fill_value = float(local_mean) if np.isfinite(local_mean) else 0.0
-        return np.nan_to_num(self.cell_data, nan=fill_value, copy=True)
+        return fill_template_nan(self.cell_data, self.nan_fill_value)

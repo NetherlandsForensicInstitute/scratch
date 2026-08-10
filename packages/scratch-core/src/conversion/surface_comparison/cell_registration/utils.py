@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import math
 from functools import cache
 
@@ -10,9 +9,12 @@ import torch
 
 from container_models.base import FloatArray2D
 from conversion.surface_comparison.models import Cell, CellMetaData, GridCell
-from conversion.surface_comparison.utils import convert_pixels_to_meters
+from conversion.surface_comparison.utils import (
+    convert_pixels_to_meters,
+)
 
-logger = logging.getLogger(__name__)
+from loguru import logger
+
 
 SCORE_TOLERANCE = 0.01
 
@@ -92,22 +94,6 @@ def convert_grid_cell_to_cell(grid_cell: GridCell, pixel_size: float) -> Cell:
         ),  # TODO: We shouldn't set this here?
     )
     return cell
-
-
-def fill_nan_with_local_mean(array: FloatArray2D) -> FloatArray2D:
-    """
-    Replace NaN with the array's own valid-pixel mean (0.0 if none are valid).
-
-    See :meth:`GridCell.cell_data_filled` for why this specific choice of fill value matters: once
-    the template-preparation step centers the array on its own mean, every filled pixel becomes
-    exactly zero and drops out of the correlation, variance, and norm entirely.
-
-    :param array: Input 2D array, possibly containing NaN.
-    :returns: Copy of *array* with NaN replaced.
-    """
-    local_mean = np.nanmean(array)
-    fill_value = float(local_mean) if np.isfinite(local_mean) else 0.0
-    return np.nan_to_num(array, nan=fill_value, copy=True)
 
 
 def pad_image_array(

@@ -7,7 +7,6 @@ from conversion.surface_comparison.cell_registration.coarse import coarse_to_fin
 from conversion.surface_comparison.cell_registration.utils import (
     canvas_to_image,
     convert_grid_cell_to_cell,
-    fill_nan_with_local_mean,
     pad_image_array,
 )
 from conversion.surface_comparison.grid import extract_patch
@@ -18,6 +17,8 @@ from conversion.surface_comparison.models import (
 )
 
 from loguru import logger
+
+from conversion.surface_comparison.template_fill import fill_template_nan
 
 #: Minimum coarse cell size for reliable matching. If downsampling would produce cells smaller
 #: than this, the cap factor is reduced to keep coarse cells above this threshold.
@@ -72,6 +73,8 @@ def match_cells(
     """
     if not grid_cells:
         return []
+    if len({grid_cell.nan_fill_value for grid_cell in grid_cells}) > 1:
+        raise ValueError("All grid cells must share the same nan_fill_value.")
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -168,6 +171,11 @@ def match_cells(
             cap_factor,
         )
 
+        # All cells carry the same resolved fill value (generate_grid applies one to the whole grid).
+        # Coarse templates must use it too: the coarse stage picks the candidate locations, so
+        # filling it differently changes where each cell matches, not just how it is polished.
+        coarse_nan_fill = grid_cells[0].nan_fill_value
+
         templates_coarse = []
         for grid_cell in grid_cells:
             coarse_top_left = (
@@ -180,7 +188,7 @@ def match_cells(
                 patch_size=(coarse_cell_width, coarse_cell_height),
                 fill_value=np.nan,
             )
-            templates_coarse.append(fill_nan_with_local_mean(patch))
+            templates_coarse.append(fill_template_nan(patch, coarse_nan_fill))
 
         fill_value_coarse = float(np.nanmean(comparison_coarse_data))
         comparison_coarse_padded = pad_image_array(
