@@ -84,6 +84,7 @@ async def array_shape_mismatch_handler(request: Request, exc: ArrayShapeMismatch
     logger.warning(message)
     return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
 
+
 @app.exception_handler(MaskEmptyError)
 async def mask_empty_handler(request: Request, exc: MaskEmptyError) -> JSONResponse:
     """Return a 422 JSON response for unhandled MaskEmptyError exceptions."""
@@ -98,6 +99,7 @@ async def mask_full_handler(request: Request, exc: MaskFullError) -> JSONRespons
     message = str(exc)
     logger.warning(message)
     return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
+
 
 async def parse_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Return a 422 JSON response for unhandled parse exceptions."""

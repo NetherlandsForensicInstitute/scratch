@@ -1,10 +1,7 @@
 from collections.abc import Iterable
-from http import HTTPStatus
 from pathlib import Path
 
 import numpy as np
-from fastapi import HTTPException
-
 from container_models.base import BinaryMask
 from container_models.light_source import LightSource
 from container_models.models import NormalizationBounds
@@ -72,6 +69,7 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
         raise MaskFullError
 
     return mask
+
 
 def surface_map_pipeline(  # noqa
     parsed_scan: ScanImage,
