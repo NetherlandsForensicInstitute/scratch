@@ -82,13 +82,15 @@ def match_cells(
 
     # --- Bring the comparison image to the reference's pixel scale, in one pass. ---
     scale_match_factor = pixel_size / comparison_image.scale_x
-    if scale_match_factor != 1.0:
+    if not np.isclose(scale_match_factor, 1.0, rtol=1e-4):
         comparison_full_data = resample_array_2d(
             comparison_image.data,
             factors=(scale_match_factor, scale_match_factor),
             interpolation=params.resample_interpolation,
         )
     else:
+        # Scales already agree to within a rounding error; resampling here would be a lossy
+        # interpolation pass that changes nothing.
         comparison_full_data = comparison_image.data
 
     # --- Cap the shared canvas to params.max_size for the coarse stage. ---

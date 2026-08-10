@@ -148,12 +148,11 @@ class ComparisonParams(ConfigBaseModel):
 
     # --- Coarse stage: exhaustive translation + rotation sweep on a downsampled image pair ---
     max_size: int = Field(
-        default=1000,
+        default=512,
         gt=0,
         description=(
             "Largest permitted dimension (pixels) of the comparison canvas used for the coarse "
-            "exhaustive sweep. Both images are downsampled together, once, so they still share a "
-            "pixel scale; images already at or below this size are left alone."
+            "exhaustive sweep."
         ),
     )
     resample_interpolation: Literal["area", "linear", "nearest", "cubic"] = Field(
@@ -166,7 +165,7 @@ class ComparisonParams(ConfigBaseModel):
         ),
     )
     n_candidates: int = Field(
-        default=4,
+        default=3,
         ge=1,
         description="Candidate (x, y, angle) poses kept per cell from the coarse stage, for refinement.",
     )

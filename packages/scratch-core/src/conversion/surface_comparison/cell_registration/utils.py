@@ -17,7 +17,18 @@ logger = logging.getLogger(__name__)
 SCORE_TOLERANCE = 0.01
 
 #: Radices for which both pocketfft/MKL (CPU) and cuFFT (GPU) stay on their fast paths.
-_FFT_RADICES = (2, 3, 5, 7)
+#:
+#: 7 is deliberately excluded even though both libraries support it: a radix-7 pass costs more
+#: per point than radix-4/5, and 5-smooth lengths are dense enough that dropping 7 rarely costs
+#: more than a few percent of extra area. Measured on a 372x372 coarse canvas, 21px cells,
+#: 73 angles, 75 templates, one angle chunk (CPU):
+#:
+#:   392 = 2^3 * 7^2 -> 3.02 s (3.59 ns/output element)
+#:   400 = 2^4 * 5^2 -> 2.68 s (3.06 ns/output element)
+#:
+#: i.e. 11% faster on a 4% larger transform. The gap narrows to ~5% with small angle batches,
+#: where the transform is already cache-resident. Re-measure before re-adding 7, or adding 11.
+_FFT_RADICES = (2, 3, 5)
 #: Windows whose within-window sum of squares falls below ``_VARIANCE_EPS * n_pixels``
 #: (on globally standardised data) are treated as constant and rejected.
 _VARIANCE_EPS = 1e-8
@@ -357,33 +368,45 @@ def box_sum(
 
 def _correlate_valid(
     image_fft: torch.Tensor,
-    templates: torch.Tensor,
+    template_fft: torch.Tensor,
     fft_height: int,
     fft_width: int,
     out_height: int,
     out_width: int,
 ) -> torch.Tensor:
     """
-    Cross-correlate a pre-transformed image batch with a block of templates ("valid" mode).
+    Cross-correlate a pre-transformed image batch with a pre-transformed block of templates.
 
-    ``image_fft`` is supplied already transformed so that it can be computed **once** per angle
-    chunk and reused across every template; recomputing it inside the template loop was the
-    single largest cost in the previous implementation.
-
-    :param image_fft: Half-spectrum of the image batch, shape ``(n_angles, 1, fft_height, fft_width // 2 + 1)``.
-    :param templates: Template block of shape ``(n_templates, 1, cell_height, cell_width)``.
-    :param fft_height: Transform height (see :func:`next_fast_len`).
-    :param fft_width: Transform width.
-    :param out_height: Number of valid output rows.
-    :param out_width: Number of valid output columns.
-    :returns: Contiguous float32 tensor ``(n_angles, n_templates, out_height, out_width)``.
+    Both operands arrive already transformed: the image once per angle chunk, the templates
+    once for the whole sweep (see :func:`precompute_template_ffts`). Recomputing either inside
+    the loop was the single largest avoidable cost here.
     """
-    template_fft = torch.fft.rfft2(templates.transpose(0, 1), s=(fft_height, fft_width))
     correlation = torch.fft.irfft2(
         image_fft * template_fft.conj(), s=(fft_height, fft_width)
     )
     return correlation[..., :out_height, :out_width].contiguous()
 
+
+def precompute_template_ffts(
+    templates: torch.Tensor,
+    fft_height: int,
+    fft_width: int,
+    templates_per_chunk: int,
+) -> list[tuple[int, torch.Tensor]]:
+    """
+    Transform every template block once, for reuse across all angle chunks.
+
+    Holds the whole stack at canvas transform size: ``n_templates * fft_height *
+    (fft_width // 2 + 1) * 8`` bytes (~48 MB for 75 templates at 400x400). Worth checking
+    against the device budget if either the template count or the canvas grows a lot.
+    """
+    blocks: list[tuple[int, torch.Tensor]] = []
+    for start in range(0, templates.shape[0], templates_per_chunk):
+        block = templates[start : start + templates_per_chunk]
+        blocks.append(
+            (start, torch.fft.rfft2(block.transpose(0, 1), s=(fft_height, fft_width)))
+        )
+    return blocks
 
 # --------------------------------------------------------------------------------------
 # Batched matching
@@ -456,6 +479,7 @@ def iter_score_maps(
     minimum_fill_fraction: float,
     templates_per_chunk: int,
     standardisation: tuple[float, float],
+    template_ffts: list | None = None
 ):
     """
     Yield normalised cross-correlation maps for one batch of rotated images.
@@ -511,10 +535,14 @@ def iter_score_maps(
     image_fft = torch.fft.rfft2(batch, s=(fft_height, fft_width))
     del batch
 
-    for start in range(0, n_templates, templates_per_chunk):
-        block = templates[start : start + templates_per_chunk]
+    if template_ffts is None:
+        template_ffts = precompute_template_ffts(
+            templates, fft_height, fft_width, templates_per_chunk
+        )
+
+    for start, template_fft in template_ffts:
         scores = _correlate_valid(
-            image_fft, block, fft_height, fft_width, out_height, out_width
+            image_fft, template_fft, fft_height, fft_width, out_height, out_width
         )
         scores.div_(denominator).masked_fill_(rejected, REJECTED_SCORE)
         yield start, scores
@@ -669,11 +697,22 @@ def search_candidates(
     standardisation = (float(np.nanmean(image)), float(np.nanstd(image)))
     n_templates = len(templates)
 
+    # Transform size is fixed for the whole sweep (canvas_shape is), so the template spectra are
+    # computed once here rather than once per angle chunk.
+    template_ffts = precompute_template_ffts(
+        template_tensor,
+        next_fast_len(canvas_shape[0] + cell_height - 1),
+        next_fast_len(canvas_shape[1] + cell_width - 1),
+        template_batch_size,
+    )
+
     best_score = torch.full(
         (n_templates, out_height, out_width), REJECTED_SCORE, device=device
     )
+    # int16 is ample for any realistic sweep and this tensor dominates the per-chunk merge
+    # traffic: at int64 it is 4x the bytes of best_score and is rewritten on every chunk.
     best_angle_index = torch.zeros(
-        (n_templates, out_height, out_width), dtype=torch.long, device=device
+        (n_templates, out_height, out_width), dtype=torch.int16, device=device
     )
 
     logger.debug(
@@ -694,22 +733,28 @@ def search_candidates(
         valid_tensor = torch.from_numpy(valid).to(device)
         try:
             for template_start, scores in iter_score_maps(
-                batch_tensor,
-                valid_tensor,
-                template_tensor,
-                minimum_fill_fraction,
-                template_batch_size,
-                standardisation,
+                    batch_tensor,
+                    valid_tensor,
+                    template_tensor,
+                    minimum_fill_fraction,
+                    template_batch_size,
+                    standardisation,
+                    template_ffts=template_ffts,
             ):
                 block = scores.shape[1]
                 chunk_best, chunk_best_within = scores.max(dim=0)
                 del scores
                 dest = slice(template_start, template_start + block)
-                better = chunk_best > best_score[dest]
-                best_score[dest] = torch.where(better, chunk_best, best_score[dest])
-                best_angle_index[dest] = torch.where(
-                    better, angle_start + chunk_best_within, best_angle_index[dest]
-                )
+                # Masked in-place update rather than torch.where: after the first chunk only a
+                # few positions improve, so this writes almost nothing, where torch.where
+                # rewrites both full volumes every time. Basic slicing gives a view, so the
+                # assignment writes through to best_score / best_angle_index.
+                current = best_score[dest]
+                better = chunk_best > current
+                current[better] = chunk_best[better]
+                best_angle_index[dest][better] = (
+                        angle_start + chunk_best_within[better]
+                ).to(torch.int16)
         finally:
             del batch_tensor, valid_tensor
             if device.type == "cuda":
