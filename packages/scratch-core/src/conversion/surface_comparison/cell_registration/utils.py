@@ -408,6 +408,7 @@ def precompute_template_ffts(
         )
     return blocks
 
+
 # --------------------------------------------------------------------------------------
 # Batched matching
 # --------------------------------------------------------------------------------------
@@ -479,7 +480,7 @@ def iter_score_maps(
     minimum_fill_fraction: float,
     templates_per_chunk: int,
     standardisation: tuple[float, float],
-    template_ffts: list | None = None
+    template_ffts: list | None = None,
 ):
     """
     Yield normalised cross-correlation maps for one batch of rotated images.
@@ -733,13 +734,13 @@ def search_candidates(
         valid_tensor = torch.from_numpy(valid).to(device)
         try:
             for template_start, scores in iter_score_maps(
-                    batch_tensor,
-                    valid_tensor,
-                    template_tensor,
-                    minimum_fill_fraction,
-                    template_batch_size,
-                    standardisation,
-                    template_ffts=template_ffts,
+                batch_tensor,
+                valid_tensor,
+                template_tensor,
+                minimum_fill_fraction,
+                template_batch_size,
+                standardisation,
+                template_ffts=template_ffts,
             ):
                 block = scores.shape[1]
                 chunk_best, chunk_best_within = scores.max(dim=0)
@@ -753,7 +754,7 @@ def search_candidates(
                 better = chunk_best > current
                 current[better] = chunk_best[better]
                 best_angle_index[dest][better] = (
-                        angle_start + chunk_best_within[better]
+                    angle_start + chunk_best_within[better]
                 ).to(torch.int16)
         finally:
             del batch_tensor, valid_tensor
