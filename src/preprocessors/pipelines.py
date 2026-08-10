@@ -1,7 +1,10 @@
 from collections.abc import Iterable
+from http import HTTPStatus
 from pathlib import Path
 
 import numpy as np
+from fastapi import HTTPException
+
 from container_models.base import BinaryMask
 from container_models.light_source import LightSource
 from container_models.models import NormalizationBounds
@@ -15,7 +18,7 @@ from renders import (
 )
 
 from preprocessors.constants import PreviewImageNormalizationBounds, SurfaceImageNormalizationBounds
-from preprocessors.exceptions import ArrayShapeMismatchError
+from preprocessors.exceptions import ArrayShapeMismatchError, MaskEmptyError, MaskFullError
 
 
 def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> ScanImage:
@@ -47,19 +50,28 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
     :param is_bitpacked: Boolean indicating whether the binary data is bit-packed
         and should be decompressed before reshaping.
     :returns: The 2D mask array.
+    :raises HTTPException: If the mask shape does not match `shape`, or if the
+        mask covers the entire scan image or is empty.
     """
     if not is_bitpacked:
         array = np.frombuffer(raw_data, dtype=np.bool)
-        return _reshape_array(array=array, shape=shape)
+        mask = _reshape_array(array=array, shape=shape)
+    else:
+        # Note: this follows our Java implementation for bitpacking
+        height, width = shape
+        packed = np.frombuffer(raw_data, dtype=np.uint8)
+        unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)  # type: ignore
+        padding = (-width) % 8
+        reshaped = _reshape_array(array=unpacked, shape=(height, width + padding))
+        mask = reshaped[:, :width]
 
-    # Note: this follows our Java implementation for bitpacking
-    height, width = shape
-    packed = np.frombuffer(raw_data, dtype=np.uint8)
-    unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)  # type: ignore
-    padding = (-width) % 8
-    reshaped = _reshape_array(array=unpacked, shape=(height, width + padding))
-    return reshaped[:, :width]
+    if not mask.any():
+        raise MaskEmptyError
 
+    if mask.all():
+        raise MaskFullError
+
+    return mask
 
 def surface_map_pipeline(  # noqa
     parsed_scan: ScanImage,

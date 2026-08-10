@@ -13,7 +13,7 @@ from constants import (
     RoutePrefix,
 )
 from file_services import create_vault
-from helpers import generate_openapi_schema
+from helpers import generate_openapi_schema, raise_if_mask_empty
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
 from .constants import GeneratedImageFiles, PrepareMarkImpressionFiles, PrepareMarkStriationFiles, ProcessFiles
@@ -105,7 +105,9 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+    "description": "mask shape does not match image shape, mask is empty, or mask covers the entire scan image"
+},
     },
     openapi_extra=generate_openapi_schema(model=PrepareMarkImpression),
 )
@@ -146,7 +148,8 @@ async def prepare_mark_impression(
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "description": "mask shape does not match image shape, mask is empty, or mask covers the entire scan image"}
     },
     openapi_extra=generate_openapi_schema(model=PrepareMarkStriation),
 )
@@ -185,7 +188,8 @@ async def prepare_mark_striation(
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "description": "mask shape does not match image shape, mask is empty, or mask covers the entire scan image"}
     },
     openapi_extra=generate_openapi_schema(model=EditImage),
 )
