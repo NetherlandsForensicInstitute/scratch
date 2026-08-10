@@ -13,7 +13,7 @@ from constants import (
     RoutePrefix,
 )
 from file_services import create_vault
-from helpers import generate_openapi_schema, raise_if_mask_empty
+from helpers import generate_openapi_schema
 from preprocessors.controller import edit_scan_image, process_prepare_impression_mark, process_prepare_striation_mark
 
 from .constants import GeneratedImageFiles, PrepareMarkImpressionFiles, PrepareMarkStriationFiles, ProcessFiles
