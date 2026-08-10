@@ -1,375 +1,259 @@
-from __future__ import annotations
-
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from os import cpu_count
+from threading import Lock
 
 import cv2
 import numpy as np
-import torch
-from loguru import logger
-from container_models.base import FloatArray2D
+from skimage.transform import rotate
+
+from container_models.base import BinaryMask, FloatArray2D, FloatArray1D
+from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cell_registration.utils import (
-    REJECTED_SCORE,
-    _prepare_rotated_batch,
-    _prepare_templates,
-    canvas_to_image,
-    image_to_canvas,
-    iter_score_maps,
-    paired_score_maps,
-    rotated_crop,
-    rotated_shape,
-    batched_match,
+    convert_grid_cell_to_cell,
+    pad_image_array,
 )
+from conversion.surface_comparison.models import (
+    ComparisonParams,
+    Cell,
+    GridCell,
+)
+from conversion.surface_comparison.utils import rotate_points
+
+N_THREADS = cpu_count() or 1
 
 
-DEFAULT_REDUCTION = 6
-DEFAULT_N_CANDIDATES = 3
-DEFAULT_JOBS_PER_CHUNK = 256
-#: A coarse pixel with less than this fraction of valid sub-pixels is treated as missing.
-_COARSE_VALIDITY_THRESHOLD = 0.5
-#: Smallest coarse cell, per side, that can still localise reliably. Below roughly this the coarse
-#: stage has too few pixels to discriminate and silently returns the wrong pose - measured on a
-#: large-rotation case, a 4x4 coarse cell picked the wrong angle entirely while 5x5 did not.
-#: ``reduction`` is capped so this holds, because the failure is silent and the caller cannot be
-#: expected to re-derive it for every cell size.
-_MIN_COARSE_CELL = 8
-DEFAULT_ANGLE_MARGIN = 2
-_COARSE_ANGLE_UNCERTAINTY = 6.0  # degrees
-
-
-def effective_reduction(cell_shape: tuple[int, int], reduction: int) -> int:
+def match_cells(
+    grid_cells: list[GridCell], comparison_image: ScanImage, params: ComparisonParams
+) -> list[Cell]:
     """
-    Cap *reduction* so the coarse cell keeps at least :data:`_MIN_COARSE_CELL` pixels per side.
+    Find the best-matching position and angle for each grid cell in the comparison image.
 
-    :param cell_shape: ``(cell_height, cell_width)`` at full resolution.
-    :param reduction: Requested reduction factor.
-    :returns: The reduction actually usable for this cell size, at least 1.
+    For each angle in the configured sweep, the padded comparison image is rotated and a normalized
+    cross-correlation score map is computed per cell using ``cv2.TM_CCOEFF_NORMED``. Positions whose
+    comparison-patch fill fraction falls below ``params.minimum_fill_fraction`` are masked out.
+    Per rotation angle, the highest score with its corresponding translation is stored.
+    The rotation that yields the highest unmasked score will be stored in each cell's :class:`GridSearchParams`.
+
+    The comparison image is padded by a full cell in each direction before the search so that cells that
+    lie near the image boundary can still be matched. After unrotating the cell center, the padding offset
+    is subtracted back when the best position is recorded, so all stored coordinates are in the original
+    (unpadded) pixel space.
+
+    :param grid_cells: Reference grid cells to register; all cells must have the same size.
+    :param comparison_image: Comparison scan image to search over.
+    :param params: Algorithm parameters (angle sweep bounds, step, fill-fraction threshold).
+    :returns: List of :class:`Cell` objects with the best registration result per grid cell.
     """
-    return max(1, min(reduction, min(cell_shape) // _MIN_COARSE_CELL))
+    if not grid_cells:
+        return []
 
+    fill_value_comparison = float(np.nanmean(comparison_image.data))
+    pixel_size = comparison_image.scale_x  # Assumes isotropic image
+    cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
+    pad_width, pad_height = cell_width, cell_height  # Set pad size to cell size
 
-def downsample(image: FloatArray2D, factor: int) -> FloatArray2D:
-    """
-    Reduce *image* by *factor* using area averaging, propagating missing data correctly.
-
-    ``cv2.INTER_AREA`` averages over each source block, so NaN anywhere in a block would poison the
-    whole output pixel. Instead the valid pixels are averaged among themselves, and a coarse pixel
-    is marked missing only when most of its source block was missing.
-
-    :param image: Input 2D array, NaN where data is missing.
-    :param factor: Integer reduction factor.
-    :returns: Float64 array of shape ``(ceil(height / factor), ceil(width / factor))``.
-    """
-    height, width = image.shape
-    size = (int(np.ceil(width / factor)), int(np.ceil(height / factor)))
-
-    valid = np.isfinite(image)
-    filled = np.where(valid, image, 0.0).astype(np.float32)
-
-    mean_of_filled = cv2.resize(filled, size, interpolation=cv2.INTER_AREA)
-    mean_of_valid = cv2.resize(
-        valid.astype(np.float32), size, interpolation=cv2.INTER_AREA
+    comparison_data = pad_image_array(
+        comparison_image.data, pad_width=pad_width, pad_height=pad_height
+    )
+    padded_center_x, padded_center_y = (
+        (comparison_data.shape[1] - 1) / 2,
+        (comparison_data.shape[0] - 1) / 2,
     )
 
-    with np.errstate(invalid="ignore", divide="ignore"):
-        result = mean_of_filled / mean_of_valid
-    result[mean_of_valid < _COARSE_VALIDITY_THRESHOLD] = np.nan
-    return np.asarray(result, dtype=np.float64)
+    # Prepare the arguments for parallel processing
+    angles = np.arange(
+        params.search_angle_min,
+        params.search_angle_max + params.search_angle_step,
+        params.search_angle_step,
+    )
+    chunks = np.array_split(angles, N_THREADS)
+    locks = [Lock() for _ in grid_cells]
+    _process_chunk = partial(
+        _find_best_match,
+        grid_cells=grid_cells,
+        locks=locks,
+        comparison_data=comparison_data,
+        cell_size=(cell_width, cell_height),
+        minimum_fill_fraction=params.minimum_fill_fraction,
+        fill_value=fill_value_comparison,
+        padded_center=(padded_center_x, padded_center_y),
+        pad_size=(pad_width, pad_height),
+    )
+    # Execute parallel search
+    with ThreadPoolExecutor(max_workers=N_THREADS) as executor:
+        list(executor.map(_process_chunk, chunks))
 
-
-def _to_full_resolution(coarse_value: float, factor: int) -> float:
-    """Map a coordinate in a block-averaged image back to the original grid."""
-    return coarse_value * factor + (factor - 1) / 2.0
-
-
-def _top_candidates(
-    scores: torch.Tensor, n_candidates: int, suppression_radius: int
-) -> list[list[tuple[int, int, int]]]:
-    """
-    Extract the strongest well-separated peaks per template from a score volume.
-
-    A candidate is a *location*, so the angle axis is reduced away first and each location competes
-    only against other locations. After a peak is taken its neighbourhood is suppressed, otherwise
-    the candidates would all be one blurred maximum.
-
-    Only the location is kept, not its angle. At useful reduction factors the area averaging blurs
-    out the detail that discriminates rotation, so the coarse angle ranking is not informative:
-    trusting it dropped exact agreement from 12/12 to 5/12 in testing. Refinement therefore retries
-    the whole sweep at each location. The coarse stage decides *where*, not *at what angle*.
-
-    :param scores: ``(n_angles, n_templates, height, width)``.
-    :param n_candidates: Peaks to keep per template.
-    :param suppression_radius: Half-width of the suppressed neighbourhood, in pixels.
-    :returns: Per template, a list of ``(x, y, angle_index)`` ordered by score, where the angle
-        index is used only to map the location back to image coordinates.
-    """
-    best_over_angles, best_angle = scores.max(dim=0)
-    n_templates, _, width = best_over_angles.shape
-
-    results = []
-    for index in range(n_templates):
-        surface = best_over_angles[index].clone()
-        angles = best_angle[index]
-        found: list[tuple[int, int, int]] = []
-        for _ in range(n_candidates):
-            position = int(surface.argmax())
-            y, x = divmod(position, width)
-            if float(surface[y, x]) <= REJECTED_SCORE:
-                break
-            found.append((x, y, int(angles[y, x])))
-            surface[
-                max(0, y - suppression_radius) : y + suppression_radius + 1,
-                max(0, x - suppression_radius) : x + suppression_radius + 1,
-            ] = -np.inf
-        results.append(found)
-    return results
-
-
-def _angle_window(angles: np.ndarray, angle_margin: int | None) -> int | None:
-    if angle_margin is None or len(angles) < 2:
-        return None
-    step = float(np.min(np.diff(np.sort(angles))))
-    if step <= 0:
-        return None
-    needed = int(np.ceil(_COARSE_ANGLE_UNCERTAINTY / step))
-    window = max(angle_margin, needed)
-    return None if 2 * window + 1 >= len(angles) else window
-
-
-def _refine(
-    image: FloatArray2D,
-    templates: torch.Tensor,
-    jobs: list[tuple[int, float, float, float]],
-    margin: int,
-    minimum_fill_fraction: float,
-    fill_value: float,
-    standardisation: tuple[float, float],
-    jobs_per_chunk: int,
-    default_angle: float,
-) -> list[tuple[float, int, int, float]]:
-    """
-    Score every candidate pose at full resolution, batched across all cells at once.
-
-    Each job is one ``(cell, predicted centre, angle)`` triple, scored on a crop of
-    ``cell + 2 * margin`` per side rather than the whole canvas. That is where the saving comes
-    from: at a 150px cell in a 2100px canvas it is roughly two orders of magnitude less area per
-    evaluation. Batching every job together matters as much as the crop, since scoring one cell at
-    a time leaves the work dominated by per-call overhead.
-
-    :param image: Padded comparison image at full resolution, already float32.
-    :param templates: Centred unit-norm templates ``(n_templates, 1, cell_height, cell_width)``.
-    :param jobs: ``(template_index, centre_x, centre_y, angle_deg)`` per candidate pose.
-    :param margin: Search radius in pixels around each predicted position.
-    :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
-    :param fill_value: Value substituted for NaN.
-    :param standardisation: Global ``(mean, standard_deviation)`` of the comparison image.
-    :param jobs_per_chunk: Jobs scored per batch.
-    :param default_angle: Angle recorded for cells with no viable candidate.
-    :returns: Per template, ``(score, x, y, angle_deg)`` with ``x``/``y`` on the rotated canvas.
-    """
-    device = templates.device
-    n_templates, _, cell_height, cell_width = templates.shape
-    cell_shape = (cell_height, cell_width)
-    crop_height, crop_width = cell_height + 2 * margin, cell_width + 2 * margin
-
-    best: list[tuple[float, int, int, float]] = [
-        (-np.inf, 0, 0, default_angle) for _ in range(n_templates)
+    return [
+        convert_grid_cell_to_cell(grid_cell=grid_cell, pixel_size=pixel_size)
+        for grid_cell in grid_cells
     ]
 
-    for start in range(0, len(jobs), jobs_per_chunk):
-        block = jobs[start : start + jobs_per_chunk]
-        crops = np.empty((len(block), 1, crop_height, crop_width), dtype=np.float32)
-        validities = np.empty_like(crops)
-        origins = []
 
-        for position, (index, center_x, center_y, angle) in enumerate(block):
-            left, top = image_to_canvas(
-                center_x, center_y, cell_shape, image.shape, angle
-            )
-            left, top = int(round(left)) - margin, int(round(top)) - margin
-            crop = rotated_crop(
-                image, angle, left, top, crop_width, crop_height, fill_value=np.nan
-            )
-            finite = np.isfinite(crop)
-            crops[position, 0] = np.where(finite, crop, fill_value)
-            validities[position, 0] = finite
-            origins.append((index, left, top, angle))
-
-        indices = torch.tensor(
-            [job[0] for job in block], dtype=torch.long, device=device
-        )
-        scores = paired_score_maps(
-            torch.from_numpy(crops).to(device),
-            torch.from_numpy(validities).to(device),
-            templates[indices],
-            minimum_fill_fraction,
-            standardisation,
-        )
-        out_width = scores.shape[3]
-        values, positions = scores.reshape(len(block), -1).max(dim=1)
-        del scores
-
-        for position, (value, flat) in enumerate(
-            zip(values.tolist(), positions.tolist())
-        ):
-            index, left, top, angle = origins[position]
-            if value > best[index][0]:
-                best[index] = (
-                    min(max(float(value), -1.0), 1.0),
-                    left + int(flat % out_width),
-                    top + int(flat // out_width),
-                    float(angle),
-                )
-    return best
-
-
-def coarse_to_fine_match(
-    image: FloatArray2D,
-    templates: list[np.ndarray],
-    angles: np.ndarray,
+def _find_best_match(
+    angles: FloatArray1D,
+    grid_cells: list[GridCell],
+    locks: list[Lock],
+    comparison_data: FloatArray2D,
+    cell_size: tuple[int, int],
     minimum_fill_fraction: float,
     fill_value: float,
-    reduction: int = DEFAULT_REDUCTION,
-    n_candidates: int = DEFAULT_N_CANDIDATES,
-    margin: int | None = None,
-    jobs_per_chunk: int = DEFAULT_JOBS_PER_CHUNK,
-    device: torch.device | None = None,
-) -> list[tuple[float, int, int, float]]:
-    """
-    Two-stage search: exhaustive at reduced resolution, then local at full resolution.
-
-    Drop-in replacement for :func:`batched_match` with the same return contract. The angle sweep
-    stays global at both stages, so grossly misoriented marks are still found; only the
-    *translation* search becomes local, and only once a candidate location has been found.
-
-    :param image: Padded comparison image, NaN outside the original data.
-    :param templates: Reference cell data, all the same shape and free of NaN.
-    :param angles: Angle sweep in degrees.
-    :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
-    :param fill_value: Value substituted for NaN in the comparison image.
-    :param reduction: Coarse-stage reduction factor.
-    :param n_candidates: Coarse peaks retained per cell for refinement.
-    :param margin: Refinement search radius in pixels; defaults to ``2 * reduction``.
-    :param jobs_per_chunk: Candidate poses scored per refinement batch.
-    :param device: Torch device; defaults to CUDA when available.
-    :returns: Per template, ``(score, x, y, angle_deg)`` with ``x``/``y`` in rotated-canvas pixels.
-    """
-    if not templates:
-        return []
-    cell_shape = templates[0].shape
-    if any(template.shape != cell_shape for template in templates):
-        raise ValueError("All templates must have the same shape.")
-
-    if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    usable = effective_reduction(cell_shape, reduction)
-    if usable != reduction:
-        logger.info(
-            "Reduction capped from %d to %d: cells are %dx%d px, and a coarse cell below %d px "
-            "per side cannot localise reliably.",
-            reduction,
-            usable,
-            cell_shape[1],
-            cell_shape[0],
-            _MIN_COARSE_CELL,
+    padded_center: tuple[float, float],
+    pad_size: tuple[int, int],
+) -> list[GridCell]:
+    """Find the best-matching position and angle for each grid cell in the comparison image."""
+    cell_width, cell_height = cell_size
+    pad_width, pad_height = pad_size
+    for angle in angles:
+        angle = float(angle)
+        # Rotate the comparison image by `-angle` degrees.
+        # This is equivalent to rotating the reference patch by `angle` degrees.
+        rotated = rotate(
+            image=comparison_data,
+            angle=-angle,
+            cval=np.nan,  # type: ignore
+            order=0,
+            resize=True,
         )
-    if usable < 2:
-        # Nothing left to gain; the coarse stage would be full resolution.
-        return batched_match(
-            image, templates, angles, minimum_fill_fraction, fill_value, device=device
+        # Get the mask of valid pixels for the rotated image
+        valid_mask = ~np.isnan(rotated)
+        # Compute the fill fraction mask based on the valid pixels mask
+        fill_fraction_map = _get_fill_fraction_map(
+            valid_pixel_mask=valid_mask,
+            cell_width=cell_width,
+            cell_height=cell_height,
         )
-    reduction = usable
-    if margin is None:
-        margin = 2 * reduction
+        fill_fraction_mask = fill_fraction_map >= minimum_fill_fraction
+        # Now that we computed the fill fraction mask, we can safely replace NaN values in the rotated image
+        rotated[~valid_mask] = fill_value
 
-    angles = np.asarray(angles, dtype=np.float64)
-    sorted_angles = angles[np.lexsort((angles, np.abs(angles)))]
-    default_angle = float(sorted_angles[0])
-
-    # coarse stage: find candidate locations
-    logger.debug(f"before reduction {image.shape}")
-    coarse_image = downsample(image, reduction)
-    logger.debug(f"after reduction {coarse_image.shape}")
-    coarse_templates = [downsample(template, reduction) for template in templates]
-    coarse_shape = coarse_templates[0].shape
-    if min(coarse_shape) < _MIN_COARSE_CELL:
-        logger.warning(
-            "Coarse cells are %dx%d px at reduction %d; below roughly %d px the coarse stage "
-            "localises poorly. Consider a smaller reduction for this cell size.",
-            coarse_shape[1],
-            coarse_shape[0],
-            reduction,
-            _MIN_COARSE_CELL,
-        )
-    height, width = coarse_image.shape
-    coarse_canvas = (
-        max(rotated_shape(height, width, float(a))[0] for a in sorted_angles),
-        max(rotated_shape(height, width, float(a))[1] for a in sorted_angles),
-    )
-    coarse_batch, coarse_valid = _prepare_rotated_batch(
-        coarse_image, sorted_angles, fill_value, coarse_canvas
-    )
-    coarse_tensor, is_non_constant = _prepare_templates(coarse_templates, device)
-
-    candidates: list[list[tuple[int, int, int]]] = []
-    for _, scores in iter_score_maps(
-        torch.from_numpy(coarse_batch).to(device),
-        torch.from_numpy(coarse_valid).to(device),
-        coarse_tensor,
-        minimum_fill_fraction,
-        max(1, min(len(templates), 8)),
-        (float(np.nanmean(coarse_image)), float(np.nanstd(coarse_image))),
-    ):
-        candidates.extend(_top_candidates(scores, n_candidates, max(coarse_shape) // 2))
-        del scores
-    if device.type == "cuda":
-        torch.cuda.empty_cache()
-
-    # refinement stage: full resolution
-    jobs: list[tuple[int, float, float, float]] = []
-    unusable: list[int] = []
-    ordered = np.sort(angles)
-    step = float(np.min(np.diff(ordered))) if len(ordered) > 1 else 0.0
-    window = _angle_window(angles, angle_margin=DEFAULT_ANGLE_MARGIN)
-    for index in range(len(templates)):
-        if not is_non_constant[index] or not candidates[index]:
-            unusable.append(index)
-            continue
-        for x, y, angle_index in candidates[index]:
-            angle = float(sorted_angles[angle_index])
-            center_x, center_y = canvas_to_image(
-                x, y, coarse_shape, coarse_image.shape, angle
+        for grid_cell, lock in zip(grid_cells, locks):
+            score_map = _get_score_map(
+                comparison_array=rotated,
+                template=grid_cell.cell_data_filled,
             )
-            full_x = _to_full_resolution(center_x, reduction)
-            full_y = _to_full_resolution(center_y, reduction)
-            if window is None:
-                trials = sorted_angles
-            else:
-                # The sweep may wrap, so select by angular distance rather than by index.
-                distance = np.abs((ordered - angle + 180.0) % 360.0 - 180.0)
-                trials = ordered[distance <= window * step + 1e-9]
-            jobs.extend((index, full_x, full_y, float(a)) for a in trials)
+            score, x, y = _compute_best_score_from_maps(
+                score_map=score_map, fill_fraction_mask=fill_fraction_mask
+            )
+            if score > grid_cell.grid_search_params.score:
+                # Compute the center coordinates of the cell on the (original) unrotated image
+                cell_center = (x + cell_width / 2, y + cell_height / 2)
+                rotated_center = (
+                    (rotated.shape[1] - 1) / 2,  # type: ignore
+                    (rotated.shape[0] - 1) / 2,
+                )
+                original_center_x, original_center_y = _unrotate_point(
+                    rotated_point=cell_center,
+                    original_image_center=padded_center,
+                    rotated_image_center=rotated_center,
+                    angle_deg=angle,
+                )
+                with lock:
+                    # Guard against race conditions
+                    if score > grid_cell.grid_search_params.score:
+                        # Update the parameters
+                        grid_cell.grid_search_params.update(
+                            score=score,
+                            angle=angle,
+                            center_x=original_center_x - pad_width,  # Undo the padding
+                            center_y=original_center_y - pad_height,  # Undo the padding
+                        )
+    return grid_cells
 
-    fine_tensor, _ = _prepare_templates(templates, device)
-    results = _refine(
-        image.astype(np.float32),
-        fine_tensor,
-        jobs,
-        margin,
-        minimum_fill_fraction,
-        fill_value,
-        (float(np.nanmean(image)), float(np.nanstd(image))),
-        jobs_per_chunk,
-        default_angle,
-    )
-    for index in unusable:
-        # A constant reference cell has no defined correlation.
-        results[index] = (-1.0, 0, 0, default_angle)
 
-    logger.debug(
-        "Coarse-to-fine: reduction %d, %d candidates, margin %d px, %d refinement jobs.",
-        reduction,
-        n_candidates,
-        margin,
-        len(jobs),
+def _unrotate_point(
+    rotated_point: tuple[float, float],
+    original_image_center: tuple[float, float],
+    rotated_image_center: tuple[float, float],
+    angle_deg: float,
+) -> tuple[float, float]:
+    """
+    Map a match coordinate from the rotated output back to the original comparison image.
+
+    :param rotated_point: The (x, y) coordinates of the point in the rotated image.
+    :param original_image_center: The center (x, y) coordinates of the original unrotated image.
+    :param rotated_image_center: The center (x, y) coordinates  of the rotated image.
+    :param angle_deg: The rotation angle in degrees for the rotated point.
+    """
+    x_center, y_center = original_image_center
+    x_center_rotated, y_center_rotated = rotated_image_center
+    x_rotated, y_rotated = rotated_point
+    # Shift the coordinate relative to the center of the rotated image
+    dx, dy = x_rotated - x_center_rotated, y_rotated - y_center_rotated
+    # Unrotate vector
+    x, y = rotate_points(
+        points=np.array([(dx, dy)]), center=(0, 0), angle=-np.radians(angle_deg)
+    )[0]
+    # Shift the coordinates relative to the top-left of the original image.
+    return x_center + x, y_center + y
+
+
+def _get_fill_fraction_map(
+    valid_pixel_mask: BinaryMask,
+    cell_height: int,
+    cell_width: int,
+) -> FloatArray2D:
+    """
+    Compute a 2D map where each entry [y, x] is the fill fraction of a cell-sized window with its
+    **top-left corner** at pixel (x, y), matching the indexing convention of ``cv2.matchTemplate``.
+
+    :param valid_pixel_mask: Boolean array (H, W); True where image data is valid.
+    :param cell_height: Height of the cell window in pixels.
+    :param cell_width: Width of the cell window in pixels.
+    :returns: Float64 array (H, W) with fill fractions in [0, 1], top-left indexed.
+        Entries near the bottom-right boundary are underestimates and will be rejected by the fill-fraction gate.
+        Since the image is padded with NaNs before calling this function, this does not matter.
+    """
+    kernel = np.ones((cell_height, cell_width), dtype=np.float32) / (
+        cell_height * cell_width
     )
-    return results
+    filtered = cv2.filter2D(
+        valid_pixel_mask.astype(np.float32),
+        ddepth=-1,
+        kernel=kernel,
+        anchor=(0, 0),
+        borderType=cv2.BORDER_CONSTANT,
+    )
+    return np.asarray(filtered, dtype=np.float64)
+
+
+def _compute_best_score_from_maps(
+    score_map: FloatArray2D, fill_fraction_mask: BinaryMask
+) -> tuple[float, int, int]:
+    """
+    Compute the highest correlation score and the corresponding x, y coordinates
+    from the score and fill fraction maps.
+    """
+    # Make sure the shape of `score_map` and the `fill_fraction_mask` match, and
+    # discard irrelevant fill fraction mask positions at the bottom right.
+    valid_positions = fill_fraction_mask[: score_map.shape[0], : score_map.shape[1]]
+    # Replace non-valid values (where fill fraction is below threshold) with -inf
+    masked_scores = np.where(valid_positions, score_map, -np.inf)
+    # Compute the best score and x, y position from the score map
+    best_flat_index = np.argmax(masked_scores)
+    score = masked_scores.flat[best_flat_index]
+    y, x = np.unravel_index(best_flat_index, masked_scores.shape)
+    return float(score), int(x), int(y)
+
+
+def _get_score_map(
+    comparison_array: FloatArray2D, template: FloatArray2D
+) -> FloatArray2D:
+    """
+    Compute a normalized cross-correlation score map for one reference cell.
+
+    Slides the cell template over the comparison array using ``cv2.TM_CCOEFF_NORMED``, which computes
+    the Pearson correlation coefficient between the template and every same-sized patch. NaN values must
+    have been replaced in both arrays before calling this function.
+
+    :param comparison_array: NaN-free float32-compatible comparison image, padded by a full cell on each side.
+    :param template: Reference grid cell whose ``cell_data`` is used as the template; must contain no NaN values.
+    :returns: Float64 score map of shape ``(H - cell_height + 1, W - cell_width + 1)`` with values in ``[-1, 1]``.
+    """
+
+    score_map = cv2.matchTemplate(
+        image=comparison_array.astype(np.float32),
+        templ=template.astype(np.float32),
+        method=cv2.TM_CCOEFF_NORMED,
+    )
+    return np.asarray(score_map, dtype=np.float64)

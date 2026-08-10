@@ -1,10 +1,14 @@
-from loguru import logger
+import logging
+
 from conversion.resample import resample_scan_image_and_mask
 
 
-from conversion.surface_comparison.cell_registration.match_cells import match_cells
-from conversion.surface_comparison.cmc_consensus.pipeline import (
-    classify_congruent_cells_consensus,
+from conversion.surface_comparison.cell_registration.core import (
+    coarse_registration,
+    fine_registration,
+)
+from conversion.surface_comparison.cmc_classification_median import (
+    classify_congruent_cells_median,
 )
 from conversion.surface_comparison.grid import generate_grid
 from conversion.surface_comparison.models import (
@@ -12,6 +16,8 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
     ProcessedMark,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def compare_surfaces(
@@ -58,37 +64,28 @@ def compare_surfaces(
 
     # Step 2: Generate grid cells
     logger.debug("starting grid generation")
+    mark_type = reference_mark.filtered_mark.mark_type
     grid_cells = generate_grid(
         scan_image=reference_image,
-        cell_size=params.cell_size,
+        cell_size=mark_type.cell_size,
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
 
-    # Step 3: Registration
-    logger.debug("starting cell registration")
-    logger.debug(f"number of cells {len(grid_cells)}")
-    logger.debug(
-        f"cell width {grid_cells[0].width}",
-    )
-    logger.debug(
-        f"cell height {grid_cells[0].height}",
-    )
-    logger.debug(
-        f"comp image shape {comparison_image.data.shape}",
-    )
-    logger.debug(
-        f"reduction {params.registration_reduction}",
-    )
-    cells = match_cells(
+    # Step 3: Coarse registration
+    logger.debug("starting coarse registration")
+    cells = coarse_registration(
         grid_cells=grid_cells,
         comparison_image=comparison_image,
         params=params,
-        reduction=params.registration_reduction,
     )
 
-    # Step 4: CMC classification
+    # Step 4: Fine registration
+    logger.debug("starting fine registration")
+    cells = fine_registration(comparison_mark=comparison_mark, cells=cells)
+
+    # Step 5: CMC classification
     logger.debug("starting cmc classification")
-    comparison_result = classify_congruent_cells_consensus(
+    comparison_result = classify_congruent_cells_median(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
     return comparison_result

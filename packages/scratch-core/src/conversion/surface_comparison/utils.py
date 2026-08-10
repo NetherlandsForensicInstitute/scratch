@@ -51,24 +51,19 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
     """
     Map unordered cells onto a row-major grid with the correlation as values.
 
-    Grid indices are derived from the cell centers and the cell pitch. The
-    pitch is taken from the smallest spacing between distinct center
-    coordinates rather than from (max - min) / (n_unique - 1): surfaces with
-    holes (e.g. a breech-face annulus) have gaps in the cell layout, and
-    averaging across a gap yields a too-large step that collapses distinct
-    cell rows onto one grid row.
+    Grid dimensions and spacing are inferred from the cell center positions.
 
     :param cells: Unordered cell results from the CMC pipeline.
-    :return: cell_correlations (n_rows, n_cols), NaN where there is no cell.
+    :return: cell_correlations (n_rows, n_cols),
     """
     centers = np.array([cell.center_reference for cell in cells])
 
     unique_x = np.unique(np.round(centers[:, 0], decimals=9))
     unique_y = np.unique(np.round(centers[:, 1], decimals=9))
     min_x, min_y = unique_x[0], unique_y[0]
-
-    step_x = np.min(np.diff(unique_x)) if len(unique_x) > 1 else 1.0
-    step_y = np.min(np.diff(unique_y)) if len(unique_y) > 1 else 1.0
+    max_x, max_y = unique_x[-1], unique_y[-1]
+    step_x = (max_x - min_x) / (len(unique_x) - 1) if len(unique_x) > 1 else 1.0
+    step_y = (max_y - min_y) / (len(unique_y) - 1) if len(unique_y) > 1 else 1.0
 
     col_indices = np.round((centers[:, 0] - min_x) / step_x).astype(int)
     row_indices = np.round((centers[:, 1] - min_y) / step_y).astype(int)
@@ -77,12 +72,9 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
     n_cols = col_indices.max() + 1
 
     cell_correlations = np.full((n_rows, n_cols), np.nan)
+
     for k, cell in enumerate(cells):
         r, c = row_indices[k], col_indices[k]
         cell_correlations[r, c] = cell.best_score
-
-    n_scored = sum(not np.isnan(cell.best_score) for cell in cells)
-    if np.count_nonzero(~np.isnan(cell_correlations)) != n_scored:
-        raise ValueError("cell centers do not map onto a unique grid position")
 
     return cell_correlations
