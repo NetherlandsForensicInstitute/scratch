@@ -70,6 +70,7 @@ class TestContracts:
         """
         return EndpointContractInterface(
             expected_input={
+                "project_name": "forensic_analysis_2026",
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
                 "scale_x": "1",
                 "scale_y": "1",

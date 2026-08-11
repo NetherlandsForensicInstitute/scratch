@@ -16,17 +16,18 @@ class TestFileServices:
     def test_create_vault(self) -> None:
         """Test that create_vault creates a DirectoryAccess with proper directory."""
         # Act
-        vault = create_vault()
+        vault = create_vault("test-tag")
 
         # Assert
         assert isinstance(vault, DirectoryAccess)
+        assert vault.tag == "test-tag"
         assert vault.resource_path.exists()
         assert vault.resource_path.is_dir()
 
     def test_io_fetch_success(self) -> None:
         """Test that io_fetch successfully reconstructs DirectoryAccess from token."""
         # Arrange
-        original = DirectoryAccess()
+        original = DirectoryAccess(tag="my-project")
         original.resource_path.mkdir(parents=True)
 
         # Act

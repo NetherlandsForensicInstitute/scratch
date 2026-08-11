@@ -37,6 +37,7 @@ def resample_twice_bigger(
     mask = np.ones(shape=(2, 3), dtype=np.bool)
 
     params = EditImage(
+        project_name="test",
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=0.5,
@@ -68,6 +69,7 @@ def mask_middle_pixels(scan_image: ScanImage, tmp_path: Path) -> tuple[EditImage
     )
 
     params = EditImage(
+        project_name="test",
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=1,
@@ -98,6 +100,7 @@ def crop_to_middle_pixels(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
     )
 
     params = EditImage(
+        project_name="test",
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=1,
@@ -127,6 +130,7 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
     )
 
     params = EditImage(
+        project_name="test",
         scan_file=scan_file,
         cutoff_length=2 * micro,
         resampling_factor=0.5,

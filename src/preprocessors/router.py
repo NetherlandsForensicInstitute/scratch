@@ -80,7 +80,7 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     :param upload_scan: The uploaded scan data and parameters.
     :return: Access URLs for the generated files.
     """
-    vault = create_vault()
+    vault = create_vault(upload_scan.tag)
     parsed_scan = parse_scan_pipeline(upload_scan.scan_file, upload_scan.step_size, upload_scan.step_size)
     parsed_scan.save_as_x3p(ProcessFiles.scan_image.get_file_path(vault.resource_path))
     surface_map_pipeline(
@@ -113,7 +113,7 @@ async def prepare_mark_impression(
     params: Annotated[Json[PrepareMarkImpression], Form(...)], mask_data: bytes = File(...)
 ) -> PrepareMarkResponseImpression:
     """Prepare the ScanFile, save it to the vault and return the URLs to access the files."""
-    vault = create_vault()
+    vault = create_vault(params.tag)
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
     parsed_mask = parse_mask_pipeline(
         raw_data=mask_data,
@@ -154,7 +154,7 @@ async def prepare_mark_striation(
     params: Annotated[Json[PrepareMarkStriation], Form(...)], mask_data: bytes = File(...)
 ) -> PrepareMarkResponseStriation:
     """Prepare the ScanFile, save it to the vault and return the URLs to access the files."""
-    vault = create_vault()
+    vault = create_vault(params.tag)
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
     parsed_mask = parse_mask_pipeline(
         raw_data=mask_data,
@@ -197,7 +197,7 @@ async def edit_scan(params: Annotated[Json[EditImage], Form(...)], mask_data: by
     validates the file format, parses it according to the parameters, and
     creates a vault directory for future outputs. Returns access URLs for the vault.
     """
-    vault = create_vault()
+    vault = create_vault(params.tag)
     logger.debug(f"Working directory created on: {vault.resource_path}")
     parsed_image = parse_scan_pipeline(params.scan_file, 1, 1)
     parsed_mask = parse_mask_pipeline(

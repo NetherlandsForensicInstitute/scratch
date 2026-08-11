@@ -64,7 +64,7 @@ def test_get_file_rejects_invalid_extension(client: TestClient, directory_access
 
 
 def test_get_file_returns_422_for_invalid_token(client: TestClient) -> None:
-    """Test that requesting a file with an invalid token returns 422 validation error."""
+    """Test that requesting a file with an invalid token or tag returns 422 validation error."""
     # Arrange
     fake_token = uuid4()
 

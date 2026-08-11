@@ -271,13 +271,13 @@ class TestDirectoryAccess:
     def test_unique_token_generation(self) -> None:
         """Test that tokens are unique and don't conflict with existing directories."""
         # Arrange
-        first_access = DirectoryAccess()
+        first_access = DirectoryAccess(tag="test")
 
         # Create the directory to simulate it exists
         first_access.resource_path.mkdir(parents=True)
 
         # Act
-        second_access = DirectoryAccess()
+        second_access = DirectoryAccess(tag="test")
 
         # Assert - tokens should be different
         assert first_access.token != second_access.token
@@ -286,8 +286,8 @@ class TestDirectoryAccess:
     def test_resource_path_format(self) -> None:
         """Test that resource_path follows the expected format."""
         # Act
-        access = DirectoryAccess()
+        access = DirectoryAccess(tag="my-tag")
 
         # Assert
-        assert access.resource_path.name == access.token.hex
+        assert access.resource_path.name == f"my-tag-{access.token.hex}"
         assert access.resource_path.parent == get_settings().storage

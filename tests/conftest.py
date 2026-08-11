@@ -44,7 +44,7 @@ def tmp_dir_api(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
 
 @pytest.fixture(scope="module")
 def directory_access() -> DirectoryAccess:
-    directory = DirectoryAccess()
+    directory = DirectoryAccess(tag="test")
     directory.resource_path.mkdir(parents=True, exist_ok=True)
     return directory
 
