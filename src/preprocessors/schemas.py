@@ -11,6 +11,7 @@ from pydantic import (
     HttpUrl,
     PositiveFloat,
     PositiveInt,
+    field_validator,
     model_validator,
 )
 from utils.constants import RegressionOrder
@@ -64,6 +65,26 @@ class UploadScan(BaseParameters):
         examples=[1, 2, 4],
     )
 
+    @field_validator("scale_x", "scale_y")
+    @classmethod
+    def check_plausible_pixel_size(cls, v: float) -> float:
+        """Check that the pixel size has a reasonable value."""
+        if not (1e-9 <= v <= 1e-3):
+            raise ValueError(
+                f"scale value {v} m is outside the plausible range for a pixel size "
+                f"(1e-9 to 1e-3 m). Did you enter micrometers instead of meters? "
+                f"E.g. 3.5 µm should be 3.5e-6, not 3.5."
+            )
+        return v
+
+    @field_validator("step_size")
+    @classmethod
+    def check_step_size(cls, v: float) -> float:
+        """Check that the step size has a reasonable value."""
+        if not (1 <= v <= 100):
+            raise ValueError(f"step size {v} is outside plausible range (1–100).")
+        return v
+
 
 class PrepareMarkBase(BaseParameters):
     bounding_box_list: list[list[float]] | None = Field(
@@ -77,6 +98,16 @@ class PrepareMarkBase(BaseParameters):
         'The expected bit-order for bit-packed arrays is "little".',
         examples=[True, False],
     )
+
+    @field_validator("bounding_box_list")
+    @classmethod
+    def check_bounding_box_shape(cls, v):
+        """Check that the bounding box list has the correct shape."""
+        if v is None:
+            return v
+        if len(v) != 4 or any(len(pt) != 2 for pt in v):
+            raise ValueError(f"bounding_box_list must be 4 [x, y] corner points, got {len(v)} points.")
+        return v
 
     @cached_property
     def bounding_box(self) -> BoundingBox | None:
@@ -102,9 +133,9 @@ class EditImage(BaseParameters):
     """Request model for editing and transforming processed scan images."""
 
     cutoff_length: PositiveFloat = Field(
-        description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "
+        description="Cutoff wavelength in meters (m) for Gaussian regression filtering. "
         "Defines the spatial frequency threshold for surface texture analysis.",
-        examples=[250, 500, 1000],
+        examples=[250e-6, 500e-6, 1000e-6],
     )
     resampling_factor: PositiveFloat = Field(
         default=4,
@@ -140,6 +171,25 @@ class EditImage(BaseParameters):
         if self.scan_file.suffix.lower() != ".x3p":
             raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
         return self
+
+    @field_validator("cutoff_length")
+    @classmethod
+    def check_plausible_cutoff(cls, v: float) -> float:
+        """Check that the cutoff has a reasonable value."""
+        if not (1e-6 <= v <= 250e-6):
+            raise ValueError(
+                f"cutoff_length {v} m is outside the plausible range (1e-6–250e-6 m). "
+                f"Value should be in meters, e.g. 250e-6, not 250."
+            )
+        return v
+
+    @field_validator("resampling_factor")
+    @classmethod
+    def check_resampling_factor(cls, v: float) -> float:
+        """Check that the resampling factor has a reasonable value."""
+        if not (0.1 <= v <= 100):
+            raise ValueError(f"resampling_factor {v} is outside plausible range (0.1-100).")
+        return v
 
 
 class GeneratedImages(URLContainer):

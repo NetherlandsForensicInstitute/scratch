@@ -137,8 +137,8 @@ def test_default_values(upload_scan: UploadScan) -> None:
 def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> None:
     """Test that custom parameters can be set."""
     # Arrange
-    expected_scale_x = 2.5
-    expected_scale_y = 3.0
+    expected_scale_x = 2.5e-6
+    expected_scale_y = 3.0e-6
     expected_step_size = 2
     # Act
     params = upload_scan_parameter(

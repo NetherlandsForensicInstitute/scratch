@@ -13,7 +13,7 @@ from pydantic import (
     Field,
     HttpUrl,
     NonNegativeInt,
-    PositiveInt,
+    computed_field,
     model_validator,
 )
 
@@ -72,14 +72,15 @@ class CalculateLRImpression(CalculateLR):
         ...,
         description="CMC score (number of congruent matching cells).",
     )
-    n_cells: PositiveInt = Field(
-        ...,
-        description="Total number of cells in the comparison grid.",
-    )
     cells: Sequence[Cell] = Field(
         ...,
         description="Per-cell CMC results from the impression comparison.",
     )
+
+    @property
+    def n_cells(self) -> int:
+        """Total number of cells in the comparison grid."""
+        return len(self.cells)
 
     @model_validator(mode="after")
     def score_cannot_exceed_n_cells(self) -> Self:
@@ -184,12 +185,32 @@ class ComparisonResponseImpressionURL(ComparisonResponse):
 
 
 class ComparisonImpressionMetrics(BaseModelConfig):
-    n_cells: int = Field(..., examples=[40])
-    score: int = Field(..., examples=[30])
-    cmc_fraction: float = Field(..., examples=[0.75])
-    cmc_area_fraction: float = Field(..., examples=[0.75])
-    estimated_rotation: float = Field(..., examples=[1.0])
-    estimated_translation: tuple[float, float] = Field(..., examples=[(-9.4, 10.1)])
+    score: int = Field(
+        ...,
+        ge=0,
+        description="CMC score: number of cells classified as congruent matching cells.",
+        examples=[30],
+    )
+    cmc_area_fraction: float = Field(
+        ...,
+        ge=0,
+        le=1,
+        description="Fraction of the total valid surface area covered by congruent matching cells, range 0-1.",
+        examples=[0.75],
+    )
+    estimated_rotation: float = Field(
+        ...,
+        ge=-180,
+        le=180,
+        description="Estimated rotation between reference and compared mark from cell registration, in degrees.",
+        examples=[1.0],
+    )
+    estimated_translation: tuple[float, float] = Field(
+        ...,
+        description="Estimated (x, y) translation between reference and compared mark from cell registration, in "
+        "meters.",
+        examples=[(-9.4e-6, 10.1e-6)],
+    )
 
 
 class ComparisonResponseImpression(URLContainer):
@@ -201,6 +222,23 @@ class ComparisonResponseImpression(URLContainer):
     comparison_results: ComparisonImpressionMetrics = Field(
         description="Impression comparison metrics including CMC counts, fractions, and consensus registration.",
     )
+
+    @computed_field
+    @property
+    def n_cells(self) -> int:
+        return len(self.cells)
+
+    @computed_field
+    @property
+    def cmc_fraction(self) -> float:
+        return self.comparison_results.score / len(self.cells)
+
+    @model_validator(mode="after")
+    def score_cannot_exceed_n_cells(self) -> Self:
+        """Check that the number of matching cells is equal or smaller than the total number of cells."""
+        if self.comparison_results.score > len(self.cells):
+            raise ValueError(f"score ({self.comparison_results.score}) cannot exceed n_cells ({len(self.cells)})")
+        return self
 
 
 class ComparisonResponseStriationURL(ComparisonResponse):
@@ -310,3 +348,12 @@ class LRResponse(BaseModel):
         None,
         description="Upper bound of the log10 likelihood ratio confidence interval, or null if not computed.",
     )
+
+    @model_validator(mode="after")
+    def check_ci_bounds(self) -> Self:
+        """Ensure the confidence interval, if present, actually contains the point estimate."""
+        if self.llr_lower_ci is not None and self.llr_lower_ci > self.llr:
+            raise ValueError(f"llr_lower_ci ({self.llr_lower_ci}) cannot exceed llr ({self.llr})")
+        if self.llr_upper_ci is not None and self.llr_upper_ci < self.llr:
+            raise ValueError(f"llr_upper_ci ({self.llr_upper_ci}) cannot be less than llr ({self.llr})")
+        return self
