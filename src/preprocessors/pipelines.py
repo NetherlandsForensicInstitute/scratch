@@ -66,7 +66,7 @@ def _parse_bitpacked_mask(raw_data: bytes, shape: tuple[int, int]) -> BinaryMask
     """
     Convert incoming bitpacked binary data to a 2D mask array.
 
-    # Note: this follows our Java implementation for bitpacking.
+    Note: this follows our Java implementation for bitpacking.
     """
     height, width = shape
     packed = np.frombuffer(raw_data, dtype=np.uint8)

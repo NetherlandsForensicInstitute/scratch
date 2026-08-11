@@ -41,6 +41,6 @@ class TestParseMaskPipeline:
 
     def test_parse_mask_pipeline_raises_on_full_mask(self):
         """Test that the pipeline will raise an error if the mask is full."""
-        full_mask = np.ones((10, 10), dtype=np.bool_).tobytes(order="C")
+        full_mask = np.zeros((10, 10), dtype=np.bool_).tobytes(order="C")
         with pytest.raises(MaskFullError):
             parse_mask_pipeline(raw_data=full_mask, shape=(10, 10), is_bitpacked=False)
