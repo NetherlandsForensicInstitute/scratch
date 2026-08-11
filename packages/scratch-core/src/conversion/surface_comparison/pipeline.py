@@ -1,7 +1,8 @@
 import numpy as np
-
 from loguru import logger
 
+from container_models.scan_image import ScanImage
+from conversion.resample import resample_scan_image_and_mask
 from conversion.surface_comparison.cell_registration.match_cells import match_cells
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
@@ -24,12 +25,13 @@ def compare_surfaces(
 
     Executes the four-step pipeline:
 
-    1. **Generate grid** — a centered rectangular grid of cells is placed over the reference image; cells with
+    1. **Resample** — the comparison image is resampled to the pixel size of the reference image so both
+        share a common coordinate grid.
+    2. **Generate grid** — a centered rectangular grid of cells is placed over the reference image; cells with
         insufficient valid data are discarded.
-    2. **Coarse-to-fine registration** — the reference and comparison images (which may be at different native
-        pixel scales) are brought to a shared scale and downsampled for an exhaustive coarse sweep, then each
-        cell is refined locally at full resolution. See :func:`match_cells` for the full description.
-    3. **CMC classification** — consensus angle and translation are estimated across all cells and each cell is
+    3. **Coarse-to-fine registration** — the pair is downsampled for an exhaustive coarse sweep, then each
+        cell is refined locally at full resolution. See :func:`match_cells`.
+    4. **CMC classification** — consensus angle and translation are estimated across all cells and each cell is
         labeled as congruent or not.
 
     Both marks are expected to have already been pre-processed (leveled and band-pass filtered);
@@ -42,32 +44,32 @@ def compare_surfaces(
     :returns: A :class:`ComparisonResult` containing per-cell registration results, the consensus rotation and
         translation, and CMC counts.
     """
-
-    # Get the filtered images for the CMC pipeline
     reference_image = reference_mark.filtered_mark.scan_image
     comparison_image = comparison_mark.filtered_mark.scan_image
 
-    # Step 1: Generate grid cells
-    logger.debug("starting grid generation")
-
-    # Determine NaN fill value for templates based on strategy
-    nan_fill_value: float | None = None
-    if params.template_nan_fill_strategy == "global_mean":
-        nan_fill_value = float(np.nanmean(reference_image.data))
-        logger.debug(
-            "Using global mean ({:.4f}) for NaN filling (template_nan_fill_strategy=global_mean)",
-            nan_fill_value,
-        )
-
-    mark_type = reference_mark.filtered_mark.mark_type
-    grid_cells = generate_grid(
-        scan_image=reference_image,
-        cell_size=mark_type.cell_size,
-        minimum_fill_fraction=params.minimum_fill_fraction,
-        nan_fill_value=nan_fill_value,
+    # Step 1: Resample comparison so that both have the same pixel size
+    logger.debug("starting resample")
+    comparison_image, _ = resample_scan_image_and_mask(
+        scan_image=comparison_image,
+        target_scale=reference_image.scale_x,  # Assumes isotropic images
+        # Upsampling is allowed: the search requires both images on one grid, and clipping the
+        # factor at 1.0 would silently leave a coarser comparison image at its own scale.
+        only_downsample=False,
+        preserve_aspect_ratio=True,
+        interpolation=params.resample_interpolation,
+        method=params.resample_method,
     )
 
-    # Step 2: Coarse-to-fine registration (scale alignment happens inside match_cells)
+    # Step 2: Generate grid cells
+    logger.debug("starting grid generation")
+    grid_cells = generate_grid(
+        scan_image=reference_image,
+        cell_size=reference_mark.filtered_mark.mark_type.cell_size,
+        minimum_fill_fraction=params.minimum_fill_fraction,
+        nan_fill_value=resolve_nan_fill_value(reference_image, params),
+    )
+
+    # Step 3: Coarse-to-fine registration
     logger.debug("starting cell registration")
     cells = match_cells(
         grid_cells=grid_cells,
@@ -76,9 +78,27 @@ def compare_surfaces(
         params=params,
     )
 
-    # Step 3: CMC classification
+    # Step 4: CMC classification
     logger.debug("starting cmc classification")
-    comparison_result = classify_congruent_cells_consensus(
+    return classify_congruent_cells_consensus(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
-    return comparison_result
+
+
+def resolve_nan_fill_value(
+    reference_image: ScanImage, params: ComparisonParams
+) -> float | None:
+    """
+    Turn ``template_nan_fill_strategy`` into the concrete value every template will be filled with.
+
+    ``None`` means "each cell's own valid-pixel mean"; see
+    :func:`~conversion.surface_comparison.template_fill.fill_template_nan`.
+    """
+    if params.template_nan_fill_strategy != "global_mean":
+        return None
+    nan_fill_value = float(np.nanmean(reference_image.data))
+    logger.debug(
+        "Using global mean ({:.4f}) for NaN filling (template_nan_fill_strategy=global_mean)",
+        nan_fill_value,
+    )
+    return nan_fill_value

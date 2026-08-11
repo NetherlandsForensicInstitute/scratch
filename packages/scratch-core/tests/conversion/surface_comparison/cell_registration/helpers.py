@@ -6,14 +6,16 @@ safe to import from any test file without side-effects.
 
 import numpy as np
 
-from container_models.base import FloatArray2D, DepthData
+from container_models.base import DepthData, FloatArray2D
 from container_models.scan_image import ScanImage
+from conversion.resample import resize_nan_aware
 from conversion.surface_comparison.models import (
+    Cell,
     ComparisonParams,
     GridCell,
     GridSearchParams,
-    Cell,
 )
+
 from .plot_utils import (
     plot_rotated_squares,
     plot_side_by_side,
@@ -31,7 +33,7 @@ def make_surface(
     Return a deterministic, non-periodic 2-D height map with structure at several scales.
 
     A smooth global trend plus band-limited random layers at octave scales, plus fine noise.
-    The multi-scale structure matters: a surface of smooth trend plus white noise localises a
+    The multi-scale structure matters: a surface of smooth trend plus white noise localizes a
     cell fine at full resolution, but the noise averages away under downsampling and leaves
     nothing for a coarse search to lock onto. A deterministic ripple survives downsampling but
     repeats, which is worse still - it produces many near-equal matches. Random layers give
@@ -93,12 +95,22 @@ def make_scan_image(
 def make_grid_cell(
     data: FloatArray2D,
     top_left: tuple[int, int] = (0, 0),
-    nan_fill_value: float = np.nan,
+    nan_fill_value: float | None = None,
 ) -> GridCell:
     """Wrap a 2-D array in a :class:`GridCell` with a fresh :class:`GridSearchParams`."""
     return GridCell(
-        top_left=top_left, cell_data=data.copy(), grid_search_params=GridSearchParams()
+        top_left=top_left,
+        cell_data=data.copy(),
+        grid_search_params=GridSearchParams(),
+        nan_fill_value=nan_fill_value,
     )
+
+
+def downsample(image: FloatArray2D, factor: float) -> FloatArray2D:
+    """NaN-aware area-average shrink, matching what the coarse stage does to both images."""
+    height, width = image.shape
+    new_shape = (int(np.ceil(height / factor)), int(np.ceil(width / factor)))
+    return resize_nan_aware(image, new_shape, interpolation="area")
 
 
 def identity_params() -> ComparisonParams:

@@ -1,16 +1,19 @@
-import numpy as np
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import numpy as np
+import pytest
 from scipy.constants import micro
+
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.resample import (
-    resample_scan_image_and_mask,
+    _clip_factors,
     _resample_scan_image,
     get_scaling_factors,
-    _clip_factors,
     resample_array_2d,
     resample_mark,
+    resample_scan_image_and_mask,
+    resize_nan_aware,
 )
 
 
@@ -49,6 +52,82 @@ class TestResampleArray:
 
         call_args = mock_resize.call_args.args
         assert call_args[1] == (50.0, 100.0)
+
+    def test_legacy_method_uses_skimage(self):
+        with patch("conversion.resample.resize") as mock:
+            mock.return_value = np.zeros((50, 100))
+
+            resample_array_2d(np.zeros((100, 200)), factors=(2.0, 2.0), method="legacy")
+
+            assert mock.call_args.kwargs["output_shape"] == (50, 100)
+            assert mock.call_args.kwargs["anti_aliasing"] is True
+
+    def test_legacy_method_propagates_nan(self):
+        # Arrange: a single missing pixel, which the NaN-aware method would average away.
+        array = np.ones((4, 4))
+        array[0, 0] = np.nan
+
+        # Act
+        legacy = resample_array_2d(array, factors=(2.0, 2.0), method="legacy")
+        nan_aware = resample_array_2d(array, factors=(2.0, 2.0))
+
+        # Assert
+        assert np.isnan(legacy[0, 0])
+        assert nan_aware[0, 0] == pytest.approx(1.0)
+
+
+class TestResizeNanAware:
+    @staticmethod
+    def _shrink(image, factor):
+        height, width = image.shape
+        target = (int(np.ceil(height / factor)), int(np.ceil(width / factor)))
+        return resize_nan_aware(image, target, interpolation="area")
+
+    def test_rejects_an_unknown_interpolation(self):
+        with pytest.raises(ValueError, match="Unknown interpolation"):
+            resize_nan_aware(np.zeros((4, 4)), (2, 2), interpolation="bogus")  # type: ignore[arg-type]
+
+    def test_computes_block_mean(self):
+        # Arrange: each 2x2 block holds a single distinct value.
+        image = np.repeat(np.repeat(np.array([[1.0, 2.0], [3.0, 4.0]]), 2, 0), 2, 1)
+
+        # Act
+        result = self._shrink(image, 2)
+
+        # Assert
+        assert result == pytest.approx(np.array([[1.0, 2.0], [3.0, 4.0]]))
+
+    def test_averages_only_valid_pixels(self):
+        # Arrange: one block is half missing; its mean must come from the survivors alone.
+        image = np.array([[4.0, 4.0, 1.0, 1.0], [4.0, 4.0, np.nan, np.nan]])
+
+        # Act
+        result = self._shrink(image, 2)
+
+        # Assert
+        assert result[0, 0] == pytest.approx(4.0)
+        assert result[0, 1] == pytest.approx(1.0)
+
+    def test_block_below_validity_threshold_becomes_nan(self):
+        # Arrange: three of four sub-pixels missing, i.e. 25% valid.
+        image = np.array([[7.0, np.nan], [np.nan, np.nan]])
+
+        # Act
+        result = self._shrink(image, 2)
+
+        # Assert
+        assert np.isnan(result[0, 0])
+
+    def test_fully_missing_block_becomes_nan_without_warning(self):
+        # Arrange
+        image = np.full((2, 2), np.nan)
+
+        # Act
+        with np.errstate(all="raise"):
+            result = self._shrink(image, 2)
+
+        # Assert
+        assert np.isnan(result).all()
 
 
 class TestResampleScanImage:

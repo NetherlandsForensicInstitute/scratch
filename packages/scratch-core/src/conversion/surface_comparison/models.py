@@ -1,16 +1,16 @@
 from collections.abc import Sequence
-from functools import cached_property
-
-import numpy as np
-from pydantic import Field, field_validator
 from dataclasses import dataclass
+from functools import cached_property
 from textwrap import dedent
 from typing import Literal
 
+import numpy as np
+from pydantic import Field, field_validator
 from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
 from conversion.data_formats import Mark
+from conversion.resample import Interpolation, ResampleMethod
 from conversion.surface_comparison.template_fill import fill_template_nan
 
 
@@ -136,6 +136,9 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_min: Lower bound of rotation search range (degrees).
     :param search_angle_max: Upper bound of rotation search range (degrees).
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
+
+    The remaining fields configure the two search stages and image resampling; see their
+    descriptions.
     """
 
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
@@ -146,7 +149,6 @@ class ComparisonParams(ConfigBaseModel):
     search_angle_max: float = 180.0
     search_angle_step: float = Field(default=5.0, gt=0.0)
 
-    # --- Coarse stage: exhaustive translation + rotation sweep on a downsampled image pair ---
     max_size: int = Field(
         default=256,
         gt=0,
@@ -155,13 +157,20 @@ class ComparisonParams(ConfigBaseModel):
             "exhaustive sweep."
         ),
     )
-    resample_interpolation: Literal["area", "linear", "nearest", "cubic"] = Field(
+    resample_interpolation: Interpolation = Field(
         default="area",
         description=(
             "Interpolation used whenever an image is resampled (pixel-scale alignment and the "
-            "coarse-stage size cap): one of 'area', 'linear', 'nearest', 'cubic'. 'area' is the "
-            "recommended default for shrinking images; the others are exposed to make it easy to "
-            "empirically compare algorithms on real data instead of assuming one is better."
+            "coarse-stage size cap). 'area' is the recommended default for shrinking images; the "
+            "others are exposed to make it easy to compare algorithms empirically on real data."
+        ),
+    )
+    resample_method: ResampleMethod = Field(
+        default="nan_aware",
+        description=(
+            "How images are resized. 'nan_aware' averages only the valid pixels of each source "
+            "block, so missing data does not spread; 'legacy' is the original skimage resize, "
+            "which propagates a NaN into every output pixel it touches."
         ),
     )
     n_candidates: int = Field(
@@ -180,7 +189,6 @@ class ComparisonParams(ConfigBaseModel):
         description="Cells processed per chunk during the coarse sweep. None picks a device-based default.",
     )
 
-    # --- Fine stage: local search around each coarse candidate, on the original-resolution images ---
     fine_n_pixels: int = Field(
         default=16,
         ge=0,
@@ -197,23 +205,17 @@ class ComparisonParams(ConfigBaseModel):
         description="Refinement jobs (candidate pose x trial angle) processed per chunk. None picks a device-based default.",
     )
 
-    # --- Template NaN fill strategy ---
     template_nan_fill_strategy: Literal["local_mean", "global_mean"] = Field(
         default="global_mean",
         description=dedent("""
-            Strategy for filling NaN pixels in reference templates before correlation.
+            How NaN pixels in reference templates are filled before correlation. Because the
+            correlation subtracts each template's mean, the fill value decides whether missing
+            pixels contribute to the score:
 
-            Normalized cross-correlation subtracts each template's mean (zero-mean normalization),
-            so the choice of fill value determines whether missing pixels contribute to the score:
-
-            - local_mean: fill with each cell's own valid-pixel mean. After mean subtraction,
-              filled pixels become exactly zero and contribute nothing to correlation, so missing
-              pixels are treated as no information rather than real surface data.
-
-            - global_mean: fill with the reference image's global mean (computed at runtime).
-              After mean subtraction, filled pixels retain a non-zero value and contribute to the
-              correlation. This can bias results because missing data is treated as real surface
-              information with a specific intensity, potentially inflating scores.
+            - local_mean: each cell's own valid-pixel mean, so filled pixels land on exactly zero
+              after mean subtraction and contribute nothing.
+            - global_mean: the reference image's global mean, so filled pixels keep a non-zero
+              value and count towards the score as though they were real, flat surface.
             """),
     )
 
