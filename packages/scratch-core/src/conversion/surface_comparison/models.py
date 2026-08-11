@@ -182,12 +182,12 @@ class ComparisonParams(ConfigBaseModel):
 
     # --- Fine stage: local search around each coarse candidate, on the original-resolution images ---
     fine_n_pixels: int = Field(
-        default=15,
+        default=16,
         ge=0,
         description="Fine-stage translation margin: search ±N pixels around each candidate's position.",
     )
     fine_m_degrees: float = Field(
-        default=5.0,
+        default=10.0,
         ge=0.0,
         description="Fine-stage angle margin: search ±M degrees, in 1-degree steps, around each candidate's angle.",
     )

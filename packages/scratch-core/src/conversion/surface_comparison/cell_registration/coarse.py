@@ -208,7 +208,8 @@ def coarse_to_fine_match(
     )
 
     angles = np.asarray(angles, dtype=np.float64)
-    default_angle = float(np.sort(angles)[0])
+    sorted_angles = angles[np.lexsort((angles, np.abs(angles)))]
+    default_angle = float(sorted_angles[0])
 
     jobs: list[tuple[int, float, float, float]] = []
     unusable: list[int] = []

@@ -22,7 +22,7 @@ from conversion.surface_comparison.template_fill import fill_template_nan
 
 #: Minimum coarse cell size for reliable matching. If downsampling would produce cells smaller
 #: than this, the cap factor is reduced to keep coarse cells above this threshold.
-_MIN_COARSE_CELL = 20
+_MIN_COARSE_CELL = 12
 
 
 def match_cells(
@@ -93,7 +93,8 @@ def match_cells(
 
     # --- Bring the comparison image to the reference's pixel scale, in one pass. ---
     scale_match_factor = pixel_size / comparison_image.scale_x
-    if not np.isclose(scale_match_factor, 1.0, rtol=1e-4):
+    if not np.isclose(scale_match_factor, 1.0, rtol=1e-5):
+        logger.info(f"Resampling comparison image with factor {scale_match_factor}")
         comparison_full_data = resample_array_2d(
             comparison_image.data,
             factors=(scale_match_factor, scale_match_factor),
@@ -102,6 +103,7 @@ def match_cells(
     else:
         # Scales already agree to within a rounding error; resampling here would be a lossy
         # interpolation pass that changes nothing.
+        logger.info("Skipping resampling of images. Scales already match.")
         comparison_full_data = comparison_image.data
 
     # --- Cap the shared canvas to params.max_size for the coarse stage. ---
