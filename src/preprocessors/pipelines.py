@@ -15,7 +15,7 @@ from renders import (
 )
 
 from preprocessors.constants import PreviewImageNormalizationBounds, SurfaceImageNormalizationBounds
-from preprocessors.exceptions import ArrayShapeMismatchError, MaskEmptyError, MaskFullError
+from preprocessors.exceptions import ArrayShapeMismatchError, MaskFullError
 
 
 def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> ScanImage:
@@ -57,9 +57,6 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
         mask = _parse_bitpacked_mask(raw_data, shape)
 
     if not mask.any():
-        raise MaskEmptyError
-
-    if mask.all():
         raise MaskFullError
 
     return mask
