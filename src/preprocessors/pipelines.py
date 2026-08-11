@@ -54,13 +54,7 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
         array = np.frombuffer(raw_data, dtype=np.bool)
         mask = _reshape_array(array=array, shape=shape)
     else:
-        # Note: this follows our Java implementation for bitpacking
-        height, width = shape
-        packed = np.frombuffer(raw_data, dtype=np.uint8)
-        unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)  # type: ignore
-        padding = (-width) % 8
-        reshaped = _reshape_array(array=unpacked, shape=(height, width + padding))
-        mask = reshaped[:, :width]
+        mask = _parse_bitpacked_mask(raw_data, shape)
 
     if not mask.any():
         raise MaskEmptyError
@@ -68,6 +62,21 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
     if mask.all():
         raise MaskFullError
 
+    return mask
+
+
+def _parse_bitpacked_mask(raw_data: bytes, shape: tuple[int, int]) -> BinaryMask:
+    """
+    Convert incoming bitpacked binary data to a 2D mask array.
+
+    # Note: this follows our Java implementation for bitpacking.
+    """
+    height, width = shape
+    packed = np.frombuffer(raw_data, dtype=np.uint8)
+    unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)  # type: ignore
+    padding = (-width) % 8
+    reshaped = _reshape_array(array=unpacked, shape=(height, width + padding))
+    mask = reshaped[:, :width]
     return mask
 
 
