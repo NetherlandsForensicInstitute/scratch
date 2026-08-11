@@ -74,7 +74,7 @@ async def processor_root() -> RedirectResponse:
 async def calculate_score_impression(impression_params: CalculateScoreImpression) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
     logger.debug("starting calculate score impression")
-    vault = create_vault(impression_params.tag)
+    vault = create_vault()
 
     mark_ref = load_mark_from_path(path=impression_params.mark_dir_ref, stem="processed")
     mark_ref_raw = load_mark_from_path(path=impression_params.mark_dir_ref, stem="mark")
@@ -146,7 +146,7 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
 async def calculate_score_striation(striation_params: CalculateScore) -> ComparisonResponseStriation:
     """Compare two striation profiles."""
     logger.debug("starting calculate score striation")
-    vault = create_vault(striation_params.tag)
+    vault = create_vault()
     mark_ref = load_mark_from_path(path=striation_params.mark_dir_ref, stem="processed")
     mark_comp = load_mark_from_path(path=striation_params.mark_dir_comp, stem="processed")
     profile_ref = load_profile_from_path(path=striation_params.mark_dir_ref, stem="profile")
@@ -214,7 +214,7 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
 )
 async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse:
     """Calculate likelihood ratio for impression mark comparison."""
-    vault = create_vault(lr_input.tag)
+    vault = create_vault()
     result = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
@@ -238,7 +238,7 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
 )
 async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     """Calculate likelihood ratio for striation mark comparison."""
-    vault = create_vault(lr_input.tag)
+    vault = create_vault()
     result = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
