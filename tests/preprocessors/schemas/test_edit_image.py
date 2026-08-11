@@ -8,10 +8,9 @@ from conversion.data_formats import SurfaceTerms
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
-from scipy.constants import micro
 
 from preprocessors.schemas import EditImage, RegressionOrder
-from tests.constants import DEFAULT_RESAMPLING_FACTOR, CUTOFF_LENGTH
+from tests.constants import CUTOFF_LENGTH, DEFAULT_RESAMPLING_FACTOR
 
 
 def get_error_fields(exc_info, typ: str) -> tuple[str, ...]:
@@ -118,7 +117,7 @@ class TestEditImage:
 
     @given(valid_value=st.floats(min_value=1e-6, max_value=250e-6, allow_nan=False, allow_infinity=False))
     def test_should_accept_positive_cutoff_length(
-            self, valid_value: float, edit_image_parameter: Callable[..., EditImage]
+        self, valid_value: float, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
         """Test that cutoff_length values within the plausible range (1e-6-250e-6 m) are accepted."""
         # Act

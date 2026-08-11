@@ -100,8 +100,7 @@ class TestCalculateLRImpression:
     def test_should_accept_score_within_n_cells(self, impression_kwargs: dict, score: int) -> None:
         """Score accepts any non-negative integer up to n_cells."""
         impression_kwargs["cells"] = [
-            make_cell(center_reference=(i * 1e-3, 0.0), best_score=0.3, cell_size=(1e-3, 1e-3))
-            for i in range(100)
+            make_cell(center_reference=(i * 1e-3, 0.0), best_score=0.3, cell_size=(1e-3, 1e-3)) for i in range(100)
         ]
         impression_kwargs["score"] = score
         schema = CalculateLRImpression(**impression_kwargs)
@@ -117,8 +116,7 @@ class TestCalculateLRImpression:
     def test_should_reject_score_exceeding_n_cells(self, impression_kwargs: dict, score: int) -> None:
         """Score greater than n_cells raises ValidationError."""
         impression_kwargs["cells"] = [
-            make_cell(center_reference=(i * 1e-3, 0.0), best_score=0.3, cell_size=(1e-3, 1e-3))
-            for i in range(10)
+            make_cell(center_reference=(i * 1e-3, 0.0), best_score=0.3, cell_size=(1e-3, 1e-3)) for i in range(10)
         ]
         impression_kwargs["score"] = score
         with pytest.raises(ValidationError):
