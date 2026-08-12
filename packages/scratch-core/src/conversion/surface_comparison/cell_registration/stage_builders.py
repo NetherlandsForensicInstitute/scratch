@@ -9,7 +9,7 @@ from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.resample import (
     SCALE_MATCH_RTOL,
-    resample_nan_aware,
+    resample_array_2d_nan_aware,
     select_interpolation,
 )
 from conversion.surface_comparison.cell_registration.geometry import pad_image_array
@@ -236,4 +236,4 @@ def resample_to_coarse(data: FloatArray2D, factor: float) -> FloatArray2D:
     :returns: Resampled array.
     """
     factors = (factor, factor)
-    return resample_nan_aware(data, factors, select_interpolation(factors))
+    return resample_array_2d_nan_aware(data, factors, select_interpolation(factors))

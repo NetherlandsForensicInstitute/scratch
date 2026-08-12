@@ -2,12 +2,7 @@ import numpy as np
 from loguru import logger
 
 from container_models.scan_image import ScanImage
-from conversion.resample import (
-    SCALE_MATCH_RTOL,
-    get_scaling_factors,
-    resample_nan_aware,
-    select_interpolation,
-)
+from conversion.resample import resample_scan_image_to_scale
 from conversion.surface_comparison.cell_registration.results import (
     convert_grid_cell_to_cell,
     record_results,
@@ -35,32 +30,6 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
     ProcessedMark,
 )
-
-
-def resample_to_scale(image: ScanImage, target_scale: float) -> ScanImage:
-    """
-    Put *image* on a pixel grid of *target_scale*, NaN-aware and in either direction.
-
-    Deliberately not :func:`~conversion.resample.resample_scan_image_and_mask`: that one clips the
-    factor at 1.0 by default, which would silently leave a coarser comparison image at its own
-    scale, and it resizes the way every other pipeline wants rather than the way this one needs.
-    Growing an image is allowed here precisely because the search requires both marks on one grid,
-    and that is what makes the interpolation depend on the direction.
-
-    :param image: The image to put on the target grid.
-    :param target_scale: Target scale (= pixel size in meters), assumed isotropic.
-    :returns: The resampled image, or *image* itself when it is already on that grid.
-    """
-    factors = get_scaling_factors(
-        scales=(image.scale_x, image.scale_y), target_scale=target_scale
-    )
-    if np.allclose(factors, 1.0, rtol=SCALE_MATCH_RTOL, atol=0.0):
-        return image
-    return ScanImage(
-        data=resample_nan_aware(image.data, factors, select_interpolation(factors)),
-        scale_x=image.scale_x * factors[0],
-        scale_y=image.scale_y * factors[1],
-    )
 
 
 def compare_surfaces(
@@ -103,7 +72,7 @@ def compare_surfaces(
 
     # Step 1: Resample comparison to reference scale (for the fine stage)
     logger.debug("starting resample")
-    comparison_image_full = resample_to_scale(
+    comparison_image_full = resample_scan_image_to_scale(
         comparison_image_original, reference_image.scale_x
     )
 

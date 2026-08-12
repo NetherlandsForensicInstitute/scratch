@@ -14,10 +14,11 @@ from conversion.resample import (
     _resample_scan_image,
     get_scaling_factors,
     resample_array_2d,
+    resample_array_2d_nan_aware,
     resample_mark,
-    resample_nan_aware,
     resample_scan_image_and_mask,
-    resize_nan_aware,
+    resample_scan_image_to_scale,
+    resize_array_2d_nan_aware,
     select_interpolation,
 )
 
@@ -96,7 +97,7 @@ class TestResampleArray:
         assert np.array_equal(result, expected)
 
     def test_spreads_nan(self):
-        # Arrange: a single missing pixel, which resample_nan_aware would average away.
+        # Arrange: a single missing pixel, which resample_array_2d_nan_aware would average away.
         array = np.ones((4, 4))
         array[0, 0] = np.nan
 
@@ -108,12 +109,12 @@ class TestResampleArray:
 
 
 class TestResampleNanAware:
-    @patch("conversion.resample.resize_nan_aware")
+    @patch("conversion.resample.resize_array_2d_nan_aware")
     def test_calculates_output_shape_correctly(self, mock_resize: MagicMock):
         array = np.zeros((100, 200))
         mock_resize.return_value = np.zeros((50, 100))
 
-        resample_nan_aware(array, factors=(2.0, 2.0))
+        resample_array_2d_nan_aware(array, factors=(2.0, 2.0))
 
         call_args = mock_resize.call_args.args
         assert call_args[1] == (50.0, 100.0)
@@ -124,7 +125,7 @@ class TestResampleNanAware:
         array[0, 0] = np.nan
 
         # Act
-        result = resample_nan_aware(array, factors=(2.0, 2.0))
+        result = resample_array_2d_nan_aware(array, factors=(2.0, 2.0))
 
         # Assert
         assert result[0, 0] == pytest.approx(1.0)
@@ -134,7 +135,9 @@ class TestResampleNanAware:
         # holding only values already present in the input.
         array = np.arange(16, dtype=np.float64).reshape(4, 4)
 
-        result = resample_nan_aware(array, factors=(0.5, 0.5), interpolation="linear")
+        result = resample_array_2d_nan_aware(
+            array, factors=(0.5, 0.5), interpolation="linear"
+        )
 
         assert result.shape == (8, 8)
         assert not np.all(np.isin(result, array))
@@ -145,7 +148,9 @@ class TestResampleNanAware:
         array[4, 4] = np.nan
 
         # Act
-        result = resample_nan_aware(array, factors=(0.5, 0.5), interpolation="linear")
+        result = resample_array_2d_nan_aware(
+            array, factors=(0.5, 0.5), interpolation="linear"
+        )
 
         # Assert: the hole neither vanishes nor grows beyond the source pixel it came from.
         missing = np.isnan(result)
@@ -159,11 +164,11 @@ class TestResizeNanAware:
     def _shrink(image, factor):
         height, width = image.shape
         target = (int(np.ceil(height / factor)), int(np.ceil(width / factor)))
-        return resize_nan_aware(image, target, interpolation="area")
+        return resize_array_2d_nan_aware(image, target, interpolation="area")
 
     def test_rejects_an_unknown_interpolation(self):
         with pytest.raises(ValueError, match="Unknown interpolation"):
-            resize_nan_aware(np.zeros((4, 4)), (2, 2), interpolation="bogus")  # type: ignore[arg-type]
+            resize_array_2d_nan_aware(np.zeros((4, 4)), (2, 2), interpolation="bogus")  # type: ignore[arg-type]
 
     def test_computes_block_mean(self):
         # Arrange: each 2x2 block holds a single distinct value.
@@ -206,6 +211,27 @@ class TestResizeNanAware:
 
         # Assert
         assert np.isnan(result).all()
+
+
+class TestResampleToScale:
+    """The comparison pipeline's own scale alignment, which is stricter than the shared one."""
+
+    def test_resamples_a_scale_mismatch_numpy_defaults_would_skip(self):
+        # A 3.00003e-6 versus 3e-6 pixel size is a real mismatch but sits inside numpy's own 1e-5
+        # relative tolerance. The search needs both marks on one grid, so it must not be waved
+        # through here even though resample_scan_image_and_mask does wave it through.
+        image = ScanImage(
+            data=np.zeros((40, 40)), scale_x=3.00003e-6, scale_y=3.00003e-6
+        )
+
+        assert resample_scan_image_to_scale(image, target_scale=3e-6) is not image
+
+    def test_skips_a_scale_difference_that_is_only_float_rounding(self):
+        image = ScanImage(
+            data=np.zeros((40, 40)), scale_x=3.0000000000033e-6, scale_y=3e-6
+        )
+
+        assert resample_scan_image_to_scale(image, target_scale=3e-6) is image
 
 
 class TestResampleScanImage:

@@ -10,7 +10,7 @@ import numpy as np
 
 from container_models.base import DepthData, FloatArray2D
 from container_models.scan_image import ScanImage
-from conversion.resample import resize_nan_aware
+from conversion.resample import resize_array_2d_nan_aware
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonParams,
@@ -112,7 +112,7 @@ def downsample(image: FloatArray2D, factor: float) -> FloatArray2D:
     """NaN-aware area-average shrink, matching what the coarse stage does to both images."""
     height, width = image.shape
     new_shape = (int(np.ceil(height / factor)), int(np.ceil(width / factor)))
-    return resize_nan_aware(image, new_shape, interpolation="area")
+    return resize_array_2d_nan_aware(image, new_shape, interpolation="area")
 
 
 def identity_params() -> ComparisonParams:

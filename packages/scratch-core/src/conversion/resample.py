@@ -1,3 +1,30 @@
+"""
+Resampling: putting image data onto a different pixel grid.
+
+The functions here vary along three axes, and the names spell out all three.
+
+* **What they take** - ``*_mark`` a :class:`Mark`, ``*_scan_image_*`` a :class:`ScanImage`,
+  ``*_array_1d`` / ``*_array_2d`` a bare array.
+* **How the new size is given** - ``resample_*`` takes scaling *factors*, or a target scale in
+  meters; ``resize_*`` takes a target *shape* in pixels.
+* **What happens to missing data** - this is the axis that bites. A plain function interpolates
+  straight through NaN, so every hole grows by the interpolation's support, even when the resize
+  is a near no-op. A ``*_nan_aware`` function averages the valid pixels among themselves instead,
+  so holes keep their size.
+
+Plain, a NaN spreads into every output pixel its source footprint touches:
+    :func:`resample_mark`, :func:`resample_scan_image_and_mask`, :func:`resample_array_2d`,
+    :func:`resample_array_1d`
+
+NaN-aware, holes keep their size:
+    :func:`resample_scan_image_to_scale`, :func:`resample_array_2d_nan_aware`,
+    :func:`resize_array_2d_nan_aware`
+
+Only the surface-comparison pipeline uses the NaN-aware variants; it works on masked scans where
+a resize that quietly doubled the missing data would cost real matches. Every other caller keeps
+the plain behavior it has always had.
+"""
+
 from typing import Literal, TypeVar
 
 import cv2
@@ -13,7 +40,7 @@ T = TypeVar("T", FloatArray2D, BinaryMask)
 
 Interpolation = Literal["area", "linear", "nearest", "cubic"]
 
-#: cv2 flag per interpolation name. Consulted only by :func:`resample_nan_aware`; which one to use
+#: cv2 flag per interpolation name. Consulted only by the NaN-aware resamplers; which one to use
 #: is the caller's decision.
 _INTERPOLATION_FLAGS = {
     "area": cv2.INTER_AREA,
@@ -36,11 +63,11 @@ SCALE_MATCH_RTOL = 1e-6
 
 #: Interpolation for shrinking an image: it averages every source pixel rather than sampling a
 #: subset, which is what keeps aliasing out of a downsampled surface. Also the default of
-#: :func:`resample_nan_aware`, since most callers only ever shrink.
+#: :func:`resample_array_2d_nan_aware`, since most callers only ever shrink.
 DOWNSAMPLE_INTERPOLATION: Interpolation = "area"
 #: Interpolation for growing an image. Not ``area``, which cv2 degenerates to nearest-neighbor when
 #: zooming in, and not ``cubic``, whose outer taps carry negative weights: those would let
-#: :func:`resize_nan_aware` divide by a near-zero or negative coverage at the edge of a
+#: :func:`resize_array_2d_nan_aware` divide by a near-zero or negative coverage at the edge of a
 #: missing-data hole, exactly where the data is already weakest.
 UPSAMPLE_INTERPOLATION: Interpolation = "linear"
 
@@ -90,14 +117,43 @@ def resample_scan_image_and_mask(
         factors = _clip_factors(factors, preserve_aspect_ratio)
     # Deliberately numpy's own tolerance rather than SCALE_MATCH_RTOL: this is the shared
     # resampler for every non-comparison caller, and its behavior is pinned to main. Only the
-    # surface-comparison pipeline needs the tighter window, and it applies it itself in
-    # :func:`~conversion.surface_comparison.pipeline.resample_to_scale`.
+    # surface-comparison pipeline needs the tighter window; see resample_scan_image_to_scale.
     if np.allclose(factors, 1.0):
         return scan_image, mask
     image = _resample_scan_image(scan_image, factors=factors)
     if mask is not None:
         mask = resample_array_2d(mask, factors=factors)
     return image, mask
+
+
+def resample_scan_image_to_scale(image: ScanImage, target_scale: float) -> ScanImage:
+    """
+    Put *image* on a pixel grid of *target_scale*, NaN-aware and in either direction.
+
+    The NaN-aware counterpart to :func:`resample_scan_image_and_mask`, and deliberately not that
+    function: it clips the factor at 1.0 by default, which would silently leave a coarser image at
+    its own scale, and it interpolates straight through NaN. Growing an image is allowed here
+    because the surface-comparison search requires both marks on one grid, and that is what makes
+    the interpolation depend on the direction.
+
+    :param image: The image to put on the target grid.
+    :param target_scale: Target scale (= pixel size in meters), assumed isotropic.
+    :returns: The resampled image, or *image* itself when it is already on that grid.
+    """
+    factors = get_scaling_factors(
+        scales=(image.scale_x, image.scale_y), target_scale=target_scale
+    )
+    # SCALE_MATCH_RTOL rather than numpy's default, unlike resample_scan_image_and_mask: a
+    # 3.00003e-6 versus 3e-6 mismatch is real, and the search needs both marks on one grid.
+    if np.allclose(factors, 1.0, rtol=SCALE_MATCH_RTOL, atol=0.0):
+        return image
+    return ScanImage(
+        data=resample_array_2d_nan_aware(
+            image.data, factors, select_interpolation(factors)
+        ),
+        scale_x=image.scale_x * factors[0],
+        scale_y=image.scale_y * factors[1],
+    )
 
 
 def resample_mark(mark: Mark, only_downsample: bool = False) -> Mark:
@@ -166,7 +222,7 @@ def resample_array_2d(
     For example, if the scale factor is 0.5, then the image output shape will be scaled by 1 / 0.5 = 2.
 
     Has no notion of missing data, so a single NaN spreads over every output pixel its source
-    footprint touches; :func:`resample_nan_aware` is the variant that does not.
+    footprint touches; :func:`resample_array_2d_nan_aware` is the variant that does not.
 
     :param array: The array containing the image data to resample.
     :param factors: The multipliers for the scale of the X- and Y-axis.
@@ -182,7 +238,7 @@ def resample_array_2d(
     return np.asarray(resampled, dtype=array.dtype)  # type: ignore[return-value]
 
 
-def resample_nan_aware(
+def resample_array_2d_nan_aware(
     array: FloatArray2D,
     factors: tuple[float, float],
     interpolation: Interpolation = "area",
@@ -191,7 +247,7 @@ def resample_nan_aware(
     Resample a 2D float array by *factors*, treating NaN as missing rather than as contagious.
 
     The counterpart to :func:`resample_array_2d` for callers that cannot afford to let a hole grow
-    every time an image is resized; see :func:`resize_nan_aware` for how. Currently the
+    every time an image is resized; see :func:`resize_array_2d_nan_aware` for how. Currently the
     surface-comparison pipeline only, which decides its own *interpolation* from the direction it is
     resampling in.
 
@@ -205,10 +261,10 @@ def resample_nan_aware(
         max(1, int(round(array.shape[0] / factor_y))),
         max(1, int(round(array.shape[1] / factor_x))),
     )
-    return resize_nan_aware(array, target_shape, interpolation=interpolation)
+    return resize_array_2d_nan_aware(array, target_shape, interpolation=interpolation)
 
 
-def resize_nan_aware(
+def resize_array_2d_nan_aware(
     array: FloatArray2D,
     target_shape: tuple[int, int],
     interpolation: Interpolation = "area",
@@ -230,10 +286,14 @@ def resize_nan_aware(
     valid = np.isfinite(array)
     if valid.all():
         # No missing data: a plain resize is exact and avoids the divide-by-coverage step below.
-        return np.asarray(_resize(array, target_shape, interpolation), dtype=np.float64)
+        return np.asarray(
+            _resize_with_cv2(array, target_shape, interpolation), dtype=np.float64
+        )
 
-    mean_of_filled = _resize(np.where(valid, array, 0.0), target_shape, interpolation)
-    mean_of_valid = _resize(valid, target_shape, interpolation)
+    mean_of_filled = _resize_with_cv2(
+        np.where(valid, array, 0.0), target_shape, interpolation
+    )
+    mean_of_valid = _resize_with_cv2(valid, target_shape, interpolation)
 
     with np.errstate(invalid="ignore", divide="ignore"):
         result = mean_of_filled / mean_of_valid
@@ -241,7 +301,7 @@ def resize_nan_aware(
     return np.asarray(result, dtype=np.float64)
 
 
-def _resize(
+def _resize_with_cv2(
     array: FloatArray2D | BinaryMask,
     target_shape: tuple[int, int],
     interpolation: Interpolation,

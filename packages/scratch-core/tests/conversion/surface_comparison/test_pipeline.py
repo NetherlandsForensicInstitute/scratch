@@ -15,11 +15,7 @@ from conversion.surface_comparison.cmc_consensus.pipeline import (
 )
 from conversion.surface_comparison.grid import GridCell, generate_grid
 from conversion.surface_comparison.models import ComparisonParams, GridSearchParams
-from conversion.surface_comparison.pipeline import (
-    ProcessedMark,
-    compare_surfaces,
-    resample_to_scale,
-)
+from conversion.surface_comparison.pipeline import ProcessedMark, compare_surfaces
 
 from .cell_registration.helpers import (
     make_scan_image,
@@ -72,27 +68,6 @@ def grid_cell() -> GridCell:
         cell_data=np.zeros(shape=(20, 20), dtype=np.float64),
         grid_search_params=GridSearchParams(),
     )
-
-
-class TestResampleToScale:
-    """The comparison pipeline's own scale alignment, which is stricter than the shared one."""
-
-    def test_resamples_a_scale_mismatch_numpy_defaults_would_skip(self):
-        # A 3.00003e-6 versus 3e-6 pixel size is a real mismatch but sits inside numpy's own 1e-5
-        # relative tolerance. The search needs both marks on one grid, so it must not be waved
-        # through here even though resample_scan_image_and_mask does wave it through.
-        image = ScanImage(
-            data=np.zeros((40, 40)), scale_x=3.00003e-6, scale_y=3.00003e-6
-        )
-
-        assert resample_to_scale(image, target_scale=3e-6) is not image
-
-    def test_skips_a_scale_difference_that_is_only_float_rounding(self):
-        image = ScanImage(
-            data=np.zeros((40, 40)), scale_x=3.0000000000033e-6, scale_y=3e-6
-        )
-
-        assert resample_to_scale(image, target_scale=3e-6) is image
 
 
 def test_compare_surfaces_runs(mark: Mark, params: ComparisonParams):
