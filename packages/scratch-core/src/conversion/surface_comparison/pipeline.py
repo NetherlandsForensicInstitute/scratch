@@ -2,7 +2,7 @@ import numpy as np
 from loguru import logger
 
 from container_models.scan_image import ScanImage
-from conversion.resample import resample_scan_image_and_mask
+from conversion.resample import get_scaling_factors, resample_scan_image_and_mask
 from conversion.surface_comparison.cell_registration.match_cells import match_cells
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
@@ -13,6 +13,7 @@ from conversion.surface_comparison.models import (
     ComparisonParams,
     ComparisonResult,
     ProcessedMark,
+    select_interpolation,
 )
 
 
@@ -50,13 +51,18 @@ def compare_surfaces(
 
     # Step 1: Resample comparison so that both have the same pixel size
     logger.debug("starting resample")
+    factors = get_scaling_factors(
+        scales=(comparison_image.scale_x, comparison_image.scale_y),
+        target_scale=reference_image.scale_x,  # Assumes isotropic images
+    )
     comparison_image, _ = resample_scan_image_and_mask(
         scan_image=comparison_image,
-        target_scale=reference_image.scale_x,  # Assumes isotropic images
+        factors=factors,
         # Upsampling is allowed: the search requires both images on one grid, and clipping the
-        # factor at 1.0 would silently leave a coarser comparison image at its own scale.
+        # factor at 1.0 would silently leave a coarser comparison image at its own scale. Which is
+        # why the interpolation has to be chosen from the direction rather than fixed at "area".
         only_downsample=False,
-        preserve_aspect_ratio=True,
+        interpolation=select_interpolation(factors),
         method=RESAMPLE_METHOD,
     )
 

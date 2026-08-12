@@ -21,6 +21,7 @@ from conversion.surface_comparison.cell_registration.geometry import (
 from conversion.surface_comparison.cell_registration.models import Match
 from conversion.surface_comparison.grid import extract_patch
 from conversion.surface_comparison.models import (
+    DOWNSAMPLE_INTERPOLATION,
     RESAMPLE_METHOD,
     Cell,
     CellMetaData,
@@ -300,7 +301,10 @@ def build_coarse_stage(
 def downsample(data: FloatArray2D, cap_factor: float) -> FloatArray2D:
     """Shrink an image by *cap_factor* on both axes, using this pipeline's resampling method."""
     return resample_array_2d(
-        data, factors=(cap_factor, cap_factor), method=RESAMPLE_METHOD
+        data,
+        factors=(cap_factor, cap_factor),
+        interpolation=DOWNSAMPLE_INTERPOLATION,
+        method=RESAMPLE_METHOD,
     )
 
 
