@@ -1,4 +1,22 @@
+from dataclasses import dataclass
 from typing import NamedTuple
+
+from container_models.base import FloatArray2D
+
+
+@dataclass(frozen=True)
+class Stage:
+    """
+    One resolution level's padded comparison canvas and the templates to search it with.
+
+    :param image: Padded comparison canvas we search *in*.
+    :param templates: Reference templates we search *for* (one per grid cell).
+    :param fill_value: Value substituted for NaN in *image*.
+    """
+
+    image: FloatArray2D
+    templates: list[FloatArray2D]
+    fill_value: float
 
 
 class Match(NamedTuple):
@@ -21,7 +39,7 @@ class RefinementJob(NamedTuple):
     """
     One ``(cell, predicted centre, trial angle)`` triple to score at full resolution.
 
-    Positions are centres in unrotated image coordinates; :mod:`.refine` maps them onto the
+    Positions are centres in unrotated image coordinates; refine maps them onto the
     rotated canvas.
     """
 

@@ -1,5 +1,3 @@
-"""Fine stage: score candidate poses at full resolution, on small crops around each prediction."""
-
 from __future__ import annotations
 
 from typing import NamedTuple
@@ -42,9 +40,6 @@ def refine(
     Score every candidate pose at full resolution, batched across all cells at once.
 
     Each job is scored on a crop of ``cell + 2 * margin`` per side rather than the whole canvas.
-    That is where the saving comes from: at a 150px cell in a 2100px canvas it is roughly two
-    orders of magnitude less area per evaluation. Batching every job together matters as much as
-    the crop, since scoring one cell at a time leaves the work dominated by per-call overhead.
 
     :param image: Padded comparison image at full resolution, already float32.
     :param templates: Centered unit-norm templates ``(n_templates, 1, cell_height, cell_width)``.
@@ -55,7 +50,7 @@ def refine(
     :param mean_and_std: Global statistics of the comparison image.
     :param batch_size: Jobs scored per batch.
     :param default_angle: Angle recorded for cells with no job at all.
-    :returns: The best :class:`Match` per template.
+    :returns: The best Match per template.
     """
     device = templates.device
     n_templates, _, cell_height, cell_width = templates.shape
@@ -121,7 +116,7 @@ def _cut_crops(
     crop_shape: tuple[int, int],
     fill_value: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Cut each window out of the rotated canvas. :returns: ``(crops, validities)``, ``(n, 1, *crop_shape)``."""
+    """Cut each window out of the rotated canvas. Returns (crops, validities), both of shape (n, 1, *crop_shape)."""
     crop_height, crop_width = crop_shape
     crops = np.empty((len(windows), 1, crop_height, crop_width), dtype=np.float32)
     validities = np.empty_like(crops)

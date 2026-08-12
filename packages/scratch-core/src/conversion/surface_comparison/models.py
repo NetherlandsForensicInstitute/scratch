@@ -25,10 +25,8 @@ class CellMetaData(ConfigBaseModel):
     """
     Intermediate classification data computed during the CMC pipeline.
 
-    :param is_outlier: True if this cell was rejected as an angle outlier during consensus estimation
-       (ESD test or tightening step).
-    :param residual_angle_deg: Signed angular deviation from the consensus rotation, in degrees,
-       after the final inlier median is computed.
+    :param is_outlier: True if this cell was rejected as an angle outlier during consensus estimation.
+    :param residual_angle_deg: Signed angular deviation from the consensus rotation, in degrees.
     :param position_error: Signed [x, y] deviation from the consensus translation, in meters.
     """
 
@@ -43,14 +41,12 @@ class Cell(ConfigBaseModel):
 
     :param center_reference: Cell center on the reference image [x, y] in meters.
     :param cell_size: Cell size on the reference image [width, height] in meters.
-    :param fill_fraction_reference: Fraction of valid pixels in this cell relative to the nominal cell area
-        (0 = empty, 1 = fully filled).
-    :param best_score: Best ACCF cross-correlation score achieved for this cell.
-    :param angle_deg: Rotation angle in degrees for the reference image at which the best score was obtained.
-    :param center_comparison: Cell center on the comparison image [x, y] in meters at which the best score was obtained.
+    :param fill_fraction_reference: Fraction of valid pixels relative to nominal area (0 = empty, 1 = fully filled).
+    :param best_score: Best ACCF cross-correlation score achieved.
+    :param angle_deg: Rotation angle in degrees for the reference image at the best score.
+    :param center_comparison: Cell center on the comparison image [x, y] in meters at the best score.
     :param is_congruent: True if this cell is classified as a Congruent Matching Cell.
-    :param meta_data: Intermediate pipeline data (outlier flag, angle residual, position error)
-        populated by the classifier.
+    :param meta_data: Intermediate pipeline data (outlier flag, angle residual, position error).
     """
 
     center_reference: tuple[float, float] = Field(..., examples=[(4.5, 1.4)])
@@ -137,8 +133,7 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
 
     The remaining fields configure the two search stages; see their descriptions. How images are
-    resampled is fixed rather than configurable, and lives in
-    :mod:`~conversion.surface_comparison.pipeline`.
+    resampled is fixed rather than configurable, and lives in conversion.surface_comparison.pipeline.
     """
 
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
@@ -192,14 +187,9 @@ class ComparisonParams(ConfigBaseModel):
     template_nan_fill_strategy: Literal["local_mean", "global_mean"] = Field(
         default="global_mean",
         description=dedent("""
-            How NaN pixels in reference templates are filled before correlation. Because the
-            correlation subtracts each template's mean, the fill value decides whether missing
-            pixels contribute to the score:
-
-            - local_mean: each cell's own valid-pixel mean, so filled pixels land on exactly zero
-              after mean subtraction and contribute nothing.
-            - global_mean: the reference image's global mean, so filled pixels keep a non-zero
-              value and count towards the score as though they were real, flat surface.
+            How NaN pixels in reference templates are filled before correlation.
+            - local_mean: each cell's own valid-pixel mean; filled pixels contribute nothing.
+            - global_mean: the reference image's global mean; filled pixels count as flat surface.
             """),
     )
 
@@ -225,7 +215,14 @@ class GridSearchParams:
     def update(
         self, center_x: float, center_y: float, angle: float, score: float
     ) -> None:
-        """Replace all fields with a new best result."""
+        """
+        Replace all fields with a new best result.
+
+        :param center_x: Center x-coordinate of the new best-matching comparison patch (pixels).
+        :param center_y: Center y-coordinate of the new best-matching comparison patch (pixels).
+        :param angle: Rotation angle at which the new best score was found (degrees).
+        :param score: New best normalized cross-correlation score.
+        """
         self.center_x = center_x
         self.center_y = center_y
         self.angle = angle
@@ -270,7 +267,7 @@ class GridCell:
     @cached_property
     def cell_data_filled(self) -> FloatArray2D:
         """
-        Cell data with NaN filled per :func:`fill_template_nan`.
+        Cell data with NaN filled per fill_template_nan.
 
         ``nan_fill_value`` carries the resolved ``template_nan_fill_strategy``: an explicit value
         for ``global_mean``, ``None`` for ``local_mean``.

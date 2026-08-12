@@ -40,9 +40,12 @@ class TestSearchCandidates:
         return canvas, template
 
     def test_returns_empty_for_no_templates(self):
-        assert search_candidates(
-            np.zeros((10, 10)), [], np.array([0.0]), 0.9, 0.0, device=DEVICE
-        ) == ([], [])
+        assert (
+            search_candidates(
+                np.zeros((10, 10)), [], np.array([0.0]), 0.9, 0.0, device=DEVICE
+            )
+            == []
+        )
 
     def test_rejects_templates_of_differing_shapes(self):
         with pytest.raises(ValueError, match="same shape"):
@@ -57,7 +60,7 @@ class TestSearchCandidates:
 
     def test_returns_requested_number_of_candidates(self, multi_peak_case):
         canvas, template = multi_peak_case
-        candidates, is_usable = search_candidates(
+        candidates = search_candidates(
             canvas,
             [template],
             np.array([0.0]),
@@ -67,12 +70,11 @@ class TestSearchCandidates:
             suppression_radius=3,
             device=DEVICE,
         )
-        assert is_usable == [True]
         assert len(candidates[0]) == 3
 
     def test_orders_candidates_by_score(self, multi_peak_case):
         canvas, template = multi_peak_case
-        candidates, _ = search_candidates(
+        candidates = search_candidates(
             canvas,
             [template],
             np.array([0.0]),
@@ -93,7 +95,7 @@ class TestSearchCandidates:
         padded = pad_image_array(surface, 30, 30)
 
         angles = np.union1d(np.arange(-8.0, 8.001, 1.0), [5.0])
-        candidates, is_usable = search_candidates(
+        candidates = search_candidates(
             padded,
             [template],
             angles,
@@ -102,13 +104,12 @@ class TestSearchCandidates:
             n_candidates=1,
             device=DEVICE,
         )
-        assert is_usable == [True]
         assert candidates[0][0].angle_deg == pytest.approx(5.0, abs=1.0)
         assert candidates[0][0].score > 0.9
 
     def test_suppresses_neighbors_of_a_found_peak(self, multi_peak_case):
         canvas, template = multi_peak_case
-        candidates, _ = search_candidates(
+        candidates = search_candidates(
             canvas,
             [template],
             np.array([0.0]),
@@ -136,7 +137,7 @@ class TestSearchCandidates:
         padded = pad_image_array(canvas, 0, 0)
 
         # Act
-        candidates, is_usable = search_candidates(
+        candidates = search_candidates(
             padded,
             [template],
             np.array([0.0]),
@@ -147,7 +148,7 @@ class TestSearchCandidates:
         )
 
         # Assert
-        assert is_usable == [True]
+        assert candidates[0]
         assert candidates[0][0].score == pytest.approx(-1.0, abs=1e-3)
 
     def test_handles_each_template_independently(self):
@@ -156,7 +157,7 @@ class TestSearchCandidates:
         template_a = padded[30:50, 30:50].copy()
         template_b = padded[80:100, 60:80].copy()
 
-        candidates, is_usable = search_candidates(
+        candidates = search_candidates(
             padded,
             [template_a, template_b],
             np.array([0.0]),
@@ -165,15 +166,15 @@ class TestSearchCandidates:
             n_candidates=1,
             device=DEVICE,
         )
-        assert is_usable == [True, True]
         assert len(candidates) == 2
+        assert all(candidates)
 
-    def test_constant_template_is_unusable(self):
+    def test_constant_template_yields_no_candidate(self):
         surface = make_surface(60, 60, seed=7)
         padded = pad_image_array(surface, 15, 15)
         constant = np.full((15, 15), 5.0)
 
-        candidates, is_usable = search_candidates(
+        candidates = search_candidates(
             padded,
             [constant],
             np.array([0.0]),
@@ -182,5 +183,4 @@ class TestSearchCandidates:
             n_candidates=3,
             device=DEVICE,
         )
-        assert is_usable == [False]
-        assert candidates[0] == [(-1.0, 0, 0, 0.0)]
+        assert candidates[0] == []

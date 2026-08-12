@@ -21,7 +21,7 @@ def fill_template_nan(
     surface at that height.
 
     This module deliberately depends on nothing inside ``surface_comparison``: both ``models`` and
-    ``cell_registration.match_cells`` need it at module level, and either alternative home would
+    ``cell_registration.stage_builders`` need it at module level, and either alternative home would
     close an import cycle.
 
     :param array: Input 2D array, possibly containing NaN.
