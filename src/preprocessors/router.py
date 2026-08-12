@@ -105,7 +105,9 @@ async def process_scan(upload_scan: UploadScan) -> ProcessedDataAccess:
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "description": "mask shape does not match image shape or mask covers the entire scan image"
+        },
     },
     openapi_extra=generate_openapi_schema(model=PrepareMarkImpression),
 )
@@ -146,7 +148,9 @@ async def prepare_mark_impression(
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "description": "mask shape does not match image shape or mask covers the entire scan image"
+        },
     },
     openapi_extra=generate_openapi_schema(model=PrepareMarkStriation),
 )
@@ -185,7 +189,9 @@ async def prepare_mark_striation(
     """,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "scan file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "mask shape does not match image shape"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "description": "mask shape does not match image shape or mask covers the entire scan image"
+        },
     },
     openapi_extra=generate_openapi_schema(model=EditImage),
 )

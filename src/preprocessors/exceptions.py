@@ -6,3 +6,10 @@ class ArrayShapeMismatchError(Exception):
 
     def __str__(self) -> str:
         return f"Cannot reshape array of size {self.size} to shape {self.target_shape}."
+
+
+class EmptyMaskError(Exception):
+    """Raised when a mask contains only falsy values."""
+
+    def __str__(self) -> str:
+        return "Mask contains only zeros: no pixels selected after masking."
