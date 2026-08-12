@@ -4,6 +4,7 @@ import datetime
 from collections.abc import Sequence
 from typing import Annotated, Self
 
+import numpy as np
 from conversion.data_formats import MarkMetadata
 from conversion.profile_correlator import StriationComparisonResults
 from conversion.surface_comparison.models import Cell, ComparisonParams
@@ -231,6 +232,8 @@ class ComparisonResponseImpression(URLContainer):
     @computed_field
     @property
     def cmc_fraction(self) -> float:
+        if not self.cells:
+            return np.nan
         return self.comparison_results.score / len(self.cells)
 
     @model_validator(mode="after")

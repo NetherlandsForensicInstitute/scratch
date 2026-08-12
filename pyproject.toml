@@ -87,7 +87,6 @@ ignore = [
   'D104',    # no docstring in __init__.py of public package required
   'D105',    # no docstring in magic methods (like __eq__) required, since they are not class dependent
   'PLE0604', # no restriction on having only strings in __all__ definitions
-  'PLR2004',  # we need to add values for the validators
 ]
 
 [tool.ruff.lint.pydocstyle]
