@@ -141,6 +141,12 @@ def resolve_nan_fill_value(
     ``None`` means "each cell's own valid-pixel mean"; see
     :func:`~conversion.surface_comparison.template_fill.fill_template_nan`.
     """
+    # TODO: ``local_mean`` needs the masked NCC of Padfield, "Masked Object Registration in the
+    # Fourier Domain" (IEEE TIP 2012 / CVPR 2010) to be correct. The score denominator in
+    # :func:`~...cell_registration.scoring.build_correlation_basis` normalizes over the whole
+    # window, while the numerator only covers the overlap of the two validity masks, so scores are
+    # deflated in proportion to how empty a cell is. ``global_mean`` wins today because it happens
+    # to offset that.
     if params.template_nan_fill_strategy != "global_mean":
         return None
     nan_fill_value = float(np.nanmean(reference_image.data))

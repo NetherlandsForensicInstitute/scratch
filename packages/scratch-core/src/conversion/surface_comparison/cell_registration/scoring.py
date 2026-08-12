@@ -224,31 +224,6 @@ def build_correlation_basis(
     mean, standard_deviation = mean_and_std
     batch = (batch - mean) / max(standard_deviation, _TINY)
 
-    # TODO: this normalizes over the whole window, while the numerator only ever accumulates over
-    # the overlap of the two validity masks. Both operands zero out their own missing pixels - the
-    # template through the local mean it was centered on (:func:`fill_template_nan`), the image
-    # because it is filled with the same global mean that is subtracted just above - so those pixels
-    # drop out of ``sum(W * T')`` but are still counted here, both in ``n_pixels`` and in the mean
-    # removal. The score is therefore deflated by an amount that grows with how empty the cell is,
-    # which biases which cells clear ``correlation_threshold`` toward the well-filled ones. This is
-    # why ``template_nan_fill_strategy`` currently defaults to ``global_mean`` rather than the
-    # local mean: a scene-wide fill leaves the template's filled pixels non-zero, so they re-enter
-    # the numerator and partly cancel the inflation here - two errors offsetting, but more evenly
-    # across cells.
-    #
-    # The correct form is the masked NCC of Padfield, "Masked Object Registration in the Fourier
-    # Domain" (IEEE TIP 2012 / CVPR 2010): every sum runs over the overlap only, with the per-shift
-    # overlap count N(u) in place of ``n_pixels``, i.e.
-    #     r(u) = [S_ov(f*t) - S_ov(f)*S_ov(t)/N(u)]
-    #            / sqrt([S_ov(f^2) - S_ov(f)^2/N(u)] * [S_ov(t^2) - S_ov(t)^2/N(u)])
-    # with N(u) = M_img (*) M_tmpl, S_ov(f) = (I*M_img) (*) M_tmpl, S_ov(f^2) = (I^2*M_img) (*)
-    # M_tmpl and the two mirrored template-side terms, each a correlation of its own. That is
-    # roughly 3x the transforms on both sides of the coarse sweep. A cheaper partial fix is to keep
-    # the template side as it is - already correct for a fixed template mask, since centering on the
-    # valid-pixel mean makes ||T'|| the valid-pixel norm - and correct only the image side with
-    # M_tmpl (*) W and M_tmpl (*) W^2, at 2 extra correlations per template. Padfield also
-    # prescribes clamping negative variances to zero and rejecting shifts with a small N(u), both of
-    # which the two lines below already do against ``n_pixels``.
     local_sum = sum_over_windows(batch, cell_height, cell_width)
     variation = (
         sum_over_windows(batch * batch, cell_height, cell_width)
