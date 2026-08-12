@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Literal
 
 import numpy as np
@@ -14,7 +15,7 @@ from conversion.surface_comparison.utils import convert_meters_to_pixels
 
 def plot_rotated_squares(
     image: FloatArray2D,
-    cells: list[Cell],
+    cells: Sequence[Cell],
     pixel_size: float,
     mode: Literal["reference", "comparison"],
 ) -> ImageRGB:

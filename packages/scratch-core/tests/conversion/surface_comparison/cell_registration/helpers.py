@@ -6,6 +6,8 @@ safe to import from any test file without side-effects.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 
 from container_models.base import DepthData, FloatArray2D
@@ -127,7 +129,7 @@ def identity_params() -> ComparisonParams:
 
 
 def plot_cell_registration_results(
-    reference_image: ScanImage, comparison_image: ScanImage, cells: list[Cell]
+    reference_image: ScanImage, comparison_image: ScanImage, cells: Sequence[Cell]
 ):
     ref_plot = plot_rotated_squares(
         image=reference_image.data,
