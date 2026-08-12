@@ -77,11 +77,11 @@ class TestGetReferenceDataFromPath:
 
         with (
             patch(
-                "conversion.likelihood_ratio.likelihood_ratio.get_lr_system",
+                "conversion.likelihood_ratio.data_loaders.get_lr_system",
                 return_value=DummyLRSystem(),
             ),
             patch(
-                "conversion.likelihood_ratio.likelihood_ratio.get_reference_data",
+                "conversion.likelihood_ratio.data_loaders.get_reference_data",
                 return_value=mock_ref,
             ),
             pytest.raises(ValueError, match="reference data must have labels"),

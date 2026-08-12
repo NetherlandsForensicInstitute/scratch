@@ -1,10 +1,8 @@
-from conversion.likelihood_ratio.likelihood_ratio import (
-    DummyLRSystem,
-    ModelSpecs,
-    get_reference_data_from_path,
-    get_lr_system,
+from conversion.likelihood_ratio.data_loaders import (
     get_reference_data,
+    get_reference_data_from_path,
 )
+from conversion.likelihood_ratio.data_formats import DummyLRSystem, ModelSpecs
 from conversion.likelihood_ratio.calculations import (
     calculate_lr_striation,
     calculate_lr_impression,
@@ -19,9 +17,8 @@ __all__ = [
     "ModelSpecs",
     "build_results_metadata_impression",
     "build_results_metadata_striation",
-    "get_reference_data_from_path",
     "calculate_lr_striation",
     "calculate_lr_impression",
-    "get_lr_system",
     "get_reference_data",
+    "get_reference_data_from_path",
 ]

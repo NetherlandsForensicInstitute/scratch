@@ -9,9 +9,8 @@ import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType
-from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
+from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs, build_results_metadata_impression
 from conversion.profile_correlator import Profile
-from conversion.results_metadata import build_results_metadata_impression
 from fastapi.testclient import TestClient
 from lir import LLRData
 
