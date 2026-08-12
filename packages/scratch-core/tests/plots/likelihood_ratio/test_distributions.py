@@ -1,14 +1,108 @@
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
-from pathlib import Path
 import pytest
+from matplotlib.axes import Axes
 
 from container_models.base import FloatArray1D
-from conversion.plots.data_formats import LlrTransformationData
-from conversion.plots.plot_score_llr_transformation import plot_score_llr_transformation
+from plots.likelihood_ratio.data_formats import (
+    DensityData,
+    HistogramData,
+    LlrTransformationData,
+)
+from plots.likelihood_ratio.distributions import (
+    plot_score_histograms,
+    plot_score_llr_transformation,
+)
+from matplotlib.figure import Figure
+from scipy.stats import gaussian_kde
 
 from ..helper_functions import assert_plot_is_valid_image
+
+
+def generate_test_data(seed: int = 42):
+    """Generate example KM/KNM score data for testing."""
+    rng = np.random.default_rng(seed)
+
+    n_knm = 17199
+    knm_scores_data = rng.gamma(0.5, 0.5, n_knm)
+
+    n_km_low = 787
+    n_km_high = 338
+    n_km = n_km_low + n_km_high
+
+    km_scores_data = np.concatenate(
+        [
+            rng.gamma(1.5, 2, n_km_low),
+            rng.uniform(10, 50, n_km_high),
+        ]
+    )
+
+    scores = np.concatenate([knm_scores_data, km_scores_data])
+    labels = np.concatenate([np.zeros(n_knm, dtype=int), np.ones(n_km, dtype=int)])
+
+    return scores, labels
+
+
+def assert_valid_score_histogram(fig: Figure):
+    ax = fig.axes[0]
+    assert ax.get_xlabel() == "Score"
+    assert ax.get_ylabel() == "Normalized density"
+
+    legend = ax.get_legend()
+    if legend:
+        assert len(legend.get_texts()) > 0
+
+
+@pytest.fixture
+def densities() -> DensityData:
+    x = np.linspace(0, 50, 500)
+
+    scores, labels = generate_test_data()
+    knm_scores = scores[labels == 0]
+    km_scores = scores[labels == 1]
+    kde_knm = gaussian_kde(knm_scores)
+    kde_km = gaussian_kde(km_scores)
+
+    return DensityData(
+        x=x,
+        km_density_at_x=kde_km(x),
+        knm_density_at_x=kde_knm(x),
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "new_score, bins, show_density",
+    [
+        (5.0, 50, True),
+        (3.0, 30, False),
+        (None, None, True),
+        (None, 50, False),
+    ],
+)
+def test_plot_score_histograms(
+    tmp_path: Path,
+    densities: DensityData,
+    new_score: float | None,
+    bins: int,
+    show_density: bool,
+) -> None:
+    scores, labels = generate_test_data()
+    fig, ax = plt.subplots()
+
+    data = HistogramData(
+        scores=scores,
+        labels=labels,
+        bins=bins,
+        densities=densities if show_density else None,
+        new_score=new_score,
+    )
+    plot_score_histograms(ax, data)
+    assert_plot_is_valid_image(fig, tmp_path)
+    assert_valid_score_histogram(fig)
+    plt.close()
 
 
 def verify_plot_properties(
