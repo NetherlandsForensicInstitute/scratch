@@ -10,7 +10,7 @@ from loguru import logger
 
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
-from conversion.resample import resample_array_2d
+from conversion.resample import resample_nan_aware
 from conversion.surface_comparison.cell_registration.coarse_to_fine import (
     match_coarse_to_fine,
 )
@@ -101,7 +101,6 @@ def match_cells(
             reference_image,
             grid_cells,
             cap_factor,
-            params,
             cell_width,
             cell_height,
         )
@@ -238,7 +237,6 @@ def build_coarse_stage(
     reference_image: ScanImage,
     grid_cells: list[GridCell],
     cap_factor: float,
-    params: ComparisonParams,
     cell_width: int,
     cell_height: int,
 ) -> _Stage:
@@ -263,11 +261,11 @@ def build_coarse_stage(
     )
 
     reference_coarse = ScanImage(
-        data=downsample(reference_image.data, cap_factor, params),
+        data=downsample(reference_image.data, cap_factor),
         scale_x=reference_image.scale_x * cap_factor,
         scale_y=reference_image.scale_y * cap_factor,
     )
-    comparison_coarse = downsample(comparison_image.data, cap_factor, params)
+    comparison_coarse = downsample(comparison_image.data, cap_factor)
 
     # All cells carry the same resolved fill value, and the coarse templates must use it too: the
     # coarse stage picks the candidate locations, so filling it differently changes where each cell
@@ -298,16 +296,14 @@ def build_coarse_stage(
     )
 
 
-def downsample(
-    data: FloatArray2D, cap_factor: float, params: ComparisonParams
-) -> FloatArray2D:
-    """Shrink an image by *cap_factor* on both axes, using the configured resampling."""
-    return resample_array_2d(
-        data,
-        factors=(cap_factor, cap_factor),
-        interpolation=params.resample_interpolation,
-        method=params.resample_method,
-    )
+def downsample(data: FloatArray2D, cap_factor: float) -> FloatArray2D:
+    """
+    Shrink an image by *cap_factor* on both axes, without letting missing data spread.
+
+    The interpolation is left at its default: *cap_factor* is only ever above 1.0, so this always
+    shrinks, and the default is the area filter that shrinking calls for.
+    """
+    return resample_nan_aware(data, factors=(cap_factor, cap_factor))
 
 
 def record_results(

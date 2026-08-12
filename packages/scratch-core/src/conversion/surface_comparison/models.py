@@ -10,7 +10,6 @@ from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
 from conversion.data_formats import Mark
-from conversion.resample import Interpolation, ResampleMethod
 from conversion.surface_comparison.template_fill import fill_template_nan
 
 
@@ -137,8 +136,9 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_max: Upper bound of rotation search range (degrees).
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
 
-    The remaining fields configure the two search stages and image resampling; see their
-    descriptions.
+    The remaining fields configure the two search stages; see their descriptions. How images are
+    resampled is fixed rather than configurable, and lives in
+    :mod:`~conversion.surface_comparison.pipeline`.
     """
 
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
@@ -155,22 +155,6 @@ class ComparisonParams(ConfigBaseModel):
         description=(
             "Largest permitted dimension (pixels) of the comparison canvas used for the coarse "
             "exhaustive sweep."
-        ),
-    )
-    resample_interpolation: Interpolation = Field(
-        default="area",
-        description=(
-            "Interpolation used whenever an image is resampled (pixel-scale alignment and the "
-            "coarse-stage size cap). 'area' is the recommended default for shrinking images; the "
-            "others are exposed to make it easy to compare algorithms empirically on real data."
-        ),
-    )
-    resample_method: ResampleMethod = Field(
-        default="nan_aware",
-        description=(
-            "How images are resized. 'nan_aware' averages only the valid pixels of each source "
-            "block, so missing data does not spread; 'legacy' is the original skimage resize, "
-            "which propagates a NaN into every output pixel it touches."
         ),
     )
     n_candidates: int = Field(

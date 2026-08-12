@@ -15,7 +15,13 @@ from conversion.surface_comparison.models import (
     ComparisonParams,
     GridSearchParams,
 )
-from conversion.surface_comparison.pipeline import compare_surfaces, ProcessedMark
+from conversion.surface_comparison.pipeline import (
+    DOWNSAMPLE_INTERPOLATION,
+    UPSAMPLE_INTERPOLATION,
+    compare_surfaces,
+    ProcessedMark,
+    select_interpolation,
+)
 import numpy as np
 import pytest
 from skimage.transform import rotate
@@ -55,6 +61,23 @@ def grid_cell() -> GridCell:
         cell_data=np.zeros(shape=(20, 20), dtype=np.float64),
         grid_search_params=GridSearchParams(),
     )
+
+
+@pytest.mark.parametrize(
+    ("factors", "expected"),
+    [
+        ((2.0, 2.0), DOWNSAMPLE_INTERPOLATION),
+        # An axis that is left alone must not force upsample handling.
+        ((1.0, 3.0), DOWNSAMPLE_INTERPOLATION),
+        ((0.5, 0.5), UPSAMPLE_INTERPOLATION),
+        # cv2 takes one flag for both axes, so a growing axis wins.
+        ((0.5, 2.0), UPSAMPLE_INTERPOLATION),
+    ],
+)
+def test_selects_interpolation_from_the_resampling_direction(
+    factors: tuple[float, float], expected: str
+):
+    assert select_interpolation(factors) == expected
 
 
 def test_compare_surfaces_runs(mark: Mark, params: ComparisonParams):
