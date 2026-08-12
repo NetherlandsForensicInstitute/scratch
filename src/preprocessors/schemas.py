@@ -17,7 +17,6 @@ from utils.constants import RegressionOrder
 
 from models import (
     BaseModelConfig,
-    ProjectTag,
     ScanFile,
     SupportedScanExtension,
 )
@@ -27,23 +26,10 @@ from schemas import URLContainer
 class BaseParameters(BaseModelConfig):
     """Base parameters for preprocessor operations including scan file."""
 
-    project_name: ProjectTag | None = Field(
-        None,
-        description=(
-            "Optional project identifier for organizing edited scans. "
-            "Used as directory tag if provided, otherwise defaults to scan filename."
-        ),
-        examples=["forensic_analysis_2026", "case_12345"],
-    )
     scan_file: ScanFile = Field(
         ...,
         description=f"Path to the input scan file. Supported formats: {', '.join(SupportedScanExtension)}",
     )
-
-    @property
-    def tag(self) -> str:
-        """Get the tag to use for directory naming."""
-        return self.project_name or self.scan_file.stem
 
 
 class UploadScan(BaseParameters):
