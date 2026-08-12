@@ -21,6 +21,7 @@ from conversion.surface_comparison.cell_registration.geometry import (
 from conversion.surface_comparison.cell_registration.models import Match
 from conversion.surface_comparison.grid import extract_patch
 from conversion.surface_comparison.models import (
+    RESAMPLE_METHOD,
     Cell,
     CellMetaData,
     ComparisonParams,
@@ -101,7 +102,6 @@ def match_cells(
             reference_image,
             grid_cells,
             cap_factor,
-            params,
             cell_width,
             cell_height,
         )
@@ -238,7 +238,6 @@ def build_coarse_stage(
     reference_image: ScanImage,
     grid_cells: list[GridCell],
     cap_factor: float,
-    params: ComparisonParams,
     cell_width: int,
     cell_height: int,
 ) -> _Stage:
@@ -263,11 +262,11 @@ def build_coarse_stage(
     )
 
     reference_coarse = ScanImage(
-        data=downsample(reference_image.data, cap_factor, params),
+        data=downsample(reference_image.data, cap_factor),
         scale_x=reference_image.scale_x * cap_factor,
         scale_y=reference_image.scale_y * cap_factor,
     )
-    comparison_coarse = downsample(comparison_image.data, cap_factor, params)
+    comparison_coarse = downsample(comparison_image.data, cap_factor)
 
     # All cells carry the same resolved fill value, and the coarse templates must use it too: the
     # coarse stage picks the candidate locations, so filling it differently changes where each cell
@@ -298,15 +297,10 @@ def build_coarse_stage(
     )
 
 
-def downsample(
-    data: FloatArray2D, cap_factor: float, params: ComparisonParams
-) -> FloatArray2D:
-    """Shrink an image by *cap_factor* on both axes, using the configured resampling."""
+def downsample(data: FloatArray2D, cap_factor: float) -> FloatArray2D:
+    """Shrink an image by *cap_factor* on both axes, using this pipeline's resampling method."""
     return resample_array_2d(
-        data,
-        factors=(cap_factor, cap_factor),
-        interpolation=params.resample_interpolation,
-        method=params.resample_method,
+        data, factors=(cap_factor, cap_factor), method=RESAMPLE_METHOD
     )
 
 

@@ -12,13 +12,15 @@ from conversion.data_formats import Mark
 T = TypeVar("T", FloatArray2D, BinaryMask)
 
 Interpolation = Literal["area", "linear", "nearest", "cubic"]
-#: How a 2D array is shrunk. ``nan_aware`` averages only the valid pixels of each source block, so
-#: missing data does not spread; ``legacy`` is the original ``skimage`` resize, which propagates a
-#: NaN into every output pixel it touches. Both are kept so they can be compared on real scans.
-ResampleMethod = Literal["nan_aware", "legacy"]
+#: How a 2D array is resized. ``nan_propagating`` is the ``skimage`` resize this package has always
+#: used: it has no notion of missing data, so a single NaN spreads over every output pixel its source
+#: footprint touches. ``nan_aware`` averages only the valid pixels of each source block, so missing
+#: data stays where it is. ``nan_propagating`` remains the default because it is the only method the
+#: non-CMC pipelines have been validated against; the surface-comparison pipeline opts in to
+#: ``nan_aware`` via :data:`~conversion.surface_comparison.models.RESAMPLE_METHOD`.
+ResampleMethod = Literal["nan_propagating", "nan_aware"]
 
-#: cv2 flag per interpolation name. "area" is recommended for shrinking (it averages every source
-#: pixel rather than sampling a subset); the rest exist to compare algorithms on real scans.
+#: cv2 flag per interpolation name.
 _INTERPOLATION_FLAGS = {
     "area": cv2.INTER_AREA,
     "linear": cv2.INTER_LINEAR,
@@ -26,9 +28,26 @@ _INTERPOLATION_FLAGS = {
     "cubic": cv2.INTER_CUBIC,
 }
 
+#: Interpolation used when every axis is being shrunk: it averages every source pixel rather than
+#: sampling a subset, which is what keeps aliasing out of a downsampled surface.
+DOWNSAMPLE_INTERPOLATION: Interpolation = "area"
+#: Interpolation used as soon as any axis is being grown. Not ``area``, which cv2 degenerates to
+#: nearest-neighbor when zooming in, and not ``cubic``, whose outer taps carry negative weights:
+#: those would let :func:`resize_nan_aware` divide by a near-zero or negative coverage at the edge of
+#: a missing-data hole, exactly where the data is already weakest.
+UPSAMPLE_INTERPOLATION: Interpolation = "linear"
+
 #: A downsampled pixel whose source block was covered less than this fraction by valid (non-NaN)
 #: data is itself marked invalid, rather than reporting the mean of whatever little data it had.
 NAN_AWARE_VALIDITY_THRESHOLD = 0.5
+
+#: Relative tolerance for deciding that a scaling factor is already 1.0 and no resampling is needed.
+#: Scales are pixel sizes in meters, on the order of 1e-6, so the comparison is deliberately made on
+#: the dimensionless factor rather than on the scales themselves: 1e-6 is loose enough to absorb
+#: float rounding in a scale that was computed rather than read from file, and tight enough that a
+#: genuine 1-in-1e5 scale difference is still resampled. numpy's own 1e-5 default is not - it would
+#: skip a 3.00003e-6 versus 3e-6 mismatch.
+SCALE_MATCH_RTOL = 1e-6
 
 
 def resample_scan_image_and_mask(
@@ -38,8 +57,7 @@ def resample_scan_image_and_mask(
     target_scale: float = 4e-6,
     only_downsample: bool = True,
     preserve_aspect_ratio: bool = True,
-    interpolation: Interpolation = "area",
-    method: ResampleMethod = "nan_aware",
+    method: ResampleMethod = "nan_propagating",
 ) -> tuple[ScanImage, BinaryMask | None]:
     """
     Resample the input image and optionally its corresponding mask.
@@ -53,7 +71,6 @@ def resample_scan_image_and_mask(
     :param target_scale: Target scale (in meters) when `factors` are not provided.
     :param preserve_aspect_ratio: Whether to preserve the aspect ratio of the image.
     :param only_downsample: If True, only downsample data (default). If False, allow upsampling.
-    :param interpolation: See :data:`_INTERPOLATION_FLAGS`.
     :param method: See :data:`ResampleMethod`.
     :returns: Resampled ScanImage and MaskArray
     """
@@ -63,29 +80,23 @@ def resample_scan_image_and_mask(
         )
     if only_downsample:
         factors = _clip_factors(factors, preserve_aspect_ratio)
-    if np.allclose(factors, 1.0):
+    if np.allclose(factors, 1.0, rtol=SCALE_MATCH_RTOL, atol=0.0):
         return scan_image, mask
-    image = _resample_scan_image(
-        scan_image, factors=factors, interpolation=interpolation, method=method
-    )
+    image = _resample_scan_image(scan_image, factors=factors, method=method)
     if mask is not None:
-        mask = resample_array_2d(
-            mask, factors=factors, interpolation=interpolation, method=method
-        )
+        mask = resample_array_2d(mask, factors=factors, method=method)
     return image, mask
 
 
 def resample_mark(
     mark: Mark,
     only_downsample: bool = False,
-    interpolation: Interpolation = "area",
-    method: ResampleMethod = "nan_aware",
+    method: ResampleMethod = "nan_propagating",
 ) -> Mark:
     """Resample a Mark so that the scale matches the scale specific for the mark type.
 
     :param mark: The Mark to resample.
     :param only_downsample: If True, only resample if it would reduce the resolution.
-    :param interpolation: See :data:`_INTERPOLATION_FLAGS`.
     :param method: See :data:`ResampleMethod`.
     :returns: The resampled Mark.
     """
@@ -93,7 +104,6 @@ def resample_mark(
         mark.scan_image,
         target_scale=mark.mark_type.scale,
         only_downsample=only_downsample,
-        interpolation=interpolation,
         method=method,
     )
     return mark.model_copy(update={"scan_image": resampled_scan_image})
@@ -102,20 +112,18 @@ def resample_mark(
 def _resample_scan_image(
     image: ScanImage,
     factors: tuple[float, float],
-    interpolation: Interpolation = "area",
-    method: ResampleMethod = "nan_aware",
+    method: ResampleMethod = "nan_propagating",
 ) -> ScanImage:
     """
     Resample the ScanImage object using the specified resampling factors.
 
     :param image: Input ScanImage to resample.
     :param factors: The multipliers for the scale of the X- and Y-axis.
-    :param interpolation: See :data:`_INTERPOLATION_FLAGS`.
     :param method: See :data:`ResampleMethod`.
     :returns: The resampled ScanImage.
     """
     image_array_resampled = resample_array_2d(
-        image.data, factors=factors, interpolation=interpolation, method=method
+        image.data, factors=factors, method=method
     )
     return ScanImage(
         data=image_array_resampled,
@@ -152,8 +160,7 @@ def resample_array_1d(
 def resample_array_2d(
     array: T,
     factors: tuple[float, float],
-    interpolation: Interpolation = "area",
-    method: ResampleMethod = "nan_aware",
+    method: ResampleMethod = "nan_propagating",
 ) -> T:
     """
     Resample a 2D array using the specified resampling factors.
@@ -161,11 +168,11 @@ def resample_array_2d(
     For example, if the scale factor is 0.5, then the image output shape will be scaled by 1 / 0.5 = 2.
 
     Boolean masks are resized nearest-neighbor, since a mask has no missing-data concept. Float
-    arrays are resized by *method*.
+    arrays are resized by *method*, with the interpolation chosen from the resampling direction; see
+    :func:`select_interpolation`.
 
     :param array: The array containing the image data to resample.
     :param factors: The multipliers for the scale of the X- and Y-axis.
-    :param interpolation: See :data:`_INTERPOLATION_FLAGS`. Ignored by the ``legacy`` method.
     :param method: See :data:`ResampleMethod`.
     :returns: A numpy array containing the resampled image data.
     """
@@ -175,13 +182,32 @@ def resample_array_2d(
         max(1, int(round(array.shape[1] / factor_x))),
     )
 
-    if method == "legacy":
-        resized = resize_legacy(array, target_shape, factors=factors)
+    if method == "nan_propagating":
+        resized = resize_nan_propagating(array, target_shape, factors=factors)
     elif array.dtype == np.bool_:
         resized = _resize(array.astype(np.float32), target_shape, "nearest") > 0.5
     else:
-        resized = resize_nan_aware(array, target_shape, interpolation=interpolation)  # type: ignore[arg-type]
+        resized = resize_nan_aware(
+            array,  # type: ignore[arg-type]
+            target_shape,
+            interpolation=select_interpolation(factors),
+        )
     return np.asarray(resized, dtype=array.dtype)  # type: ignore[return-value]
+
+
+def select_interpolation(factors: tuple[float, float]) -> Interpolation:
+    """
+    Pick the interpolation to resize by, from the direction the image is being resized in.
+
+    A factor above 1.0 shrinks that axis. Shrinking wants :data:`DOWNSAMPLE_INTERPOLATION` so no
+    source pixel is skipped; as soon as one axis grows, the whole resize has to use
+    :data:`UPSAMPLE_INTERPOLATION`, since cv2 takes a single flag for both axes.
+
+    :param factors: The multipliers for the scale of the X- and Y-axis.
+    :returns: The interpolation name to hand to :func:`_resize`.
+    """
+    is_shrinking = all(factor >= 1.0 for factor in factors)
+    return DOWNSAMPLE_INTERPOLATION if is_shrinking else UPSAMPLE_INTERPOLATION
 
 
 def resize_nan_aware(
@@ -217,17 +243,18 @@ def resize_nan_aware(
     return np.asarray(result, dtype=np.float64)
 
 
-def resize_legacy(
+def resize_nan_propagating(
     array: FloatArray2D | BinaryMask,
     target_shape: tuple[int, int],
     factors: tuple[float, float],
 ) -> FloatArray2D:
     """
-    Resize a 2D array the way this package did before :func:`resize_nan_aware` existed.
+    Resize a 2D array with ``skimage.transform.resize``, using edge padding and anti-aliasing
+    whenever every axis is being shrunk.
 
-    ``skimage.transform.resize`` with edge padding, anti-aliased when every axis is being shrunk.
-    Kept as a comparison baseline: unlike :func:`resize_nan_aware` it has no notion of missing data,
-    so a single NaN spreads over every output pixel its source footprint touches.
+    The default for every pipeline except surface comparison. Unlike :func:`resize_nan_aware` it has
+    no notion of missing data, so a single NaN spreads over every output pixel its source footprint
+    touches.
 
     :param array: Input 2D array.
     :param target_shape: ``(height, width)`` of the output.

@@ -10,8 +10,17 @@ from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
 from conversion.data_formats import Mark
-from conversion.resample import Interpolation, ResampleMethod
+from conversion.resample import ResampleMethod
 from conversion.surface_comparison.template_fill import fill_template_nan
+
+#: How this pipeline resizes images, wherever it resizes them: to put both marks on one pixel grid
+#: (step 1 of :func:`~conversion.surface_comparison.pipeline.compare_surfaces`) and to build the
+#: coarse search canvas. Not a :class:`ComparisonParams` field: ``nan_aware`` beat the
+#: ``nan_propagating`` default clearly enough in end-to-end analysis that there is nothing left to
+#: tune, and cells here routinely carry missing data whose spread would cost real cells. The
+#: interpolation is not configurable either; it follows the resampling direction, see
+#: :func:`~conversion.resample.select_interpolation`.
+RESAMPLE_METHOD: ResampleMethod = "nan_aware"
 
 
 @dataclass(frozen=True)
@@ -137,8 +146,8 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_max: Upper bound of rotation search range (degrees).
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
 
-    The remaining fields configure the two search stages and image resampling; see their
-    descriptions.
+    The remaining fields configure the two search stages; see their descriptions. How images are
+    resampled is fixed, not configurable: see :data:`RESAMPLE_METHOD`.
     """
 
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
@@ -155,22 +164,6 @@ class ComparisonParams(ConfigBaseModel):
         description=(
             "Largest permitted dimension (pixels) of the comparison canvas used for the coarse "
             "exhaustive sweep."
-        ),
-    )
-    resample_interpolation: Interpolation = Field(
-        default="area",
-        description=(
-            "Interpolation used whenever an image is resampled (pixel-scale alignment and the "
-            "coarse-stage size cap). 'area' is the recommended default for shrinking images; the "
-            "others are exposed to make it easy to compare algorithms empirically on real data."
-        ),
-    )
-    resample_method: ResampleMethod = Field(
-        default="nan_aware",
-        description=(
-            "How images are resized. 'nan_aware' averages only the valid pixels of each source "
-            "block, so missing data does not spread; 'legacy' is the original skimage resize, "
-            "which propagates a NaN into every output pixel it touches."
         ),
     )
     n_candidates: int = Field(

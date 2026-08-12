@@ -9,6 +9,7 @@ from conversion.surface_comparison.cmc_consensus.pipeline import (
 )
 from conversion.surface_comparison.grid import generate_grid
 from conversion.surface_comparison.models import (
+    RESAMPLE_METHOD,
     ComparisonParams,
     ComparisonResult,
     ProcessedMark,
@@ -56,8 +57,7 @@ def compare_surfaces(
         # factor at 1.0 would silently leave a coarser comparison image at its own scale.
         only_downsample=False,
         preserve_aspect_ratio=True,
-        interpolation=params.resample_interpolation,
-        method=params.resample_method,
+        method=RESAMPLE_METHOD,
     )
 
     # Step 2: Generate grid cells
