@@ -10,40 +10,7 @@ from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
 from conversion.data_formats import Mark
-from conversion.resample import Interpolation, ResampleMethod
 from conversion.surface_comparison.template_fill import fill_template_nan
-
-#: How this pipeline resizes images, wherever it resizes them: to put both marks on one pixel grid
-#: (step 1 of :func:`~conversion.surface_comparison.pipeline.compare_surfaces`) and to build the
-#: coarse search canvas. Not a :class:`ComparisonParams` field: ``nan_aware`` beat the
-#: ``nan_propagating`` default that every other pipeline still uses clearly enough in end-to-end
-#: analysis that there is nothing left to tune, and cells here routinely carry missing data whose
-#: spread would cost real cells.
-RESAMPLE_METHOD: ResampleMethod = "nan_aware"
-
-#: Interpolation for shrinking an image: it averages every source pixel rather than sampling a
-#: subset, which is what keeps aliasing out of a downsampled surface.
-DOWNSAMPLE_INTERPOLATION: Interpolation = "area"
-#: Interpolation for growing an image. Not ``area``, which cv2 degenerates to nearest-neighbor when
-#: zooming in, and not ``cubic``, whose outer taps carry negative weights: those would let
-#: :func:`~conversion.resample.resize_nan_aware` divide by a near-zero or negative coverage at the
-#: edge of a missing-data hole, exactly where the data is already weakest.
-UPSAMPLE_INTERPOLATION: Interpolation = "linear"
-
-
-def select_interpolation(factors: tuple[float, float]) -> Interpolation:
-    """
-    Pick the interpolation to resize by, from the direction the image is being resized in.
-
-    A factor above 1.0 shrinks that axis. Shrinking wants :data:`DOWNSAMPLE_INTERPOLATION` so no
-    source pixel is skipped; as soon as one axis grows, the whole resize has to use
-    :data:`UPSAMPLE_INTERPOLATION`, since cv2 takes a single flag for both axes.
-
-    :param factors: The multipliers for the scale of the X- and Y-axis.
-    :returns: The interpolation name to resample with.
-    """
-    is_shrinking = all(factor >= 1.0 for factor in factors)
-    return DOWNSAMPLE_INTERPOLATION if is_shrinking else UPSAMPLE_INTERPOLATION
 
 
 @dataclass(frozen=True)
@@ -170,7 +137,8 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
 
     The remaining fields configure the two search stages; see their descriptions. How images are
-    resampled is fixed, not configurable: see :data:`RESAMPLE_METHOD`.
+    resampled is fixed rather than configurable, and lives in
+    :mod:`~conversion.surface_comparison.pipeline`.
     """
 
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)

@@ -12,13 +12,16 @@ from conversion.surface_comparison.cmc_classification_median import (
 )
 from conversion.surface_comparison.grid import GridCell
 from conversion.surface_comparison.models import (
-    DOWNSAMPLE_INTERPOLATION,
-    UPSAMPLE_INTERPOLATION,
     ComparisonParams,
     GridSearchParams,
+)
+from conversion.surface_comparison.pipeline import (
+    DOWNSAMPLE_INTERPOLATION,
+    UPSAMPLE_INTERPOLATION,
+    compare_surfaces,
+    ProcessedMark,
     select_interpolation,
 )
-from conversion.surface_comparison.pipeline import compare_surfaces, ProcessedMark
 import numpy as np
 import pytest
 from skimage.transform import rotate

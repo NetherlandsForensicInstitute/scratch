@@ -2,19 +2,73 @@ import numpy as np
 from loguru import logger
 
 from container_models.scan_image import ScanImage
-from conversion.resample import get_scaling_factors, resample_scan_image_and_mask
+from conversion.resample import (
+    SCALE_MATCH_RTOL,
+    Interpolation,
+    get_scaling_factors,
+    resample_nan_aware,
+)
 from conversion.surface_comparison.cell_registration.match_cells import match_cells
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
 from conversion.surface_comparison.grid import generate_grid
 from conversion.surface_comparison.models import (
-    RESAMPLE_METHOD,
     ComparisonParams,
     ComparisonResult,
     ProcessedMark,
-    select_interpolation,
 )
+
+#: Interpolation for shrinking an image: it averages every source pixel rather than sampling a
+#: subset, which is what keeps aliasing out of a downsampled surface. Also what every other resample
+#: in this pipeline gets by default, since they only ever shrink.
+DOWNSAMPLE_INTERPOLATION: Interpolation = "area"
+#: Interpolation for growing an image. Not ``area``, which cv2 degenerates to nearest-neighbor when
+#: zooming in, and not ``cubic``, whose outer taps carry negative weights: those would let
+#: :func:`~conversion.resample.resize_nan_aware` divide by a near-zero or negative coverage at the
+#: edge of a missing-data hole, exactly where the data is already weakest.
+UPSAMPLE_INTERPOLATION: Interpolation = "linear"
+
+
+def select_interpolation(factors: tuple[float, float]) -> Interpolation:
+    """
+    Pick the interpolation to resize by, from the direction the image is being resized in.
+
+    A factor above 1.0 shrinks that axis. Shrinking wants :data:`DOWNSAMPLE_INTERPOLATION` so no
+    source pixel is skipped; as soon as one axis grows, the whole resize has to use
+    :data:`UPSAMPLE_INTERPOLATION`, since cv2 takes a single flag for both axes.
+
+    :param factors: The multipliers for the scale of the X- and Y-axis.
+    :returns: The interpolation name to resample with.
+    """
+    is_shrinking = all(factor >= 1.0 for factor in factors)
+    return DOWNSAMPLE_INTERPOLATION if is_shrinking else UPSAMPLE_INTERPOLATION
+
+
+def resample_to_scale(image: ScanImage, target_scale: float) -> ScanImage:
+    """
+    Put *image* on a pixel grid of *target_scale*, NaN-aware and in either direction.
+
+    Deliberately not :func:`~conversion.resample.resample_scan_image_and_mask`: that one clips the
+    factor at 1.0 by default, which would silently leave a coarser comparison image at its own
+    scale, and it resizes the way every other pipeline wants rather than the way this one needs.
+    Growing an image is allowed here precisely because the search requires both marks on one grid,
+    and that is what makes the interpolation depend on the direction.
+
+    :param image: The image to put on the target grid.
+    :param target_scale: Target scale (= pixel size in meters), assumed isotropic.
+    :returns: The resampled image, or *image* itself when it is already on that grid.
+    """
+    factors = get_scaling_factors(
+        scales=(image.scale_x, image.scale_y), target_scale=target_scale
+    )
+    if np.allclose(factors, 1.0, rtol=SCALE_MATCH_RTOL, atol=0.0):
+        return image
+    return ScanImage(
+        data=resample_nan_aware(image.data, factors, select_interpolation(factors)),
+        scale_x=image.scale_x * factors[0],
+        scale_y=image.scale_y * factors[1],
+    )
 
 
 def compare_surfaces(
@@ -51,20 +105,7 @@ def compare_surfaces(
 
     # Step 1: Resample comparison so that both have the same pixel size
     logger.debug("starting resample")
-    factors = get_scaling_factors(
-        scales=(comparison_image.scale_x, comparison_image.scale_y),
-        target_scale=reference_image.scale_x,  # Assumes isotropic images
-    )
-    comparison_image, _ = resample_scan_image_and_mask(
-        scan_image=comparison_image,
-        factors=factors,
-        # Upsampling is allowed: the search requires both images on one grid, and clipping the
-        # factor at 1.0 would silently leave a coarser comparison image at its own scale. Which is
-        # why the interpolation has to be chosen from the direction rather than fixed at "area".
-        only_downsample=False,
-        interpolation=select_interpolation(factors),
-        method=RESAMPLE_METHOD,
-    )
+    comparison_image = resample_to_scale(comparison_image, reference_image.scale_x)
 
     # Step 2: Generate grid cells
     logger.debug("starting grid generation")

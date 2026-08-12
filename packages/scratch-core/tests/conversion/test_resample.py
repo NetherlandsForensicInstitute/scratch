@@ -13,6 +13,7 @@ from conversion.resample import (
     get_scaling_factors,
     resample_array_2d,
     resample_mark,
+    resample_nan_aware,
     resample_scan_image_and_mask,
     resize_nan_aware,
 )
@@ -44,27 +45,7 @@ class TestClipFactors:
 
 
 class TestResampleArray:
-    @patch("conversion.resample.resize_nan_aware")
-    def test_calculates_output_shape_correctly(self, mock_resize: MagicMock):
-        array = np.zeros((100, 200))
-        mock_resize.return_value = np.zeros((50, 100))
-
-        resample_array_2d(array, factors=(2.0, 2.0), method="nan_aware")
-
-        call_args = mock_resize.call_args.args
-        assert call_args[1] == (50.0, 100.0)
-
-    def test_defaults_to_the_nan_propagating_method(self):
-        # The non-CMC pipelines rely on this default to keep their historical behavior.
-        with patch("conversion.resample.resize") as mock:
-            mock.return_value = np.zeros((50, 100))
-
-            resample_array_2d(np.zeros((100, 200)), factors=(2.0, 2.0))
-
-            assert mock.call_args.kwargs["output_shape"] == (50, 100)
-            assert mock.call_args.kwargs["anti_aliasing"] is True
-
-    def test_nan_propagating_method_keeps_the_output_shape_fractional(self):
+    def test_keeps_the_output_shape_fractional(self):
         # skimage divides the input shape by the output shape to get its sampling step and
         # anti-aliasing sigma, rounding only when it allocates the result. Handing it a pre-rounded
         # (33, 67) would resample a 200 px axis at a step of 2.985 instead of the requested 3.0.
@@ -76,10 +57,11 @@ class TestResampleArray:
             assert mock.call_args.kwargs["output_shape"] == pytest.approx(
                 (100 / 3, 200 / 3)
             )
+            assert mock.call_args.kwargs["anti_aliasing"] is True
 
-    def test_nan_propagating_method_matches_an_unrounded_skimage_resize(self):
+    def test_matches_an_unrounded_skimage_resize(self):
         # Guards the whole path end-to-end, not just the argument: the values have to land where a
-        # direct skimage call would put them.
+        # direct skimage call would put them. This is the behavior every non-CMC pipeline relies on.
         array = np.arange(100 * 200, dtype=np.float64).reshape(100, 200)
         factors = (3.0, 3.0)
 
@@ -93,27 +75,46 @@ class TestResampleArray:
         )
         assert np.array_equal(result, expected)
 
-    def test_nan_propagating_method_spreads_nan(self):
-        # Arrange: a single missing pixel, which the NaN-aware method would average away.
+    def test_spreads_nan(self):
+        # Arrange: a single missing pixel, which resample_nan_aware would average away.
         array = np.ones((4, 4))
         array[0, 0] = np.nan
 
         # Act
-        propagated = resample_array_2d(array, factors=(2.0, 2.0))
-        nan_aware = resample_array_2d(array, factors=(2.0, 2.0), method="nan_aware")
+        result = resample_array_2d(array, factors=(2.0, 2.0))
 
         # Assert
-        assert np.isnan(propagated[0, 0])
-        assert nan_aware[0, 0] == pytest.approx(1.0)
+        assert np.isnan(result[0, 0])
+
+
+class TestResampleNanAware:
+    @patch("conversion.resample.resize_nan_aware")
+    def test_calculates_output_shape_correctly(self, mock_resize: MagicMock):
+        array = np.zeros((100, 200))
+        mock_resize.return_value = np.zeros((50, 100))
+
+        resample_nan_aware(array, factors=(2.0, 2.0))
+
+        call_args = mock_resize.call_args.args
+        assert call_args[1] == (50.0, 100.0)
+
+    def test_averages_missing_data_away(self):
+        # Arrange: a single missing pixel, which resample_array_2d would spread.
+        array = np.ones((4, 4))
+        array[0, 0] = np.nan
+
+        # Act
+        result = resample_nan_aware(array, factors=(2.0, 2.0))
+
+        # Assert
+        assert result[0, 0] == pytest.approx(1.0)
 
     def test_upsamples_without_degenerating_to_nearest_neighbor(self):
         # cv2 turns INTER_AREA into nearest-neighbor when zooming in, which would leave the output
         # holding only values already present in the input.
         array = np.arange(16, dtype=np.float64).reshape(4, 4)
 
-        result = resample_array_2d(
-            array, factors=(0.5, 0.5), interpolation="linear", method="nan_aware"
-        )
+        result = resample_nan_aware(array, factors=(0.5, 0.5), interpolation="linear")
 
         assert result.shape == (8, 8)
         assert not np.all(np.isin(result, array))
@@ -124,9 +125,7 @@ class TestResampleArray:
         array[4, 4] = np.nan
 
         # Act
-        result = resample_array_2d(
-            array, factors=(0.5, 0.5), interpolation="linear", method="nan_aware"
-        )
+        result = resample_nan_aware(array, factors=(0.5, 0.5), interpolation="linear")
 
         # Assert: the hole neither vanishes nor grows beyond the source pixel it came from.
         missing = np.isnan(result)

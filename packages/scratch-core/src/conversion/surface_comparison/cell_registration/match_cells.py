@@ -10,7 +10,7 @@ from loguru import logger
 
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
-from conversion.resample import resample_array_2d
+from conversion.resample import resample_nan_aware
 from conversion.surface_comparison.cell_registration.coarse_to_fine import (
     match_coarse_to_fine,
 )
@@ -21,8 +21,6 @@ from conversion.surface_comparison.cell_registration.geometry import (
 from conversion.surface_comparison.cell_registration.models import Match
 from conversion.surface_comparison.grid import extract_patch
 from conversion.surface_comparison.models import (
-    DOWNSAMPLE_INTERPOLATION,
-    RESAMPLE_METHOD,
     Cell,
     CellMetaData,
     ComparisonParams,
@@ -299,13 +297,13 @@ def build_coarse_stage(
 
 
 def downsample(data: FloatArray2D, cap_factor: float) -> FloatArray2D:
-    """Shrink an image by *cap_factor* on both axes, using this pipeline's resampling method."""
-    return resample_array_2d(
-        data,
-        factors=(cap_factor, cap_factor),
-        interpolation=DOWNSAMPLE_INTERPOLATION,
-        method=RESAMPLE_METHOD,
-    )
+    """
+    Shrink an image by *cap_factor* on both axes, without letting missing data spread.
+
+    The interpolation is left at its default: *cap_factor* is only ever above 1.0, so this always
+    shrinks, and the default is the area filter that shrinking calls for.
+    """
+    return resample_nan_aware(data, factors=(cap_factor, cap_factor))
 
 
 def record_results(
