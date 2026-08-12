@@ -217,7 +217,14 @@ def _resize(
     target_shape: tuple[int, int],
     interpolation: Interpolation,
 ) -> FloatArray2D:
-    """Resize with cv2, which needs float32 input and ``(width, height)`` output order."""
+    """
+    Resize with cv2, which needs float32 input and ``(width, height)`` output order.
+
+    :param array: Input array to resize.
+    :param target_shape: ``(height, width)`` of the output.
+    :param interpolation: Interpolation mode; see :data:`_INTERPOLATION_FLAGS`.
+    :returns: Resized float32 array of shape *target_shape*.
+    """
     if interpolation not in _INTERPOLATION_FLAGS:
         raise ValueError(
             f"Unknown interpolation {interpolation!r}; choose one of {sorted(_INTERPOLATION_FLAGS)}"
@@ -252,7 +259,13 @@ def _clip_factors(
     factors: tuple[float, float],
     preserve_aspect_ratio: bool,
 ) -> tuple[float, float]:
-    """Clip the scaling factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True."""
+    """
+    Clip the scaling factors to minimum 1.0, while keeping the aspect ratio if `preserve_aspect_ratio` is True.
+
+    :param factors: Current scaling factors for X and Y axes.
+    :param preserve_aspect_ratio: If True, use the larger of the two factors for both axes.
+    :returns: Clipped factors, each >= 1.0.
+    """
     if preserve_aspect_ratio:
         # Set the multipliers to equal values to preserve the aspect ratio
         max_factor = max(factors)

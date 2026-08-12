@@ -4,11 +4,29 @@ All helpers are pure functions and carry no pytest imports so this module is
 safe to import from any test file without side-effects.
 """
 
+from __future__ import annotations
+
 import numpy as np
+import torch
 
 from container_models.base import DepthData, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.resample import resize_nan_aware
+from conversion.surface_comparison.cell_registration.stages import (
+    run_coarse_stage,
+    run_fine_stage,
+)
+from conversion.surface_comparison.cell_registration.match_cells import (
+    build_angle_sweep,
+    build_coarse_stage,
+    build_full_resolution_stage,
+    compute_cap_factor,
+    convert_grid_cell_to_cell,
+    record_results,
+)
+from conversion.surface_comparison.cell_registration.search import (
+    get_uniform_cell_shape,
+)
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonParams,
@@ -124,6 +142,95 @@ def identity_params() -> ComparisonParams:
     )
 
 
+def register_cells(
+    grid_cells: list[GridCell],
+    reference_image: ScanImage,
+    comparison_image: ScanImage,
+    params: ComparisonParams,
+    device: torch.device | None = None,
+) -> list[Cell]:
+    """
+    Register each grid cell by coarse-to-fine template matching (test helper).
+
+    Both images must already be on the same pixel scale.
+
+    :param grid_cells: Reference grid cells; all must share size and ``nan_fill_value``.
+    :param reference_image: Reference scan image the grid cells were generated from.
+    :param comparison_image: Comparison scan image at the reference's pixel scale.
+    :param params: Algorithm parameters.
+    :param device: Optional torch device override.
+    :returns: One :class:`Cell` per grid cell with its best registration result.
+    :raises ValueError: If grid cells disagree on ``nan_fill_value`` or images differ in scale.
+    """
+    if not grid_cells:
+        return []
+    if len({grid_cell.nan_fill_value for grid_cell in grid_cells}) > 1:
+        raise ValueError("All grid cells must share the same nan_fill_value.")
+    if not np.isclose(reference_image.scale_x, comparison_image.scale_x, rtol=1e-6):
+        raise ValueError(
+            f"Reference ({reference_image.scale_x}) and comparison "
+            f"({comparison_image.scale_x}) images must be on the same pixel scale; "
+            "resample the comparison image first."
+        )
+
+    cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
+    cap_factor = compute_cap_factor(
+        reference_image, comparison_image, cell_width, cell_height, params.max_size
+    )
+    full = build_full_resolution_stage(
+        comparison_image, grid_cells, cell_width, cell_height
+    )
+    coarse = (
+        build_coarse_stage(
+            comparison_image,
+            reference_image,
+            grid_cells,
+            cap_factor,
+            cell_width,
+            cell_height,
+        )
+        if cap_factor > 1.0
+        else full
+    )
+
+    angles = build_angle_sweep(params)
+    candidates = run_coarse_stage(
+        image_coarse=coarse.image,
+        templates_coarse=coarse.templates,
+        angles=angles,
+        minimum_fill_fraction=params.minimum_fill_fraction,
+        fill_value_coarse=coarse.fill_value,
+        n_candidates=params.n_candidates,
+        template_batch_size=params.template_batch_size,
+        angle_batch_size=params.angle_batch_size,
+        device=device,
+    )
+
+    results = run_fine_stage(
+        image_full=full.image,
+        templates_full=full.templates,
+        candidates=candidates,
+        coarse_cell_shape=get_uniform_cell_shape(coarse.templates),
+        coarse_image_shape=coarse.image.shape,
+        cap_factor=cap_factor,
+        angles=angles,
+        position_margin=params.fine_n_pixels,
+        angle_margin_degrees=params.fine_m_degrees,
+        minimum_fill_fraction=params.minimum_fill_fraction,
+        fill_value_full=full.fill_value,
+        fine_batch_size=params.fine_batch_size,
+        device=device,
+    )
+
+    record_results(grid_cells, results, full.image.shape, cell_width, cell_height)
+    return [
+        convert_grid_cell_to_cell(
+            grid_cell=grid_cell, pixel_size=reference_image.scale_x
+        )
+        for grid_cell in grid_cells
+    ]
+
+
 def plot_cell_registration_results(
     reference_image: ScanImage, comparison_image: ScanImage, cells: list[Cell]
 ):
@@ -141,4 +248,97 @@ def plot_cell_registration_results(
     )
     plot_side_by_side(
         img1=ref_plot, title1="Reference", img2=comp_plot, title2="Comparison"
+    )
+
+
+def match_coarse_to_fine(
+    image_full: FloatArray2D,
+    image_coarse: FloatArray2D,
+    templates_full: list[np.ndarray],
+    templates_coarse: list[np.ndarray],
+    cap_factor: float,
+    angles: np.ndarray,
+    minimum_fill_fraction: float,
+    fill_value_full: float,
+    fill_value_coarse: float,
+    n_candidates: int = 3,
+    position_margin: int = 5,
+    angle_margin_degrees: float = 5.0,
+    template_batch_size: int | None = None,
+    angle_batch_size: int | None = None,
+    fine_batch_size: int | None = None,
+    device: torch.device | None = None,
+) -> list:
+    """
+    Sweep the downsampled pair exhaustively, then refine each candidate at full resolution.
+
+    Test-only convenience wrapper around :func:`run_coarse_stage` and :func:`run_fine_stage`.
+    When ``cap_factor <= 1.0``, falls back to a single exhaustive pass.
+
+    :param image_full: Padded comparison image at full resolution, NaN outside the original data.
+    :param image_coarse: Padded comparison image downsampled for the coarse stage, same convention.
+    :param templates_full: Reference cell data at full resolution, all the same shape, free of NaN.
+    :param templates_coarse: The same cells downsampled, free of NaN, aligned 1:1 with *templates_full*.
+    :param cap_factor: How many full-resolution pixels one coarse pixel spans (>= 1).
+    :param angles: Angle sweep in degrees, used for the coarse stage.
+    :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
+    :param fill_value_full: Value substituted for NaN in *image_full*.
+    :param fill_value_coarse: Value substituted for NaN in *image_coarse*.
+    :param n_candidates: Coarse peaks retained per cell for refinement.
+    :param position_margin: Refinement translation search radius, in full-resolution pixels.
+    :param angle_margin_degrees: Refinement angle search radius, in degrees.
+    :param template_batch_size: Templates correlated per chunk in the coarse stage.
+    :param angle_batch_size: Angles processed per chunk in the coarse stage.
+    :param fine_batch_size: Refinement jobs scored per chunk.
+    :param device: Torch device; defaults to CUDA when available.
+    :returns: The best :class:`Match` per template, in full-resolution rotated-canvas pixels.
+    """
+    if not templates_full:
+        return []
+    if len(templates_full) != len(templates_coarse):
+        raise ValueError("templates_full and templates_coarse must be aligned 1:1.")
+    get_uniform_cell_shape(templates_full)
+
+    if cap_factor <= 1.0:
+        from conversion.surface_comparison.cell_registration.search import (
+            find_best_matches,
+        )
+
+        return find_best_matches(
+            image_full,
+            templates_full,
+            angles,
+            minimum_fill_fraction,
+            fill_value_full,
+            device=device,
+            template_batch_size=template_batch_size,
+            angle_batch_size=angle_batch_size,
+        )
+
+    candidates = run_coarse_stage(
+        image_coarse,
+        templates_coarse,
+        angles,
+        minimum_fill_fraction,
+        fill_value_coarse,
+        n_candidates=n_candidates,
+        template_batch_size=template_batch_size,
+        angle_batch_size=angle_batch_size,
+        device=device,
+    )
+
+    return run_fine_stage(
+        image_full,
+        templates_full,
+        candidates,
+        coarse_cell_shape=get_uniform_cell_shape(templates_coarse),
+        coarse_image_shape=image_coarse.shape,
+        cap_factor=cap_factor,
+        angles=angles,
+        position_margin=position_margin,
+        angle_margin_degrees=angle_margin_degrees,
+        minimum_fill_fraction=minimum_fill_fraction,
+        fill_value_full=fill_value_full,
+        fine_batch_size=fine_batch_size,
+        device=device,
     )

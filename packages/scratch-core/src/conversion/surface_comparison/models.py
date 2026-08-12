@@ -225,7 +225,14 @@ class GridSearchParams:
     def update(
         self, center_x: float, center_y: float, angle: float, score: float
     ) -> None:
-        """Replace all fields with a new best result."""
+        """
+        Replace all fields with a new best result.
+
+        :param center_x: Center x-coordinate of the new best-matching comparison patch (pixels).
+        :param center_y: Center y-coordinate of the new best-matching comparison patch (pixels).
+        :param angle: Rotation angle at which the new best score was found (degrees).
+        :param score: New best normalized cross-correlation score.
+        """
         self.center_x = center_x
         self.center_y = center_y
         self.angle = angle

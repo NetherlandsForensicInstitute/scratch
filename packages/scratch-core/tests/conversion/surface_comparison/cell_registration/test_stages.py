@@ -1,19 +1,16 @@
-"""Tests for conversion.surface_comparison.cell_registration.coarse_to_fine."""
+"""Tests for conversion.surface_comparison.cell_registration.stages."""
 
 import numpy as np
 import pytest
 import torch
 
-from conversion.surface_comparison.cell_registration.coarse_to_fine import (
-    match_coarse_to_fine,
-)
 from conversion.surface_comparison.cell_registration.geometry import (
     pad_image_array,
     rotate_image,
 )
 from conversion.surface_comparison.cell_registration.search import find_best_matches
 
-from .helpers import downsample, make_surface
+from .helpers import downsample, make_surface, match_coarse_to_fine
 
 DEVICE = torch.device("cpu")
 

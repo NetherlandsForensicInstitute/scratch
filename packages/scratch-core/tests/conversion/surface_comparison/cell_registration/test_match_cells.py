@@ -7,7 +7,6 @@ from skimage.transform import rotate
 from container_models.scan_image import ScanImage
 from conversion.surface_comparison.cell_registration.match_cells import (
     convert_grid_cell_to_cell,
-    match_cells,
 )
 from conversion.surface_comparison.models import ComparisonParams, GridCell
 
@@ -15,6 +14,7 @@ from .helpers import (
     identity_params,
     make_grid_cell,
     make_scan_image,
+    register_cells,
 )
 
 SCORE_TOLERANCE = 0.05
@@ -33,7 +33,7 @@ class TestMatch:
         grid_cells, comparison_image, params = identical_match_inputs
 
         # Act
-        cells = match_cells(
+        cells = register_cells(
             grid_cells=grid_cells,
             reference_image=comparison_image,
             comparison_image=comparison_image,
@@ -51,7 +51,7 @@ class TestMatch:
         grid_cells, comparison_image, params = identical_match_inputs
 
         # Act
-        cells = match_cells(
+        cells = register_cells(
             grid_cells=grid_cells,
             reference_image=comparison_image,
             comparison_image=comparison_image,
@@ -69,7 +69,7 @@ class TestMatch:
         grid_cells, comparison_image, params = identical_match_inputs
 
         # Act
-        cells = match_cells(
+        cells = register_cells(
             grid_cells=grid_cells,
             reference_image=comparison_image,
             comparison_image=comparison_image,
@@ -87,7 +87,7 @@ class TestMatch:
         grid_cells, comparison_image, params = identical_match_inputs
 
         # Act
-        cells = match_cells(
+        cells = register_cells(
             grid_cells=grid_cells,
             reference_image=comparison_image,
             comparison_image=comparison_image,
@@ -102,7 +102,7 @@ class TestMatch:
         comparison_image = make_scan_image(height=IMAGE_HEIGHT, width=IMAGE_WIDTH)
 
         # Act
-        cells = match_cells(
+        cells = register_cells(
             grid_cells=[],
             reference_image=comparison_image,
             comparison_image=comparison_image,
@@ -121,7 +121,7 @@ class TestMatch:
 
         # Act / Assert
         with pytest.raises(ValueError, match="same pixel scale"):
-            match_cells(
+            register_cells(
                 grid_cells=grid_cells,
                 reference_image=reference_image,
                 comparison_image=comparison_image,
@@ -156,7 +156,7 @@ class TestMatch:
         )
 
         # Act
-        cells = match_cells(
+        cells = register_cells(
             grid_cells=grid_cells,
             reference_image=reference_image,
             comparison_image=comparison_image,
@@ -190,7 +190,7 @@ class TestNegativeCorrelation:
         )
 
         # Act
-        results = match_cells(
+        results = register_cells(
             grid_cells=[grid_cell],
             reference_image=comparison_image,
             comparison_image=comparison_image,

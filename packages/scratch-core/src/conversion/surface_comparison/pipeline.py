@@ -8,7 +8,21 @@ from conversion.resample import (
     get_scaling_factors,
     resample_nan_aware,
 )
-from conversion.surface_comparison.cell_registration.match_cells import match_cells
+from conversion.surface_comparison.cell_registration.stages import (
+    run_coarse_stage,
+    run_fine_stage,
+)
+from conversion.surface_comparison.cell_registration.match_cells import (
+    build_angle_sweep,
+    build_coarse_stage_from_original,
+    build_full_resolution_stage,
+    compute_cap_factor,
+    convert_grid_cell_to_cell,
+    record_results,
+)
+from conversion.surface_comparison.cell_registration.search import (
+    get_uniform_cell_shape,
+)
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
@@ -79,16 +93,19 @@ def compare_surfaces(
     """
     Run the full CMC pipeline to compare two cartridge-case surface marks.
 
-    Executes the four-step pipeline:
+    Executes the pipeline:
 
     1. **Resample** — the comparison image is resampled to the pixel size of the reference image so both
-        share a common coordinate grid.
+        share a common coordinate grid (for the fine stage).
     2. **Generate grid** — a centered rectangular grid of cells is placed over the reference image; cells with
         insufficient valid data are discarded.
-    3. **Coarse-to-fine registration** — the pair is downsampled for an exhaustive coarse sweep, then each
-        cell is refined locally at full resolution. See :func:`match_cells`.
-    4. **CMC classification** — consensus angle and translation are estimated across all cells and each cell is
-        labeled as congruent or not.
+    3. **Build stages** — both resolution stages are prepared from their original sources without chaining
+        interpolation: the fine stage uses the scale-aligned comparison, the coarse stage resamples the
+        original images directly.
+    4. **Coarse sweep** — exhaustive translation + rotation search on the downsampled pair.
+    5. **Fine refinement** — local search around each coarse candidate at full resolution.
+    6. **CMC classification** — consensus angle and translation are estimated across all cells and each cell
+        is labeled as congruent or not.
 
     Both marks are expected to have already been pre-processed (leveled and band-pass filtered);
     only the ``filtered_mark`` image is currently used by the pipeline.
@@ -101,11 +118,13 @@ def compare_surfaces(
         translation, and CMC counts.
     """
     reference_image = reference_mark.filtered_mark.scan_image
-    comparison_image = comparison_mark.filtered_mark.scan_image
+    comparison_image_original = comparison_mark.filtered_mark.scan_image
 
-    # Step 1: Resample comparison so that both have the same pixel size
+    # Step 1: Resample comparison to reference scale (for the fine stage)
     logger.debug("starting resample")
-    comparison_image = resample_to_scale(comparison_image, reference_image.scale_x)
+    comparison_image_full = resample_to_scale(
+        comparison_image_original, reference_image.scale_x
+    )
 
     # Step 2: Generate grid cells
     logger.debug("starting grid generation")
@@ -115,17 +134,76 @@ def compare_surfaces(
         minimum_fill_fraction=params.minimum_fill_fraction,
         nan_fill_value=resolve_nan_fill_value(reference_image, params),
     )
+    if not grid_cells:
+        logger.debug("no grid cells generated. skipping cell registration.")
+        return classify_congruent_cells_consensus(
+            cells=[], params=params, reference_center=reference_image.center_meters
+        )
 
-    # Step 3: Coarse-to-fine registration
+    # Step 3: Build both stages from appropriate sources (no interpolation chaining)
     logger.debug("starting cell registration")
-    cells = match_cells(
-        grid_cells=grid_cells,
-        reference_image=reference_image,
-        comparison_image=comparison_image,
-        params=params,
+    cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
+    full_stage = build_full_resolution_stage(
+        comparison_image_full, grid_cells, cell_width, cell_height
+    )
+    cap_factor = compute_cap_factor(
+        reference_image,
+        comparison_image_full,
+        cell_width,
+        cell_height,
+        params.max_size,
+    )
+    if cap_factor > 1.0:
+        # Coarse stage: single pass from ORIGINAL images
+        coarse_stage = build_coarse_stage_from_original(
+            comparison_image_original,
+            reference_image,
+            grid_cells,
+            cap_factor,
+        )
+    else:
+        # Images fit within max_size: skip coarse, use full resolution
+        coarse_stage = full_stage
+
+    # Step 4: Coarse sweep
+    angles = build_angle_sweep(params)
+    candidates = run_coarse_stage(
+        image_coarse=coarse_stage.image,
+        templates_coarse=coarse_stage.templates,
+        angles=angles,
+        minimum_fill_fraction=params.minimum_fill_fraction,
+        fill_value_coarse=coarse_stage.fill_value,
+        n_candidates=params.n_candidates,
+        template_batch_size=params.template_batch_size,
+        angle_batch_size=params.angle_batch_size,
     )
 
-    # Step 4: CMC classification
+    # Step 5: Fine refinement
+    matches = run_fine_stage(
+        image_full=full_stage.image,
+        templates_full=full_stage.templates,
+        candidates=candidates,
+        coarse_cell_shape=get_uniform_cell_shape(coarse_stage.templates),
+        coarse_image_shape=coarse_stage.image.shape,
+        cap_factor=cap_factor,
+        angles=angles,
+        position_margin=params.fine_n_pixels,
+        angle_margin_degrees=params.fine_m_degrees,
+        minimum_fill_fraction=params.minimum_fill_fraction,
+        fill_value_full=full_stage.fill_value,
+        fine_batch_size=params.fine_batch_size,
+    )
+
+    # Step 6: Gather results and convert to Cell instances
+    record_results(grid_cells, matches, full_stage.image.shape, cell_width, cell_height)
+    cells = [
+        convert_grid_cell_to_cell(
+            grid_cell=grid_cell, pixel_size=reference_image.scale_x
+        )
+        for grid_cell in grid_cells
+    ]
+
+    # Step 7: CMC classification
     logger.debug("starting cmc classification")
     return classify_congruent_cells_consensus(
         cells=cells, params=params, reference_center=reference_image.center_meters
@@ -140,6 +218,10 @@ def resolve_nan_fill_value(
 
     ``None`` means "each cell's own valid-pixel mean"; see
     :func:`~conversion.surface_comparison.template_fill.fill_template_nan`.
+
+    :param reference_image: Reference scan image; its global mean is used for ``global_mean`` strategy.
+    :param params: Comparison parameters specifying the fill strategy.
+    :returns: A fill value for ``global_mean``, or ``None`` for ``local_mean``.
     """
     # TODO: ``local_mean`` needs the masked NCC of Padfield, "Masked Object Registration in the
     # Fourier Domain" (IEEE TIP 2012 / CVPR 2010) to be correct. The score denominator in

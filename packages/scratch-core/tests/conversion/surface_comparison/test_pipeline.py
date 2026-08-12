@@ -3,7 +3,6 @@ from typing import Callable
 from conversion.surface_comparison.grid import generate_grid
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType
-from conversion.surface_comparison.cell_registration.match_cells import match_cells
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
@@ -26,7 +25,10 @@ import numpy as np
 import pytest
 from skimage.transform import rotate
 
-from .cell_registration.helpers import plot_cell_registration_results
+from .cell_registration.helpers import (
+    plot_cell_registration_results,
+    register_cells,
+)
 
 
 # TODO: Remove these dummy tests / fixtures and create real tests
@@ -230,7 +232,7 @@ def test_coarse_registration_finds_angle(
         cell_size=(cell_size[0] * scale, cell_size[1] * scale),
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
-    cells = match_cells(
+    cells = register_cells(
         grid_cells=grid_cells,
         reference_image=reference_image,
         comparison_image=comparison_image,
