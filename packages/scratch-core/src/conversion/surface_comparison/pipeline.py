@@ -12,15 +12,16 @@ from conversion.surface_comparison.cell_registration.stages import (
     run_coarse_stage,
     run_fine_stage,
 )
-from conversion.surface_comparison.cell_registration.match_cells import (
+from conversion.surface_comparison.cell_registration.stage_builders import (
     build_angle_sweep,
-    build_coarse_stage_from_original,
+    build_coarse_stage,
     build_full_resolution_stage,
     compute_cap_factor,
     convert_grid_cell_to_cell,
     record_results,
 )
 from conversion.surface_comparison.cell_registration.search import (
+    find_best_matches,
     get_uniform_cell_shape,
 )
 from conversion.surface_comparison.cmc_consensus.pipeline import (
@@ -99,10 +100,11 @@ def compare_surfaces(
         share a common coordinate grid (for the fine stage).
     2. **Generate grid** — a centered rectangular grid of cells is placed over the reference image; cells with
         insufficient valid data are discarded.
-    3. **Build stages** — both resolution stages are prepared from their original sources without chaining
-        interpolation: the fine stage uses the scale-aligned comparison, the coarse stage resamples the
-        original images directly.
-    4. **Coarse sweep** — exhaustive translation + rotation search on the downsampled pair.
+    3. **Build the full-resolution stage** — the scale-aligned comparison image and reference templates,
+        padded, ready to search.
+    4. **Coarse sweep** — if the images are larger than ``params.max_size``, both are downsampled directly
+        from their original sources (no chained interpolation) for an exhaustive translation + rotation
+        search; otherwise this step is skipped and step 5 runs one exhaustive pass at full resolution instead.
     5. **Fine refinement** — local search around each coarse candidate at full resolution.
     6. **CMC classification** — consensus angle and translation are estimated across all cells and each cell
         is labeled as congruent or not.
@@ -135,12 +137,14 @@ def compare_surfaces(
         nan_fill_value=resolve_nan_fill_value(reference_image, params),
     )
     if not grid_cells:
+        # classify_congruent_cells_consensus is documented to reject an empty cells list, so
+        # build the trivial empty result directly rather than call it out of contract.
         logger.debug("no grid cells generated. skipping cell registration.")
-        return classify_congruent_cells_consensus(
-            cells=[], params=params, reference_center=reference_image.center_meters
+        return ComparisonResult(
+            cells=[], estimated_rotation=0.0, estimated_translation=(0.0, 0.0)
         )
 
-    # Step 3: Build both stages from appropriate sources (no interpolation chaining)
+    # Step 3: Build the full-resolution stage
     logger.debug("starting cell registration")
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
     full_stage = build_full_resolution_stage(
@@ -153,46 +157,58 @@ def compare_surfaces(
         cell_height,
         params.max_size,
     )
+    angles = build_angle_sweep(params)
+
     if cap_factor > 1.0:
-        # Coarse stage: single pass from ORIGINAL images
-        coarse_stage = build_coarse_stage_from_original(
+        # Step 4: Coarse sweep — single pass from ORIGINAL images (no interpolation chaining)
+        coarse_stage = build_coarse_stage(
             comparison_image_original,
             reference_image,
             grid_cells,
             cap_factor,
         )
+        candidates = run_coarse_stage(
+            image_coarse=coarse_stage.image,
+            templates_coarse=coarse_stage.templates,
+            angles=angles,
+            minimum_fill_fraction=params.minimum_fill_fraction,
+            fill_value_coarse=coarse_stage.fill_value,
+            n_candidates=params.n_candidates,
+            template_batch_size=params.template_batch_size,
+            angle_batch_size=params.angle_batch_size,
+        )
+
+        # Step 5: Fine refinement
+        matches = run_fine_stage(
+            image_full=full_stage.image,
+            templates_full=full_stage.templates,
+            candidates=candidates,
+            coarse_cell_shape=get_uniform_cell_shape(coarse_stage.templates),
+            coarse_image_shape=coarse_stage.image.shape,
+            cap_factor=cap_factor,
+            angles=angles,
+            position_margin=params.fine_n_pixels,
+            angle_margin_degrees=params.fine_m_degrees,
+            minimum_fill_fraction=params.minimum_fill_fraction,
+            fill_value_full=full_stage.fill_value,
+            fine_batch_size=params.fine_batch_size,
+        )
     else:
-        # Images fit within max_size: skip coarse, use full resolution
-        coarse_stage = full_stage
-
-    # Step 4: Coarse sweep
-    angles = build_angle_sweep(params)
-    candidates = run_coarse_stage(
-        image_coarse=coarse_stage.image,
-        templates_coarse=coarse_stage.templates,
-        angles=angles,
-        minimum_fill_fraction=params.minimum_fill_fraction,
-        fill_value_coarse=coarse_stage.fill_value,
-        n_candidates=params.n_candidates,
-        template_batch_size=params.template_batch_size,
-        angle_batch_size=params.angle_batch_size,
-    )
-
-    # Step 5: Fine refinement
-    matches = run_fine_stage(
-        image_full=full_stage.image,
-        templates_full=full_stage.templates,
-        candidates=candidates,
-        coarse_cell_shape=get_uniform_cell_shape(coarse_stage.templates),
-        coarse_image_shape=coarse_stage.image.shape,
-        cap_factor=cap_factor,
-        angles=angles,
-        position_margin=params.fine_n_pixels,
-        angle_margin_degrees=params.fine_m_degrees,
-        minimum_fill_fraction=params.minimum_fill_fraction,
-        fill_value_full=full_stage.fill_value,
-        fine_batch_size=params.fine_batch_size,
-    )
+        # Steps 4-5: images already fit within max_size, so coarse and fine would search the
+        # same resolution — skip the coarse stage and run one exhaustive pass instead of the
+        # same work twice.
+        logger.debug(
+            "cap_factor <= 1.0: skipping the coarse stage for a single exhaustive pass"
+        )
+        matches = find_best_matches(
+            full_stage.image,
+            full_stage.templates,
+            angles,
+            params.minimum_fill_fraction,
+            full_stage.fill_value,
+            template_batch_size=params.template_batch_size,
+            angle_batch_size=params.angle_batch_size,
+        )
 
     # Step 6: Gather results and convert to Cell instances
     record_results(grid_cells, matches, full_stage.image.shape, cell_width, cell_height)

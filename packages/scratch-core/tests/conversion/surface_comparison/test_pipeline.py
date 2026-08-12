@@ -90,6 +90,43 @@ def test_compare_surfaces_runs(mark: Mark, params: ComparisonParams):
     assert results
 
 
+def test_compare_surfaces_runs_the_coarse_stage_when_images_exceed_max_size():
+    # Larger than the default max_size=256, so cap_factor > 1.0 and compare_surfaces takes the
+    # coarse-stage branch (build_coarse_stage, run_coarse_stage, run_fine_stage) rather than the
+    # single-exhaustive-pass shortcut that the smaller `mark` fixture exercises above.
+    scan_image = ScanImage(
+        data=np.zeros(shape=(300, 300), dtype=np.float64), scale_x=1e-5, scale_y=1e-5
+    )
+    mark = Mark(scan_image=scan_image, mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION)
+    processed_mark = ProcessedMark(filtered_mark=mark, raw_mark=mark)
+
+    results = compare_surfaces(
+        reference_mark=processed_mark,
+        comparison_mark=processed_mark,
+        params=ComparisonParams(),
+    )
+
+    assert results
+
+
+def test_compare_surfaces_returns_early_when_no_grid_cells():
+    # An all-NaN image leaves no cell meeting minimum_fill_fraction, so generate_grid returns
+    # [] and compare_surfaces should short-circuit before cell registration.
+    scan_image = ScanImage(
+        data=np.full((100, 100), np.nan, dtype=np.float64), scale_x=1e-5, scale_y=1e-5
+    )
+    mark = Mark(scan_image=scan_image, mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION)
+    processed_mark = ProcessedMark(filtered_mark=mark, raw_mark=mark)
+
+    results = compare_surfaces(
+        reference_mark=processed_mark,
+        comparison_mark=processed_mark,
+        params=ComparisonParams(),
+    )
+
+    assert results.cells == []
+
+
 def test_template_nan_fill_strategy_local_mean():
     """Verify local_mean strategy fills NaNs with each cell's own mean."""
     # Arrange

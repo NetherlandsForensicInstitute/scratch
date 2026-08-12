@@ -9,10 +9,32 @@ from conversion.surface_comparison.cell_registration.geometry import (
     rotate_image,
 )
 from conversion.surface_comparison.cell_registration.search import find_best_matches
+from conversion.surface_comparison.cell_registration.stages import run_fine_stage
 
 from .helpers import downsample, make_surface, match_coarse_to_fine
 
 DEVICE = torch.device("cpu")
+
+
+class TestRunFineStage:
+    def test_returns_empty_for_no_templates(self):
+        assert (
+            run_fine_stage(
+                image_full=np.zeros((10, 10)),
+                templates_full=[],
+                candidates=[],
+                coarse_cell_shape=(1, 1),
+                coarse_image_shape=(10, 10),
+                cap_factor=1.0,
+                angles=np.array([0.0]),
+                position_margin=1,
+                angle_margin_degrees=1.0,
+                minimum_fill_fraction=0.9,
+                fill_value_full=0.0,
+                device=DEVICE,
+            )
+            == []
+        )
 
 
 class TestMatchCoarseToFine:

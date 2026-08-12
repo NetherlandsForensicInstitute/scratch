@@ -172,23 +172,28 @@ def build_coarse_stage(
     reference_image: ScanImage,
     grid_cells: list[GridCell],
     cap_factor: float,
-    cell_width: int,
-    cell_height: int,
 ) -> Stage:
     """
-    Downsample both images by *cap_factor*, re-cut templates from coarse reference.
+    Downsample both images once, directly to the coarse scale, and re-cut templates from the
+    coarse reference.
 
-    Templates are extracted from the downsampled reference (not individual patches)
-    so edge pixels share context with the comparison canvas.
+    *comparison_image* is downsampled by *cap_factor* scaled by its own native pixel size
+    relative to the reference's (:func:`compute_scale_match_factor`), so the result lands on
+    the same physical coarse grid as *reference_image* in a single pass — regardless of whether
+    *comparison_image* is the original scan or one already resampled onto the reference's scale.
+    Passing the original avoids chaining two lossy resizes to reach the coarse resolution.
 
-    :param comparison_image: Comparison scan image (already on the reference scale).
+    Templates are extracted from the downsampled reference (not individual patches) so edge
+    pixels share context with the comparison canvas.
+
+    :param comparison_image: Comparison scan image, at its own native pixel scale or the
+        reference's — either is handled correctly.
     :param reference_image: Reference scan image.
     :param grid_cells: Reference grid cells defining template locations.
-    :param cap_factor: Pixels per coarse pixel.
-    :param cell_width: Width of one grid cell in pixels.
-    :param cell_height: Height of one grid cell in pixels.
+    :param cap_factor: Pixels per coarse pixel, in reference-image units.
     :returns: A :class:`Stage` with a downsampled comparison canvas, coarse templates, and fill value.
     """
+    cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
     coarse_width = max(1, int(np.ceil(cell_width / cap_factor)))
     coarse_height = max(1, int(np.ceil(cell_height / cap_factor)))
     logger.info(
@@ -205,7 +210,8 @@ def build_coarse_stage(
         scale_x=reference_image.scale_x * cap_factor,
         scale_y=reference_image.scale_y * cap_factor,
     )
-    comparison_coarse = downsample(comparison_image.data, cap_factor)
+    scale_match_factor = compute_scale_match_factor(reference_image, comparison_image)
+    comparison_coarse = downsample(comparison_image.data, cap_factor * scale_match_factor)
 
     # All cells carry the same resolved fill value, and the coarse templates must use it too: the
     # coarse stage picks the candidate locations, so filling it differently changes where each cell
@@ -236,65 +242,21 @@ def build_coarse_stage(
     )
 
 
-def build_coarse_stage_from_original(
-    comparison_image: ScanImage,
-    reference_image: ScanImage,
-    grid_cells: list[GridCell],
-    cap_factor: float,
-) -> Stage:
+def compute_scale_match_factor(
+    reference_image: ScanImage, comparison_image: ScanImage
+) -> float:
     """
-    Build coarse stage from original images (avoids chained interpolation).
+    Factor that puts *comparison_image* on the reference's pixel grid.
 
-    :param comparison_image: Original comparison scan image.
-    :param reference_image: Original reference scan image.
-    :param grid_cells: Reference grid cells defining template locations.
-    :param cap_factor: Pixels per coarse pixel.
-    :returns: Stage with coarse comparison canvas, templates, and fill value.
+    1.0 when the two already share a pixel scale (including when *comparison_image* has already
+    been resampled onto the reference's grid), so callers can pass either the original comparison
+    image or an already-aligned one and get a consistent result.
+
+    :param reference_image: Reference scan image.
+    :param comparison_image: Comparison scan image, at any pixel scale.
+    :returns: Multiplier such that ``comparison_image.scale_x * factor == reference_image.scale_x``.
     """
-    cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
-    coarse_width = max(1, int(np.ceil(cell_width / cap_factor)))
-    coarse_height = max(1, int(np.ceil(cell_height / cap_factor)))
-    logger.info(
-        "Coarse stage (from original): {}x{} px cells -> {}x{} px coarse cells (cap={:.2f})",
-        cell_width,
-        cell_height,
-        coarse_width,
-        coarse_height,
-        cap_factor,
-    )
-
-    # Both resampled from their original data — no chaining
-    reference_coarse = ScanImage(
-        data=downsample(reference_image.data, cap_factor),
-        scale_x=reference_image.scale_x * cap_factor,
-        scale_y=reference_image.scale_y * cap_factor,
-    )
-    comparison_coarse = downsample(comparison_image.data, cap_factor)
-
-    nan_fill_value = grid_cells[0].nan_fill_value
-    templates = [
-        fill_template_nan(
-            extract_patch(
-                scan_image=reference_coarse,
-                coordinates=(
-                    round(grid_cell.top_left[0] / cap_factor),
-                    round(grid_cell.top_left[1] / cap_factor),
-                ),
-                patch_size=(coarse_width, coarse_height),
-                fill_value=np.nan,
-            ),
-            nan_fill_value,
-        )
-        for grid_cell in grid_cells
-    ]
-
-    return Stage(
-        image=pad_image_array(
-            comparison_coarse, pad_width=coarse_width, pad_height=coarse_height
-        ),
-        templates=templates,
-        fill_value=float(np.nanmean(comparison_coarse)),
-    )
+    return reference_image.scale_x / comparison_image.scale_x
 
 
 def downsample(data: FloatArray2D, cap_factor: float) -> FloatArray2D:

@@ -1,14 +1,16 @@
-"""Tests for conversion.surface_comparison.cell_registration.match_cells."""
+"""Tests for conversion.surface_comparison.cell_registration.stage_builders."""
 
 import numpy as np
 import pytest
 from skimage.transform import rotate
 
 from container_models.scan_image import ScanImage
-from conversion.surface_comparison.cell_registration.match_cells import (
+from conversion.surface_comparison.cell_registration.stage_builders import (
+    build_coarse_stage,
     convert_grid_cell_to_cell,
 )
 from conversion.surface_comparison.models import ComparisonParams, GridCell
+from conversion.surface_comparison.pipeline import resample_to_scale
 
 from .helpers import (
     identity_params,
@@ -199,6 +201,74 @@ class TestNegativeCorrelation:
 
         # Assert
         assert results[0].best_score < 0.0
+
+
+class TestBuildCoarseStage:
+    def test_coarse_canvas_lands_on_the_reference_scale_regardless_of_comparison_source(self):
+        """
+        Regression test: the comparison canvas must land on the same physical coarse grid as
+        the reference, whether the comparison image passed in is the original scan (its own
+        native pixel scale) or one already resampled onto the reference's scale.
+
+        Previously, downsampling the *original* comparison image by ``cap_factor`` alone (no
+        adjustment for its native scale relative to the reference) produced a coarse canvas at
+        the wrong physical pixel pitch whenever the two scans had different native resolutions.
+        """
+        # Arrange: reference and comparison cover the same physical scene, but the comparison
+        # scan's native pixel pitch is half the reference's (twice the pixel density).
+        rng = np.random.default_rng(0)
+        reference_image = ScanImage(
+            data=rng.random((200, 200)).astype(np.float64), scale_x=1.0, scale_y=1.0
+        )
+        comparison_original = ScanImage(
+            data=rng.random((400, 400)).astype(np.float64), scale_x=0.5, scale_y=0.5
+        )
+        comparison_aligned = resample_to_scale(
+            comparison_original, reference_image.scale_x
+        )
+        grid_cell = make_grid_cell(
+            data=reference_image.data[50:70, 50:70], top_left=(50, 50)
+        )
+        cap_factor = 5 / 3
+
+        # Act
+        from_original = build_coarse_stage(
+            comparison_original, reference_image, [grid_cell], cap_factor
+        )
+        from_aligned = build_coarse_stage(
+            comparison_aligned, reference_image, [grid_cell], cap_factor
+        )
+
+        # Assert
+        assert from_original.image.shape == from_aligned.image.shape
+
+    def test_coarse_canvas_matches_cap_factor_when_already_aligned(self):
+        # Arrange: comparison already on the reference's scale, so scale_match_factor == 1 and
+        # this reduces to a plain downsample by cap_factor, as before.
+        rng = np.random.default_rng(1)
+        reference_image = ScanImage(
+            data=rng.random((120, 120)).astype(np.float64), scale_x=1.0, scale_y=1.0
+        )
+        comparison_image = ScanImage(
+            data=rng.random((120, 120)).astype(np.float64), scale_x=1.0, scale_y=1.0
+        )
+        grid_cell = make_grid_cell(
+            data=reference_image.data[10:30, 10:30], top_left=(10, 10)
+        )
+        cap_factor = 3.0
+
+        # Act
+        coarse = build_coarse_stage(
+            comparison_image, reference_image, [grid_cell], cap_factor
+        )
+
+        # Assert
+        expected_side = max(1, int(np.ceil(120 / cap_factor)))
+        coarse_cell = max(1, int(np.ceil(grid_cell.width / cap_factor)))
+        assert coarse.image.shape == (
+            expected_side + 2 * coarse_cell,
+            expected_side + 2 * coarse_cell,
+        )
 
 
 class TestConvertGridCellToCell:

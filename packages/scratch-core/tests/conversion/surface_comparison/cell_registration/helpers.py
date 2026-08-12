@@ -16,7 +16,7 @@ from conversion.surface_comparison.cell_registration.stages import (
     run_coarse_stage,
     run_fine_stage,
 )
-from conversion.surface_comparison.cell_registration.match_cells import (
+from conversion.surface_comparison.cell_registration.stage_builders import (
     build_angle_sweep,
     build_coarse_stage,
     build_full_resolution_stage,
@@ -25,6 +25,7 @@ from conversion.surface_comparison.cell_registration.match_cells import (
     record_results,
 )
 from conversion.surface_comparison.cell_registration.search import (
+    find_best_matches,
     get_uniform_cell_shape,
 )
 from conversion.surface_comparison.models import (
@@ -180,47 +181,51 @@ def register_cells(
     full = build_full_resolution_stage(
         comparison_image, grid_cells, cell_width, cell_height
     )
-    coarse = (
-        build_coarse_stage(
-            comparison_image,
-            reference_image,
-            grid_cells,
-            cap_factor,
-            cell_width,
-            cell_height,
-        )
-        if cap_factor > 1.0
-        else full
-    )
-
     angles = build_angle_sweep(params)
-    candidates = run_coarse_stage(
-        image_coarse=coarse.image,
-        templates_coarse=coarse.templates,
-        angles=angles,
-        minimum_fill_fraction=params.minimum_fill_fraction,
-        fill_value_coarse=coarse.fill_value,
-        n_candidates=params.n_candidates,
-        template_batch_size=params.template_batch_size,
-        angle_batch_size=params.angle_batch_size,
-        device=device,
-    )
 
-    results = run_fine_stage(
-        image_full=full.image,
-        templates_full=full.templates,
-        candidates=candidates,
-        coarse_cell_shape=get_uniform_cell_shape(coarse.templates),
-        coarse_image_shape=coarse.image.shape,
-        cap_factor=cap_factor,
-        angles=angles,
-        position_margin=params.fine_n_pixels,
-        angle_margin_degrees=params.fine_m_degrees,
-        minimum_fill_fraction=params.minimum_fill_fraction,
-        fill_value_full=full.fill_value,
-        fine_batch_size=params.fine_batch_size,
-        device=device,
-    )
+    if cap_factor > 1.0:
+        coarse = build_coarse_stage(
+            comparison_image, reference_image, grid_cells, cap_factor
+        )
+        candidates = run_coarse_stage(
+            image_coarse=coarse.image,
+            templates_coarse=coarse.templates,
+            angles=angles,
+            minimum_fill_fraction=params.minimum_fill_fraction,
+            fill_value_coarse=coarse.fill_value,
+            n_candidates=params.n_candidates,
+            template_batch_size=params.template_batch_size,
+            angle_batch_size=params.angle_batch_size,
+            device=device,
+        )
+        results = run_fine_stage(
+            image_full=full.image,
+            templates_full=full.templates,
+            candidates=candidates,
+            coarse_cell_shape=get_uniform_cell_shape(coarse.templates),
+            coarse_image_shape=coarse.image.shape,
+            cap_factor=cap_factor,
+            angles=angles,
+            position_margin=params.fine_n_pixels,
+            angle_margin_degrees=params.fine_m_degrees,
+            minimum_fill_fraction=params.minimum_fill_fraction,
+            fill_value_full=full.fill_value,
+            fine_batch_size=params.fine_batch_size,
+            device=device,
+        )
+    else:
+        # Coarse and fine would search the same resolution; one exhaustive pass instead of
+        # the same work twice. Mirrors conversion.surface_comparison.pipeline.compare_surfaces.
+        results = find_best_matches(
+            full.image,
+            full.templates,
+            angles,
+            params.minimum_fill_fraction,
+            full.fill_value,
+            device=device,
+            template_batch_size=params.template_batch_size,
+            angle_batch_size=params.angle_batch_size,
+        )
 
     record_results(grid_cells, results, full.image.shape, cell_width, cell_height)
     return [
