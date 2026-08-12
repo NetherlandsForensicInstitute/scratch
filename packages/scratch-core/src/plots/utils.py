@@ -42,8 +42,7 @@ def render_single_panel(
     """
     Render a single-axes figure to an RGB array.
 
-    Creates the figure, hands (fig, ax) to ``draw``, applies tight_layout,
-    then rasterizes and closes.
+    Creates the figure, hands (fig, ax) to ``draw``, applies tight_layout, then rasterizes and closes.
 
     :param figsize: (width, height) in inches.
     :param draw: Callback that plots onto the given figure and axes.
@@ -131,11 +130,10 @@ def _fit_cell_label_fontsizes(
     """
     Shrink already-placed cell labels so each fits inside its cell.
 
-    Measures the rendered width of each label and scales its font size to
-    the cell width. A draw is forced first: with ``aspect="equal"`` the data
-    box is only fitted inside the axes at draw time, so ``ax.transData`` is
-    not final before then — reading it earlier overestimates the cell width
-    (badly, for tall/narrow surfaces) and the labels come out too large.
+    Measures the rendered width of each label and scales its font size to the cell width. A draw is forced first:
+    with ``aspect="equal"`` the data box is only fitted inside the axes at draw time, so ``ax.transData`` is not
+    final before then — reading it earlier overestimates the cell width (badly, for tall/narrow surfaces) and the
+    labels come out too large.
 
     :param ax: Axes the labels were drawn on.
     :param texts: Text objects returned by ax.text.

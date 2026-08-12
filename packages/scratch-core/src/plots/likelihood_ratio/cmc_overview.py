@@ -41,9 +41,8 @@ def plot_cmc_comparison_overview(
     """
     Generate the CMC + LR overview figure.
 
-    Combines metadata tables, filtered surface visualizations with cell
-    overlays, score histograms, and a LogLR transformation plot into a
-    single overview figure.
+    Combines metadata tables, filtered surface visualizations with cell overlays, score histograms, and a LogLR
+    transformation plot into a single overview figure.
 
     :param mark_reference_filtered: Reference mark after filtering.
     :param mark_compared_filtered: Compared mark after filtering.

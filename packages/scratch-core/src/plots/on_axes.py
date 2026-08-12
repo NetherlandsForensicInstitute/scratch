@@ -108,9 +108,8 @@ def plot_depth_map_on_axes(
     """
     Plot a depth map on the given axes.
 
-    Colour scaling clips to median ± color_sigma * (1.4826*MAD) so outlier
-    pixels don't wash out the contrast. Red lines on the colorbar mark the
-    clip bounds; the true data min/max are labelled at the extend triangle tips.
+    Colour scaling clips to median ± color_sigma * (1.4826*MAD) so outlier pixels don't wash out the contrast. Red
+    lines on the colorbar mark the clip bounds; the true data min/max are labelled at the extend triangle tips.
 
     :param ax: Matplotlib axes to plot on.
     :param fig: Figure (needed for colorbar).
@@ -165,9 +164,8 @@ def plot_depth_map_on_axes(
     margin = 0.06 * (vmax - vmin)
     cbar.set_ticks([t for t in cbar.get_ticks() if vmin + margin <= t <= vmax - margin])
 
-    # True min/max at the triangle tips. Anchor to the colorbar's right edge
-    # (transAxes x=1.0) with a fixed offset in points, matching how matplotlib
-    # places the regular tick labels — an offset in axes fraction would scale
+    # True min/max at the triangle tips. Anchor to the colorbar's right edge (transAxes x=1.0) with a fixed offset in
+    # points, matching how matplotlib places the regular tick labels — an offset in axes fraction would scale
     # with the colorbar width and drift between subplots.
     tick_pad_pt = (
         cbar.ax.yaxis.majorTicks[0].get_pad() if cbar.ax.yaxis.majorTicks else 3.5
@@ -219,13 +217,11 @@ def _robust_color_limits(
     """
     Compute color scale limits that exclude outliers via robust sigma clipping.
 
-    Uses median ± k * (1.4826 * MAD) rather than mean ± k*std. The MAD
-    (median absolute deviation) is not inflated by extreme outliers the way
-    the ordinary standard deviation is, so a heavy-tailed surface (a few very
-    deep/high pixels) still yields a tight, high-contrast clip. The 1.4826
-    factor rescales MAD to match std for normally distributed data, so `k`
-    keeps its usual "~k sigma" meaning. The bound is symmetric about the
-    median by construction, even when the data is skewed.
+    Uses median ± k * (1.4826 * MAD) rather than mean ± k*std. The MAD (median absolute deviation) is not inflated by
+    extreme outliers the way the ordinary standard deviation is, so a heavy-tailed surface (a few very deep/high
+    pixels) still yields a tight, high-contrast clip. The 1.4826 factor rescales MAD to match std for normally
+    distributed data, so `k` keeps its usual "~k sigma" meaning. The bound is symmetric about the median by
+    construction, even when the data is skewed.
 
     :param data: Surface data (may contain NaNs for masked/invalid pixels).
     :param k: Number of (robust) standard deviations to clip at.
@@ -260,11 +256,10 @@ def _plot_surface_with_colorbar(
     """
     Plot a cell overlay on axes and add an outlier-aware colorbar.
 
-    The image is (re)clipped to median ± color_sigma * (1.4826*MAD) so the
-    surface colours and the colorbar agree: the main body spans the clipped range,
-    red lines mark that clipping boundary, and the true (unclipped) data
-    min/max appear at the tips of the extend triangles. Everything is read
-    back off ``im`` itself, so no data array needs to be passed in.
+    The image is (re)clipped to median ± color_sigma * (1.4826*MAD) so the surface colours and the colorbar agree:
+    the main body spans the clipped range, red lines mark that clipping boundary, and the true (unclipped) data
+    min/max appear at the tips of the extend triangles. Everything is read back off ``im`` itself, so no data array
+    needs to be passed in.
 
     :param fig: Figure to attach the colorbar to.
     :param ax: Axes the image was plotted on.

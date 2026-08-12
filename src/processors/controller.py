@@ -6,17 +6,17 @@ from pathlib import Path
 import numpy as np
 from conversion.data_formats import Mark, MarkMetadata
 from conversion.export.mark import load_mark_from_path
-from conversion.likelihood_ratio.likelihood_ratio import (
+from conversion.likelihood_ratio import (
     ModelSpecs,
     calculate_lr_impression,
     calculate_lr_striation,
     get_reference_data_from_path,
 )
-from conversion.likelihood_ratio.results_metadata import (
+from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
+from conversion.results_metadata import (
     build_results_metadata_impression,
     build_results_metadata_striation,
 )
-from conversion.profile_correlator import MarkCorrelationResult, Profile, correlate_striation_marks
 from conversion.surface_comparison.models import Cell, ComparisonParams, ComparisonResult, ProcessedMark
 from fastapi import HTTPException
 from lir import LLRData

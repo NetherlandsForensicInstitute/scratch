@@ -4,7 +4,7 @@ from pathlib import Path
 from lir import LLRData
 
 from conversion.data_formats import MarkType
-from conversion.likelihood_ratio.likelihood_ratio import ModelSpecs
+from conversion.likelihood_ratio import ModelSpecs
 
 
 def _format_lr(llr_data: LLRData) -> str:

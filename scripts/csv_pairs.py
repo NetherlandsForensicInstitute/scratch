@@ -47,7 +47,7 @@ RESULT_FILENAMES = ("comparison_results.json",)
 DONE_STATUSES = frozenset({"completed", "skipped_exists"})
 
 
-def mark_dirs(base: Path, item: str, max_depth: int = 2) -> dict[MarkType, Path]:
+def find_mark_dirs(base: Path, item: str, max_depth: int = 2) -> dict[MarkType, Path]:
     """Find the mark-type folders inside a single item folder.
 
     Mark folders sit directly under the item, or one level deeper.  The search
@@ -80,16 +80,16 @@ def mark_dirs(base: Path, item: str, max_depth: int = 2) -> dict[MarkType, Path]
     return found
 
 
-def score_columns(mark_type: MarkType) -> list[str]:
+def get_score_columns(mark_type: MarkType) -> list[str]:
     """Extra CSV columns for this mark type."""
     if isinstance(mark_type, MarkImpressionType):
         return ["total_cells", "matching_cells", "status", "error"]
     return ["ccf", "status", "error"]
 
 
-def metric_columns(mark_type: MarkType) -> list[str]:
+def get_metric_columns(mark_type: MarkType) -> list[str]:
     """Get the score columns proper, without the bookkeeping ones."""
-    return [c for c in score_columns(mark_type) if c not in ("status", "error")]
+    return [c for c in get_score_columns(mark_type) if c not in ("status", "error")]
 
 
 def extract_metrics(result: dict[str, Any] | None, mark_type: MarkType) -> dict[str, Any]:
@@ -184,18 +184,18 @@ class CsvTask:
     entry: ComparisonEntry
 
 
-def mark_type_slug(mark_type: MarkType) -> str:
+def get_mark_type_slug(mark_type: MarkType) -> str:
     """Get folder-safe name for a mark type, matching ``_MARK_TYPE_FOLDER_MAP``."""
     return mark_type.value.replace(" ", "_")
 
 
-def database_folder(item: str) -> str:
+def get_database_folder(item: str) -> str:
     """Get the database an item belongs to: its first path component below the root."""
     parts = Path(normalise_item(item)).parts
     return parts[0] if parts else ""
 
 
-def item_slug(item: str) -> str:
+def get_item_slug(item: str) -> str:
     """
     Get the identifier for an item path.
 
@@ -207,7 +207,7 @@ def item_slug(item: str) -> str:
     return "__".join(parts) if parts else Path(normalise_item(item)).name
 
 
-def comparison_out_dir(cfg: ConversionConfig, mark_type: MarkType, row: PairRow) -> Path:
+def build_comparison_out_dir(cfg: ConversionConfig, mark_type: MarkType, row: PairRow) -> Path:
     """Where the full result payload for this comparison is stored.
 
     Results are grouped by database pair, i.e.
@@ -216,22 +216,22 @@ def comparison_out_dir(cfg: ConversionConfig, mark_type: MarkType, row: PairRow)
     the same (e.g. ``dbA__vs__dbA``). The pair name is sorted so a row with
     ref/comp swapped still lands in the same folder.
     """
-    db_ref = database_folder(row.ref)
-    db_comp = database_folder(row.comp)
+    db_ref = get_database_folder(row.ref)
+    db_comp = get_database_folder(row.comp)
     if db_ref != db_comp:
         logger.debug("Row %d compares across databases (%s vs %s)", row.index, db_ref, db_comp)
 
     pair = "__vs__".join(sorted((db_ref, db_comp)))
-    folder = cfg.root / "database-comparisons" / pair / f"{mark_type_slug(mark_type)}_comparison_results"
-    return folder / f"{item_slug(row.ref)}_vs_{item_slug(row.comp)}"
+    folder = cfg.root / "database-comparisons" / pair / f"{get_mark_type_slug(mark_type)}_comparison_results"
+    return folder / f"{get_item_slug(row.ref)}_vs_{get_item_slug(row.comp)}"
 
 
 def build_tasks(cfg: ConversionConfig, rows: list[PairRow], base: Path, max_depth: int = 2) -> list[CsvTask]:
     """Expand every CSV row into one task per shared mark type."""
     tasks: list[CsvTask] = []
     for row in rows:
-        ref_marks = mark_dirs(base, row.ref, max_depth)
-        comp_marks = mark_dirs(base, row.comp, max_depth)
+        ref_marks = find_mark_dirs(base, row.ref, max_depth)
+        comp_marks = find_mark_dirs(base, row.comp, max_depth)
         shared = [mark_type for mark_type in ref_marks if mark_type in comp_marks]
         if not shared:
             logger.warning("Row %d: no mark type shared by %s and %s", row.index, row.ref, row.comp)
@@ -242,13 +242,14 @@ def build_tasks(cfg: ConversionConfig, rows: list[PairRow], base: Path, max_dept
                 mark_type=mark_type,
                 mark_dir_ref=ref_marks[mark_type],
                 mark_dir_comp=comp_marks[mark_type],
-                comparison_out=comparison_out_dir(cfg, mark_type, row),
+                comparison_out=build_comparison_out_dir(cfg, mark_type, row),
             )
-            tasks.append(CsvTask(task_id=len(tasks) - 1, row=row, mark_type=mark_type, entry=entry))
+            csv_task = CsvTask(task_id=len(tasks), row=row, mark_type=mark_type, entry=entry)
+            tasks.append(csv_task)
     return tasks
 
 
-def tasks_from_entries(entries: list[ComparisonEntry], base: Path) -> list[CsvTask]:
+def build_tasks_from_entries(entries: list[ComparisonEntry], base: Path) -> list[CsvTask]:
     """
     Wrap already-built comparison entries (e.g. generated pairs) as CSV-style tasks.
 
@@ -303,8 +304,8 @@ class ScoreWriter:
         self.rows = rows
         self.delimiter = delimiter
         self.flush_every = max(1, flush_every)
-        self.paths = {mt: out_dir / f"{csv_path.stem}_{mark_type_slug(mt)}{csv_path.suffix}" for mt in mark_types}
-        self.columns = {mt: score_columns(mt) for mt in mark_types}
+        self.paths = {mt: out_dir / f"{csv_path.stem}_{get_mark_type_slug(mt)}{csv_path.suffix}" for mt in mark_types}
+        self.columns = {mt: get_score_columns(mt) for mt in mark_types}
         self.values: dict[MarkType, dict[int, dict[str, Any]]] = {mt: {} for mt in mark_types}
         self._pending: dict[MarkType, int] = defaultdict(int)
         self._lock = threading.Lock()
@@ -355,7 +356,7 @@ class ScoreWriter:
     def has_metrics(self, mark_type: MarkType, row_index: int) -> bool:
         """Whether this row already has actual score values."""
         scores = self.values.get(mark_type, {}).get(row_index, {})
-        return any(scores.get(col) not in (None, "") for col in metric_columns(mark_type))
+        return any(scores.get(col) not in (None, "") for col in get_metric_columns(mark_type))
 
     def record(self, mark_type: MarkType, row_index: int, values: dict[str, Any]) -> None:
         """Store the scores for one comparison and flush if due."""

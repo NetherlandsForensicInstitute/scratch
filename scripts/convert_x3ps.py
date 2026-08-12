@@ -66,10 +66,10 @@ def convert_measurement_x3p(
 ) -> tuple[Path, tuple[int, int] | None]:
     """Convert a measurement.x3p (or copy an existing one) and generate preview/surface_map images.
 
-    :param skip_conversion: if True, ``measurement_folder`` is assumed to already contain a
-        converted ``measurement.x3p`` (e.g. the "original" no longer exists, just the x3p does).
-        Instead of parsing/re-encoding via ``convert_x3p``, the existing file is plainly copied
-        from root to the mirrored path under output, then sent to the preprocessor API.
+    :param skip_conversion: if True, ``measurement_folder`` is assumed to already contain a converted
+    ``measurement.x3p`` (e.g. the "original" no longer exists, just the x3p does). Instead of parsing/re-encoding via
+    ``convert_x3p``, the existing file is plainly copied from root to the mirrored path under output, then sent to
+    the preprocessor API.
     :returns: (path to the x3p under output, (size_x, size_y) pixel dimensions, or None if unknown).
     """
     original = measurement_folder / "measurement.x3p"
@@ -121,9 +121,9 @@ def _convert_measurement_safe(
 def find_existing_measurement_folders(root_dir: Path) -> list[Path]:
     """Find folders directly containing an already-converted measurement.x3p.
 
-    Used in --skip-conversion mode to walk the *input* root dir (since there's no
-    "original-to-convert" structure there to walk via find_mark_folders, just whatever
-    already-converted x3p files are sitting on disk) and copy each over to output.
+    Used in --skip-conversion mode to walk the *input* root dir (since there's no "original-to-convert" structure
+    there to walk via find_mark_folders, just whatever already-converted x3p files are sitting on disk) and copy each
+    over to output.
     """
     return sorted({p.parent for p in root_dir.rglob("measurement.x3p")})
 

@@ -160,8 +160,7 @@ def plot_cell_grid_overlay(
     """
     Plot surface with cell grid overlay showing cell names and CMC status.
 
-    Cells above the similarity threshold are drawn with black outlines,
-    cells below the threshold with red outlines.
+    Cells above the similarity threshold are drawn with black outlines, cells below the threshold with red outlines.
 
     :param data: Surface data in meters.
     :param scale: Pixel scale in meters.
@@ -239,8 +238,7 @@ def plot_impression_comparison_overview(
     """
     Generate the main results overview figure with dynamic sizing.
 
-    Combines metadata tables, surface visualizations, and cell correlation
-    heatmap into a single overview figure.
+    Combines metadata tables, surface visualizations, and cell correlation heatmap into a single overview figure.
 
     :param mark_reference_raw: Raw reference mark.
     :param mark_compared_raw: Raw compared mark.

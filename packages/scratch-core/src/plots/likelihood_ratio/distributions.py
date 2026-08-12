@@ -101,8 +101,7 @@ def plot_score_llr_transformation(ax: Axes, data: LlrTransformationData) -> None
     Plot LogLR curve with confidence intervals.
 
     :param ax: Matplotlib axes object to plot on.
-    :param data: LLR transformation data containing scores, llrs, confidence intervals,
-        and optional score_llr_point.
+    :param data: LLR transformation data containing scores, llrs, confidence intervals, and optional score_llr_point.
     """
 
     # Plot main LogLR curve

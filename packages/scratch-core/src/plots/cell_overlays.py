@@ -9,10 +9,10 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.constants import mega
 
 from container_models.base import FloatArray2D
-from plots.utils import DEFAULT_COLORMAP, _fit_cell_label_fontsizes
-from plots.on_axes import _robust_color_limits
-
 from conversion.surface_comparison.models import Cell
+from conversion.surface_comparison.utils import rotate_points
+from plots.on_axes import _robust_color_limits
+from plots.utils import DEFAULT_COLORMAP, _fit_cell_label_fontsizes
 
 
 def _draw_cell_labels(
@@ -25,20 +25,17 @@ def _draw_cell_labels(
     """
     Draw labeled cell rectangles on axes, colored by CMC status.
 
-    CMC cells (above threshold) are drawn in black, non-CMC cells in red.
-    CMC cells are drawn first so red outlines are not hidden by adjacent borders.
-    In "comparison" space, labels are rotated to match the cell's angle_deg
-    so the text orientation follows the (possibly rotated) cell.
+    CMC cells (above threshold) are drawn in black, non-CMC cells in red. CMC cells are drawn first so red outlines are
+    not hidden by adjacent borders. In "comparison" space, labels are rotated to match the cell's angle_deg so the text
+    orientation follows the (possibly rotated) cell.
 
     :param ax: Matplotlib axes to draw on.
     :param cells: cells to draw
     :param cell_label_prefix: Label prefix for cells ("A" or "B").
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
-    :param space: ``"reference"`` draws cells at their grid positions
-        (``center_reference``, no rotation); ``"comparison"`` draws them at
-        their matched positions (``center_comparison`` / ``angle_deg``,
-        counter-clockwise positive, standard math/plot convention with
-        y-axis increasing upward).
+    :param space: ``"reference"`` draws cells at their grid positions (``center_reference``, no rotation);
+        ``"comparison"`` draws them at their matched positions (``center_comparison`` / ``angle_deg``, clockwise
+        positive, y-axis increasing upward).
     """
     cmc_cells: list[tuple[int, Cell]] = []
     non_cmc_cells: list[tuple[int, Cell]] = []
@@ -74,11 +71,9 @@ def _draw_cell_labels(
                 cx = cell.center_comparison[0] * 1e6
                 cy = cell.center_comparison[1] * 1e6
                 angle = np.deg2rad(-cell.angle_deg)
-                cos_a, sin_a = np.cos(angle), np.sin(angle)
-                # Counter-clockwise rotation matrix (standard math convention,
-                # positive angle_deg = CCW when y-axis increases upward).
-                rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-                corners_rotated = base_corners @ rot.T
+                # Standard CCW rotation matrix, but angle_deg is negated above, so
+                # positive angle_deg rotates the cell clockwise (y-axis increasing upward).
+                corners_rotated = rotate_points(base_corners, angle, center=(0.0, 0.0))
                 text_rotation = -cell.angle_deg
 
             corners_translated = corners_rotated + [cx, cy]
@@ -117,13 +112,11 @@ def plot_cell_overlay_on_axes(
     """
     Plot surface with cell grid overlay on given axes.
 
-    Follows the MATLAB plot_cells convention: cells above the similarity
-    threshold (CMC cells) are drawn with black outlines and labels, while
-    cells below the threshold are drawn with red outlines and labels.
+    Follows the MATLAB plot_cells convention: cells above the similarity threshold (CMC cells) are drawn with black
+    outlines and labels, while cells below the threshold are drawn with red outlines and labels.
 
-    Color scaling clips to median ± color_sigma * (1.4826*MAD) of the data,
-    so a few extreme outlier pixels don't blow out the contrast for the rest
-    of the surface.
+    Color scaling clips to median ± color_sigma * (1.4826*MAD) of the data, so a few extreme outlier pixels don't
+    blow out the contrast for the rest of the surface.
 
     :param ax: Matplotlib axes to plot on.
     :param data: Surface data in meters.
@@ -131,13 +124,11 @@ def plot_cell_overlay_on_axes(
     :param cells: cells to plot
     :param cell_label_prefix: Label prefix for cells ("A" for reference, "B" for compared).
     :param show_all_cells: If True, show all cells. If False, only show CMC cells.
-    :param space: Which positions to draw the cells at. ``"reference"`` draws
-        each cell at its regular-grid position (``center_reference``) with no
-        rotation — use for the reference surface. ``"comparison"`` draws each
-        cell at its matched, rotated position (``center_comparison`` /
-        ``angle_deg``) — use for the moved compared surface.
-    :param color_sigma: Number of robust standard deviations (median ±
-        color_sigma * 1.4826*MAD) to clip the color scale at.
+    :param space: Which positions to draw the cells at. ``"reference"`` draws each cell at its regular-grid position
+    (``center_reference``) with no rotation — use for the reference surface. ``"comparison"`` draws each cell at its
+    matched, rotated position (``center_comparison`` / ``angle_deg``) — use for the moved compared surface.
+    :param color_sigma: Number of robust standard deviations (median ± color_sigma * 1.4826*MAD) to clip the color
+    scale at.
     """
     height, width = data.shape
 

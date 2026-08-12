@@ -12,8 +12,7 @@ def metadata_to_table_data(
     """
     Convert metadata dictionary to table rows with text wrapping.
 
-    Long values are wrapped across multiple rows, with the key only
-    appearing on the first row.
+    Long values are wrapped across multiple rows, with the key only appearing on the first row.
 
     :param metadata: Dictionary of metadata key-value pairs.
     :param wrap_width: Maximum character width before wrapping values.
@@ -49,13 +48,12 @@ def get_col_widths(
     """
     Calculate column widths for a two-column table based on content length.
 
-    The key column width is proportional to the longest key relative to the
-    longest value, clamped between 35% and 50% of the available width.
+    The key column width is proportional to the longest key relative to the longest value, clamped between 35% and
+    50% of the available width.
 
     :param side_margin: Margin on each side as a fraction of total width (0-0.5).
     :param table_data: List of (key, value) string pairs representing table rows.
-    :returns: Tuple of (key_column_width, value_column_width) as fractions of
-        total width, accounting for side margins.
+    :returns: Tuple of (key_column_width, value_column_width) as fractions of total width, accounting for side margins.
     """
     available_width = 1.0 - 2 * side_margin
 
@@ -73,14 +71,13 @@ def get_bounding_box(side_margin: float, table_data: list[list[str]]) -> Bbox:
     """
     Calculate bounding box dimensions for a table with adaptive row heights.
 
-    Row height adapts to content: fewer rows get more generous spacing,
-    while many rows use compact spacing to fit. The table is vertically
-    centered within the available space.
+    Row height adapts to content: fewer rows get more generous spacing, while many rows use compact spacing to fit.
+    The table is vertically centered within the available space.
 
     :param side_margin: Margin on each side as a fraction of total width (0-0.5).
     :param table_data: List of rows, where each row is a list of cell strings.
-    :returns: Bounding box with (left, bottom, width, height) as fractions
-        suitable for use as a matplotlib table bbox parameter.
+    :returns: Bounding box with (left, bottom, width, height) as fractions suitable for use as a matplotlib table
+    bbox parameter.
     """
     n_rows = len(table_data)
     available_width = 1.0 - 2 * side_margin
@@ -106,16 +103,14 @@ def get_metadata_dimensions(
     """
     Calculate metadata section dimensions based on content.
 
-    Determines the number of display rows needed for the larger of the two
-    metadata dictionaries (accounting for text wrapping), and computes an
-    appropriate height ratio with a minimum to ensure readability.
+    Determines the number of display rows needed for the larger of the two metadata dictionaries (accounting for text
+    wrapping), and computes an appropriate height ratio with a minimum to ensure readability.
 
     :param metadata_compared: Metadata dictionary for the compared profile.
     :param metadata_reference: Metadata dictionary for the reference profile.
     :param wrap_width: Maximum characters per line before wrapping.
-    :returns: Tuple of (max_metadata_rows, metadata_height_ratio) where
-        max_metadata_rows is the number of wrapped text rows and
-        metadata_height_ratio is the relative height for the metadata row.
+    :returns: Tuple of (max_metadata_rows, metadata_height_ratio) where max_metadata_rows is the number of
+    wrapped text rows and metadata_height_ratio is the relative height for the metadata row.
     """
     # Calculate content-based heights
     meta_reference_rows = _calculate_table_rows(

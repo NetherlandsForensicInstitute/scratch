@@ -107,7 +107,7 @@ def _write_mark(mark_folder: Path, files: dict[str, bytes], cfg: ConversionConfi
         (mark_dir / filename).write_bytes(content)
 
 
-def _disk_writer(
+def _write_to_disk(
     result_queue: queue.Queue[tuple[Path, dict[str, bytes]] | None],
     cfg: ConversionConfig,
     progress: tqdm,
@@ -158,7 +158,7 @@ def convert_marks_parallel(
     write_queue = queue.Queue(maxsize=workers * 2)
 
     progress = tqdm(total=len(marks), desc="Converting marks", unit=" marks")
-    writer = threading.Thread(target=_disk_writer, args=(write_queue, cfg, progress), daemon=True)
+    writer = threading.Thread(target=_write_to_disk, args=(write_queue, cfg, progress), daemon=True)
     writer.start()
 
     session = requests.Session()

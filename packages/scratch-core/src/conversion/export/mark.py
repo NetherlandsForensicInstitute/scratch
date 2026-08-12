@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import numpy as np
-from pydantic import BeforeValidator, Field, BaseModel, ConfigDict
+from pydantic import BeforeValidator, Field, BaseModel
 from scipy.io import loadmat
 from container_models.scan_image import ScanImage
 from conversion.data_formats import (
@@ -43,7 +43,6 @@ def _parse_mark_type(value: Any) -> MarkType:
 class ExportedMarkData(BaseModel):
     """Validated data structure for exported Mark metadata."""
 
-    model_config = ConfigDict(extra="ignore")
     mark_type: Annotated[MarkType, BeforeValidator(_parse_mark_type)]
     scale_x: float = Field(..., gt=0)
     scale_y: float = Field(..., gt=0)

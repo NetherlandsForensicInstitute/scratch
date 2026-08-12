@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType, MarkMetadata, MarkStriationType
-from conversion.likelihood_ratio.likelihood_ratio import DummyLRSystem, ModelSpecs
+from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
 from conversion.surface_comparison.models import ComparisonParams
 from fastapi.testclient import TestClient
 from pydantic import HttpUrl

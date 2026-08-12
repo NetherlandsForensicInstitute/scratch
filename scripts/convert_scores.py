@@ -45,10 +45,10 @@ from scripts.csv_pairs import (
     CsvTask,
     ScoreWriter,
     build_tasks,
+    build_tasks_from_entries,
     extract_metrics,
     find_result_file,
     read_pairs_csv,
-    tasks_from_entries,
 )
 from scripts.http_utils import _cleanup_vault, _post_with_retry, download_urls
 
@@ -142,8 +142,8 @@ def _log_counts(counts: dict[ScoreStatus, int]) -> None:
 def _run_scoring(work: Iterable[tuple[int, Any, tuple]], ids: list[int], workers: int) -> dict[ScoreStatus, int]:
     """Run parallel scoring and tally the outcome counts.
 
-    Missing entries (e.g. a worker crashed before recording anything) count as
-    FAILED_ERROR rather than being silently dropped from the tally.
+    Missing entries (e.g. a worker crashed before recording anything) count as FAILED_ERROR rather than being
+    silently dropped from the tally.
     """
     results = run_parallel(work, workers, "Calculating scores", " comparisons")
     counts: dict[ScoreStatus, int] = defaultdict(int)
@@ -165,9 +165,8 @@ def get_tasks(
     """
     Collect comparison tasks, either from a CSV of item pairs or generated from all mark types found in the directory.
 
-    :returns: a ``(header, tasks)`` tuple. ``header`` is the original CSV
-        header (or ``None`` if the input had none) when *csv_path* is given,
-        otherwise a synthetic two-column header for the generated pairs.
+    :returns: a ``(header, tasks)`` tuple. ``header`` is the original CSV header (or ``None`` if the input had none)
+    when *csv_path* is given, otherwise a synthetic two-column header for the generated pairs.
     """
     if csv_path is not None:
         base = base or cfg.output_dir
@@ -183,7 +182,7 @@ def get_tasks(
         all_entries.extend(entries)
     if limit:
         all_entries = all_entries[:limit]
-    return GENERATED_HEADER, tasks_from_entries(all_entries, cfg.output_dir)
+    return GENERATED_HEADER, build_tasks_from_entries(all_entries, cfg.output_dir)
 
 
 def _load_saved_result(comparison_out: Path) -> dict[str, Any] | None:
@@ -261,8 +260,8 @@ def run_score_conversion(
 
     :param csv_path: if set, read pairs from this CSV instead of generating them.
     :param csv_base: folder the CSV items are relative to (CSV mode only).
-    :param out_dir: where the scored CSV copies are written; defaults to next
-        to the input CSV (CSV mode) or under the output directory (generated mode).
+    :param out_dir: where the scored CSV copies are written; defaults to next to the input CSV (CSV mode) or under
+    the output directory (generated mode).
     :param flush_every: rewrite a scored CSV after this many comparisons.
     :param retry_failed: re-run rows that ended in an error last time (CSV mode only).
     :param max_depth: how deep below an item folder to look for mark folders (CSV mode only).
@@ -347,3 +346,7 @@ def main() -> None:
         retry_failed=args.retry_failed,
         max_depth=args.csv_max_depth,
     )
+
+
+if __name__ == "__main__":
+    main()

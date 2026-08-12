@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from lir.data.models import FeatureData
 
-from conversion.likelihood_ratio.likelihood_ratio import (
+from conversion.likelihood_ratio import (
     get_reference_data_from_path,
     DummyLRSystem,
     ModelSpecs,

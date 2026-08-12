@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 from conversion.data_formats import Mark, MarkMetadata
-from conversion.likelihood_ratio.likelihood_ratio import ModelSpecs
+from conversion.likelihood_ratio import ModelSpecs
 from conversion.profile_correlator import Profile
 from fastapi import HTTPException
 from plots.comparison.data_formats import StriationComparisonPlots

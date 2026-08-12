@@ -112,8 +112,8 @@ def extract_mask_and_bounding_box(
 ) -> tuple[np.ndarray, list | None]:
     """Extract a boolean mask and optional bounding box from crop_info in a MATLAB struct.
 
-    Combines multiple crop items: foreground crops (is_foreground=1) are unioned,
-    then background crops (is_foreground=0) are subtracted.
+    Combines multiple crop items: foreground crops (is_foreground=1) are unioned, then background crops (
+    is_foreground=0) are subtracted.
 
     :returns: (mask, bounding_box) or None if no valid crop info found.
     """
