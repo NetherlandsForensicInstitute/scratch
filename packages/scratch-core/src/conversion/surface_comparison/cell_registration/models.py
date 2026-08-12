@@ -39,7 +39,7 @@ class RefinementJob(NamedTuple):
     """
     One ``(cell, predicted centre, trial angle)`` triple to score at full resolution.
 
-    Positions are centres in unrotated image coordinates; :mod:`.refine` maps them onto the
+    Positions are centres in unrotated image coordinates; refine maps them onto the
     rotated canvas.
     """
 

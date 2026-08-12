@@ -19,7 +19,7 @@ def record_results(
     Map each match from the padded canvas back onto its grid cell.
 
     :param grid_cells: Grid cells whose ``grid_search_params`` to update.
-    :param results: One :class:`Match` per grid cell (in the same order).
+    :param results: One Match per grid cell (in the same order).
     :param padded_shape: Shape of the padded comparison canvas used for matching.
     :param cell_width: Width of one grid cell in pixels.
     :param cell_height: Height of one grid cell in pixels.
@@ -46,7 +46,7 @@ def convert_grid_cell_to_cell(grid_cell: GridCell, pixel_size: float) -> Cell:
 
     :param grid_cell: Grid cell whose search results to convert.
     :param pixel_size: Pixel size in meters (assumed isotropic).
-    :returns: A :class:`Cell` with the grid cell's registration data expressed in meters.
+    :returns: A Cell with the grid cell's registration data expressed in meters.
     """
     return Cell(
         center_reference=convert_pixels_to_meters(

@@ -42,18 +42,13 @@ def compare_surfaces(
 
     Executes the pipeline:
 
-    1. **Resample** — the comparison image is resampled to the pixel size of the reference image so both
-        share a common coordinate grid (for the fine stage).
-    2. **Generate grid** — a centered rectangular grid of cells is placed over the reference image; cells with
-        insufficient valid data are discarded.
-    3. **Build the full-resolution stage** — the scale-aligned comparison image and reference templates,
-        padded, ready to search.
-    4. **Coarse sweep** — if the images are larger than ``params.max_size``, both are downsampled directly
-        from their original sources (no chained interpolation) for an exhaustive translation + rotation
-        search; otherwise this step is skipped and step 5 runs one exhaustive pass at full resolution instead.
+    1. **Resample** — the comparison image is resampled to the pixel size of the reference image.
+    2. **Generate grid** — a centered rectangular grid of cells is placed over the reference image.
+    3. **Build the full-resolution stage** — the scale-aligned comparison image and reference templates, padded.
+    4. **Coarse sweep** — if images are larger than ``params.max_size``, an exhaustive translation + rotation
+        search is performed on downsampled images.
     5. **Fine refinement** — local search around each coarse candidate at full resolution.
-    6. **Gather results** — each match is mapped off the rotated, padded canvas back onto its grid cell
-        and converted to a :class:`Cell` in meters.
+    6. **Gather results** — matches are mapped back onto grid cells and converted to Cell instances.
     7. **CMC classification** — consensus angle and translation are estimated across all cells and each cell
         is labeled as congruent or not.
 
@@ -64,7 +59,7 @@ def compare_surfaces(
     :param comparison_mark: Pre-processed comparison mark to register against the reference.
     :param params: Algorithm parameters controlling cell size, fill-fraction thresholds, angle sweep, coarse/fine
         search configuration, and CMC classification thresholds.
-    :returns: A :class:`ComparisonResult` containing per-cell registration results, the consensus rotation and
+    :returns: A ComparisonResult containing per-cell registration results, the consensus rotation and
         translation, and CMC counts.
     """
     reference_image = reference_mark.filtered_mark.scan_image
@@ -180,17 +175,15 @@ def resolve_nan_fill_value(
     """
     Turn ``template_nan_fill_strategy`` into the concrete value every template will be filled with.
 
-    ``None`` means "each cell's own valid-pixel mean"; see
-    :func:`~conversion.surface_comparison.template_fill.fill_template_nan`.
+    ``None`` means "each cell's own valid-pixel mean"; see conversion.surface_comparison.template_fill.fill_template_nan.
 
     :param reference_image: Reference scan image; its global mean is used for ``global_mean`` strategy.
     :param params: Comparison parameters specifying the fill strategy.
     :returns: A fill value for ``global_mean``, or ``None`` for ``local_mean``.
     """
-    # TODO: ``local_mean`` needs the masked NCC of Padfield, "Masked Object Registration in the
-    # Fourier Domain" (IEEE TIP 2012 / CVPR 2010) to be correct. The score denominator in
-    # :func:`~...cell_registration.scoring.build_correlation_basis` normalizes over the whole
-    # window, while the numerator only covers the overlap of the two validity masks, so scores are
+    # TODO: ``local_mean`` needs the masked NCC of Padfield (2012) to be correct. The score denominator in
+    # conversion.surface_comparison.cell_registration.scoring.build_correlation_basis normalizes over the
+    # whole window, while the numerator only covers the overlap of the two validity masks, so scores are
     # deflated in proportion to how empty a cell is. ``global_mean`` wins today because it happens
     # to offset that.
     if params.template_nan_fill_strategy != "global_mean":

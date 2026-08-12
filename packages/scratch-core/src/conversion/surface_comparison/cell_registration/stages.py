@@ -51,10 +51,9 @@ def run_coarse_stage(
     :param template_batch_size: Templates correlated per chunk.
     :param angle_batch_size: Angles processed per chunk.
     :param device: Torch device; defaults to CUDA when available.
-    :returns: Up to *n_candidates* :class:`Match` entries per template, ordered by score. An empty
-        list means no viable candidate: a constant cell, or every position rejected by the
-        fill-fraction gate. Scores are genuine Pearson correlations and may legitimately be
-        negative, so a negative best score is a candidate to refine, not a rejection.
+    :returns: Up to *n_candidates* Match entries per template, ordered by score. An empty
+        list means no viable candidate. Scores are genuine Pearson correlations and may be
+        negative.
     """
     return search_candidates(
         image_coarse,
@@ -87,10 +86,8 @@ def run_fine_stage(
     """
     Refine coarse candidates at full resolution.
 
-    Translation and rotation are not independent, so refinement does not re-run the whole sweep:
-    it searches a window of ``angle_margin_degrees`` around each *candidate's own* coarse angle,
-    together with a ``position_margin``-pixel translation window (translation is effectively free,
-    since the sliding-window correlation evaluates every position in one shot).
+    Searches a window of ``angle_margin_degrees`` around each candidate's coarse angle and a
+    ``position_margin``-pixel translation window.
 
     :param image_full: Padded comparison image at full resolution, NaN outside the original data.
     :param templates_full: Reference cell data at full resolution, all the same shape, free of NaN.
@@ -105,7 +102,7 @@ def run_fine_stage(
     :param fill_value_full: Value substituted for NaN in *image_full*.
     :param fine_batch_size: Refinement jobs scored per chunk.
     :param device: Torch device; defaults to CUDA when available.
-    :returns: One :class:`Match` per template (best refined candidate). Sentinel
+    :returns: One Match per template (best refined candidate). Sentinel
         ``Match(-1.0, 0, 0, default_angle)`` for templates with no candidates.
     :raises ValueError: If *candidates* and *templates_full* are not aligned 1:1.
     """
@@ -161,11 +158,8 @@ def compute_trial_offsets(
     """
     Angle offsets to try around each candidate's coarse angle.
 
-    On the sweep grid rather than in 1-degree steps: the coarse angle is only reliable to about one
-    sweep step, and reporting angles off-grid widens the residual distribution that
-    ``angle_deviation_threshold`` gates on. Measured on a real pair, mean |residual| for
-    partial-fill cells was 5.12 deg on-grid versus 6.00 deg at 1-degree steps, against a 6.0
-    threshold - which is what costs the marginal border cells.
+    The offsets are restricted to the coarse sweep grid to maintain consistency and
+    reduce residual distribution variance.
 
     :param angles: Angle sweep used for the coarse stage.
     :param angle_margin_degrees: Refinement angle search radius, in degrees.
@@ -186,14 +180,14 @@ def build_refinement_jobs(
     """
     Expand every coarse candidate into one job per trial angle, at full resolution.
 
-    Empty candidate lists are skipped (no viable coarse match for that cell).
+    Empty candidate lists are skipped.
 
     :param candidates: Coarse-stage candidates per template. Empty list means no viable candidate.
     :param coarse_cell_shape: ``(height, width)`` of the coarse templates.
     :param coarse_image_shape: Shape of the coarse comparison image.
     :param cap_factor: How many full-resolution pixels one coarse pixel spans.
     :param trial_offsets: Angle offsets (degrees) to try around each candidate.
-    :returns: List of :class:`RefinementJob` instances, one per candidate-angle combination.
+    :returns: List of RefinementJob instances, one per candidate-angle combination.
     """
     jobs: list[RefinementJob] = []
     for index, found in enumerate(candidates):

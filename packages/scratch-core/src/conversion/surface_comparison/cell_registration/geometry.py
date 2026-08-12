@@ -2,9 +2,7 @@
 Rotation and coordinate conventions shared by every stage of the search.
 
 The rotation center is ``((width - 1) / 2, (height - 1) / 2)`` and the center of the input is
-mapped onto the center of the (grown) output canvas. :func:`map_canvas_to_image` and
-:func:`map_image_to_canvas` assume exactly this mapping; round-trip tests guard that they stay in
-step.
+mapped onto the center of the (grown) output canvas.
 """
 
 from __future__ import annotations
@@ -38,10 +36,9 @@ def pad_image_array(
 
 def compute_rotated_shape(height: int, width: int, angle_deg: float) -> tuple[int, int]:
     """
-    Output shape of :func:`rotate_image` without performing the rotation.
+    Output shape of rotate_image without performing the rotation.
 
-    Reproduces the sizing rule of ``skimage.transform.rotate(..., resize=True)``: the axis-aligned
-    bounding box of the rotated corner points, rounded to the nearest integer.
+    Calculates the axis-aligned bounding box of the rotated corner points.
 
     :returns: ``(rotated_height, rotated_width)`` in pixels.
     """
@@ -61,7 +58,7 @@ def rotate_image(
     :param image: Input 2D array.
     :param angle_deg: Rotation angle in degrees.
     :param fill_value: Value written outside the rotated source rectangle.
-    :returns: Float32 array of shape :func:`compute_rotated_shape`.
+    :returns: Float32 array of the computed rotated shape.
     """
     rotated_height, rotated_width = compute_rotated_shape(
         image.shape[0], image.shape[1], angle_deg
@@ -81,9 +78,6 @@ def crop_rotated_image(
 ) -> FloatArray2D:
     """
     Produce a crop of the rotated canvas without rotating the whole image.
-
-    ``warpAffine`` maps each *output* pixel back into the source, so folding the crop offset into
-    the translation yields the same pixels as rotating the full image and slicing it.
 
     :param image: Source image.
     :param angle_deg: Rotation angle in degrees.
@@ -108,7 +102,7 @@ def map_canvas_to_image(
     """
     Map a matched window on the rotated canvas back to a cell center in the unrotated image.
 
-    Inverse of :func:`map_image_to_canvas`.
+    Inverse of map_image_to_canvas.
 
     :param x: Window left edge on the rotated canvas.
     :param y: Window top edge on the rotated canvas.
@@ -140,7 +134,7 @@ def map_image_to_canvas(
     """
     Map a cell center in the unrotated image to a window's top-left corner on the rotated canvas.
 
-    Inverse of :func:`map_canvas_to_image`.
+    Inverse of map_canvas_to_image.
 
     :param center_x: Cell center x in unrotated image coordinates.
     :param center_y: Cell center y in unrotated image coordinates.

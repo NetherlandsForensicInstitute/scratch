@@ -1,16 +1,5 @@
 """
-Normalized cross-correlation, in one place.
-
-Every stage of the search scores windows the same way:
-``r = sum(W * T') / (sqrt(sum((W - mean(W))^2)) * ||T'||)``, where ``T'`` is the centered, unit-norm
-template. Because ``T'`` sums to zero the local mean of ``W`` cancels out of the numerator, so only
-the local sum and sum of squares are needed - both from summed-area tables rather than extra
-transforms.
-
-The stages differ only in *which* image is paired with *which* template, so they share
-:class:`CorrelationBasis` (everything that depends on the image alone) and differ in the template
-spectrum they hand it: :func:`iterate_score_maps` for the full cross product,
-:func:`compute_paired_score_maps` for a 1:1 pairing.
+Normalized cross-correlation utilities.
 """
 
 from collections.abc import Iterator
@@ -32,12 +21,8 @@ SCORE_TOLERANCE = 0.01
 #: it would make a genuinely inverted cell indistinguishable from a masked-out one.
 REJECTED_SCORE = -2.0
 
-#: Radices for which both pocketfft/MKL (CPU) and cuFFT (GPU) stay on their fast paths. 7 is
-#: deliberately excluded even though both support it: a radix-7 pass costs more per point than
-#: radix-4/5, and 5-smooth lengths are dense enough that dropping it rarely costs more than a few
-#: percent of extra area. Measured on a 372x372 canvas, 21px cells, 73 angles, 75 templates (CPU):
-#: 392 = 2^3 * 7^2 -> 3.02 s, versus 400 = 2^4 * 5^2 -> 2.68 s, i.e. 11% faster on a 4% larger
-#: transform. Re-measure before re-adding 7, or adding 11.
+#: Radices for which both pocketfft/MKL (CPU) and cuFFT (GPU) stay on their fast paths.
+#: 7 is excluded as it is slower than 2, 3, or 5.
 _FFT_RADICES = (2, 3, 5)
 #: Windows whose within-window sum of squares falls below ``_VARIANCE_EPS * n_pixels``
 #: (on globally standardized data) are treated as constant and rejected.
@@ -46,7 +31,7 @@ _TINY = 1e-12
 
 
 def compute_mean_and_std(image: FloatArray2D) -> tuple[float, float]:
-    """Global mean and standard deviation of an image, as :func:`build_correlation_basis` expects."""
+    """Global mean and standard deviation of an image."""
     return float(np.nanmean(image)), float(np.nanstd(image))
 
 
@@ -64,10 +49,9 @@ def clamp_score(score: float, index: int) -> float:
 @cache
 def find_next_fast_length(target: int) -> int:
     """
-    Smallest integer ``>= target`` that factors entirely into :data:`_FFT_RADICES`.
+    Smallest integer ``>= target`` that factors entirely into _FFT_RADICES.
 
-    Transform lengths with a large prime factor fall off the fast path in both MKL/pocketfft and
-    cuFFT, which is routinely a 2-5x penalty on the sizes used here.
+    Transform lengths with a large prime factor are significantly slower in MKL/pocketfft and cuFFT.
     """
     if target <= 2:
         return max(int(target), 1)
@@ -91,11 +75,8 @@ def sum_over_windows(
     """
     Sum over every window with its **top-left corner** at ``[y, x]``, via a summed-area table.
 
-    O(1) per output pixel, identical on CPU and CUDA, and matching the indexing convention of
-    ``cv2.matchTemplate``. The accumulation runs in float64 by default: the running total over a
-    ~3000x3000 image reaches ~1e7, and differencing two such float32 values to recover a window sum
-    of ~1e4 loses roughly three significant digits. ``torch.float32`` halves the transient memory
-    at that cost.
+    O(1) per output pixel, matching the indexing convention of ``cv2.matchTemplate``.
+    The accumulation runs in float64 by default to avoid precision loss.
 
     :param values: Tensor of shape ``(batch, 1, height, width)``.
     :param window_height: Window height in pixels.
@@ -120,9 +101,7 @@ def prepare_templates(
     """
     Stack templates onto *device*, centered and scaled to unit norm.
 
-    Pearson correlation is invariant to a positive affine rescaling of either operand, so the
-    template can be normalized independently of the image. Doing so keeps the float32 FFT
-    well-conditioned and removes the template norm from the score denominator entirely.
+    Template normalization is done independently of the image to keep the FFT well-conditioned.
 
     :returns: ``(tensor of shape (n_templates, 1, cell_height, cell_width), is_non_constant mask)``.
     """
@@ -140,10 +119,6 @@ def precompute_template_ffts(
 ) -> list[tuple[int, torch.Tensor]]:
     """
     Transform every template block once, for reuse across all angle chunks.
-
-    Holds the whole stack at canvas transform size: ``n_templates * fft_height *
-    (fft_width // 2 + 1) * 8`` bytes (~48 MB for 75 templates at 400x400). Worth checking against
-    the device budget if either the template count or the canvas grows a lot.
 
     :returns: ``(template_offset, spectrum)`` per block, the spectrum shaped ``(1, block, ...)`` so
         it broadcasts against an image batch of shape ``(n_angles, 1, ...)``.
@@ -165,8 +140,8 @@ class CorrelationBasis:
     """
     Everything about one image batch that does not depend on which template it is scored against.
 
-    Built once per batch by :func:`build_correlation_basis`, then combined with any number of
-    template spectra by :meth:`compute_scores`.
+    Built once per batch by build_correlation_basis, then combined with any number of
+    template spectra by compute_scores.
     """
 
     image_fft: torch.Tensor
@@ -181,8 +156,8 @@ class CorrelationBasis:
         """
         Score the batch against one block of pre-transformed templates.
 
-        *template_fft* must broadcast against :attr:`image_fft`; rejected positions come back as
-        :data:`REJECTED_SCORE`.
+        *template_fft* must broadcast against image_fft; rejected positions come back as
+        REJECTED_SCORE.
         """
         out_height, out_width = self.out_shape
         correlation = torch.fft.irfft2(
@@ -206,9 +181,7 @@ def build_correlation_basis(
     :param valid: Validity mask of the same shape, 1.0 where the pixel holds real data.
     :param cell_shape: ``(cell_height, cell_width)`` of the templates to be scored.
     :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
-    :param mean_and_std: Statistics of the whole comparison image. Deliberately global rather than
-        per-chunk: correlation is invariant to the rescaling, but the float32 rounding it induces
-        is not, and per-chunk statistics would make the result depend on the chunk size.
+    :param mean_and_std: Statistics of the whole comparison image.
     """
     cell_height, cell_width = cell_shape
     n_pixels = cell_height * cell_width
@@ -218,9 +191,8 @@ def build_correlation_basis(
     position_ok = fill_fraction >= minimum_fill_fraction
     del fill_fraction
 
-    # Pearson correlation is invariant to standardization, but it keeps the float32 transforms well
-    # away from the precision cliff on large canvases. This is also what makes this measurably more
-    # accurate than ``cv2.matchTemplate`` on data with a large DC offset.
+    # Pearson correlation is invariant to standardization, but it keeps the float32 transforms
+    # well away from the precision cliff on large canvases.
     mean, standard_deviation = mean_and_std
     batch = (batch - mean) / max(standard_deviation, _TINY)
 
@@ -266,7 +238,7 @@ def iterate_score_maps(
     :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
     :param templates_per_chunk: Templates correlated per iteration.
     :param mean_and_std: Global statistics of the comparison image.
-    :param template_ffts: Pre-transformed templates from :func:`precompute_template_ffts`, when the
+    :param template_ffts: Pre-transformed templates from precompute_template_ffts, when the
         transform size is fixed across batches and they can be computed once for the whole sweep.
     :yields: ``(template_offset, scores)``, scores shaped ``(n_angles, block, out_height, out_width)``.
     """
@@ -292,9 +264,8 @@ def compute_paired_score_maps(
     """
     Score each image in *batch* against its own template, 1:1 rather than all-against-all.
 
-    What local refinement wants: many small crops, each with one specific template. Pairing them
-    keeps a single large batch instead of thousands of tiny calls, where per-call overhead would
-    otherwise dominate.
+    Pairing them keeps a single large batch instead of thousands of tiny calls, where per-call
+    overhead would otherwise dominate.
 
     :param batch: Image crops ``(n, 1, height, width)``.
     :param valid: Validity mask of the same shape.

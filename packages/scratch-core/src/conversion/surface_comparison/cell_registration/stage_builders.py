@@ -47,7 +47,7 @@ def compute_cap_factor(
 ) -> float:
     """
     Pixels per coarse pixel. Shrinks images to *max_size* while keeping coarse cells
-    above :data:`_MIN_COARSE_CELL` pixels for reliable localization.
+    above _MIN_COARSE_CELL pixels for reliable localization.
 
     :param reference_image: Reference scan image.
     :param comparison_image: Comparison scan image (already on the reference scale).
@@ -56,8 +56,7 @@ def compute_cap_factor(
     :param max_size: Largest permitted dimension (pixels) of the comparison canvas.
     :returns: Downsampling factor; 1.0 if images already fit within *max_size* or cells are too
         small to downsample further.
-    :raises ValueError: If the two images are not on the same pixel scale. Comparing their pixel
-        counts against *max_size* is only meaningful once a pixel means the same thing in both.
+    :raises ValueError: If the two images are not on the same pixel scale.
     """
     if not np.isclose(
         reference_image.scale_x, comparison_image.scale_x, rtol=SCALE_MATCH_RTOL
@@ -112,7 +111,7 @@ def build_full_resolution_stage(
     :param grid_cells: Reference grid cells; templates are taken from their filled cell data.
     :param cell_width: Width of one grid cell in pixels.
     :param cell_height: Height of one grid cell in pixels.
-    :returns: A :class:`Stage` with a padded comparison canvas, templates, and fill value.
+    :returns: A Stage with a padded comparison canvas, templates, and fill value.
     """
     return Stage(
         image=pad_image_array(
@@ -130,27 +129,20 @@ def build_coarse_stage(
     cap_factor: float,
 ) -> Stage:
     """
-    Downsample both images once, directly to the coarse scale, and re-cut templates from the
-    coarse reference.
+    Downsample both images to the coarse scale and re-cut templates from the coarse reference.
 
-    *comparison_image* is downsampled by *cap_factor* scaled by its own native pixel size
-    relative to the reference's (:func:`compute_scale_match_factor`), so the result lands on
-    the same physical coarse grid as *reference_image* in a single pass — regardless of whether
-    *comparison_image* is the original scan or one already resampled onto the reference's scale.
-    Passing the original avoids chaining two lossy resizes to reach the coarse resolution.
-
-    Templates are extracted from the downsampled reference (not individual patches) so edge
-    pixels share context with the comparison canvas.
+    Comparison image is downsampled by *cap_factor* scaled by its own native pixel size
+    relative to the reference's (see compute_scale_match_factor) to land on the same physical
+    coarse grid. Templates are extracted from the downsampled reference so edge pixels
+    share context with the comparison canvas.
 
     :param comparison_image: Comparison scan image, at its own native pixel scale or the
-        reference's — either is handled correctly.
+        reference's.
     :param reference_image: Reference scan image.
     :param grid_cells: Reference grid cells defining template locations.
     :param cap_factor: Pixels per coarse pixel, in reference-image units.
-    :returns: A :class:`Stage` with a downsampled comparison canvas, coarse templates, and fill value.
-    :raises ValueError: If the grid cells disagree on ``nan_fill_value``. The coarse stage picks
-        each cell's candidate locations, so every template must be filled the same way the
-        full-resolution ones were.
+    :returns: A Stage with a downsampled comparison canvas, coarse templates, and fill value.
+    :raises ValueError: If the grid cells disagree on ``nan_fill_value``.
     """
     if len({grid_cell.nan_fill_value for grid_cell in grid_cells}) > 1:
         raise ValueError("All grid cells must share the same nan_fill_value.")
@@ -226,10 +218,8 @@ def resample_to_coarse(data: FloatArray2D, factor: float) -> FloatArray2D:
     """
     Put an image on the coarse grid, NaN-aware and in either direction.
 
-    Usually a shrink, but not always: the comparison image reaches the coarse grid in one pass from
-    its own native scale (see :func:`build_coarse_stage`), and a comparison scan coarser than the
-    reference can need *factor* below 1.0. The interpolation therefore follows the direction rather
-    than assuming ``area``, which cv2 degenerates to nearest-neighbor when zooming in.
+    Usually a shrink, but a comparison scan coarser than the reference may require *factor*
+    below 1.0. Interpolation follows the direction of the rescale.
 
     :param data: Input 2D array.
     :param factor: Source pixels per output pixel; above 1.0 shrinks, below 1.0 grows.
