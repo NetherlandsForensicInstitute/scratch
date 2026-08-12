@@ -1,5 +1,3 @@
-"""Cell registration: build the padded canvas and templates each search stage runs on."""
-
 from __future__ import annotations
 
 import numpy as np

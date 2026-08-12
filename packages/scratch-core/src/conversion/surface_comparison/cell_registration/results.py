@@ -1,5 +1,3 @@
-"""Cell registration results: map matches off the search canvas and out into meters."""
-
 from __future__ import annotations
 
 from conversion.surface_comparison.cell_registration.geometry import map_canvas_to_image

@@ -1,7 +1,3 @@
-"""
-Resampling: putting image data onto a different pixel grid.
-"""
-
 from typing import Literal, TypeVar
 
 import cv2

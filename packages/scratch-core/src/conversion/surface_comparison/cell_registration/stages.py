@@ -1,5 +1,3 @@
-"""Two-stage search runners: coarse sweep and fine refinement."""
-
 from __future__ import annotations
 
 import numpy as np

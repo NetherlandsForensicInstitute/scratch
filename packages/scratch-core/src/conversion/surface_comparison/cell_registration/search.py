@@ -1,5 +1,3 @@
-"""Exhaustive translation + rotation sweep: the one "search everywhere" implementation."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,5 +1,3 @@
-"""Fine stage: score candidate poses at full resolution, on small crops around each prediction."""
-
 from __future__ import annotations
 
 from typing import NamedTuple

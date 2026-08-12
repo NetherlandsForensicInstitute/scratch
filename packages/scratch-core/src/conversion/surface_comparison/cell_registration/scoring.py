@@ -1,7 +1,3 @@
-"""
-Normalized cross-correlation utilities.
-"""
-
 from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import cache
