@@ -8,12 +8,59 @@ from conversion.surface_comparison.cell_registration.geometry import (
     pad_image_array,
     rotate_image,
 )
-from conversion.surface_comparison.cell_registration.search import find_best_matches
-from conversion.surface_comparison.cell_registration.stages import run_fine_stage
+from conversion.surface_comparison.cell_registration.search import (
+    find_best_matches,
+    get_uniform_cell_shape,
+)
+from conversion.surface_comparison.cell_registration.stages import (
+    run_coarse_stage,
+    run_fine_stage,
+)
 
-from .helpers import downsample, make_surface, match_coarse_to_fine
+from .helpers import downsample, make_surface
 
 DEVICE = torch.device("cpu")
+
+
+class TestRunCoarseStage:
+    def test_returns_empty_for_no_templates(self):
+        assert (
+            run_coarse_stage(
+                image_coarse=np.zeros((10, 10)),
+                templates_coarse=[],
+                angles=np.array([0.0]),
+                minimum_fill_fraction=0.9,
+                fill_value_coarse=0.0,
+                device=DEVICE,
+            )
+            == []
+        )
+
+    def test_keeps_a_candidate_whose_best_score_is_negative(self):
+        # Arrange: a template that is the exact negative of a patch of the image correlates at
+        # about -1 there. That is a real, usable candidate, and an empty list is the only signal
+        # for "no candidate" - the coarse stage decides where each cell gets refined, so a cell
+        # discarded here loses its match entirely rather than merely scoring badly.
+        # Sizing the canvas to the template leaves exactly one candidate position, so the best
+        # score is the anti-correlated one rather than a positive score somewhere off-alignment.
+        template = make_surface(20, 20, seed=3)
+        canvas = 2 * np.nanmean(template) - template
+        image = pad_image_array(canvas, pad_width=0, pad_height=0)
+
+        # Act
+        candidates = run_coarse_stage(
+            image_coarse=image,
+            templates_coarse=[template],
+            angles=np.array([0.0]),
+            minimum_fill_fraction=0.9,
+            fill_value_coarse=float(np.nanmean(image)),
+            n_candidates=1,
+            device=DEVICE,
+        )
+
+        # Assert
+        assert len(candidates[0]) == 1
+        assert candidates[0][0].score == pytest.approx(-1.0, abs=1e-3)
 
 
 class TestRunFineStage:
@@ -36,8 +83,35 @@ class TestRunFineStage:
             == []
         )
 
+    def test_rejects_candidates_misaligned_with_the_templates(self):
+        # Arrange: candidates are indexed by template, so a length mismatch is a caller error
+        # rather than something to silently truncate.
+        with pytest.raises(ValueError, match="aligned"):
+            run_fine_stage(
+                image_full=np.zeros((60, 60)),
+                templates_full=[np.zeros((10, 10))],
+                candidates=[[], []],
+                coarse_cell_shape=(5, 5),
+                coarse_image_shape=(30, 30),
+                cap_factor=2.0,
+                angles=np.array([0.0]),
+                position_margin=1,
+                angle_margin_degrees=1.0,
+                minimum_fill_fraction=0.9,
+                fill_value_full=0.0,
+                device=DEVICE,
+            )
 
-class TestMatchCoarseToFine:
+
+class TestCoarseStageThenFineStage:
+    """
+    The two runners composed the way the pipeline composes them.
+
+    This is the coarse-to-fine search of the literature, but no function carries that name any
+    more: it is :func:`run_coarse_stage` feeding :func:`run_fine_stage`, wired up in
+    :func:`~conversion.surface_comparison.pipeline.compare_surfaces`.
+    """
+
     ANGLES = np.arange(-4.0, 4.001, 0.5)
     CELL = 60
 
@@ -80,64 +154,36 @@ class TestMatchCoarseToFine:
         }
 
     @staticmethod
-    def _run(case, angles, **kwargs):
-        return match_coarse_to_fine(
-            case["image_full"],
-            case["image_coarse"],
-            case["templates_full"],
-            case["templates_coarse"],
-            case["cap_factor"],
-            angles,
-            0.9,
-            case["fill_value"],
-            case["fill_value"],
+    def _run(case, angles, templates_full=None, templates_coarse=None, **kwargs):
+        """Run the coarse sweep and feed its candidates to the fine refinement."""
+        if templates_full is None:
+            templates_full = case["templates_full"]
+        if templates_coarse is None:
+            templates_coarse = case["templates_coarse"]
+
+        candidates = run_coarse_stage(
+            image_coarse=case["image_coarse"],
+            templates_coarse=templates_coarse,
+            angles=angles,
+            minimum_fill_fraction=0.9,
+            fill_value_coarse=case["fill_value"],
             device=DEVICE,
             **kwargs,
         )
-
-    def test_returns_empty_for_no_templates(self):
-        assert (
-            match_coarse_to_fine(
-                np.zeros((10, 10)),
-                np.zeros((10, 10)),
-                [],
-                [],
-                1.0,
-                self.ANGLES,
-                0.9,
-                0.0,
-                0.0,
-            )
-            == []
+        return run_fine_stage(
+            image_full=case["image_full"],
+            templates_full=templates_full,
+            candidates=candidates,
+            coarse_cell_shape=get_uniform_cell_shape(templates_coarse),
+            coarse_image_shape=case["image_coarse"].shape,
+            cap_factor=case["cap_factor"],
+            angles=angles,
+            position_margin=5,
+            angle_margin_degrees=5.0,
+            minimum_fill_fraction=0.9,
+            fill_value_full=case["fill_value"],
+            device=DEVICE,
         )
-
-    def test_rejects_templates_of_differing_shapes(self):
-        with pytest.raises(ValueError, match="same shape"):
-            match_coarse_to_fine(
-                np.zeros((60, 60)),
-                np.zeros((60, 60)),
-                [np.zeros((10, 10)), np.zeros((12, 12))],
-                [np.zeros((10, 10)), np.zeros((10, 10))],
-                1.0,
-                self.ANGLES,
-                0.9,
-                0.0,
-                0.0,
-            )
-
-    def test_rejects_misaligned_template_lists(self):
-        with pytest.raises(ValueError, match="aligned"):
-            match_coarse_to_fine(
-                np.zeros((60, 60)),
-                np.zeros((30, 30)),
-                [np.zeros((10, 10))],
-                [np.zeros((5, 5)), np.zeros((5, 5))],
-                2.0,
-                self.ANGLES,
-                0.9,
-                0.0,
-                0.0,
-            )
 
     def test_constant_template_is_rejected(self, case):
         # Arrange: a featureless cell has no defined correlation.
@@ -145,47 +191,15 @@ class TestMatchCoarseToFine:
         constant_coarse = np.full_like(case["templates_coarse"][0], 5.0)
 
         # Act
-        results = match_coarse_to_fine(
-            case["image_full"],
-            case["image_coarse"],
-            [constant_full],
-            [constant_coarse],
-            case["cap_factor"],
+        results = self._run(
+            case,
             self.ANGLES,
-            0.9,
-            case["fill_value"],
-            case["fill_value"],
-            device=DEVICE,
+            templates_full=[constant_full],
+            templates_coarse=[constant_coarse],
         )
 
         # Assert
         assert results[0].score == -1.0
-
-    def test_agrees_with_the_exhaustive_search_when_cap_factor_is_one(self, case):
-        # Arrange: cap_factor <= 1 takes the single-pass shortcut straight to find_best_matches.
-        exhaustive = find_best_matches(
-            case["image_full"],
-            case["templates_full"],
-            self.ANGLES,
-            0.9,
-            case["fill_value"],
-            device=DEVICE,
-        )
-        shortcut = match_coarse_to_fine(
-            case["image_full"],
-            case["image_full"],
-            case["templates_full"],
-            case["templates_full"],
-            1.0,
-            self.ANGLES,
-            0.9,
-            case["fill_value"],
-            case["fill_value"],
-            device=DEVICE,
-        )
-
-        # Assert
-        assert shortcut == exhaustive
 
     def test_agrees_approximately_with_the_exhaustive_search(self, case):
         # Arrange

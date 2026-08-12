@@ -1,80 +1,26 @@
-"""Cell registration: stage builders and result recording."""
+"""Cell registration: build the padded canvas and templates each search stage runs on."""
 
 from __future__ import annotations
-
-from dataclasses import dataclass
 
 import numpy as np
 from loguru import logger
 
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
-from conversion.resample import resample_nan_aware
-from conversion.surface_comparison.cell_registration.geometry import (
-    map_canvas_to_image,
-    pad_image_array,
+from conversion.resample import (
+    SCALE_MATCH_RTOL,
+    resample_nan_aware,
+    select_interpolation,
 )
-from conversion.surface_comparison.cell_registration.models import Match
+from conversion.surface_comparison.cell_registration.geometry import pad_image_array
+from conversion.surface_comparison.cell_registration.models import Stage
 from conversion.surface_comparison.grid import extract_patch
-from conversion.surface_comparison.models import (
-    Cell,
-    CellMetaData,
-    ComparisonParams,
-    GridCell,
-)
+from conversion.surface_comparison.models import ComparisonParams, GridCell
 from conversion.surface_comparison.template_fill import fill_template_nan
-from conversion.surface_comparison.utils import convert_pixels_to_meters
 
 #: Minimum coarse cell size for reliable matching. If downsampling would produce cells smaller
 #: than this, the cap factor is reduced to keep coarse cells above this threshold.
 _MIN_COARSE_CELL = 12
-
-
-@dataclass(frozen=True)
-class Stage:
-    """
-    Data for one matching stage.
-
-    :param image: Padded comparison canvas we search *in*.
-    :param templates: Reference templates we search *for* (one per grid cell).
-    :param fill_value: NaN fill value for the comparison image.
-    """
-
-    image: FloatArray2D
-    templates: list[FloatArray2D]
-    fill_value: float
-
-
-def convert_grid_cell_to_cell(grid_cell: GridCell, pixel_size: float) -> Cell:
-    """
-    Convert a grid cell's registration result to a Cell in meters.
-
-    :param grid_cell: Grid cell whose search results to convert.
-    :param pixel_size: Pixel size in meters (assumed isotropic).
-    :returns: A :class:`Cell` with the grid cell's registration data expressed in meters.
-    """
-    return Cell(
-        center_reference=convert_pixels_to_meters(
-            values=grid_cell.center, pixel_size=pixel_size
-        ),
-        cell_size=convert_pixels_to_meters(
-            values=(grid_cell.width, grid_cell.height), pixel_size=pixel_size
-        ),
-        fill_fraction_reference=grid_cell.fill_fraction,
-        best_score=grid_cell.grid_search_params.score,
-        angle_deg=grid_cell.grid_search_params.angle,
-        center_comparison=convert_pixels_to_meters(
-            values=(
-                grid_cell.grid_search_params.center_x,
-                grid_cell.grid_search_params.center_y,
-            ),
-            pixel_size=pixel_size,
-        ),
-        is_congruent=False,  # TODO: We shouldn't set this here?
-        meta_data=CellMetaData(
-            is_outlier=False, residual_angle_deg=0.0, position_error=(0, 0)
-        ),  # TODO: We shouldn't set this here?
-    )
 
 
 def build_angle_sweep(params: ComparisonParams) -> np.ndarray:
@@ -110,7 +56,17 @@ def compute_cap_factor(
     :param max_size: Largest permitted dimension (pixels) of the comparison canvas.
     :returns: Downsampling factor; 1.0 if images already fit within *max_size* or cells are too
         small to downsample further.
+    :raises ValueError: If the two images are not on the same pixel scale. Comparing their pixel
+        counts against *max_size* is only meaningful once a pixel means the same thing in both.
     """
+    if not np.isclose(
+        reference_image.scale_x, comparison_image.scale_x, rtol=SCALE_MATCH_RTOL
+    ):
+        raise ValueError(
+            f"Reference ({reference_image.scale_x}) and comparison "
+            f"({comparison_image.scale_x}) images must be on the same pixel scale; "
+            "resample the comparison image first."
+        )
     largest_dimension = max(
         reference_image.height,
         reference_image.width,
@@ -192,7 +148,12 @@ def build_coarse_stage(
     :param grid_cells: Reference grid cells defining template locations.
     :param cap_factor: Pixels per coarse pixel, in reference-image units.
     :returns: A :class:`Stage` with a downsampled comparison canvas, coarse templates, and fill value.
+    :raises ValueError: If the grid cells disagree on ``nan_fill_value``. The coarse stage picks
+        each cell's candidate locations, so every template must be filled the same way the
+        full-resolution ones were.
     """
+    if len({grid_cell.nan_fill_value for grid_cell in grid_cells}) > 1:
+        raise ValueError("All grid cells must share the same nan_fill_value.")
     cell_width, cell_height = grid_cells[0].width, grid_cells[0].height
     coarse_width = max(1, int(np.ceil(cell_width / cap_factor)))
     coarse_height = max(1, int(np.ceil(cell_height / cap_factor)))
@@ -206,12 +167,14 @@ def build_coarse_stage(
     )
 
     reference_coarse = ScanImage(
-        data=downsample(reference_image.data, cap_factor),
+        data=resample_to_coarse(reference_image.data, cap_factor),
         scale_x=reference_image.scale_x * cap_factor,
         scale_y=reference_image.scale_y * cap_factor,
     )
     scale_match_factor = compute_scale_match_factor(reference_image, comparison_image)
-    comparison_coarse = downsample(comparison_image.data, cap_factor * scale_match_factor)
+    comparison_coarse = resample_to_coarse(
+        comparison_image.data, cap_factor * scale_match_factor
+    )
 
     # All cells carry the same resolved fill value, and the coarse templates must use it too: the
     # coarse stage picks the candidate locations, so filling it differently changes where each cell
@@ -259,44 +222,18 @@ def compute_scale_match_factor(
     return reference_image.scale_x / comparison_image.scale_x
 
 
-def downsample(data: FloatArray2D, cap_factor: float) -> FloatArray2D:
+def resample_to_coarse(data: FloatArray2D, factor: float) -> FloatArray2D:
     """
-    Shrink image by *cap_factor* on both axes (NaN-aware area filter).
+    Put an image on the coarse grid, NaN-aware and in either direction.
+
+    Usually a shrink, but not always: the comparison image reaches the coarse grid in one pass from
+    its own native scale (see :func:`build_coarse_stage`), and a comparison scan coarser than the
+    reference can need *factor* below 1.0. The interpolation therefore follows the direction rather
+    than assuming ``area``, which cv2 degenerates to nearest-neighbor when zooming in.
 
     :param data: Input 2D array.
-    :param cap_factor: Pixels per output pixel (>= 1).
-    :returns: Downsampled array.
+    :param factor: Source pixels per output pixel; above 1.0 shrinks, below 1.0 grows.
+    :returns: Resampled array.
     """
-    return resample_nan_aware(data, factors=(cap_factor, cap_factor))
-
-
-def record_results(
-    grid_cells: list[GridCell],
-    results: list[Match],
-    padded_shape: tuple[int, ...],
-    cell_width: int,
-    cell_height: int,
-) -> None:
-    """
-    Map each match from the padded canvas back onto its grid cell.
-
-    :param grid_cells: Grid cells whose ``grid_search_params`` to update.
-    :param results: One :class:`Match` per grid cell (in the same order).
-    :param padded_shape: Shape of the padded comparison canvas used for matching.
-    :param cell_width: Width of one grid cell in pixels.
-    :param cell_height: Height of one grid cell in pixels.
-    """
-    for grid_cell, match in zip(grid_cells, results):
-        center_x, center_y = map_canvas_to_image(
-            match.x,
-            match.y,
-            (cell_height, cell_width),
-            (padded_shape[0], padded_shape[1]),
-            match.angle_deg,
-        )
-        grid_cell.grid_search_params.update(
-            score=match.score,
-            angle=match.angle_deg,
-            center_x=center_x - cell_width,  # Undo the padding
-            center_y=center_y - cell_height,
-        )
+    factors = (factor, factor)
+    return resample_nan_aware(data, factors, select_interpolation(factors))

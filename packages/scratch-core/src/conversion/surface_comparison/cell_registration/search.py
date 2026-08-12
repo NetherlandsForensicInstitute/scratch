@@ -42,7 +42,7 @@ def search_candidates(
     template_batch_size: int | None = None,
     angle_batch_size: int | None = None,
     device: torch.device | None = None,
-) -> tuple[list[list[Match]], list[bool]]:
+) -> list[list[Match]]:
     """
     Exhaustive translation + rotation sweep; the top *n_candidates* poses per template.
 
@@ -61,14 +61,13 @@ def search_candidates(
     :param template_batch_size: Templates correlated per chunk. ``None`` picks a device default.
     :param angle_batch_size: Angles processed per chunk. ``None`` picks a device default.
     :param device: Torch device; defaults to CUDA when available.
-    :returns: ``(candidates, is_usable)``. *candidates* holds, per template, up to *n_candidates*
-        :class:`Match` entries ordered by score; a template with no viable candidate (a constant
-        cell, or every position rejected) gets a single placeholder ``Match(-1.0, 0, 0, angles[0])``
-        and ``is_usable`` is ``False`` for exactly those, so callers need not recognize the
-        placeholder themselves.
+    :returns: Per template, up to *n_candidates* :class:`Match` entries ordered by score. A
+        template with no viable candidate — a constant cell, or every position rejected — gets an
+        empty list. Scores are genuine Pearson correlations and may be negative, so emptiness is
+        the only signal of "no candidate"; never infer it from the score.
     """
     if not templates:
-        return [], []
+        return []
     cell_height, cell_width = get_uniform_cell_shape(templates)
     device = resolve_device(device)
     angle_batch_size = angle_batch_size or get_default_batch_size(
@@ -129,17 +128,12 @@ def search_candidates(
                 torch.cuda.empty_cache()
 
     # A constant reference cell has no defined correlation, so it never gets a peak.
-    candidates = [
+    return [
         best.find_peaks(index, angles, n_candidates, suppression_radius)
         if is_non_constant[index]
         else []
         for index in range(len(templates))
     ]
-    placeholder = Match(-1.0, 0, 0, float(angles[0]))
-    return (
-        [found or [placeholder] for found in candidates],
-        [bool(found) for found in candidates],
-    )
 
 
 def find_best_matches(
@@ -157,10 +151,13 @@ def find_best_matches(
 
     :func:`search_candidates` with ``n_candidates=1``. Useful both as a plain exhaustive matcher
     (the natural ground truth to check the coarse-to-fine search against on a small image) and as
-    that search's own fallback when the images already fit within the coarse-stage cap, where
+    the pipeline's own fallback when the images already fit within the coarse-stage cap, where
     "coarse" and "fine" resolution coincide.
+
+    :returns: One :class:`Match` per template. Templates with no viable candidate report the
+        rejection sentinel ``Match(-1.0, 0, 0, default_angle)``.
     """
-    candidates, _is_usable = search_candidates(
+    candidates = search_candidates(
         image,
         templates,
         angles,
@@ -171,7 +168,8 @@ def find_best_matches(
         angle_batch_size=angle_batch_size,
         device=device,
     )
-    return [found[0] for found in candidates]
+    no_match = Match(-1.0, 0, 0, float(sort_by_absolute_angle(angles)[0]))
+    return [found[0] if found else no_match for found in candidates]
 
 
 def get_uniform_cell_shape(templates: list[np.ndarray]) -> tuple[int, int]:

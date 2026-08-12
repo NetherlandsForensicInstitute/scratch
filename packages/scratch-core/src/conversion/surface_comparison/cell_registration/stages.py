@@ -42,9 +42,6 @@ def run_coarse_stage(
     """
     Exhaustive translation + rotation sweep on the downsampled pair.
 
-    Returns up to *n_candidates* poses per template, ordered by score. A template with no viable
-    candidate (constant cell, or every position rejected) gets an empty list.
-
     :param image_coarse: Padded comparison image downsampled for the coarse stage, NaN outside data.
     :param templates_coarse: Reference cell data at coarse resolution, all same shape, free of NaN.
     :param angles: Angle sweep in degrees.
@@ -54,12 +51,12 @@ def run_coarse_stage(
     :param template_batch_size: Templates correlated per chunk.
     :param angle_batch_size: Angles processed per chunk.
     :param device: Torch device; defaults to CUDA when available.
-    :returns: One list of :class:`Match` entries per template. Empty list means no viable candidate.
+    :returns: Up to *n_candidates* :class:`Match` entries per template, ordered by score. An empty
+        list means no viable candidate: a constant cell, or every position rejected by the
+        fill-fraction gate. Scores are genuine Pearson correlations and may legitimately be
+        negative, so a negative best score is a candidate to refine, not a rejection.
     """
-    if not templates_coarse:
-        return []
-    device = resolve_device(device)
-    candidates_raw, _is_usable = search_candidates(
+    return search_candidates(
         image_coarse,
         templates_coarse,
         angles,
@@ -70,11 +67,6 @@ def run_coarse_stage(
         angle_batch_size=angle_batch_size,
         device=device,
     )
-    # search_candidates returns a placeholder Match(-1.0, ...) for unusable templates;
-    # convert those back to empty lists so callers use the empty-list convention.
-    return [
-        found if found and found[0].score >= 0.0 else [] for found in candidates_raw
-    ]
 
 
 def run_fine_stage(
@@ -115,9 +107,12 @@ def run_fine_stage(
     :param device: Torch device; defaults to CUDA when available.
     :returns: One :class:`Match` per template (best refined candidate). Sentinel
         ``Match(-1.0, 0, 0, default_angle)`` for templates with no candidates.
+    :raises ValueError: If *candidates* and *templates_full* are not aligned 1:1.
     """
     if not templates_full:
         return []
+    if len(candidates) != len(templates_full):
+        raise ValueError("candidates and templates_full must be aligned 1:1.")
     device = resolve_device(device)
 
     trial_offsets = compute_trial_offsets(angles, angle_margin_degrees)

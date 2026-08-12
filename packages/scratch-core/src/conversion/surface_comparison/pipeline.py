@@ -4,25 +4,27 @@ from loguru import logger
 from container_models.scan_image import ScanImage
 from conversion.resample import (
     SCALE_MATCH_RTOL,
-    Interpolation,
     get_scaling_factors,
     resample_nan_aware,
+    select_interpolation,
 )
-from conversion.surface_comparison.cell_registration.stages import (
-    run_coarse_stage,
-    run_fine_stage,
-)
-from conversion.surface_comparison.cell_registration.stage_builders import (
-    build_angle_sweep,
-    build_coarse_stage,
-    build_full_resolution_stage,
-    compute_cap_factor,
+from conversion.surface_comparison.cell_registration.results import (
     convert_grid_cell_to_cell,
     record_results,
 )
 from conversion.surface_comparison.cell_registration.search import (
     find_best_matches,
     get_uniform_cell_shape,
+)
+from conversion.surface_comparison.cell_registration.stage_builders import (
+    build_angle_sweep,
+    build_coarse_stage,
+    build_full_resolution_stage,
+    compute_cap_factor,
+)
+from conversion.surface_comparison.cell_registration.stages import (
+    run_coarse_stage,
+    run_fine_stage,
 )
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
@@ -33,31 +35,6 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
     ProcessedMark,
 )
-
-#: Interpolation for shrinking an image: it averages every source pixel rather than sampling a
-#: subset, which is what keeps aliasing out of a downsampled surface. Also what every other resample
-#: in this pipeline gets by default, since they only ever shrink.
-DOWNSAMPLE_INTERPOLATION: Interpolation = "area"
-#: Interpolation for growing an image. Not ``area``, which cv2 degenerates to nearest-neighbor when
-#: zooming in, and not ``cubic``, whose outer taps carry negative weights: those would let
-#: :func:`~conversion.resample.resize_nan_aware` divide by a near-zero or negative coverage at the
-#: edge of a missing-data hole, exactly where the data is already weakest.
-UPSAMPLE_INTERPOLATION: Interpolation = "linear"
-
-
-def select_interpolation(factors: tuple[float, float]) -> Interpolation:
-    """
-    Pick the interpolation to resize by, from the direction the image is being resized in.
-
-    A factor above 1.0 shrinks that axis. Shrinking wants :data:`DOWNSAMPLE_INTERPOLATION` so no
-    source pixel is skipped; as soon as one axis grows, the whole resize has to use
-    :data:`UPSAMPLE_INTERPOLATION`, since cv2 takes a single flag for both axes.
-
-    :param factors: The multipliers for the scale of the X- and Y-axis.
-    :returns: The interpolation name to resample with.
-    """
-    is_shrinking = all(factor >= 1.0 for factor in factors)
-    return DOWNSAMPLE_INTERPOLATION if is_shrinking else UPSAMPLE_INTERPOLATION
 
 
 def resample_to_scale(image: ScanImage, target_scale: float) -> ScanImage:
@@ -106,7 +83,9 @@ def compare_surfaces(
         from their original sources (no chained interpolation) for an exhaustive translation + rotation
         search; otherwise this step is skipped and step 5 runs one exhaustive pass at full resolution instead.
     5. **Fine refinement** — local search around each coarse candidate at full resolution.
-    6. **CMC classification** — consensus angle and translation are estimated across all cells and each cell
+    6. **Gather results** — each match is mapped off the rotated, padded canvas back onto its grid cell
+        and converted to a :class:`Cell` in meters.
+    7. **CMC classification** — consensus angle and translation are estimated across all cells and each cell
         is labeled as congruent or not.
 
     Both marks are expected to have already been pre-processed (leveled and band-pass filtered);

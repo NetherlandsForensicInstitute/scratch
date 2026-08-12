@@ -34,6 +34,31 @@ NAN_AWARE_VALIDITY_THRESHOLD = 0.5
 #: skip a 3.00003e-6 versus 3e-6 mismatch.
 SCALE_MATCH_RTOL = 1e-6
 
+#: Interpolation for shrinking an image: it averages every source pixel rather than sampling a
+#: subset, which is what keeps aliasing out of a downsampled surface. Also the default of
+#: :func:`resample_nan_aware`, since most callers only ever shrink.
+DOWNSAMPLE_INTERPOLATION: Interpolation = "area"
+#: Interpolation for growing an image. Not ``area``, which cv2 degenerates to nearest-neighbor when
+#: zooming in, and not ``cubic``, whose outer taps carry negative weights: those would let
+#: :func:`resize_nan_aware` divide by a near-zero or negative coverage at the edge of a
+#: missing-data hole, exactly where the data is already weakest.
+UPSAMPLE_INTERPOLATION: Interpolation = "linear"
+
+
+def select_interpolation(factors: tuple[float, float]) -> Interpolation:
+    """
+    Pick the interpolation to resize by, from the direction the image is being resized in.
+
+    A factor above 1.0 shrinks that axis. Shrinking wants :data:`DOWNSAMPLE_INTERPOLATION` so no
+    source pixel is skipped; as soon as one axis grows, the whole resize has to use
+    :data:`UPSAMPLE_INTERPOLATION`, since cv2 takes a single flag for both axes.
+
+    :param factors: The multipliers for the scale of the X- and Y-axis.
+    :returns: The interpolation name to resample with.
+    """
+    is_shrinking = all(factor >= 1.0 for factor in factors)
+    return DOWNSAMPLE_INTERPOLATION if is_shrinking else UPSAMPLE_INTERPOLATION
+
 
 def resample_scan_image_and_mask(
     scan_image: ScanImage,
@@ -63,7 +88,11 @@ def resample_scan_image_and_mask(
         )
     if only_downsample:
         factors = _clip_factors(factors, preserve_aspect_ratio)
-    if np.allclose(factors, 1.0, rtol=SCALE_MATCH_RTOL, atol=0.0):
+    # Deliberately numpy's own tolerance rather than SCALE_MATCH_RTOL: this is the shared
+    # resampler for every non-comparison caller, and its behavior is pinned to main. Only the
+    # surface-comparison pipeline needs the tighter window, and it applies it itself in
+    # :func:`~conversion.surface_comparison.pipeline.resample_to_scale`.
+    if np.allclose(factors, 1.0):
         return scan_image, mask
     image = _resample_scan_image(scan_image, factors=factors)
     if mask is not None:

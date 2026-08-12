@@ -8,6 +8,8 @@ from skimage.transform import resize
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.resample import (
+    DOWNSAMPLE_INTERPOLATION,
+    UPSAMPLE_INTERPOLATION,
     _clip_factors,
     _resample_scan_image,
     get_scaling_factors,
@@ -16,7 +18,25 @@ from conversion.resample import (
     resample_nan_aware,
     resample_scan_image_and_mask,
     resize_nan_aware,
+    select_interpolation,
 )
+
+
+@pytest.mark.parametrize(
+    ("factors", "expected"),
+    [
+        ((2.0, 2.0), DOWNSAMPLE_INTERPOLATION),
+        # An axis that is left alone must not force upsample handling.
+        ((1.0, 3.0), DOWNSAMPLE_INTERPOLATION),
+        ((0.5, 0.5), UPSAMPLE_INTERPOLATION),
+        # cv2 takes one flag for both axes, so a growing axis wins.
+        ((0.5, 2.0), UPSAMPLE_INTERPOLATION),
+    ],
+)
+def test_selects_interpolation_from_the_resampling_direction(
+    factors: tuple[float, float], expected: str
+):
+    assert select_interpolation(factors) == expected
 
 
 class TestGetScalingFactors:
@@ -212,16 +232,17 @@ class TestResampleImageAndMask:
         assert result_img is scan_image_rectangular_with_nans
         assert result_mask is mask
 
-    def test_resamples_a_scale_mismatch_numpy_defaults_would_skip(
+    def test_skips_a_scale_difference_inside_numpys_own_tolerance(
         self, scan_image_rectangular_with_nans: ScanImage
     ):
-        # A 3.00003e-6 versus 3e-6 pixel size is a real mismatch, but sits inside numpy's own 1e-5
-        # relative tolerance.
+        # This is the shared resampler, so it keeps numpy's default 1e-5 window, as on main. The
+        # tighter SCALE_MATCH_RTOL applies only to the surface-comparison pipeline, which needs
+        # both marks on one grid; see TestResampleToScale in the surface_comparison tests.
         result, _ = resample_scan_image_and_mask(
             scan_image_rectangular_with_nans, factors=(1.00001, 1.00001)
         )
 
-        assert result is not scan_image_rectangular_with_nans
+        assert result is scan_image_rectangular_with_nans
 
     def test_skips_a_scale_difference_that_is_only_float_rounding(
         self, scan_image_rectangular_with_nans: ScanImage
