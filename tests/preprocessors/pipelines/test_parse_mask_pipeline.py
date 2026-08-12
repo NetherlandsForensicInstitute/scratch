@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from container_models.base import BinaryMask
 
-from preprocessors.exceptions import ArrayShapeMismatchError, MaskFullError
+from preprocessors.exceptions import ArrayShapeMismatchError, EmptyMaskError
 from preprocessors.pipelines import parse_mask_pipeline
 
 
@@ -42,5 +42,5 @@ class TestParseMaskPipeline:
     def test_parse_mask_pipeline_raises_on_full_mask(self):
         """Test that the pipeline will raise an error if the mask is full."""
         full_mask = np.zeros((10, 10), dtype=np.bool_).tobytes(order="C")
-        with pytest.raises(MaskFullError):
+        with pytest.raises(EmptyMaskError):
             parse_mask_pipeline(raw_data=full_mask, shape=(10, 10), is_bitpacked=False)

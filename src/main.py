@@ -18,7 +18,7 @@ from uvicorn import run
 
 from constants import LogLevel
 from helpers import setup_logging
-from preprocessors.exceptions import ArrayShapeMismatchError, MaskFullError
+from preprocessors.exceptions import ArrayShapeMismatchError, EmptyMaskError
 from routers import prefix_router
 from settings import get_settings
 
@@ -85,9 +85,9 @@ async def array_shape_mismatch_handler(request: Request, exc: ArrayShapeMismatch
     return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
 
 
-@app.exception_handler(MaskFullError)
-async def mask_full_handler(request: Request, exc: MaskFullError) -> JSONResponse:
-    """Return a 422 JSON response for unhandled MaskFullError exceptions."""
+@app.exception_handler(EmptyMaskError)
+async def empty_mask_handler(request: Request, exc: EmptyMaskError) -> JSONResponse:
+    """Return a 422 JSON response for unhandled EmptyMaskError exceptions."""
     message = str(exc)
     logger.warning(message)
     return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})

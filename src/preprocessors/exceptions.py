@@ -8,8 +8,8 @@ class ArrayShapeMismatchError(Exception):
         return f"Cannot reshape array of size {self.size} to shape {self.target_shape}."
 
 
-class MaskFullError(Exception):
-    """Raised when a mask covers the entire scan image."""
+class EmptyMaskError(Exception):
+    """Raised when a mask contains only falsy values."""
 
     def __str__(self) -> str:
-        return "Mask covers the entire scan image: no data remains after masking."
+        return "Mask contains only zeros: no pixels selected after masking."
