@@ -114,7 +114,7 @@ class PrepareMarkBase(BaseParameters):
         """Check that the bounding box list has the correct shape."""
         if v is None:
             return v
-        if len(v) != 4 or any(len(pt) != 2 for pt in v):  #noqa: PLR2004
+        if len(v) != 4 or any(len(pt) != 2 for pt in v):  # noqa: PLR2004
             raise ValueError(
                 f"bounding_box_list must be 4 [x, y] corner points, got {len(v)} points with "
                 f"{[len(pt) for pt in v]} values in each point."
