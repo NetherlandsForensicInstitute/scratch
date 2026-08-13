@@ -159,15 +159,22 @@ def map_image_to_canvas(
     )
 
 
-def map_coarse_to_full(coarse_value: float, cap_factor: float) -> float:
+def map_coarse_to_full(
+    coarse_value: float, cap_factor: float, coarse_padding: int, full_padding: int
+) -> float:
     """
-    Map a coordinate in a downsampled image back onto the full-resolution grid.
+    Map a coordinate on the padded coarse canvas onto the padded full-resolution canvas.
 
-    :param coarse_value: Coordinate in the downsampled image.
-    :param cap_factor: Downsampling factor between the two grids.
-    :returns: The matching full-resolution coordinate.
+    The two canvases are padded by different amounts, so one padding comes off before scaling
+    and the other goes on after.
+
+    :param coarse_value: Coordinate on the padded coarse canvas.
+    :param cap_factor: Full-resolution pixels per coarse pixel.
+    :param coarse_padding: Padding on one side of the coarse canvas, in coarse pixels.
+    :param full_padding: Padding on one side of the full canvas, in full-resolution pixels.
+    :returns: The matching coordinate on the padded full-resolution canvas.
     """
-    return coarse_value * cap_factor + (cap_factor - 1) / 2.0
+    return (coarse_value - coarse_padding) * cap_factor + full_padding
 
 
 def build_rotation_matrix(

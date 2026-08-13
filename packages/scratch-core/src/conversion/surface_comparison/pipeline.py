@@ -59,9 +59,17 @@ def compare_surfaces(
         search configuration, and CMC classification thresholds.
     :returns: A ComparisonResult containing per-cell registration results, the consensus rotation and
         translation, and CMC counts.
+    :raises ValueError: If the reference image's pixel grid is not isotropic.
     """
     reference_image = reference_mark.filtered_mark.scan_image
     comparison_image_original = comparison_mark.filtered_mark.scan_image
+
+    # Everything below uses the reference's scale_x for both axes, so anisotropy would go unnoticed.
+    if not np.isclose(reference_image.scale_x, reference_image.scale_y, atol=0.0):
+        raise ValueError(
+            f"Reference image must be isotropic, but scale_x={reference_image.scale_x} "
+            f"and scale_y={reference_image.scale_y}. Resample it onto one pixel size first."
+        )
 
     # Step 1: Resample comparison to reference scale (for the fine stage)
     logger.debug("starting resample")

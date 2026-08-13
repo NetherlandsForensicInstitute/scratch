@@ -96,8 +96,8 @@ def resample_scan_image_to_scale(image: ScanImage, target_scale: float) -> ScanI
         data=resample_array_2d_nan_aware(
             image.data, factors, select_interpolation(factors)
         ),
-        scale_x=image.scale_x * factors[0],
-        scale_y=image.scale_y * factors[1],
+        scale_x=target_scale,
+        scale_y=target_scale,
     )
 
 

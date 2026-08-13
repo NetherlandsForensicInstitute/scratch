@@ -25,14 +25,15 @@ def build_angle_sweep(params: ComparisonParams) -> np.ndarray:
     Build the coarse stage's angle sweep in degrees (inclusive of both bounds).
 
     :param params: Comparison parameters defining the angle range and step.
-    :returns: Array of angles from ``search_angle_min`` to ``search_angle_max`` in steps of
-        ``search_angle_step``.
+    :returns: Array of angles from ``search_angle_min`` to ``search_angle_max``, with the step
+        rounded to fit the range.
     """
-    return np.arange(
-        params.search_angle_min,
-        params.search_angle_max + params.search_angle_step,
-        params.search_angle_step,
+    # np.arange would place one angle past search_angle_max when the range is not a whole
+    # number of steps.
+    n_steps = round(
+        (params.search_angle_max - params.search_angle_min) / params.search_angle_step
     )
+    return np.linspace(params.search_angle_min, params.search_angle_max, n_steps + 1)
 
 
 def compute_cap_factor(
