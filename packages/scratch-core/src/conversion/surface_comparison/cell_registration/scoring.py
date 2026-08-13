@@ -139,9 +139,9 @@ class CorrelationBasis:
     """
 
     image_fft: torch.Tensor
-    #: Per-position ``sqrt`` of the within-window variation, i.e. the score denominator.
+    # Per-position ``sqrt`` of the within-window variation, i.e. the score denominator.
     denominator: torch.Tensor
-    #: Per-position mask of windows failing the fill-fraction or variance gate.
+    # Per-position mask of windows failing the fill-fraction or variance gate.
     rejected: torch.Tensor
     fft_shape: tuple[int, int]
     out_shape: tuple[int, int]

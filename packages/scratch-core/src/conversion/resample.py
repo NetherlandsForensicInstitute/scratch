@@ -13,7 +13,7 @@ T = TypeVar("T", FloatArray2D, BinaryMask)
 
 Interpolation = Literal["area", "linear", "nearest", "cubic"]
 
-#: cv2 flag per interpolation name.
+# cv2 flag per interpolation name.
 _INTERPOLATION_FLAGS = {
     "area": cv2.INTER_AREA,
     "linear": cv2.INTER_LINEAR,
@@ -21,15 +21,13 @@ _INTERPOLATION_FLAGS = {
     "cubic": cv2.INTER_CUBIC,
 }
 
-#: A resampled pixel is marked invalid if its source block was covered less than this fraction by valid data.
+# A resampled pixel is marked invalid if its source block was covered less than this fraction by valid data.
 NAN_AWARE_VALIDITY_THRESHOLD = 0.5
-
-#: Relative tolerance for deciding that a scaling factor is already 1.0.
+# Relative tolerance for deciding that a scaling factor is already 1.0.
 SCALE_MATCH_RTOL = 1e-6
-
-#: Interpolation for shrinking an image.
+# Interpolation for shrinking an image.
 DOWNSAMPLE_INTERPOLATION: Interpolation = "area"
-#: Interpolation for growing an image.
+# Interpolation for growing an image.
 UPSAMPLE_INTERPOLATION: Interpolation = "linear"
 
 

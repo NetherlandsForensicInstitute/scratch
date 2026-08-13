@@ -16,8 +16,8 @@ from conversion.surface_comparison.grid import extract_patch
 from conversion.surface_comparison.models import ComparisonParams, GridCell
 from conversion.surface_comparison.template_fill import fill_template_nan
 
-#: Minimum coarse cell size for reliable matching. If downsampling would produce cells smaller
-#: than this, the cap factor is reduced to keep coarse cells above this threshold.
+# Minimum coarse cell size for reliable matching. If downsampling would produce cells smaller
+# than this, the cap factor is reduced to keep coarse cells above this threshold.
 _MIN_COARSE_CELL = 12
 
 

@@ -22,8 +22,8 @@ from .cell_registration.helpers import (
     plot_cell_registration_results,
 )
 
-#: Pixel size that maps the BREECH_FACE_IMPRESSION cell size (450 µm) onto a 54-pixel cell, so a
-#: test can pick its cell size in pixels without the mark type having a knob for it.
+# Pixel size that maps the BREECH_FACE_IMPRESSION cell size (450 µm) onto a 54-pixel cell, so a
+# test can pick its cell size in pixels without the mark type having a knob for it.
 CELL_54_PIXEL_SIZE = 4.5e-4 / 54
 SCORE_TOLERANCE = 0.05
 
