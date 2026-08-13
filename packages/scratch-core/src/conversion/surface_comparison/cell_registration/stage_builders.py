@@ -129,13 +129,11 @@ def build_coarse_stage(
     """
     Downsample both images to the coarse scale and re-cut templates from the coarse reference.
 
-    Comparison image is downsampled by *cap_factor* scaled by its own native pixel size
-    relative to the reference's (see compute_scale_match_factor) to land on the same physical
-    coarse grid. Templates are extracted from the downsampled reference so edge pixels
-    share context with the comparison canvas.
+    The comparison image is downsampled to land on the same physical coarse grid as the reference.
+    Templates are extracted from the downsampled reference to ensure edge pixels share context
+    with the comparison canvas.
 
-    :param comparison_image: Comparison scan image, at its own native pixel scale or the
-        reference's.
+    :param comparison_image: Comparison scan image, at its own native pixel scale or the reference's.
     :param reference_image: Reference scan image.
     :param grid_cells: Reference grid cells defining template locations.
     :param cap_factor: Pixels per coarse pixel, in reference-image units.

@@ -34,20 +34,16 @@ def make_surface(
     seed: int = 0,
 ) -> DepthData:
     """
-    Return a deterministic, non-periodic 2-D height map with structure at several scales.
+    Return a deterministic, non-periodic 2-D height map with multi-scale structure.
 
-    A smooth global trend plus band-limited random layers at octave scales, plus fine noise.
-    The multi-scale structure matters: a surface of smooth trend plus white noise localizes a
-    cell fine at full resolution, but the noise averages away under downsampling and leaves
-    nothing for a coarse search to lock onto. A deterministic ripple survives downsampling but
-    repeats, which is worse still - it produces many near-equal matches. Random layers give
-    features that both survive averaging and stay unique.
+    Combines a global trend, band-limited random layers (octaves), and fine noise.
+    Multi-scale structure ensures features survive downsampling while remaining unique,
+    avoiding issues with both pure white noise and periodic ripples.
 
     :param height: Number of rows.
     :param width: Number of columns.
-    :param scale: Multiplicative scale applied to the whole array - use e.g. ``1e-6`` to
-        simulate µm-scale surface data.
-    :param nan_ratio: The ratio of NaN values randomly generated.
+    :param scale: Multiplicative scale (e.g. ``1e-6`` for µm-scale surface data).
+    :param nan_ratio: Ratio of NaN values randomly generated.
     :param seed: Random seed.
     :returns: ``(height, width)`` float64 array.
     """

@@ -8,20 +8,18 @@ from loguru import logger
 
 from container_models.base import FloatArray2D
 
-#: A reported score may overshoot 1.0 by this much through float32 rounding before it is worth a
-#: warning; anything above 1.0 is clamped either way.
+# Tolerance for float32 rounding when checking if a score exceeds 1.0.
 SCORE_TOLERANCE = 0.01
 
-#: Marker written into score maps at positions failing the fill or variance gate. It must sit
-#: outside the valid Pearson range: -1.0 is a legitimate score (perfect anti-correlation), so using
-#: it would make a genuinely inverted cell indistinguishable from a masked-out one.
+# Marker for positions failing the fill or variance gate. Set to -2.0 to stay outside the
+# valid Pearson range [-1, 1].
 REJECTED_SCORE = -2.0
 
-#: Radices for which both pocketfft/MKL (CPU) and cuFFT (GPU) stay on their fast paths.
-#: 7 is excluded as it is slower than 2, 3, or 5.
+# Radices for which both pocketfft/MKL (CPU) and cuFFT (GPU) stay on their fast paths.
+# 7 is excluded as it is slower than 2, 3, or 5.
 _FFT_RADICES = (2, 3, 5)
-#: Windows whose within-window sum of squares falls below ``_VARIANCE_EPS * n_pixels``
-#: (on globally standardized data) are treated as constant and rejected.
+# Windows whose within-window sum of squares falls below ``_VARIANCE_EPS * n_pixels``
+# (on globally standardized data) are treated as constant and rejected.
 _VARIANCE_EPS = 1e-8
 _TINY = 1e-12
 
@@ -226,7 +224,7 @@ def iterate_score_maps(
     template_ffts: list[tuple[int, torch.Tensor]] | None = None,
 ) -> Iterator[tuple[int, torch.Tensor]]:
     """
-    Score every image in *batch* against every template: the cross product an exhaustive sweep wants.
+    Score every image in *batch* against every template (cross-product).
 
     :param batch: Rotated image batch ``(n_angles, 1, height, width)``.
     :param valid: Validity mask of the same shape.
@@ -234,8 +232,7 @@ def iterate_score_maps(
     :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
     :param templates_per_chunk: Templates correlated per iteration.
     :param mean_and_std: Global statistics of the comparison image.
-    :param template_ffts: Pre-transformed templates from precompute_template_ffts, when the
-        transform size is fixed across batches and they can be computed once for the whole sweep.
+    :param template_ffts: Pre-transformed templates, if the transform size is fixed across batches.
     :yields: ``(template_offset, scores)``, scores shaped ``(n_angles, block, out_height, out_width)``.
     """
     cell_shape = (templates.shape[2], templates.shape[3])
@@ -258,10 +255,9 @@ def compute_paired_score_maps(
     mean_and_std: tuple[float, float],
 ) -> torch.Tensor:
     """
-    Score each image in *batch* against its own template, 1:1 rather than all-against-all.
+    Score each image in *batch* against its own template (1:1 pairing).
 
-    Pairing them keeps a single large batch instead of thousands of tiny calls, where per-call
-    overhead would otherwise dominate.
+    Pairing avoids high overhead from many small calls by processing a single large batch.
 
     :param batch: Image crops ``(n, 1, height, width)``.
     :param valid: Validity mask of the same shape.

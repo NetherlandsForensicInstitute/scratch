@@ -42,10 +42,10 @@ def search_candidates(
     device: torch.device | None = None,
 ) -> list[list[Match]]:
     """
-    Exhaustive translation + rotation sweep; the top *n_candidates* poses per template.
+    Exhaustive translation and rotation sweep to find the top *n_candidates* poses per template.
 
-    Angles are processed in order of increasing ``|angle|`` and in chunks, ensuring rotated
-    canvases within a chunk are close in size and ties resolve predictably.
+    Angles are processed in chunks by increasing ``|angle|`` to ensure consistent
+    canvas sizing and predictable tie-breaking.
 
     :param image: Padded comparison image, NaN outside the original data.
     :param templates: Reference cell data, all the same shape and free of NaN.
@@ -53,10 +53,10 @@ def search_candidates(
     :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
     :param fill_value: Value substituted for NaN in the comparison image.
     :param n_candidates: Number of well-separated peaks to keep per template.
-    :param suppression_radius: Half-width, in pixels, of the neighborhood suppressed around each
-        accepted peak. Defaults to half the cell's longer side.
-    :param template_batch_size: Templates correlated per chunk. ``None`` picks a device default.
-    :param angle_batch_size: Angles processed per chunk. ``None`` picks a device default.
+    :param suppression_radius: Half-width of the neighborhood suppressed around each peak.
+        Defaults to half the cell's longer side.
+    :param template_batch_size: Templates correlated per chunk.
+    :param angle_batch_size: Angles processed per chunk.
     :param device: Torch device; defaults to CUDA when available.
     :returns: Per template, up to *n_candidates* Match entries ordered by score.
     """
