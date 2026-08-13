@@ -201,7 +201,7 @@ class _BestPoseGrid:
     Running best score per ``(template, position)``, and which angle produced it.
 
     :param best_score: Best score so far per ``(template, position)``.
-    :param best_angle_index: Index into the angle sweep of the score that won each position.
+    :param best_angle_index: Angle sweep index of the winning score per position.
     """
 
     best_score: torch.Tensor

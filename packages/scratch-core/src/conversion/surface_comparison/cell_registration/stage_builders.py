@@ -16,8 +16,7 @@ from conversion.surface_comparison.grid import extract_patch
 from conversion.surface_comparison.models import ComparisonParams, GridCell
 from conversion.surface_comparison.template_fill import fill_template_nan
 
-# Minimum coarse cell size for reliable matching. If downsampling would produce cells smaller
-# than this, the cap factor is reduced to keep coarse cells above this threshold.
+# Min coarse cell size for reliable matching. Cap factor is limited to keep cells above this size.
 _MIN_COARSE_CELL = 12
 
 
@@ -52,8 +51,7 @@ def compute_cap_factor(
     :param cell_width: Width of one grid cell in pixels.
     :param cell_height: Height of one grid cell in pixels.
     :param max_size: Largest permitted dimension (pixels) of the comparison canvas.
-    :returns: Downsampling factor; 1.0 if images already fit within *max_size* or cells are too
-        small to downsample further.
+    :returns: Downsampling factor; 1.0 if images fit within *max_size* or cells are already at _MIN_COARSE_CELL.
     :raises ValueError: If the two images are not on the same pixel scale.
     """
     if not np.isclose(
@@ -127,11 +125,10 @@ def build_coarse_stage(
     cap_factor: float,
 ) -> Stage:
     """
-    Downsample both images to the coarse scale and re-cut templates from the coarse reference.
+    Downsample both images to coarse scale and re-cut templates from the coarse reference.
 
-    The comparison image is downsampled to land on the same physical coarse grid as the reference.
-    Templates are extracted from the downsampled reference to ensure edge pixels share context
-    with the comparison canvas.
+    The comparison image is downsampled to match the reference's coarse grid. Templates are extracted
+    from the downsampled reference so edge pixels share context with the comparison canvas.
 
     :param comparison_image: Comparison scan image, at its own native pixel scale or the reference's.
     :param reference_image: Reference scan image.
@@ -164,9 +161,8 @@ def build_coarse_stage(
         comparison_image.data, cap_factor * scale_match_factor
     )
 
-    # All cells carry the same resolved fill value, and the coarse templates must use it too: the
-    # coarse stage picks the candidate locations, so filling it differently changes where each cell
-    # matches, not just how that match is polished.
+    # All cells share the same fill value, which coarse templates must also use. Since the coarse stage
+    # determines candidate locations, different filling would change the matching results, not just the refinement.
     nan_fill_value = grid_cells[0].nan_fill_value
     templates = [
         fill_template_nan(
@@ -197,11 +193,10 @@ def compute_scale_match_factor(
     reference_image: ScanImage, comparison_image: ScanImage
 ) -> float:
     """
-    Factor that puts *comparison_image* on the reference's pixel grid.
+    Factor to align *comparison_image* to the reference's pixel grid.
 
-    1.0 when the two already share a pixel scale (including when *comparison_image* has already
-    been resampled onto the reference's grid), so callers can pass either the original comparison
-    image or an already-aligned one and get a consistent result.
+    1.0 if they already share a scale. This allows callers to pass either original or already-aligned
+    images consistently.
 
     :param reference_image: Reference scan image.
     :param comparison_image: Comparison scan image, at any pixel scale.
@@ -212,10 +207,10 @@ def compute_scale_match_factor(
 
 def resample_to_coarse(data: FloatArray2D, factor: float) -> FloatArray2D:
     """
-    Put an image on the coarse grid, NaN-aware and in either direction.
+    Resample image to the coarse grid, NaN-aware.
 
-    Usually a shrink, but a comparison scan coarser than the reference may require *factor*
-    below 1.0. Interpolation follows the direction of the rescale.
+    Usually shrinks, but may grow if comparison scan is coarser than reference. Interpolation
+    depends on rescale direction.
 
     :param data: Input 2D array.
     :param factor: Source pixels per output pixel; above 1.0 shrinks, below 1.0 grows.
