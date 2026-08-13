@@ -43,7 +43,7 @@ def compare_surfaces(
     1. **Resample** — the comparison image is resampled to the pixel size of the reference image.
     2. **Generate grid** — a centered rectangular grid of cells is placed over the reference image.
     3. **Build the full-resolution stage** — the scale-aligned comparison image and reference templates, padded.
-    4. **Coarse sweep** — if images are larger than ``params.max_size``, an exhaustive translation + rotation
+    4. **Coarse sweep** — if images are larger than ``params.coarse_target_size``, an exhaustive translation + rotation
         search is performed on downsampled images.
     5. **Fine refinement** — local search around each coarse candidate at full resolution.
     6. **Gather results** — matches are mapped back onto grid cells and converted to Cell instances.
@@ -96,7 +96,7 @@ def compare_surfaces(
         comparison_image_full,
         cell_width,
         cell_height,
-        params.max_size,
+        params.coarse_target_size,
     )
     angles = build_angle_sweep(params)
 
@@ -135,7 +135,7 @@ def compare_surfaces(
             fine_batch_size=params.fine_batch_size,
         )
     else:
-        # Steps 4-5: images already fit within max_size, so coarse and fine would search the
+        # Steps 4-5: images already fit the coarse target, so coarse and fine would search the
         # same resolution — skip the coarse stage and run one exhaustive pass instead of the
         # same work twice.
         logger.debug(

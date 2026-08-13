@@ -144,12 +144,11 @@ class ComparisonParams(ConfigBaseModel):
     search_angle_max: float = 180.0
     search_angle_step: float = Field(default=5.0, gt=0.0)
 
-    max_size: int = Field(
+    coarse_target_size: int = Field(
         default=256,
         gt=0,
         description=(
-            "Largest permitted dimension (pixels) of the comparison canvas used for the coarse "
-            "exhaustive sweep."
+            "Target image size in pixels for the coarse sweep; a minimum cell size can keep it larger."
         ),
     )
     n_candidates: int = Field(

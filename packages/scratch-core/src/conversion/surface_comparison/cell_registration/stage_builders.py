@@ -40,18 +40,18 @@ def compute_cap_factor(
     comparison_image: ScanImage,
     cell_width: int,
     cell_height: int,
-    max_size: int,
+    coarse_target_size: int,
 ) -> float:
     """
-    Pixels per coarse pixel. Shrinks images to *max_size* while keeping coarse cells
+    Pixels per coarse pixel. Shrinks images toward *coarse_target_size*, keeping coarse cells
     above _MIN_COARSE_CELL pixels for reliable localization.
 
     :param reference_image: Reference scan image.
     :param comparison_image: Comparison scan image (already on the reference scale).
     :param cell_width: Width of one grid cell in pixels.
     :param cell_height: Height of one grid cell in pixels.
-    :param max_size: Largest permitted dimension (pixels) of the comparison canvas.
-    :returns: Downsampling factor; 1.0 if images fit within *max_size* or cells are already at _MIN_COARSE_CELL.
+    :param coarse_target_size: Target image size in pixels for the coarse sweep.
+    :returns: Downsampling factor; 1.0 if images fit within *coarse_target_size* or cells are already at _MIN_COARSE_CELL.
     :raises ValueError: If the two images are not on the same pixel scale.
     """
     if not np.isclose(
@@ -68,7 +68,7 @@ def compute_cap_factor(
         comparison_image.height,
         comparison_image.width,
     )
-    raw_cap_factor = max(1.0, largest_dimension / max_size)
+    raw_cap_factor = max(1.0, largest_dimension / coarse_target_size)
     min_allowed_cap = max(1.0, min(cell_width, cell_height) / _MIN_COARSE_CELL)
     cap_factor = min(raw_cap_factor, min_allowed_cap)
 
@@ -83,10 +83,10 @@ def compute_cap_factor(
             _MIN_COARSE_CELL,
         )
     logger.info(
-        "Coarse stage config: largest_dim={}, max_size={}, raw_cap={:.2f}, "
+        "Coarse stage config: largest_dim={}, coarse_target_size={}, raw_cap={:.2f}, "
         "effective_cap={:.2f}, coarse_stage_runs={}",
         largest_dimension,
-        max_size,
+        coarse_target_size,
         raw_cap_factor,
         cap_factor,
         cap_factor > 1.0,

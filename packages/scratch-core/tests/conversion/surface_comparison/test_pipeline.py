@@ -78,8 +78,8 @@ def test_compare_surfaces_runs(mark: Mark, params: ComparisonParams):
     assert results
 
 
-def test_compare_surfaces_runs_the_coarse_stage_when_images_exceed_max_size():
-    # Larger than the default max_size=256, so cap_factor > 1.0 and compare_surfaces takes the
+def test_compare_surfaces_runs_the_coarse_stage_when_images_exceed_the_coarse_target():
+    # Larger than the default coarse_target_size=256, so cap_factor > 1.0 and compare_surfaces takes the
     # coarse-stage branch (build_coarse_stage, search_candidates, run_fine_stage) rather than the
     # single-exhaustive-pass shortcut that the smaller `mark` fixture exercises above.
     scan_image = ScanImage(
@@ -117,7 +117,7 @@ class TestSelfMatch:
     @pytest.fixture(params=[1.0, 1e-6], ids=["unit_scale", "micron_scale"])
     def result(self, request: pytest.FixtureRequest):
         # A 980x720 image at this pixel size gives 54-pixel cells and, against the default
-        # max_size of 256, a cap factor above 1.0 - so this runs the real coarse-to-fine path.
+        # coarse_target_size of 256, a cap factor above 1.0 - so this runs the real coarse-to-fine path.
         scan_image = make_scan_image(
             height=980,
             width=720,
@@ -153,9 +153,13 @@ class TestSelfMatch:
         )
 
 
-@pytest.mark.parametrize("max_size", [1000, 800], ids=["max_size_1000", "max_size_800"])
+@pytest.mark.parametrize(
+    "coarse_target_size", [1000, 800], ids=["coarse_target_1000", "coarse_target_800"]
+)
 @pytest.mark.parametrize("angle", [0, 60, -40])
-def test_compare_surfaces_recovers_a_large_rotation(angle: float, max_size: int):
+def test_compare_surfaces_recovers_a_large_rotation(
+    angle: float, coarse_target_size: int
+):
     # Arrange: a sweep far wider than production uses, since marks are occasionally presented
     # at a wholly different orientation.
     reference_image = make_scan_image(
@@ -179,7 +183,7 @@ def test_compare_surfaces_recovers_a_large_rotation(angle: float, max_size: int)
         search_angle_max=80,
         search_angle_step=20,
         minimum_fill_fraction=0.5,
-        max_size=max_size,
+        coarse_target_size=coarse_target_size,
     )
 
     # Act

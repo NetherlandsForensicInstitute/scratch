@@ -18,7 +18,7 @@ PIXEL_SIZE = 1e-6
 class TestComputeCapFactor:
     def test_rejects_a_pixel_scale_mismatch(self):
         # Arrange: the pipeline is responsible for bringing both images onto one grid before
-        # their pixel counts get compared against max_size.
+        # their pixel counts get compared against coarse_target_size.
         reference_image = ScanImage(
             data=np.zeros((80, 80)), scale_x=PIXEL_SIZE, scale_y=PIXEL_SIZE
         )
@@ -28,7 +28,9 @@ class TestComputeCapFactor:
 
         # Act / Assert
         with pytest.raises(ValueError, match="same pixel scale"):
-            compute_cap_factor(reference_image, comparison_image, 20, 20, max_size=256)
+            compute_cap_factor(
+                reference_image, comparison_image, 20, 20, coarse_target_size=256
+            )
 
 
 class TestBuildCoarseStage:
