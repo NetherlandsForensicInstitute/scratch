@@ -37,10 +37,9 @@ class Match(NamedTuple):
 
 class RefinementJob(NamedTuple):
     """
-    One ``(cell, predicted centre, trial angle)`` triple to score at full resolution.
+    One ``(cell, predicted center, trial angle)`` triple to score at full resolution.
 
-    Positions are centres in unrotated image coordinates; refine maps them onto the
-    rotated canvas.
+    Positions are centers in unrotated image coordinates; refine maps them onto the rotated canvas.
     """
 
     cell_index: int
