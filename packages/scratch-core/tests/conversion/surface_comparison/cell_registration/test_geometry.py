@@ -1,20 +1,20 @@
-"""Tests for conversion.surface_comparison.cell_registration.utils."""
+"""Tests for conversion.surface_comparison.cell_registration.geometry."""
 
 import numpy as np
 import pytest
 
-from conversion.surface_comparison.cell_registration.utils import (
-    convert_grid_cell_to_cell,
+from conversion.surface_comparison.cell_registration.geometry import (
+    compute_rotated_shape,
+    crop_rotated_image,
+    map_canvas_to_image,
+    map_coarse_to_full,
+    map_image_to_canvas,
     pad_image_array,
-    rotated_crop,
     rotate_image,
-    canvas_to_image,
-    rotated_shape,
 )
-from conversion.surface_comparison.models import GridCell
+
 from .helpers import make_surface
 
-PIXEL_SIZE = 1e-6
 IMAGE_HEIGHT = 850
 IMAGE_WIDTH = 600
 PAD_HEIGHT = 25
@@ -22,22 +22,24 @@ PAD_WIDTH = 25
 ANGLES = [-30.0, -7.25, -0.5, 0.0, 0.5, 3.0, 13.0, 45.0]
 
 
-class TestRotatedShape:
+class TestComputeRotatedShape:
     SHAPE = (211, 173)
 
     def test_zero_angle_leaves_shape_unchanged(self):
-        assert rotated_shape(*self.SHAPE, 0.0) == self.SHAPE
+        assert compute_rotated_shape(*self.SHAPE, 0.0) == self.SHAPE
 
     def test_half_turn_leaves_shape_unchanged(self):
-        assert rotated_shape(*self.SHAPE, 180.0) == self.SHAPE
+        assert compute_rotated_shape(*self.SHAPE, 180.0) == self.SHAPE
 
     def test_quarter_turn_swaps_axes(self):
         height, width = self.SHAPE
-        assert rotated_shape(height, width, 90.0) == (width, height)
+        assert compute_rotated_shape(height, width, 90.0) == (width, height)
 
     @pytest.mark.parametrize("angle", [7.25, 30.0, 61.0])
     def test_is_symmetric_in_sign(self, angle):
-        assert rotated_shape(*self.SHAPE, angle) == rotated_shape(*self.SHAPE, -angle)
+        assert compute_rotated_shape(*self.SHAPE, angle) == compute_rotated_shape(
+            *self.SHAPE, -angle
+        )
 
     @pytest.mark.parametrize("angle", ANGLES)
     def test_matches_the_corner_bounding_box(self, angle):
@@ -54,7 +56,7 @@ class TestRotatedShape:
         rotated = corners @ rotation.T
 
         # Act
-        rotated_height, rotated_width = rotated_shape(height, width, angle)
+        rotated_height, rotated_width = compute_rotated_shape(height, width, angle)
 
         # Assert
         assert rotated_width == round(np.ptp(rotated[:, 0])) + 1
@@ -69,7 +71,7 @@ class TestRotatedShape:
         rotated = rotate_image(image, angle, fill_value=0.0)
 
         # Assert
-        assert rotated.shape == rotated_shape(*self.SHAPE, angle)
+        assert rotated.shape == compute_rotated_shape(*self.SHAPE, angle)
 
 
 class TestRotateImage:
@@ -77,7 +79,7 @@ class TestRotateImage:
 
     @staticmethod
     def _blob(shape, x, y, sigma=4.0):
-        """A smooth peak, which survives nearest-neighbour resampling unlike a single pixel."""
+        """A smooth peak, which survives nearest-neighbor resampling unlike a single pixel."""
         yy, xx = np.mgrid[0 : shape[0], 0 : shape[1]]
         return np.exp(-((yy - y) ** 2 + (xx - x) ** 2) / (2 * sigma**2))
 
@@ -121,7 +123,7 @@ class TestRotateImage:
         assert np.isnan(rotate_image(np.ones(self.SHAPE), 30.0)[0, 0])
 
     @pytest.mark.parametrize("angle", ANGLES)
-    def test_maps_the_image_centre_onto_the_canvas_centre(self, angle):
+    def test_maps_the_image_center_onto_the_canvas_center(self, angle):
         # Arrange
         height, width = self.SHAPE
         image = self._blob(self.SHAPE, (width - 1) / 2, (height - 1) / 2)
@@ -137,7 +139,7 @@ class TestRotateImage:
 
     @pytest.mark.parametrize("angle", ANGLES)
     @pytest.mark.parametrize("position", [(20, 25), (70, 90), (48, 60)])
-    def test_canvas_to_image_inverts_the_actual_rotation(self, angle, position):
+    def test_map_canvas_to_image_inverts_the_actual_rotation(self, angle, position):
         """
         The geometry helpers must agree with what ``rotate_image`` really does, not merely with
         each other. Plant a feature, rotate, find it, and map it back.
@@ -149,17 +151,17 @@ class TestRotateImage:
         # Act
         rotated = rotate_image(image, angle, fill_value=0.0)
         found_x, found_y = self._centroid(rotated)
-        # A one-pixel "cell" centred on the feature: its centre is the point we want back.
-        recovered = canvas_to_image(
+        # A one-pixel "cell" centered on the feature: its center is the point we want back.
+        recovered = map_canvas_to_image(
             found_x - 0.5, found_y - 0.5, (1, 1), self.SHAPE, angle
         )
 
-        # Assert: bounded by nearest-neighbour resampling, not by the mapping.
+        # Assert: bounded by nearest-neighbor resampling, not by the mapping.
         assert recovered[0] == pytest.approx(x0, abs=0.5)
         assert recovered[1] == pytest.approx(y0, abs=0.5)
 
 
-class TestRotatedCrop:
+class TestCropRotatedImage:
     SHAPE = (140, 160)
     CROP = (48, 52)  # (height, width)
 
@@ -170,7 +172,7 @@ class TestRotatedCrop:
 
     def test_has_the_requested_shape(self, image):
         # Act
-        crop = rotated_crop(image, 12.0, 10, 20, self.CROP[1], self.CROP[0])
+        crop = crop_rotated_image(image, 12.0, 10, 20, self.CROP[1], self.CROP[0])
 
         # Assert
         assert crop.shape == self.CROP
@@ -184,7 +186,7 @@ class TestRotatedCrop:
 
         Agreement is not bit-exact. The two calls build slightly different affine matrices, so a
         source coordinate landing on a half-pixel boundary can round either way under
-        nearest-neighbour sampling. Measured at under 1% of pixels across the angles here, which
+        nearest-neighbor sampling. Measured at under 1% of pixels across the angles here, which
         moves a correlation score by far less than the differences already tolerated elsewhere.
         """
         # Arrange
@@ -192,7 +194,7 @@ class TestRotatedCrop:
         full = rotate_image(image, angle, fill_value=0.0)
 
         # Act
-        crop = rotated_crop(
+        crop = crop_rotated_image(
             image, angle, left, top, self.CROP[1], self.CROP[0], fill_value=0.0
         )
 
@@ -202,10 +204,8 @@ class TestRotatedCrop:
         assert np.mean(~np.isclose(actual, expected)) < 0.02
 
     def test_region_beyond_the_canvas_is_filled(self, image):
-        # Arrange: a crop taken entirely off the top-left of the
-        # Arrange: a crop taken entirely off the top-left of the rotated canvas.
-        # Act
-        crop = rotated_crop(
+        # Arrange / Act: a crop taken entirely off the top-left of the rotated canvas.
+        crop = crop_rotated_image(
             image, 10.0, -400, -400, self.CROP[1], self.CROP[0], fill_value=-3.0
         )
 
@@ -218,7 +218,7 @@ class TestRotatedCrop:
         left, top = -10, -12
 
         # Act
-        crop = rotated_crop(
+        crop = crop_rotated_image(
             image, 8.0, left, top, self.CROP[1], self.CROP[0], fill_value=0.0
         )
 
@@ -268,42 +268,97 @@ class TestPadImageArray:
         np.testing.assert_array_equal(interior, array)
 
 
-class TestConvertGridCellToCell:
-    def test_convert_grid_cell_to_cell_centers_in_meters(
-        self, fully_valid_grid_cell: GridCell
-    ):
-        # Arrange
-        cell = fully_valid_grid_cell
+class TestMapCoarseToFull:
+    def test_factor_one_is_identity(self):
+        assert map_coarse_to_full(7.0, 1) == pytest.approx(7.0)
+
+    @pytest.mark.parametrize(
+        ("coarse", "factor", "expected"),
+        [(0.0, 4, 1.5), (1.0, 4, 5.5), (0.0, 6, 2.5), (3.0, 2, 6.5)],
+    )
+    def test_maps_to_block_center(self, coarse, factor, expected):
+        assert map_coarse_to_full(coarse, factor) == pytest.approx(expected)
+
+    def test_agrees_with_block_averaging(self):
+        # Arrange: coarse pixel i covers full pixels [i*f, (i+1)*f), whose center is the target.
+        factor, index = 5, 3
 
         # Act
-        result = convert_grid_cell_to_cell(grid_cell=cell, pixel_size=PIXEL_SIZE)
-
-        # Assert — reference center must equal (top_left + half_cell) * pixel_size
-        expected_cx = (cell.top_left[0] + cell.width / 2) * PIXEL_SIZE
-        expected_cy = (cell.top_left[1] + cell.height / 2) * PIXEL_SIZE
-        assert result.center_reference == pytest.approx((expected_cx, expected_cy))
-
-    def test_convert_grid_cell_to_cell_score_propagated(
-        self, fully_valid_grid_cell: GridCell
-    ):
-        # Arrange
-        cell = fully_valid_grid_cell
-
-        # Act
-        result = convert_grid_cell_to_cell(grid_cell=cell, pixel_size=PIXEL_SIZE)
+        result = map_coarse_to_full(float(index), factor)
 
         # Assert
-        assert result.best_score == pytest.approx(cell.grid_search_params.score)
+        covered = np.arange(index * factor, (index + 1) * factor)
+        assert result == pytest.approx(covered.mean())
 
-    def test_convert_grid_cell_to_cell_fill_fraction_propagated(
-        self,
-        fully_valid_grid_cell: GridCell,
-    ):
-        # Arrange
-        cell = fully_valid_grid_cell
+    def test_agrees_with_block_averaging_for_a_float_factor(self):
+        # Arrange: cap_factor is a float in the new pipeline, not necessarily an integer.
+        factor, index = 4.5, 2
 
         # Act
-        result = convert_grid_cell_to_cell(grid_cell=cell, pixel_size=PIXEL_SIZE)
+        result = map_coarse_to_full(float(index), factor)
 
         # Assert
-        assert result.fill_fraction_reference == pytest.approx(cell.fill_fraction)
+        assert result == pytest.approx(index * factor + (factor - 1) / 2.0)
+
+
+class TestCoordinateMapping:
+    PADDED_SHAPE = (601, 517)
+    CELL_SHAPE = (80, 90)
+    POINT_IN_PADDED = (137.0, 288.0)
+    CENTER_IN_IMAGE = (250.0, 300.0)
+
+    def test_angle_zero_is_identity(self):
+        # Act
+        x, y = map_canvas_to_image(
+            *self.POINT_IN_PADDED,
+            cell_shape=self.CELL_SHAPE,
+            image_shape=self.PADDED_SHAPE,
+            angle_deg=0.0,
+        )
+
+        # Assert
+        assert x == pytest.approx(self.POINT_IN_PADDED[0] + self.CELL_SHAPE[1] / 2)
+        assert y == pytest.approx(self.POINT_IN_PADDED[1] + self.CELL_SHAPE[0] / 2)
+
+    @pytest.mark.parametrize("angle_deg", [-15.0, -3.5, 0.0, 0.5, 7.25, 20.0])
+    def test_round_trip(self, angle_deg):
+        left, top = map_image_to_canvas(
+            *self.CENTER_IN_IMAGE,
+            cell_shape=self.CELL_SHAPE,
+            image_shape=self.PADDED_SHAPE,
+            angle_deg=angle_deg,
+        )
+        x, y = map_canvas_to_image(
+            left, top, self.CELL_SHAPE, self.PADDED_SHAPE, angle_deg
+        )
+        assert x == pytest.approx(self.CENTER_IN_IMAGE[0])
+        assert y == pytest.approx(self.CENTER_IN_IMAGE[1])
+
+    @pytest.mark.parametrize("angle", [30.0, -60.0, 90.0])
+    def test_round_trip_recovers_original_point(self, angle: float):
+        """
+        Analytically forward-map a known point onto the rotated canvas, then verify
+        map_canvas_to_image recovers it.
+        """
+        # Arrange
+        height, width = self.PADDED_SHAPE
+        rotated_height, rotated_width = compute_rotated_shape(height, width, angle)
+        cx_pad, cy_pad = (width - 1) / 2, (height - 1) / 2
+        cx_rot, cy_rot = (rotated_width - 1) / 2, (rotated_height - 1) / 2
+        px, py = self.POINT_IN_PADDED
+        a = np.radians(angle)
+        fwd_x = np.cos(a) * (px - cx_pad) - np.sin(a) * (py - cy_pad) + cx_rot
+        fwd_y = np.sin(a) * (px - cx_pad) + np.cos(a) * (py - cy_pad) + cy_rot
+
+        # Act
+        recovered_x, recovered_y = map_canvas_to_image(
+            fwd_x,
+            fwd_y,
+            cell_shape=(0, 0),
+            image_shape=self.PADDED_SHAPE,
+            angle_deg=angle,
+        )
+
+        # Assert
+        assert recovered_x == pytest.approx(px, abs=1e-6)
+        assert recovered_y == pytest.approx(py, abs=1e-6)

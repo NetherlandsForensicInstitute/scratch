@@ -49,12 +49,9 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
     """
     Map unordered cells onto a row-major grid with the correlation as values.
 
-    Grid indices are derived from the cell centers and the cell pitch. The
-    pitch is taken from the smallest spacing between distinct center
-    coordinates rather than from (max - min) / (n_unique - 1): surfaces with
-    holes (e.g. a breech-face annulus) have gaps in the cell layout, and
-    averaging across a gap yields a too-large step that collapses distinct
-    cell rows onto one grid row.
+    Grid indices are derived from the cell centers and the cell pitch. Pitch is taken from the
+    smallest spacing between distinct coordinates to avoid collapsing rows when the cell layout
+    contains gaps (e.g. a breech-face annulus).
 
     :param cells: Unordered cell results from the CMC pipeline.
     :return: cell_correlations (n_rows, n_cols), NaN where there is no cell.
