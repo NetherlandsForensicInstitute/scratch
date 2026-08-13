@@ -11,56 +11,13 @@ from conversion.surface_comparison.cell_registration.geometry import (
 from conversion.surface_comparison.cell_registration.search import (
     find_best_matches,
     get_uniform_cell_shape,
+    search_candidates,
 )
-from conversion.surface_comparison.cell_registration.stages import (
-    run_coarse_stage,
-    run_fine_stage,
-)
+from conversion.surface_comparison.cell_registration.stages import run_fine_stage
 
 from .helpers import downsample, make_surface
 
 DEVICE = torch.device("cpu")
-
-
-class TestRunCoarseStage:
-    def test_returns_empty_for_no_templates(self):
-        assert (
-            run_coarse_stage(
-                image_coarse=np.zeros((10, 10)),
-                templates_coarse=[],
-                angles=np.array([0.0]),
-                minimum_fill_fraction=0.9,
-                fill_value_coarse=0.0,
-                device=DEVICE,
-            )
-            == []
-        )
-
-    def test_keeps_a_candidate_whose_best_score_is_negative(self):
-        # Arrange: a template that is the exact negative of a patch of the image correlates at
-        # about -1 there. That is a real, usable candidate, and an empty list is the only signal
-        # for "no candidate" - the coarse stage decides where each cell gets refined, so a cell
-        # discarded here loses its match entirely rather than merely scoring badly.
-        # Sizing the canvas to the template leaves exactly one candidate position, so the best
-        # score is the anti-correlated one rather than a positive score somewhere off-alignment.
-        template = make_surface(20, 20, seed=3)
-        canvas = 2 * np.nanmean(template) - template
-        image = pad_image_array(canvas, pad_width=0, pad_height=0)
-
-        # Act
-        candidates = run_coarse_stage(
-            image_coarse=image,
-            templates_coarse=[template],
-            angles=np.array([0.0]),
-            minimum_fill_fraction=0.9,
-            fill_value_coarse=float(np.nanmean(image)),
-            n_candidates=1,
-            device=DEVICE,
-        )
-
-        # Assert
-        assert len(candidates[0]) == 1
-        assert candidates[0][0].score == pytest.approx(-1.0, abs=1e-3)
 
 
 class TestRunFineStage:
@@ -105,11 +62,9 @@ class TestRunFineStage:
 
 class TestCoarseStageThenFineStage:
     """
-    The two runners composed the way the pipeline composes them.
+    The coarse-to-fine search of the literature: search_candidates feeding run_fine_stage.
 
-    This is the coarse-to-fine search of the literature, but no function carries that name any
-    more: it is :func:`run_coarse_stage` feeding :func:`run_fine_stage`, wired up in
-    :func:`~conversion.surface_comparison.pipeline.compare_surfaces`.
+    No single function carries that name any more; compare_surfaces wires the two together.
     """
 
     ANGLES = np.arange(-4.0, 4.001, 0.5)
@@ -154,19 +109,27 @@ class TestCoarseStageThenFineStage:
         }
 
     @staticmethod
-    def _run(case, angles, templates_full=None, templates_coarse=None, **kwargs):
+    def _run(
+        case,
+        angles,
+        templates_full=None,
+        templates_coarse=None,
+        n_candidates=3,
+        **kwargs,
+    ):
         """Run the coarse sweep and feed its candidates to the fine refinement."""
         if templates_full is None:
             templates_full = case["templates_full"]
         if templates_coarse is None:
             templates_coarse = case["templates_coarse"]
 
-        candidates = run_coarse_stage(
-            image_coarse=case["image_coarse"],
-            templates_coarse=templates_coarse,
-            angles=angles,
-            minimum_fill_fraction=0.9,
-            fill_value_coarse=case["fill_value"],
+        candidates = search_candidates(
+            case["image_coarse"],
+            templates_coarse,
+            angles,
+            0.9,
+            case["fill_value"],
+            n_candidates=n_candidates,
             device=DEVICE,
             **kwargs,
         )

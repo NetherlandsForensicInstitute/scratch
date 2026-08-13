@@ -21,49 +21,8 @@ from conversion.surface_comparison.cell_registration.scoring import (
     prepare_templates,
 )
 from conversion.surface_comparison.cell_registration.search import (
-    search_candidates,
     sort_by_absolute_angle,
 )
-
-
-def run_coarse_stage(
-    image_coarse: FloatArray2D,
-    templates_coarse: list[np.ndarray],
-    angles: np.ndarray,
-    minimum_fill_fraction: float,
-    fill_value_coarse: float,
-    n_candidates: int = 3,
-    template_batch_size: int | None = None,
-    angle_batch_size: int | None = None,
-    device: torch.device | None = None,
-) -> list[list[Match]]:
-    """
-    Exhaustive translation + rotation sweep on the downsampled pair.
-
-    :param image_coarse: Padded comparison image downsampled for the coarse stage, NaN outside data.
-    :param templates_coarse: Reference cell data at coarse resolution, all same shape, free of NaN.
-    :param angles: Angle sweep in degrees.
-    :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
-    :param fill_value_coarse: Value substituted for NaN in *image_coarse*.
-    :param n_candidates: Peaks retained per template for refinement.
-    :param template_batch_size: Templates correlated per chunk.
-    :param angle_batch_size: Angles processed per chunk.
-    :param device: Torch device; defaults to CUDA when available.
-    :returns: Up to *n_candidates* Match entries per template, ordered by score. An empty
-        list means no viable candidate. Scores are genuine Pearson correlations and may be
-        negative.
-    """
-    return search_candidates(
-        image_coarse,
-        templates_coarse,
-        angles,
-        minimum_fill_fraction,
-        fill_value_coarse,
-        n_candidates=n_candidates,
-        template_batch_size=template_batch_size,
-        angle_batch_size=angle_batch_size,
-        device=device,
-    )
 
 
 def run_fine_stage(

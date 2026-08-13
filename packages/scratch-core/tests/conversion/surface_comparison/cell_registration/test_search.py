@@ -126,6 +126,9 @@ class TestSearchCandidates:
                 assert max(abs(x0 - x1), abs(y0 - y1)) >= 15
 
     def test_perfect_anti_correlation_is_not_mistaken_for_rejection(self):
+        # An empty list is the only signal for "no candidate", and this search decides where each
+        # cell gets refined, so a cell discarded here loses its match entirely rather than merely
+        # scoring badly.
         # Arrange: Match template and canvas dimensions so there is only 1 candidate position.
         surface = make_surface(20, 20, seed=2)
         template = surface.copy()

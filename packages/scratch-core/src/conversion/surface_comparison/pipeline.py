@@ -10,6 +10,7 @@ from conversion.surface_comparison.cell_registration.results import (
 from conversion.surface_comparison.cell_registration.search import (
     find_best_matches,
     get_uniform_cell_shape,
+    search_candidates,
 )
 from conversion.surface_comparison.cell_registration.stage_builders import (
     build_angle_sweep,
@@ -17,10 +18,7 @@ from conversion.surface_comparison.cell_registration.stage_builders import (
     build_full_resolution_stage,
     compute_cap_factor,
 )
-from conversion.surface_comparison.cell_registration.stages import (
-    run_coarse_stage,
-    run_fine_stage,
-)
+from conversion.surface_comparison.cell_registration.stages import run_fine_stage
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
@@ -110,12 +108,12 @@ def compare_surfaces(
             grid_cells,
             cap_factor,
         )
-        candidates = run_coarse_stage(
-            image_coarse=coarse_stage.image,
-            templates_coarse=coarse_stage.templates,
-            angles=angles,
-            minimum_fill_fraction=params.minimum_fill_fraction,
-            fill_value_coarse=coarse_stage.fill_value,
+        candidates = search_candidates(
+            coarse_stage.image,
+            coarse_stage.templates,
+            angles,
+            params.minimum_fill_fraction,
+            coarse_stage.fill_value,
             n_candidates=params.n_candidates,
             template_batch_size=params.template_batch_size,
             angle_batch_size=params.angle_batch_size,

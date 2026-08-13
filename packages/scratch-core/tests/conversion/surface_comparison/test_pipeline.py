@@ -80,7 +80,7 @@ def test_compare_surfaces_runs(mark: Mark, params: ComparisonParams):
 
 def test_compare_surfaces_runs_the_coarse_stage_when_images_exceed_max_size():
     # Larger than the default max_size=256, so cap_factor > 1.0 and compare_surfaces takes the
-    # coarse-stage branch (build_coarse_stage, run_coarse_stage, run_fine_stage) rather than the
+    # coarse-stage branch (build_coarse_stage, search_candidates, run_fine_stage) rather than the
     # single-exhaustive-pass shortcut that the smaller `mark` fixture exercises above.
     scan_image = ScanImage(
         data=np.zeros(shape=(300, 300), dtype=np.float64), scale_x=1e-5, scale_y=1e-5

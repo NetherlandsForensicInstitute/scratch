@@ -136,15 +136,21 @@ def find_best_matches(
     angles: np.ndarray,
     minimum_fill_fraction: float,
     fill_value: float,
-    device: torch.device | None = None,
     template_batch_size: int | None = None,
     angle_batch_size: int | None = None,
+    device: torch.device | None = None,
 ) -> list[Match]:
     """
-    Find the single best pose for every template over the full angle sweep.
+    Single exhaustive pass reporting one Match per template, the contract run_fine_stage returns.
 
-    Equivalent to search_candidates with ``n_candidates=1``.
-
+    :param image: Padded comparison image, NaN outside the original data.
+    :param templates: Reference cell data, all the same shape and free of NaN.
+    :param angles: Angle sweep in degrees.
+    :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
+    :param fill_value: Value substituted for NaN in the comparison image.
+    :param template_batch_size: Templates correlated per chunk.
+    :param angle_batch_size: Angles processed per chunk.
+    :param device: Torch device; defaults to CUDA when available.
     :returns: One Match per template. Templates with no viable candidate report the
         rejection sentinel ``Match(-1.0, 0, 0, default_angle)``.
     """
@@ -159,6 +165,8 @@ def find_best_matches(
         angle_batch_size=angle_batch_size,
         device=device,
     )
+    if not candidates:
+        return []
     no_match = Match(-1.0, 0, 0, float(sort_by_absolute_angle(angles)[0]))
     return [found[0] if found else no_match for found in candidates]
 
