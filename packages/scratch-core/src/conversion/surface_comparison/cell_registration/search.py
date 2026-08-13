@@ -141,7 +141,7 @@ def find_best_matches(
     device: torch.device | None = None,
 ) -> list[Match]:
     """
-    Single exhaustive pass reporting one Match per template, the contract run_fine_stage returns.
+    Single exhaustive pass reporting one Match per template.
 
     :param image: Padded comparison image, NaN outside the original data.
     :param templates: Reference cell data, all the same shape and free of NaN.
@@ -151,8 +151,8 @@ def find_best_matches(
     :param template_batch_size: Templates correlated per chunk.
     :param angle_batch_size: Angles processed per chunk.
     :param device: Torch device; defaults to CUDA when available.
-    :returns: One Match per template. Templates with no viable candidate report the
-        rejection sentinel ``Match(-1.0, 0, 0, default_angle)``.
+    :returns: One Match per template. Templates with no viable candidate report the rejection
+        sentinel ``Match(-1.0, 0, 0, default_angle)``.
     """
     candidates = search_candidates(
         image,
