@@ -25,12 +25,23 @@ _TINY = 1e-12
 
 
 def compute_mean_and_std(image: FloatArray2D) -> tuple[float, float]:
-    """Global mean and standard deviation of an image."""
+    """
+    Global mean and standard deviation of an image.
+
+    :param image: Image to summarize, NaNs ignored.
+    :returns: ``(mean, standard deviation)``.
+    """
     return float(np.nanmean(image)), float(np.nanstd(image))
 
 
 def clamp_score(score: float, index: int) -> float:
-    """Clamp a score into the valid Pearson range, warning if it overshot by more than tolerance."""
+    """
+    Clamp a score into the valid Pearson range, warning if it overshot by more than tolerance.
+
+    :param score: Raw correlation score.
+    :param index: Index of the cell the score belongs to, used in the warning.
+    :returns: The score clamped to ``[-1, 1]``.
+    """
     if score > 1.0 + SCORE_TOLERANCE:
         logger.warning(
             "NCC score {:.4f} exceeds the valid range [-1, 1] for cell {}; clamping.",
@@ -46,6 +57,9 @@ def find_next_fast_length(target: int) -> int:
     Smallest integer ``>= target`` that factors entirely into _FFT_RADICES.
 
     Transform lengths with a large prime factor are significantly slower in MKL/pocketfft and cuFFT.
+
+    :param target: Minimum transform length required.
+    :returns: The chosen fast transform length.
     """
     if target <= 2:
         return max(int(target), 1)
@@ -97,6 +111,8 @@ def prepare_templates(
 
     Template normalization is done independently of the image to keep the FFT well-conditioned.
 
+    :param templates: Reference templates, one per grid cell.
+    :param device: Device to move the stacked templates onto.
     :returns: ``(tensor of shape (n_templates, 1, cell_height, cell_width), is_non_constant mask)``.
     """
     stacked = np.stack([template.astype(np.float32) for template in templates])[:, None]
@@ -114,6 +130,9 @@ def precompute_template_ffts(
     """
     Transform every template block once, for reuse across all angle chunks.
 
+    :param templates: Centered unit-norm templates ``(n_templates, 1, cell_height, cell_width)``.
+    :param fft_shape: Transform size to pad each block to.
+    :param templates_per_chunk: Templates per block.
     :returns: ``(template_offset, spectrum)`` per block, the spectrum shaped ``(1, block, ...)`` so
         it broadcasts against an image batch of shape ``(n_angles, 1, ...)``.
     """
@@ -136,12 +155,16 @@ class CorrelationBasis:
 
     Built once per batch by build_correlation_basis, then combined with any number of
     template spectra by compute_scores.
+
+    :param image_fft: Transform of the standardized image batch.
+    :param denominator: Per-position ``sqrt`` of the within-window variation, i.e. the score denominator.
+    :param rejected: Per-position mask of windows failing the fill-fraction or variance gate.
+    :param fft_shape: Transform size the batch was padded to.
+    :param out_shape: ``(height, width)`` of the valid score map.
     """
 
     image_fft: torch.Tensor
-    # Per-position ``sqrt`` of the within-window variation, i.e. the score denominator.
     denominator: torch.Tensor
-    # Per-position mask of windows failing the fill-fraction or variance gate.
     rejected: torch.Tensor
     fft_shape: tuple[int, int]
     out_shape: tuple[int, int]
@@ -152,6 +175,9 @@ class CorrelationBasis:
 
         *template_fft* must broadcast against image_fft; rejected positions come back as
         REJECTED_SCORE.
+
+        :param template_fft: Pre-transformed template block.
+        :returns: Scores over the valid positions of the batch.
         """
         out_height, out_width = self.out_shape
         correlation = torch.fft.irfft2(
@@ -176,6 +202,7 @@ def build_correlation_basis(
     :param cell_shape: ``(cell_height, cell_width)`` of the templates to be scored.
     :param minimum_fill_fraction: Reject positions whose window is filled below this fraction.
     :param mean_and_std: Statistics of the whole comparison image.
+    :returns: The basis for scoring this batch against templates of *cell_shape*.
     """
     cell_height, cell_width = cell_shape
     n_pixels = cell_height * cell_width

@@ -40,6 +40,11 @@ class RefinementJob(NamedTuple):
     One ``(cell, predicted center, trial angle)`` triple to score at full resolution.
 
     Positions are centers in unrotated image coordinates; refine maps them onto the rotated canvas.
+
+    :param cell_index: Index of the grid cell this job scores.
+    :param center_x: Predicted cell center x, in full-resolution pixels.
+    :param center_y: Predicted cell center y, in full-resolution pixels.
+    :param angle_deg: Rotation to try for this job.
     """
 
     cell_index: int

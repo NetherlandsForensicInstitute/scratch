@@ -172,7 +172,12 @@ def find_best_matches(
 
 
 def get_uniform_cell_shape(templates: list[np.ndarray]) -> tuple[int, int]:
-    """Return the common ``(height, width)`` of *templates*, or raise if they disagree."""
+    """
+    Return the common ``(height, width)`` of *templates*, or raise if they disagree.
+
+    :param templates: Reference cell data expected to share one shape.
+    :returns: The shared ``(height, width)``.
+    """
     cell_shape = templates[0].shape
     if any(template.shape != cell_shape for template in templates):
         raise ValueError("All templates must have the same shape.")
@@ -180,14 +185,24 @@ def get_uniform_cell_shape(templates: list[np.ndarray]) -> tuple[int, int]:
 
 
 def sort_by_absolute_angle(angles: np.ndarray) -> np.ndarray:
-    """Order an angle sweep by ``|angle|``, then by signed angle, so ties resolve predictably."""
+    """
+    Order an angle sweep by ``|angle|``, then by signed angle, so ties resolve predictably.
+
+    :param angles: Angle sweep in degrees.
+    :returns: The same angles, sorted.
+    """
     angles = np.asarray(angles, dtype=np.float64)
     return angles[np.lexsort((angles, np.abs(angles)))]
 
 
 @dataclass
 class _BestPoseGrid:
-    """Running best score per ``(template, position)``, and which angle produced it."""
+    """
+    Running best score per ``(template, position)``, and which angle produced it.
+
+    :param best_score: Best score so far per ``(template, position)``.
+    :param best_angle_index: Index into the angle sweep of the score that won each position.
+    """
 
     best_score: torch.Tensor
     best_angle_index: torch.Tensor
@@ -196,6 +211,14 @@ class _BestPoseGrid:
     def create_empty(
         cls, n_templates: int, out_shape: tuple[int, int], device: torch.device
     ) -> _BestPoseGrid:
+        """
+        Start a grid with every position rejected.
+
+        :param n_templates: Number of templates to track.
+        :param out_shape: ``(height, width)`` of the score map per template.
+        :param device: Device to allocate the grid on.
+        :returns: The empty grid.
+        """
         return cls(
             best_score=torch.full(
                 (n_templates, *out_shape), REJECTED_SCORE, device=device
@@ -208,7 +231,13 @@ class _BestPoseGrid:
     def merge(
         self, scores: torch.Tensor, template_start: int, angle_start: int
     ) -> None:
-        """Fold one chunk's ``(n_angles, block, height, width)`` score volume into the running best."""
+        """
+        Fold one chunk's ``(n_angles, block, height, width)`` score volume into the running best.
+
+        :param scores: Score volume for one angle and template chunk.
+        :param template_start: Index of the chunk's first template.
+        :param angle_start: Index of the chunk's first angle in the sweep.
+        """
         chunk_best, chunk_best_within = scores.max(dim=0)
         dest = slice(template_start, template_start + scores.shape[1])
         current = self.best_score[dest]
@@ -225,7 +254,15 @@ class _BestPoseGrid:
         n_candidates: int,
         suppression_radius: int,
     ) -> list[Match]:
-        """Up to *n_candidates* well-separated maxima for one template, best first."""
+        """
+        Up to *n_candidates* well-separated maxima for one template, best first.
+
+        :param index: Index of the template to read peaks for.
+        :param angles: Angle sweep the stored angle indices refer to.
+        :param n_candidates: Number of peaks to keep.
+        :param suppression_radius: Half-width of the neighborhood suppressed around each peak.
+        :returns: The peaks found, ordered by score.
+        """
         surface = self.best_score[index].clone()
         angle_index = self.best_angle_index[index]
         out_width = surface.shape[1]
@@ -252,6 +289,10 @@ def _compute_common_canvas_shape(
     Smallest canvas holding the image rotated to any angle in the sweep.
 
     Fixed for the whole sweep to reuse the FFT plan and ensure result consistency.
+
+    :param image_shape: Shape of the unrotated image.
+    :param angles: Angle sweep in degrees.
+    :returns: ``(height, width)`` of the common canvas.
     """
     shapes = [
         compute_rotated_shape(image_shape[0], image_shape[1], float(angle))
@@ -273,6 +314,11 @@ def _build_rotated_batch(
     Rotated canvases are written into the top-left corner of the common canvas.
     Slack is marked invalid and rejected by the fill-fraction gate.
 
+    :param image: Padded comparison image, NaN outside the original data.
+    :param angles: Angles to rotate to, in degrees.
+    :param fill_value: Value written for NaN pixels and for the canvas slack.
+    :param canvas_shape: ``(height, width)`` of the common canvas.
+    :param device: Device to move the stacked batch onto.
     :returns: ``(batch, valid)``, both ``(n_angles, 1, *canvas_shape)`` float32 tensors.
     """
     shape = (len(angles), 1, *canvas_shape)

@@ -18,7 +18,13 @@ from conversion.surface_comparison.cell_registration.scoring import (
 
 
 class CropWindow(NamedTuple):
-    """A job's search window, placed on the rotated canvas."""
+    """
+    A job's search window, placed on the rotated canvas.
+
+    :param job: The candidate pose this window was placed for.
+    :param left: Left edge of the window, in rotated-canvas pixels.
+    :param top: Top edge of the window, in rotated-canvas pixels.
+    """
 
     job: RefinementJob
     left: int
@@ -99,7 +105,15 @@ def place_crop_window(
     image_shape: tuple[int, ...],
     margin: int,
 ) -> CropWindow:
-    """Place one job's search window on the rotated canvas: the single image-to-canvas mapping."""
+    """
+    Place one job's search window on the rotated canvas: the single image-to-canvas mapping.
+
+    :param job: Candidate pose whose predicted center is mapped onto the canvas.
+    :param cell_shape: ``(height, width)`` of one grid cell.
+    :param image_shape: Shape of the unrotated padded comparison image.
+    :param margin: Search radius in pixels around the predicted position.
+    :returns: The placed CropWindow.
+    """
     left, top = map_image_to_canvas(
         job.center_x,
         job.center_y,
@@ -116,7 +130,15 @@ def _cut_crops(
     crop_shape: tuple[int, int],
     fill_value: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Cut each window out of the rotated canvas. Returns (crops, validities), both of shape (n, 1, *crop_shape)."""
+    """
+    Cut each window out of the rotated canvas.
+
+    :param image: Unrotated padded comparison image each crop is taken from.
+    :param windows: Search windows to cut, one per job.
+    :param crop_shape: ``(height, width)`` of each crop.
+    :param fill_value: Value substituted for NaN in the crops.
+    :returns: ``(crops, validities)``, both of shape ``(n, 1, *crop_shape)``.
+    """
     crop_height, crop_width = crop_shape
     crops = np.empty((len(windows), 1, crop_height, crop_width), dtype=np.float32)
     validities = np.empty_like(crops)
