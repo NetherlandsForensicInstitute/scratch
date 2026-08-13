@@ -40,6 +40,9 @@ def compute_rotated_shape(height: int, width: int, angle_deg: float) -> tuple[in
 
     Calculates the axis-aligned bounding box of the rotated corner points.
 
+    :param height: Input height in pixels.
+    :param width: Input width in pixels.
+    :param angle_deg: Rotation angle in degrees.
     :returns: ``(rotated_height, rotated_width)`` in pixels.
     """
     theta = math.radians(angle_deg)
@@ -157,14 +160,28 @@ def map_image_to_canvas(
 
 
 def map_coarse_to_full(coarse_value: float, cap_factor: float) -> float:
-    """Map a coordinate in a downsampled image back onto the full-resolution grid."""
+    """
+    Map a coordinate in a downsampled image back onto the full-resolution grid.
+
+    :param coarse_value: Coordinate in the downsampled image.
+    :param cap_factor: Downsampling factor between the two grids.
+    :returns: The matching full-resolution coordinate.
+    """
     return coarse_value * cap_factor + (cap_factor - 1) / 2.0
 
 
 def build_rotation_matrix(
     image_shape: tuple[int, ...], angle_deg: float, left: int = 0, top: int = 0
 ) -> np.ndarray:
-    """Affine matrix rotating *image_shape* onto a canvas whose origin sits at ``(left, top)``."""
+    """
+    Affine matrix rotating *image_shape* onto a canvas whose origin sits at ``(left, top)``.
+
+    :param image_shape: ``(height, width)`` of the source image.
+    :param angle_deg: Rotation angle in degrees.
+    :param left: Canvas origin x, in rotated-canvas coordinates.
+    :param top: Canvas origin y, in rotated-canvas coordinates.
+    :returns: 2x3 affine transformation matrix.
+    """
     height, width = image_shape[:2]
     center = ((width - 1) / 2.0, (height - 1) / 2.0)
     rotated_height, rotated_width = compute_rotated_shape(height, width, angle_deg)
@@ -183,7 +200,16 @@ def _warp(
     height: int,
     fill_value: float,
 ) -> FloatArray2D:
-    """Nearest-neighbor warp, so that no arithmetic is done across the NaN boundary."""
+    """
+    Nearest-neighbor warp, so that no arithmetic is done across the NaN boundary.
+
+    :param image: Source image.
+    :param matrix: 2x3 affine transformation matrix.
+    :param width: Output width in pixels.
+    :param height: Output height in pixels.
+    :param fill_value: Value written outside the warped source rectangle.
+    :returns: Float32 array of shape ``(height, width)``.
+    """
     return np.asarray(
         cv2.warpAffine(
             image.astype(np.float32, copy=False),
