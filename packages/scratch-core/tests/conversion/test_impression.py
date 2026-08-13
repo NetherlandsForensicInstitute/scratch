@@ -27,7 +27,7 @@ from conversion.preprocess_impression.tilt import (
 )
 from conversion.preprocess_impression.utils import update_mark_data
 
-from .helper_functions import make_mark
+from ..helper_functions import make_mark
 
 
 def make_circular_data(

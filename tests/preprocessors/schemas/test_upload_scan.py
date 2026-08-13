@@ -106,26 +106,6 @@ def test_executable_files_rejected(tmp_path: Path, content: bytes) -> None:
     assert "executable files are not allowed" in str(exc_info.value)
 
 
-def test_tag_defaults_to_stem_when_project_name_not_provided(upload_scan_parameter: Callable[..., UploadScan]) -> None:
-    """Test that tag property defaults to scan file stem when project_name is not provided."""
-    # Act
-    upload_scan = upload_scan_parameter()
-
-    # Assert
-    assert upload_scan.tag == upload_scan.scan_file.stem
-
-
-def test_tag_uses_project_name_when_provided(upload_scan_parameter: Callable[..., UploadScan]) -> None:
-    """Test that tag property uses project_name when it is provided."""
-    # Arrange
-    project_name = "custom-project"
-    # Act
-    upload_scan = upload_scan_parameter(project_name=project_name)
-
-    # Assert
-    assert upload_scan.tag == project_name
-
-
 def test_default_values(upload_scan: UploadScan) -> None:
     """Test that default parameters are set correctly."""
     # Assert

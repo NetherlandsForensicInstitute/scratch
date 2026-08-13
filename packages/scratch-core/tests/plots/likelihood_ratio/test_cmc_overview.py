@@ -4,14 +4,16 @@ import numpy as np
 import pytest
 
 from conversion.data_formats import Mark, MarkMetadata
-from conversion.plots.data_formats import (
+from plots.likelihood_ratio.data_formats import (
     HistogramData,
     LlrTransformationData,
 )
-from conversion.plots.plot_cmc_comparison_overview import plot_cmc_comparison_overview
+from plots.likelihood_ratio.cmc_overview import (
+    plot_cmc_comparison_overview,
+)
 from conversion.surface_comparison.models import Cell
 
-from .helper_functions import assert_valid_rgb_image
+from ..helper_functions import assert_valid_rgb_image
 
 
 @pytest.mark.integration

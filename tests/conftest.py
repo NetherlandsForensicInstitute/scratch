@@ -9,8 +9,7 @@ import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType
-from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
-from conversion.plots.utils import build_results_metadata_impression
+from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs, build_results_metadata_impression
 from conversion.profile_correlator import Profile
 from fastapi.testclient import TestClient
 from lir import LLRData
@@ -44,7 +43,7 @@ def tmp_dir_api(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
 
 @pytest.fixture(scope="module")
 def directory_access() -> DirectoryAccess:
-    directory = DirectoryAccess(tag="test")
+    directory = DirectoryAccess()
     directory.resource_path.mkdir(parents=True, exist_ok=True)
     return directory
 
