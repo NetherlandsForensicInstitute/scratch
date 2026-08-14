@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from scipy.constants import micro
 
 from models import SupportedScanExtension
-from preprocessors.schemas import PIXEL_SIZE_MAX, PIXEL_SIZE_MIN, STEP_SIZE_MIN, UploadScan
+from preprocessors.schemas import PIXEL_SIZE_MAX, PIXEL_SIZE_MIN, UploadScan
 
 
 @pytest.fixture
@@ -155,8 +155,8 @@ def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> 
 @pytest.mark.parametrize(
     ("field_name", "implausible_value"),
     [
-        ("scale_x", PIXEL_SIZE_MIN - 1e4),
-        ("scale_y", PIXEL_SIZE_MAX + 1e4),
+        ("scale_x", PIXEL_SIZE_MIN * -1),
+        ("scale_y", PIXEL_SIZE_MAX * 2),
     ],
 )
 def test_implausible_scale_values(
@@ -167,7 +167,7 @@ def test_implausible_scale_values(
     valid_params = {
         "scale_x": PIXEL_SIZE_MIN,
         "scale_y": PIXEL_SIZE_MAX,
-        "step_size": STEP_SIZE_MIN,
+        "step_size": 1,
     }
     valid_params[field_name] = implausible_value
 

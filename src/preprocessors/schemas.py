@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
+from typing import Final
 
 import numpy as np
 from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType, SurfaceTermsAnnotated
@@ -24,14 +25,11 @@ from models import (
 )
 from schemas import URLContainer
 
-PIXEL_SIZE_MIN = 1e-9
-PIXEL_SIZE_MAX = 1e-3
-STEP_SIZE_MIN = 1
-STEP_SIZE_MAX = 100
-CUTOFF_MIN = 1e-6
-CUTOFF_MAX = 2.5e-4
-RESAMPLING_FACTOR_MIN = 0.1
-RESAMPLING_FACTOR_MAX = 100
+PIXEL_SIZE_MIN: Final[float] = 1e-9
+PIXEL_SIZE_MAX: Final[float] = 1e-3
+CUTOFF_MIN: Final[float] = 1e-6
+CUTOFF_MAX: Final[float] = 1e-3
+RESAMPLING_FACTOR_MIN: Final[float] = 1
 
 
 class BaseParameters(BaseModelConfig):
@@ -84,14 +82,6 @@ class UploadScan(BaseParameters):
                 f"({PIXEL_SIZE_MIN} to {PIXEL_SIZE_MAX} m). Did you enter micrometers instead of meters? "
                 f"E.g. 3.5 µm should be 3.5e-6, not 3.5."
             )
-        return v
-
-    @field_validator("step_size")
-    @classmethod
-    def check_step_size(cls, v: float) -> float:
-        """Check that the step size has a reasonable value."""
-        if not (STEP_SIZE_MIN <= v <= STEP_SIZE_MAX):
-            raise ValueError(f"step size {v} is outside plausible range (1–100).")
         return v
 
 
@@ -151,7 +141,7 @@ class EditImage(BaseParameters):
     )
     resampling_factor: PositiveFloat = Field(
         default=4,
-        description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
+        description="Resampling rate for image resolution adjustment.",
         examples=[2, 4, 8],
     )
     surface_terms: SurfaceTermsAnnotated = Field(
@@ -199,10 +189,8 @@ class EditImage(BaseParameters):
     @classmethod
     def check_resampling_factor(cls, v: float) -> float:
         """Check that the resampling factor has a reasonable value."""
-        if not (RESAMPLING_FACTOR_MIN <= v <= RESAMPLING_FACTOR_MAX):
-            raise ValueError(
-                f"resampling_factor {v} is outside plausible range ({RESAMPLING_FACTOR_MIN}-{RESAMPLING_FACTOR_MAX})."
-            )
+        if not (RESAMPLING_FACTOR_MIN <= v):
+            raise ValueError(f"resampling_factor {v} is below the plausible minimum ({RESAMPLING_FACTOR_MIN}).")
         return v
 
 

@@ -28,7 +28,7 @@ def scan_image():
 
 
 @pytest.fixture
-def resample_twice_bigger(
+def resample_twice_smaller(
     scan_image: ScanImage, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> tuple[EditImage, BinaryMask, Callable[[ScanImage], None]]:
     scan_file = tmp_path / "scan.x3p"
@@ -40,7 +40,7 @@ def resample_twice_bigger(
         project_name="test",
         scan_file=scan_file,
         cutoff_length=2 * micro,
-        resampling_factor=0.5,
+        resampling_factor=2,
         surface_terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=False,
@@ -122,9 +122,9 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
 
     mask = np.array(
         [
-            [0, 0, 0],
-            [0, 1, 0],
-            [0, 0, 0],
+            [1, 1, 1],
+            [1, 1, 1],
+            [1, 1, 1],
         ],
         dtype=np.bool,
     )
@@ -133,20 +133,20 @@ def crop_to_resized_image(scan_image: ScanImage, tmp_path: Path) -> tuple[EditIm
         project_name="test",
         scan_file=scan_file,
         cutoff_length=2 * micro,
-        resampling_factor=0.5,
+        resampling_factor=2,
         surface_terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
     )
 
     def assertions(result: ScanImage):
-        assert result.data.shape == (2, 2), "cropped to the middle pixel (1,1) but double the size (2,2)"
+        assert result.data.shape == (2, 2)
 
     return params, mask, assertions
 
 
 @pytest.mark.parametrize(
-    "fixture_name", ["resample_twice_bigger", "mask_middle_pixels", "crop_to_middle_pixels", "crop_to_resized_image"]
+    "fixture_name", ["resample_twice_smaller", "mask_middle_pixels", "crop_to_middle_pixels", "crop_to_resized_image"]
 )
 def test_apply_change_on_scan_image(fixture_name: str, request: pytest.FixtureRequest, scan_image: ScanImage) -> None:
     """Test the different parameters of EditScan in apply_changes_on_scan_image."""

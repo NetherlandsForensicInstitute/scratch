@@ -126,7 +126,7 @@ class TestEditImage:
         # Assert
         assert params.cutoff_length == valid_value
 
-    @given(valid_value=st.floats(min_value=0.1, max_value=3, allow_nan=False, allow_infinity=False))
+    @given(valid_value=st.floats(min_value=1, max_value=3, allow_nan=False, allow_infinity=False))
     def test_should_accept_positive_resampling_factor(
         self, valid_value: float, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
