@@ -2,6 +2,7 @@ import logging
 import shutil
 import threading
 import time
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -39,44 +40,37 @@ def _post_with_retry(
     raise RuntimeError("Unreachable")
 
 
-PLOT_FILENAMES = {
-    "filtered_reference_heatmap.png",
-    "comparison_overview.png",
-    "raw_reference_heatmap.png",
-    "raw_compared_heatmap.png",
-    "filtered_compared_heatmap.png",
-    "cell_reference_heatmap.png",
-    "cell_compared_heatmap.png",
-    "cell_overlay.png",
-    "cell_cross_correlation.png",
-}
-
-
-def download_urls(urls: dict | Any, dest: Path) -> None:
-    """Download all HTTP URL values from an API response dict.
+def download_urls(urls: Any, dest: Path, skip: Iterable[str]) -> list[str]:
+    """Download all HTTP URL values from an API response dict straight to *dest*.
 
     :param urls: dict (or nested dict) whose values may be URL strings.
     :param dest: destination directory for downloaded files.
+    :param skip: filenames to leave on the server; pass ``()`` to fetch everything.
+    :returns: filenames actually downloaded.
     """
     if not isinstance(urls, dict):
-        return
+        return []
+    downloaded = []
     for key, url in urls.items():
         if not isinstance(url, str) or not url.startswith("http"):
             continue
         filename = url.rsplit("/", 1)[-1]
-        if filename in PLOT_FILENAMES:
+        if filename in skip:
+            logger.debug("Skipping %s", filename)
             continue
         try:
             resp = requests.get(url, timeout=60)
             resp.raise_for_status()
             (dest / filename).write_bytes(resp.content)
+            downloaded.append(filename)
         except requests.RequestException as exc:
             logger.warning("Failed to download %s: %s", key, exc)
+    return downloaded
 
 
-def _cleanup_vault(result: dict) -> None:
+def _cleanup_vault(result: dict[str, Any]) -> None:
     """Remove the vault directory after downloading its files."""
-    storage = Path("/tmp/scratch_api")  # noqa
+    storage = Path("/tmp/scratch_api")  # noqa: S108
     for url in result.values():
         if not isinstance(url, str) or "/files/" not in url:
             continue
@@ -85,3 +79,31 @@ def _cleanup_vault(result: dict) -> None:
             if token in vault_dir.name:
                 shutil.rmtree(vault_dir, ignore_errors=True)
         return
+
+
+def download_result_files(
+    result: dict[str, Any],
+    session: requests.Session | None = None,
+    keys: Iterable[str] | None = None,
+) -> dict[str, bytes]:
+    """Download HTTP URL values from an API result dict into memory, then clean up the vault.
+
+    :param result: dict (or nested dict) whose values may be URL strings.
+    :param session: reused for connection pooling; falls back to plain ``requests`` if omitted.
+    :param keys: if given, only consider these keys instead of every value in *result*.
+    :returns: ``{filename: content}`` for every URL that was downloaded.
+    """
+    get = session.get if session is not None else requests.get
+    items = ((k, result[k]) for k in keys if k in result) if keys is not None else result.items()
+    try:
+        downloaded = {}
+        for _key, url in items:
+            if not isinstance(url, str) or not url.startswith("http"):
+                continue
+            filename = url.rsplit("/", 1)[-1]
+            resp = get(url, timeout=60)
+            resp.raise_for_status()
+            downloaded[filename] = resp.content
+        return downloaded
+    finally:
+        _cleanup_vault(result)

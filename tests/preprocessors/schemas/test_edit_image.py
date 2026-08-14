@@ -64,7 +64,6 @@ class TestEditImage:
         assert params.regression_order == RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE
         assert params.cutoff_length == CUTOFF_LENGTH
         assert params.crop is False
-        assert params.project_name is None
 
     @pytest.mark.parametrize(
         "kwargs",

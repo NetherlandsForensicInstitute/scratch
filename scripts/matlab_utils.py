@@ -112,8 +112,8 @@ def extract_mask_and_bounding_box(
 ) -> tuple[np.ndarray, list | None]:
     """Extract a boolean mask and optional bounding box from crop_info in a MATLAB struct.
 
-    Combines multiple crop items: foreground crops (is_foreground=1) are unioned,
-    then background crops (is_foreground=0) are subtracted.
+    Combines multiple crop items: foreground crops (is_foreground=1) are unioned, then background crops (
+    is_foreground=0) are subtracted.
 
     :returns: (mask, bounding_box) or None if no valid crop info found.
     """
@@ -189,19 +189,3 @@ def extract_striation_params(struct: np.ndarray) -> dict[str, Any]:
         "angle_accuracy": float(_data_param_field(struct, "angle_accuracy", 90)),
         "subsampling_factor": int(_scalar(struct["subsampling"]) or 1),
     }
-
-
-def unwrap_path(value: Any) -> str | None:
-    """Recursively unwrap a MATLAB path value to a plain string.
-
-    MATLAB paths from ``loadmat`` may arrive as nested object arrays,
-    e.g. ``array([array(['tool-entries/...'], dtype='<U64')])``.
-
-    :param value: raw value from loadmat.
-    :returns: plain string or ``None`` if empty.
-    """
-    while isinstance(value, np.ndarray):
-        if value.size == 0:
-            return None
-        value = value.flat[0]
-    return str(value) if value is not None else None

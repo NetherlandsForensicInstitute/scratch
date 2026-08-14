@@ -109,12 +109,6 @@ class CalculateLRStriation(CalculateLR):
         ),
     ]
 
-    @property
-    def tag(self) -> str:
-        # TODO: incorporate mark_dir_ref_aligned and mark_dir_comp_aligned once
-        # the base tag implementation is finalised.
-        return super().tag
-
 
 class ComparisonResponse(URLContainer):
     """Response model for comparison data access."""

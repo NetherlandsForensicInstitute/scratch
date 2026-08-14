@@ -11,8 +11,7 @@ from container_models.base import BinaryMask, DepthData
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType, MarkStriationType
 from conversion.profile_correlator import Profile
-
-from .conversion.helper_functions import make_mark
+from .helper_functions import make_mark
 
 TEST_ROOT = Path(__file__).parent
 

@@ -13,7 +13,7 @@ from scipy.constants import micro
 
 from conversion.data_formats import Mark, MarkStriationType
 from conversion.profile_correlator import Profile, AlignmentParameters
-from ..helper_functions import make_mark
+from ...helper_functions import make_mark
 
 # Directory for test data files (MATLAB .mat files for validation)
 DATA_DIR = Path(__file__).parent / "data"

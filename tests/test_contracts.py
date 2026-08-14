@@ -71,7 +71,6 @@ class TestContracts:
         """
         return EndpointContractInterface(
             expected_input={
-                "project_name": "forensic_analysis_2026",
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
                 "scale_x": 1e-6,
                 "scale_y": 1e-6,
@@ -92,6 +91,8 @@ class TestContracts:
         """
         scan_file = scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p"
         parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
+        mask = np.ones(parsed_scan.data.shape, dtype=np.bool_)
+        mask[:10, :10] = False
         return EndpointContractInterface(
             expected_input={
                 "scan_file": scan_file,
@@ -103,7 +104,7 @@ class TestContracts:
                 "preview_image": ".png",
                 "surface_map_image": ".png",
             },
-        ), np.ones(parsed_scan.data.shape, dtype=np.bool_).tobytes(order="C")
+        ), mask.tobytes(order="C")
 
     @pytest.fixture(scope="class")
     def prepare_mark_impression(self, scan_directory: Path, mask_raw: bytes) -> tuple[EndpointContractInterface, bytes]:

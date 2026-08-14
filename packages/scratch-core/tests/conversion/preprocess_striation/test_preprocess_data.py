@@ -9,7 +9,7 @@ from scipy.constants import micro
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import MarkStriationType, MarkImpressionType
-from ..helper_functions import make_mark
+from ...helper_functions import make_mark
 from conversion.filter import (
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,

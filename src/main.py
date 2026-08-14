@@ -18,7 +18,7 @@ from uvicorn import run
 
 from constants import LogLevel
 from helpers import setup_logging
-from preprocessors.exceptions import ArrayShapeMismatchError
+from preprocessors.exceptions import ArrayShapeMismatchError, EmptyMaskError
 from routers import prefix_router
 from settings import get_settings
 
@@ -81,6 +81,14 @@ async def file_not_found_handler(request: Request, exc: FileNotFoundError) -> JS
 async def array_shape_mismatch_handler(request: Request, exc: ArrayShapeMismatchError) -> JSONResponse:
     """Return a 422 JSON response for unhandled ArrayShapeMismatchError exceptions."""
     message = f"Mask shape does not match image shape: {exc}"
+    logger.warning(message)
+    return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
+
+
+@app.exception_handler(EmptyMaskError)
+async def empty_mask_handler(request: Request, exc: EmptyMaskError) -> JSONResponse:
+    """Return a 422 JSON response for unhandled EmptyMaskError exceptions."""
+    message = str(exc)
     logger.warning(message)
     return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
 

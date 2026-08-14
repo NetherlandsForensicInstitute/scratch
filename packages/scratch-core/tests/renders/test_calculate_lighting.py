@@ -6,7 +6,7 @@ from container_models.light_source import LightSource
 from renders.shading import calculate_lighting
 from scipy.constants import micro
 
-from ..helper_function import assert_nan_mask_preserved
+from ..helper_functions import assert_nan_mask_preserved
 
 
 def test_shape(
