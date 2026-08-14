@@ -135,7 +135,7 @@ def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> 
 @pytest.mark.parametrize(
     ("field_name", "implausible_value"),
     [
-        ("scale_x", PIXEL_SIZE_MIN * -1),
+        ("scale_x", PIXEL_SIZE_MIN - 1e-12),
         ("scale_y", PIXEL_SIZE_MAX * 2),
     ],
 )

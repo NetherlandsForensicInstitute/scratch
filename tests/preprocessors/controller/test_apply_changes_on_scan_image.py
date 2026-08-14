@@ -46,7 +46,7 @@ def resample_twice_smaller(
     )
 
     def assertions(result: ScanImage) -> None:
-        assert result.data.shape[0] == scan_image.width * 2
+        assert result.data.shape[0] == scan_image.width / 2
         assert "skipping masking, Mask area is not containing any masking fields." in caplog.messages
 
     return params, mask, assertions
