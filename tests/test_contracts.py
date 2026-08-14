@@ -15,6 +15,7 @@ from requests import Response
 from models import DirectoryAccess
 from preprocessors.pipelines import parse_scan_pipeline
 from settings import get_settings
+from tests.constants import CUTOFF_LENGTH
 from tests.helper_functions import _save_impression_mark, _save_striation_mark_and_profile, make_cell
 
 
@@ -71,9 +72,9 @@ class TestContracts:
         return EndpointContractInterface(
             expected_input={
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
-                "scale_x": "1",
-                "scale_y": "1",
-                "step_size": "1",
+                "scale_x": 1e-6,
+                "scale_y": 1e-6,
+                "step_size": 1,
             },
             expected_urls={
                 "preview_image": ".png",
@@ -88,7 +89,6 @@ class TestContracts:
 
         Returns the post request data, expected response type, and mask bytes.
         """
-        cutoff_length = 250
         scan_file = scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p"
         parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
         mask = np.ones(parsed_scan.data.shape, dtype=np.bool_)
@@ -96,7 +96,7 @@ class TestContracts:
         return EndpointContractInterface(
             expected_input={
                 "scan_file": scan_file,
-                "cutoff_length": cutoff_length,
+                "cutoff_length": CUTOFF_LENGTH,
                 "mask_is_bitpacked": False,
                 "surface_terms": "plane",
             },
@@ -221,6 +221,8 @@ class TestContracts:
             },
             expected_fields={
                 "cells": list,
+                "n_cells": int,
+                "cmc_fraction": float,
                 "comparison_results": dict,
             },
         )
@@ -304,7 +306,6 @@ class TestContracts:
                 "user_id": "ABCDE",
                 "date_report": "2000-01-01",
                 "score": 1,
-                "n_cells": 5,
                 "cells": [
                     make_cell(
                         center_reference=(i * 1e-3, 0.0),

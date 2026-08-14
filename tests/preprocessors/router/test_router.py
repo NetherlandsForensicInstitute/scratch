@@ -357,7 +357,7 @@ def test_edit_image_returns_valid_images(
     params = EditImage(
         scan_file=scan_directory / "circle.x3p",
         cutoff_length=2 * micro,
-        resampling_factor=0.5,
+        resampling_factor=1,
         surface_terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,

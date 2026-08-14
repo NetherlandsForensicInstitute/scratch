@@ -15,7 +15,6 @@ from loguru import logger
 from mutations import CropToMask, GaussianRegressionFilter, LevelMap, Mask, Resample, Rotate
 from mutations.base import ImageMutation
 from mutations.filter import FilterNeedles
-from scipy.constants import micro
 from skimage.transform import resize
 
 from constants import LIGHT_SOURCES, OBSERVER
@@ -135,7 +134,7 @@ def edit_scan_image(scan_image: ScanImage, edit_image_params: EditImage, mask: B
         LevelMap(surface_terms=edit_image_params.surface_terms),
         GaussianRegressionFilter(
             regression_order=edit_image_params.regression_order,
-            cutoff_length=edit_image_params.cutoff_length * micro,
+            cutoff_length=edit_image_params.cutoff_length,
             is_high_pass=True,
         ),
     ]

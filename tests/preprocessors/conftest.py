@@ -1,16 +1,10 @@
 from collections.abc import Callable
 from pathlib import Path
-from typing import Final
 
-import numpy as np
 import pytest
 
 from preprocessors.schemas import EditImage, UploadScan
-
-MASK = np.array([[True, False, True], [False, True, False]], dtype=np.bool_)
-MASK_BYTES = MASK.tobytes(order="C")
-MASK_SHAPE = MASK.shape
-CUTOFF_LENGTH: Final[float] = 250
+from tests.constants import CUTOFF_LENGTH
 
 
 @pytest.fixture(scope="module")

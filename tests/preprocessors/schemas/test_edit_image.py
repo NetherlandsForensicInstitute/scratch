@@ -1,20 +1,16 @@
 from collections.abc import Callable
 from itertools import chain
 from pathlib import Path
-from typing import Any, Final
+from typing import Any
 
 import pytest
 from conversion.data_formats import SurfaceTerms
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
-from scipy.constants import micro
 
 from preprocessors.schemas import EditImage, RegressionOrder
-
-DEFAULT_RESAMPLING_FACTOR: Final[int] = 4
-DEFAULT_STEP_SIZE: Final[int] = 1
-CUTOFF_LENGTH: Final[float] = 250
+from tests.constants import CUTOFF_LENGTH, DEFAULT_RESAMPLING_FACTOR
 
 
 def get_error_fields(exc_info, typ: str) -> tuple[str, ...]:
@@ -118,22 +114,22 @@ class TestEditImage:
         # Assert
         assert params.surface_terms == expected
 
-    @given(valid_value=st.floats(min_value=micro, max_value=3, allow_nan=False, allow_infinity=False))
+    @given(valid_value=st.floats(min_value=1e-6, max_value=250e-6, allow_nan=False, allow_infinity=False))
     def test_should_accept_positive_cutoff_length(
         self, valid_value: float, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
-        """Test that positive step sizes are accepted."""
+        """Test that cutoff_length values within the plausible range (1e-6-250e-6 m) are accepted."""
         # Act
         params = edit_image_parameter(cutoff_length=valid_value)
 
         # Assert
         assert params.cutoff_length == valid_value
 
-    @given(valid_value=st.floats(min_value=micro, max_value=3, allow_nan=False, allow_infinity=False))
+    @given(valid_value=st.floats(min_value=1, max_value=3, allow_nan=False, allow_infinity=False))
     def test_should_accept_positive_resampling_factor(
         self, valid_value: float, edit_image_parameter: Callable[..., EditImage]
     ) -> None:
-        """Test that positive step sizes are accepted."""
+        """Test that positive resampling factor are accepted."""
         # Act
         params = edit_image_parameter(resampling_factor=valid_value)
 
