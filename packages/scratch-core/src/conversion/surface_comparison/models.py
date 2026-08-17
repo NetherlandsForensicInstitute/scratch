@@ -125,7 +125,7 @@ class ComparisonParams(ConfigBaseModel):
     Parameters for the Congruent Matching Cells (CMC) algorithm.
 
     :param minimum_fill_fraction: Minimum fraction of valid pixels required in a reference cell for it to be processed.
-    :param correlation_threshold: Minimum per-cell ACCF score for CMC classification.
+    :param correlation_threshold: Minimum per-cell ACCF score, used only by the median classifier.
     :param angle_deviation_threshold: Maximum absolute angular deviation from consensus for CMC (degrees).
     :param position_threshold: Maximum positional deviation from consensus for CMC (m).
     :param search_angle_min: Lower bound of rotation search range (degrees).

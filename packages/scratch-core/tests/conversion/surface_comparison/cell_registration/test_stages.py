@@ -13,7 +13,11 @@ from conversion.surface_comparison.cell_registration.search import (
     get_uniform_cell_shape,
     search_candidates,
 )
-from conversion.surface_comparison.cell_registration.stages import run_fine_stage
+from conversion.surface_comparison.cell_registration.models import Match
+from conversion.surface_comparison.cell_registration.stages import (
+    build_refinement_jobs,
+    run_fine_stage,
+)
 
 from .helpers import downsample, make_surface
 
@@ -209,3 +213,34 @@ class TestCoarseStageThenFineStage:
         # Assert
         for lower, higher in zip(few, many):
             assert higher.score >= lower.score - 1e-6
+
+
+class TestBuildRefinementJobs:
+    def test_predicted_center_survives_the_two_canvases_padding_differently(self):
+        """A candidate on a cell must predict that cell's center to within half a coarse pixel."""
+        # Arrange: a 120x120 comparison image, 50 px cells, downsampled by 6.
+        cap_factor = 6.0
+        full_cell, coarse_cell = 50, 9  # coarse_cell == ceil(50 / 6)
+        top_left = 30
+        coarse_image_shape = (round(120 / cap_factor) + 2 * coarse_cell,) * 2
+        expected_center = top_left + full_cell + full_cell / 2
+        coarse_match = Match(
+            score=1.0,
+            x=round(top_left / cap_factor) + coarse_cell,
+            y=round(top_left / cap_factor) + coarse_cell,
+            angle_deg=0.0,
+        )
+
+        # Act
+        jobs = build_refinement_jobs(
+            [[coarse_match]],
+            coarse_cell_shape=(coarse_cell, coarse_cell),
+            coarse_image_shape=coarse_image_shape,
+            full_cell_shape=(full_cell, full_cell),
+            cap_factor=cap_factor,
+            trial_offsets=np.array([0.0]),
+        )
+
+        # Assert
+        assert jobs[0].center_x == pytest.approx(expected_center, abs=cap_factor / 2)
+        assert jobs[0].center_y == pytest.approx(expected_center, abs=cap_factor / 2)

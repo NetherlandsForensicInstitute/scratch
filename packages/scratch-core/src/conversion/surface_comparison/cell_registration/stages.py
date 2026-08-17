@@ -21,6 +21,7 @@ from conversion.surface_comparison.cell_registration.scoring import (
     prepare_templates,
 )
 from conversion.surface_comparison.cell_registration.search import (
+    get_uniform_cell_shape,
     sort_by_absolute_angle,
 )
 
@@ -74,6 +75,7 @@ def run_fine_stage(
         candidates,
         coarse_cell_shape=coarse_cell_shape,
         coarse_image_shape=coarse_image_shape,
+        full_cell_shape=get_uniform_cell_shape(templates_full),
         cap_factor=cap_factor,
         trial_offsets=trial_offsets,
     )
@@ -81,15 +83,16 @@ def run_fine_stage(
     default_angle = float(sort_by_absolute_angle(angles)[0])
     template_tensor, is_non_constant = prepare_templates(templates_full, device)
     results = refine(
-        image_full.astype(np.float32),
-        template_tensor,
-        jobs,
-        position_margin,
-        minimum_fill_fraction,
-        fill_value_full,
-        compute_mean_and_std(image_full),
-        fine_batch_size or get_default_batch_size(device, DEFAULT_FINE_BATCH_SIZE),
-        default_angle,
+        image=image_full.astype(np.float32),
+        templates=template_tensor,
+        jobs=jobs,
+        margin=position_margin,
+        minimum_fill_fraction=minimum_fill_fraction,
+        fill_value=fill_value_full,
+        mean_and_std=compute_mean_and_std(image_full),
+        batch_size=fine_batch_size
+        or get_default_batch_size(device, DEFAULT_FINE_BATCH_SIZE),
+        default_angle=default_angle,
     )
     # Constant reference cells and cells with no coarse candidates get a sentinel match.
     for index in range(len(templates_full)):
@@ -131,6 +134,7 @@ def build_refinement_jobs(
     candidates: list[list[Match]],
     coarse_cell_shape: tuple[int, int],
     coarse_image_shape: tuple[int, ...],
+    full_cell_shape: tuple[int, int],
     cap_factor: float,
     trial_offsets: np.ndarray,
 ) -> list[RefinementJob]:
@@ -142,10 +146,14 @@ def build_refinement_jobs(
     :param candidates: Coarse-stage candidates per template. Empty list means no viable candidate.
     :param coarse_cell_shape: ``(height, width)`` of the coarse templates.
     :param coarse_image_shape: Shape of the coarse comparison image.
+    :param full_cell_shape: ``(height, width)`` of the full-resolution templates.
     :param cap_factor: How many full-resolution pixels one coarse pixel spans.
     :param trial_offsets: Angle offsets (degrees) to try around each candidate.
     :returns: List of RefinementJob instances, one per candidate-angle combination.
     """
+    # Both canvases are padded by one cell, so the cell shapes are also the paddings.
+    coarse_height, coarse_width = coarse_cell_shape
+    full_height, full_width = full_cell_shape
     jobs: list[RefinementJob] = []
     for index, found in enumerate(candidates):
         if not found:
@@ -161,8 +169,10 @@ def build_refinement_jobs(
             jobs.extend(
                 RefinementJob(
                     index,
-                    map_coarse_to_full(center_x, cap_factor),
-                    map_coarse_to_full(center_y, cap_factor),
+                    map_coarse_to_full(center_x, cap_factor, coarse_width, full_width),
+                    map_coarse_to_full(
+                        center_y, cap_factor, coarse_height, full_height
+                    ),
                     float(match.angle_deg + offset),
                 )
                 for offset in trial_offsets

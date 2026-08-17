@@ -238,14 +238,19 @@ class _BestPoseGrid:
         :param template_start: Index of the chunk's first template.
         :param angle_start: Index of the chunk's first angle in the sweep.
         """
-        chunk_best, chunk_best_within = scores.max(dim=0)
         dest = slice(template_start, template_start + scores.shape[1])
-        current = self.best_score[dest]
-        better = chunk_best > current
-        current[better] = chunk_best[better]
-        self.best_angle_index[dest][better] = (
-            angle_start + chunk_best_within[better]
-        ).to(torch.int16)
+
+        # Views onto self.*, so the out= writes below update the running best.
+        # NOTE: dest must stay a slice (basic indexing) for these to be views.
+        out_score = self.best_score[dest]
+        out_angle = self.best_angle_index[dest]
+
+        chunk_best, chunk_best_within = scores.max(dim=0)
+        chunk_angle = (angle_start + chunk_best_within).to(torch.int16)
+
+        improved = chunk_best > out_score
+        torch.where(improved, chunk_angle, out_angle, out=out_angle)
+        torch.where(improved, chunk_best, out_score, out=out_score)
 
     def find_peaks(
         self,

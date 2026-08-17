@@ -1,8 +1,7 @@
-import numpy as np
 from loguru import logger
 
-from container_models.scan_image import ScanImage
-from conversion.resample import resample_scan_image_to_scale
+from conversion.exceptions import NoValidGridCellsError
+from conversion.resample import resample_scan_image_nan_aware
 from conversion.surface_comparison.cell_registration.results import (
     convert_grid_cell_to_cell,
     record_results,
@@ -27,6 +26,10 @@ from conversion.surface_comparison.models import (
     ComparisonParams,
     ComparisonResult,
     ProcessedMark,
+)
+from conversion.surface_comparison.utils import (
+    assert_image_is_isotropic,
+    resolve_nan_fill_value,
 )
 
 
@@ -59,13 +62,18 @@ def compare_surfaces(
         search configuration, and CMC classification thresholds.
     :returns: A ComparisonResult containing per-cell registration results, the consensus rotation and
         translation, and CMC counts.
+    :raises ValueError: If the image's pixel grid is not isotropic.
     """
     reference_image = reference_mark.filtered_mark.scan_image
     comparison_image_original = comparison_mark.filtered_mark.scan_image
 
+    # Everything below uses scale_x for both axes, so anisotropy would go unnoticed.
+    assert_image_is_isotropic(reference_image)
+    assert_image_is_isotropic(comparison_image_original)
+
     # Step 1: Resample comparison to reference scale (for the fine stage)
     logger.debug("starting resample")
-    comparison_image_full = resample_scan_image_to_scale(
+    comparison_image_full = resample_scan_image_nan_aware(
         comparison_image_original, reference_image.scale_x
     )
 
@@ -78,12 +86,7 @@ def compare_surfaces(
         nan_fill_value=resolve_nan_fill_value(reference_image, params),
     )
     if not grid_cells:
-        # classify_congruent_cells_consensus is documented to reject an empty cells list, so
-        # build the trivial empty result directly rather than call it out of contract.
-        logger.debug("no grid cells generated. skipping cell registration.")
-        return ComparisonResult(
-            cells=[], estimated_rotation=0.0, estimated_translation=(0.0, 0.0)
-        )
+        raise NoValidGridCellsError
 
     # Step 3: Build the full-resolution stage
     logger.debug("starting cell registration")
@@ -101,7 +104,7 @@ def compare_surfaces(
     angles = build_angle_sweep(params)
 
     if cap_factor > 1.0:
-        # Step 4: Coarse sweep — single pass from ORIGINAL images (no interpolation chaining)
+        # Step 4: Coarse sweep — single pass from original images
         coarse_stage = build_coarse_stage(
             comparison_image_original,
             reference_image,
@@ -135,9 +138,8 @@ def compare_surfaces(
             fine_batch_size=params.fine_batch_size,
         )
     else:
-        # Steps 4-5: images already fit the coarse target, so coarse and fine would search the
-        # same resolution — skip the coarse stage and run one exhaustive pass instead of the
-        # same work twice.
+        # Steps 4-5: images already fit the coarse target, so coarse and fine would search the same resolution
+        # — skip the coarse stage and run one exhaustive pass instead of the same work twice.
         logger.debug(
             "cap_factor <= 1.0: skipping the coarse stage for a single exhaustive pass"
         )
@@ -165,30 +167,3 @@ def compare_surfaces(
     return classify_congruent_cells_consensus(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
-
-
-def resolve_nan_fill_value(
-    reference_image: ScanImage, params: ComparisonParams
-) -> float | None:
-    """
-    Turn ``template_nan_fill_strategy`` into the concrete value every template will be filled with.
-
-    ``None`` means "each cell's own valid-pixel mean"; see conversion.surface_comparison.template_fill.fill_template_nan.
-
-    :param reference_image: Reference scan image; its global mean is used for ``global_mean`` strategy.
-    :param params: Comparison parameters specifying the fill strategy.
-    :returns: A fill value for ``global_mean``, or ``None`` for ``local_mean``.
-    """
-    # TODO: ``local_mean`` needs the masked NCC of Padfield (2012) to be correct. The score denominator in
-    # conversion.surface_comparison.cell_registration.scoring.build_correlation_basis normalizes over the
-    # whole window, while the numerator only covers the overlap of the two validity masks, so scores are
-    # deflated in proportion to how empty a cell is. ``global_mean`` wins today because it happens
-    # to offset that.
-    if params.template_nan_fill_strategy != "global_mean":
-        return None
-    nan_fill_value = float(np.nanmean(reference_image.data))
-    logger.debug(
-        "Using global mean ({:.4f}) for NaN filling (template_nan_fill_strategy=global_mean)",
-        nan_fill_value,
-    )
-    return nan_fill_value

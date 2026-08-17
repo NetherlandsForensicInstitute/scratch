@@ -1,6 +1,7 @@
 from http import HTTPStatus
 
 from conversion.data_formats import MarkImpressionType
+from conversion.exceptions import ImageNotIsotropicError, NoValidGridCellsError
 from conversion.export.mark import load_mark_from_path, save_mark
 from conversion.export.profile import load_profile_from_path
 from conversion.surface_comparison.models import ProcessedMark
@@ -96,11 +97,17 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
         logger.error(message)
         raise HTTPException(HTTPStatus.UNPROCESSABLE_ENTITY, message)
 
-    cmc_result = compare_surfaces(
-        reference_mark=mark_ref_processed,
-        comparison_mark=mark_comp_processed,
-        params=impression_params.comparison_params,
-    )
+    try:
+        cmc_result = compare_surfaces(
+            reference_mark=mark_ref_processed,
+            comparison_mark=mark_comp_processed,
+            params=impression_params.comparison_params,
+        )
+    except (NoValidGridCellsError, ImageNotIsotropicError) as exception:
+        message = str(exception)
+        logger.error(message)
+        raise HTTPException(HTTPStatus.UNPROCESSABLE_ENTITY, message)
+
     logger.debug("CMC is calculated")
 
     save_impression_comparison_plots(

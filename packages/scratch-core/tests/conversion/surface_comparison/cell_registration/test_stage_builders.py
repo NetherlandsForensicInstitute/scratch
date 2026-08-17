@@ -8,7 +8,7 @@ from conversion.surface_comparison.cell_registration.stage_builders import (
     build_coarse_stage,
     compute_cap_factor,
 )
-from conversion.surface_comparison.pipeline import resample_scan_image_to_scale
+from conversion.surface_comparison.pipeline import resample_scan_image_nan_aware
 
 from .helpers import make_grid_cell
 
@@ -71,7 +71,7 @@ class TestBuildCoarseStage:
         comparison_original = ScanImage(
             data=rng.random((400, 400)).astype(np.float64), scale_x=0.5, scale_y=0.5
         )
-        comparison_aligned = resample_scan_image_to_scale(
+        comparison_aligned = resample_scan_image_nan_aware(
             comparison_original, reference_image.scale_x
         )
         grid_cell = make_grid_cell(

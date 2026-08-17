@@ -269,36 +269,32 @@ class TestPadImageArray:
 
 
 class TestMapCoarseToFull:
-    def test_factor_one_is_identity(self):
-        assert map_coarse_to_full(7.0, 1) == pytest.approx(7.0)
+    def test_factor_one_and_equal_padding_is_identity(self):
+        assert map_coarse_to_full(7.0, 1, 3, 3) == pytest.approx(7.0)
 
     @pytest.mark.parametrize(
         ("coarse", "factor", "expected"),
-        [(0.0, 4, 1.5), (1.0, 4, 5.5), (0.0, 6, 2.5), (3.0, 2, 6.5)],
+        [(2.0, 4, 10.0), (3.0, 4, 14.0), (5.0, 4, 22.0), (5.0, 2, 16.0)],
     )
-    def test_maps_to_block_center(self, coarse, factor, expected):
-        assert map_coarse_to_full(coarse, factor) == pytest.approx(expected)
+    def test_scales_the_offset_from_the_padded_origin(self, coarse, factor, expected):
+        # Arrange / Act / Assert: two coarse pixels of padding against 10 full ones.
+        assert map_coarse_to_full(coarse, factor, 2, 10) == pytest.approx(expected)
 
-    def test_agrees_with_block_averaging(self):
-        # Arrange: coarse pixel i covers full pixels [i*f, (i+1)*f), whose center is the target.
-        factor, index = 5, 3
+    def test_maps_the_padding_onto_the_padding(self):
+        # Arrange: the image starts at the padding on both canvases.
+        assert map_coarse_to_full(9.0, 6.0, 9, 50) == pytest.approx(50.0)
 
-        # Act
-        result = map_coarse_to_full(float(index), factor)
+    def test_removes_the_coarse_padding_before_scaling_it(self):
+        # Arrange: 9 coarse pixels of padding cover 54 full pixels, not the 50 of the full canvas.
+        factor, coarse_padding, full_padding = 6.0, 9, 50
 
-        # Assert
-        covered = np.arange(index * factor, (index + 1) * factor)
-        assert result == pytest.approx(covered.mean())
-
-    def test_agrees_with_block_averaging_for_a_float_factor(self):
-        # Arrange: cap_factor is a float in the new pipeline, not necessarily an integer.
-        factor, index = 4.5, 2
-
-        # Act
-        result = map_coarse_to_full(float(index), factor)
+        # Act: one coarse pixel into the image.
+        result = map_coarse_to_full(
+            coarse_padding + 1.0, factor, coarse_padding, full_padding
+        )
 
         # Assert
-        assert result == pytest.approx(index * factor + (factor - 1) / 2.0)
+        assert result == pytest.approx(full_padding + factor)
 
 
 class TestCoordinateMapping:
