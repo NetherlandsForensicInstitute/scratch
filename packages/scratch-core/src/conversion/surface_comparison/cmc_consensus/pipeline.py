@@ -99,7 +99,7 @@ def _find_best_ids(
         )
 
         if 2 < len(current_ids) < n_cells:
-            _refine(
+            current_ids, criterion_current = _refine(
                 current_ids,
                 criterion_current,
                 cells,
@@ -149,7 +149,7 @@ def _get_estimated_translation_rotation(
         )
     else:
         # There was only one congruent cell
-        congruent_cell = cells[0]
+        congruent_cell = cmc_cells[0]
         predicted_coordinate = list(
             _get_rotation_component_using_angle_degree(
                 np.array(congruent_cell.center_reference),
@@ -177,11 +177,11 @@ def _get_estimated_translation_rotation(
 
 def _refine(
     current_ids: list[int],
-    criterion_current: float,
+    criterion_current: float | int,
     cells: list[Cell],
     max_distance: float,
     max_abs_angle_distance: float,
-) -> None:
+) -> tuple[list[int], float | int]:
     """iteratively re-fit current_ids and criterion_current
 
     :param current_ids: a list of inlier indices (used for least-squares Procrustus fit)
@@ -189,6 +189,7 @@ def _refine(
     :param cells: a list of cells
     :param max_distance: maximum distance threshold (meters)
     :param max_abs_angle_distance: maximum absolute angle threshold (degrees)
+    :return: updated current_ids and criterion_current
     """
 
     while True:
@@ -215,5 +216,6 @@ def _refine(
             criterion_current = criterion_candidate
             current_ids = candidate_ids
         else:
-            # we have our local optimum and return, also for len(candidate_ids) == len(current_ids) and criterion did not improve
-            return
+            # we have our local optimum and return current_ids and criterion_current, also for len(candidate_ids) ==
+            # len(current_ids) and criterion did not improve
+            return current_ids, criterion_current

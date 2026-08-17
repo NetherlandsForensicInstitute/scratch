@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from unittest.mock import patch, MagicMock
 
+from conversion.surface_comparison.cmc_consensus.pipeline import _refine
 from conversion.surface_comparison.cmc_consensus.procrustes import (
     find_consensus_parameters,
     _get_rotation_component_using_rotation_matrix,
@@ -19,7 +20,7 @@ from conversion.surface_comparison.cmc_consensus.criterion import (
     _get_distances_meters,
 )
 
-from conversion.surface_comparison.models import Cell
+from conversion.surface_comparison.models import Cell, CellMetaData
 
 from conversion.surface_comparison.cmc_consensus.models import ConsensusParameters
 
@@ -306,3 +307,112 @@ class TestGetDistancesMeters:
         result = _get_distances_meters(cells, predicted_positions)
 
         assert result == pytest.approx(expected, abs=1e-6)
+
+
+def _make_test_cell(
+    center_reference: tuple[float, float],
+    center_comparison: tuple[float, float],
+    angle_deg: float,
+) -> Cell:
+    return Cell(
+        center_reference=center_reference,
+        cell_size=(0.01, 0.01),
+        fill_fraction_reference=1.0,
+        best_score=1.0,
+        angle_deg=angle_deg,
+        center_comparison=center_comparison,
+        is_congruent=True,
+        meta_data=CellMetaData(
+            is_outlier=False,
+            residual_angle_deg=0.0,
+            position_error=(0.0, 0.0),
+        ),
+    )
+
+
+def test_refine_adds_good_cell_and_rejects_outlier():
+    """Test iterative refinement using the real Procrustes fit."""
+
+    # Known transformation.
+    #
+    # Note that _build_2d_rotation_matrix() uses the convention
+    #
+    #     [[cos(theta),  sin(theta)],
+    #      [-sin(theta), cos(theta)]]
+    #
+    # so we construct the comparison positions using the same matrix.
+    rotation_deg = 10.0
+    rotation_rad = np.radians(rotation_deg)
+
+    rotation_matrix = np.array(
+        [
+            [np.cos(rotation_rad), np.sin(rotation_rad)],
+            [-np.sin(rotation_rad), np.cos(rotation_rad)],
+        ]
+    )
+
+    translation = np.array([1.0, 2.0])
+
+    # Four cells that follow the exact same rigid transformation.
+    reference_positions = [
+        np.array([0.00, 0.00]),
+        np.array([0.10, 0.00]),
+        np.array([0.00, 0.10]),
+        np.array([0.10, 0.10]),
+    ]
+
+    comparison_positions = [
+        reference @ rotation_matrix + translation for reference in reference_positions
+    ]
+
+    cells = [
+        _make_test_cell(
+            center_reference=tuple(reference),
+            center_comparison=tuple(comparison),
+            # Cell angles use the opposite sign to the mathematical
+            # consensus rotation in your implementation.
+            angle_deg=-rotation_deg,
+        )
+        for reference, comparison in zip(
+            reference_positions,
+            comparison_positions,
+        )
+    ]
+
+    # Add a fifth cell that does NOT follow the transformation.
+    bad_reference = np.array([0.20, 0.20])
+
+    bad_comparison = (
+        bad_reference @ rotation_matrix + translation + np.array([0.10, 0.10])
+    )
+
+    cells.append(
+        _make_test_cell(
+            center_reference=tuple(bad_reference),
+            center_comparison=tuple(bad_comparison),
+            angle_deg=30.0,
+        )
+    )
+
+    # Initially only three of the four good cells are considered
+    # inliers and are used for the consensus fit.
+    current_ids = [0, 1, 2]
+    criterion_current = 1.0
+
+    refined_ids, refined_criterion = _refine(
+        current_ids=current_ids,
+        criterion_current=criterion_current,
+        cells=cells,
+        max_distance=0.01,
+        max_abs_angle_distance=2.0,
+    )
+
+    # The fourth good cell should have been added.
+    assert refined_ids == [0, 1, 2, 3]
+
+    # The deliberately bad cell should not have been added.
+    assert 4 not in refined_ids
+
+    # The criterion should have been updated after accepting
+    # the fourth good cell.
+    assert refined_criterion < criterion_current
