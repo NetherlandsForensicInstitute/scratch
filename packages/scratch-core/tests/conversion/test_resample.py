@@ -221,6 +221,13 @@ class TestResampleToScale:
 
         assert resample_scan_image_nan_aware(image, target_scale=3e-6) is not image
 
+    def test_skips_nanometers_scale_mismatch(self):
+        image = ScanImage(
+            data=np.zeros((40, 40)), scale_x=3.00001e-6, scale_y=3.00001e-6
+        )
+
+        assert resample_scan_image_nan_aware(image, target_scale=3e-6) is image
+
     def test_skips_a_scale_difference_that_is_only_float_rounding(self):
         image = ScanImage(
             data=np.zeros((40, 40)), scale_x=3.0000000000033e-6, scale_y=3e-6

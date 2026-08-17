@@ -9,6 +9,7 @@ from conversion.resample import (
     resample_array_2d_nan_aware,
     select_interpolation,
     DEFAULT_ATOL,
+    DEFAULT_RTOL,
 )
 from conversion.surface_comparison.cell_registration.geometry import pad_image_array
 from conversion.surface_comparison.cell_registration.models import Stage
@@ -56,7 +57,10 @@ def compute_cap_factor(
     :raises ValueError: If the two images are not on the same pixel scale.
     """
     if not np.isclose(
-        reference_image.scale_x, comparison_image.scale_x, atol=DEFAULT_ATOL
+        reference_image.scale_x,
+        comparison_image.scale_x,
+        atol=DEFAULT_ATOL,
+        rtol=DEFAULT_RTOL,
     ):
         raise ValueError(
             f"Reference ({reference_image.scale_x}) and comparison "

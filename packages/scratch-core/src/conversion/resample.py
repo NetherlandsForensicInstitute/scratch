@@ -19,7 +19,8 @@ _INTERPOLATION_FLAGS = {
     "linear": cv2.INTER_LINEAR,
     "nearest": cv2.INTER_NEAREST,
 }
-DEFAULT_ATOL = 1e-15
+DEFAULT_ATOL = 0.0
+DEFAULT_RTOL = 1e-3
 # A resampled pixel is marked invalid if its source block was covered less than this fraction by valid data.
 NAN_AWARE_VALIDITY_THRESHOLD = 0.5
 # Interpolation for shrinking an image.
@@ -86,7 +87,7 @@ def resample_scan_image_nan_aware(image: ScanImage, target_scale: float) -> Scan
     factors = get_scaling_factors(
         scales=(image.scale_x, image.scale_y), target_scale=target_scale
     )
-    if np.allclose(factors, 1.0, atol=DEFAULT_ATOL):
+    if np.allclose(factors, 1.0):
         return image
     return ScanImage(
         data=resample_array_2d_nan_aware(

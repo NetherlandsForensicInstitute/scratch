@@ -6,7 +6,7 @@ from loguru import logger
 from container_models.base import FloatArray2D, Points2D
 from container_models.scan_image import ScanImage
 from conversion.exceptions import ImageNotIsotropicError
-from conversion.resample import DEFAULT_ATOL
+from conversion.resample import DEFAULT_ATOL, DEFAULT_RTOL
 from conversion.surface_comparison.models import Cell, ComparisonParams
 
 
@@ -88,7 +88,9 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
 
 
 def assert_image_is_isotropic(scan_image: ScanImage) -> None:
-    if not np.isclose(scan_image.scale_x, scan_image.scale_y, atol=DEFAULT_ATOL):
+    if not np.isclose(
+        scan_image.scale_x, scan_image.scale_y, atol=DEFAULT_ATOL, rtol=DEFAULT_RTOL
+    ):
         raise ImageNotIsotropicError(
             scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
         )
