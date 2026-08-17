@@ -271,49 +271,27 @@ class TestPadImageArray:
 
 class TestMapCoarseToFull:
     """
-    One coarse pixel covers a ``cap_factor``-wide block of full-resolution pixels, and maps onto
-    the *center* of that block — the convention cv2.resize resamples on.
+    Coordinates are edge-based: pixel *i* spans ``[i, i + 1)``, so the image's left edge sits at
+    exactly ``padding`` on either canvas. In that convention the mapping is a pure scaling of the
+    offset from the padded origin — no half-pixel term, since area-averaging preserves edges.
     """
-
-    @staticmethod
-    def _block_center(coarse_index: int, cap_factor: int) -> float:
-        """Center of the full-resolution block that unpadded coarse pixel *coarse_index* covers."""
-        return float(
-            np.arange(coarse_index * cap_factor, (coarse_index + 1) * cap_factor).mean()
-        )
 
     def test_factor_one_and_equal_padding_is_identity(self):
         assert map_coarse_to_full(7.0, 1, 3, 3) == pytest.approx(7.0)
 
     @pytest.mark.parametrize(
-        ("coarse_index", "cap_factor"), [(0, 4), (1, 4), (3, 4), (3, 2)]
+        ("coarse", "factor", "expected"),
+        [(2.0, 4, 10.0), (3.0, 4, 14.0), (5.0, 4, 22.0), (5.0, 2, 16.0)],
     )
-    def test_scales_the_offset_from_the_padded_origin(self, coarse_index, cap_factor):
-        # Arrange: two coarse pixels of padding against ten full ones.
-        coarse_padding, full_padding = 2, 10
+    def test_scales_the_offset_from_the_padded_origin(self, coarse, factor, expected):
+        # Arrange / Act / Assert: two coarse pixels of padding against 10 full ones.
+        assert map_coarse_to_full(coarse, factor, 2, 10) == pytest.approx(expected)
 
-        # Act
-        result = map_coarse_to_full(
-            coarse_padding + coarse_index, cap_factor, coarse_padding, full_padding
-        )
-
-        # Assert
-        assert result == pytest.approx(
-            full_padding + self._block_center(coarse_index, cap_factor)
-        )
-
-    @pytest.mark.parametrize("cap_factor", [1, 2, 4, 6])
-    def test_the_first_image_pixel_maps_onto_its_block_center(self, cap_factor):
-        # Arrange: the image starts at the padding on both canvases.
-        coarse_padding, full_padding = 9, 50
-
-        # Act
-        result = map_coarse_to_full(
-            float(coarse_padding), cap_factor, coarse_padding, full_padding
-        )
-
-        # Assert: the block's center, not its left edge.
-        assert result == pytest.approx(full_padding + self._block_center(0, cap_factor))
+    @pytest.mark.parametrize("factor", [1.0, 2.0, 4.0, 6.0])
+    def test_maps_the_padding_onto_the_padding(self, factor):
+        # Arrange / Act / Assert: the image starts at the padding on both canvases, whatever
+        # the factor — the paddings are unrelated in size.
+        assert map_coarse_to_full(9.0, factor, 9, 50) == pytest.approx(50.0)
 
     def test_removes_the_coarse_padding_before_scaling_it(self):
         # Arrange: 9 coarse pixels of padding cover 54 full pixels, not the 50 of the full canvas,
@@ -329,15 +307,15 @@ class TestMapCoarseToFull:
         )
 
         # Assert
-        assert first == pytest.approx(full_padding + self._block_center(0, 6))
+        assert first == pytest.approx(full_padding)
         assert second - first == pytest.approx(factor)
 
     @pytest.mark.parametrize("cap_factor", [2, 4, 8])
     def test_agrees_with_the_grid_the_coarse_image_is_resampled_on(self, cap_factor):
         """
         The mapping is only correct relative to how the coarse canvas was built. Area-averaging a
-        ramp whose values are each pixel's own x coordinate leaves every coarse pixel holding the
-        full-resolution coordinate at its center — exactly what the mapping must return.
+        ramp of pixel indices leaves coarse pixel *j* holding the mean index of its source block,
+        so adding half a pixel to both sides compares the two blocks' centers as edge coordinates.
         """
         # Arrange
         width = 32 * cap_factor
@@ -348,9 +326,9 @@ class TestMapCoarseToFull:
 
         # Assert
         for coarse_x in range(coarse.shape[1]):
-            assert map_coarse_to_full(coarse_x, cap_factor, 0, 0) == pytest.approx(
-                coarse[0, coarse_x], abs=1e-3
-            )
+            assert map_coarse_to_full(
+                coarse_x + 0.5, cap_factor, 0, 0
+            ) == pytest.approx(coarse[0, coarse_x] + 0.5, abs=1e-3)
 
 
 class TestCoordinateMapping:

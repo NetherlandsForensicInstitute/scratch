@@ -166,8 +166,7 @@ def map_coarse_to_full(
     Map a coordinate on the padded coarse canvas onto the padded full-resolution canvas.
 
     The two canvases are padded by different amounts, so one padding comes off before scaling
-    and the other goes on after. The half-pixel shifts follow cv2.resize,
-    which centers output pixel *j* at ``(j + 0.5) * s - 0.5``.
+    and the other goes on after.
 
     :param coarse_value: Coordinate on the padded coarse canvas.
     :param cap_factor: Full-resolution pixels per coarse pixel.
@@ -175,7 +174,7 @@ def map_coarse_to_full(
     :param full_padding: Padding on one side of the full canvas, in full-resolution pixels.
     :returns: The matching coordinate on the padded full-resolution canvas.
     """
-    return (coarse_value - coarse_padding + 0.5) * cap_factor - 0.5 + full_padding
+    return (coarse_value - coarse_padding) * cap_factor + full_padding
 
 
 def build_rotation_matrix(
