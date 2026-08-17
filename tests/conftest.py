@@ -9,8 +9,7 @@ import pytest
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType
-from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
-from conversion.plots.utils import build_results_metadata_impression
+from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs, build_results_metadata_impression
 from conversion.profile_correlator import Profile
 from fastapi.testclient import TestClient
 from lir import LLRData
@@ -44,7 +43,7 @@ def tmp_dir_api(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
 
 @pytest.fixture(scope="module")
 def directory_access() -> DirectoryAccess:
-    directory = DirectoryAccess(tag="test")
+    directory = DirectoryAccess()
     directory.resource_path.mkdir(parents=True, exist_ok=True)
     return directory
 
@@ -98,11 +97,13 @@ def mask_raw(mask: BinaryMask) -> bytes:
 
 @pytest.fixture
 def dummy_mark() -> Mark:
+    # Use scale_x=1e-5 so that the default BREECH_FACE_IMPRESSION cell size
+    # (450 µm) maps to ~45 pixels, fitting in a 50x50 image.
     return Mark(
         scan_image=ScanImage(
             data=np.random.default_rng(42).random((50, 50)).astype(np.float64),
-            scale_x=1e-6,
-            scale_y=1e-6,
+            scale_x=1e-5,
+            scale_y=1e-5,
         ),
         mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
     )

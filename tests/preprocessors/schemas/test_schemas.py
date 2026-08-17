@@ -10,7 +10,7 @@ from settings import get_settings
 def test_get_output_files(directory_access: DirectoryAccess) -> None:
     """Test that get_output_files returns correct file paths."""
     # Arrange
-    directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
+    directory = get_settings().storage / directory_access.token.hex
     expected_paths = (
         directory / "scan.x3p",
         directory / "preview.png",

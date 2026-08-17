@@ -1,11 +1,11 @@
-from dataclasses import asdict
 from http import HTTPStatus
 
+from conversion.data_formats import MarkImpressionType
 from conversion.export.mark import load_mark_from_path, save_mark
 from conversion.export.profile import load_profile_from_path
 from conversion.surface_comparison.models import ProcessedMark
 from conversion.surface_comparison.pipeline import compare_surfaces
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 from loguru import logger
 
@@ -25,6 +25,7 @@ from processors.schemas import (
     CalculateLRStriation,
     CalculateScore,
     CalculateScoreImpression,
+    ComparisonImpressionMetrics,
     ComparisonResponseImpression,
     ComparisonResponseImpressionURL,
     ComparisonResponseStriation,
@@ -65,16 +66,15 @@ async def processor_root() -> RedirectResponse:
     performs pairwise CMC (Congruent Matching Cells) comparison, and calculates a score.
     The score, together with plots, are saved and made available via URLs.
     """,
-    include_in_schema=False,
     responses={
         HTTPStatus.NOT_FOUND: {"description": "mark file not found"},
-        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data or comparison failed"},
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"description": "invalid mark data, mark type mismatch, or comparison failed"},
     },
 )
 async def calculate_score_impression(impression_params: CalculateScoreImpression) -> ComparisonResponseImpression:
     """Compare two impression profiles."""
     logger.debug("starting calculate score impression")
-    vault = create_vault(impression_params.tag)
+    vault = create_vault()
 
     mark_ref = load_mark_from_path(path=impression_params.mark_dir_ref, stem="processed")
     mark_ref_raw = load_mark_from_path(path=impression_params.mark_dir_ref, stem="mark")
@@ -83,6 +83,18 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     mark_comp_raw = load_mark_from_path(path=impression_params.mark_dir_comp, stem="mark")
     mark_comp_processed = ProcessedMark(mark_comp, mark_comp_raw)
     logger.debug("marks loaded")
+
+    if mark_ref.mark_type != mark_comp.mark_type:
+        message = (
+            f"Mark type mismatch: reference mark has type {mark_ref.mark_type}, "
+            f"while comparison mark has type {mark_comp.mark_type}"
+        )
+        logger.error(message)
+        raise HTTPException(HTTPStatus.UNPROCESSABLE_ENTITY, message)
+    if not isinstance(mark_ref.mark_type, MarkImpressionType):
+        message = f"Mark type mismatch: expected a MarkImpressionType but got {mark_ref.mark_type}"
+        logger.error(message)
+        raise HTTPException(HTTPStatus.UNPROCESSABLE_ENTITY, message)
 
     cmc_result = compare_surfaces(
         reference_mark=mark_ref_processed,
@@ -103,17 +115,15 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     )
     logger.debug(f"images saved in:{vault.resource_path}")
 
-    comparison_results = {
-        "n_cells": cmc_result.cell_count,
-        "score": cmc_result.cmc_count,
-        "cmc_fraction": cmc_result.cmc_fraction,
-        "cmc_area_fraction": cmc_result.cmc_area_fraction,
-        "estimated_rotation": cmc_result.estimated_rotation,
-        "estimated_translation": cmc_result.estimated_translation,
-    }
+    comparison_results = ComparisonImpressionMetrics(
+        score=cmc_result.cmc_count,
+        cmc_area_fraction=cmc_result.cmc_area_fraction,
+        estimated_rotation=cmc_result.estimated_rotation,
+        estimated_translation=cmc_result.estimated_translation,
+    )
     return ComparisonResponseImpression(
         urls=ComparisonResponseImpressionURL.from_enum(enum=ComparisonImpressionFiles, base_url=vault.access_url),
-        cells=[cell.model_dump() for cell in cmc_result.cells],
+        cells=list(cmc_result.cells),
         comparison_results=comparison_results,
     )
 
@@ -134,7 +144,7 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
 async def calculate_score_striation(striation_params: CalculateScore) -> ComparisonResponseStriation:
     """Compare two striation profiles."""
     logger.debug("starting calculate score striation")
-    vault = create_vault(striation_params.tag)
+    vault = create_vault()
     mark_ref = load_mark_from_path(path=striation_params.mark_dir_ref, stem="processed")
     mark_comp = load_mark_from_path(path=striation_params.mark_dir_comp, stem="processed")
     profile_ref = load_profile_from_path(path=striation_params.mark_dir_ref, stem="profile")
@@ -184,7 +194,7 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
 
     return ComparisonResponseStriation(
         urls=ComparisonResponseStriationURL.from_enum(enum=ComparisonStriationFiles, base_url=vault.access_url),
-        comparison_results=asdict(comparison_result.comparison_results),
+        comparison_results=comparison_result.comparison_results,
     )
 
 
@@ -202,7 +212,7 @@ async def calculate_score_striation(striation_params: CalculateScore) -> Compari
 )
 async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse:
     """Calculate likelihood ratio for impression mark comparison."""
-    vault = create_vault(lr_input.tag)
+    vault = create_vault()
     result = process_lr_impression(lr_input=lr_input, working_dir=vault.resource_path)
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),
@@ -226,7 +236,7 @@ async def calculate_lr_impression(lr_input: CalculateLRImpression) -> LRResponse
 )
 async def calculate_lr_striation(lr_input: CalculateLRStriation) -> LRResponse:
     """Calculate likelihood ratio for striation mark comparison."""
-    vault = create_vault(lr_input.tag)
+    vault = create_vault()
     result = process_lr_striation(lr_input=lr_input, working_dir=vault.resource_path)
     return LRResponse(
         urls=LRResponseURL.from_enum(enum=LRFiles, base_url=vault.access_url),

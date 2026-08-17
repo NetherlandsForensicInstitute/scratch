@@ -3,8 +3,10 @@ from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 import pytest
-from conversion.data_formats import MarkMetadata
+from container_models.scan_image import ScanImage
+from conversion.data_formats import Mark, MarkImpressionType, MarkMetadata, MarkStriationType
 from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
 from conversion.surface_comparison.models import ComparisonParams
 from fastapi.testclient import TestClient
@@ -27,7 +29,6 @@ def _dummy_metadata() -> MarkMetadata:
 
 def _default_comparison_params() -> ComparisonParams:
     return ComparisonParams(
-        cell_size=(50e-6, 50e-6),
         search_angle_min=-5.0,
         search_angle_max=5.0,
         search_angle_step=5.0,
@@ -67,13 +68,8 @@ class TestMarkStriation:
             "mark_compared_aligned_surface_map",
             "mark_compared_aligned_preview",
         }
-        expected_data = {
-            "mark_reference_aligned_meta",
-            "mark_reference_aligned_data",
-            "mark_compared_aligned_data",
-            "mark_compared_aligned_meta",
-            "comparison_results",
-        }
+        expected_npz = {"mark_reference_aligned_data", "mark_compared_aligned_data"}
+        expected_json = {"mark_reference_aligned_meta", "mark_compared_aligned_meta"}
 
         json_data = CalculateScore(
             mark_dir_ref=mark_dir_ref,
@@ -97,15 +93,21 @@ class TestMarkStriation:
 
         assert response.status_code == HTTPStatus.OK, response.json()
         response_data = response.json()
-        assert response_data.keys() == (expected_images | expected_data)
+        assert set(response_data["urls"]) == (expected_images | expected_npz | expected_json)
 
-        url_keys = (expected_images | expected_data) - {"comparison_results"}
-        urls = {k: v for k, v in response_data.items() if k in url_keys}
-        assert all(HttpUrl(url) for url in urls.values())
-        assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
+        assert all(HttpUrl(url) for url in response_data["urls"].values())
+        assert all(client.get(url).status_code == HTTPStatus.OK for url in response_data["urls"].values())
 
         for key in expected_images:
-            assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
+            assert client.get(response_data["urls"][key]).headers["content-type"] == "image/png", f"{key} should be PNG"
+        for key in expected_npz:
+            assert client.get(response_data["urls"][key]).headers["content-type"] == "application/octet-stream", (
+                f"{key} should be NPZ"
+            )
+        for key in expected_json:
+            assert client.get(response_data["urls"][key]).headers["content-type"] == "application/octet-stream", (
+                f"{key} should be JSON"
+            )
 
 
 class TestMarkStriationExceptionHandlers:
@@ -161,6 +163,8 @@ class TestMarkImpression:
         }
         expected_data = {
             "cells",
+            "cmc_fraction",
+            "n_cells",
             "comparison_results",
         }
 
@@ -191,19 +195,18 @@ class TestMarkImpression:
 
         assert response.status_code == HTTPStatus.OK, response.json()
         response_data = response.json()
-        assert response_data.keys() == (expected_images | expected_data)
+        assert set(response_data["urls"]) == expected_images
+        assert set(response_data) - {"urls"} == expected_data
 
         # Verify cells exist
         assert len(response_data["cells"]) > 0
 
         # Verify image URLs
-        url_keys = expected_images
-        urls = {k: v for k, v in response_data.items() if k in url_keys}
-        assert all(HttpUrl(url) for url in urls.values())
-        assert all(client.get(url).status_code == HTTPStatus.OK for url in urls.values())
+        assert all(HttpUrl(url) for url in response_data["urls"].values())
+        assert all(client.get(url).status_code == HTTPStatus.OK for url in response_data["urls"].values())
 
         for key in expected_images:
-            assert client.get(urls[key]).headers["content-type"] == "image/png", f"{key} should be PNG"
+            assert client.get(response_data["urls"][key]).headers["content-type"] == "image/png", f"{key} should be PNG"
 
 
 class TestMarkImpressionExceptionHandlers:
@@ -245,6 +248,43 @@ class TestMarkImpressionExceptionHandlers:
             )
 
         assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+    def test_mark_type_mismatch_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+        """422 is returned when reference and comparison marks have different mark types."""
+        ref_mark = Mark(
+            scan_image=ScanImage(data=np.array([[0.0]]), scale_x=1e-6, scale_y=1e-6),
+            mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
+        )
+        comp_mark = Mark(
+            scan_image=ScanImage(data=np.array([[0.0]]), scale_x=1e-6, scale_y=1e-6),
+            mark_type=MarkStriationType.BULLET_LEA_STRIATION,
+        )
+
+        def load_side_effect(*args, **kwargs):
+            path = kwargs.get("path", args[0] if args else "")
+            return ref_mark if "ref" in str(path) else comp_mark
+
+        with patch("processors.router.load_mark_from_path", side_effect=load_side_effect):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "Mark type mismatch" in response.json()["detail"]
+
+    def test_non_impression_mark_type_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+        """422 is returned when the mark type is not an impression type."""
+        striation_mark = Mark(
+            scan_image=ScanImage(data=np.array([[0.0]]), scale_x=1e-6, scale_y=1e-6),
+            mark_type=MarkStriationType.BULLET_LEA_STRIATION,
+        )
+
+        def load_side_effect(*args, **kwargs):
+            return striation_mark
+
+        with patch("processors.router.load_mark_from_path", side_effect=load_side_effect):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "expected a MarkImpressionType" in response.json()["detail"]
 
 
 class TestCalculateLRImpression:

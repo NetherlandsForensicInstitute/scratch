@@ -1,5 +1,5 @@
 from typing import Annotated
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 import json
 
 from container_models.base import (
@@ -9,7 +9,6 @@ from container_models.base import (
 from functools import partial
 from pydantic import (
     Field,
-    computed_field,
     AfterValidator,
     PlainSerializer,
     BeforeValidator,
@@ -21,12 +20,28 @@ from container_models.base import (
     serialize_ndarray,
 )
 from container_models.scan_image import ScanImage
+from utils.validators import validate_enum_string
+
+
+class SurfaceTerms(IntEnum):
+    """Surface fitting options used in the leveling filter. The values represent their respective polynomial degree."""
+
+    NONE = 0
+    PLANE = 1
+    SPHERE = 2
+
+
+SurfaceTermsAnnotated = Annotated[SurfaceTerms, validate_enum_string(SurfaceTerms)]
 
 
 class MarkType(StrEnum):
     @property
     def scale(self) -> float:
         return 1.5e-6
+
+    @property
+    def cell_size(self) -> tuple[float, float]:
+        return 1.25e-4, 1.25e-4
 
 
 class MarkImpressionType(MarkType):
@@ -42,6 +57,12 @@ class MarkImpressionType(MarkType):
         if self == MarkImpressionType.BREECH_FACE_IMPRESSION:
             return 3.5e-6
         return 1.5e-6
+
+    @property
+    def cell_size(self) -> tuple[float, float]:
+        if self == MarkImpressionType.BREECH_FACE_IMPRESSION:
+            return 4.5e-4, 4.5e-4
+        return 1.25e-4, 1.25e-4
 
 
 class MarkStriationType(MarkType):
@@ -80,31 +101,11 @@ class Mark(ConfigBaseModel):
     scan_image: ScanImage
     mark_type: MarkType
     meta_data: dict = Field(default_factory=dict)
-    center_: tuple[float, float] | None = Field(default=None, alias="center")
-
-    @computed_field
-    @property
-    def center(self) -> tuple[float, float]:
-        """
-        Center point of the mark in image coordinates.
-
-        Returns the center as (x, y) where x is the horizontal position
-        (column) and y is the vertical position (row). If no explicit
-        center has been set, computes it as the geometric center of the
-        scan image.
-
-        :returns: Center coordinates as (x, y),
-        """
-        if self.center_ is not None:
-            return self.center_
-        data = self.scan_image.data
-        return data.shape[1] / 2, data.shape[0] / 2
 
     def export(self) -> str:
         """Export the `Mark` meta-data fields as a JSON string."""
         data = {
             "mark_type": self.mark_type.name,
-            "center": self.center,
             "scale_x": self.scan_image.scale_x,
             "scale_y": self.scan_image.scale_y,
             "meta_data": self.meta_data,

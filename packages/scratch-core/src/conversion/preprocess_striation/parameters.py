@@ -1,8 +1,7 @@
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 
-@dataclass(frozen=True)
-class PreprocessingStriationParams:
+class PreprocessingStriationParams(BaseModel):
     """
     Processing parameters for striation preprocessing.
 

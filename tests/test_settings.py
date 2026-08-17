@@ -1,6 +1,7 @@
 """Tests for application settings."""
 
 import tempfile
+from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from unittest.mock import patch
 
@@ -108,7 +109,8 @@ class TestSettings:
 
     def test_app_version_returns_fallback_when_package_not_found(self, settings: Settings) -> None:
         """Test that app_version returns '0.0.0' when package version cannot be determined."""
-        assert settings.app_version == "0.0.0"
+        with patch("settings.version", side_effect=PackageNotFoundError):
+            assert settings.app_version == "0.0.0"
 
     @patch("settings.version")
     def test_app_version_returns_package_version(self, mock_version) -> None:

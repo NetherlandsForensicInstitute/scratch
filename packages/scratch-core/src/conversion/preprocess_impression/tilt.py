@@ -5,7 +5,7 @@ import numpy as np
 from container_models.base import FloatArray1D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
-from conversion.preprocess_impression.utils import update_mark_scan_image, Point2D
+from conversion.preprocess_impression.utils import update_mark_scan_image
 
 
 class TiltEstimate(NamedTuple):
@@ -25,8 +25,8 @@ def apply_tilt_correction(
     :param mark: Input mark.
     :return: Corrected mark.
     """
-    adjusted_scan, center_local = _adjust_for_plane_tilt(mark.scan_image, mark.center)
-    return update_mark_scan_image(mark, adjusted_scan, center_local)
+    adjusted_scan = _adjust_for_plane_tilt(mark.scan_image)
+    return update_mark_scan_image(mark, adjusted_scan)
 
 
 def _estimate_plane_tilt(
@@ -58,19 +58,17 @@ def _estimate_plane_tilt(
 
 def _get_valid_coordinates(
     scan_image: ScanImage,
-    center: Point2D,
 ) -> tuple[FloatArray1D, FloatArray1D, FloatArray1D]:
     """
     Extract x, y, z coordinates of valid pixels, centered at origin.
 
     :param scan_image: Input scan image.
-    :param center: Center point to subtract (in meters).
     :return: Tuple of (x, y, z) coordinate arrays in meters.
     """
     rows, cols = np.where(scan_image.valid_mask)
 
-    xs = cols * scan_image.scale_x - center[0]
-    ys = rows * scan_image.scale_y - center[1]
+    xs = cols * scan_image.scale_x
+    ys = rows * scan_image.scale_y
     zs = scan_image.valid_data
 
     return xs.astype(np.float64), ys.astype(np.float64), zs
@@ -78,17 +76,15 @@ def _get_valid_coordinates(
 
 def _adjust_for_plane_tilt(
     scan_image: ScanImage,
-    center: Point2D,
-) -> tuple[ScanImage, Point2D]:
+) -> ScanImage:
     """
     Remove plane tilt from scan image and adjust scale factors.
 
     :param scan_image: Input scan image.
-    :param center: Center position in meters.
-    :return: Tuple of (leveled scan image, adjusted center).
+    :return: The leveled scan image
     :raises ValueError: If fewer than 3 valid points exist.
     """
-    xs, ys, zs = _get_valid_coordinates(scan_image, center)
+    xs, ys, zs = _get_valid_coordinates(scan_image)
 
     if len(xs) < 3:
         raise ValueError("Need at least 3 valid points to estimate plane tilt")
@@ -105,10 +101,4 @@ def _adjust_for_plane_tilt(
     scale_x_new = scan_image.scale_x / cos_x
     scale_y_new = scan_image.scale_y / cos_y
 
-    # Adjust center for new scales
-    center_new = (
-        center[0] / cos_x,
-        center[1] / cos_y,
-    )
-
-    return ScanImage(data=data, scale_x=scale_x_new, scale_y=scale_y_new), center_new
+    return ScanImage(data=data, scale_x=scale_x_new, scale_y=scale_y_new)

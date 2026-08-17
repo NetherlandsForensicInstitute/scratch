@@ -15,6 +15,7 @@ from requests import Response
 from models import DirectoryAccess
 from preprocessors.pipelines import parse_scan_pipeline
 from settings import get_settings
+from tests.constants import CUTOFF_LENGTH
 from tests.helper_functions import _save_impression_mark, _save_striation_mark_and_profile, make_cell
 
 
@@ -70,11 +71,10 @@ class TestContracts:
         """
         return EndpointContractInterface(
             expected_input={
-                "project_name": "forensic_analysis_2026",
                 "scan_file": str((scan_directory / "circle.x3p").absolute()),
-                "scale_x": "1",
-                "scale_y": "1",
-                "step_size": "1",
+                "scale_x": 1e-6,
+                "scale_y": 1e-6,
+                "step_size": 1,
             },
             expected_urls={
                 "preview_image": ".png",
@@ -89,21 +89,22 @@ class TestContracts:
 
         Returns the post request data, expected response type, and mask bytes.
         """
-        cutoff_length = 250
         scan_file = scan_directory / "Klein_non_replica_mode_X3P_Scratch.x3p"
         parsed_scan = parse_scan_pipeline(scan_file, 1, 1)
+        mask = np.ones(parsed_scan.data.shape, dtype=np.bool_)
+        mask[:10, :10] = False
         return EndpointContractInterface(
             expected_input={
                 "scan_file": scan_file,
-                "cutoff_length": cutoff_length,
+                "cutoff_length": CUTOFF_LENGTH,
                 "mask_is_bitpacked": False,
-                "terms": "plane",
+                "surface_terms": "plane",
             },
             expected_urls={
                 "preview_image": ".png",
                 "surface_map_image": ".png",
             },
-        ), np.ones(parsed_scan.data.shape, dtype=np.bool_).tobytes(order="C")
+        ), mask.tobytes(order="C")
 
     @pytest.fixture(scope="class")
     def prepare_mark_impression(self, scan_directory: Path, mask_raw: bytes) -> tuple[EndpointContractInterface, bytes]:
@@ -121,9 +122,7 @@ class TestContracts:
                 "mark_parameters": {
                     "pixel_size": None,
                     "adjust_pixel_spacing": True,
-                    "level_offset": True,
-                    "level_tilt": True,
-                    "level_2nd": True,
+                    "surface_terms": "sphere",
                     "interp_method": "cubic",
                     "highpass_cutoff": 250.0e-6,
                     "lowpass_cutoff": 5.0e-6,
@@ -206,7 +205,6 @@ class TestContracts:
                     "mark_id": "mark_2",
                 },
                 "comparison_params": {
-                    "cell_size": [25e-6, 25e-6],
                     "minimum_fill_fraction": 0.1,
                 },
             },
@@ -223,6 +221,8 @@ class TestContracts:
             },
             expected_fields={
                 "cells": list,
+                "n_cells": int,
+                "cmc_fraction": float,
                 "comparison_results": dict,
             },
         )
@@ -306,7 +306,6 @@ class TestContracts:
                 "user_id": "ABCDE",
                 "date_report": "2000-01-01",
                 "score": 1,
-                "n_cells": 5,
                 "cells": [
                     make_cell(
                         center_reference=(i * 1e-3, 0.0),
@@ -389,14 +388,19 @@ class TestContracts:
         body = response.json()
         assert response.status_code == HTTPStatus.OK, response.text
 
-        expected_keys = data.expected_urls.keys() | data.expected_fields.keys()
-        assert expected_keys == body.keys(), "response keys should match expected keys"
+        if "urls" in body:
+            assert body["urls"].keys() == data.expected_urls.keys(), "response URLs should match expected URLs"
+            assert set(body) - {"urls"} == set(data.expected_fields), "response keys should match expected keys"
+        else:
+            assert body.keys() == (data.expected_fields | data.expected_urls).keys(), (
+                "response keys should match expected keys"
+            )
 
         for key, expected_type in data.expected_fields.items():
             assert isinstance(body[key], expected_type), f"{key}: expected {expected_type}, got {type(body[key])}"
 
         for key, expected_ext in data.expected_urls.items():
-            url = body[key]
+            url = body["urls"][key] if "urls" in body else body[key]
             assert HttpUrl(url), f"{key} should be a valid URL"
             file_response = requests.get(url, timeout=10)
             assert file_response.status_code == HTTPStatus.OK, f"{key} URL should be reachable"

@@ -69,11 +69,11 @@ class TestProcessScan:
         """Test that process-scan creates expected output files with correct URLs and file structure."""
         # Arrange
         base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
-        directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
+        directory = get_settings().storage / directory_access.token.hex
 
         # Act
         with monkeypatch.context() as mp:
-            mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+            mp.setattr("preprocessors.router.create_vault", lambda: directory_access)
             response = post_process_scan()
 
         expected_response = ProcessedDataAccess(
@@ -98,8 +98,8 @@ class TestProcessScan:
     ) -> None:
         """Test that processing the same scan file twice overwrites existing output files."""
         # Arrange
-        monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
-        directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
+        monkeypatch.setattr("preprocessors.router.create_vault", lambda: directory_access)
+        directory = get_settings().storage / directory_access.token.hex
 
         # Act I
         _ = post_process_scan()
@@ -147,10 +147,6 @@ class TestProcessScan:
 
 class TestProcessScanExceptionHandlers:
     """Test that global exception handlers return correct HTTP responses for /process-scan."""
-
-    @pytest.fixture(autouse=True)
-    def _patch_vault(self, monkeypatch: pytest.MonkeyPatch, directory_access: DirectoryAccess) -> None:
-        monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
 
     def test_file_not_found_returns_404(
         self, client: TestClient, upload_scan: UploadScan, monkeypatch: pytest.MonkeyPatch, raiser: Callable

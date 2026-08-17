@@ -1,8 +1,7 @@
 from functools import cached_property
-from typing import Any
 
 import numpy as np
-from pydantic import Field, field_validator, PositiveFloat
+from pydantic import Field, field_validator
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -10,7 +9,7 @@ from dataclasses import dataclass
 from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
-from conversion.data_formats import Mark, MarkImpressionType
+from conversion.data_formats import Mark
 
 
 @dataclass(frozen=True)
@@ -35,7 +34,7 @@ class CellMetaData(ConfigBaseModel):
 
     is_outlier: bool
     residual_angle_deg: float = Field(ge=-180, le=180)
-    position_error: tuple[float, float]
+    position_error: tuple[float, float] = Field(..., examples=[-9.12, 6.8])
 
 
 class Cell(ConfigBaseModel):
@@ -55,12 +54,12 @@ class Cell(ConfigBaseModel):
         position error) populated by the classifier.
     """
 
-    center_reference: tuple[float, float]
-    cell_size: tuple[float, float]
+    center_reference: tuple[float, float] = Field(..., examples=[(4.5, 1.4)])
+    cell_size: tuple[float, float] = Field(..., examples=[(2.1, 1.90)])
     fill_fraction_reference: float = Field(ge=0.0, le=1.0)
     best_score: float = Field(ge=-1.0, le=1.0)
     angle_deg: float = Field(ge=-180, le=180)
-    center_comparison: tuple[float, float]
+    center_comparison: tuple[float, float] = Field(..., examples=[(5.6, 7.4)])
     is_congruent: bool
     meta_data: CellMetaData
 
@@ -118,33 +117,11 @@ class ComparisonResult:
         return cmc_area / total_area
 
 
-_CELL_SIZE_BY_MARK_TYPE: dict[MarkImpressionType, tuple[float, float]] = {
-    MarkImpressionType.BREECH_FACE_IMPRESSION: (4.5e-4, 4.5e-4),
-    MarkImpressionType.CHAMBER_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkImpressionType.EJECTOR_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkImpressionType.EXTRACTOR_IMPRESSION: (1.25e-4, 1.25e-4),
-    MarkImpressionType.FIRING_PIN_IMPRESSION: (1.25e-4, 1.25e-4),
-}
-
-
 class ComparisonParams(ConfigBaseModel):
     """
     Parameters for the Congruent Matching Cells (CMC) algorithm.
 
-    Use :meth:`for_mark_type` to construct an instance with mark-type-appropriate
-    defaults (e.g. cell size) rather than constructing directly.
-
-    Supported mark types and their default cell sizes:
-
-    - ``BREECH_FACE_IMPRESSION``: 450 × 450 μm
-    - ``CHAMBER_IMPRESSION``: 125 × 125 μm
-    - ``EJECTOR_IMPRESSION``: 125 × 125 μm
-    - ``EXTRACTOR_IMPRESSION``: 125 × 125 μm
-    - ``FIRING_PIN_IMPRESSION``: 125 × 125 μm
-
-    :param cell_size: Nominal cell size [width, height] in meters.
-    :param minimum_fill_fraction: Minimum fraction of valid pixels required in a
-        reference cell for it to be processed.
+    :param minimum_fill_fraction: Minimum fraction of valid pixels required in a reference cell for it to be processed.
     :param correlation_threshold: Minimum per-cell ACCF score for CMC classification.
     :param angle_deviation_threshold: Maximum absolute angular deviation from consensus for CMC (degrees).
     :param position_threshold: Maximum positional deviation from consensus for CMC (m).
@@ -152,27 +129,6 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_max: Upper bound of rotation search range (degrees).
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
     """
-
-    cell_size: tuple[PositiveFloat, PositiveFloat] = (4.5e-4, 4.5e-4)
-
-    @classmethod
-    def for_mark_type(
-        cls, mark_type: MarkImpressionType, **kwargs: Any
-    ) -> "ComparisonParams":
-        """Create a :class:`ComparisonParams` with the default cell size for *mark_type*.
-
-        Any additional keyword arguments override the other defaults.
-
-        :param mark_type: The mark type to look up the default cell size for.
-        :param kwargs: Additional field overrides.
-        :returns: A :class:`ComparisonParams` instance.
-        :raises ValueError: If *mark_type* has no registered default cell size.
-        """
-        if mark_type not in _CELL_SIZE_BY_MARK_TYPE:
-            raise ValueError(
-                f"No default cell size registered for mark type: {mark_type!r}"
-            )
-        return cls(cell_size=_CELL_SIZE_BY_MARK_TYPE[mark_type], **kwargs)
 
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
     correlation_threshold: float = Field(default=0.25, ge=-1.0, le=1.0)

@@ -1,3 +1,9 @@
+# ruff: noqa: E402
+import cv2
+import matplotlib
+
+matplotlib.use("Agg")
+
 import json
 import shutil
 from contextlib import asynccontextmanager
@@ -7,13 +13,20 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import ValidationError
+from threadpoolctl import threadpool_limits
 from uvicorn import run
 
 from constants import LogLevel
 from helpers import setup_logging
-from preprocessors.exceptions import ArrayShapeMismatchError
+from preprocessors.exceptions import ArrayShapeMismatchError, EmptyMaskError
 from routers import prefix_router
 from settings import get_settings
+
+# Windows uses spawn, not fork: OpenCV and BLAS each reinit their own thread
+# pool per-thread, and under ThreadPoolExecutor these race and corrupt memory.
+# Not needed on Linux, where fork shares already-initialized state.
+cv2.setNumThreads(1)
+_thread_limiter = threadpool_limits(limits=1, user_api="blas")
 
 _PARSE_EXCEPTIONS = (json.JSONDecodeError, ValidationError, ValueError, KeyError)
 
@@ -26,7 +39,7 @@ async def _lifespan(_: FastAPI):
     This context manager configures the application with settings and
     manages the storage directory lifecycle.
     """
-    setup_logging(LogLevel.INFO)  # TODO: We can move this config of loglevel to env
+    setup_logging(LogLevel.DEBUG)  # TODO: We can move this config of loglevel to env
     settings = get_settings()
     settings.log_startup_config()
 
@@ -72,6 +85,14 @@ async def array_shape_mismatch_handler(request: Request, exc: ArrayShapeMismatch
     return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
 
 
+@app.exception_handler(EmptyMaskError)
+async def empty_mask_handler(request: Request, exc: EmptyMaskError) -> JSONResponse:
+    """Return a 422 JSON response for unhandled EmptyMaskError exceptions."""
+    message = str(exc)
+    logger.warning(message)
+    return JSONResponse(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, content={"detail": message})
+
+
 async def parse_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Return a 422 JSON response for unhandled parse exceptions."""
     message = f"Data parsing error: {exc}"
@@ -81,7 +102,6 @@ async def parse_exception_handler(request: Request, exc: Exception) -> JSONRespo
 
 for exc_type in _PARSE_EXCEPTIONS:
     app.add_exception_handler(exc_type, parse_exception_handler)
-
 
 if __name__ == "__main__":
     settings = get_settings()

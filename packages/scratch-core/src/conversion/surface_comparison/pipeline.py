@@ -1,3 +1,5 @@
+import logging
+
 from conversion.resample import resample_scan_image_and_mask
 
 
@@ -14,6 +16,8 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
     ProcessedMark,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def compare_surfaces(
@@ -52,19 +56,23 @@ def compare_surfaces(
     comparison_image = comparison_mark.filtered_mark.scan_image
 
     # Step 1: Resample comparison so that both have the same pixel size
+    logger.debug("starting resample")
     pixel_size = reference_image.scale_x  # Assumes isotropic image
     comparison_image, _ = resample_scan_image_and_mask(
         scan_image=comparison_image, target_scale=pixel_size, preserve_aspect_ratio=True
     )
 
     # Step 2: Generate grid cells
+    logger.debug("starting grid generation")
+    mark_type = reference_mark.filtered_mark.mark_type
     grid_cells = generate_grid(
         scan_image=reference_image,
-        cell_size=params.cell_size,
+        cell_size=mark_type.cell_size,
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
 
     # Step 3: Coarse registration
+    logger.debug("starting coarse registration")
     cells = coarse_registration(
         grid_cells=grid_cells,
         comparison_image=comparison_image,
@@ -72,9 +80,11 @@ def compare_surfaces(
     )
 
     # Step 4: Fine registration
+    logger.debug("starting fine registration")
     cells = fine_registration(comparison_mark=comparison_mark, cells=cells)
 
     # Step 5: CMC classification
+    logger.debug("starting cmc classification")
     comparison_result = classify_congruent_cells_median(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )

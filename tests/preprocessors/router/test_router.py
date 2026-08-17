@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from container_models.base import BinaryMask
-from conversion.data_formats import MarkImpressionType, MarkStriationType
+from conversion.data_formats import MarkImpressionType, MarkStriationType, SurfaceTerms
 from fastapi.testclient import TestClient
 from httpx import Response
 from pydantic import HttpUrl
@@ -15,7 +15,7 @@ from utils.constants import RegressionOrder
 
 from constants import PreprocessorEndpoint, RoutePrefix
 from models import DirectoryAccess
-from preprocessors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles, SurfaceOptions
+from preprocessors.constants import PrepareMarkImpressionFiles, PrepareMarkStriationFiles
 from preprocessors.schemas import (
     EditImage,
     GeneratedImages,
@@ -98,7 +98,7 @@ class TestPrepareMarkEndpoint:
     def set_dir_to_test_env(self, monkeypatch: pytest.MonkeyPatch, directory_access: DirectoryAccess) -> None:
         """Set up the directory access for tests."""
         directory_access.resource_path.mkdir(exist_ok=True)
-        monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        monkeypatch.setattr("preprocessors.router.create_vault", lambda: directory_access)
 
     @pytest.fixture(autouse=True)
     def set_scan_file_path(self, scan_directory: Path):
@@ -113,7 +113,6 @@ class TestPrepareMarkEndpoint:
     ) -> dict:
         """Generate the schema payload for the prepare-mark endpoint."""
         return schema(
-            project_name="test_project",
             mark_type=mark_type,  # type: ignore
             scan_file=self.scan_file_path,
             bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
@@ -205,11 +204,10 @@ class TestPrepareMarkEndpoint:
         # Assert
         assert response.status_code == HTTPStatus.OK, f"endpoint is alive, {response.text}"
         json_response = response.json()
-        base_url = f"http://localhost:8000/preprocessor/files/{payload['project_name']}/"
+        base_url = "http://localhost:8000/preprocessor/files/"
         for key, url in json_response.items():
             expected_url_start = base_url
             assert url.startswith(directory_access.access_url), f"URL for {key} should start with {expected_url_start}"
-            # TODO: retrieve tag and token from url and find file in vault to ensure correctness
 
 
 class TestPrepareMarkExceptionHandlers:
@@ -218,15 +216,10 @@ class TestPrepareMarkExceptionHandlers:
     One test per exception type; striation is used as the representative endpoint.
     """
 
-    @pytest.fixture(autouse=True)
-    def _patch_vault(self, monkeypatch: pytest.MonkeyPatch, directory_access: DirectoryAccess) -> None:
-        monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
-
     @pytest.fixture
     def striation_payload(self, scan_directory: Path) -> dict:
         """Fixture for building a JSON-like dict."""
         return PrepareMarkStriation(
-            project_name="test_project",
             mark_type=MarkStriationType.APERTURE_SHEAR_STRIATION,
             scan_file=scan_directory / "circle.x3p",
             bounding_box_list=[[1.0, 1.0], [10.0, 1.0], [10.0, 10.0], [1.0, 10.0]],
@@ -304,18 +297,13 @@ class TestPrepareMarkExceptionHandlers:
 class TestEditScanExceptionHandlers:
     """Test that global exception handlers return correct HTTP responses for /edit-scan."""
 
-    @pytest.fixture(autouse=True)
-    def _patch_vault(self, monkeypatch: pytest.MonkeyPatch, directory_access: DirectoryAccess) -> None:
-        monkeypatch.setattr("preprocessors.router.create_vault", lambda _: directory_access)
-
     @pytest.fixture
     def edit_scan_params(self, scan_directory: Path) -> dict:
         """Fixture for building a JSON-like dict."""
         return EditImage(
-            project_name="test",
             scan_file=scan_directory / "circle.x3p",
             cutoff_length=2 * micro,
-            terms=SurfaceOptions.PLANE,
+            surface_terms=SurfaceTerms.PLANE,
         ).model_dump(mode="json")
 
     def test_file_not_found_returns_404(
@@ -361,24 +349,23 @@ def test_edit_image_returns_valid_images(
     """Tests if the endpoint gives back the expected outcome."""
     # Arrange
     base_url = f"{get_settings().base_url}/{RoutePrefix.EXTRACTOR}/files/{directory_access.token}"
-    directory = get_settings().storage / f"{directory_access.tag}-{directory_access.token.hex}"
+    directory = get_settings().storage / directory_access.token.hex
 
     mask = np.zeros(shape=(259, 259), dtype=np.bool_)
     mask[1:259, 1:259] = True
 
     params = EditImage(
-        project_name="test",
         scan_file=scan_directory / "circle.x3p",
         cutoff_length=2 * micro,
-        resampling_factor=0.5,
-        terms=SurfaceOptions.PLANE,
+        resampling_factor=1,
+        surface_terms=SurfaceTerms.PLANE,
         regression_order=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
         crop=True,
     ).model_dump(mode="json")
 
     # Act
     with monkeypatch.context() as mp:
-        mp.setattr("preprocessors.router.create_vault", lambda _: directory_access)
+        mp.setattr("preprocessors.router.create_vault", lambda: directory_access)
         response = send_post_request_with_mask(client=client, endpoint="edit-scan", params=params, mask=mask)
 
     # Assert

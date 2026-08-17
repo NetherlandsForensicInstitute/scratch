@@ -3,9 +3,10 @@ import pytest
 from numpy.testing import assert_array_equal
 from scipy.constants import micro
 
+
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
-from conversion.data_formats import Mark, MarkImpressionType
+from conversion.data_formats import Mark, MarkImpressionType, SurfaceTerms
 from conversion.filter.mark_filters import _apply_anti_aliasing
 from conversion.preprocess_impression.center import (
     _compute_map_center,
@@ -13,7 +14,6 @@ from conversion.preprocess_impression.center import (
     _get_bounding_box_center,
     _get_mask_inner_edge_points,
     _points_are_collinear,
-    compute_center_local,
 )
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.preprocess_impression import (
@@ -27,7 +27,7 @@ from conversion.preprocess_impression.tilt import (
 )
 from conversion.preprocess_impression.utils import update_mark_data
 
-from .helper_functions import make_mark
+from ..helper_functions import make_mark
 
 
 def make_circular_data(
@@ -288,7 +288,7 @@ class TestGetValidCoordinates:
             scale_x=1.0,
             scale_y=1.0,
         )
-        xs, ys, zs = _get_valid_coordinates(scan_image, center=(0, 0))
+        xs, ys, zs = _get_valid_coordinates(scan_image)
         assert len(xs) == 0
         assert len(ys) == 0
         assert len(zs) == 0
@@ -297,7 +297,7 @@ class TestGetValidCoordinates:
         data = np.full((5, 5), np.nan)
         data[2, 3] = 10.0  # row=2, col=3
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        xs, ys, zs = _get_valid_coordinates(scan_image, center=(0, 0))
+        xs, ys, zs = _get_valid_coordinates(scan_image)
         assert xs == pytest.approx([3.0])
         assert ys == pytest.approx([2.0])
         assert zs == pytest.approx([10.0])
@@ -306,18 +306,9 @@ class TestGetValidCoordinates:
         data = np.full((5, 5), np.nan)
         data[2, 3] = 10.0
         scan_image = ScanImage(data=data, scale_x=0.5, scale_y=0.25)
-        xs, ys, zs = _get_valid_coordinates(scan_image, center=(0, 0))
+        xs, ys, zs = _get_valid_coordinates(scan_image)
         assert xs == pytest.approx([1.5])  # 3 * 0.5
         assert ys == pytest.approx([0.5])  # 2 * 0.25
-        assert zs == pytest.approx([10.0])
-
-    def test_subtracts_center(self):
-        data = np.full((5, 5), np.nan)
-        data[2, 3] = 10.0
-        scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        xs, ys, zs = _get_valid_coordinates(scan_image, center=(1.0, 0.5))
-        assert xs == pytest.approx([2.0])  # 3 - 1.0
-        assert ys == pytest.approx([1.5])  # 2 - 0.5
         assert zs == pytest.approx([10.0])
 
     def test_returns_all_valid_pixels(self):
@@ -326,7 +317,7 @@ class TestGetValidCoordinates:
         data[1, 2] = 2.0
         data[2, 1] = 3.0
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        xs, ys, zs = _get_valid_coordinates(scan_image, center=(0, 0))
+        xs, ys, zs = _get_valid_coordinates(scan_image)
         assert len(xs) == 3
         assert set(zs) == {1.0, 2.0, 3.0}
 
@@ -338,7 +329,7 @@ class TestAdjustForPlaneTilt:
         data[1, 1] = 2.0
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
         with pytest.raises(ValueError):
-            _adjust_for_plane_tilt(scan_image, center=(0, 0))
+            _adjust_for_plane_tilt(scan_image)
 
     def test_returns_flat_data_for_tilted_plane(self):
         data = np.full((5, 5), np.nan)
@@ -346,7 +337,7 @@ class TestAdjustForPlaneTilt:
             for col in range(5):
                 data[row, col] = float(col)  # tilted in x direction
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        result, _ = _adjust_for_plane_tilt(scan_image, center=(0, 0))
+        result = _adjust_for_plane_tilt(scan_image)
         assert result.valid_data == pytest.approx(np.zeros(25), abs=1e-10)
 
     def test_adjusts_scale_for_tilt(self):
@@ -355,7 +346,7 @@ class TestAdjustForPlaneTilt:
             for col in range(5):
                 data[row, col] = float(col)
         scan_image = ScanImage(data=data, scale_x=1.0, scale_y=1.0)
-        result, _ = _adjust_for_plane_tilt(scan_image, center=(0, 0))
+        result = _adjust_for_plane_tilt(scan_image)
         assert result.scale_x > scan_image.scale_x
         assert result.scale_y == pytest.approx(scan_image.scale_y)
 
@@ -379,40 +370,6 @@ class TestApplyAntiAliasing:
         assert cutoff == 2.0
 
 
-class TestComputeCenterLocal:
-    def test_returns_center_in_meters(self):
-        """Center should be converted to meters using scale."""
-        data = np.full((10, 10), np.nan)
-        data[2:8, 2:8] = 1.0
-        mark = make_mark(data, scale_x=micro, scale_y=2 * micro)
-        center_local = compute_center_local(mark)
-
-        # Pixel center is (5, 5), scaled: (5 * micro, 5 * 2 * micro)
-        assert center_local[0] == pytest.approx(5 * micro)
-        assert center_local[1] == pytest.approx(10 * micro)
-
-    def test_breech_face_uses_circle_fitting(self):
-        """Breech face impression should use circle fitting."""
-        data = np.full((41, 41), np.nan)
-        center_true = (20, 20)
-        radius = 15
-        y, x = np.ogrid[:41, :41]
-        circle_mask = (x - center_true[0]) ** 2 + (y - center_true[1]) ** 2 <= radius**2
-        data[circle_mask] = 1.0
-        mark = make_mark(
-            data,
-            scale_x=micro,
-            scale_y=micro,
-            mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
-        )
-
-        center_local = compute_center_local(mark)
-
-        # Should be close to (20, 20) in pixels -> (20 * micro, 20 * micro) in meters
-        assert center_local[0] == pytest.approx(20 * micro)
-        assert center_local[1] == pytest.approx(20 * micro)
-
-
 class TestPreprocessImpressionMarkIntegration:
     """Integration tests for preprocess_impression_mark."""
 
@@ -429,9 +386,7 @@ class TestPreprocessImpressionMarkIntegration:
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
-            level_offset=True,
-            level_tilt=True,
-            level_2nd=False,
+            surface_terms=SurfaceTerms.PLANE,
         )
 
         filtered, leveled = preprocess_impression_mark(impression_mark, params)
@@ -506,28 +461,6 @@ class TestPreprocessImpressionMarkIntegration:
         assert not np.allclose(
             filtered.scan_image.data, leveled.scan_image.data, equal_nan=True
         )
-
-    @pytest.mark.integration
-    def test_breech_face_uses_circle_center(self):
-        """Breech face impression should use circle fitting for center."""
-        center = (50, 50)
-        data = make_circular_data((100, 100), center, radius=40)
-        impression_mark = make_mark(
-            data=data,
-            scale_x=micro,
-            scale_y=micro,
-            mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
-        )
-        params = PreprocessingImpressionParams(
-            pixel_size=micro,  # No resampling
-            adjust_pixel_spacing=False,
-        )
-
-        filtered, _ = preprocess_impression_mark(impression_mark, params)
-
-        center_x, center_y = filtered.center
-        assert center_x == pytest.approx(40.5)
-        assert center_y == pytest.approx(40.5)
 
     @pytest.mark.integration
     def test_no_resampling_when_pixel_size_matches(self):
@@ -666,9 +599,7 @@ class TestPreprocessImpressionMarkIntegration:
         params = PreprocessingImpressionParams(
             pixel_size=2 * micro,
             adjust_pixel_spacing=False,
-            level_offset=True,
-            level_tilt=True,
-            level_2nd=True,
+            surface_terms=SurfaceTerms.SPHERE,
         )
 
         filtered, leveled = preprocess_impression_mark(impression_mark, params)
@@ -722,9 +653,7 @@ class TestPreprocessImpressionMarkIntegration:
         params = PreprocessingImpressionParams(
             pixel_size=micro,
             adjust_pixel_spacing=False,
-            level_offset=True,
-            level_tilt=True,
-            level_2nd=True,  # Remove curvature from filtered
+            surface_terms=SurfaceTerms.SPHERE,
             lowpass_cutoff=None,
             highpass_cutoff=None,
         )
@@ -836,52 +765,3 @@ class TestNeedsResampling:
 
         assert needs_resampling(impression_mark, target_scale=micro) is False
         assert needs_resampling(impression_mark, target_scale=2 * micro) is True
-
-
-class TestMarkCenter:
-    """Tests for Mark.center property to ensure correct (x, y) coordinate order."""
-
-    def test_center_returns_xy_not_yx(self):
-        """
-        Verify center returns (x, y) order by using a non-square image.
-        """
-        height, width = 100, 200
-        data = np.zeros((height, width))
-        impression_mark = make_mark(
-            data,
-            scale_x=4 * micro,
-            scale_y=4 * micro,
-            mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
-        )
-
-        center_x, center_y = impression_mark.center
-
-        assert center_x == width / 2
-        assert center_y == height / 2
-        assert impression_mark.center == (100.0, 50.0)
-
-    def test_center_with_explicit_override(self):
-        """Verify that _center override takes precedence."""
-        data = np.zeros((100, 200))
-        mark = make_mark(
-            data,
-            scale_x=4 * micro,
-            scale_y=4 * micro,
-            mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
-            center=(42.0, 17.0),
-        )
-
-        assert mark.center == (42.0, 17.0)
-
-    def test_center_with_odd_dimensions(self):
-        """Verify center calculation with odd dimensions."""
-        height, width = 101, 203
-        data = np.zeros((height, width))
-        impression_mark = make_mark(
-            data,
-            scale_x=4 * micro,
-            scale_y=4 * micro,
-            mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
-        )
-
-        assert impression_mark.center == (101.5, 50.5)

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any
+from typing import Final
 
 import numpy as np
-from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType
+from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType, SurfaceTermsAnnotated
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_striation import PreprocessingStriationParams
 from pydantic import (
@@ -12,61 +12,32 @@ from pydantic import (
     HttpUrl,
     PositiveFloat,
     PositiveInt,
+    field_validator,
     model_validator,
 )
 from utils.constants import RegressionOrder
 
 from models import (
     BaseModelConfig,
-    ProjectTag,
     ScanFile,
     SupportedScanExtension,
 )
-from preprocessors.constants import SurfaceOptions
 from schemas import URLContainer
 
-
-def _update_schema(schema: dict[str, Any], attr_to_class: tuple[tuple[str, str], ...]) -> dict[str, Any]:
-    """Update the model JSON schema for correctly rendering the `openapi_extra` fields."""
-    for attribute, class_name in attr_to_class:
-        updated = schema["$defs"][class_name]
-        for key in ("examples", "description"):
-            if value := schema["properties"][attribute].get(key):
-                updated[key] = value
-        schema["properties"][attribute] = updated
-    return schema
+PIXEL_SIZE_MIN: Final[float] = 1e-9
+PIXEL_SIZE_MAX: Final[float] = 1e-3
+CUTOFF_MIN: Final[float] = 1e-6
+CUTOFF_MAX: Final[float] = 1e-3
+RESAMPLING_FACTOR_MIN: Final[float] = 1
 
 
 class BaseParameters(BaseModelConfig):
     """Base parameters for preprocessor operations including scan file."""
 
-    project_name: ProjectTag | None = Field(
-        None,
-        description=(
-            "Optional project identifier for organizing edited scans. "
-            "Used as directory tag if provided, otherwise defaults to scan filename."
-        ),
-        examples=["forensic_analysis_2026", "case_12345"],
-    )
     scan_file: ScanFile = Field(
         ...,
         description=f"Path to the input scan file. Supported formats: {', '.join(SupportedScanExtension)}",
     )
-
-    @property
-    def tag(self) -> str:
-        """Get the tag to use for directory naming."""
-        return self.project_name or self.scan_file.stem
-
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (
-            ("scan_file", "ScanFile"),
-            ("project_name", "ProjectTag"),
-        )
-        return _update_schema(schema, attr_to_class)
 
 
 class UploadScan(BaseParameters):
@@ -87,6 +58,18 @@ class UploadScan(BaseParameters):
         examples=[1, 2, 4],
     )
 
+    @field_validator("scale_x", "scale_y")
+    @classmethod
+    def check_plausible_pixel_size(cls, v: float) -> float:
+        """Check that the pixel size has a reasonable value."""
+        if not (PIXEL_SIZE_MIN <= v <= PIXEL_SIZE_MAX):
+            raise ValueError(
+                f"scale value {v} m is outside the plausible range for a pixel size "
+                f"({PIXEL_SIZE_MIN} to {PIXEL_SIZE_MAX} m). Did you enter micrometers instead of meters? "
+                f"E.g. 3.5 µm should be 3.5e-6, not 3.5."
+            )
+        return v
+
 
 class PrepareMarkBase(BaseParameters):
     bounding_box_list: list[list[float]] | None = Field(
@@ -100,6 +83,19 @@ class PrepareMarkBase(BaseParameters):
         'The expected bit-order for bit-packed arrays is "little".',
         examples=[True, False],
     )
+
+    @field_validator("bounding_box_list")
+    @classmethod
+    def check_bounding_box_shape(cls, v: list[list[float]] | None) -> list[list[float]] | None:
+        """Check that the bounding box list has the correct shape."""
+        if v is None:
+            return v
+        if len(v) != 4 or any(len(pt) != 2 for pt in v):  # noqa: PLR2004
+            raise ValueError(
+                f"bounding_box_list must be 4 [x, y] corner points, got {len(v)} points with "
+                f"{[len(pt) for pt in v]} values in each point."
+            )
+        return v
 
     @cached_property
     def bounding_box(self) -> BoundingBox | None:
@@ -115,44 +111,32 @@ class PrepareMarkStriation(PrepareMarkBase):
     mark_parameters: PreprocessingStriationParams = Field(..., description="Preprocessor parameters.")
     mark_type: MarkStriationType = Field(..., description="Type of mark to prepare.")
 
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("mark_parameters", "PreprocessingStriationParams"),)
-        return _update_schema(schema, attr_to_class)
-
 
 class PrepareMarkImpression(PrepareMarkBase):
     mark_parameters: PreprocessingImpressionParams = Field(..., description="Preprocessor parameters.")
     mark_type: MarkImpressionType = Field(..., description="Type of mark to prepare.")
-
-    @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        attr_to_class = (("mark_parameters", "PreprocessingImpressionParams"),)
-        return _update_schema(schema, attr_to_class)
 
 
 class EditImage(BaseParameters):
     """Request model for editing and transforming processed scan images."""
 
     cutoff_length: PositiveFloat = Field(
-        description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "
+        description="Cutoff wavelength in meters (m) for Gaussian regression filtering. "
         "Defines the spatial frequency threshold for surface texture analysis.",
-        examples=[250, 500, 1000],
+        examples=[1e-4, 2e-4, 2.5e-4],
     )
     resampling_factor: PositiveFloat = Field(
         default=4,
-        description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
+        description="Resampling rate for image resolution adjustment.",
         examples=[2, 4, 8],
     )
-    terms: SurfaceOptions = Field(
+    surface_terms: SurfaceTermsAnnotated = Field(
         ...,
         description=(
-            "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces."
+            "Surface fitting model for leveling operations. PLANE for planar surfaces, SPHERE for curved surfaces. "
+            "Accepts string (e.g. 'plane', 'PLANE') or int (e.g. 1) values."
         ),
+        examples=["plane", "sphere"],
     )
     regression_order: RegressionOrder = Field(
         default=RegressionOrder.GAUSSIAN_WEIGHTED_AVERAGE,
@@ -176,16 +160,24 @@ class EditImage(BaseParameters):
             raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
         return self
 
+    @field_validator("cutoff_length")
     @classmethod
-    def model_json_schema(cls, *args, **kwargs) -> dict[str, Any]:
-        """Override the base method."""
-        schema = super().model_json_schema(*args, **kwargs)
-        # Add schema for BaseParameters and EditImage to JSON model
-        attr_to_class = (
-            ("regression_order", "RegressionOrder"),
-            ("terms", "SurfaceOptions"),
-        )
-        return _update_schema(schema, attr_to_class)
+    def check_plausible_cutoff(cls, v: float) -> float:
+        """Check that the cutoff has a reasonable value."""
+        if not (CUTOFF_MIN <= v <= CUTOFF_MAX):
+            raise ValueError(
+                f"cutoff_length {v} m is outside the plausible range ({CUTOFF_MIN}–{CUTOFF_MAX} m). "
+                f"Value should be in meters, e.g. 250e-6, not 250."
+            )
+        return v
+
+    @field_validator("resampling_factor")
+    @classmethod
+    def check_resampling_factor(cls, v: float) -> float:
+        """Check that the resampling factor has a reasonable value."""
+        if not (RESAMPLING_FACTOR_MIN <= v):
+            raise ValueError(f"resampling_factor {v} is below the plausible minimum ({RESAMPLING_FACTOR_MIN}).")
+        return v
 
 
 class GeneratedImages(URLContainer):

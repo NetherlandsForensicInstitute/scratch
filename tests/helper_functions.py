@@ -82,9 +82,10 @@ def assert_lr_response_valid(client: TestClient, response) -> None:
     """Assert that an LR endpoint response contains a valid LR and reachable PNG plot."""
     assert response.status_code == HTTPStatus.OK, response.json()
     data = response.json()
+    urls = data["urls"]
     assert isinstance(data["llr"], float)
-    assert HttpUrl(data["lr_overview_plot"])
-    plot_response = client.get(data["lr_overview_plot"])
+    assert HttpUrl(urls["lr_overview_plot"])
+    plot_response = client.get(urls["lr_overview_plot"])
     assert plot_response.status_code == HTTPStatus.OK
     assert plot_response.headers["content-type"] == "image/png"
 
@@ -108,13 +109,17 @@ def _striation_mark(profile: Profile, n_cols: int = 50) -> Mark:
     """Build a striation Mark by tiling a profile across columns."""
     data = np.tile(profile.heights[:, np.newaxis], (1, n_cols))
     scan_image = ScanImage(data=data, scale_x=profile.pixel_size, scale_y=profile.pixel_size)
-    return Mark(scan_image=scan_image, mark_type=MarkStriationType.BULLET_GEA_STRIATION, center=None)
+    return Mark(scan_image=scan_image, mark_type=MarkStriationType.BULLET_GEA_STRIATION)
 
 
 def _impression_mark(data: np.ndarray) -> Mark:
-    """Create an impression mark from 2D surface data."""
+    """Create an impression mark from 2D surface data.
+
+    Uses scale_x=1e-5 so that the default BREECH_FACE_IMPRESSION cell size
+    (450 µm) maps to ~45 pixels, fitting in a 100x100 image.
+    """
     return Mark(
-        scan_image=ScanImage(data=data, scale_x=micro, scale_y=micro),
+        scan_image=ScanImage(data=data, scale_x=1e-5, scale_y=1e-5),
         mark_type=MarkImpressionType.BREECH_FACE_IMPRESSION,
     )
 

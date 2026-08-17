@@ -85,19 +85,9 @@ def make_grid_cell(
     )
 
 
-def identity_params(
-    cell_size_px: int,
-    pixel_size: float = 1e-5,
-) -> ComparisonParams:
-    """
-    Return :class:`ComparisonParams` configured for a zero-angle identity test.
-
-    :param cell_size_px: Cell size in pixels; converted to meters via *pixel_size*.
-    :param pixel_size: Pixel size in metres per pixel.
-    """
-    cell_size_m = cell_size_px * pixel_size
+def identity_params() -> ComparisonParams:
+    """Return :class:`ComparisonParams` configured for a zero-angle identity test."""
     return ComparisonParams(
-        cell_size=(cell_size_m, cell_size_m),
         minimum_fill_fraction=0.5,
         correlation_threshold=0.5,
         search_angle_min=-60.0,

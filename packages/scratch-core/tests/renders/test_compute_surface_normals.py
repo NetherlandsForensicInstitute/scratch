@@ -6,7 +6,7 @@ from container_models.base import BinaryMask, VectorField
 from container_models.scan_image import ScanImage
 from renders import compute_surface_normals
 
-from ..helper_function import NoScaleScanImage
+from ..helper_functions import NoScaleScanImage
 
 IMAGE_SIZE = 20
 BUMP_SIZE = 6

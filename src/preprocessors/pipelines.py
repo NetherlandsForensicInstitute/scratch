@@ -15,7 +15,7 @@ from renders import (
 )
 
 from preprocessors.constants import PreviewImageNormalizationBounds, SurfaceImageNormalizationBounds
-from preprocessors.exceptions import ArrayShapeMismatchError
+from preprocessors.exceptions import ArrayShapeMismatchError, EmptyMaskError
 
 
 def parse_scan_pipeline(scan_file: Path, step_size_x: int, step_size_y: int) -> ScanImage:
@@ -47,18 +47,34 @@ def parse_mask_pipeline(raw_data: bytes, shape: tuple[int, int], is_bitpacked: b
     :param is_bitpacked: Boolean indicating whether the binary data is bit-packed
         and should be decompressed before reshaping.
     :returns: The 2D mask array.
+    :raises HTTPException: If the mask shape does not match `shape`, or if the
+        mask covers the entire scan image or is empty.
     """
     if not is_bitpacked:
         array = np.frombuffer(raw_data, dtype=np.bool)
-        return _reshape_array(array=array, shape=shape)
+        mask = _reshape_array(array=array, shape=shape)
+    else:
+        mask = _parse_bitpacked_mask(raw_data, shape)
 
-    # Note: this follows our Java implementation for bitpacking
+    if not mask.any():
+        raise EmptyMaskError
+
+    return mask
+
+
+def _parse_bitpacked_mask(raw_data: bytes, shape: tuple[int, int]) -> BinaryMask:
+    """
+    Convert incoming bitpacked binary data to a 2D mask array.
+
+    Note: this follows our Java implementation for bitpacking.
+    """
     height, width = shape
     packed = np.frombuffer(raw_data, dtype=np.uint8)
     unpacked = np.unpackbits(packed, bitorder="little").view(np.bool)  # type: ignore
     padding = (-width) % 8
     reshaped = _reshape_array(array=unpacked, shape=(height, width + padding))
-    return reshaped[:, :width]
+    mask = reshaped[:, :width]
+    return mask
 
 
 def surface_map_pipeline(  # noqa

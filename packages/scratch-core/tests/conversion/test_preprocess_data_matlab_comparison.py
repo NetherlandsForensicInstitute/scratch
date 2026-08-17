@@ -13,7 +13,6 @@ from scipy.constants import micro
 
 from container_models.base import DepthData, BinaryMask, StriationProfile
 from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
-from .helper_functions import make_mark
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_striation_mark,
@@ -23,6 +22,7 @@ from .helper_functions import (
     _crop_to_common_shape,
     _compute_difference_stats,
 )
+from ..helper_functions import make_mark
 
 
 def _string_to_mark_type(mark_type_str: str) -> MarkType:

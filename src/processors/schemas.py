@@ -4,7 +4,9 @@ import datetime
 from collections.abc import Sequence
 from typing import Annotated, Self
 
+import numpy as np
 from conversion.data_formats import MarkMetadata
+from conversion.profile_correlator import StriationComparisonResults
 from conversion.surface_comparison.models import Cell, ComparisonParams
 from pydantic import (
     BaseModel,
@@ -12,9 +14,7 @@ from pydantic import (
     Field,
     HttpUrl,
     NonNegativeInt,
-    PositiveInt,
-    SerializerFunctionWrapHandler,
-    model_serializer,
+    computed_field,
     model_validator,
 )
 
@@ -73,14 +73,15 @@ class CalculateLRImpression(CalculateLR):
         ...,
         description="CMC score (number of congruent matching cells).",
     )
-    n_cells: PositiveInt = Field(
-        ...,
-        description="Total number of cells in the comparison grid.",
-    )
     cells: Sequence[Cell] = Field(
         ...,
         description="Per-cell CMC results from the impression comparison.",
     )
+
+    @property
+    def n_cells(self) -> int:
+        """Total number of cells in the comparison grid."""
+        return len(self.cells)
 
     @model_validator(mode="after")
     def score_cannot_exceed_n_cells(self) -> Self:
@@ -107,12 +108,6 @@ class CalculateLRStriation(CalculateLR):
             description="Correlation coefficient from the striation comparison (range: -1 to 1).",
         ),
     ]
-
-    @property
-    def tag(self) -> str:
-        # TODO: incorporate mark_dir_ref_aligned and mark_dir_comp_aligned once
-        # the base tag implementation is finalised.
-        return super().tag
 
 
 class ComparisonResponse(URLContainer):
@@ -184,26 +179,63 @@ class ComparisonResponseImpressionURL(ComparisonResponse):
     )
 
 
+class ComparisonImpressionMetrics(BaseModelConfig):
+    score: int = Field(
+        ...,
+        ge=0,
+        description="CMC score: number of cells classified as congruent matching cells.",
+        examples=[30],
+    )
+    cmc_area_fraction: float = Field(
+        ...,
+        ge=0,
+        le=1,
+        description="Fraction of the total valid surface area covered by congruent matching cells, range 0-1.",
+        examples=[0.75],
+    )
+    estimated_rotation: float = Field(
+        ...,
+        ge=-180,
+        le=180,
+        description="Estimated rotation between reference and compared mark from cell registration, in degrees.",
+        examples=[1.0],
+    )
+    estimated_translation: tuple[float, float] = Field(
+        ...,
+        description="Estimated (x, y) translation between reference and compared mark from cell registration, in "
+        "meters.",
+        examples=[(-9.4e-6, 10.1e-6)],
+    )
+
+
 class ComparisonResponseImpression(URLContainer):
     urls: ComparisonResponseImpressionURL
-    cells: list[dict] = Field(
+    cells: list[Cell] = Field(
         default_factory=list,
         description="Per-cell CMC results for use in LR calculation.",
     )
-    comparison_results: dict = Field(
-        default_factory=dict,
+    comparison_results: ComparisonImpressionMetrics = Field(
         description="Impression comparison metrics including CMC counts, fractions, and consensus registration.",
     )
 
-    @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Serialize model to flat json."""
-        data = handler(self)
-        return {
-            **data["urls"],
-            "cells": data["cells"],
-            "comparison_results": data["comparison_results"],
-        }
+    @computed_field
+    @property
+    def n_cells(self) -> int:
+        return len(self.cells)
+
+    @computed_field
+    @property
+    def cmc_fraction(self) -> float:
+        if not self.cells:
+            return np.nan
+        return self.comparison_results.score / len(self.cells)
+
+    @model_validator(mode="after")
+    def score_cannot_exceed_n_cells(self) -> Self:
+        """Check that the number of matching cells is equal or smaller than the total number of cells."""
+        if self.comparison_results.score > len(self.cells):
+            raise ValueError(f"score ({self.comparison_results.score}) cannot exceed n_cells ({len(self.cells)})")
+        return self
 
 
 class ComparisonResponseStriationURL(ComparisonResponse):
@@ -286,19 +318,9 @@ class ComparisonResponseStriationURL(ComparisonResponse):
 
 class ComparisonResponseStriation(URLContainer):
     urls: ComparisonResponseStriationURL
-    comparison_results: dict = Field(
-        default_factory=dict,
+    comparison_results: StriationComparisonResults = Field(
         description="Striation comparison metrics including correlation, roughness, and alignment geometry.",
     )
-
-    @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Serialize model to flat json."""
-        data = handler(self)
-        return {
-            **data["urls"],
-            "comparison_results": data["comparison_results"],
-        }
 
 
 class LRResponseURL(URLContainer):
@@ -324,9 +346,11 @@ class LRResponse(BaseModel):
         description="Upper bound of the log10 likelihood ratio confidence interval, or null if not computed.",
     )
 
-    @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Serialize model to flat json."""
-        data = handler(self)
-        urls = data.pop("urls")
-        return {**urls, **data}
+    @model_validator(mode="after")
+    def check_ci_bounds(self) -> Self:
+        """Ensure the confidence interval, if present, actually contains the point estimate."""
+        if self.llr_lower_ci is not None and self.llr_lower_ci > self.llr:
+            raise ValueError(f"llr_lower_ci ({self.llr_lower_ci}) cannot exceed llr ({self.llr})")
+        if self.llr_upper_ci is not None and self.llr_upper_ci < self.llr:
+            raise ValueError(f"llr_upper_ci ({self.llr_upper_ci}) cannot be less than llr ({self.llr})")
+        return self
