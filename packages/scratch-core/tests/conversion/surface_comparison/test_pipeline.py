@@ -7,6 +7,7 @@ from skimage.transform import rotate
 
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType
+from conversion.exceptions import NoValidGridCellsError
 from conversion.surface_comparison.cmc_classification_median import (
     classify_congruent_cells_median,
 )
@@ -95,20 +96,18 @@ def test_compare_surfaces_runs_the_coarse_stage_when_images_exceed_the_coarse_ta
     assert results
 
 
-def test_compare_surfaces_returns_early_when_no_grid_cells():
-    # An all-NaN image leaves no cell meeting minimum_fill_fraction, so generate_grid returns
-    # [] and compare_surfaces should short-circuit before cell registration.
+def test_compare_surfaces_raises_on_no_grid_cells():
+    # An all-NaN image leaves no cell meeting minimum_fill_fraction, so generate_grid raises an error
     scan_image = ScanImage(
         data=np.full((100, 100), np.nan, dtype=np.float64), scale_x=1e-5, scale_y=1e-5
     )
 
-    results = compare_surfaces(
-        reference_mark=make_processed_mark(scan_image),
-        comparison_mark=make_processed_mark(scan_image),
-        params=ComparisonParams(),
-    )
-
-    assert results.cells == []
+    with pytest.raises(NoValidGridCellsError):
+        _ = compare_surfaces(
+            reference_mark=make_processed_mark(scan_image),
+            comparison_mark=make_processed_mark(scan_image),
+            params=ComparisonParams(),
+        )
 
 
 class TestSelfMatch:

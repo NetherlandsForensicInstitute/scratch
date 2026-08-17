@@ -1,9 +1,13 @@
 from collections.abc import Sequence
 
 import numpy as np
+from loguru import logger
 
 from container_models.base import FloatArray2D, Points2D
-from conversion.surface_comparison.models import Cell
+from container_models.scan_image import ScanImage
+from conversion.exceptions import ImageNotIsotropicError
+from conversion.resample import DEFAULT_ATOL
+from conversion.surface_comparison.models import Cell, ComparisonParams
 
 
 def convert_meters_to_pixels(
@@ -81,3 +85,36 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
         raise ValueError("cell centers do not map onto a unique grid position")
 
     return cell_correlations
+
+
+def assert_image_is_isotropic(scan_image: ScanImage) -> None:
+    if not np.isclose(scan_image.scale_x, scan_image.scale_y, atol=DEFAULT_ATOL):
+        raise ImageNotIsotropicError(
+            scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
+        )
+
+
+def resolve_nan_fill_value(
+    reference_image: ScanImage, params: ComparisonParams
+) -> float | None:
+    """
+    Turn ``template_nan_fill_strategy`` into the concrete value every template will be filled with.
+
+    ``None`` means "each cell's own valid-pixel mean"; see conversion.surface_comparison.template_fill.fill_template_nan.
+
+    :param reference_image: Reference scan image; its global mean is used for ``global_mean`` strategy.
+    :param params: Comparison parameters specifying the fill strategy.
+    :returns: A fill value for ``global_mean``, or ``None`` for ``local_mean``.
+    """
+    # TODO: ``local_mean`` needs the masked NCC of Padfield (2012) to be correct. The score denominator in
+    #  conversion.surface_comparison.cell_registration.scoring.build_correlation_basis normalizes over the whole window,
+    #  while the numerator only covers the overlap of the two validity masks, so scores are deflated in proportion to
+    #  how empty a cell is. ``global_mean`` wins today because it happens to offset that.
+    if params.template_nan_fill_strategy != "global_mean":
+        return None
+    nan_fill_value = float(np.nanmean(reference_image.data))
+    logger.debug(
+        "Using global mean ({:.4f}) for NaN filling (template_nan_fill_strategy=global_mean)",
+        nan_fill_value,
+    )
+    return nan_fill_value

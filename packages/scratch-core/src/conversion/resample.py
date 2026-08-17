@@ -18,13 +18,10 @@ _INTERPOLATION_FLAGS = {
     "area": cv2.INTER_AREA,
     "linear": cv2.INTER_LINEAR,
     "nearest": cv2.INTER_NEAREST,
-    "cubic": cv2.INTER_CUBIC,
 }
-
+DEFAULT_ATOL = 1e-15
 # A resampled pixel is marked invalid if its source block was covered less than this fraction by valid data.
 NAN_AWARE_VALIDITY_THRESHOLD = 0.5
-# Relative tolerance for deciding that a scaling factor is already 1.0.
-SCALE_MATCH_RTOL = 1e-6
 # Interpolation for shrinking an image.
 DOWNSAMPLE_INTERPOLATION: Interpolation = "area"
 # Interpolation for growing an image.
@@ -78,7 +75,7 @@ def resample_scan_image_and_mask(
     return image, mask
 
 
-def resample_scan_image_to_scale(image: ScanImage, target_scale: float) -> ScanImage:
+def resample_scan_image_nan_aware(image: ScanImage, target_scale: float) -> ScanImage:
     """
     Put *image* on a pixel grid of *target_scale*, NaN-aware and in either direction.
 
@@ -89,8 +86,7 @@ def resample_scan_image_to_scale(image: ScanImage, target_scale: float) -> ScanI
     factors = get_scaling_factors(
         scales=(image.scale_x, image.scale_y), target_scale=target_scale
     )
-    # SCALE_MATCH_RTOL rather than numpy's default to ensure both marks are on the same grid.
-    if np.allclose(factors, 1.0, rtol=SCALE_MATCH_RTOL, atol=0.0):
+    if np.allclose(factors, 1.0, atol=DEFAULT_ATOL):
         return image
     return ScanImage(
         data=resample_array_2d_nan_aware(

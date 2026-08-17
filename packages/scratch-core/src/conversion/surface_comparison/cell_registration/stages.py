@@ -83,15 +83,16 @@ def run_fine_stage(
     default_angle = float(sort_by_absolute_angle(angles)[0])
     template_tensor, is_non_constant = prepare_templates(templates_full, device)
     results = refine(
-        image_full.astype(np.float32),
-        template_tensor,
-        jobs,
-        position_margin,
-        minimum_fill_fraction,
-        fill_value_full,
-        compute_mean_and_std(image_full),
-        fine_batch_size or get_default_batch_size(device, DEFAULT_FINE_BATCH_SIZE),
-        default_angle,
+        image=image_full.astype(np.float32),
+        templates=template_tensor,
+        jobs=jobs,
+        margin=position_margin,
+        minimum_fill_fraction=minimum_fill_fraction,
+        fill_value=fill_value_full,
+        mean_and_std=compute_mean_and_std(image_full),
+        batch_size=fine_batch_size
+        or get_default_batch_size(device, DEFAULT_FINE_BATCH_SIZE),
+        default_angle=default_angle,
     )
     # Constant reference cells and cells with no coarse candidates get a sentinel match.
     for index in range(len(templates_full)):

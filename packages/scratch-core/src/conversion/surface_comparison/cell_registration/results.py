@@ -22,7 +22,7 @@ def record_results(
     :param cell_width: Width of one grid cell in pixels.
     :param cell_height: Height of one grid cell in pixels.
     """
-    for grid_cell, match in zip(grid_cells, results):
+    for grid_cell, match in zip(grid_cells, results, strict=True):
         center_x, center_y = map_canvas_to_image(
             match.x,
             match.y,

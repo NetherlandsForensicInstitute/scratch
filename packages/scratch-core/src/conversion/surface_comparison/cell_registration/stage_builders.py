@@ -3,12 +3,12 @@ from __future__ import annotations
 import numpy as np
 from loguru import logger
 
-from container_models.base import FloatArray2D
+from container_models.base import FloatArray2D, FloatArray1D
 from container_models.scan_image import ScanImage
 from conversion.resample import (
-    SCALE_MATCH_RTOL,
     resample_array_2d_nan_aware,
     select_interpolation,
+    DEFAULT_ATOL,
 )
 from conversion.surface_comparison.cell_registration.geometry import pad_image_array
 from conversion.surface_comparison.cell_registration.models import Stage
@@ -20,7 +20,7 @@ from conversion.surface_comparison.template_fill import fill_template_nan
 _MIN_COARSE_CELL = 12
 
 
-def build_angle_sweep(params: ComparisonParams) -> np.ndarray:
+def build_angle_sweep(params: ComparisonParams) -> FloatArray1D:
     """
     Build the coarse stage's angle sweep in degrees (inclusive of both bounds).
 
@@ -56,7 +56,7 @@ def compute_cap_factor(
     :raises ValueError: If the two images are not on the same pixel scale.
     """
     if not np.isclose(
-        reference_image.scale_x, comparison_image.scale_x, rtol=SCALE_MATCH_RTOL
+        reference_image.scale_x, comparison_image.scale_x, atol=DEFAULT_ATOL
     ):
         raise ValueError(
             f"Reference ({reference_image.scale_x}) and comparison "
@@ -131,7 +131,7 @@ def build_coarse_stage(
     The comparison image is downsampled to match the reference's coarse grid. Templates are extracted
     from the downsampled reference so edge pixels share context with the comparison canvas.
 
-    :param comparison_image: Comparison scan image, at its own native pixel scale or the reference's.
+    :param comparison_image: Comparison scan image.
     :param reference_image: Reference scan image.
     :param grid_cells: Reference grid cells defining template locations.
     :param cap_factor: Pixels per coarse pixel, in reference-image units.
