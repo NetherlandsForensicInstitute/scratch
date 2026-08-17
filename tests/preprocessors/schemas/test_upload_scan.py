@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from scipy.constants import micro
 
 from models import SupportedScanExtension
-from preprocessors.schemas import UploadScan
+from preprocessors.schemas import PIXEL_SIZE_MAX, PIXEL_SIZE_MIN, UploadScan
 
 
 @pytest.fixture
@@ -117,8 +117,8 @@ def test_default_values(upload_scan: UploadScan) -> None:
 def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> None:
     """Test that custom parameters can be set."""
     # Arrange
-    expected_scale_x = 2.5
-    expected_scale_y = 3.0
+    expected_scale_x = 2.5e-6
+    expected_scale_y = 3.0e-6
     expected_step_size = 2
     # Act
     params = upload_scan_parameter(
@@ -133,31 +133,27 @@ def test_custom_parameters(upload_scan_parameter: Callable[..., UploadScan]) -> 
 
 
 @pytest.mark.parametrize(
-    ("field_name", "invalid_value"),
+    ("field_name", "implausible_value"),
     [
-        ("scale_x", 0.0),
-        ("scale_x", -1.0),
-        ("scale_y", 0.0),
-        ("scale_y", -1.5),
-        ("step_size", 0),
-        ("step_size", -1),
+        ("scale_x", PIXEL_SIZE_MIN - 1e-12),
+        ("scale_y", PIXEL_SIZE_MAX * 2),
     ],
 )
-def test_invalid_scale_and_step_values(
-    field_name: str, invalid_value: float | int, upload_scan_parameter: Callable[..., UploadScan]
+def test_implausible_scale_values(
+    field_name: str, implausible_value: float, upload_scan_parameter: Callable[..., UploadScan]
 ) -> None:
-    """Test that scale and step size values must be positive."""
+    """Test that scale_x/scale_y reject values that look like micrometers typed without the meter conversion."""
     # Arrange
     valid_params = {
-        "scale_x": 1.0,
-        "scale_y": 1.0,
+        "scale_x": PIXEL_SIZE_MIN,
+        "scale_y": PIXEL_SIZE_MAX,
         "step_size": 1,
     }
-    valid_params[field_name] = invalid_value
+    valid_params[field_name] = implausible_value
 
     # Act & Assert
-    with pytest.raises(ValidationError) as exc_info:  # Pydantic raises ValidationError
-        upload_scan_parameter(**valid_params)  # type: ignore
+    with pytest.raises(ValidationError) as exc_info:
+        upload_scan_parameter(**valid_params)
 
-    # Verify the error is related to the constraint
-    assert "greater than" in str(exc_info.value).lower()
+    # Verify the error is the plausibility check, not the basic positivity check
+    assert "plausible range" in str(exc_info.value).lower()

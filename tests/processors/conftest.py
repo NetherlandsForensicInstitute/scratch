@@ -62,7 +62,6 @@ def impression_kwargs(
         "mark_dir_ref": mark_dir_ref,
         "mark_dir_comp": mark_dir_comp,
         "score": 3,
-        "n_cells": 10,
         "lr_system_path": impression_lr_system_path,
         "cells": [
             make_cell(

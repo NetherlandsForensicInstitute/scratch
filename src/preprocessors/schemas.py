@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
+from typing import Final
 
 import numpy as np
 from conversion.data_formats import BoundingBox, MarkImpressionType, MarkStriationType, SurfaceTermsAnnotated
@@ -11,6 +12,7 @@ from pydantic import (
     HttpUrl,
     PositiveFloat,
     PositiveInt,
+    field_validator,
     model_validator,
 )
 from utils.constants import RegressionOrder
@@ -21,6 +23,12 @@ from models import (
     SupportedScanExtension,
 )
 from schemas import URLContainer
+
+PIXEL_SIZE_MIN: Final[float] = 1e-9
+PIXEL_SIZE_MAX: Final[float] = 1e-3
+CUTOFF_MIN: Final[float] = 1e-6
+CUTOFF_MAX: Final[float] = 1e-3
+RESAMPLING_FACTOR_MIN: Final[float] = 1
 
 
 class BaseParameters(BaseModelConfig):
@@ -50,6 +58,18 @@ class UploadScan(BaseParameters):
         examples=[1, 2, 4],
     )
 
+    @field_validator("scale_x", "scale_y")
+    @classmethod
+    def check_plausible_pixel_size(cls, v: float) -> float:
+        """Check that the pixel size has a reasonable value."""
+        if not (PIXEL_SIZE_MIN <= v <= PIXEL_SIZE_MAX):
+            raise ValueError(
+                f"scale value {v} m is outside the plausible range for a pixel size "
+                f"({PIXEL_SIZE_MIN} to {PIXEL_SIZE_MAX} m). Did you enter micrometers instead of meters? "
+                f"E.g. 3.5 µm should be 3.5e-6, not 3.5."
+            )
+        return v
+
 
 class PrepareMarkBase(BaseParameters):
     bounding_box_list: list[list[float]] | None = Field(
@@ -63,6 +83,19 @@ class PrepareMarkBase(BaseParameters):
         'The expected bit-order for bit-packed arrays is "little".',
         examples=[True, False],
     )
+
+    @field_validator("bounding_box_list")
+    @classmethod
+    def check_bounding_box_shape(cls, v: list[list[float]] | None) -> list[list[float]] | None:
+        """Check that the bounding box list has the correct shape."""
+        if v is None:
+            return v
+        if len(v) != 4 or any(len(pt) != 2 for pt in v):  # noqa: PLR2004
+            raise ValueError(
+                f"bounding_box_list must be 4 [x, y] corner points, got {len(v)} points with "
+                f"{[len(pt) for pt in v]} values in each point."
+            )
+        return v
 
     @cached_property
     def bounding_box(self) -> BoundingBox | None:
@@ -88,13 +121,13 @@ class EditImage(BaseParameters):
     """Request model for editing and transforming processed scan images."""
 
     cutoff_length: PositiveFloat = Field(
-        description="Cutoff wavelength in micrometers (µm) for Gaussian regression filtering. "
+        description="Cutoff wavelength in meters (m) for Gaussian regression filtering. "
         "Defines the spatial frequency threshold for surface texture analysis.",
-        examples=[250, 500, 1000],
+        examples=[1e-4, 2e-4, 2.5e-4],
     )
     resampling_factor: PositiveFloat = Field(
         default=4,
-        description="Resampling rate for image resolution adjustment. Higher values increase resolution.",
+        description="Resampling rate for image resolution adjustment.",
         examples=[2, 4, 8],
     )
     surface_terms: SurfaceTermsAnnotated = Field(
@@ -126,6 +159,25 @@ class EditImage(BaseParameters):
         if self.scan_file.suffix.lower() != ".x3p":
             raise ValueError(f"Unsupported extension: {self.scan_file.suffix}")
         return self
+
+    @field_validator("cutoff_length")
+    @classmethod
+    def check_plausible_cutoff(cls, v: float) -> float:
+        """Check that the cutoff has a reasonable value."""
+        if not (CUTOFF_MIN <= v <= CUTOFF_MAX):
+            raise ValueError(
+                f"cutoff_length {v} m is outside the plausible range ({CUTOFF_MIN}–{CUTOFF_MAX} m). "
+                f"Value should be in meters, e.g. 250e-6, not 250."
+            )
+        return v
+
+    @field_validator("resampling_factor")
+    @classmethod
+    def check_resampling_factor(cls, v: float) -> float:
+        """Check that the resampling factor has a reasonable value."""
+        if not (RESAMPLING_FACTOR_MIN <= v):
+            raise ValueError(f"resampling_factor {v} is below the plausible minimum ({RESAMPLING_FACTOR_MIN}).")
+        return v
 
 
 class GeneratedImages(URLContainer):

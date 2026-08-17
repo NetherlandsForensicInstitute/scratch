@@ -123,9 +123,7 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
     logger.debug(f"images saved in:{vault.resource_path}")
 
     comparison_results = ComparisonImpressionMetrics(
-        n_cells=cmc_result.cell_count,
         score=cmc_result.cmc_count,
-        cmc_fraction=cmc_result.cmc_fraction,
         cmc_area_fraction=cmc_result.cmc_area_fraction,
         estimated_rotation=cmc_result.estimated_rotation,
         estimated_translation=cmc_result.estimated_translation,

@@ -24,7 +24,6 @@ dependencies = [
   "uvicorn>=0.38.0",
   "scratch-core",
   "numpy>=2.3.5",
-  "scipy>=1.16.3",
   "scikit-image>=0.25.2",
   "pillow>=12.0.0",
   "opencv-python>=4.13.0.92",

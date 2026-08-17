@@ -163,6 +163,8 @@ class TestMarkImpression:
         }
         expected_data = {
             "cells",
+            "cmc_fraction",
+            "n_cells",
             "comparison_results",
         }
 
