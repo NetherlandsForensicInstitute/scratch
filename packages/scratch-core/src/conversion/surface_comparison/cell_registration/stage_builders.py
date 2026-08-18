@@ -8,11 +8,13 @@ from container_models.scan_image import ScanImage
 from conversion.resample import (
     resample_array_2d_nan_aware,
     select_interpolation,
-    DEFAULT_ATOL,
-    DEFAULT_RTOL,
 )
 from conversion.surface_comparison.cell_registration.geometry import pad_image_array
 from conversion.surface_comparison.cell_registration.models import Stage
+from conversion.surface_comparison.utils import (
+    SCALE_COMPARISON_ATOL,
+    SCALE_COMPARISON_RTOL,
+)
 from conversion.surface_comparison.grid import extract_patch
 from conversion.surface_comparison.models import ComparisonParams, GridCell
 from conversion.surface_comparison.template_fill import fill_template_nan
@@ -29,8 +31,7 @@ def build_angle_sweep(params: ComparisonParams) -> FloatArray1D:
     :returns: Array of angles from ``search_angle_min`` to ``search_angle_max``, with the step
         rounded to fit the range.
     """
-    # np.arange would place one angle past search_angle_max when the range is not a whole
-    # number of steps.
+    # np.arange would place one angle past search_angle_max when the range is not a whole number of steps.
     n_steps = round(
         (params.search_angle_max - params.search_angle_min) / params.search_angle_step
     )
@@ -59,8 +60,8 @@ def compute_cap_factor(
     if not np.isclose(
         reference_image.scale_x,
         comparison_image.scale_x,
-        atol=DEFAULT_ATOL,
-        rtol=DEFAULT_RTOL,
+        atol=SCALE_COMPARISON_ATOL,
+        rtol=SCALE_COMPARISON_RTOL,
     ):
         raise ValueError(
             f"Reference ({reference_image.scale_x}) and comparison "

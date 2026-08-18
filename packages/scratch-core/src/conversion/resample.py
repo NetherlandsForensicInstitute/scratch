@@ -19,8 +19,6 @@ _INTERPOLATION_FLAGS = {
     "linear": cv2.INTER_LINEAR,
     "nearest": cv2.INTER_NEAREST,
 }
-DEFAULT_ATOL = 0.0
-DEFAULT_RTOL = 1e-3
 # A resampled pixel is marked invalid if its source block was covered less than this fraction by valid data.
 NAN_AWARE_VALIDITY_THRESHOLD = 0.5
 # Interpolation for shrinking an image.

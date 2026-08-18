@@ -6,8 +6,11 @@ from loguru import logger
 from container_models.base import FloatArray2D, Points2D
 from container_models.scan_image import ScanImage
 from conversion.exceptions import ImageNotIsotropicError
-from conversion.resample import DEFAULT_ATOL, DEFAULT_RTOL
 from conversion.surface_comparison.models import Cell, ComparisonParams
+
+# Tolerances for np.isclose() when comparing pixel scales (e.g. isotropy check, matching scales between images).
+SCALE_COMPARISON_ATOL = 0.0
+SCALE_COMPARISON_RTOL = 1e-3
 
 
 def convert_meters_to_pixels(
@@ -89,7 +92,10 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
 
 def assert_image_is_isotropic(scan_image: ScanImage) -> None:
     if not np.isclose(
-        scan_image.scale_x, scan_image.scale_y, atol=DEFAULT_ATOL, rtol=DEFAULT_RTOL
+        scan_image.scale_x,
+        scan_image.scale_y,
+        atol=SCALE_COMPARISON_ATOL,
+        rtol=SCALE_COMPARISON_RTOL,
     ):
         raise ImageNotIsotropicError(
             scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
