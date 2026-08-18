@@ -28,18 +28,17 @@ def classify_congruent_cells_consensus(
     to find consensus parameters
 
     Steps:
-    1. Loop over all pairs (i,j) of cells, and for each pair:
+    1. Filter cells that pass the similarity threshold.
+    2. Loop over all pairs (i,j) of those cells, and for each pair:
        Estimate a rigid body transformation (rotation + translation) from just those two cells via _get_cell_angle_and_position_distances → _find_consensus_parameters
        Find all other cells that fall within position_threshold and angle_deviation_threshold of that predicted location.
        Attempt to iteratively refine by re-fitting using all successful cells.
        Keep the solution if it yields more CMC cells than the current best (or equal count with better quality).
-    2. Get a boolean vector flagging which cells are CMC.
-    3. Return a ComparisonResult.
-
-    No score threshold is applied here; correlation_threshold is only used by the median classifier.
+    3. Get a boolean vector flagging which cells are CMC.
+    4. Return a ComparisonResult.
 
     :param cells: Per-cell registration results to classify.
-    :param params: Algorithm parameters (thresholds for angle and position).
+    :param params: Algorithm parameters (thresholds for score, angle, and position).
     :param reference_center: rotation center of reference image (meters). Used to predict coordinate when there is only one congruent cell.
     :returns: A `ComparisonResult` containing the classified cells, consensus
         rotation in degrees, and consensus translation in meters.
