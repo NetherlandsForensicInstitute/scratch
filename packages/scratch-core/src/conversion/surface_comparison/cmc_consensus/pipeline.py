@@ -30,20 +30,32 @@ def classify_congruent_cells_consensus(
     Steps:
     1. Filter cells that pass the similarity threshold.
     2. Loop over all pairs (i,j) of those cells, and for each pair:
-       Estimate a rigid body transformation (rotation + translation) from just those two cells via _get_cell_angle_and_position_distances → _find_consensus_parameters
-       Find all other cells that fall within position_threshold and angle_deviation_threshold of that predicted location.
-       Attempt to iteratively refine by re-fitting using all successful cells.
-       Keep the solution if it yields more CMC cells than the current best (or equal count with better quality).
+       Estimate a rigid body transformation (rotation + translation) from just those two cells via
+       _get_cell_angle_and_position_distances → _find_consensus_parameters. Find all other cells that fall within
+       position_threshold and angle_deviation_threshold of that predicted location. Attempt to iteratively refine by
+       re-fitting using all successful cells. Keep the solution if it yields more CMC cells than the current best
+       (or equal count with better quality).
     3. Get a boolean vector flagging which cells are CMC.
     4. Return a ComparisonResult.
 
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
-    :param reference_center: rotation center of reference image (meters). Used to predict coordinate when there is only one congruent cell.
-    :returns: A `ComparisonResult` containing the classified cells, consensus
-        rotation in degrees, and consensus translation in meters.
-    :raises ValueError: If ``cells`` is empty.
+    :param reference_center: rotation center of reference image (meters). Used to predict coordinate when there is only
+        one congruent cell.
+    :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees,
+        and consensus translation in meters.
     """
+
+    # Step 1: filter cells that pass the correlation threshold
+    cells = [c for c in cells if c.best_score >= params.correlation_threshold]
+
+    if not cells:
+        # No cells pass the threshold → no CMC cells
+        return ComparisonResult(
+            cells=cells,
+            estimated_rotation=float("nan"),
+            estimated_translation=(float("nan"), float("nan")),
+        )
 
     if len(cells) == 1:
         # Then this cell is an inlier by definition
@@ -68,7 +80,10 @@ def classify_congruent_cells_consensus(
 def _find_best_ids(
     cells: list[Cell], max_distance: float, max_abs_angle_distance: float
 ) -> list[int]:
-    """Core algorithm to find the best inlier ids. Loop over all indices pairs as initial solution, and iteratively refine this solution. Update global solution if refinement has more cells or if criterion improves for same amount of cells.
+    """
+    Core algorithm to find the best inlier ids. Loop over all indices pairs as initial solution, and iteratively
+    refine this solution. Update global solution if refinement has more cells or if criterion improves for same
+    number of cells.
 
     :param cells: list of cells.
     :param max_distance: maximum distance to consider for consensus, in meters.
@@ -99,7 +114,7 @@ def _find_best_ids(
         )
 
         if 2 < len(current_ids) < n_cells:
-            _refine(
+            current_ids, criterion_current = _refine(
                 current_ids,
                 criterion_current,
                 cells,
@@ -121,7 +136,9 @@ def _find_best_ids(
 
 
 def _update_congruent_cells(cells: list[Cell], congruent_ids: list[int]) -> None:
-    """update cell.is_congruent property
+    """
+    Update the cell.is_congruent property.
+
     :param cells: list of cells.
     :param congruent_ids: list of cell ids that are congruent
     """
@@ -133,7 +150,9 @@ def _update_congruent_cells(cells: list[Cell], congruent_ids: list[int]) -> None
 def _get_estimated_translation_rotation(
     cells: list[Cell], reference_center: tuple[float, float]
 ) -> CMCTranslationRotation:
-    """Calculate shared rotation and transformation
+    """
+    Calculate shared rotation and transformation.
+
     :param cells: list of cells.
     :param reference_center: reference center
     :returns: shared rotation and transformation, in CMCTranslationRotation
@@ -181,19 +200,23 @@ def _refine(
     cells: list[Cell],
     max_distance: float,
     max_abs_angle_distance: float,
-) -> None:
-    """iteratively re-fit current_ids and criterion_current
+) -> tuple[list[int], float]:
+    """
+    Iteratively re-fit inlier set and criterion.
 
-    :param current_ids: a list of inlier indices (used for least-squares Procrustus fit)
+    :param current_ids: a list of inlier indices (used for least-squares Procrustes fit)
     :param criterion_current: the current value of the criterion
     :param cells: a list of cells
     :param max_distance: maximum distance threshold (meters)
     :param max_abs_angle_distance: maximum absolute angle threshold (degrees)
+    :returns: tuple of (updated inlier indices, updated criterion)
     """
+    best_ids = current_ids
+    best_criterion = criterion_current
 
     while True:
         cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
-            current_ids, cells
+            best_ids, cells
         )
         candidate_ids = np.where(
             (cell_distances <= max_distance)
@@ -207,13 +230,12 @@ def _refine(
             max_abs_angle_distance,
         )
 
-        # Accept if strictly more inlier, or same count with lower criterion
-        if len(candidate_ids) > len(current_ids) or (
-            len(candidate_ids) == len(current_ids)
-            and criterion_candidate < criterion_current
+        # Accept if strictly more inliers, or same count with lower criterion
+        if len(candidate_ids) > len(best_ids) or (
+            len(candidate_ids) == len(best_ids) and criterion_candidate < best_criterion
         ):
-            criterion_current = criterion_candidate
-            current_ids = candidate_ids
+            best_ids = candidate_ids
+            best_criterion = criterion_candidate
         else:
-            # we have our local optimum and return, also for len(candidate_ids) == len(current_ids) and criterion did not improve
-            return
+            # Local optimum reached
+            return best_ids, best_criterion

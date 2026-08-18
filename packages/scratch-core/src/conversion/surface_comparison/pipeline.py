@@ -18,6 +18,9 @@ from conversion.surface_comparison.cell_registration.stage_builders import (
     compute_cap_factor,
 )
 from conversion.surface_comparison.cell_registration.stages import run_fine_stage
+from conversion.surface_comparison.cmc_classification_median import (
+    classify_congruent_cells_median,
+)
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
@@ -164,6 +167,11 @@ def compare_surfaces(
 
     # Step 7: CMC classification
     logger.debug("starting cmc classification")
-    return classify_congruent_cells_consensus(
+    classify_func = (
+        classify_congruent_cells_median
+        if params.cmc_algorithm == "median"
+        else classify_congruent_cells_consensus
+    )
+    return classify_func(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
