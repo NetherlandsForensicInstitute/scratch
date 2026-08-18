@@ -1,0 +1,246 @@
+"""Tests for conversion.surface_comparison.cell_registration.stages."""
+
+import numpy as np
+import pytest
+import torch
+
+from conversion.surface_comparison.cell_registration.geometry import (
+    pad_image_array,
+    rotate_image,
+)
+from conversion.surface_comparison.cell_registration.search import (
+    find_best_matches,
+    get_uniform_cell_shape,
+    search_candidates,
+)
+from conversion.surface_comparison.cell_registration.models import Match
+from conversion.surface_comparison.cell_registration.stages import (
+    build_refinement_jobs,
+    run_fine_stage,
+)
+
+from .helpers import downsample, make_surface
+
+DEVICE = torch.device("cpu")
+
+
+class TestRunFineStage:
+    def test_returns_empty_for_no_templates(self):
+        assert (
+            run_fine_stage(
+                image_full=np.zeros((10, 10)),
+                templates_full=[],
+                candidates=[],
+                coarse_cell_shape=(1, 1),
+                coarse_image_shape=(10, 10),
+                cap_factor=1.0,
+                angles=np.array([0.0]),
+                position_margin=1,
+                angle_margin_degrees=1.0,
+                minimum_fill_fraction=0.9,
+                fill_value_full=0.0,
+                device=DEVICE,
+            )
+            == []
+        )
+
+    def test_rejects_candidates_misaligned_with_the_templates(self):
+        # Arrange: candidates are indexed by template, so a length mismatch is a caller error
+        # rather than something to silently truncate.
+        with pytest.raises(ValueError, match="aligned"):
+            run_fine_stage(
+                image_full=np.zeros((60, 60)),
+                templates_full=[np.zeros((10, 10))],
+                candidates=[[], []],
+                coarse_cell_shape=(5, 5),
+                coarse_image_shape=(30, 30),
+                cap_factor=2.0,
+                angles=np.array([0.0]),
+                position_margin=1,
+                angle_margin_degrees=1.0,
+                minimum_fill_fraction=0.9,
+                fill_value_full=0.0,
+                device=DEVICE,
+            )
+
+
+class TestCoarseStageThenFineStage:
+    """
+    The coarse-to-fine search of the literature: search_candidates feeding run_fine_stage.
+
+    No single function carries that name any more; compare_surfaces wires the two together.
+    """
+
+    ANGLES = np.arange(-4.0, 4.001, 0.5)
+    CELL = 60
+
+    @pytest.fixture
+    def case(self):
+        """A padded comparison image plus cells cut from a rotated copy of it, at two scales."""
+        surface = make_surface(420, 400, seed=8)
+        padded_full = pad_image_array(surface, self.CELL, self.CELL)
+        rotated = rotate_image(surface, 2.0, fill_value=np.nan).astype(np.float64)
+        corners = [(120, 130), (200, 210), (260, 140)]
+        templates_full = [
+            rotated[top : top + self.CELL, left : left + self.CELL].copy()
+            for top, left in corners
+        ]
+        assert all(np.isfinite(t).all() for t in templates_full)
+
+        cap_factor = 4.0
+        coarse_surface = downsample(surface, cap_factor)
+        coarse_cell = max(1, round(self.CELL / cap_factor))
+        padded_coarse = pad_image_array(coarse_surface, coarse_cell, coarse_cell)
+        rotated_coarse = downsample(rotated, cap_factor)
+        templates_coarse = [
+            rotated_coarse[
+                round(top / cap_factor) : round(top / cap_factor) + coarse_cell,
+                round(left / cap_factor) : round(left / cap_factor) + coarse_cell,
+            ].copy()
+            for top, left in corners
+        ]
+        templates_coarse = [
+            np.nan_to_num(t, nan=float(np.nanmean(t))) for t in templates_coarse
+        ]
+
+        return {
+            "image_full": padded_full,
+            "image_coarse": padded_coarse,
+            "templates_full": templates_full,
+            "templates_coarse": templates_coarse,
+            "cap_factor": cap_factor,
+            "fill_value": float(np.nanmean(surface)),
+        }
+
+    @staticmethod
+    def _run(
+        case,
+        angles,
+        templates_full=None,
+        templates_coarse=None,
+        n_candidates=3,
+        **kwargs,
+    ):
+        """Run the coarse sweep and feed its candidates to the fine refinement."""
+        if templates_full is None:
+            templates_full = case["templates_full"]
+        if templates_coarse is None:
+            templates_coarse = case["templates_coarse"]
+
+        candidates = search_candidates(
+            case["image_coarse"],
+            templates_coarse,
+            angles,
+            0.9,
+            case["fill_value"],
+            n_candidates=n_candidates,
+            device=DEVICE,
+            **kwargs,
+        )
+        return run_fine_stage(
+            image_full=case["image_full"],
+            templates_full=templates_full,
+            candidates=candidates,
+            coarse_cell_shape=get_uniform_cell_shape(templates_coarse),
+            coarse_image_shape=case["image_coarse"].shape,
+            cap_factor=case["cap_factor"],
+            angles=angles,
+            position_margin=5,
+            angle_margin_degrees=5.0,
+            minimum_fill_fraction=0.9,
+            fill_value_full=case["fill_value"],
+            device=DEVICE,
+        )
+
+    def test_constant_template_is_rejected(self, case):
+        # Arrange: a featureless cell has no defined correlation.
+        constant_full = np.full_like(case["templates_full"][0], 5.0)
+        constant_coarse = np.full_like(case["templates_coarse"][0], 5.0)
+
+        # Act
+        results = self._run(
+            case,
+            self.ANGLES,
+            templates_full=[constant_full],
+            templates_coarse=[constant_coarse],
+        )
+
+        # Assert
+        assert results[0].score == -1.0
+
+    def test_agrees_approximately_with_the_exhaustive_search(self, case):
+        # Arrange
+        exhaustive = find_best_matches(
+            case["image_full"],
+            case["templates_full"],
+            self.ANGLES,
+            0.9,
+            case["fill_value"],
+            device=DEVICE,
+        )
+
+        # Act
+        coarse = self._run(case, self.ANGLES)
+
+        # Assert
+        for reference, other in zip(exhaustive, coarse):
+            assert other.angle_deg == pytest.approx(reference.angle_deg)
+            assert (other.x, other.y) == (reference.x, reference.y)
+            assert other.score == pytest.approx(reference.score, abs=1e-2)
+
+    def test_recovers_the_planted_rotation(self, case):
+        # Act
+        results = self._run(case, self.ANGLES)
+
+        # Assert
+        for match in results:
+            assert match.angle_deg == pytest.approx(2.0)
+            assert match.score > 0.95
+
+    def test_score_stays_within_the_valid_pearson_range(self, case):
+        # Act
+        results = self._run(case, self.ANGLES)
+
+        # Assert: the rejection sentinel must never leak out as a reported score.
+        for match in results:
+            assert -1.0 <= match.score <= 1.0
+
+    def test_more_candidates_never_lowers_the_score(self, case):
+        # Arrange: extra candidates add search, so a score can only improve or stay equal.
+        few = self._run(case, self.ANGLES, n_candidates=1)
+        many = self._run(case, self.ANGLES, n_candidates=4)
+
+        # Assert
+        for lower, higher in zip(few, many):
+            assert higher.score >= lower.score - 1e-6
+
+
+class TestBuildRefinementJobs:
+    def test_predicted_center_survives_the_two_canvases_padding_differently(self):
+        """A candidate on a cell must predict that cell's center to within half a coarse pixel."""
+        # Arrange: a 120x120 comparison image, 50 px cells, downsampled by 6.
+        cap_factor = 6.0
+        full_cell, coarse_cell = 50, 9  # coarse_cell == ceil(50 / 6)
+        top_left = 30
+        coarse_image_shape = (round(120 / cap_factor) + 2 * coarse_cell,) * 2
+        expected_center = top_left + full_cell + full_cell / 2
+        coarse_match = Match(
+            score=1.0,
+            x=round(top_left / cap_factor) + coarse_cell,
+            y=round(top_left / cap_factor) + coarse_cell,
+            angle_deg=0.0,
+        )
+
+        # Act
+        jobs = build_refinement_jobs(
+            [[coarse_match]],
+            coarse_cell_shape=(coarse_cell, coarse_cell),
+            coarse_image_shape=coarse_image_shape,
+            full_cell_shape=(full_cell, full_cell),
+            cap_factor=cap_factor,
+            trial_offsets=np.array([0.0]),
+        )
+
+        # Assert
+        assert jobs[0].center_x == pytest.approx(expected_center, abs=cap_factor / 2)
+        assert jobs[0].center_y == pytest.approx(expected_center, abs=cap_factor / 2)

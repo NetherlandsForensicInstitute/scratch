@@ -1,17 +1,43 @@
-import numpy as np
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import numpy as np
+import pytest
 from scipy.constants import micro
+from skimage.transform import resize
+
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.resample import (
-    resample_scan_image_and_mask,
+    DOWNSAMPLE_INTERPOLATION,
+    UPSAMPLE_INTERPOLATION,
+    _clip_factors,
     _resample_scan_image,
     get_scaling_factors,
-    _clip_factors,
     resample_array_2d,
+    resample_array_2d_nan_aware,
     resample_mark,
+    resample_scan_image_and_mask,
+    resample_scan_image_nan_aware,
+    resize_array_2d_nan_aware,
+    select_interpolation,
 )
+
+
+@pytest.mark.parametrize(
+    ("factors", "expected"),
+    [
+        ((2.0, 2.0), DOWNSAMPLE_INTERPOLATION),
+        # An axis that is left alone must not force upsample handling.
+        ((1.0, 3.0), DOWNSAMPLE_INTERPOLATION),
+        ((0.5, 0.5), UPSAMPLE_INTERPOLATION),
+        # cv2 takes one flag for both axes, so a growing axis wins.
+        ((0.5, 2.0), UPSAMPLE_INTERPOLATION),
+    ],
+)
+def test_selects_interpolation_from_the_resampling_direction(
+    factors: tuple[float, float], expected: str
+):
+    assert select_interpolation(factors) == expected
 
 
 class TestGetScalingFactors:
@@ -40,33 +66,174 @@ class TestClipFactors:
 
 
 class TestResampleArray:
-    @patch("conversion.resample.resize")
+    def test_keeps_the_output_shape_fractional(self):
+        # skimage divides the input shape by the output shape to get its sampling step and
+        # anti-aliasing sigma, rounding only when it allocates the result. Handing it a pre-rounded
+        # (33, 67) would resample a 200 px axis at a step of 2.985 instead of the requested 3.0.
+        with patch("conversion.resample.resize") as mock:
+            mock.return_value = np.zeros((33, 67))
+
+            resample_array_2d(np.zeros((100, 200)), factors=(3.0, 3.0))
+
+            assert mock.call_args.kwargs["output_shape"] == pytest.approx(
+                (100 / 3, 200 / 3)
+            )
+            assert mock.call_args.kwargs["anti_aliasing"] is True
+
+    def test_matches_an_unrounded_skimage_resize(self):
+        # Guards the whole path end-to-end, not just the argument: the values have to land where a
+        # direct skimage call would put them. This is the behavior every non-CMC pipeline relies on.
+        array = np.arange(100 * 200, dtype=np.float64).reshape(100, 200)
+        factors = (3.0, 3.0)
+
+        result = resample_array_2d(array, factors=factors)
+
+        expected = resize(
+            image=array,
+            output_shape=(1 / factors[1] * 100, 1 / factors[0] * 200),
+            mode="edge",
+            anti_aliasing=True,
+        )
+        assert np.array_equal(result, expected)
+
+    def test_spreads_nan(self):
+        # Arrange: a single missing pixel, which resample_array_2d_nan_aware would average away.
+        array = np.ones((4, 4))
+        array[0, 0] = np.nan
+
+        # Act
+        result = resample_array_2d(array, factors=(2.0, 2.0))
+
+        # Assert
+        assert np.isnan(result[0, 0])
+
+
+class TestResampleNanAware:
+    @patch("conversion.resample.resize_array_2d_nan_aware")
     def test_calculates_output_shape_correctly(self, mock_resize: MagicMock):
         array = np.zeros((100, 200))
         mock_resize.return_value = np.zeros((50, 100))
 
-        resample_array_2d(array, factors=(2.0, 2.0))
+        resample_array_2d_nan_aware(array, factors=(2.0, 2.0))
 
-        call_args = mock_resize.call_args[1]
-        assert call_args["output_shape"] == (50.0, 100.0)
+        call_args = mock_resize.call_args.args
+        assert call_args[1] == (50.0, 100.0)
 
-    @patch("conversion.resample.resize")
-    def test_anti_aliasing_on_upsampling(self, mock_resize: MagicMock):
-        array = np.zeros((100, 100))
-        mock_resize.return_value = np.zeros((200, 200))
+    def test_averages_missing_data_away(self):
+        # Arrange: a single missing pixel, which resample_array_2d would spread.
+        array = np.ones((4, 4))
+        array[0, 0] = np.nan
 
-        resample_array_2d(array, factors=(0.5, 0.5))
+        # Act
+        result = resample_array_2d_nan_aware(array, factors=(2.0, 2.0))
 
-        assert mock_resize.call_args[1]["anti_aliasing"] is False
+        # Assert
+        assert result[0, 0] == pytest.approx(1.0)
 
-    @patch("conversion.resample.resize")
-    def test_no_anti_aliasing_on_downsampling(self, mock_resize: MagicMock):
-        array = np.zeros((100, 100))
-        mock_resize.return_value = np.zeros((50, 50))
+    def test_upsamples_without_degenerating_to_nearest_neighbor(self):
+        # cv2 turns INTER_AREA into nearest-neighbor when zooming in, which would leave the output
+        # holding only values already present in the input.
+        array = np.arange(16, dtype=np.float64).reshape(4, 4)
 
-        resample_array_2d(array, factors=(2.0, 2.0))
+        result = resample_array_2d_nan_aware(
+            array, factors=(0.5, 0.5), interpolation="linear"
+        )
 
-        assert mock_resize.call_args[1]["anti_aliasing"] is True
+        assert result.shape == (8, 8)
+        assert not np.all(np.isin(result, array))
+
+    def test_upsampling_keeps_a_hole_in_place(self):
+        # Arrange: a single missing pixel in an otherwise valid array, doubled in size.
+        array = np.ones((8, 8))
+        array[4, 4] = np.nan
+
+        # Act
+        result = resample_array_2d_nan_aware(
+            array, factors=(0.5, 0.5), interpolation="linear"
+        )
+
+        # Assert: the hole neither vanishes nor grows beyond the source pixel it came from.
+        missing = np.isnan(result)
+        assert missing.any()
+        assert missing.sum() <= 4
+        assert result[0, 0] == pytest.approx(1.0)
+
+
+class TestResizeNanAware:
+    @staticmethod
+    def _shrink(image, factor):
+        height, width = image.shape
+        target = (int(np.ceil(height / factor)), int(np.ceil(width / factor)))
+        return resize_array_2d_nan_aware(image, target, interpolation="area")
+
+    def test_rejects_an_unknown_interpolation(self):
+        with pytest.raises(ValueError, match="Unknown interpolation"):
+            resize_array_2d_nan_aware(np.zeros((4, 4)), (2, 2), interpolation="bogus")  # type: ignore[arg-type]
+
+    def test_computes_block_mean(self):
+        # Arrange: each 2x2 block holds a single distinct value.
+        image = np.repeat(np.repeat(np.array([[1.0, 2.0], [3.0, 4.0]]), 2, 0), 2, 1)
+
+        # Act
+        result = self._shrink(image, 2)
+
+        # Assert
+        assert result == pytest.approx(np.array([[1.0, 2.0], [3.0, 4.0]]))
+
+    def test_averages_only_valid_pixels(self):
+        # Arrange: one block is half missing; its mean must come from the survivors alone.
+        image = np.array([[4.0, 4.0, 1.0, 1.0], [4.0, 4.0, np.nan, np.nan]])
+
+        # Act
+        result = self._shrink(image, 2)
+
+        # Assert
+        assert result[0, 0] == pytest.approx(4.0)
+        assert result[0, 1] == pytest.approx(1.0)
+
+    def test_block_below_validity_threshold_becomes_nan(self):
+        # Arrange: three of four sub-pixels missing, i.e. 25% valid.
+        image = np.array([[7.0, np.nan], [np.nan, np.nan]])
+
+        # Act
+        result = self._shrink(image, 2)
+
+        # Assert
+        assert np.isnan(result[0, 0])
+
+    def test_fully_missing_block_becomes_nan_without_warning(self):
+        # Arrange
+        image = np.full((2, 2), np.nan)
+
+        # Act
+        with np.errstate(all="raise"):
+            result = self._shrink(image, 2)
+
+        # Assert
+        assert np.isnan(result).all()
+
+
+class TestResampleToScale:
+    """The comparison pipeline's own scale alignment, which is stricter than the shared one."""
+
+    def test_resamples_a_scale_mismatch(self):
+        image = ScanImage(data=np.zeros((40, 40)), scale_x=3.0003e-6, scale_y=3.0003e-6)
+
+        assert resample_scan_image_nan_aware(image, target_scale=3e-6) is not image
+
+    def test_skips_nanometers_scale_mismatch(self):
+        image = ScanImage(
+            data=np.zeros((40, 40)), scale_x=3.00001e-6, scale_y=3.00001e-6
+        )
+
+        assert resample_scan_image_nan_aware(image, target_scale=3e-6) is image
+
+    def test_skips_a_scale_difference_that_is_only_float_rounding(self):
+        image = ScanImage(
+            data=np.zeros((40, 40)), scale_x=3.0000000000033e-6, scale_y=3e-6
+        )
+
+        assert resample_scan_image_nan_aware(image, target_scale=3e-6) is image
 
 
 class TestResampleScanImage:
@@ -92,6 +259,27 @@ class TestResampleImageAndMask:
 
         assert result_img is scan_image_rectangular_with_nans
         assert result_mask is mask
+
+    def test_skips_a_scale_difference_inside_numpys_own_tolerance(
+        self, scan_image_rectangular_with_nans: ScanImage
+    ):
+        # This is the shared resampler, so it keeps numpy's default 1e-5 window, as on main. The
+        # tighter SCALE_MATCH_RTOL applies only to the surface-comparison pipeline, which needs
+        # both marks on one grid; see TestResampleToScale in the surface_comparison tests.
+        result, _ = resample_scan_image_and_mask(
+            scan_image_rectangular_with_nans, factors=(1.00001, 1.00001)
+        )
+
+        assert result is scan_image_rectangular_with_nans
+
+    def test_skips_a_scale_difference_that_is_only_float_rounding(
+        self, scan_image_rectangular_with_nans: ScanImage
+    ):
+        result, _ = resample_scan_image_and_mask(
+            scan_image_rectangular_with_nans, factors=(1.0000000000033, 1.0)
+        )
+
+        assert result is scan_image_rectangular_with_nans
 
     def test_uses_explicit_factors(self, scan_image_rectangular_with_nans: ScanImage):
         with patch("conversion.resample.get_scaling_factors") as mock:

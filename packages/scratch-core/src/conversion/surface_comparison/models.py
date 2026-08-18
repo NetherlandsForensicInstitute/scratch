@@ -1,15 +1,16 @@
+from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import cached_property
+from textwrap import dedent
+from typing import Literal
 
 import numpy as np
 from pydantic import Field, field_validator
-
-from collections.abc import Sequence
-from dataclasses import dataclass
-
 from scipy.constants import mega
 
 from container_models.base import ConfigBaseModel, FloatArray2D
 from conversion.data_formats import Mark
+from conversion.surface_comparison.template_fill import fill_template_nan
 
 
 @dataclass(frozen=True)
@@ -24,12 +25,9 @@ class CellMetaData(ConfigBaseModel):
     """
     Intermediate classification data computed during the CMC pipeline.
 
-    :param is_outlier: True if this cell was rejected as an angle outlier during
-        consensus estimation (ESD test or tightening step).
-    :param residual_angle_deg: Signed angular deviation from the consensus rotation,
-        in degrees, after the final inlier median is computed.
-    :param position_error: Signed [x, y] deviation from the consensus translation,
-        in meters.
+    :param is_outlier: True if this cell was rejected as an angle outlier during consensus estimation.
+    :param residual_angle_deg: Signed angular deviation from the consensus rotation, in degrees.
+    :param position_error: Signed [x, y] deviation from the consensus translation, in meters.
     """
 
     is_outlier: bool
@@ -43,15 +41,12 @@ class Cell(ConfigBaseModel):
 
     :param center_reference: Cell center on the reference image [x, y] in meters.
     :param cell_size: Cell size on the reference image [width, height] in meters.
-    :param fill_fraction_reference: Fraction of valid pixels in this cell relative
-        to the nominal cell area (0 = empty, 1 = fully filled).
-    :param best_score: Best ACCF cross-correlation score achieved for this cell.
-    :param angle_deg: Rotation angle in degrees for the reference image at which the best score was obtained.
-    :param center_comparison: Cell center on the comparison image [x, y] in meters
-        at which the best score was obtained.
+    :param fill_fraction_reference: Fraction of valid pixels relative to nominal area (0 = empty, 1 = fully filled).
+    :param best_score: Best ACCF cross-correlation score achieved.
+    :param angle_deg: Rotation angle in degrees for the reference image at the best score.
+    :param center_comparison: Cell center on the comparison image [x, y] in meters at the best score.
     :param is_congruent: True if this cell is classified as a Congruent Matching Cell.
-    :param meta_data: Intermediate pipeline data (outlier flag, angle residual,
-        position error) populated by the classifier.
+    :param meta_data: Intermediate pipeline data (outlier flag, angle residual, position error).
     """
 
     center_reference: tuple[float, float] = Field(..., examples=[(4.5, 1.4)])
@@ -71,7 +66,15 @@ class Cell(ConfigBaseModel):
             return value
         if value > 1.0 + tol:
             raise ValueError(f"value must be ≤ 1.0 (+{tol} tolerance)")
-        return min(value, 1.0)  # clip value
+        return min(value, 1.0)
+
+    @field_validator("angle_deg", mode="before")
+    @classmethod
+    def wrap_angle_deg(cls, value: float | None) -> float | None:
+        if value is None:
+            return value
+        # Wrap -181.0 -> 179.0, 181.0 -> -179.0
+        return (float(value) + 180.0) % 360.0 - 180.0
 
     @property
     def cell_size_um(self) -> tuple[float, float]:
@@ -128,6 +131,9 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_min: Lower bound of rotation search range (degrees).
     :param search_angle_max: Upper bound of rotation search range (degrees).
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
+
+    The remaining fields configure the two search stages; see their descriptions. How images are
+    resampled is fixed rather than configurable, and lives in conversion.surface_comparison.pipeline.
     """
 
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
@@ -138,12 +144,62 @@ class ComparisonParams(ConfigBaseModel):
     search_angle_max: float = 180.0
     search_angle_step: float = Field(default=5.0, gt=0.0)
 
+    coarse_target_size: int = Field(
+        default=256,
+        gt=0,
+        description=(
+            "Target image size in pixels for the coarse sweep; a minimum cell size can keep it larger."
+        ),
+    )
+    n_candidates: int = Field(
+        default=3,
+        ge=1,
+        description="Candidate (x, y, angle) poses kept per cell from the coarse stage, for refinement.",
+    )
+    angle_batch_size: int | None = Field(
+        default=None,
+        ge=1,
+        description="Angles processed per chunk during the coarse sweep. None picks a device-based default.",
+    )
+    template_batch_size: int | None = Field(
+        default=None,
+        ge=1,
+        description="Cells processed per chunk during the coarse sweep. None picks a device-based default.",
+    )
+
+    fine_n_pixels: int = Field(
+        default=16,
+        ge=0,
+        description="Fine-stage translation margin: search ±N pixels around each candidate's position.",
+    )
+    fine_m_degrees: float = Field(
+        default=10.0,
+        ge=0.0,
+        description="Fine-stage angle margin: search ±M degrees, in 1-degree steps, around each candidate's angle.",
+    )
+    fine_batch_size: int | None = Field(
+        default=None,
+        ge=1,
+        description="Refinement jobs (candidate pose x trial angle) processed per chunk. None picks a device-based default.",
+    )
+
+    template_nan_fill_strategy: Literal["local_mean", "global_mean"] = Field(
+        default="global_mean",
+        description=dedent("""
+            How NaN pixels in reference templates are filled before correlation.
+            - local_mean: each cell's own valid-pixel mean; filled pixels contribute nothing.
+            - global_mean: the reference image's global mean; filled pixels count as flat surface.
+            """),
+    )
+
 
 @dataclass(frozen=False)
 class GridSearchParams:
     """
     Mutable container for the best registration parameters found so far for one cell.
+
     All positional attributes are in pixel coordinates of the (rotated) comparison image.
+
     :param center_x: Center x-coordinate of the best-matching comparison patch (pixels).
     :param center_y: Center y-coordinate of the best-matching comparison patch (pixels).
     :param angle: Rotation angle at which the best score was found (degrees).
@@ -158,7 +214,14 @@ class GridSearchParams:
     def update(
         self, center_x: float, center_y: float, angle: float, score: float
     ) -> None:
-        """Replace all fields with a new best result."""
+        """
+        Replace all fields with a new best result.
+
+        :param center_x: Center x-coordinate of the new best-matching comparison patch (pixels).
+        :param center_y: Center y-coordinate of the new best-matching comparison patch (pixels).
+        :param angle: Rotation angle at which the new best score was found (degrees).
+        :param score: New best normalized cross-correlation score.
+        """
         self.center_x = center_x
         self.center_y = center_y
         self.angle = angle
@@ -175,14 +238,14 @@ class GridCell:
     :param top_left: Tuple containing the top-left pixel coordinates (x, y) corresponding to the reference image.
     :param cell_data: 2D array containing the sliced image data from the reference image.
     :param grid_search_params: An instance of `GridSearchParams` for keeping track of intermediate search results.
-    :param nan_fill_value: (Optional) A sentinel value for replacing NaN values. The cell data with the NaN
-        values replaced is stored in the `cell_data_filled` attribute.
+    :param nan_fill_value: Optional fill value for NaN pixels. When provided, NaN are replaced with
+        this value; when None, each cell's own valid-pixel mean is used.
     """
 
     top_left: tuple[int, int]
     cell_data: FloatArray2D
     grid_search_params: GridSearchParams
-    nan_fill_value: float = np.nan
+    nan_fill_value: float | None = None
 
     @property
     def width(self) -> int:
@@ -202,5 +265,10 @@ class GridCell:
 
     @cached_property
     def cell_data_filled(self) -> FloatArray2D:
-        """Cell data where NaN values are replaced with the sentinel value."""
-        return np.nan_to_num(self.cell_data, nan=self.nan_fill_value, copy=True)
+        """
+        Cell data with NaN filled per fill_template_nan.
+
+        ``nan_fill_value`` carries the resolved ``template_nan_fill_strategy``: an explicit value
+        for ``global_mean``, ``None`` for ``local_mean``.
+        """
+        return fill_template_nan(self.cell_data, self.nan_fill_value)

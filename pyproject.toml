@@ -31,10 +31,6 @@ dependencies = [
   "threadpoolctl>=3.6.0",
 ]
 
-# https://docs.astral.sh/uv/concepts/projects/workspaces/
-[tool.uv.sources]
-scratch-core = { workspace = true }
-
 [tool.uv.workspace]
 members = ["packages/*"]
 exclude = ["**/__pycache__"]
@@ -143,3 +139,6 @@ output = "coverage.xml"
 [tool.deptry.per_rule_ignores]
 DEP002 = ["opencv-python"] # import cv2 is not recognized as opencv-python
 DEP003 = ["mutations"]   # part of scratch-core
+
+[tool.uv.sources]
+scratch-core = { workspace = true }

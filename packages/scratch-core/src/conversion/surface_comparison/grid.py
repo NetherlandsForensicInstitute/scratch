@@ -9,7 +9,10 @@ from conversion.surface_comparison.utils import convert_meters_to_pixels
 
 
 def generate_grid(
-    scan_image: ScanImage, cell_size: tuple[float, float], minimum_fill_fraction: float
+    scan_image: ScanImage,
+    cell_size: tuple[float, float],
+    minimum_fill_fraction: float,
+    nan_fill_value: float | None = None,
 ) -> list[GridCell]:
     """
     Generate a centered grid of cells covering the image. The image is assumed to be isotropic.
@@ -20,13 +23,14 @@ def generate_grid(
     :param scan_image: reference scan image
     :param cell_size: size of the cells of the grid in meters
     :param minimum_fill_fraction: minimum fraction of valid data of each cell
+    :param nan_fill_value: Optional fill value for NaN pixels in each cell. When provided,
+        NaN pixels are replaced with this value (e.g. the reference image's global mean).
+        When None (default), each cell's own valid-pixel mean is used.
     :return: list of valid grid cells
     """
     cell_width, cell_height = convert_meters_to_pixels(cell_size, scan_image.scale_x)
     xs = _tile_axis(scan_image.width, cell_width)
     ys = _tile_axis(scan_image.height, cell_height)
-
-    nan_fill_value = float(np.nanmean(scan_image.data))  # TODO: Do we want this value?
 
     output = []
     for y in ys:
