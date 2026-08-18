@@ -337,12 +337,12 @@ class TestRefineReturnsUpdatedValues:
     def cells_with_consistent_group(self) -> list[Cell]:
         """Create cells with a realistic pattern: a consistent group plus one outlier.
 
-        Cells 0-3 share a consistent transformation (~-1° rotation + small translation)
-        with small realistic variations. Their angle_deg values (~1°) match the expected
-        rotation. Cell 4 is a clear outlier with different angle/position.
+        Cells 0-3 share a consistent transformation (~-1° rotation + small translation) with small realistic variations.
+        Their angle_deg values (~1°) match the expected rotation. Cell 4 is a clear outlier with different
+        angle/position.
 
-        The angle distance formula is abs(angle_deg + consensus_rotation_deg), so
-        consistent cells have angle_deg ≈ -consensus_rotation_deg.
+        The angle distance formula is abs(angle_deg + consensus_rotation_deg), so consistent cells have
+        angle_deg ≈ -consensus_rotation_deg.
         """
         import math
 
