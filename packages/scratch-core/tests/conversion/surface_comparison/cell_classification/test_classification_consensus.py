@@ -138,6 +138,7 @@ class TestClassifyCongruentCells:
         )
 
         # Assert
+        assert result.estimated_rotation is not None
         np.testing.assert_allclose(
             result.estimated_rotation,
             expected_rotation,
@@ -175,6 +176,7 @@ class TestClassifyCongruentCells:
                 f"got {result.estimated_translation}"
             )
         else:
+            assert result.estimated_translation is not None
             actual_translation = (
                 result.estimated_translation[0],
                 -1 * result.estimated_translation[1],
@@ -337,6 +339,8 @@ class TestSharedClassifierBehavior:
         median = classify_congruent_cells_median(cells_median, params, rotation_center)
 
         # Assert: both follow the sign of the cell angles they were derived from
+        assert consensus.estimated_rotation is not None
+        assert median.estimated_rotation is not None
         assert np.sign(consensus.estimated_rotation) == np.sign(mean_cell_angle)
         assert np.sign(median.estimated_rotation) == np.sign(mean_cell_angle)
         np.testing.assert_allclose(

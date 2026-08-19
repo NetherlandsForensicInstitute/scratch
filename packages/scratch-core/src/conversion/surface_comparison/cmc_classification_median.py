@@ -216,9 +216,12 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
     :param params: Algorithm parameters providing the classification thresholds.
     """
     for cell in cells:
+        # Residuals are None only for the outliers, which are already excluded
         is_congruent = bool(
             cell.best_score >= params.correlation_threshold
             and not cell.meta_data.is_outlier
+            and cell.meta_data.residual_angle_deg is not None
+            and cell.meta_data.position_error is not None
             and np.abs(cell.meta_data.residual_angle_deg)
             <= params.angle_deviation_threshold
             and np.all(

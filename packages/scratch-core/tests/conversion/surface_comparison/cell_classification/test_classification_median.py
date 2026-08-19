@@ -89,6 +89,7 @@ class TestClassifyCongruentCells:
         result = classify_congruent_cells_median(cells, params, rotation_center)
 
         expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
+        assert result.estimated_rotation is not None
         if np.isnan(expected_rotation):
             assert np.isnan(result.estimated_rotation), (
                 f"[{matlab_test_case['name']}] Expected NaN consensus rotation, "
@@ -121,6 +122,7 @@ class TestClassifyCongruentCells:
                 f"got {result.estimated_translation}"
             )
         else:
+            assert result.estimated_translation is not None
             actual_translation = (
                 result.estimated_translation[0],
                 -1 * result.estimated_translation[1],

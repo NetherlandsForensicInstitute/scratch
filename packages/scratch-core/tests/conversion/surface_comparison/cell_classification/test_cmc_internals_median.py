@@ -327,6 +327,7 @@ class TestGetConsensusAngle:
 
         # Assert — every residual must be a finite float
         for cell in cells:
+            assert cell.meta_data.residual_angle_deg is not None
             assert np.isfinite(cell.meta_data.residual_angle_deg)
 
 
@@ -348,9 +349,12 @@ class TestGetConsensusTranslation:
         rotation_center = (0.0, 0.0)
 
         # Act
-        tx, ty = _get_median_translation(
+        translation = _get_median_translation(
             cells=cells, angle=0.0, rotation_center=rotation_center
         )
+
+        assert translation is not None
+        tx, ty = translation
 
         # Assert
         np.testing.assert_allclose([tx, ty], [0.0, 0.0], atol=1e-12)
@@ -372,9 +376,12 @@ class TestGetConsensusTranslation:
         rotation_center = (0.0, 0.0)
 
         # Act
-        tx, ty = _get_median_translation(
+        translation = _get_median_translation(
             cells=cells, angle=0.0, rotation_center=rotation_center
         )
+
+        assert translation is not None
+        tx, ty = translation
 
         # Assert
         np.testing.assert_allclose([tx, ty], list(offset), atol=1e-10)
@@ -404,9 +411,12 @@ class TestGetConsensusTranslation:
         rotation_center = (0.0, 0.0)
 
         # Act
-        tx, ty = _get_median_translation(
+        translation = _get_median_translation(
             cells=cells, angle=0.0, rotation_center=rotation_center
         )
+
+        assert translation is not None
+        tx, ty = translation
 
         # Assert — result must be near the inlier offset, not dragged toward 999
         np.testing.assert_allclose([tx, ty], list(good_offset), atol=1e-10)
@@ -430,5 +440,6 @@ class TestGetConsensusTranslation:
 
         # Assert
         for cell in cells:
+            assert cell.meta_data.position_error is not None
             assert len(cell.meta_data.position_error) == 2
             assert all(np.isfinite(e) for e in cell.meta_data.position_error)
