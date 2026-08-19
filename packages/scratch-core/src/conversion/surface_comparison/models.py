@@ -26,13 +26,15 @@ class CellMetaData(ConfigBaseModel):
     Intermediate classification data computed during the CMC pipeline.
 
     :param is_outlier: True if this cell was rejected as an outlier while estimating the consensus pose.
-    :param residual_angle_deg: Signed angular deviation from the consensus rotation, in degrees.
-    :param position_error: Signed [x, y] deviation from the consensus translation, in meters.
+    :param residual_angle_deg: Signed angular deviation from the consensus rotation in degrees, or None
+        when there is no consensus pose to deviate from.
+    :param position_error: Signed [x, y] deviation from the consensus translation in meters, or None
+        when there is no consensus pose to deviate from.
     """
 
     is_outlier: bool
-    residual_angle_deg: float = Field(ge=-180, le=180)
-    position_error: tuple[float, float] = Field(..., examples=[-9.12, 6.8])
+    residual_angle_deg: float | None = Field(ge=-180, le=180)
+    position_error: tuple[float, float] | None = Field(..., examples=[(-9.12, 6.8)])
 
 
 class Cell(ConfigBaseModel):
@@ -87,13 +89,15 @@ class ComparisonResult:
     Consolidated results of the CMC pipeline.
 
     :param cells: Per-cell registration and classification results.
-    :param estimated_rotation: Estimated rotation across CMC cells (degrees).
-    :param estimated_translation: Estimated translation across CMC cells (m)
+    :param estimated_rotation: Estimated rotation across CMC cells (degrees), or None when there is no
+        consensus geometry to estimate it from.
+    :param estimated_translation: Estimated translation across CMC cells (m), or None when there is no
+        consensus geometry to estimate it from.
     """
 
     cells: Sequence[Cell]
-    estimated_rotation: float
-    estimated_translation: tuple[float, float]
+    estimated_rotation: float | None
+    estimated_translation: tuple[float, float] | None
 
     @property
     def cell_count(self) -> int:
@@ -126,6 +130,7 @@ class ComparisonParams(ConfigBaseModel):
 
     :param minimum_fill_fraction: Minimum fraction of valid pixels required in a reference cell for it to be processed.
     :param correlation_threshold: Minimum per-cell ACCF score for CMC classification.
+    :param cmc_algorithm: Which CMC classifier to run, 'consensus' or 'median'.
     :param angle_deviation_threshold: Maximum absolute angular deviation from consensus for CMC (degrees).
     :param position_threshold: Maximum positional deviation from consensus for CMC (m).
     :param search_angle_min: Lower bound of rotation search range (degrees).

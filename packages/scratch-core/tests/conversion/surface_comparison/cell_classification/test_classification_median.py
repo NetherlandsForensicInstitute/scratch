@@ -115,14 +115,16 @@ class TestClassifyCongruentCells:
         result = classify_congruent_cells_median(cells, params, rotation_center)
 
         expected_translation = matlab_test_case["outputs"]["consensus_translation"]
-        actual_translation = result.estimated_translation
-        actual_translation = (actual_translation[0], -1 * actual_translation[1])
         if all(item is None for item in expected_translation):
-            assert all(np.isnan(v) for v in actual_translation), (
-                f"[{matlab_test_case['name']}] Expected NaN translation, "
-                f"got {actual_translation}"
+            assert result.estimated_translation is None, (
+                f"[{matlab_test_case['name']}] Expected no translation, "
+                f"got {result.estimated_translation}"
             )
         else:
+            actual_translation = (
+                result.estimated_translation[0],
+                -1 * result.estimated_translation[1],
+            )
             np.testing.assert_allclose(
                 np.array(actual_translation),
                 np.array(expected_translation),

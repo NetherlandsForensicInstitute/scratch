@@ -4,10 +4,6 @@ import numpy as np
 
 from container_models.base import FloatArray1D
 
-# Pose reported without consensus geometry; the rotation cannot be NaN because the API schema bounds it.
-NO_CONSENSUS_ROTATION = 0.0
-NO_CONSENSUS_TRANSLATION = (float("nan"), float("nan"))
-
 
 @dataclass(frozen=True)
 class CMCTranslationRotation:

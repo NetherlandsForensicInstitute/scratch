@@ -7,8 +7,6 @@ from conversion.surface_comparison.cmc_consensus.criterion import (
     calculate_criterion,
 )
 from conversion.surface_comparison.cmc_consensus.models import (
-    NO_CONSENSUS_ROTATION,
-    NO_CONSENSUS_TRANSLATION,
     CMCTranslationRotation,
 )
 from conversion.surface_comparison.cmc_consensus.procrustes import (
@@ -21,7 +19,7 @@ from conversion.surface_comparison.models import (
     ComparisonParams,
     ComparisonResult,
 )
-from conversion.surface_comparison.utils import rotate_points
+from conversion.surface_comparison.utils import rotate_points, wrap_angles
 
 
 def classify_congruent_cells_consensus(
@@ -41,8 +39,8 @@ def classify_congruent_cells_consensus(
     :param params: Algorithm parameters (thresholds for score, angle, and position).
     :param reference_center: Reference rotation center (meters); used if only one cell fits.
     :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees, and consensus
-        translation in meters, both expressed around `reference_center`. When no consensus geometry is found the
-        rotation is zero and the translation is NaN.
+        translation in meters, both expressed around `reference_center`. Both are None when no consensus
+        geometry is found.
     :raises ValueError: If ``cells`` is empty.
     """
     if not cells:
@@ -62,14 +60,13 @@ def classify_congruent_cells_consensus(
     _update_congruent_cells(cells, cmc_ids)
 
     if not inlier_ids:
-        # No consensus geometry was found, so there is no pose to report.
-        # TODO: report NaN for the rotation too, once the API schema allows a nullable rotation.
+        # No consensus geometry was found, so there is no pose to report and no residuals against it.
         for cell in cells:
             cell.meta_data.is_outlier = True
+            cell.meta_data.residual_angle_deg = None
+            cell.meta_data.position_error = None
         return ComparisonResult(
-            cells=cells,
-            estimated_rotation=NO_CONSENSUS_ROTATION,
-            estimated_translation=NO_CONSENSUS_TRANSLATION,
+            cells=cells, estimated_rotation=None, estimated_translation=None
         )
     consensus = _get_estimated_translation_rotation(
         [cells[i] for i in inlier_ids], reference_center
@@ -146,8 +143,9 @@ def _update_congruent_cells(cells: list[Cell], congruent_ids: list[int]) -> None
     :param congruent_ids: list of cell ids that are congruent
     """
 
+    congruent = set(congruent_ids)
     for i, cell in enumerate(cells):
-        cell.is_congruent = i in set(congruent_ids)
+        cell.is_congruent = i in congruent
 
 
 def _update_cell_meta_data(
@@ -176,9 +174,8 @@ def _update_cell_meta_data(
 
     for i, (cell, predicted) in enumerate(zip(cells, predicted_positions)):
         cell.meta_data.is_outlier = i not in inliers
-        # Wrap so a residual across +-180 degrees stays small
         cell.meta_data.residual_angle_deg = float(
-            (cell.angle_deg - consensus.rotation + 180.0) % 360.0 - 180.0
+            np.degrees(wrap_angles(np.radians(cell.angle_deg - consensus.rotation)))
         )
         cell.meta_data.position_error = (
             float(cell.center_comparison[0] - predicted[0]),

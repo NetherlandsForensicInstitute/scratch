@@ -193,17 +193,18 @@ class ComparisonImpressionMetrics(BaseModelConfig):
         description="Fraction of the total valid surface area covered by congruent matching cells, range 0-1.",
         examples=[0.75],
     )
-    estimated_rotation: float = Field(
+    estimated_rotation: float | None = Field(
         ...,
         ge=-180,
         le=180,
-        description="Estimated rotation between reference and compared mark from cell registration, in degrees.",
+        description="Estimated rotation between reference and compared mark from cell registration, in degrees. "
+        "Null when no consensus geometry was found.",
         examples=[1.0],
     )
-    estimated_translation: tuple[float, float] = Field(
+    estimated_translation: tuple[float, float] | None = Field(
         ...,
         description="Estimated (x, y) translation between reference and compared mark from cell registration, in "
-        "meters.",
+        "meters. Null when no consensus geometry was found.",
         examples=[(-9.4e-6, 10.1e-6)],
     )
 

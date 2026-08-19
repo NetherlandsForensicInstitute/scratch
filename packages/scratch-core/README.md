@@ -293,7 +293,7 @@ factors.
 | `consensus_rotation`    | Estimated global rotation between the two marks (°)           |
 | `consensus_translation` | Estimated global translation between the two marks (m)        |
 
-Both are expressed around the reference image center, and the translation is NaN when no cell survives outlier rejection.
+Both are expressed around the reference image center, and both are `None` when no cell survives outlier rejection.
 
 Use `ComparisonParams.for_mark_type(mark_type)` to get the correct default cell size for the mark type.
 Default cell sizes: 450 × 450 μm for breech face, 125 × 125 μm for all other impression types.

@@ -20,7 +20,6 @@ from conversion.surface_comparison.cmc_classification_median import (
     classify_congruent_cells_median,
 )
 from conversion.surface_comparison.cmc_consensus.criterion import calculate_criterion
-from conversion.surface_comparison.cmc_consensus.models import NO_CONSENSUS_ROTATION
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     _get_cell_angle_and_position_distances,
     _refine,
@@ -169,20 +168,17 @@ class TestClassifyCongruentCells:
             cells, params, rotation_center_reference
         )
 
-        actual_translation = result.estimated_translation
-        actual_translation_list = list(actual_translation)
-        actual_translation = (
-            actual_translation_list[0],
-            -1 * actual_translation_list[1],
-        )
-
         # Assert
         if all(item is None for item in expected_translation):
-            assert all(np.isnan(v) for v in actual_translation), (
-                f"[{matlab_test_case['name']}] Expected NaN translation, "
-                f"got {actual_translation}"
+            assert result.estimated_translation is None, (
+                f"[{matlab_test_case['name']}] Expected no translation, "
+                f"got {result.estimated_translation}"
             )
         else:
+            actual_translation = (
+                result.estimated_translation[0],
+                -1 * result.estimated_translation[1],
+            )
             np.testing.assert_allclose(
                 np.array(actual_translation),
                 np.array(expected_translation),
@@ -272,7 +268,7 @@ class TestCorrelationThresholdFilter:
         # Assert: the cells still agree geometrically, so a pose is reported
         assert result.cmc_count == 0
         assert result.cell_count == len(cells)
-        assert result.estimated_rotation != NO_CONSENSUS_ROTATION
+        assert result.estimated_rotation is not None
         # The metrics the API reports must stay computable
         assert result.cmc_fraction == 0.0
         assert result.cmc_area_fraction == 0.0
@@ -298,11 +294,13 @@ class TestCorrelationThresholdFilter:
         # Act
         result = classify_congruent_cells_consensus(cells, params, rotation_center)
 
-        # Assert: no consensus geometry is found, so the sentinel pose is reported
+        # Assert: no consensus geometry is found, so there is no pose and no residuals to report
         assert result.cmc_count == 0
-        assert result.estimated_rotation == NO_CONSENSUS_ROTATION
-        # Compare by value, since a NaN tuple only equals itself by identity
-        assert all(np.isnan(value) for value in result.estimated_translation)
+        assert result.estimated_rotation is None
+        assert result.estimated_translation is None
+        assert all(cell.meta_data.is_outlier for cell in result.cells)
+        assert all(cell.meta_data.residual_angle_deg is None for cell in result.cells)
+        assert all(cell.meta_data.position_error is None for cell in result.cells)
 
     def test_all_cells_pass_threshold(self) -> None:
         """When all cells pass the threshold, behavior is unchanged from baseline."""
@@ -578,7 +576,8 @@ class TestRefineReturnsUpdatedValues:
         assert set(refined_ids) == {0, 1, 2, 3}, (
             f"Refinement should include all consistent cells and exclude the outlier, got {refined_ids}"
         )
-        assert refined_criterion < initial_criterion
+        # Cells 2 and 3 sit on the same transform, so they grow the set without moving the criterion
+        assert refined_criterion == pytest.approx(initial_criterion)
 
     def test_refine_improves_criterion(
         self, cells_with_consistent_group: list[Cell]

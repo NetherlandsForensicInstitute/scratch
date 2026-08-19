@@ -7,16 +7,17 @@ import pytest
 
 from conversion.surface_comparison.cmc_classification_median import (
     _circular_median,
+    _get_esd_criterion,
     _get_median_angle,
     _get_median_translation,
-    _get_esd_criterion,
     _get_threshold_criterion,
     _outliers_gesd,
     _rosner_critical_value,
     rotate_points,
-    _wrap_angles,
+    wrap_angles,
 )
 from conversion.surface_comparison.models import Cell, CellMetaData
+
 from ....helper_functions import make_cell
 
 
@@ -41,7 +42,7 @@ def test_cell_size_um_converts_meters_to_micrometers():
 
 
 class TestWrapAngles:
-    """Tests for _wrap_angles: normalises any angle array to [-pi, pi]."""
+    """Tests for wrap_angles: normalises any angle array to [-pi, pi]."""
 
     def test_angles_within_range_are_unchanged(self) -> None:
         """Angles already in [-pi, pi] must pass through unmodified."""
@@ -49,7 +50,7 @@ class TestWrapAngles:
         angles = np.array([0.0, np.pi / 2, -np.pi / 3])
 
         # Act
-        result = _wrap_angles(angles)
+        result = wrap_angles(angles)
 
         # Assert
         np.testing.assert_allclose(result, angles)
@@ -61,7 +62,7 @@ class TestWrapAngles:
         expected = np.array([-np.pi, -np.pi / 2, 0.0])
 
         # Act
-        result = _wrap_angles(angles)
+        result = wrap_angles(angles)
 
         # Assert
         np.testing.assert_allclose(result, expected, atol=1e-12)

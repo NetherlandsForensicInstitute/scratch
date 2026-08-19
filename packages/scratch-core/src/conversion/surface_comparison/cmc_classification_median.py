@@ -1,13 +1,13 @@
 import numpy as np
 from scipy.stats import t
 
-from container_models.base import FloatArray1D, BoolArray1D
+from container_models.base import BoolArray1D, FloatArray1D
 from conversion.surface_comparison.models import (
     Cell,
-    ComparisonResult,
     ComparisonParams,
+    ComparisonResult,
 )
-from conversion.surface_comparison.utils import rotate_points
+from conversion.surface_comparison.utils import rotate_points, wrap_angles
 
 
 def classify_congruent_cells_median(
@@ -75,19 +75,9 @@ def _circular_median(angles: FloatArray1D) -> float:
     :param angles: 1-D array of angles in radians.
     :returns: The circular median angle in radians.
     """
-    costs = [np.sum(np.abs(_wrap_angles(angles - a))) for a in angles]
+    costs = [np.sum(np.abs(wrap_angles(angles - a))) for a in angles]
     ref = angles[np.argmin(costs)]
-    return float(_wrap_angles(ref + np.median(_wrap_angles(angles - ref))))
-
-
-def _wrap_angles(angles: FloatArray1D) -> FloatArray1D:
-    """
-    Normalize angles in radians to the [-pi, pi] interval.
-
-    :param angles: Array of angles in radians.
-    :returns: Array of normalized angles in radians.
-    """
-    return (angles + np.pi) % (2 * np.pi) - np.pi
+    return float(wrap_angles(ref + np.median(wrap_angles(angles - ref))))
 
 
 def _get_esd_criterion(values: FloatArray1D) -> BoolArray1D:
@@ -143,18 +133,18 @@ def _get_median_angle(cells: list[Cell], threshold: float) -> float:
 
     # Compute median from angles
     median_angle = _circular_median(angles=angles)
-    angle_residuals = _wrap_angles(angles=angles - median_angle)
+    angle_residuals = wrap_angles(angles=angles - median_angle)
     mask = _get_esd_criterion(values=angle_residuals)
 
     # Recompute median based on the inliers
     median_angle = _circular_median(angles[mask])
-    angle_residuals = _wrap_angles(angles=angles - median_angle)
+    angle_residuals = wrap_angles(angles=angles - median_angle)
 
     # Tighten: re-evaluate all cells against 2 × angle_threshold
     mask = _get_threshold_criterion(values=angle_residuals, threshold=threshold)
     if np.any(mask):
         median_angle = _circular_median(angles[mask])
-        angle_residuals = _wrap_angles(angles=angles - median_angle)
+        angle_residuals = wrap_angles(angles=angles - median_angle)
 
     # Update cell meta-data
     for cell, is_outlier, residual_angle in zip(cells, ~mask, angle_residuals):
@@ -166,19 +156,19 @@ def _get_median_angle(cells: list[Cell], threshold: float) -> float:
 
 def _get_median_translation(
     cells: list[Cell], angle: float, rotation_center: tuple[float, float]
-) -> tuple[float, float]:
+) -> tuple[float, float] | None:
     """
     Rotate reference cell centers by the median angle, then compute the
     median positional offset between the rotated reference and comparison centers.
 
     Outlier cells are excluded from the median by NaN-masking their centers before aggregation.
     Every cell's ``meta_data.position_error`` is updated with its signed [x, y] deviation
-    from the median translation.
+    from the median translation, or None for the outliers that were masked out.
 
     :param cells: List of cells whose ``meta_data.is_outlier`` flags are already set.
     :param angle: Median rotation angle in radians.
     :param rotation_center: [x, y] center of rotation in meters.
-    :returns: Median translation [x, y] in meters.
+    :returns: Median translation [x, y] in meters, or None when every cell is an outlier.
     """
     centers_reference = np.array([c.center_reference for c in cells])
     centers_comparison = np.array([c.center_comparison for c in cells])
@@ -196,13 +186,14 @@ def _get_median_translation(
     median_translation = np.nanmedian(position_residuals, axis=0)
     position_errors = position_residuals - median_translation
 
-    # Update cell meta-data
-    for cell, position_error in zip(cells, position_errors):
+    # Update cell meta-data; outliers were masked out, so they have no error to report
+    for cell, is_outlier, position_error in zip(cells, outliers, position_errors):
         cell.meta_data.position_error = (
-            float(position_error[0]),
-            float(position_error[1]),
+            None if is_outlier else (float(position_error[0]), float(position_error[1]))
         )
 
+    if np.isnan(median_translation).any():
+        return None
     return float(median_translation[0]), float(median_translation[1])
 
 
