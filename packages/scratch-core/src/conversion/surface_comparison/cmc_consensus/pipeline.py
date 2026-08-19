@@ -211,13 +211,9 @@ def _get_estimated_translation_rotation(
             )[0]
             + np.array(reference_center)
         )
-        consensus_translation = tuple(
-            [
-                center_float - reference_float
-                for center_float, reference_float in zip(
-                    inlier_cell.center_comparison, predicted_coordinate
-                )
-            ]
+        consensus_translation = (
+            float(inlier_cell.center_comparison[0] - predicted_coordinate[0]),
+            float(inlier_cell.center_comparison[1] - predicted_coordinate[1]),
         )
         consensus_rotation_deg = inlier_cell.angle_deg
 

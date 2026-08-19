@@ -204,7 +204,7 @@ class ComparisonImpressionMetrics(BaseModelConfig):
     estimated_translation: tuple[float, float] | None = Field(
         ...,
         description="Estimated (x, y) translation between reference and compared mark from cell registration, in "
-        "meters. Null when no consensus geometry was found.",
+        "meters. Null when no consensus geometry was found, or every cell was rejected as an outlier.",
         examples=[(-9.4e-6, 10.1e-6)],
     )
 

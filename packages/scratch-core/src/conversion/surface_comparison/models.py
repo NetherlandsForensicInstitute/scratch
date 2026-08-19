@@ -89,10 +89,10 @@ class ComparisonResult:
     Consolidated results of the CMC pipeline.
 
     :param cells: Per-cell registration and classification results.
-    :param estimated_rotation: Estimated rotation across CMC cells (degrees), or None when there is no
-        consensus geometry to estimate it from.
-    :param estimated_translation: Estimated translation across CMC cells (m), or None when there is no
-        consensus geometry to estimate it from.
+    :param estimated_rotation: Estimated rotation across the non-outlier cells (degrees). None when there
+        is no consensus geometry.
+    :param estimated_translation: Estimated translation across the non-outlier cells (m). None when there
+        is no consensus geometry, or every cell is an outlier.
     """
 
     cells: Sequence[Cell]
