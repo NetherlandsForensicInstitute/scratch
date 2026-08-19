@@ -24,7 +24,12 @@ from conversion.surface_comparison.cmc_consensus.pipeline import (
     _refine,
     classify_congruent_cells_consensus,
 )
-from conversion.surface_comparison.models import Cell, CellMetaData
+from conversion.surface_comparison.models import (
+    NO_CONSENSUS_ROTATION,
+    NO_CONSENSUS_TRANSLATION,
+    Cell,
+    CellMetaData,
+)
 
 from ..helpers import build_test_inputs
 
@@ -255,7 +260,7 @@ class TestCorrelationThresholdFilter:
         ]
 
     def test_no_cells_pass_threshold_yields_zero_cmcs(self) -> None:
-        """Zero CMCs is a valid result: all cells are kept and the pose estimate stays defined."""
+        """Zero CMCs is a valid result: all cells are kept and the consensus geometry still holds."""
         # Arrange
         cells, params, rotation_center_reference = build_test_inputs(
             _get_case("all_congruent_no_outliers")["inputs"]
@@ -268,14 +273,39 @@ class TestCorrelationThresholdFilter:
             cells, params, rotation_center_reference
         )
 
-        # Assert
+        # Assert: the cells still agree geometrically, so a pose is reported
         assert result.cmc_count == 0
         assert result.cell_count == len(cells)
-        assert not np.isnan(result.estimated_rotation)
-        assert not any(np.isnan(result.estimated_translation))
+        assert result.estimated_rotation != NO_CONSENSUS_ROTATION
         # The metrics the API reports must stay computable
         assert result.cmc_fraction == 0.0
         assert result.cmc_area_fraction == 0.0
+
+    def test_single_passing_cell_without_geometric_support_is_not_congruent(
+        self,
+    ) -> None:
+        """A lone cell passing the similarity threshold is not a CMC on its own."""
+        # Arrange: only cell 0 passes, and the other cells are scattered in angle and position
+        case_inputs = dict(_get_case("all_congruent_no_outliers")["inputs"])
+        case_inputs["correlation_scores"] = [0.9] + [0.01] * 5
+        case_inputs["angles_comparison"] = [1.35, -80.0, 60.0, -120.0, 100.0, -40.0]
+        case_inputs["centers_comparison"] = [
+            case_inputs["centers_comparison"][0],
+            [0.005, 0.004],
+            [0.0008, 0.006],
+            [0.007, 0.0009],
+            [0.002, 0.008],
+            [0.009, 0.003],
+        ]
+        cells, params, rotation_center = build_test_inputs(case_inputs)
+
+        # Act
+        result = classify_congruent_cells_consensus(cells, params, rotation_center)
+
+        # Assert: no consensus geometry is found, so the sentinel pose is reported
+        assert result.cmc_count == 0
+        assert result.estimated_rotation == NO_CONSENSUS_ROTATION
+        assert result.estimated_translation == NO_CONSENSUS_TRANSLATION
 
     def test_all_cells_pass_threshold(self) -> None:
         """When all cells pass the threshold, behavior is unchanged from baseline."""
@@ -296,6 +326,49 @@ class TestCorrelationThresholdFilter:
 
 class TestSharedClassifierBehavior:
     """Tests that apply to both consensus and median classifiers."""
+
+    def test_classifiers_agree_on_rotation_sign(self) -> None:
+        """Both classifiers must report the rotation in the same convention as Cell.angle_deg."""
+        # Arrange
+        case_inputs = _get_case("all_congruent_no_outliers")["inputs"]
+        cells_consensus, params, rotation_center = build_test_inputs(case_inputs)
+        cells_median, _, _ = build_test_inputs(case_inputs)
+        mean_cell_angle = float(np.mean([cell.angle_deg for cell in cells_consensus]))
+
+        # Act
+        consensus = classify_congruent_cells_consensus(
+            cells_consensus, params, rotation_center
+        )
+        median = classify_congruent_cells_median(cells_median, params, rotation_center)
+
+        # Assert: both follow the sign of the cell angles they were derived from
+        assert np.sign(consensus.estimated_rotation) == np.sign(mean_cell_angle)
+        assert np.sign(median.estimated_rotation) == np.sign(mean_cell_angle)
+        np.testing.assert_allclose(
+            consensus.estimated_rotation, median.estimated_rotation, atol=0.5
+        )
+
+    def test_consensus_rotation_sign_is_independent_of_cmc_count(self) -> None:
+        """The single-cell and Procrustes branches must report the same angle convention."""
+        # Arrange
+        one_cell, params_one, center_one = build_test_inputs(
+            _get_case("single_cell")["inputs"]
+        )
+        all_cells, params_all, center_all = build_test_inputs(
+            _get_case("all_congruent_no_outliers")["inputs"]
+        )
+
+        # Act
+        single = classify_congruent_cells_consensus(one_cell, params_one, center_one)
+        procrustes = classify_congruent_cells_consensus(
+            all_cells, params_all, center_all
+        )
+
+        # Assert
+        assert single.cmc_count == 1
+        assert np.sign(single.estimated_rotation) == np.sign(
+            procrustes.estimated_rotation
+        )
 
     @pytest.mark.parametrize(
         "classifier",

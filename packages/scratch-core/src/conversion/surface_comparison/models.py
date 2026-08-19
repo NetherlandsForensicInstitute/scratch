@@ -81,6 +81,11 @@ class Cell(ConfigBaseModel):
         return self.cell_size[0] * mega, self.cell_size[1] * mega
 
 
+# Sentinel pose reported when there are no CMC cells to estimate one from.
+NO_CONSENSUS_ROTATION = 0.0
+NO_CONSENSUS_TRANSLATION = (0.0, 0.0)
+
+
 @dataclass
 class ComparisonResult:
     """

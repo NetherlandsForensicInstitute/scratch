@@ -14,6 +14,8 @@ from conversion.surface_comparison.cmc_consensus.procrustes import (
     find_consensus_parameters,
 )
 from conversion.surface_comparison.models import (
+    NO_CONSENSUS_ROTATION,
+    NO_CONSENSUS_TRANSLATION,
     Cell,
     ComparisonParams,
     ComparisonResult,
@@ -28,41 +30,48 @@ def classify_congruent_cells_consensus(
     to find consensus parameters
 
     Steps:
-    1. Select cells passing the similarity threshold; others are kept in results but excluded from consensus fit.
-    2. Iteratively refine rigid body transformations from cell pairs, keeping solutions with more CMC cells or better quality.
-    3. Get a boolean vector flagging which cells are CMC.
+    1. Iteratively refine rigid body transformations from cell pairs, keeping solutions with more cells or better quality.
+    2. Flag the geometric inliers that also pass the similarity threshold as CMC.
+    3. Estimate the consensus rotation and translation from the geometric inliers.
     4. Return a ComparisonResult.
 
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
     :param reference_center: Reference rotation center (meters); used if only one cell fits.
     :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees,
-        and consensus translation in meters.
+        and consensus translation in meters. Both are zero when no consensus geometry is found.
     :raises ValueError: If ``cells`` is empty.
     """
     if not cells:
         raise ValueError("Cannot identify CMC from an empty list.")
 
-    candidate_ids = [
-        i for i, c in enumerate(cells) if c.best_score >= params.correlation_threshold
-    ]
-    candidates = [cells[i] for i in candidate_ids]
-
-    if len(candidates) == 1:
+    if len(cells) == 1:
         # Then this cell is an inlier by definition
         inlier_ids = [0]
 
     else:
         inlier_ids = _find_best_ids(
-            candidates, params.position_threshold, params.angle_deviation_threshold
+            cells, params.position_threshold, params.angle_deviation_threshold
         )
 
-    best_ids = [candidate_ids[i] for i in inlier_ids]
+    # The similarity threshold is applied here, so it does not affect the consensus geometry.
+    best_ids = [
+        i for i in inlier_ids if cells[i].best_score >= params.correlation_threshold
+    ]
     _update_congruent_cells(cells, best_ids)
 
-    # Zero CMCs is a valid result; fit over all cells so the pose estimate stays defined.
-    fit_cells = [cells[i] for i in best_ids] or list(cells)
-    consensus = _get_estimated_translation_rotation(fit_cells, reference_center)
+    if not inlier_ids:
+        # No consensus geometry was found, so there is no pose to report.
+        # TODO: report NaN once the API schema allows a nullable rotation and translation.
+        return ComparisonResult(
+            cells=cells,
+            estimated_rotation=NO_CONSENSUS_ROTATION,
+            estimated_translation=NO_CONSENSUS_TRANSLATION,
+        )
+
+    consensus = _get_estimated_translation_rotation(
+        [cells[i] for i in inlier_ids], reference_center
+    )
 
     return ComparisonResult(
         cells=cells,
@@ -152,7 +161,8 @@ def _get_estimated_translation_rotation(
     """
     if len(cells) > 1:
         consensus_parameters = find_consensus_parameters(cells)
-        consensus_rotation_deg = float(np.degrees(consensus_parameters.rotation_rad))
+        # Negate to match the angle convention of Cell.angle_deg.
+        consensus_rotation_deg = -float(np.degrees(consensus_parameters.rotation_rad))
         consensus_translation = (
             consensus_parameters.translation[0],
             consensus_parameters.translation[1],
