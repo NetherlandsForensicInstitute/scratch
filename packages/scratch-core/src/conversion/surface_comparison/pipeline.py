@@ -53,8 +53,8 @@ def compare_surfaces(
         search is performed on downsampled images.
     5. **Fine refinement** — local search around each coarse candidate at full resolution.
     6. **Gather results** — matches are mapped back onto grid cells and converted to Cell instances.
-    7. **CMC classification** — consensus angle and translation are estimated across all cells and each cell
-        is labeled as congruent or not.
+    7. **CMC classification** — the classifier selected by ``params.cmc_algorithm`` estimates the angle and
+        translation across all cells and labels each cell as congruent or not.
 
     Both marks are expected to have already been pre-processed (leveled and band-pass filtered);
     only the ``filtered_mark`` image is currently used by the pipeline.

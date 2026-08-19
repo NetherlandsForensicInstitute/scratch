@@ -1,22 +1,22 @@
-import numpy as np
 from itertools import combinations
+
+import numpy as np
 
 from conversion.surface_comparison.cmc_consensus.criterion import (
     _get_cell_angle_and_position_distances,
     calculate_criterion,
 )
+from conversion.surface_comparison.cmc_consensus.models import (
+    CMCTranslationRotation,
+)
 from conversion.surface_comparison.cmc_consensus.procrustes import (
-    find_consensus_parameters,
     _get_rotation_component_using_angle_degree,
+    find_consensus_parameters,
 )
 from conversion.surface_comparison.models import (
     Cell,
-    ComparisonResult,
     ComparisonParams,
-)
-
-from conversion.surface_comparison.cmc_consensus.models import (
-    CMCTranslationRotation,
+    ComparisonResult,
 )
 
 
@@ -28,7 +28,8 @@ def classify_congruent_cells_consensus(
     to find consensus parameters
 
     Steps:
-    1. Filter cells that pass the similarity threshold.
+    1. Select the cells that pass the similarity threshold. Cells below it stay in the result but can never be
+       congruent, and are kept out of the consensus fit.
     2. Loop over all pairs (i,j) of those cells, and for each pair:
        Estimate a rigid body transformation (rotation + translation) from just those two cells via
        _get_cell_angle_and_position_distances → _find_consensus_parameters. Find all other cells that fall within
@@ -41,34 +42,34 @@ def classify_congruent_cells_consensus(
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
     :param reference_center: rotation center of reference image (meters). Used to predict coordinate when there is only
-        one congruent cell.
+        one cell to fit.
     :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees,
         and consensus translation in meters.
+    :raises ValueError: If ``cells`` is empty.
     """
-
-    # Step 1: filter cells that pass the correlation threshold
-    cells = [c for c in cells if c.best_score >= params.correlation_threshold]
-
     if not cells:
-        # No cells pass the threshold → no CMC cells
-        return ComparisonResult(
-            cells=cells,
-            estimated_rotation=float("nan"),
-            estimated_translation=(float("nan"), float("nan")),
-        )
+        raise ValueError("Cannot identify CMC from an empty list.")
 
-    if len(cells) == 1:
+    candidate_ids = [
+        i for i, c in enumerate(cells) if c.best_score >= params.correlation_threshold
+    ]
+    candidates = [cells[i] for i in candidate_ids]
+
+    if len(candidates) == 1:
         # Then this cell is an inlier by definition
-        best_ids = [0]
+        inlier_ids = [0]
 
     else:
-        best_ids = _find_best_ids(
-            cells, params.position_threshold, params.angle_deviation_threshold
+        inlier_ids = _find_best_ids(
+            candidates, params.position_threshold, params.angle_deviation_threshold
         )
 
+    best_ids = [candidate_ids[i] for i in inlier_ids]
     _update_congruent_cells(cells, best_ids)
 
-    consensus = _get_estimated_translation_rotation(cells, reference_center)
+    # Zero CMCs is a valid result; fit over all cells so the pose estimate stays defined.
+    fit_cells = [cells[i] for i in best_ids] or list(cells)
+    consensus = _get_estimated_translation_rotation(fit_cells, reference_center)
 
     return ComparisonResult(
         cells=cells,
@@ -153,21 +154,19 @@ def _get_estimated_translation_rotation(
     """
     Calculate shared rotation and transformation.
 
-    :param cells: list of cells.
+    :param cells: list of cells to fit.
     :param reference_center: reference center
     :returns: shared rotation and transformation, in CMCTranslationRotation
     """
-    cmc_cells = [cell for cell in cells if cell.is_congruent]
-
-    if len(cmc_cells) > 1:
-        consensus_parameters = find_consensus_parameters(cmc_cells)
+    if len(cells) > 1:
+        consensus_parameters = find_consensus_parameters(cells)
         consensus_rotation_deg = float(np.degrees(consensus_parameters.rotation_rad))
         consensus_translation = (
             consensus_parameters.translation[0],
             consensus_parameters.translation[1],
         )
     else:
-        # There was only one congruent cell
+        # There is only one cell to fit
         congruent_cell = cells[0]
         predicted_coordinate = list(
             _get_rotation_component_using_angle_degree(

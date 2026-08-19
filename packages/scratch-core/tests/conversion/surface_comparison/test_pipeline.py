@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from itertools import product
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -15,9 +16,11 @@ from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
 from conversion.surface_comparison.grid import GridCell, generate_grid
-from conversion.surface_comparison.models import ComparisonParams, GridSearchParams
-from unittest.mock import patch
-
+from conversion.surface_comparison.models import (
+    ComparisonParams,
+    ComparisonResult,
+    GridSearchParams,
+)
 from conversion.surface_comparison.pipeline import ProcessedMark, compare_surfaces
 
 from .cell_registration.helpers import (
@@ -290,67 +293,43 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
     assert cells
 
 
-def test_cmc_algorithm_choice_selects_correct_classifier():
+@pytest.mark.parametrize("algorithm", ["median", "consensus"])
+def test_cmc_algorithm_choice_selects_correct_classifier(algorithm: str) -> None:
     """compare_surfaces calls the classifier specified by cmc_algorithm."""
     # Arrange
     scan_image = ScanImage(
         data=np.zeros(shape=(100, 100), dtype=np.float64), scale_x=1e-5, scale_y=1e-5
     )
     processed_mark = make_processed_mark(scan_image)
+    stub = ComparisonResult(
+        cells=[], estimated_rotation=0.0, estimated_translation=(0.0, 0.0)
+    )
 
-    # Act & Assert for "median"
     with (
         patch(
-            "conversion.surface_comparison.pipeline.classify_congruent_cells_median"
+            "conversion.surface_comparison.pipeline.classify_congruent_cells_median",
+            return_value=stub,
         ) as mock_median,
         patch(
-            "conversion.surface_comparison.pipeline.classify_congruent_cells_consensus"
+            "conversion.surface_comparison.pipeline.classify_congruent_cells_consensus",
+            return_value=stub,
         ) as mock_consensus,
     ):
-        from conversion.surface_comparison.models import ComparisonResult
-
-        mock_median.return_value = ComparisonResult(
-            cells=[], estimated_rotation=0.0, estimated_translation=(0.0, 0.0)
-        )
-        mock_consensus.return_value = ComparisonResult(
-            cells=[], estimated_rotation=0.0, estimated_translation=(0.0, 0.0)
-        )
-
+        # Act
         compare_surfaces(
             reference_mark=processed_mark,
             comparison_mark=processed_mark,
-            params=ComparisonParams(cmc_algorithm="median"),
+            params=ComparisonParams(cmc_algorithm=algorithm),
         )
 
-        mock_median.assert_called_once()
-        mock_consensus.assert_not_called()
-
-    # Act & Assert for "consensus"
-    with (
-        patch(
-            "conversion.surface_comparison.pipeline.classify_congruent_cells_median"
-        ) as mock_median,
-        patch(
-            "conversion.surface_comparison.pipeline.classify_congruent_cells_consensus"
-        ) as mock_consensus,
-    ):
-        from conversion.surface_comparison.models import ComparisonResult
-
-        mock_median.return_value = ComparisonResult(
-            cells=[], estimated_rotation=0.0, estimated_translation=(0.0, 0.0)
-        )
-        mock_consensus.return_value = ComparisonResult(
-            cells=[], estimated_rotation=0.0, estimated_translation=(0.0, 0.0)
-        )
-
-        compare_surfaces(
-            reference_mark=processed_mark,
-            comparison_mark=processed_mark,
-            params=ComparisonParams(cmc_algorithm="consensus"),
-        )
-
-        mock_consensus.assert_called_once()
-        mock_median.assert_not_called()
+    # Assert
+    called, not_called = (
+        (mock_median, mock_consensus)
+        if algorithm == "median"
+        else (mock_consensus, mock_median)
+    )
+    called.assert_called_once()
+    not_called.assert_not_called()
 
 
 @pytest.mark.integration

@@ -9,6 +9,7 @@ The MATLAB reference is cell_cmc_median.m with:
 """
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +28,6 @@ from conversion.surface_comparison.models import Cell, CellMetaData
 
 from ..helpers import build_test_inputs
 
-
 TEST_ROOT = Path(__file__).parent.parent.parent.parent
 RESOURCES_DIR = TEST_ROOT / "resources"
 TEST_DATA_PATH = RESOURCES_DIR / "cmc" / "classification" / "cmc_test_data.json"
@@ -42,10 +42,11 @@ def _load_test_cases() -> list[dict]:
         return json.load(f)
 
 
-# we skip these cases since results are based on cmc median method and output from consensus method
-_EXCLUDED_CASES = {
+# The congruence flags match for every case, but the reference rotation/translation come from the cmc median
+# method, so the consensus method is expected to differ on these cases.
+_POSE_EXCLUDED_CASES = {
+    "all_congruent_no_outliers",
     "low_similarity_cells",
-    "no_valid_cells",
     "angle_outliers_esd_rejection",
     "position_outliers",
     "mixed_outliers",
@@ -53,7 +54,7 @@ _EXCLUDED_CASES = {
     "nan_similarity_values",
 }
 
-_TEST_CASES = [c for c in _load_test_cases() if c["name"] not in _EXCLUDED_CASES]
+_TEST_CASES = _load_test_cases()
 _TEST_IDS = [test_case["name"] for test_case in _TEST_CASES]
 
 
@@ -119,9 +120,8 @@ class TestClassifyCongruentCells:
     def test_consensus_rotation(self, matlab_test_case: dict) -> None:
         """The consensus rotation must match the MATLAB reference."""
 
-        # we skip this test since results are based on the median cmc method and are therefore expected to be different
-        if matlab_test_case["name"] == "all_congruent_no_outliers":
-            pytest.skip("consensus rotation not tested for all_congruent_no_outliers")
+        if matlab_test_case["name"] in _POSE_EXCLUDED_CASES:
+            pytest.skip("reference rotation comes from the median method")
 
         # Arrange
         expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
@@ -155,9 +155,8 @@ class TestClassifyCongruentCells:
         and the resulting y-translation. This reproduces the Matlab results.
         """
 
-        # we skip this test since results are based on the median cmc method and are therefore expected to be different
-        if matlab_test_case["name"] == "all_congruent_no_outliers":
-            pytest.skip("consensus rotation not tested for all_congruent_no_outliers")
+        if matlab_test_case["name"] in _POSE_EXCLUDED_CASES:
+            pytest.skip("reference translation comes from the median method")
 
         # Arrange
         expected_translation = matlab_test_case["outputs"]["consensus_translation"]
@@ -230,8 +229,8 @@ class TestSpecificScenarios:
 class TestCorrelationThresholdFilter:
     """Tests for correlation threshold pre-filtering in consensus classification."""
 
-    def test_cells_below_threshold_are_excluded(self) -> None:
-        """Cells with score below correlation_threshold are not considered for consensus."""
+    def test_cells_below_threshold_are_not_congruent(self) -> None:
+        """Cells with score below correlation_threshold are kept, but never congruent."""
         # Arrange: use a case where all cells are congruent under normal thresholds
         base_inputs = _get_case("all_congruent_no_outliers")["inputs"].copy()
         # Lower one cell's correlation score below threshold
@@ -244,16 +243,20 @@ class TestCorrelationThresholdFilter:
             cells, params, rotation_center_reference
         )
 
-        # Assert: exactly one cell filtered out, all remaining are congruent
-        assert len(result.cells) == original_count - 1
+        # Assert: the low-scoring cell is retained but excluded from the CMCs
+        assert len(result.cells) == original_count
         assert result.cmc_count == original_count - 1
-        assert all(cell.is_congruent for cell in result.cells)
-        assert all(
-            cell.best_score >= params.correlation_threshold for cell in result.cells
-        )
+        assert [cell.is_congruent for cell in result.cells] == [
+            True,
+            True,
+            False,
+            True,
+            True,
+            True,
+        ]
 
-    def test_no_cells_pass_threshold_returns_nan(self) -> None:
-        """When no cells pass the correlation threshold, result has NaN rotation/translation."""
+    def test_no_cells_pass_threshold_yields_zero_cmcs(self) -> None:
+        """Zero CMCs is a valid result: all cells are kept and the pose estimate stays defined."""
         # Arrange
         cells, params, rotation_center_reference = build_test_inputs(
             _get_case("all_congruent_no_outliers")["inputs"]
@@ -268,9 +271,12 @@ class TestCorrelationThresholdFilter:
 
         # Assert
         assert result.cmc_count == 0
-        assert np.isnan(result.estimated_rotation)
-        assert np.isnan(result.estimated_translation[0])
-        assert np.isnan(result.estimated_translation[1])
+        assert result.cell_count == len(cells)
+        assert not np.isnan(result.estimated_rotation)
+        assert not any(np.isnan(result.estimated_translation))
+        # The metrics the API reports must stay computable
+        assert result.cmc_fraction == 0.0
+        assert result.cmc_area_fraction == 0.0
 
     def test_all_cells_pass_threshold(self) -> None:
         """When all cells pass the threshold, behavior is unchanged from baseline."""
@@ -297,7 +303,7 @@ class TestSharedClassifierBehavior:
         [classify_congruent_cells_consensus, classify_congruent_cells_median],
         ids=["consensus", "median"],
     )
-    def test_cell_properties_are_preserved(self, classifier) -> None:
+    def test_cell_properties_are_preserved(self, classifier: Callable) -> None:
         """Classification must not mutate core cell properties beyond is_congruent and meta_data."""
         # Arrange
         cells, params, rotation_center = build_test_inputs(
@@ -319,7 +325,8 @@ class TestSharedClassifierBehavior:
         # Act
         result = classifier(cells, params, rotation_center)
 
-        # Assert: each result cell's core properties match the original
+        # Assert: no cell is dropped, and each cell's core properties match the original
+        assert len(result.cells) == len(original_properties)
         for cell in result.cells:
             orig = original_properties[cell.center_reference]
             assert cell.center_reference == orig["center_reference"]
@@ -443,11 +450,12 @@ class TestRefineReturnsUpdatedValues:
         assert set(refined_ids) == {0, 1, 2, 3}, (
             f"Refinement should include all consistent cells and exclude the outlier, got {refined_ids}"
         )
+        assert refined_criterion < initial_criterion
 
-    def test_refine_improves_criterion_at_same_count(
+    def test_refine_improves_criterion(
         self, cells_with_consistent_group: list[Cell]
     ) -> None:
-        """Refinement can improve the criterion even without changing inlier count."""
+        """Refinement improves the criterion as it re-fits."""
         # Arrange: start with a subset that already captures most of the group
         initial_ids = [0, 1, 2]
         cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
