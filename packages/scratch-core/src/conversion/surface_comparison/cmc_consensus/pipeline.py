@@ -50,17 +50,15 @@ def classify_congruent_cells_consensus(
     if len(cells) == 1:
         # Then this cell is an inlier by definition
         inlier_ids = [0]
-
     else:
         inlier_ids = _find_best_ids(
             cells, params.position_threshold, params.angle_deviation_threshold
         )
-
-    # The similarity threshold is applied here, so it does not affect the consensus geometry.
-    best_ids = [
+    # Apply the similarity threshold to the inliers
+    cmc_ids = [
         i for i in inlier_ids if cells[i].best_score >= params.correlation_threshold
     ]
-    _update_congruent_cells(cells, best_ids)
+    _update_congruent_cells(cells, cmc_ids)
 
     if not inlier_ids:
         # No consensus geometry was found, so there is no pose to report.
@@ -70,7 +68,6 @@ def classify_congruent_cells_consensus(
             estimated_rotation=NO_CONSENSUS_ROTATION,
             estimated_translation=NO_CONSENSUS_TRANSLATION,
         )
-
     consensus = _get_estimated_translation_rotation(
         [cells[i] for i in inlier_ids], reference_center
     )
