@@ -7,6 +7,8 @@ from conversion.surface_comparison.cmc_consensus.criterion import (
     calculate_criterion,
 )
 from conversion.surface_comparison.cmc_consensus.models import (
+    NO_CONSENSUS_ROTATION,
+    NO_CONSENSUS_TRANSLATION,
     CMCTranslationRotation,
 )
 from conversion.surface_comparison.cmc_consensus.procrustes import (
@@ -15,12 +17,11 @@ from conversion.surface_comparison.cmc_consensus.procrustes import (
     get_translation_about,
 )
 from conversion.surface_comparison.models import (
-    NO_CONSENSUS_ROTATION,
-    NO_CONSENSUS_TRANSLATION,
     Cell,
     ComparisonParams,
     ComparisonResult,
 )
+from conversion.surface_comparison.utils import rotate_points
 
 
 def classify_congruent_cells_consensus(
@@ -63,6 +64,8 @@ def classify_congruent_cells_consensus(
     if not inlier_ids:
         # No consensus geometry was found, so there is no pose to report.
         # TODO: report NaN for the rotation too, once the API schema allows a nullable rotation.
+        for cell in cells:
+            cell.meta_data.is_outlier = True
         return ComparisonResult(
             cells=cells,
             estimated_rotation=NO_CONSENSUS_ROTATION,
@@ -71,6 +74,7 @@ def classify_congruent_cells_consensus(
     consensus = _get_estimated_translation_rotation(
         [cells[i] for i in inlier_ids], reference_center
     )
+    _update_cell_meta_data(cells, inlier_ids, consensus, reference_center)
 
     return ComparisonResult(
         cells=cells,
@@ -146,6 +150,42 @@ def _update_congruent_cells(cells: list[Cell], congruent_ids: list[int]) -> None
         cell.is_congruent = i in set(congruent_ids)
 
 
+def _update_cell_meta_data(
+    cells: list[Cell],
+    inlier_ids: list[int],
+    consensus: CMCTranslationRotation,
+    reference_center: tuple[float, float],
+) -> None:
+    """
+    Record each cell's residuals against the consensus pose, the same fields the median classifier fills.
+
+    :param cells: list of cells, updated in place.
+    :param inlier_ids: ids of the cells the consensus pose was fitted on.
+    :param consensus: consensus rotation (degrees) and translation (meters) about `reference_center`.
+    :param reference_center: reference rotation center (meters)
+    """
+    inliers = set(inlier_ids)
+    predicted_positions = (
+        rotate_points(
+            points=np.array([cell.center_reference for cell in cells]),
+            angle=-np.radians(consensus.rotation),
+            center=reference_center,
+        )
+        + consensus.translation
+    )
+
+    for i, (cell, predicted) in enumerate(zip(cells, predicted_positions)):
+        cell.meta_data.is_outlier = i not in inliers
+        # Wrap so a residual across +-180 degrees stays small
+        cell.meta_data.residual_angle_deg = float(
+            (cell.angle_deg - consensus.rotation + 180.0) % 360.0 - 180.0
+        )
+        cell.meta_data.position_error = (
+            float(cell.center_comparison[0] - predicted[0]),
+            float(cell.center_comparison[1] - predicted[1]),
+        )
+
+
 def _get_estimated_translation_rotation(
     cells: list[Cell], reference_center: tuple[float, float]
 ) -> CMCTranslationRotation:
@@ -165,11 +205,11 @@ def _get_estimated_translation_rotation(
         )
     else:
         # There is only one cell to fit
-        congruent_cell = cells[0]
+        inlier_cell = cells[0]
         predicted_coordinate = list(
             _get_rotation_component_using_angle_degree(
-                np.array(congruent_cell.center_reference),
-                -congruent_cell.angle_deg,
+                np.array(inlier_cell.center_reference),
+                -inlier_cell.angle_deg,
                 np.array(reference_center),
             )[0]
             + np.array(reference_center)
@@ -178,11 +218,11 @@ def _get_estimated_translation_rotation(
             [
                 center_float - reference_float
                 for center_float, reference_float in zip(
-                    congruent_cell.center_comparison, predicted_coordinate
+                    inlier_cell.center_comparison, predicted_coordinate
                 )
             ]
         )
-        consensus_rotation_deg = congruent_cell.angle_deg
+        consensus_rotation_deg = inlier_cell.angle_deg
 
     shared_parameters = CMCTranslationRotation(
         translation=consensus_translation, rotation=consensus_rotation_deg

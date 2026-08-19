@@ -25,7 +25,7 @@ class CellMetaData(ConfigBaseModel):
     """
     Intermediate classification data computed during the CMC pipeline.
 
-    :param is_outlier: True if this cell was rejected as an angle outlier during consensus estimation.
+    :param is_outlier: True if this cell was rejected as an outlier while estimating the consensus pose.
     :param residual_angle_deg: Signed angular deviation from the consensus rotation, in degrees.
     :param position_error: Signed [x, y] deviation from the consensus translation, in meters.
     """
@@ -79,12 +79,6 @@ class Cell(ConfigBaseModel):
     @property
     def cell_size_um(self) -> tuple[float, float]:
         return self.cell_size[0] * mega, self.cell_size[1] * mega
-
-
-# Sentinel pose reported when there is no consensus geometry to estimate one from.
-# NaN matches the median classifier; the rotation cannot be NaN because the API schema bounds it.
-NO_CONSENSUS_ROTATION = 0.0
-NO_CONSENSUS_TRANSLATION = (float("nan"), float("nan"))
 
 
 @dataclass

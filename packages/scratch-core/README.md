@@ -279,15 +279,8 @@ factors.
 
 4. **Fine registration** — currently a pass-through stub for future sub-pixel refinement.
 
-5. **CMC classification** — determine which cells are "congruent" (i.e., consistently registered):
-   - **Estimated angle**: compute a circular median of all cell registration angles. Apply the
-     generalized ESD test (Rosner 1983) to reject statistical outliers, then tighten the inlier set
-     to cells within 2× the `angle_deviation_threshold`. Recompute the median from inliers.
-   - **Consensus translation**: rotate reference cell centers by the consensus angle, then take the
-     component-wise median of (comparison center − expected position) over non-outlier cells.
-   - **Congruence label**: a cell is congruent if it simultaneously satisfies all four criteria:
-     `best_score ≥ correlation_threshold`, not an angle outlier, `|residual_angle| ≤ angle_threshold`,
-     and both position error components `≤ position_threshold`.
+5. **CMC classification** — determine which cells are "congruent" (i.e., consistently registered), using the
+   method set by `ComparisonParams.cmc_algorithm`; see **CMC classification methods** below.
 
 **Output** (`ComparisonResult`):
 
@@ -300,32 +293,37 @@ factors.
 | `consensus_rotation`    | Estimated global rotation between the two marks (°)           |
 | `consensus_translation` | Estimated global translation between the two marks (m)        |
 
+Both are expressed around the reference image center, and the translation is NaN when no cell survives outlier rejection.
+
 Use `ComparisonParams.for_mark_type(mark_type)` to get the correct default cell size for the mark type.
 Default cell sizes: 450 × 450 μm for breech face, 125 × 125 μm for all other impression types.
 
 **CMC classification methods** —
-There are two methods to find the congruent matching cells: 'CMC-median' and 'CMC-consensus'. They both work by finding
+There are two methods to find the congruent matching cells: 'CMC-median' and 'CMC-consensus', selected with
+`ComparisonParams.cmc_algorithm` (`median` or `consensus`, the default). They both work by finding
 a common estimated rotation and translation and then a cell is congruent if the differences between cell.rotation_angle
 and common_rotation, and the difference between predicted_position on comparison frame and cell's location on
 comparison_frame are within certain prespecified limits.
 
 **CMC-median** —
-CMC median finds common parameters using median of rotation_angle and location for non-outlying cells. A Cell is marked
-congruent if their deviation from common parameters is within limits, it is not marked as outlier and its
-correlation_score is larger than a threshold value.
+CMC median finds common parameters using median of rotation_angle and location for non-outlying cells, rejecting
+outliers with the generalized ESD test (Rosner 1983) and then tightening to within 2× the `angle_deviation_threshold`.
+A Cell is marked congruent if their deviation from common parameters is within limits, it is not marked as outlier and
+its correlation_score is larger than a threshold value.
 
 **CMC-consensus** —
 CMC consensus finds common parameters using iterative Procrustes translation and rotation on selected cells to map all
 cell's locations in the reference frame onto all cell's locations in the comparison frame. From the Procrustes
 translation and rotation parameters, and prespecified position and angle thresholds, it can be determined which cells are
 congruent for the current solution. As long as the current solution leads to more congruent cells (or equal amount but
-better fit), the Procrustes procedure is iteratively refined.T
+better fit), the Procrustes procedure is iteratively refined. Of the cells that fit the geometry, only those scoring at
+least `correlation_threshold` are marked congruent.
 
 **Explanation of Procrustes procedure** —
 Say we have two coordinate-pair lists [X] and [Y] where X_i is coupled with Y_i. And we want to find the rotation matrix R and translation of X to Y for which:
 ||(X - rotation_center_X) R - (Y - rotation_center_Y)||F_2 is minimal. i.e. the Frobenius norm (in this application the sum of squared distances between the linearly transformed set of points and the target set of points) is minimal.
 The rotation_centra yielding minimum Frobenius norm for the rotation operation are the coordinate means of X and Y. Note that this is a different coordinate system than the one used to find the rotation of individual cells during registration but this does not matter since optimal rotation angle is independent of coordinate system. We just want to find this rotation by minimizing the Frobenius norm and this centering minimizes the norm.
-It immediately follows that optimal translation in this coordinate system is rotation_center_Y - rotation_center_X.
+It immediately follows that optimal translation in this coordinate system is rotation_center_Y - rotation_center_X. This holds only at the fit centroid, so `get_translation_about` re-expresses it around the reference image center, where the reported translation is defined.
 The optimal rotation can be found by completing the square in the Frobenius norm and observing that only the linear term
 -2trace(R^T X_centered^T Y_centered) depends on R. Therefore, this term should be minimal. Now, regard X_centered^T Y_centered = M with singular_value_decomposition(M) = U Sigma V^T, with U and V orthonormal basis and Sigma a diagonal eigenvalue matrix.
 For trace(R^T U Sigma V^T) to be maximal, since R, U and V are orthonormal matrices, you want: trace(R^T U Sigma V^T) = trace(Sigma). In order to achieve this (using the cyclic property of trace):

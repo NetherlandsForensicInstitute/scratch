@@ -9,6 +9,7 @@ The MATLAB reference is cell_cmc_median.m with:
 """
 
 import json
+import math
 from collections.abc import Callable
 from pathlib import Path
 
@@ -19,13 +20,13 @@ from conversion.surface_comparison.cmc_classification_median import (
     classify_congruent_cells_median,
 )
 from conversion.surface_comparison.cmc_consensus.criterion import calculate_criterion
+from conversion.surface_comparison.cmc_consensus.models import NO_CONSENSUS_ROTATION
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     _get_cell_angle_and_position_distances,
     _refine,
     classify_congruent_cells_consensus,
 )
 from conversion.surface_comparison.models import (
-    NO_CONSENSUS_ROTATION,
     Cell,
     CellMetaData,
     ComparisonParams,
@@ -48,15 +49,13 @@ def _load_test_cases() -> list[dict]:
         return json.load(f)
 
 
-# Congruence flags match, but pose differs from the reference median-method results.
-_POSE_EXCLUDED_CASES = {
-    "all_congruent_no_outliers",
-    "low_similarity_cells",
-    "angle_outliers_esd_rejection",
-    "position_outliers",
-    "mixed_outliers",
+# Reference outputs come from the median method, so the consensus pose only matches where both agree.
+_CASES_MATCHING_REFERENCE_ROTATION = {"no_valid_cells", "single_cell"}
+# all_angle_outliers matches too, since both methods report a NaN translation.
+_CASES_MATCHING_REFERENCE_TRANSLATION = {
+    "no_valid_cells",
+    "single_cell",
     "all_angle_outliers",
-    "nan_similarity_values",
 }
 
 _TEST_CASES = _load_test_cases()
@@ -125,8 +124,8 @@ class TestClassifyCongruentCells:
     def test_consensus_rotation(self, matlab_test_case: dict) -> None:
         """The consensus rotation must match the MATLAB reference."""
 
-        if matlab_test_case["name"] in _POSE_EXCLUDED_CASES:
-            pytest.skip("reference rotation comes from the median method")
+        if matlab_test_case["name"] not in _CASES_MATCHING_REFERENCE_ROTATION:
+            pytest.skip("consensus rotation differs from the median-method reference")
 
         # Arrange
         expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
@@ -140,18 +139,12 @@ class TestClassifyCongruentCells:
         )
 
         # Assert
-        if np.isnan(expected_rotation):
-            assert np.isnan(result.estimated_rotation), (
-                f"[{matlab_test_case['name']}] Expected NaN consensus rotation, "
-                f"got {result.estimated_rotation}"
-            )
-        else:
-            np.testing.assert_allclose(
-                result.estimated_rotation,
-                expected_rotation,
-                atol=ANGLE_ATOL,
-                err_msg=f"[{matlab_test_case['name']}] Consensus rotation mismatch",
-            )
+        np.testing.assert_allclose(
+            result.estimated_rotation,
+            expected_rotation,
+            atol=ANGLE_ATOL,
+            err_msg=f"[{matlab_test_case['name']}] Consensus rotation mismatch",
+        )
 
     def test_consensus_translation(self, matlab_test_case: dict) -> None:
         """The consensus translation must match the MATLAB reference.
@@ -160,8 +153,10 @@ class TestClassifyCongruentCells:
         and the resulting y-translation. This reproduces the Matlab results.
         """
 
-        if matlab_test_case["name"] in _POSE_EXCLUDED_CASES:
-            pytest.skip("reference translation comes from the median method")
+        if matlab_test_case["name"] not in _CASES_MATCHING_REFERENCE_TRANSLATION:
+            pytest.skip(
+                "consensus translation differs from the median-method reference"
+            )
 
         # Arrange
         expected_translation = matlab_test_case["outputs"]["consensus_translation"]
@@ -232,7 +227,7 @@ class TestSpecificScenarios:
 
 
 class TestCorrelationThresholdFilter:
-    """Tests for correlation threshold pre-filtering in consensus classification."""
+    """Tests for correlation threshold post-filtering in consensus classification."""
 
     def test_cells_below_threshold_are_not_congruent(self) -> None:
         """Cells with score below correlation_threshold are kept, but never congruent."""
@@ -410,6 +405,34 @@ class TestSharedClassifierBehavior:
         [classify_congruent_cells_consensus, classify_congruent_cells_median],
         ids=["consensus", "median"],
     )
+    def test_meta_data_is_populated(self, classifier: Callable) -> None:
+        """Both classifiers report per-cell residuals against the consensus pose."""
+        # Arrange: one cell is a clear outlier, the rest agree
+        case_inputs = dict(_get_case("all_congruent_no_outliers")["inputs"])
+        case_inputs["angles_comparison"] = [1.35, 1.4, 1.3, 1.35, 1.4, 45.0]
+        cells, params, rotation_center = build_test_inputs(case_inputs)
+
+        # Act
+        result = classifier(cells, params, rotation_center)
+
+        # Assert: the odd cell out is flagged, and residuals track the congruence decision
+        assert [cell.meta_data.is_outlier for cell in result.cells][-1]
+        for cell in result.cells:
+            assert -180.0 <= cell.meta_data.residual_angle_deg <= 180.0
+            if cell.is_congruent:
+                assert abs(cell.meta_data.residual_angle_deg) <= (
+                    params.angle_deviation_threshold
+                )
+                assert (
+                    max(abs(error) for error in cell.meta_data.position_error)
+                    <= params.position_threshold
+                )
+
+    @pytest.mark.parametrize(
+        "classifier",
+        [classify_congruent_cells_consensus, classify_congruent_cells_median],
+        ids=["consensus", "median"],
+    )
     def test_cell_properties_are_preserved(self, classifier: Callable) -> None:
         """Classification must not mutate core cell properties beyond is_congruent and meta_data."""
         # Arrange
@@ -458,8 +481,6 @@ class TestRefineReturnsUpdatedValues:
         The angle distance formula is abs(angle_deg + consensus_rotation_deg), so consistent cells have
         angle_deg ≈ -consensus_rotation_deg.
         """
-        import math
-
         meta = CellMetaData(
             is_outlier=False, residual_angle_deg=0.0, position_error=(0.0, 0.0)
         )

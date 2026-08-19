@@ -286,7 +286,7 @@ class TestMarkImpressionExceptionHandlers:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         assert "expected a MarkImpressionType" in response.json()["detail"]
 
-    def test_image_not_isotropic_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+    def test_image_not_isotropic_returns_422(self, client: TestClient, json_data: dict) -> None:
         """422 is returned when the mark image has different scale_x and scale_y."""
         anisotropic_mark = Mark(
             scan_image=ScanImage(data=np.array([[0.0]]), scale_x=1e-6, scale_y=2e-6),
@@ -302,7 +302,7 @@ class TestMarkImpressionExceptionHandlers:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         assert "not isotropic" in response.json()["detail"]
 
-    def test_no_valid_grid_cells_returns_422(self, client: TestClient, json_data: dict, raiser: Callable) -> None:
+    def test_no_valid_grid_cells_returns_422(self, client: TestClient, json_data: dict) -> None:
         """422 is returned when the mark image is all-NaN so no grid cells can be generated."""
         all_nan_mark = Mark(
             scan_image=ScanImage(data=np.full((100, 100), np.nan), scale_x=1e-6, scale_y=1e-6),
