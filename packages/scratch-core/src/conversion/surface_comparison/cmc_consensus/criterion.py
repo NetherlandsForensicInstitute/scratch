@@ -3,7 +3,8 @@ import numpy as np
 from container_models.base import FloatArray2D, FloatArray1D
 from conversion.surface_comparison.cmc_consensus.procrustes import (
     find_consensus_parameters,
-    transform_to_comparison_frame,
+    _build_2d_rotation_matrix,
+    _get_rotation_component_using_rotation_matrix,
 )
 from conversion.surface_comparison.models import Cell
 
@@ -104,16 +105,21 @@ def _predict_positions(
     :returns: predicted_positions list of (x, y) in meters
     """
 
+    rotation_matrix = _build_2d_rotation_matrix(consensus_rotation_rad)
+    rotation_center = rotation_center_reference.reshape(1, 2)
     cell_centers_reference = np.array(
         [cell.center_reference for cell in cells]
     )  # (n, 2)
-
-    return transform_to_comparison_frame(
-        cell_centers_reference,
-        consensus_rotation_rad,
-        rotation_center_reference,
-        rotation_center_comparison,
+    references_rotated = _get_rotation_component_using_rotation_matrix(
+        data=cell_centers_reference,
+        center=rotation_center,
+        rotation_matrix=rotation_matrix,
     )
+
+    # predicted position in comparison frame = rotation + center
+    predicted_positions = references_rotated + rotation_center_comparison
+
+    return predicted_positions
 
 
 def _get_distances_meters(
