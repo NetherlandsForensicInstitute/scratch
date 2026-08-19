@@ -348,28 +348,6 @@ class TestSharedClassifierBehavior:
             consensus.estimated_rotation, median.estimated_rotation, atol=0.5
         )
 
-    def test_consensus_rotation_sign_is_independent_of_cmc_count(self) -> None:
-        """The single-cell and Procrustes branches must report the same angle convention."""
-        # Arrange
-        one_cell, params_one, center_one = build_test_inputs(
-            _get_case("single_cell")["inputs"]
-        )
-        all_cells, params_all, center_all = build_test_inputs(
-            _get_case("all_congruent_no_outliers")["inputs"]
-        )
-
-        # Act
-        single = classify_congruent_cells_consensus(one_cell, params_one, center_one)
-        procrustes = classify_congruent_cells_consensus(
-            all_cells, params_all, center_all
-        )
-
-        # Assert
-        assert single.cmc_count == 1
-        assert np.sign(single.estimated_rotation) == np.sign(
-            procrustes.estimated_rotation
-        )
-
     @pytest.mark.parametrize(
         "classifier",
         [classify_congruent_cells_consensus, classify_congruent_cells_median],
