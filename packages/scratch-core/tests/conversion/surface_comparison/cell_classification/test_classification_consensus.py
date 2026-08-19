@@ -42,8 +42,7 @@ def _load_test_cases() -> list[dict]:
         return json.load(f)
 
 
-# The congruence flags match for every case, but the reference rotation/translation come from the cmc median
-# method, so the consensus method is expected to differ on these cases.
+# Congruence flags match, but pose differs from the reference median-method results.
 _POSE_EXCLUDED_CASES = {
     "all_congruent_no_outliers",
     "low_similarity_cells",

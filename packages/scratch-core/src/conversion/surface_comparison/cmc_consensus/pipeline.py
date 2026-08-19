@@ -28,21 +28,14 @@ def classify_congruent_cells_consensus(
     to find consensus parameters
 
     Steps:
-    1. Select the cells that pass the similarity threshold. Cells below it stay in the result but can never be
-       congruent, and are kept out of the consensus fit.
-    2. Loop over all pairs (i,j) of those cells, and for each pair:
-       Estimate a rigid body transformation (rotation + translation) from just those two cells via
-       _get_cell_angle_and_position_distances → _find_consensus_parameters. Find all other cells that fall within
-       position_threshold and angle_deviation_threshold of that predicted location. Attempt to iteratively refine by
-       re-fitting using all successful cells. Keep the solution if it yields more CMC cells than the current best
-       (or equal count with better quality).
+    1. Select cells passing the similarity threshold; others are kept in results but excluded from consensus fit.
+    2. Iteratively refine rigid body transformations from cell pairs, keeping solutions with more CMC cells or better quality.
     3. Get a boolean vector flagging which cells are CMC.
     4. Return a ComparisonResult.
 
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
-    :param reference_center: rotation center of reference image (meters). Used to predict coordinate when there is only
-        one cell to fit.
+    :param reference_center: Reference rotation center (meters); used if only one cell fits.
     :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees,
         and consensus translation in meters.
     :raises ValueError: If ``cells`` is empty.
@@ -82,9 +75,8 @@ def _find_best_ids(
     cells: list[Cell], max_distance: float, max_abs_angle_distance: float
 ) -> list[int]:
     """
-    Core algorithm to find the best inlier ids. Loop over all indices pairs as initial solution, and iteratively
-    refine this solution. Update global solution if refinement has more cells or if criterion improves for same
-    number of cells.
+    Find best inliers by iteratively refining initial pair-based solutions, prioritizing
+    higher cell count then better criterion.
 
     :param cells: list of cells.
     :param max_distance: maximum distance to consider for consensus, in meters.

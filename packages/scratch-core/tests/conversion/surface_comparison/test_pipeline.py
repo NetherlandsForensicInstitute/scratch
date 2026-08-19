@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from itertools import product
+from typing import Literal
 from unittest.mock import patch
 
 import numpy as np
@@ -294,7 +295,9 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
 
 
 @pytest.mark.parametrize("algorithm", ["median", "consensus"])
-def test_cmc_algorithm_choice_selects_correct_classifier(algorithm: str) -> None:
+def test_cmc_algorithm_choice_selects_correct_classifier(
+    algorithm: Literal["median", "consensus"],
+) -> None:
     """compare_surfaces calls the classifier specified by cmc_algorithm."""
     # Arrange
     scan_image = ScanImage(

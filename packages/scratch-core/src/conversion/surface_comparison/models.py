@@ -132,15 +132,15 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_max: Upper bound of rotation search range (degrees).
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
 
-    The remaining fields configure the two search stages; see their descriptions. How images are resampled is fixed
-    rather than configurable, and lives in conversion.surface_comparison.pipeline.
+    Remaining fields configure search stages. Image resampling is fixed in `conversion.surface_comparison.pipeline`.
     """
 
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
     correlation_threshold: float = Field(default=0.25, ge=-1.0, le=1.0)
     cmc_algorithm: Literal["median", "consensus"] = Field(
         default="consensus",
-        description="CMC classification algorithm: 'consensus' (pairwise Procrustes) or 'median' (median-based with ESD).",
+        description="CMC classification algorithm: 'consensus' (pairwise Procrustes) "
+        "or 'median' (median-based with ESD).",
     )
     angle_deviation_threshold: float = Field(default=6.0, gt=0.0)
     position_threshold: float = Field(default=7.5e-5, gt=0.0)
