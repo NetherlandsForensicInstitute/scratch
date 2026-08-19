@@ -81,9 +81,10 @@ class Cell(ConfigBaseModel):
         return self.cell_size[0] * mega, self.cell_size[1] * mega
 
 
-# Sentinel pose reported when there are no CMC cells to estimate one from.
+# Sentinel pose reported when there is no consensus geometry to estimate one from.
+# NaN matches the median classifier; the rotation cannot be NaN because the API schema bounds it.
 NO_CONSENSUS_ROTATION = 0.0
-NO_CONSENSUS_TRANSLATION = (0.0, 0.0)
+NO_CONSENSUS_TRANSLATION = (float("nan"), float("nan"))
 
 
 @dataclass

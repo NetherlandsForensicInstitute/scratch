@@ -26,10 +26,11 @@ from conversion.surface_comparison.cmc_consensus.pipeline import (
 )
 from conversion.surface_comparison.models import (
     NO_CONSENSUS_ROTATION,
-    NO_CONSENSUS_TRANSLATION,
     Cell,
     CellMetaData,
+    ComparisonParams,
 )
+from conversion.surface_comparison.utils import rotate_points
 
 from ..helpers import build_test_inputs
 
@@ -305,7 +306,8 @@ class TestCorrelationThresholdFilter:
         # Assert: no consensus geometry is found, so the sentinel pose is reported
         assert result.cmc_count == 0
         assert result.estimated_rotation == NO_CONSENSUS_ROTATION
-        assert result.estimated_translation == NO_CONSENSUS_TRANSLATION
+        # Compare by value, since a NaN tuple only equals itself by identity
+        assert all(np.isnan(value) for value in result.estimated_translation)
 
     def test_all_cells_pass_threshold(self) -> None:
         """When all cells pass the threshold, behavior is unchanged from baseline."""
@@ -346,6 +348,61 @@ class TestSharedClassifierBehavior:
         assert np.sign(median.estimated_rotation) == np.sign(mean_cell_angle)
         np.testing.assert_allclose(
             consensus.estimated_rotation, median.estimated_rotation, atol=0.5
+        )
+
+    @pytest.mark.parametrize(
+        "classifier",
+        [classify_congruent_cells_consensus, classify_congruent_cells_median],
+        ids=["consensus", "median"],
+    )
+    @pytest.mark.parametrize("angle_deg", [-7.5, -1.0, 0.0, 3.0, 7.5])
+    def test_classifiers_recover_a_known_pose(
+        self, classifier: Callable, angle_deg: float
+    ) -> None:
+        """Both classifiers must recover the rigid transform their cells were built from.
+
+        The cells sit off to one side of reference_center, so a translation expressed around
+        the cell centroid instead would be off by (R - I) @ (reference_center - centroid).
+        """
+        # Arrange
+        reference_center = (5e-3, 5e-3)
+        expected_translation = (2e-5, -1e-5)
+        centers_reference = np.array(
+            [[2e-3, 2e-3], [3e-3, 2e-3], [2e-3, 3e-3], [3e-3, 3e-3], [2.5e-3, 3.5e-3]]
+        )
+        centers_comparison = (
+            rotate_points(
+                points=centers_reference,
+                angle=-np.radians(angle_deg),
+                center=reference_center,
+            )
+            + expected_translation
+        )
+        meta = CellMetaData(
+            is_outlier=False, residual_angle_deg=0.0, position_error=(0.0, 0.0)
+        )
+        cells = [
+            Cell(
+                center_reference=(float(reference[0]), float(reference[1])),
+                center_comparison=(float(comparison[0]), float(comparison[1])),
+                angle_deg=angle_deg,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            )
+            for reference, comparison in zip(centers_reference, centers_comparison)
+        ]
+
+        # Act
+        result = classifier(cells, ComparisonParams(), reference_center)
+
+        # Assert: every cell is congruent and the known pose comes back out
+        assert result.cmc_count == len(cells)
+        np.testing.assert_allclose(result.estimated_rotation, angle_deg, atol=1e-6)
+        np.testing.assert_allclose(
+            result.estimated_translation, expected_translation, atol=1e-9
         )
 
     @pytest.mark.parametrize(

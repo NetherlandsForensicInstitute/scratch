@@ -9,8 +9,10 @@ from conversion.exceptions import ImageNotIsotropicError
 from conversion.surface_comparison.models import Cell, ComparisonParams
 
 # Tolerances for np.isclose() when comparing pixel scales (e.g. isotropy check, matching scales between images).
+# Tilt correction and rounding to whole pixels both shift the scales by about 1e-3, so anything
+# tighter rejects images the pipeline itself made anisotropic.
 SCALE_COMPARISON_ATOL = 0.0
-SCALE_COMPARISON_RTOL = 1e-3
+SCALE_COMPARISON_RTOL = 5e-3
 
 
 def convert_meters_to_pixels(

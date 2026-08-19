@@ -96,6 +96,7 @@ def _adjust_for_plane_tilt(
     data[scan_image.valid_mask] = tilt.residuals
 
     # Adjust scales for tilt
+    # TODO: resample back to isotropic here, since the two axes get different corrections.
     cos_x = np.cos(tilt.tilt_x_rad)
     cos_y = np.cos(tilt.tilt_y_rad)
     scale_x_new = scan_image.scale_x / cos_x

@@ -118,6 +118,55 @@ def _get_rotation_angle(
     return consensus_rotation_rad
 
 
+def transform_to_comparison_frame(
+    points: FloatArray2D | FloatArray1D,
+    rotation_rad: float,
+    rotation_center_reference: FloatArray1D,
+    rotation_center_comparison: FloatArray1D,
+) -> FloatArray2D:
+    """Map points from the reference frame into the comparison frame.
+
+    :param points: points in the reference frame, shape (n, 2), or (2,) for one point
+    :param rotation_rad: consensus rotation in radians
+    :param rotation_center_reference: center of rotation in reference frame, shape (2,)
+    :param rotation_center_comparison: center of rotation in comparison frame, shape (2,)
+    :returns: points in the comparison frame, shape (n, 2)
+    """
+    rotated = _get_rotation_component_using_rotation_matrix(
+        data=points,
+        center=np.asarray(rotation_center_reference).reshape(1, 2),
+        rotation_matrix=_build_2d_rotation_matrix(rotation_rad),
+    )
+
+    return rotated + rotation_center_comparison
+
+
+def get_translation_about(
+    consensus_parameters: ConsensusParameters, center: tuple[float, float]
+) -> tuple[float, float]:
+    """Express the consensus translation around `center` instead of the fit centroid.
+
+    The Procrustes fit is centered on the cell centroids, so its translation only holds there.
+    Rotating around any other center shifts it by (R - I) @ (center - centroid).
+
+    :param consensus_parameters: fitted rotation and rotation centers
+    :param center: center to express the translation around, (x, y) meters
+    :returns: translation from reference to comparison frame, (x, y) meters
+    """
+    center_array = np.array(center, dtype=float)
+    predicted_center = transform_to_comparison_frame(
+        center_array,
+        consensus_parameters.rotation_rad,
+        consensus_parameters.rotation_center_reference,
+        consensus_parameters.rotation_center_comparison,
+    )[0]
+
+    return (
+        float(predicted_center[0] - center_array[0]),
+        float(predicted_center[1] - center_array[1]),
+    )
+
+
 def _get_rotation_component_using_rotation_matrix(
     data: FloatArray2D | FloatArray1D,
     center: FloatArray2D,

@@ -12,6 +12,7 @@ from conversion.surface_comparison.cmc_consensus.models import (
 from conversion.surface_comparison.cmc_consensus.procrustes import (
     _get_rotation_component_using_angle_degree,
     find_consensus_parameters,
+    get_translation_about,
 )
 from conversion.surface_comparison.models import (
     NO_CONSENSUS_ROTATION,
@@ -39,7 +40,8 @@ def classify_congruent_cells_consensus(
     :param params: Algorithm parameters (thresholds for score, angle, and position).
     :param reference_center: Reference rotation center (meters); used if only one cell fits.
     :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees,
-        and consensus translation in meters. Both are zero when no consensus geometry is found.
+        and consensus translation in meters, both expressed around `reference_center`.
+        When no consensus geometry is found the rotation is zero and the translation is NaN.
     :raises ValueError: If ``cells`` is empty.
     """
     if not cells:
@@ -62,7 +64,7 @@ def classify_congruent_cells_consensus(
 
     if not inlier_ids:
         # No consensus geometry was found, so there is no pose to report.
-        # TODO: report NaN once the API schema allows a nullable rotation and translation.
+        # TODO: report NaN for the rotation too, once the API schema allows a nullable rotation.
         return ComparisonResult(
             cells=cells,
             estimated_rotation=NO_CONSENSUS_ROTATION,
@@ -163,9 +165,8 @@ def _get_estimated_translation_rotation(
         consensus_parameters = find_consensus_parameters(cells)
         # Negate to match the angle convention of Cell.angle_deg.
         consensus_rotation_deg = -float(np.degrees(consensus_parameters.rotation_rad))
-        consensus_translation = (
-            consensus_parameters.translation[0],
-            consensus_parameters.translation[1],
+        consensus_translation = get_translation_about(
+            consensus_parameters, reference_center
         )
     else:
         # There is only one cell to fit

@@ -31,7 +31,3 @@ class ConsensusParameters:
     rotation_center_reference: FloatArray1D  # (2,0)
     rotation_center_comparison: FloatArray1D  # (2,0)
     rotation_rad: float = np.nan
-
-    @property
-    def translation(self) -> FloatArray1D:
-        return self.rotation_center_comparison - self.rotation_center_reference
