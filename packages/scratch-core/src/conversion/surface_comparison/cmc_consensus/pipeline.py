@@ -39,9 +39,9 @@ def classify_congruent_cells_consensus(
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
     :param reference_center: Reference rotation center (meters); used if only one cell fits.
-    :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees,
-        and consensus translation in meters, both expressed around `reference_center`.
-        When no consensus geometry is found the rotation is zero and the translation is NaN.
+    :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees, and consensus
+        translation in meters, both expressed around `reference_center`. When no consensus geometry is found the
+        rotation is zero and the translation is NaN.
     :raises ValueError: If ``cells`` is empty.
     """
     if not cells:
@@ -83,16 +83,14 @@ def _find_best_ids(
     cells: list[Cell], max_distance: float, max_abs_angle_distance: float
 ) -> list[int]:
     """
-    Find best inliers by iteratively refining initial pair-based solutions, prioritizing
-    higher cell count then better criterion.
+    Find best inliers by iteratively refining initial pair-based solutions, prioritizing higher cell count than better
+    criterion.
 
     :param cells: list of cells.
     :param max_distance: maximum distance to consider for consensus, in meters.
     :param max_abs_angle_distance: maximum absolute angle deviation to consider for consensus, in degrees.
-
     :returns: list of inlier cell ids, these will be the congruent cells
     """
-
     best_ids = []
     criterion = np.inf
     n_cells = len(cells)
