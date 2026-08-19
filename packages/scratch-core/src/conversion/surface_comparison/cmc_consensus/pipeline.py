@@ -145,33 +145,40 @@ def _get_estimated_translation_rotation(
     """
     cmc_cells = [cell for cell in cells if cell.is_congruent]
 
-    if len(cmc_cells) > 1:
-        consensus_parameters = find_consensus_parameters(cmc_cells)
-        consensus_rotation_deg = float(np.degrees(consensus_parameters.rotation_rad))
-        consensus_translation = (
-            consensus_parameters.translation[0],
-            consensus_parameters.translation[1],
-        )
-    else:
-        # There was only one congruent cell
-        congruent_cell = cmc_cells[0]
-        predicted_coordinate = list(
-            _get_rotation_component_using_angle_degree(
-                np.array(congruent_cell.center_reference),
-                -congruent_cell.angle_deg,
-                np.array(reference_center),
-            )[0]
-            + np.array(reference_center)
-        )
-        consensus_translation = tuple(
-            [
-                center_float - reference_float
-                for center_float, reference_float in zip(
-                    congruent_cell.center_comparison, predicted_coordinate
-                )
-            ]
-        )
-        consensus_rotation_deg = congruent_cell.angle_deg
+    match len(cmc_cells):
+        case 0:
+            # no solution found. Create dummy values
+            consensus_translation = (np.inf, np.inf)
+            consensus_rotation_deg = np.inf
+        case 1:
+            congruent_cell = cmc_cells[0]
+            predicted_coordinate = list(
+                _get_rotation_component_using_angle_degree(
+                    np.array(congruent_cell.center_reference),
+                    -congruent_cell.angle_deg,
+                    np.array(reference_center),
+                )[0]
+                + np.array(reference_center)
+            )
+            consensus_translation = tuple(
+                [
+                    center_float - reference_float
+                    for center_float, reference_float in zip(
+                        congruent_cell.center_comparison, predicted_coordinate
+                    )
+                ]
+            )
+            consensus_rotation_deg = congruent_cell.angle_deg
+
+        case _:
+            consensus_parameters = find_consensus_parameters(cmc_cells)
+            consensus_rotation_deg = float(
+                np.degrees(consensus_parameters.rotation_rad)
+            )
+            consensus_translation = (
+                consensus_parameters.translation[0],
+                consensus_parameters.translation[1],
+            )
 
     shared_parameters = CMCTranslationRotation(
         translation=consensus_translation, rotation=consensus_rotation_deg
