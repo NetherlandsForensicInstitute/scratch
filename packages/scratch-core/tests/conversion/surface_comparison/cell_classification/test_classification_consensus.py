@@ -9,17 +9,30 @@ The MATLAB reference is cell_cmc_median.m with:
 """
 
 import json
+import math
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from conversion.surface_comparison.cmc_classification_median import (
+    classify_congruent_cells_median,
+)
+from conversion.surface_comparison.cmc_consensus.criterion import calculate_criterion
 from conversion.surface_comparison.cmc_consensus.pipeline import (
+    _get_cell_angle_and_position_distances,
+    _refine,
     classify_congruent_cells_consensus,
 )
+from conversion.surface_comparison.models import (
+    Cell,
+    CellMetaData,
+    ComparisonParams,
+)
+from conversion.surface_comparison.utils import rotate_points
 
 from ..helpers import build_test_inputs
-
 
 TEST_ROOT = Path(__file__).parent.parent.parent.parent
 RESOURCES_DIR = TEST_ROOT / "resources"
@@ -35,18 +48,16 @@ def _load_test_cases() -> list[dict]:
         return json.load(f)
 
 
-# we skip these cases since results are based on cmc median method and output from consensus method
-_EXCLUDED_CASES = {
-    "low_similarity_cells",
+# Reference outputs come from the median method, so the consensus pose only matches where both agree.
+_CASES_MATCHING_REFERENCE_ROTATION = {"no_valid_cells", "single_cell"}
+# all_angle_outliers matches too, since both methods report a NaN translation.
+_CASES_MATCHING_REFERENCE_TRANSLATION = {
     "no_valid_cells",
-    "angle_outliers_esd_rejection",
-    "position_outliers",
-    "mixed_outliers",
+    "single_cell",
     "all_angle_outliers",
-    "nan_similarity_values",
 }
 
-_TEST_CASES = [c for c in _load_test_cases() if c["name"] not in _EXCLUDED_CASES]
+_TEST_CASES = _load_test_cases()
 _TEST_IDS = [test_case["name"] for test_case in _TEST_CASES]
 
 
@@ -112,9 +123,8 @@ class TestClassifyCongruentCells:
     def test_consensus_rotation(self, matlab_test_case: dict) -> None:
         """The consensus rotation must match the MATLAB reference."""
 
-        # we skip this test since results are based on the median cmc method and are therefore expected to be different
-        if matlab_test_case["name"] == "all_congruent_no_outliers":
-            pytest.skip("consensus rotation not tested for all_congruent_no_outliers")
+        if matlab_test_case["name"] not in _CASES_MATCHING_REFERENCE_ROTATION:
+            pytest.skip("consensus rotation differs from the median-method reference")
 
         # Arrange
         expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
@@ -128,18 +138,12 @@ class TestClassifyCongruentCells:
         )
 
         # Assert
-        if np.isnan(expected_rotation):
-            assert np.isnan(result.estimated_rotation), (
-                f"[{matlab_test_case['name']}] Expected NaN consensus rotation, "
-                f"got {result.estimated_rotation}"
-            )
-        else:
-            np.testing.assert_allclose(
-                result.estimated_rotation,
-                expected_rotation,
-                atol=ANGLE_ATOL,
-                err_msg=f"[{matlab_test_case['name']}] Consensus rotation mismatch",
-            )
+        np.testing.assert_allclose(
+            result.estimated_rotation,
+            expected_rotation,
+            atol=ANGLE_ATOL,
+            err_msg=f"[{matlab_test_case['name']}] Consensus rotation mismatch",
+        )
 
     def test_consensus_translation(self, matlab_test_case: dict) -> None:
         """The consensus translation must match the MATLAB reference.
@@ -148,9 +152,10 @@ class TestClassifyCongruentCells:
         and the resulting y-translation. This reproduces the Matlab results.
         """
 
-        # we skip this test since results are based on the median cmc method and are therefore expected to be different
-        if matlab_test_case["name"] == "all_congruent_no_outliers":
-            pytest.skip("consensus rotation not tested for all_congruent_no_outliers")
+        if matlab_test_case["name"] not in _CASES_MATCHING_REFERENCE_TRANSLATION:
+            pytest.skip(
+                "consensus translation differs from the median-method reference"
+            )
 
         # Arrange
         expected_translation = matlab_test_case["outputs"]["consensus_translation"]
@@ -163,20 +168,17 @@ class TestClassifyCongruentCells:
             cells, params, rotation_center_reference
         )
 
-        actual_translation = result.estimated_translation
-        actual_translation_list = list(actual_translation)
-        actual_translation = (
-            actual_translation_list[0],
-            -1 * actual_translation_list[1],
-        )
-
         # Assert
         if all(item is None for item in expected_translation):
-            assert all(np.isnan(v) for v in actual_translation), (
+            assert all(np.isnan(v) for v in result.estimated_translation), (
                 f"[{matlab_test_case['name']}] Expected NaN translation, "
-                f"got {actual_translation}"
+                f"got {result.estimated_translation}"
             )
         else:
+            actual_translation = (
+                result.estimated_translation[0],
+                -1 * result.estimated_translation[1],
+            )
             np.testing.assert_allclose(
                 np.array(actual_translation),
                 np.array(expected_translation),
@@ -218,3 +220,418 @@ class TestSpecificScenarios:
 
         # Assert
         assert result.cells[0].is_congruent
+
+
+class TestCorrelationThresholdFilter:
+    """Tests for correlation threshold post-filtering in consensus classification."""
+
+    def test_cells_below_threshold_are_not_congruent(self) -> None:
+        """Cells with score below correlation_threshold are kept, but never congruent."""
+        # Arrange: use a case where all cells are congruent under normal thresholds
+        base_inputs = _get_case("all_congruent_no_outliers")["inputs"].copy()
+        # Lower one cell's correlation score below threshold
+        base_inputs["correlation_scores"] = [0.9, 0.9, 0.1, 0.9, 0.9, 0.9]
+        cells, params, rotation_center_reference = build_test_inputs(base_inputs)
+        original_count = len(cells)
+
+        # Act
+        result = classify_congruent_cells_consensus(
+            cells, params, rotation_center_reference
+        )
+
+        # Assert: the low-scoring cell is retained but excluded from the CMCs
+        assert len(result.cells) == original_count
+        assert result.cmc_count == original_count - 1
+        assert [cell.is_congruent for cell in result.cells] == [
+            True,
+            True,
+            False,
+            True,
+            True,
+            True,
+        ]
+
+    def test_no_cells_pass_threshold_yields_zero_cmcs(self) -> None:
+        """Zero CMCs is a valid result: all cells are kept and the consensus geometry still holds."""
+        # Arrange
+        cells, params, rotation_center_reference = build_test_inputs(
+            _get_case("all_congruent_no_outliers")["inputs"]
+        )
+        # Raise threshold above all cell scores
+        params.correlation_threshold = 1.0
+
+        # Act
+        result = classify_congruent_cells_consensus(
+            cells, params, rotation_center_reference
+        )
+
+        # Assert: the cells still agree geometrically, so a pose is reported
+        assert result.cmc_count == 0
+        assert result.cell_count == len(cells)
+        # The metrics the API reports must stay computable
+        assert result.cmc_fraction == 0.0
+        assert result.cmc_area_fraction == 0.0
+
+    def test_single_passing_cell_without_geometric_support_is_not_congruent(
+        self,
+    ) -> None:
+        """A lone cell passing the similarity threshold is not a CMC on its own."""
+        # Arrange: only cell 0 passes, and the other cells are scattered in angle and position
+        case_inputs = dict(_get_case("all_congruent_no_outliers")["inputs"])
+        case_inputs["correlation_scores"] = [0.9] + [0.01] * 5
+        case_inputs["angles_comparison"] = [1.35, -80.0, 60.0, -120.0, 100.0, -40.0]
+        case_inputs["centers_comparison"] = [
+            case_inputs["centers_comparison"][0],
+            [0.005, 0.004],
+            [0.0008, 0.006],
+            [0.007, 0.0009],
+            [0.002, 0.008],
+            [0.009, 0.003],
+        ]
+        cells, params, rotation_center = build_test_inputs(case_inputs)
+
+        # Act
+        result = classify_congruent_cells_consensus(cells, params, rotation_center)
+
+        # Assert: no consensus geometry is found, so there is no pose and no residuals to report
+        assert result.cmc_count == 0
+        assert np.isnan(result.estimated_rotation)
+        assert all(np.isnan(v) for v in result.estimated_translation)
+        assert all(cell.meta_data.is_outlier for cell in result.cells)
+
+    def test_all_cells_pass_threshold(self) -> None:
+        """When all cells pass the threshold, behavior is unchanged from baseline."""
+        # Arrange
+        cells, params, rotation_center_reference = build_test_inputs(
+            _get_case("all_congruent_no_outliers")["inputs"]
+        )
+
+        # Act
+        result = classify_congruent_cells_consensus(
+            cells, params, rotation_center_reference
+        )
+
+        # Assert: all cells should be congruent (same as baseline)
+        assert all(cell.is_congruent for cell in result.cells)
+        assert result.cmc_count == 6
+
+
+class TestSharedClassifierBehavior:
+    """Tests that apply to both consensus and median classifiers."""
+
+    def test_classifiers_agree_on_rotation_sign(self) -> None:
+        """Both classifiers must report the rotation in the same convention as Cell.angle_deg."""
+        # Arrange
+        case_inputs = _get_case("all_congruent_no_outliers")["inputs"]
+        cells_consensus, params, rotation_center = build_test_inputs(case_inputs)
+        cells_median, _, _ = build_test_inputs(case_inputs)
+        mean_cell_angle = float(np.mean([cell.angle_deg for cell in cells_consensus]))
+
+        # Act
+        consensus = classify_congruent_cells_consensus(
+            cells_consensus, params, rotation_center
+        )
+        median = classify_congruent_cells_median(cells_median, params, rotation_center)
+
+        # Assert: both follow the sign of the cell angles they were derived from
+        assert np.sign(consensus.estimated_rotation) == np.sign(mean_cell_angle)
+        assert np.sign(median.estimated_rotation) == np.sign(mean_cell_angle)
+        np.testing.assert_allclose(
+            consensus.estimated_rotation, median.estimated_rotation, atol=0.5
+        )
+
+    @pytest.mark.parametrize(
+        "classifier",
+        [classify_congruent_cells_consensus, classify_congruent_cells_median],
+        ids=["consensus", "median"],
+    )
+    @pytest.mark.parametrize("angle_deg", [-7.5, -1.0, 0.0, 3.0, 7.5])
+    def test_classifiers_recover_a_known_pose(
+        self, classifier: Callable, angle_deg: float
+    ) -> None:
+        """Both classifiers must recover the rigid transform their cells were built from.
+
+        The cells sit off to one side of reference_center, so a translation expressed around
+        the cell centroid instead would be off by (R - I) @ (reference_center - centroid).
+        """
+        # Arrange
+        reference_center = (5e-3, 5e-3)
+        expected_translation = (2e-5, -1e-5)
+        centers_reference = np.array(
+            [[2e-3, 2e-3], [3e-3, 2e-3], [2e-3, 3e-3], [3e-3, 3e-3], [2.5e-3, 3.5e-3]]
+        )
+        centers_comparison = (
+            rotate_points(
+                points=centers_reference,
+                angle=-np.radians(angle_deg),
+                center=reference_center,
+            )
+            + expected_translation
+        )
+        meta = CellMetaData(
+            is_outlier=False, residual_angle_deg=0.0, position_error=(0.0, 0.0)
+        )
+        cells = [
+            Cell(
+                center_reference=(float(reference[0]), float(reference[1])),
+                center_comparison=(float(comparison[0]), float(comparison[1])),
+                angle_deg=angle_deg,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            )
+            for reference, comparison in zip(centers_reference, centers_comparison)
+        ]
+
+        # Act
+        result = classifier(cells, ComparisonParams(), reference_center)
+
+        # Assert: every cell is congruent and the known pose comes back out
+        assert result.cmc_count == len(cells)
+        np.testing.assert_allclose(result.estimated_rotation, angle_deg, atol=1e-6)
+        np.testing.assert_allclose(
+            result.estimated_translation, expected_translation, atol=1e-9
+        )
+
+    @pytest.mark.parametrize(
+        "classifier",
+        [classify_congruent_cells_consensus, classify_congruent_cells_median],
+        ids=["consensus", "median"],
+    )
+    def test_meta_data_is_populated(self, classifier: Callable) -> None:
+        """Both classifiers report per-cell residuals against the consensus pose."""
+        # Arrange: one cell is a clear outlier, the rest agree
+        case_inputs = dict(_get_case("all_congruent_no_outliers")["inputs"])
+        case_inputs["angles_comparison"] = [1.35, 1.4, 1.3, 1.35, 1.4, 45.0]
+        cells, params, rotation_center = build_test_inputs(case_inputs)
+
+        # Act
+        result = classifier(cells, params, rotation_center)
+
+        # Assert: the odd cell out is flagged, and residuals track the congruence decision
+        assert [cell.meta_data.is_outlier for cell in result.cells][-1]
+        for cell in result.cells:
+            assert -180.0 <= cell.meta_data.residual_angle_deg <= 180.0
+            if cell.is_congruent:
+                assert abs(cell.meta_data.residual_angle_deg) <= (
+                    params.angle_deviation_threshold
+                )
+                assert (
+                    max(abs(error) for error in cell.meta_data.position_error)
+                    <= params.position_threshold
+                )
+
+    @pytest.mark.parametrize(
+        "classifier",
+        [classify_congruent_cells_consensus, classify_congruent_cells_median],
+        ids=["consensus", "median"],
+    )
+    def test_cell_properties_are_preserved(self, classifier: Callable) -> None:
+        """Classification must not mutate core cell properties beyond is_congruent and meta_data."""
+        # Arrange
+        cells, params, rotation_center = build_test_inputs(
+            _get_case("all_congruent_no_outliers")["inputs"]
+        )
+        # Snapshot core properties before classification
+        original_properties = {
+            cell.center_reference: {
+                "center_reference": cell.center_reference,
+                "center_comparison": cell.center_comparison,
+                "angle_deg": cell.angle_deg,
+                "best_score": cell.best_score,
+                "cell_size": cell.cell_size,
+                "fill_fraction_reference": cell.fill_fraction_reference,
+            }
+            for cell in cells
+        }
+
+        # Act
+        result = classifier(cells, params, rotation_center)
+
+        # Assert: no cell is dropped, and each cell's core properties match the original
+        assert len(result.cells) == len(original_properties)
+        for cell in result.cells:
+            orig = original_properties[cell.center_reference]
+            assert cell.center_reference == orig["center_reference"]
+            assert cell.center_comparison == orig["center_comparison"]
+            assert cell.angle_deg == orig["angle_deg"]
+            assert cell.best_score == orig["best_score"]
+            assert cell.cell_size == orig["cell_size"]
+            assert cell.fill_fraction_reference == orig["fill_fraction_reference"]
+
+
+class TestRefineReturnsUpdatedValues:
+    """Tests that _refine actually modifies the inlier set (verifies the return-value fix)."""
+
+    @pytest.fixture
+    def cells_with_consistent_group(self) -> list[Cell]:
+        """Create cells with a realistic pattern: a consistent group plus one outlier.
+
+        Cells 0-3 share a consistent transformation (~-1° rotation + small translation) with small realistic variations.
+        Their angle_deg values (~1°) match the expected rotation. Cell 4 is a clear outlier with different
+        angle/position.
+
+        The angle distance formula is abs(angle_deg + consensus_rotation_deg), so consistent cells have
+        angle_deg ≈ -consensus_rotation_deg.
+        """
+        meta = CellMetaData(
+            is_outlier=False, residual_angle_deg=0.0, position_error=(0.0, 0.0)
+        )
+
+        def apply_transform(ref: tuple[float, float]) -> tuple[float, float]:
+            """Apply -1° rotation + small translation to a reference center."""
+            angle_rad = math.radians(-1.0)
+            cos_a, sin_a = math.cos(angle_rad), math.sin(angle_rad)
+            x, y = ref
+            return (x * cos_a - y * sin_a + 5e-5, x * sin_a + y * cos_a - 3e-5)
+
+        return [
+            Cell(
+                center_reference=(0.001, 0.001),
+                center_comparison=apply_transform((0.001, 0.001)),
+                angle_deg=1.0,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            ),
+            Cell(
+                center_reference=(0.002, 0.001),
+                center_comparison=apply_transform((0.002, 0.001)),
+                angle_deg=1.1,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            ),
+            Cell(
+                center_reference=(0.003, 0.001),
+                center_comparison=apply_transform((0.003, 0.001)),
+                angle_deg=0.9,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            ),
+            Cell(
+                center_reference=(0.001, 0.002),
+                center_comparison=apply_transform((0.001, 0.002)),
+                angle_deg=1.0,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            ),
+            # Cell 4: clear outlier with very different angle and position
+            Cell(
+                center_reference=(0.002, 0.002),
+                center_comparison=(0.0035, 0.0035),
+                angle_deg=30.0,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            ),
+        ]
+
+    def test_refine_grows_inlier_set(
+        self, cells_with_consistent_group: list[Cell]
+    ) -> None:
+        """Refinement re-fits consensus and pulls in additional consistent cells."""
+        # Arrange: start with just cells 0 and 1 as initial inliers (pair-based solution)
+        initial_ids = [0, 1]
+        cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
+            initial_ids, cells_with_consistent_group
+        )
+        initial_criterion = calculate_criterion(
+            cell_distances[initial_ids],
+            cell_angle_distances[initial_ids],
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Act
+        refined_ids, refined_criterion = _refine(
+            current_ids=initial_ids,
+            criterion_current=initial_criterion,
+            cells=cells_with_consistent_group,
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Assert: refinement should have pulled in cells 2 and 3, excluded outlier cell 4
+        assert len(refined_ids) > len(initial_ids), (
+            "Refinement should grow the inlier set"
+        )
+        assert set(refined_ids) == {0, 1, 2, 3}, (
+            f"Refinement should include all consistent cells and exclude the outlier, got {refined_ids}"
+        )
+        # Cells 2 and 3 sit on the same transform, so they grow the set without moving the criterion
+        assert refined_criterion == pytest.approx(initial_criterion)
+
+    def test_refine_improves_criterion(
+        self, cells_with_consistent_group: list[Cell]
+    ) -> None:
+        """Refinement improves the criterion as it re-fits."""
+        # Arrange: start with a subset that already captures most of the group
+        initial_ids = [0, 1, 2]
+        cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
+            initial_ids, cells_with_consistent_group
+        )
+        initial_criterion = calculate_criterion(
+            cell_distances[initial_ids],
+            cell_angle_distances[initial_ids],
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Act
+        refined_ids, refined_criterion = _refine(
+            current_ids=initial_ids,
+            criterion_current=initial_criterion,
+            cells=cells_with_consistent_group,
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Assert: should pull in cell 3 and improve criterion
+        assert 3 in refined_ids, "Refinement should include cell 3 which is consistent"
+        assert refined_criterion < initial_criterion, (
+            "Criterion should improve after refinement"
+        )
+
+    def test_refine_returns_converged_when_no_improvement(
+        self, cells_with_consistent_group: list[Cell]
+    ) -> None:
+        """Refinement returns unchanged when already at a local optimum."""
+        # Arrange: start with the full optimal set
+        initial_ids = [0, 1, 2, 3]
+        cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
+            initial_ids, cells_with_consistent_group
+        )
+        initial_criterion = calculate_criterion(
+            cell_distances[initial_ids],
+            cell_angle_distances[initial_ids],
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Act
+        refined_ids, refined_criterion = _refine(
+            current_ids=initial_ids,
+            criterion_current=initial_criterion,
+            cells=cells_with_consistent_group,
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Assert: no improvement possible, should return as-is
+        assert refined_ids == initial_ids
+        assert refined_criterion == initial_criterion
