@@ -99,7 +99,7 @@ def _find_best_ids(
         )
 
         if 2 < len(current_ids) < n_cells:
-            _refine(
+            current_ids, criterion_current = _refine(
                 current_ids,
                 criterion_current,
                 cells,
@@ -181,19 +181,23 @@ def _refine(
     cells: list[Cell],
     max_distance: float,
     max_abs_angle_distance: float,
-) -> None:
-    """iteratively re-fit current_ids and criterion_current
+) -> tuple[list[int], float]:
+    """
+    Iteratively re-fit inlier set and criterion.
 
-    :param current_ids: a list of inlier indices (used for least-squares Procrustus fit)
+    :param current_ids: a list of inlier indices (used for least-squares Procrustes fit)
     :param criterion_current: the current value of the criterion
     :param cells: a list of cells
     :param max_distance: maximum distance threshold (meters)
     :param max_abs_angle_distance: maximum absolute angle threshold (degrees)
+    :returns: tuple of (updated inlier indices, updated criterion)
     """
+    best_ids = current_ids
+    best_criterion = criterion_current
 
     while True:
         cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
-            current_ids, cells
+            best_ids, cells
         )
         candidate_ids = np.where(
             (cell_distances <= max_distance)
@@ -207,13 +211,12 @@ def _refine(
             max_abs_angle_distance,
         )
 
-        # Accept if strictly more inlier, or same count with lower criterion
-        if len(candidate_ids) > len(current_ids) or (
-            len(candidate_ids) == len(current_ids)
-            and criterion_candidate < criterion_current
+        # Accept if strictly more inliers, or same count with lower criterion
+        if len(candidate_ids) > len(best_ids) or (
+            len(candidate_ids) == len(best_ids) and criterion_candidate < best_criterion
         ):
-            criterion_current = criterion_candidate
-            current_ids = candidate_ids
+            best_ids = candidate_ids
+            best_criterion = criterion_candidate
         else:
-            # we have our local optimum and return, also for len(candidate_ids) == len(current_ids) and criterion did not improve
-            return
+            # Local optimum reached
+            return best_ids, best_criterion

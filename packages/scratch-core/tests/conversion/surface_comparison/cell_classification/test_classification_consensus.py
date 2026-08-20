@@ -9,14 +9,19 @@ The MATLAB reference is cell_cmc_median.m with:
 """
 
 import json
+import math
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from conversion.surface_comparison.cmc_consensus.criterion import calculate_criterion
 from conversion.surface_comparison.cmc_consensus.pipeline import (
+    _get_cell_angle_and_position_distances,
+    _refine,
     classify_congruent_cells_consensus,
 )
+from conversion.surface_comparison.models import Cell, CellMetaData
 
 from ..helpers import build_test_inputs
 
@@ -218,3 +223,178 @@ class TestSpecificScenarios:
 
         # Assert
         assert result.cells[0].is_congruent
+
+
+class TestRefineReturnsUpdatedValues:
+    """Tests that _refine actually modifies the inlier set (verifies the return-value fix)."""
+
+    @pytest.fixture
+    def cells_with_consistent_group(self) -> list[Cell]:
+        """Create cells with a realistic pattern: a consistent group plus one outlier.
+
+        Cells 0-3 share a consistent transformation (~-1° rotation + small translation) with small realistic variations.
+        Their angle_deg values (~1°) match the expected rotation. Cell 4 is a clear outlier with different
+        angle/position.
+
+        The angle distance formula is abs(angle_deg + consensus_rotation_deg), so consistent cells have
+        angle_deg ≈ -consensus_rotation_deg.
+        """
+        meta = CellMetaData(
+            is_outlier=False, residual_angle_deg=0.0, position_error=(0.0, 0.0)
+        )
+
+        def apply_transform(ref: tuple[float, float]) -> tuple[float, float]:
+            """Apply -1° rotation + small translation to a reference center."""
+            angle_rad = math.radians(-1.0)
+            cos_a, sin_a = math.cos(angle_rad), math.sin(angle_rad)
+            x, y = ref
+            return (x * cos_a - y * sin_a + 5e-5, x * sin_a + y * cos_a - 3e-5)
+
+        return [
+            Cell(
+                center_reference=(0.001, 0.001),
+                center_comparison=apply_transform((0.001, 0.001)),
+                angle_deg=1.0,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            ),
+            Cell(
+                center_reference=(0.002, 0.001),
+                center_comparison=apply_transform((0.002, 0.001)),
+                angle_deg=1.1,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            ),
+            Cell(
+                center_reference=(0.003, 0.001),
+                center_comparison=apply_transform((0.003, 0.001)),
+                angle_deg=0.9,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            ),
+            Cell(
+                center_reference=(0.001, 0.002),
+                center_comparison=apply_transform((0.001, 0.002)),
+                angle_deg=1.0,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            ),
+            # Cell 4: clear outlier with very different angle and position
+            Cell(
+                center_reference=(0.002, 0.002),
+                center_comparison=(0.0035, 0.0035),
+                angle_deg=30.0,
+                best_score=0.9,
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            ),
+        ]
+
+    def test_refine_grows_inlier_set(
+        self, cells_with_consistent_group: list[Cell]
+    ) -> None:
+        """Refinement re-fits consensus and pulls in additional consistent cells."""
+        # Arrange: start with just cells 0 and 1 as initial inliers (pair-based solution)
+        initial_ids = [0, 1]
+        cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
+            initial_ids, cells_with_consistent_group
+        )
+        initial_criterion = calculate_criterion(
+            cell_distances[initial_ids],
+            cell_angle_distances[initial_ids],
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Act
+        refined_ids, refined_criterion = _refine(
+            current_ids=initial_ids,
+            criterion_current=initial_criterion,
+            cells=cells_with_consistent_group,
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Assert: refinement should have pulled in cells 2 and 3, excluded outlier cell 4
+        assert len(refined_ids) > len(initial_ids), (
+            "Refinement should grow the inlier set"
+        )
+        assert set(refined_ids) == {0, 1, 2, 3}, (
+            f"Refinement should include all consistent cells and exclude the outlier, got {refined_ids}"
+        )
+        # Cells 2 and 3 sit on the same transform, so they grow the set without moving the criterion
+        assert refined_criterion == pytest.approx(initial_criterion)
+
+    def test_refine_improves_criterion(
+        self, cells_with_consistent_group: list[Cell]
+    ) -> None:
+        """Refinement improves the criterion as it re-fits."""
+        # Arrange: start with a subset that already captures most of the group
+        initial_ids = [0, 1, 2]
+        cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
+            initial_ids, cells_with_consistent_group
+        )
+        initial_criterion = calculate_criterion(
+            cell_distances[initial_ids],
+            cell_angle_distances[initial_ids],
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Act
+        refined_ids, refined_criterion = _refine(
+            current_ids=initial_ids,
+            criterion_current=initial_criterion,
+            cells=cells_with_consistent_group,
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Assert: should pull in cell 3 and improve criterion
+        assert 3 in refined_ids, "Refinement should include cell 3 which is consistent"
+        assert refined_criterion < initial_criterion, (
+            "Criterion should improve after refinement"
+        )
+
+    def test_refine_returns_converged_when_no_improvement(
+        self, cells_with_consistent_group: list[Cell]
+    ) -> None:
+        """Refinement returns unchanged when already at a local optimum."""
+        # Arrange: start with the full optimal set
+        initial_ids = [0, 1, 2, 3]
+        cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
+            initial_ids, cells_with_consistent_group
+        )
+        initial_criterion = calculate_criterion(
+            cell_distances[initial_ids],
+            cell_angle_distances[initial_ids],
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Act
+        refined_ids, refined_criterion = _refine(
+            current_ids=initial_ids,
+            criterion_current=initial_criterion,
+            cells=cells_with_consistent_group,
+            max_distance=0.0001,
+            max_abs_angle_distance=2.0,
+        )
+
+        # Assert: no improvement possible, should return as-is
+        assert refined_ids == initial_ids
+        assert refined_criterion == initial_criterion
