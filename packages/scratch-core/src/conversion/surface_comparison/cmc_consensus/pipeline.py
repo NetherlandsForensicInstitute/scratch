@@ -56,9 +56,8 @@ def classify_congruent_cells_consensus(
     _update_congruent_cells(cells, cmc_ids)
 
     if not inlier_ids:
-        # No consensus geometry, so there is no pose to report. The meta_data residuals keep their
-        # pre-classification placeholder values: there is no pose to measure them against, and only
-        # is_congruent (False for every cell here) is acted on downstream.
+        # Note: the `meta_data` residuals keep their pre-classification values here.
+        # Only `is_congruent` (False for every cell here) is acted on downstream.
         for cell in cells:
             cell.meta_data.is_outlier = True
         return ComparisonResult(
