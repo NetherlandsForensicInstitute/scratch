@@ -13,7 +13,8 @@ from conversion.surface_comparison.cmc_consensus.models import (
 def find_consensus_parameters(
     cells: list[Cell],
 ) -> ConsensusParameters:
-    """Least-squares 'Procrustes' rotation fit to find consensus rotation and translation parameters.
+    """
+    Least-squares 'Procrustes' rotation fit to find consensus rotation and translation parameters.
 
     See README.md @ 'Explanation of Procrustes procedure' for details.
 
@@ -123,7 +124,8 @@ def _get_rotation_component_using_rotation_matrix(
     center: FloatArray2D,
     rotation_matrix: FloatArray2D,
 ) -> FloatArray2D:
-    """Rotate data around center, return only rotation component (no offset by center).
+    """
+    Rotate data around center, return only rotation component (no offset by center).
 
     :param data: data to be rotated, shape (n ,m), n cases with m features, or (m,) for one case
     :param center: center of rotation, shape (1 ,m)
@@ -140,7 +142,8 @@ def _get_rotation_component_using_rotation_matrix(
 def _get_rotation_component_using_angle_degree(
     xy_data: FloatArray2D, angle_deg: float, reference_center: FloatArray2D
 ) -> FloatArray2D:
-    """Rotate data around center.
+    """
+    Rotate data around center.
 
     :param xy_data: data to be rotated, shape (n ,2), n cases with 2 features, or (2,) for 1 case
     :param angle_deg: angle in degrees
@@ -157,7 +160,8 @@ def _get_rotation_component_using_angle_degree(
 
 
 def _build_2d_rotation_matrix(angle_rad: float) -> FloatArray2D:
-    """Build 2d rotation matrix from angle_rad.
+    """
+    Build 2d rotation matrix from angle_rad.
 
      2-D rotation matrix  [[ cos, -sin], [sin,  cos]]
      R for angle θ is [row1, row2] = [[cos, sin], [-sin, cos]]  → x' = x*cos + y*-sin
