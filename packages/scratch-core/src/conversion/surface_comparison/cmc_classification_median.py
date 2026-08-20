@@ -7,7 +7,7 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
     ComparisonParams,
 )
-from conversion.surface_comparison.utils import rotate_points
+from conversion.surface_comparison.utils import rotate_points, wrap_angles
 
 
 def classify_congruent_cells_median(
@@ -42,7 +42,6 @@ def classify_congruent_cells_median(
     :returns: A :class:`ComparisonResult` containing the classified cells, median
         rotation in degrees, and median translation in meters.
     :raises ValueError: If ``cells`` is empty.
-    :raises RuntimeError: If the ESD test rejects every cell as an angle outlier.
     """
     if not cells:
         raise ValueError("Cannot identify CMC from an empty list.")
@@ -75,19 +74,9 @@ def _circular_median(angles: FloatArray1D) -> float:
     :param angles: 1-D array of angles in radians.
     :returns: The circular median angle in radians.
     """
-    costs = [np.sum(np.abs(_wrap_angles(angles - a))) for a in angles]
+    costs = [np.sum(np.abs(wrap_angles(angles - a))) for a in angles]
     ref = angles[np.argmin(costs)]
-    return float(_wrap_angles(ref + np.median(_wrap_angles(angles - ref))))
-
-
-def _wrap_angles(angles: FloatArray1D) -> FloatArray1D:
-    """
-    Normalize angles in radians to the [-pi, pi] interval.
-
-    :param angles: Array of angles in radians.
-    :returns: Array of normalized angles in radians.
-    """
-    return (angles + np.pi) % (2 * np.pi) - np.pi
+    return float(wrap_angles(ref + np.median(wrap_angles(angles - ref))))
 
 
 def _get_esd_criterion(values: FloatArray1D) -> BoolArray1D:
@@ -137,24 +126,23 @@ def _get_median_angle(cells: list[Cell], threshold: float) -> float:
     :param threshold: Half-width acceptance band in radians (typically the
         ``angle_threshold`` parameter converted from degrees).
     :returns: Median rotation angle in radians.
-    :raises RuntimeError: If the ESD test rejects every cell.
     """
     angles = np.radians([c.angle_deg for c in cells])
 
     # Compute median from angles
     median_angle = _circular_median(angles=angles)
-    angle_residuals = _wrap_angles(angles=angles - median_angle)
+    angle_residuals = wrap_angles(angles=angles - median_angle)
     mask = _get_esd_criterion(values=angle_residuals)
 
     # Recompute median based on the inliers
     median_angle = _circular_median(angles[mask])
-    angle_residuals = _wrap_angles(angles=angles - median_angle)
+    angle_residuals = wrap_angles(angles=angles - median_angle)
 
     # Tighten: re-evaluate all cells against 2 × angle_threshold
     mask = _get_threshold_criterion(values=angle_residuals, threshold=threshold)
     if np.any(mask):
         median_angle = _circular_median(angles[mask])
-        angle_residuals = _wrap_angles(angles=angles - median_angle)
+        angle_residuals = wrap_angles(angles=angles - median_angle)
 
     # Update cell meta-data
     for cell, is_outlier, residual_angle in zip(cells, ~mask, angle_residuals):

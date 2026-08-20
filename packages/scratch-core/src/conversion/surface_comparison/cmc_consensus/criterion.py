@@ -1,12 +1,13 @@
 import numpy as np
 
-from container_models.base import FloatArray2D, FloatArray1D
+from container_models.base import FloatArray1D, FloatArray2D
 from conversion.surface_comparison.cmc_consensus.procrustes import (
-    find_consensus_parameters,
     _build_2d_rotation_matrix,
     _get_rotation_component_using_rotation_matrix,
+    find_consensus_parameters,
 )
 from conversion.surface_comparison.models import Cell
+from conversion.surface_comparison.utils import wrap_angles
 
 
 def calculate_criterion(
@@ -80,12 +81,12 @@ def _get_distances(
     )
     distances = np.array(_get_distances_meters(cells, predicted_positions))
 
-    consensus_rotation_deg = float(np.degrees(consensus_rotation_rad))
-
-    # The absolute residual is |cell.angle_deg - -consensus_rotation_deg|, since we use pixel_coordinates for rotation_angle of cells and mathematical coordinates here.
-    abs_angle_distances = np.array(
-        [abs(cell.angle_deg - -consensus_rotation_deg) for cell in cells]
+    # Cell angles are in pixel coordinates and the fit is in math coordinates, hence the sign flip.
+    angle_residuals = (
+        np.radians([cell.angle_deg for cell in cells]) + consensus_rotation_rad
     )
+    # Wrap so a residual across +-180 degrees stays small
+    abs_angle_distances = np.abs(np.degrees(wrap_angles(angle_residuals)))
 
     return distances, abs_angle_distances
 
