@@ -298,7 +298,6 @@ class TestCorrelationThresholdFilter:
         assert np.isnan(result.estimated_rotation)
         assert all(np.isnan(v) for v in result.estimated_translation)
         assert all(cell.meta_data.is_outlier for cell in result.cells)
-        assert all(cell.meta_data.is_outlier for cell in result.cells)
 
     def test_all_cells_pass_threshold(self) -> None:
         """When all cells pass the threshold, behavior is unchanged from baseline."""
