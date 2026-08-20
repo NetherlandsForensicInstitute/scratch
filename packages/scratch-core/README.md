@@ -304,7 +304,8 @@ Use `ComparisonParams.for_mark_type(mark_type)` to get the correct default cell 
 Default cell sizes: 450 × 450 μm for breech face, 125 × 125 μm for all other impression types.
 
 **CMC classification methods** —
-There are two methods to find the congruent matching cells: 'CMC-median' and 'CMC-consensus'. They both work by finding
+There are two methods to find the congruent matching cells: 'CMC-median' and 'CMC-consensus', selected with
+`ComparisonParams.cmc_algorithm` (`median` or `consensus`, the default). They both work by finding
 a common estimated rotation and translation and then a cell is congruent if the differences between cell.rotation_angle
 and common_rotation, and the difference between predicted_position on comparison frame and cell's location on
 comparison_frame are within certain prespecified limits.

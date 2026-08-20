@@ -1,5 +1,7 @@
 from collections.abc import Callable
 from itertools import product
+from typing import Literal
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -15,7 +17,11 @@ from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
 from conversion.surface_comparison.grid import GridCell, generate_grid
-from conversion.surface_comparison.models import ComparisonParams, GridSearchParams
+from conversion.surface_comparison.models import (
+    ComparisonParams,
+    ComparisonResult,
+    GridSearchParams,
+)
 from conversion.surface_comparison.pipeline import ProcessedMark, compare_surfaces
 
 from .cell_registration.helpers import (
@@ -286,6 +292,47 @@ def test_generate_grid_runs(scan_image: ScanImage, params: ComparisonParams):
         minimum_fill_fraction=params.minimum_fill_fraction,
     )
     assert cells
+
+
+@pytest.mark.parametrize("algorithm", ["median", "consensus"])
+def test_cmc_algorithm_choice_selects_correct_classifier(
+    algorithm: Literal["median", "consensus"],
+) -> None:
+    """compare_surfaces calls the classifier specified by cmc_algorithm."""
+    # Arrange
+    scan_image = ScanImage(
+        data=np.zeros(shape=(100, 100), dtype=np.float64), scale_x=1e-5, scale_y=1e-5
+    )
+    processed_mark = make_processed_mark(scan_image)
+    stub = ComparisonResult(
+        cells=[], estimated_rotation=0.0, estimated_translation=(0.0, 0.0)
+    )
+
+    with (
+        patch(
+            "conversion.surface_comparison.pipeline.classify_congruent_cells_median",
+            return_value=stub,
+        ) as mock_median,
+        patch(
+            "conversion.surface_comparison.pipeline.classify_congruent_cells_consensus",
+            return_value=stub,
+        ) as mock_consensus,
+    ):
+        # Act
+        compare_surfaces(
+            reference_mark=processed_mark,
+            comparison_mark=processed_mark,
+            params=ComparisonParams(cmc_algorithm=algorithm),
+        )
+
+    # Assert
+    called, not_called = (
+        (mock_median, mock_consensus)
+        if algorithm == "median"
+        else (mock_consensus, mock_median)
+    )
+    called.assert_called_once()
+    not_called.assert_not_called()
 
 
 @pytest.mark.integration

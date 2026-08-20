@@ -126,6 +126,7 @@ class ComparisonParams(ConfigBaseModel):
 
     :param minimum_fill_fraction: Minimum fraction of valid pixels required in a reference cell for it to be processed.
     :param correlation_threshold: Minimum per-cell ACCF score for CMC classification.
+    :param cmc_algorithm: Which CMC classifier to run, 'consensus' or 'median'.
     :param angle_deviation_threshold: Maximum absolute angular deviation from consensus for CMC (degrees).
     :param position_threshold: Maximum positional deviation from consensus for CMC (m).
     :param search_angle_min: Lower bound of rotation search range (degrees).
@@ -138,6 +139,11 @@ class ComparisonParams(ConfigBaseModel):
 
     minimum_fill_fraction: float = Field(default=0.35, ge=0.0, le=1.0)
     correlation_threshold: float = Field(default=0.25, ge=-1.0, le=1.0)
+    cmc_algorithm: Literal["median", "consensus"] = Field(
+        default="consensus",
+        description="CMC classification algorithm: 'consensus' (pairwise Procrustes) "
+        "or 'median' (median-based with ESD).",
+    )
     angle_deviation_threshold: float = Field(default=6.0, gt=0.0)
     position_threshold: float = Field(default=7.5e-5, gt=0.0)
     search_angle_min: float = -180.0
