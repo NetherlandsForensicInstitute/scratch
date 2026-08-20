@@ -41,11 +41,7 @@ def classify_congruent_cells_consensus(
     :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees, and consensus
         translation in meters, both expressed around `reference_center`. Both are NaN when no consensus
         geometry is found; every cell is then a non-congruent outlier.
-    :raises ValueError: If ``cells`` is empty.
     """
-    if not cells:
-        raise ValueError("Cannot identify CMC from an empty list.")
-
     if len(cells) == 1:
         # Then this cell is an inlier by definition
         inlier_ids = [0]
