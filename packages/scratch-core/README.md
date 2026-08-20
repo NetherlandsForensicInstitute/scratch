@@ -319,7 +319,7 @@ CMC consensus finds common parameters using iterative Procrustes translation and
 cell's locations in the reference frame onto all cell's locations in the comparison frame. From the Procrustes
 translation and rotation parameters, and prespecified position and angle thresholds, it can be determined which cells are
 congruent for the current solution. As long as the current solution leads to more congruent cells (or equal amount but
-better fit), the Procrustes procedure is iteratively refined.T
+better fit), the Procrustes procedure is iteratively refined.
 
 **Explanation of Procrustes procedure** —
 Say we have two coordinate-pair lists [X] and [Y] where X_i is coupled with Y_i. And we want to find the rotation matrix R and translation of X to Y for which:

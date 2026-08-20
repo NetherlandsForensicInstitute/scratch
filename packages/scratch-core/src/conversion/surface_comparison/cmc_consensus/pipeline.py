@@ -1,22 +1,22 @@
-import numpy as np
 from itertools import combinations
+
+import numpy as np
 
 from conversion.surface_comparison.cmc_consensus.criterion import (
     _get_cell_angle_and_position_distances,
     calculate_criterion,
 )
+from conversion.surface_comparison.cmc_consensus.models import (
+    CMCTranslationRotation,
+)
 from conversion.surface_comparison.cmc_consensus.procrustes import (
-    find_consensus_parameters,
     _get_rotation_component_using_angle_degree,
+    find_consensus_parameters,
 )
 from conversion.surface_comparison.models import (
     Cell,
-    ComparisonResult,
     ComparisonParams,
-)
-
-from conversion.surface_comparison.cmc_consensus.models import (
-    CMCTranslationRotation,
+    ComparisonResult,
 )
 
 
@@ -68,15 +68,15 @@ def classify_congruent_cells_consensus(
 def _find_best_ids(
     cells: list[Cell], max_distance: float, max_abs_angle_distance: float
 ) -> list[int]:
-    """Core algorithm to find the best inlier ids. Loop over all indices pairs as initial solution, and iteratively refine this solution. Update global solution if refinement has more cells or if criterion improves for same amount of cells.
+    """
+    Find best inliers by iteratively refining initial pair-based solutions, prioritizing higher cell count than better
+    criterion.
 
     :param cells: list of cells.
     :param max_distance: maximum distance to consider for consensus, in meters.
     :param max_abs_angle_distance: maximum absolute angle deviation to consider for consensus, in degrees.
-
     :returns: list of inlier cell ids, these will be the congruent cells
     """
-
     best_ids = []
     criterion = np.inf
     n_cells = len(cells)
@@ -121,13 +121,16 @@ def _find_best_ids(
 
 
 def _update_congruent_cells(cells: list[Cell], congruent_ids: list[int]) -> None:
-    """update cell.is_congruent property
+    """
+    Update the cell.is_congruent property.
+
     :param cells: list of cells.
     :param congruent_ids: list of cell ids that are congruent
     """
 
+    congruent = set(congruent_ids)
     for i, cell in enumerate(cells):
-        cell.is_congruent = i in set(congruent_ids)
+        cell.is_congruent = i in congruent
 
 
 def _get_estimated_translation_rotation(
@@ -184,7 +187,7 @@ def _refine(
 ) -> None:
     """iteratively re-fit current_ids and criterion_current
 
-    :param current_ids: a list of inlier indices (used for least-squares Procrustus fit)
+    :param current_ids: a list of inlier indices (used for least-squares Procrustes fit)
     :param criterion_current: the current value of the criterion
     :param cells: a list of cells
     :param max_distance: maximum distance threshold (meters)
