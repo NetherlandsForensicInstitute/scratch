@@ -34,7 +34,7 @@ def classify_congruent_cells_consensus(
        Find all other cells that fall within position_threshold and angle_deviation_threshold of that predicted location.
        Attempt to iteratively refine by re-fitting using all successful cells.
        Keep the solution if it yields more CMC cells than the current best (or equal count with better quality).
-    3. Get a boolean vector flagging which cells are CMC.
+    3. Flag the geometric inliers that also pass the similarity threshold as CMC.
     4. Return a ComparisonResult.
 
     :param cells: Per-cell registration results to classify.
@@ -54,7 +54,11 @@ def classify_congruent_cells_consensus(
             cells, params.position_threshold, params.angle_deviation_threshold
         )
 
-    _update_congruent_cells(cells, best_ids)
+    # Apply the similarity threshold to the inliers
+    cmc_ids = [
+        i for i in best_ids if cells[i].best_score >= params.correlation_threshold
+    ]
+    _update_congruent_cells(cells, cmc_ids)
 
     consensus = _get_estimated_translation_rotation(cells, reference_center)
 
@@ -126,8 +130,9 @@ def _update_congruent_cells(cells: list[Cell], congruent_ids: list[int]) -> None
     :param congruent_ids: list of cell ids that are congruent
     """
 
+    congruent = set(congruent_ids)
     for i, cell in enumerate(cells):
-        cell.is_congruent = i in set(congruent_ids)
+        cell.is_congruent = i in congruent
 
 
 def _get_estimated_translation_rotation(

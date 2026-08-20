@@ -218,3 +218,70 @@ class TestSpecificScenarios:
 
         # Assert
         assert result.cells[0].is_congruent
+
+
+class TestCorrelationThresholdFilter:
+    """Tests for correlation threshold post-filtering in consensus classification."""
+
+    def test_cells_below_threshold_are_not_congruent(self) -> None:
+        """Cells with score below correlation_threshold are kept, but never congruent."""
+        # Arrange: use a case where all cells are congruent under normal thresholds
+        base_inputs = _get_case("all_congruent_no_outliers")["inputs"].copy()
+        # Lower one cell's correlation score below threshold
+        base_inputs["correlation_scores"] = [0.9, 0.9, 0.1, 0.9, 0.9, 0.9]
+        cells, params, rotation_center_reference = build_test_inputs(base_inputs)
+        original_count = len(cells)
+
+        # Act
+        result = classify_congruent_cells_consensus(
+            cells, params, rotation_center_reference
+        )
+
+        # Assert: the low-scoring cell is retained but excluded from the CMCs
+        assert len(result.cells) == original_count
+        assert result.cmc_count == original_count - 1
+        assert [cell.is_congruent for cell in result.cells] == [
+            True,
+            True,
+            False,
+            True,
+            True,
+            True,
+        ]
+
+    def test_no_cells_pass_threshold_yields_zero_cmcs(self) -> None:
+        """Zero CMCs is a valid result: all cells are kept and the consensus geometry still holds."""
+        # Arrange
+        cells, params, rotation_center_reference = build_test_inputs(
+            _get_case("all_congruent_no_outliers")["inputs"]
+        )
+        # Raise threshold above all cell scores
+        params.correlation_threshold = 1.0
+
+        # Act
+        result = classify_congruent_cells_consensus(
+            cells, params, rotation_center_reference
+        )
+
+        # Assert: the cells still agree geometrically, so a pose is reported
+        assert result.cmc_count == 0
+        assert result.cell_count == len(cells)
+        # The metrics the API reports must stay computable
+        assert result.cmc_fraction == 0.0
+        assert result.cmc_area_fraction == 0.0
+
+    def test_all_cells_pass_threshold(self) -> None:
+        """When all cells pass the threshold, behavior is unchanged from baseline."""
+        # Arrange
+        cells, params, rotation_center_reference = build_test_inputs(
+            _get_case("all_congruent_no_outliers")["inputs"]
+        )
+
+        # Act
+        result = classify_congruent_cells_consensus(
+            cells, params, rotation_center_reference
+        )
+
+        # Assert: all cells should be congruent (same as baseline)
+        assert all(cell.is_congruent for cell in result.cells)
+        assert result.cmc_count == 6
