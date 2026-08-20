@@ -42,7 +42,6 @@ def classify_congruent_cells_median(
     :returns: A :class:`ComparisonResult` containing the classified cells, median
         rotation in degrees, and median translation in meters.
     :raises ValueError: If ``cells`` is empty.
-    :raises RuntimeError: If the ESD test rejects every cell as an angle outlier.
     """
     if not cells:
         raise ValueError("Cannot identify CMC from an empty list.")
@@ -137,7 +136,6 @@ def _get_median_angle(cells: list[Cell], threshold: float) -> float:
     :param threshold: Half-width acceptance band in radians (typically the
         ``angle_threshold`` parameter converted from degrees).
     :returns: Median rotation angle in radians.
-    :raises RuntimeError: If the ESD test rejects every cell.
     """
     angles = np.radians([c.angle_deg for c in cells])
 
