@@ -58,8 +58,6 @@ def classify_congruent_cells_consensus(
     if not inlier_ids:
         # Note: the `meta_data` residuals keep their pre-classification values here.
         # Only `is_congruent` (False for every cell here) is acted on downstream.
-        for cell in cells:
-            cell.meta_data.is_outlier = True
         return ComparisonResult(
             cells=cells,
             estimated_rotation=float("nan"),
