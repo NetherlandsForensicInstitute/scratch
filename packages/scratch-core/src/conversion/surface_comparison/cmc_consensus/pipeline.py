@@ -49,12 +49,6 @@ def classify_congruent_cells_consensus(
         inlier_ids = _find_best_ids(
             cells, params.position_threshold, params.angle_deviation_threshold
         )
-    # Apply the similarity threshold to the inliers
-    cmc_ids = [
-        i for i in inlier_ids if cells[i].best_score >= params.correlation_threshold
-    ]
-    _update_congruent_cells(cells, cmc_ids)
-
     if not inlier_ids:
         # Note: the `meta_data` residuals keep their pre-classification values here.
         # Only `is_congruent` (False for every cell here) is acted on downstream.
@@ -66,6 +60,11 @@ def classify_congruent_cells_consensus(
     consensus = _get_estimated_translation_rotation(
         [cells[i] for i in inlier_ids], reference_center
     )
+    # Apply the similarity threshold to the inliers
+    cmc_ids = [
+        i for i in inlier_ids if cells[i].best_score >= params.correlation_threshold
+    ]
+    _update_congruent_cells(cells, cmc_ids)
     _update_cell_meta_data(cells, inlier_ids, consensus, reference_center)
 
     return ComparisonResult(

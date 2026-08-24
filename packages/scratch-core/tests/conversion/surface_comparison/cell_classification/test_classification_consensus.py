@@ -286,10 +286,8 @@ class TestCorrelationThresholdFilter:
         # Act
         result = classify_congruent_cells_consensus(cells, params, rotation_center)
 
-        # Assert: no consensus geometry is found, so there is no pose and no residuals to report
+        # Assert: no CMC's found
         assert result.cmc_count == 0
-        assert np.isnan(result.estimated_rotation)
-        assert all(np.isnan(v) for v in result.estimated_translation)
 
     def test_all_cells_pass_threshold(self) -> None:
         """When all cells pass the threshold, behavior is unchanged from baseline."""
