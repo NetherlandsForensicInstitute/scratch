@@ -219,6 +219,7 @@ class TestSpecificScenarios:
         )
 
         # Assert
+        assert len(result.cells) == 1
         assert result.cells[0].is_congruent
 
 
@@ -276,18 +277,10 @@ class TestCorrelationThresholdFilter:
         self,
     ) -> None:
         """A lone cell passing the similarity threshold is not a CMC on its own."""
-        # Arrange: only cell 0 passes, and the other cells are scattered in angle and position
         case_inputs = dict(_get_case("all_congruent_no_outliers")["inputs"])
-        case_inputs["correlation_scores"] = [0.9] + [0.01] * 5
-        case_inputs["angles_comparison"] = [1.35, -80.0, 60.0, -120.0, 100.0, -40.0]
-        case_inputs["centers_comparison"] = [
-            case_inputs["centers_comparison"][0],
-            [0.005, 0.004],
-            [0.0008, 0.006],
-            [0.007, 0.0009],
-            [0.002, 0.008],
-            [0.009, 0.003],
-        ]
+        case_inputs["correlation_scores"] = [0.9] + [0.1] * 5
+        case_inputs["angles_comparison"] = [85, 0.0, 0.0, 0.0, 0.0, 0.0]
+        case_inputs["centers_comparison"] = case_inputs["centers_reference"]
         cells, params, rotation_center = build_test_inputs(case_inputs)
 
         # Act
