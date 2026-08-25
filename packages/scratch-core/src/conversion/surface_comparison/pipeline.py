@@ -18,6 +18,9 @@ from conversion.surface_comparison.cell_registration.stage_builders import (
     compute_cap_factor,
 )
 from conversion.surface_comparison.cell_registration.stages import run_fine_stage
+from conversion.surface_comparison.cmc_classification_median import (
+    classify_congruent_cells_median,
+)
 from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
 )
@@ -50,8 +53,8 @@ def compare_surfaces(
         search is performed on downsampled images.
     5. **Fine refinement** — local search around each coarse candidate at full resolution.
     6. **Gather results** — matches are mapped back onto grid cells and converted to Cell instances.
-    7. **CMC classification** — consensus angle and translation are estimated across all cells and each cell
-        is labeled as congruent or not.
+    7. **CMC classification** — the classifier selected by ``params.cmc_algorithm`` estimates the angle and
+        translation across all cells and labels each cell as congruent or not.
 
     Both marks are expected to have already been pre-processed (leveled and band-pass filtered);
     only the ``filtered_mark`` image is currently used by the pipeline.
@@ -164,6 +167,11 @@ def compare_surfaces(
 
     # Step 7: CMC classification
     logger.debug("starting cmc classification")
-    return classify_congruent_cells_consensus(
+    classify_func = (
+        classify_congruent_cells_median
+        if params.cmc_algorithm == "median"
+        else classify_congruent_cells_consensus
+    )
+    return classify_func(
         cells=cells, params=params, reference_center=reference_image.center_meters
     )
