@@ -26,7 +26,7 @@ def classify_congruent_cells_consensus(
     cells: list[Cell], params: ComparisonParams, reference_center: tuple[float, float]
 ) -> ComparisonResult:
     """
-    Identify Congruent Matching Cells (CMCs) using a consensus-based procedure using Procrustes rotation and translation
+    Identify Congruent Matching Cells (CMCs) with a consensus-based procedure using Procrustes rotation and translation
     to find consensus parameters
 
     Steps:
