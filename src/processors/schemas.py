@@ -193,17 +193,18 @@ class ComparisonImpressionMetrics(BaseModelConfig):
         description="Fraction of the total valid surface area covered by congruent matching cells, range 0-1.",
         examples=[0.75],
     )
+    # No ge/le bound: the classifiers report NaN when they find no consensus geometry, and pydantic
+    # rejects NaN against a bound. NaN serializes to null.
     estimated_rotation: float = Field(
         ...,
-        ge=-180,
-        le=180,
-        description="Estimated rotation between reference and compared mark from cell registration, in degrees.",
+        description="Estimated rotation between reference and compared mark from cell registration, in degrees, "
+        "range -180 to 180. Null when no consensus geometry was found.",
         examples=[1.0],
     )
     estimated_translation: tuple[float, float] = Field(
         ...,
         description="Estimated (x, y) translation between reference and compared mark from cell registration, in "
-        "meters.",
+        "meters. Null when no consensus geometry was found, or every cell was rejected as an outlier.",
         examples=[(-9.4e-6, 10.1e-6)],
     )
 

@@ -8,7 +8,8 @@ import pytest
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType, MarkMetadata, MarkStriationType
 from conversion.likelihood_ratio import DummyLRSystem, ModelSpecs
-from conversion.surface_comparison.models import ComparisonParams
+from conversion.surface_comparison.cmc_consensus.pipeline import classify_congruent_cells_consensus
+from conversion.surface_comparison.models import Cell, CellMetaData, ComparisonParams
 from fastapi.testclient import TestClient
 from pydantic import HttpUrl
 
@@ -359,3 +360,55 @@ class TestCalculateLRStriation:
         ):
             response = client.post(f"/processor/{ProcessorEndpoint.CALCULATE_LR_STRIATION}", json=json_data)
             assert_lr_response_valid(client, response)
+
+
+class TestImpressionComparisonPose:
+    """The reported consensus pose for a comparison that yields no geometry."""
+
+    @pytest.fixture
+    def json_data(self, impression_mark_dirs: tuple[Path, Path]) -> dict:
+        """Fixture for building a JSON-like dict."""
+        mark_dir_ref, mark_dir_comp = impression_mark_dirs
+        return CalculateScoreImpression(
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
+            comparison_params=_default_comparison_params(),
+            metadata_reference=_dummy_metadata(),
+            metadata_compared=_dummy_metadata(),
+        ).model_dump(mode="json")
+
+    def test_no_consensus_pose_is_reported_as_null(self, client: TestClient, json_data: dict) -> None:
+        """A comparison without consensus geometry still serializes; the NaN pose is reported as null."""
+        # Positions agree but the angles are scattered, so no cell pair yields a consensus.
+        cells = [
+            Cell(
+                center_reference=(x, y),
+                cell_size=(4.5e-4, 4.5e-4),
+                fill_fraction_reference=1.0,
+                best_score=0.9,
+                angle_deg=angle_deg,
+                center_comparison=(x + 1.5e-5, y + 1.5e-5),
+                is_congruent=False,
+                meta_data=CellMetaData(is_outlier=False, residual_angle_deg=0.0, position_error=(0.0, 0.0)),
+            )
+            for (x, y), angle_deg in zip(
+                [(0.001, 0.001), (0.002, 0.001), (0.003, 0.001), (0.001, 0.002), (0.002, 0.002)],
+                [28.6, -17.2, 45.8, -34.4, 57.3],
+            )
+        ]
+        no_consensus = classify_congruent_cells_consensus(
+            cells=cells, params=_default_comparison_params(), reference_center=(0.002, 0.0015)
+        )
+
+        with (
+            patch("processors.router.compare_surfaces", return_value=no_consensus),
+            patch("processors.router.save_impression_comparison_plots"),
+        ):
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        assert response.status_code == HTTPStatus.OK
+        body = response.json()
+        assert body["comparison_results"]["estimated_rotation"] is None
+        assert body["comparison_results"]["estimated_translation"] == [None, None]
+        assert body["comparison_results"]["score"] == 0
+        assert not any(cell["is_congruent"] for cell in body["cells"])

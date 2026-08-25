@@ -3,7 +3,7 @@ from collections.abc import Sequence
 import numpy as np
 from loguru import logger
 
-from container_models.base import FloatArray2D, Points2D
+from container_models.base import FloatArray1D, FloatArray2D, Points2D
 from container_models.scan_image import ScanImage
 from conversion.exceptions import ImageNotIsotropicError
 from conversion.surface_comparison.models import Cell, ComparisonParams
@@ -50,6 +50,16 @@ def rotate_points(
     rotation_matrix = np.array([[cos_val, -sin_val], [sin_val, cos_val]])
     translation = np.array(center)
     return (points - translation) @ rotation_matrix.T + translation
+
+
+def wrap_angles(angles: FloatArray1D) -> FloatArray1D:
+    """
+    Normalize angles in radians to the [-pi, pi] interval.
+
+    :param angles: Array of angles in radians.
+    :returns: Array of normalized angles in radians.
+    """
+    return (angles + np.pi) % (2 * np.pi) - np.pi
 
 
 def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:

@@ -119,6 +119,30 @@ def _get_rotation_angle(
     return consensus_rotation_rad
 
 
+def get_translation_about(
+    consensus_parameters: ConsensusParameters, center: tuple[float, float]
+) -> tuple[float, float]:
+    """
+    Express the consensus translation around `center` instead of around the fit centroid.
+
+    The Procrustes fit rotates around the cell centroids, so its translation only holds there.
+
+    :param consensus_parameters: fitted rotation and rotation centers
+    :param center: center to express the translation around, (x, y) meters
+    :returns: translation from reference to comparison frame, (x, y) meters
+    """
+    rotated_center = _get_rotation_component_using_angle_degree(
+        np.array(center),
+        float(np.degrees(consensus_parameters.rotation_rad)),
+        consensus_parameters.rotation_center_reference,
+    )[0]
+    translation = (
+        rotated_center + consensus_parameters.rotation_center_comparison - center
+    )
+
+    return float(translation[0]), float(translation[1])
+
+
 def _get_rotation_component_using_rotation_matrix(
     data: FloatArray2D | FloatArray1D,
     center: FloatArray2D,
