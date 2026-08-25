@@ -30,7 +30,8 @@ def classify_congruent_cells_consensus(
     to find consensus parameters
 
     Steps:
-    1. Iteratively refine rigid body transformations from cell pairs, keeping solutions with more cells or better quality.
+    1. Iteratively refine rigid body transformation (Procrustes rotation with scale fixed) started from cell pairs,
+        keeping solutions with more cells or better quality.
     2. Flag the geometric inliers that also pass the similarity threshold as CMC.
     3. Estimate the consensus rotation and translation from the geometric inliers.
     4. Return a ComparisonResult.
@@ -40,7 +41,7 @@ def classify_congruent_cells_consensus(
     :param reference_center: Reference rotation center (meters); used if only one cell fits.
     :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees, and consensus
         translation in meters, both expressed around `reference_center`. Both are NaN when no consensus
-        geometry is found; every cell is then a non-congruent outlier.
+        geometry is found; every cell is then non-congruent.
     """
     if len(cells) == 1:
         # Then this cell is an inlier by definition
@@ -183,7 +184,7 @@ def _get_estimated_translation_rotation(
     """
     Calculate shared rotation and transformation.
 
-    :param cells: list of cells to fit.
+    :param cells: list of cells
     :param reference_center: reference center
     :returns: shared rotation and transformation, in CMCTranslationRotation
     """
@@ -195,7 +196,7 @@ def _get_estimated_translation_rotation(
             consensus_parameters, reference_center
         )
     else:
-        # There is only one cell to fit
+        # There is only one cell
         inlier_cell = cells[0]
         predicted_coordinate = list(
             _get_rotation_component_using_angle_degree(

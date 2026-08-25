@@ -597,7 +597,7 @@ class TestRefineReturnsUpdatedValues:
             "Criterion should improve after refinement"
         )
 
-    def test_refine_returns_converged_when_no_improvement(
+    def test_returns_former_when_no_improvement(
         self, cells_with_consistent_group: list[Cell]
     ) -> None:
         """Refinement returns unchanged when already at a local optimum."""

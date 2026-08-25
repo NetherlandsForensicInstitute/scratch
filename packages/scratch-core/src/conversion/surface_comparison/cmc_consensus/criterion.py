@@ -81,7 +81,8 @@ def _get_distances(
     )
     distances = np.array(_get_distances_meters(cells, predicted_positions))
 
-    # Cell angles are in pixel coordinates and the fit is in math coordinates, hence the sign flip.
+    # Cell angles are in pixel coordinates and the fit is in math coordinates,
+    # hence the sign flip (residual = a - b, here it is a + b).
     angle_residuals = (
         np.radians([cell.angle_deg for cell in cells]) + consensus_rotation_rad
     )
