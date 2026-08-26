@@ -210,7 +210,10 @@ class ComparisonImpressionMetrics(BaseModelConfig):
 
 
 class ComparisonResponseImpression(URLContainer):
-    urls: ComparisonResponseImpressionURL
+    urls: ComparisonResponseImpressionURL | None = Field(
+        default=None,
+        description="URLs of the comparison plots, or null when plotting was disabled.",
+    )
     cells: list[Cell] = Field(
         default_factory=list,
         description="Per-cell CMC results for use in LR calculation.",
