@@ -33,8 +33,9 @@ logger = logging.getLogger(__name__)
 #: Folder holding the per-mark-type result folders, inside the database folder.
 RESULTS_SUBDIR = Path("mark-comparison-results")
 
-#: Keys in the API response. The metrics sit in a nested block
-#: (``ComparisonImpressionMetrics`` / ``StriationComparisonResults``).
+#: Keys in the API response. Most metrics sit in a nested block
+#: (``ComparisonImpressionMetrics`` / ``StriationComparisonResults``); ``n_cells``
+#: is a computed field at the top level of ``ComparisonResponseImpression``.
 RESULTS_KEY = "comparison_results"
 MATCHING_CELLS_KEY = "score"
 TOTAL_CELLS_KEY = "n_cells"
@@ -103,8 +104,9 @@ def extract_metrics(result: dict[str, Any] | None, mark_type: MarkType) -> dict[
         return {}
 
     if isinstance(mark_type, MarkImpressionType):
+        # n_cells is a computed field on the response itself, not part of the nested metrics block.
         metrics = {
-            "total_cells": comparison_results.get(TOTAL_CELLS_KEY),
+            "total_cells": result.get(TOTAL_CELLS_KEY),
             "matching_cells": comparison_results.get(MATCHING_CELLS_KEY),
         }
     else:
