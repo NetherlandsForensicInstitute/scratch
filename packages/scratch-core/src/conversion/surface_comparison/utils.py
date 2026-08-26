@@ -9,7 +9,7 @@ from conversion.resample import resample_scan_image_nan_aware
 from conversion.surface_comparison.models import Cell, ComparisonParams
 
 # Tolerances for np.isclose() when comparing pixel scales (isotropy check, matching scales between images).
-# atol stays 0.0 to keep the check relative; at 1e-3 a scale difference shifts the image edge by about half a pixel.
+# atol stays 0.0 to keep the check relative; at 1e-3 the axes drift apart by ~1 pixel per 1000 pixels.
 SCALE_COMPARISON_ATOL = 0.0
 SCALE_COMPARISON_RTOL = 1e-3
 
