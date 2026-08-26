@@ -67,7 +67,7 @@ def compare_surfaces(
     :returns: A ComparisonResult containing per-cell registration results, the consensus rotation and
         translation, and CMC counts.
     """
-    # Everything below uses scale_x for both axes, so anisotropy left by the tilt correction must go first.
+    # Everything below uses scale_x for both axes, so anisotropy left by the tilt correction must be removed first.
     reference_image = make_image_isotropic(reference_mark.filtered_mark.scan_image)
     comparison_image_original = make_image_isotropic(
         comparison_mark.filtered_mark.scan_image
