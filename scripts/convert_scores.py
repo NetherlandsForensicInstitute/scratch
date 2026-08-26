@@ -70,7 +70,7 @@ class ScoreStatus(enum.Enum):
     FAILED_ERROR = "failed_error"
 
 
-def calculate_score(  # noqa: PLR0911
+def calculate_score(  # noqa: PLR0911, PLR0912
     entry: ComparisonEntry, cfg: ConversionConfig, existing: set[Path], plot: bool = False
 ) -> tuple[ScoreStatus, dict[str, Any] | None]:
     """Call the score endpoint for a single comparison pair.
@@ -120,16 +120,10 @@ def calculate_score(  # noqa: PLR0911
         _save_result(entry, error=detail)
         return ScoreStatus.FAILED_ERROR, {"error": detail}
 
-    _store_result(entry, result, plot=plot)
-    return ScoreStatus.COMPLETED, result
-
-
-def _store_result(entry: ComparisonEntry, result: dict[str, Any], plot: bool = False) -> None:
-    """Save the score payload and, when plots were requested, fetch them from the API vault."""
     _save_result(entry, result=result)
     if not plot:
         # Nothing was rendered server-side, so there is nothing to fetch.
-        return
+        return ScoreStatus.COMPLETED, result
 
     downloaded = download_urls(result.get("urls", result), entry.comparison_out, skip=())
 
@@ -142,6 +136,7 @@ def _store_result(entry: ComparisonEntry, result: dict[str, Any], plot: bool = F
         )
     else:
         _cleanup_vault(result)
+    return ScoreStatus.COMPLETED, result
 
 
 def _log_counts(counts: dict[ScoreStatus, int]) -> None:
