@@ -10,7 +10,7 @@ import numpy as np
 from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from conversion.surface_comparison.models import ComparisonParams
 
-from scripts.conversion_utils import parse_db_scratch
+from conversion_utils import parse_db_scratch
 
 logger = logging.getLogger(__name__)
 _MARK_TYPE_FOLDER_MAP: list[tuple[str, MarkType]] = sorted(

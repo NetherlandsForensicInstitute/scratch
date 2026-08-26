@@ -25,8 +25,8 @@ from typing import Any
 
 from conversion.data_formats import MarkImpressionType, MarkType
 
-from scripts.comparison_utils import ComparisonEntry, infer_mark_type
-from scripts.conversion_utils import ConversionConfig
+from comparison_utils import ComparisonEntry, infer_mark_type
+from conversion_utils import ConversionConfig
 
 logger = logging.getLogger(__name__)
 
