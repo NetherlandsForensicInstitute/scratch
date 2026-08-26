@@ -105,11 +105,11 @@ def make_image_isotropic(scan_image: ScanImage) -> ScanImage:
     """
     Put *scan_image* on a square pixel grid, which the rest of the CMC pipeline assumes.
 
-    Marks are resampled to isotropic when parsed, but the tilt correction divides each axis by its own
+    Images are resampled to isotropic when parsed, but the tilt correction divides each axis by its own
     cos(tilt) and so reintroduces a small anisotropy. Differences below SCALE_COMPARISON_RTOL are left alone.
 
-    :param scan_image: Image to square up; its scale_x defines the target grid.
-    :returns: The image itself when already isotropic, otherwise a copy resampled onto scale_x.
+    :param scan_image: Image to resample to isotropic resolution
+    :returns: The image itself when already isotropic, otherwise a copy resampled onto scale_x
     """
     if np.isclose(
         scan_image.scale_x,
