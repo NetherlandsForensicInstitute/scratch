@@ -9,7 +9,6 @@ from typing import Any
 import numpy as np
 from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from conversion.surface_comparison.models import ComparisonParams
-
 from conversion_utils import parse_db_scratch
 
 logger = logging.getLogger(__name__)

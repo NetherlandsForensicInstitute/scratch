@@ -33,8 +33,6 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from conversion.data_formats import MarkImpressionType
-
 from comparison_utils import (
     ComparisonEntry,
     _build_body,
@@ -42,6 +40,7 @@ from comparison_utils import (
     find_all_mark_types,
     generate_pairs,
 )
+from conversion.data_formats import MarkImpressionType
 from conversion_utils import ConversionConfig, run_parallel
 from csv_pairs import (
     DONE_STATUSES,
