@@ -31,7 +31,7 @@ from conversion.surface_comparison.models import (
     ProcessedMark,
 )
 from conversion.surface_comparison.utils import (
-    assert_image_is_isotropic,
+    make_image_isotropic,
     resolve_nan_fill_value,
 )
 
@@ -46,6 +46,7 @@ def compare_surfaces(
 
     Executes the pipeline:
 
+    0. **Square up** — either image is resampled to isotropic if the tilt correction left its axes on different scales.
     1. **Resample** — the comparison image is resampled to the pixel size of the reference image.
     2. **Generate grid** — a centered rectangular grid of cells is placed over the reference image.
     3. **Build the full-resolution stage** — the scale-aligned comparison image and reference templates, padded.
@@ -65,14 +66,12 @@ def compare_surfaces(
         search configuration, and CMC classification thresholds.
     :returns: A ComparisonResult containing per-cell registration results, the consensus rotation and
         translation, and CMC counts.
-    :raises ValueError: If the image's pixel grid is not isotropic.
     """
-    reference_image = reference_mark.filtered_mark.scan_image
-    comparison_image_original = comparison_mark.filtered_mark.scan_image
-
-    # Everything below uses scale_x for both axes, so anisotropy would go unnoticed.
-    assert_image_is_isotropic(reference_image)
-    assert_image_is_isotropic(comparison_image_original)
+    # Everything below uses scale_x for both axes, so anisotropy left by the tilt correction must go first.
+    reference_image = make_image_isotropic(reference_mark.filtered_mark.scan_image)
+    comparison_image_original = make_image_isotropic(
+        comparison_mark.filtered_mark.scan_image
+    )
 
     # Step 1: Resample comparison to reference scale (for the fine stage)
     logger.debug("starting resample")

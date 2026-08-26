@@ -5,13 +5,13 @@ from loguru import logger
 
 from container_models.base import FloatArray1D, FloatArray2D, Points2D
 from container_models.scan_image import ScanImage
-from conversion.exceptions import ImageNotIsotropicError
+from conversion.resample import resample_scan_image_nan_aware
 from conversion.surface_comparison.models import Cell, ComparisonParams
 
-# Tolerances for np.isclose() when comparing pixel scales (e.g. isotropy check, matching scales between images).
-# Tilt correction divides each axis by its own cos(tilt), so 5e-3 accepts a tilt difference up to ~5.7 degrees.
+# Tolerances for np.isclose() when comparing pixel scales (isotropy check, matching scales between images).
+# atol stays 0.0 to keep the check relative; at 1e-3 a scale difference shifts the image edge by about half a pixel.
 SCALE_COMPARISON_ATOL = 0.0
-SCALE_COMPARISON_RTOL = 5e-3
+SCALE_COMPARISON_RTOL = 1e-3
 
 
 def convert_meters_to_pixels(
@@ -101,16 +101,29 @@ def _cells_correlation_to_grid(cells: Sequence[Cell]) -> FloatArray2D:
     return cell_correlations
 
 
-def assert_image_is_isotropic(scan_image: ScanImage) -> None:
-    if not np.isclose(
+def make_image_isotropic(scan_image: ScanImage) -> ScanImage:
+    """
+    Put *scan_image* on a square pixel grid, which the rest of the CMC pipeline assumes.
+
+    Marks are resampled to isotropic when parsed, but the tilt correction divides each axis by its own
+    cos(tilt) and so reintroduces a small anisotropy. Differences below SCALE_COMPARISON_RTOL are left alone.
+
+    :param scan_image: Image to square up; its scale_x defines the target grid.
+    :returns: The image itself when already isotropic, otherwise a copy resampled onto scale_x.
+    """
+    if np.isclose(
         scan_image.scale_x,
         scan_image.scale_y,
         atol=SCALE_COMPARISON_ATOL,
         rtol=SCALE_COMPARISON_RTOL,
     ):
-        raise ImageNotIsotropicError(
-            scale_x=scan_image.scale_x, scale_y=scan_image.scale_y
-        )
+        return scan_image
+    logger.debug(
+        "Resampling to isotropic: scale_x={:.4g}, scale_y={:.4g}",
+        scan_image.scale_x,
+        scan_image.scale_y,
+    )
+    return resample_scan_image_nan_aware(scan_image, scan_image.scale_x)
 
 
 def resolve_nan_fill_value(
