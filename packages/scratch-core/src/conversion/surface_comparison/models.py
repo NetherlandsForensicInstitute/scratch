@@ -132,6 +132,7 @@ class ComparisonParams(ConfigBaseModel):
     :param search_angle_min: Lower bound of rotation search range (degrees).
     :param search_angle_max: Upper bound of rotation search range (degrees).
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
+    :param plot: Whether to save comparison plots.
 
     The remaining fields configure the two search stages; see their descriptions. How images are
     resampled is fixed rather than configurable, and lives in conversion.surface_comparison.pipeline.
@@ -149,6 +150,7 @@ class ComparisonParams(ConfigBaseModel):
     search_angle_min: float = -180.0
     search_angle_max: float = 180.0
     search_angle_step: float = Field(default=5.0, gt=0.0)
+    plot: bool = Field(default=True, description="Whether to save comparison plots.")
 
     coarse_target_size: int = Field(
         default=256,

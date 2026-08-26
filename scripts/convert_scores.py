@@ -18,6 +18,9 @@ command picks up where an interrupted run stopped; ``--retry-failed`` also
 re-runs the rows that errored.  The full result payloads are still saved to
 the usual ``<root>/database/mark-comparison-results/<mark_type>_comparison_results``
 folders (CSV mode) or ``<output>/generated-comparison-results/...`` (generated mode).
+
+Plots are off by default; ``--plot`` downloads them as PNGs into those same
+per-comparison folders, next to ``comparison_results.json``.
 """
 
 import argparse
@@ -70,11 +73,12 @@ class ScoreStatus(enum.Enum):
     FAILED_ERROR = "failed_error"
 
 
-def calculate_score(  # noqa: PLR0911
-    entry: ComparisonEntry, cfg: ConversionConfig, existing: set[Path]
+def calculate_score(  # noqa: PLR0911, PLR0912
+    entry: ComparisonEntry, cfg: ConversionConfig, existing: set[Path], plot: bool = False
 ) -> tuple[ScoreStatus, dict[str, Any] | None]:
     """Call the score endpoint for a single comparison pair.
 
+    :param plot: request comparison plots from the API and download them (impression marks only).
     :returns: a ``(status, result_dict_or_none)`` tuple.
     """
     if entry.comparison_out in existing and not cfg.force:
@@ -88,7 +92,7 @@ def calculate_score(  # noqa: PLR0911
     endpoint = f"processor/calculate-score-{category}"
 
     try:
-        result = _post_with_retry(f"{cfg.api_url}/{endpoint}", _build_body(entry))
+        result = _post_with_retry(f"{cfg.api_url}/{endpoint}", _build_body(entry, plot=plot))
     except requests.HTTPError as exc:
         status_code = exc.response.status_code if exc.response is not None else 0
         if status_code == 422:  # noqa: PLR2004
@@ -120,6 +124,10 @@ def calculate_score(  # noqa: PLR0911
         return ScoreStatus.FAILED_ERROR, {"error": detail}
 
     _save_result(entry, result=result)
+    if not plot:
+        # Nothing was rendered server-side, so there is nothing to fetch.
+        return ScoreStatus.COMPLETED, result
+
     downloaded = download_urls(result.get("urls", result), entry.comparison_out, skip=())
 
     if not downloaded:
@@ -208,11 +216,11 @@ def _row_values(status: ScoreStatus, result: dict[str, Any] | None, task: CsvTas
 
 
 def score_and_record(
-    task: CsvTask, cfg: ConversionConfig, existing: set[Path], writer: ScoreWriter
+    task: CsvTask, cfg: ConversionConfig, existing: set[Path], writer: ScoreWriter, plot: bool = False
 ) -> tuple[ScoreStatus, dict[str, Any] | None]:
     """Score one pair and immediately write its row to the scored CSV."""
     try:
-        status, result = calculate_score(task.entry, cfg, existing)
+        status, result = calculate_score(task.entry, cfg, existing, plot=plot)
     except Exception:
         # Still leave a trace in the CSV before letting run_parallel handle it.
         writer.record(task.mark_type, task.row.index, _row_values(ScoreStatus.FAILED_ERROR, None, task))
@@ -255,6 +263,7 @@ def run_score_conversion(
     flush_every: int = 1,
     retry_failed: bool = False,
     max_depth: int = 2,
+    plot: bool = False,
 ) -> None:
     """Score comparison pairs and write one scored, resumable CSV per mark type.
 
@@ -265,6 +274,7 @@ def run_score_conversion(
     :param flush_every: rewrite a scored CSV after this many comparisons.
     :param retry_failed: re-run rows that ended in an error last time (CSV mode only).
     :param max_depth: how deep below an item folder to look for mark folders (CSV mode only).
+    :param plot: request comparison plots from the API and download them (impression marks only).
     """
     header, tasks = get_tasks(
         cfg, limit=limit, seed=seed, csv_path=csv_path, base=csv_base, delimiter=delimiter, max_depth=max_depth
@@ -293,7 +303,7 @@ def run_score_conversion(
 
     try:
         counts = _run_scoring(
-            ((t.task_id, score_and_record, (t, cfg, existing, writer)) for t in tasks),
+            ((t.task_id, score_and_record, (t, cfg, existing, writer, plot)) for t in tasks),
             [t.task_id for t in tasks],
             workers,
         )
@@ -327,6 +337,9 @@ def main() -> None:
     )
     parser.add_argument("--retry-failed", action="store_true", help="Re-run rows that errored on a previous run")
     parser.add_argument(
+        "--plot", action="store_true", help="Save comparison plots (impression marks only; off by default)"
+    )
+    parser.add_argument(
         "--csv-max-depth", type=int, default=2, help="How deep below an item folder to look for mark folders"
     )
     args = parser.parse_args()
@@ -345,6 +358,7 @@ def main() -> None:
         flush_every=args.csv_flush_every,
         retry_failed=args.retry_failed,
         max_depth=args.csv_max_depth,
+        plot=args.plot,
     )
 
 

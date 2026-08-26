@@ -76,14 +76,17 @@ class ComparisonEntry:
     row_index: int
 
 
-def _build_body(entry: ComparisonEntry) -> dict[str, Any]:
-    """Build the API request body for a comparison."""
+def _build_body(entry: ComparisonEntry, plot: bool = False) -> dict[str, Any]:
+    """Build the API request body for a comparison.
+
+    :param plot: ask the API to render and save comparison plots (impression marks only).
+    """
     processed_ref = str(entry.mark_dir_ref)
     processed_comp = str(entry.mark_dir_comp)
 
     if isinstance(entry.mark_type, MarkImpressionType):
         # Build params with default values; cell_size is derived from mark_type at runtime
-        params = ComparisonParams().model_dump()
+        params = ComparisonParams(plot=plot).model_dump()
         return {
             "mark_dir_ref": processed_ref,
             "mark_dir_comp": processed_comp,

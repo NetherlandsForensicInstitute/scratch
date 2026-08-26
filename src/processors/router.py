@@ -110,17 +110,18 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
 
     logger.debug("CMC is calculated")
 
-    save_impression_comparison_plots(
-        mark_ref=mark_ref_processed,
-        mark_comp=mark_comp_processed,
-        cmc_result=cmc_result,
-        comparison_params=impression_params.comparison_params,
-        working_dir=vault.resource_path,
-        files_to_save=ComparisonImpressionFiles,
-        metadata_reference=impression_params.metadata_reference,
-        metadata_compared=impression_params.metadata_compared,
-    )
-    logger.debug(f"images saved in:{vault.resource_path}")
+    if impression_params.comparison_params.plot:
+        save_impression_comparison_plots(
+            mark_ref=mark_ref_processed,
+            mark_comp=mark_comp_processed,
+            cmc_result=cmc_result,
+            comparison_params=impression_params.comparison_params,
+            working_dir=vault.resource_path,
+            files_to_save=ComparisonImpressionFiles,
+            metadata_reference=impression_params.metadata_reference,
+            metadata_compared=impression_params.metadata_compared,
+        )
+        logger.debug(f"images saved in:{vault.resource_path}")
 
     comparison_results = ComparisonImpressionMetrics(
         score=cmc_result.cmc_count,
@@ -129,7 +130,9 @@ async def calculate_score_impression(impression_params: CalculateScoreImpression
         estimated_translation=cmc_result.estimated_translation,
     )
     return ComparisonResponseImpression(
-        urls=ComparisonResponseImpressionURL.from_enum(enum=ComparisonImpressionFiles, base_url=vault.access_url),
+        urls=ComparisonResponseImpressionURL.from_enum(enum=ComparisonImpressionFiles, base_url=vault.access_url)
+        if impression_params.comparison_params.plot
+        else None,
         cells=list(cmc_result.cells),
         comparison_results=comparison_results,
     )

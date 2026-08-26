@@ -209,6 +209,35 @@ class TestMarkImpression:
         for key in expected_images:
             assert client.get(response_data["urls"][key]).headers["content-type"] == "image/png", f"{key} should be PNG"
 
+    @pytest.mark.integration
+    def test_calculate_impression_mark_without_plots(
+        self,
+        client: TestClient,
+        impression_mark_dirs: tuple[Path, Path],
+    ) -> None:
+        """Scores are still returned, but no plots are made, when comparison_params.plot is False."""
+        # Arrange
+        mark_dir_ref, mark_dir_comp = impression_mark_dirs
+        json_data = CalculateScoreImpression(
+            mark_dir_ref=mark_dir_ref,
+            mark_dir_comp=mark_dir_comp,
+            comparison_params=_default_comparison_params().model_copy(update={"plot": False}),
+            metadata_reference=_dummy_metadata(),
+            metadata_compared=_dummy_metadata(),
+        ).model_dump(mode="json")
+
+        # Act
+        with patch("processors.router.save_impression_comparison_plots") as save_plots:
+            response = client.post("/processor/" + ProcessorEndpoint.CALCULATE_SCORE_IMPRESSION, json=json_data)
+
+        # Assert
+        assert response.status_code == HTTPStatus.OK, response.json()
+        save_plots.assert_not_called()
+        response_data = response.json()
+        assert response_data["urls"] is None, "no plot URLs should be returned"
+        assert len(response_data["cells"]) > 0
+        assert response_data["comparison_results"]["score"] >= 0
+
 
 class TestMarkImpressionExceptionHandlers:
     """One test per exception type for the impression score endpoint."""
