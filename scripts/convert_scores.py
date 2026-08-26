@@ -18,6 +18,9 @@ command picks up where an interrupted run stopped; ``--retry-failed`` also
 re-runs the rows that errored.  The full result payloads are still saved to
 the usual ``<root>/database/mark-comparison-results/<mark_type>_comparison_results``
 folders (CSV mode) or ``<output>/generated-comparison-results/...`` (generated mode).
+
+Plots are off by default; ``--plot`` downloads them as PNGs into those same
+per-comparison folders, next to ``comparison_results.json``.
 """
 
 import argparse
