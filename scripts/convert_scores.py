@@ -33,17 +33,16 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from conversion.data_formats import MarkImpressionType
-
-from scripts.comparison_utils import (
+from comparison_utils import (
     ComparisonEntry,
     _build_body,
     _save_result,
     find_all_mark_types,
     generate_pairs,
 )
-from scripts.conversion_utils import ConversionConfig, run_parallel
-from scripts.csv_pairs import (
+from conversion.data_formats import MarkImpressionType
+from conversion_utils import ConversionConfig, run_parallel
+from csv_pairs import (
     DONE_STATUSES,
     CsvTask,
     ScoreWriter,
@@ -53,7 +52,7 @@ from scripts.csv_pairs import (
     find_result_file,
     read_pairs_csv,
 )
-from scripts.http_utils import _cleanup_vault, _post_with_retry, download_urls
+from http_utils import _cleanup_vault, _post_with_retry, download_urls
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)

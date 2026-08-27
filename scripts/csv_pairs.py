@@ -14,19 +14,20 @@ those same copies back in.
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import logging
 import os
 import threading
+import uuid
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from comparison_utils import ComparisonEntry, infer_mark_type
 from conversion.data_formats import MarkImpressionType, MarkType
-
-from scripts.comparison_utils import ComparisonEntry, infer_mark_type
-from scripts.conversion_utils import ConversionConfig
+from conversion_utils import ConversionConfig
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +104,10 @@ def extract_metrics(result: dict[str, Any] | None, mark_type: MarkType) -> dict[
         return {}
 
     if isinstance(mark_type, MarkImpressionType):
+        cells = result.get("cells") if isinstance(result, dict) else None
+        total_cells = len(cells) if isinstance(cells, list) else None
         metrics = {
-            "total_cells": comparison_results.get(TOTAL_CELLS_KEY),
+            "total_cells": total_cells,
             "matching_cells": comparison_results.get(MATCHING_CELLS_KEY),
         }
     else:
@@ -313,8 +316,10 @@ class ScoreWriter:
         out_dir.mkdir(parents=True, exist_ok=True)
         for mark_type in mark_types:
             if resume:
-                self.values[mark_type] = self._read_previous(mark_type)
-            self._write(mark_type)
+                with self._lock:
+                    self.values[mark_type] = self._read_previous(mark_type)
+            with self._lock:
+                self._write(mark_type)
         logger.info("Writing scored copies to %s", ", ".join(p.name for p in self.paths.values()))
 
     def _read_previous(self, mark_type: MarkType) -> dict[int, dict[str, Any]]:
@@ -375,18 +380,23 @@ class ScoreWriter:
                 self._pending[mark_type] = 0
 
     def _write(self, mark_type: MarkType) -> None:
-        """Rewrite one file. The caller must hold the lock."""
+        """Rewrite one file atomically. The caller must hold the lock."""
         path = self.paths[mark_type]
         columns = self.columns[mark_type]
         values = self.values[mark_type]
-        tmp = path.with_name(path.name + ".tmp")
-        with tmp.open("w", newline="", encoding="utf-8") as fh:
-            writer = csv.writer(fh, delimiter=self.delimiter)
-            if self.header is not None:
-                writer.writerow([*self.header, *columns])
-            for row in self.rows:
-                scores = values.get(row.index, {})
-                writer.writerow([*row.fields, *("" if scores.get(c) is None else scores[c] for c in columns)])
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp, path)
+        tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            with tmp.open("w", newline="", encoding="utf-8") as fh:
+                writer = csv.writer(fh, delimiter=self.delimiter)
+                if self.header is not None:
+                    writer.writerow([*self.header, *columns])
+                for row in self.rows:
+                    scores = values.get(row.index, {})
+                    writer.writerow([*row.fields, *("" if scores.get(c) is None else scores[c] for c in columns)])
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, path)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+            raise
