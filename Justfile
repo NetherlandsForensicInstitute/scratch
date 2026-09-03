@@ -83,7 +83,7 @@ clean: (log "Delete all dirty files" "red")
 
 # Build an executable for the REST API
 build: (log "\nBuilding the REST API to an executable" "blue")
-    uv run pyinstaller --onefile src/main.py --clean --log-level=WARN \
+    uv run pyinstaller src/main.py --clean --log-level=WARN \
     --collect-all=skimage \
     --collect-submodules=PIL \
     --collect-submodules=surfalize \
