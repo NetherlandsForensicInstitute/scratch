@@ -9,9 +9,9 @@ runs:
       id: test_arg
       run: |
         if [[ "${RUNNER_OS}" == "Windows" ]]; then
-          echo "test_arg=main.exe" >> $GITHUB_OUTPUT
+          echo "test_arg=main/main.exe" >> $GITHUB_OUTPUT
         else
-          echo "test_arg=main" >> $GITHUB_OUTPUT
+          echo "test_arg=main/main" >> $GITHUB_OUTPUT
         fi
     - name: Install dependencies
       shell: bash
