@@ -124,9 +124,7 @@ def find_marks(output_dir: Path, mark_type: MarkType | None = None) -> list[Path
     for te in output_dir.rglob("tool-entries"):
         if not te.is_dir():
             continue
-        for proc in te.rglob("processed"):
-            if not proc.is_dir():
-                continue
+        for proc in te.rglob("processed.json"):
             md = proc.parent
             mt = infer_mark_type(md.name)
             if mt is not None and (mark_type is None or mt == mark_type):

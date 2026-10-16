@@ -104,8 +104,10 @@ def extract_metrics(result: dict[str, Any] | None, mark_type: MarkType) -> dict[
         return {}
 
     if isinstance(mark_type, MarkImpressionType):
-        cells = result.get("cells") if isinstance(result, dict) else None
-        total_cells = len(cells) if isinstance(cells, list) else None
+        total_cells = result.get(TOTAL_CELLS_KEY)
+        if total_cells is None:
+            cells = result.get("cells")
+            total_cells = len(cells) if isinstance(cells, list) else None
         metrics = {
             "total_cells": total_cells,
             "matching_cells": comparison_results.get(MATCHING_CELLS_KEY),
