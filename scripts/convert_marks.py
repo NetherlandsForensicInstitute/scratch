@@ -79,8 +79,9 @@ def fetch_mark(
     is_impression = isinstance(mark_type, MarkImpressionType)
     endpoint = f"preprocessor/prepare-mark-{'impression' if is_impression else 'striation'}"
     param_struct = load_mat_struct(mark_folder / "processed.mat")  # cutoffs/levelling only exist here
-    params = extract_impression_params(param_struct, mark_type) if is_impression else extract_striation_params(
-        param_struct)
+    params = (
+        extract_impression_params(param_struct, mark_type) if is_impression else extract_striation_params(param_struct)
+    )
     params_dict = {
         "scan_file": str(converted_x3p),
         "mark_type": mark_type.value,

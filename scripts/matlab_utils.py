@@ -5,7 +5,6 @@ from typing import Any
 import numpy as np
 from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from scipy import io as sio
-from scipy.constants import micro
 from skimage.draw import polygon as draw_polygon
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
