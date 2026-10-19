@@ -5,7 +5,6 @@ from typing import Any
 import numpy as np
 from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from scipy import io as sio
-from scipy.constants import micro
 from skimage.draw import polygon as draw_polygon
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
@@ -173,8 +172,8 @@ def extract_impression_params(struct: np.ndarray, mark_type: MarkType) -> dict[s
         "level_tilt": bool(_data_param_field(struct, "bLevelTilt", 1)),
         "level_2nd": bool(_data_param_field(struct, "bLevel2nd", 1)),
         "interp_method": _data_param_field(struct, "intMeth", "cubic"),
-        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 400.0 * micro,
-        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 25 * micro,
+        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 250e-6,
+        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 5e-6,
     }
 
 

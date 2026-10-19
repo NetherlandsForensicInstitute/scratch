@@ -226,6 +226,9 @@ def score_and_record(
         raise
 
     if status is ScoreStatus.SKIPPED_EXISTS:
+        if writer.recorded_status(task.mark_type, task.row.index) in DONE_STATUSES:
+            # The resumed CSV already holds this row's scores; the saved JSON is less complete, so leave it alone.
+            return status, None
         # Nothing was recalculated, so read back what was saved on an earlier run.
         result = _load_saved_result(task.entry.comparison_out)
         if result is None and writer.has_metrics(task.mark_type, task.row.index):
