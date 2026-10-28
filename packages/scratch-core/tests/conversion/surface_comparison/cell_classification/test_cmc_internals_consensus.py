@@ -1,27 +1,24 @@
 from typing import cast
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from unittest.mock import patch, MagicMock
-
-from conversion.surface_comparison.cmc_consensus.procrustes import (
-    find_consensus_parameters,
-    _get_rotation_component_using_rotation_matrix,
-    _get_rotation_component_using_angle_degree,
-    _build_2d_rotation_matrix,
-)
 
 from conversion.surface_comparison.cmc_consensus.criterion import (
-    calculate_criterion,
     _get_cell_angle_and_position_distances,
     _get_distances,
-    _predict_positions,
     _get_distances_meters,
+    _predict_positions,
+    calculate_criterion,
 )
-
-from conversion.surface_comparison.models import Cell
-
 from conversion.surface_comparison.cmc_consensus.models import ConsensusParameters
+from conversion.surface_comparison.cmc_consensus.procrustes import (
+    _build_2d_rotation_matrix,
+    _get_rotation_component_using_angle_degree,
+    _get_rotation_component_using_rotation_matrix,
+    find_consensus_parameters,
+)
+from conversion.surface_comparison.models import Cell
 
 
 class TestCriterion:

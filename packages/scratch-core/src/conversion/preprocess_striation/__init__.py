@@ -7,16 +7,16 @@ This package provides functions for preprocessing striation marks:
 - Profile extraction
 """
 
+from .alignment import fine_align_bullet_marks
 from .parameters import PreprocessingStriationParams
 from .pipeline import (
-    preprocess_striation_mark,
     apply_shape_noise_removal,
+    preprocess_striation_mark,
 )
-from .alignment import fine_align_bullet_marks
 
 __all__ = [
     "PreprocessingStriationParams",
-    "preprocess_striation_mark",
     "apply_shape_noise_removal",
     "fine_align_bullet_marks",
+    "preprocess_striation_mark",
 ]

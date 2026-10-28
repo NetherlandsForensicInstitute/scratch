@@ -8,6 +8,7 @@ This module provides scaling functions for profile alignment:
 """
 
 import numpy as np
+
 from conversion.profile_correlator.data_types import Profile
 from conversion.resample import resample_array_1d
 

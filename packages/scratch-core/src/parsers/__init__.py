@@ -38,7 +38,7 @@ Notes
 from .x3p import X3PMetaData, convert_to_x3p, save_x3p
 
 __all__ = (
+    "X3PMetaData",
     "convert_to_x3p",
     "save_x3p",
-    "X3PMetaData",
 )

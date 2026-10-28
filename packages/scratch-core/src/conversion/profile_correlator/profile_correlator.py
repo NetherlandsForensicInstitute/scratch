@@ -23,25 +23,25 @@ be at a position far from zero shift for repetitive patterns.
 """
 
 import numpy as np
+from scipy.signal import fftconvolve
 
 from container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import (
     AlignmentInputs,
     AlignmentParameters,
     AlignmentResult,
-    StriationComparisonResults,
     Profile,
     RoughnessMetrics,
+    StriationComparisonResults,
 )
-from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.profile_correlator.statistics import (
+    compute_normalized_square_based_roughness_differences,
     compute_overlap_ratio,
     compute_roughness_sa,
     compute_roughness_sq,
-    compute_normalized_square_based_roughness_differences,
 )
+from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.resample import resample_array_1d
-from scipy.signal import fftconvolve
 
 
 def correlate_profiles(

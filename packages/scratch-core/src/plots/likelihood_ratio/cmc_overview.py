@@ -1,30 +1,30 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 import matplotlib.pyplot as plt
 
 from container_models.base import ImageRGB
 from conversion.data_formats import Mark, MarkMetadata
+from conversion.surface_comparison.models import Cell
+from plots.cell_overlays import plot_cell_overlay_on_axes
 from plots.likelihood_ratio.data_formats import (
     HistogramData,
     LlrTransformationData,
 )
-from plots.cell_overlays import plot_cell_overlay_on_axes
 from plots.likelihood_ratio.distributions import (
     plot_score_histograms,
     plot_score_llr_transformation,
 )
+from plots.metadata_tables import (
+    draw_metadata_box,
+    draw_metadata_pair,
+    get_metadata_dimensions,
+)
+from plots.on_axes import _plot_surface_with_colorbar
 from plots.utils import (
     finish_overview,
     get_height_ratios,
     overview_figure_height,
 )
-from plots.on_axes import _plot_surface_with_colorbar
-from plots.metadata_tables import (
-    get_metadata_dimensions,
-    draw_metadata_box,
-    draw_metadata_pair,
-)
-from conversion.surface_comparison.models import Cell
 
 
 def plot_cmc_comparison_overview(

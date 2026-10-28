@@ -2,14 +2,15 @@
 Tests for preprocess_striation.py and related filter functions.
 """
 
+from math import ceil
+
 import numpy as np
 import pytest
-from math import ceil
 from scipy.constants import micro
+from scipy.ndimage import gaussian_filter1d
 
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkStriationType, MarkImpressionType
-from ...helper_functions import make_mark
+from conversion.data_formats import MarkImpressionType, MarkStriationType
 from conversion.filter import (
     apply_striation_preserving_filter_1d,
     cutoff_to_gaussian_sigma,
@@ -21,8 +22,10 @@ from conversion.preprocess_striation import (
     fine_align_bullet_marks,
     preprocess_striation_mark,
 )
-from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
 from conversion.preprocess_striation.alignment import _detect_striation_angle
+from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
+
+from ...helper_functions import make_mark
 
 
 def test_cutoff_to_gaussian_sigma():
@@ -279,35 +282,39 @@ def test_detect_striation_angle():
     assert abs(detected_angle) < 10
 
 
-def test_fine_align_bullet_marks():
-    """Test iterative fine alignment of striated marks."""
-    np.random.seed(42)
+def _irregular_striations(
+    angle_deg: float, height: int = 800, width: int = 120
+) -> np.ndarray:
+    """Irregular (realistic) horizontal striations, tilted by angle_deg."""
+    profile = gaussian_filter1d(np.random.default_rng(0).standard_normal(4000), 15)
+    X, Y = np.meshgrid(np.arange(width), np.arange(height))
+    a = np.radians(angle_deg)
+    return np.interp(
+        Y * np.cos(a) - X * np.sin(a) + 1500, np.arange(profile.size), profile
+    )
 
-    height, width = 80, 80
-    x = np.arange(width)
-    y = np.arange(height)
-    X, Y = np.meshgrid(x, y)
 
-    angle_input = 2.0
-    angle_rad = np.radians(angle_input)
-    striations = np.sin(2 * np.pi * (X * np.cos(angle_rad) + Y * np.sin(angle_rad)) / 8)
-
+@pytest.mark.parametrize("angle_input", [-3.0, -1.0, 1.0, 3.0])
+def test_fine_align_bullet_marks(angle_input):
+    """Alignment should make tilted striations horizontal again (regression: sign bug made it diverge)."""
     mark = make_mark(
-        striations,
-        scale_x=micro,
-        scale_y=micro,
+        _irregular_striations(angle_input),
+        scale_x=1.5 * micro,
+        scale_y=1.5 * micro,
         mark_type=MarkStriationType.BULLET_GEA_STRIATION,
     )
-    aligned_mark, detected_angle = fine_align_bullet_marks(
-        mark=mark,
-        angle_accuracy=0.5,
-        cut_y_after_shift=False,
-        max_iter=10,
+    aligned_mark, total_angle = fine_align_bullet_marks(
+        mark=mark, angle_accuracy=0.1, max_iter=25
     )
 
-    assert aligned_mark.scan_image.data.shape[0] > 0
-    assert aligned_mark.scan_image.data.shape[1] > 0
-    assert abs(detected_angle) < 45
+    aligned = aligned_mark.scan_image
+    assert aligned.data.shape[0] > 0.8 * 800, (
+        "alignment cropped away too much (diverged?)"
+    )
+    assert total_angle == pytest.approx(angle_input, abs=0.5)
+    assert abs(_detect_striation_angle(aligned)) < 0.2, (
+        "striations not horizontal after alignment"
+    )
 
 
 # =============================================================================

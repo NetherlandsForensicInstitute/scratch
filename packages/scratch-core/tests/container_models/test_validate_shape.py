@@ -1,17 +1,18 @@
-import pytest
-import numpy as np
-from numpy.typing import NDArray
-from pydantic import ValidationError
 from typing import Any
 
+import numpy as np
+import pytest
+from numpy.typing import NDArray
+from pydantic import ValidationError
+
 from container_models.base import (
-    validate_shape,
-    UInt8Array3D,
+    BoolArray2D,
+    ConfigBaseModel,
     FloatArray1D,
     FloatArray2D,
     FloatArray4D,
-    BoolArray2D,
-    ConfigBaseModel,
+    UInt8Array3D,
+    validate_shape,
 )
 
 

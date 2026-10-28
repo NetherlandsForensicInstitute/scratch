@@ -17,8 +17,8 @@ import numpy as np
 
 from container_models.base import FloatArray1D
 from conversion.profile_correlator.data_types import (
-    RoughnessMetrics,
     NormalizedRoughnessDifferences,
+    RoughnessMetrics,
 )
 
 

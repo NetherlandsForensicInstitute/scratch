@@ -1,4 +1,3 @@
-# noqa
 """
 Tests comparing Python preprocess_data output with MATLAB PreprocessData.
 """
@@ -11,18 +10,19 @@ import numpy as np
 import pytest
 from scipy.constants import micro
 
-from container_models.base import DepthData, BinaryMask, StriationProfile
+from container_models.base import BinaryMask, DepthData, StriationProfile
 from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_striation_mark,
 )
+
+from ..helper_functions import make_mark
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
 )
-from ..helper_functions import make_mark
 
 
 def _string_to_mark_type(mark_type_str: str) -> MarkType:

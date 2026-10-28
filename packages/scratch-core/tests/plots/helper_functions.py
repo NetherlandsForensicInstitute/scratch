@@ -9,18 +9,19 @@ Includes helpers for:
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 from matplotlib.figure import Figure
+from PIL import Image
 from scipy.constants import micro
 
-from container_models.base import FloatArray2D, UInt8Array3D, FloatArray
+from container_models.base import FloatArray, FloatArray2D, UInt8Array3D
 from conversion.data_formats import (
     Mark,
-    MarkStriationType,
     MarkImpressionType,
+    MarkStriationType,
     MarkType,
 )
 from conversion.profile_correlator import Profile
+
 from ..helper_functions import make_mark
 
 

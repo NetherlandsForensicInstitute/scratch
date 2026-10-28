@@ -1,4 +1,5 @@
-from typing import Sequence, Literal
+from collections.abc import Sequence
+from typing import Literal
 
 import numpy as np
 from matplotlib.axes import Axes

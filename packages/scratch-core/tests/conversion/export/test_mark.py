@@ -1,5 +1,5 @@
 import json
-from pathlib import PosixPath, Path
+from pathlib import Path, PosixPath
 
 import numpy as np
 import pytest
@@ -9,9 +9,9 @@ from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark, MarkImpressionType, MarkStriationType
 from conversion.export.mark import (
     ExportedMarkData,
+    load_mark_from_mat_file,
     load_mark_from_path,
     save_mark,
-    load_mark_from_mat_file,
 )
 
 

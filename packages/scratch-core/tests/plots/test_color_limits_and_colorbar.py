@@ -1,11 +1,11 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-import matplotlib.pyplot as plt
 
 from plots.on_axes import (
+    _plot_surface_with_colorbar,
     _robust_color_limits,
     plot_depth_map_on_axes,
-    _plot_surface_with_colorbar,
 )
 
 

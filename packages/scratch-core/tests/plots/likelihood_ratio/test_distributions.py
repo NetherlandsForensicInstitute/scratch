@@ -1,9 +1,11 @@
 from pathlib import Path
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from scipy.stats import gaussian_kde
 
 from container_models.base import FloatArray1D
 from plots.likelihood_ratio.data_formats import (
@@ -15,8 +17,6 @@ from plots.likelihood_ratio.distributions import (
     plot_score_histograms,
     plot_score_llr_transformation,
 )
-from matplotlib.figure import Figure
-from scipy.stats import gaussian_kde
 
 from ..helper_functions import assert_plot_is_valid_image
 

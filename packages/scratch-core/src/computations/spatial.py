@@ -1,9 +1,9 @@
 import numpy as np
+from surfalize import Surface
+
+from container_models.base import BinaryMask
 from container_models.models import LevelingResult
 from container_models.scan_image import ScanImage
-
-from surfalize import Surface
-from container_models.base import BinaryMask
 from conversion.data_formats import SurfaceTerms
 
 

@@ -3,11 +3,11 @@ import pytest
 from scipy.constants import micro
 
 from container_models.base import FloatArray2D
-from conversion.data_formats import Mark, MarkMetadata, MarkImpressionType
+from conversion.data_formats import Mark, MarkImpressionType, MarkMetadata
 from conversion.profile_correlator import (
-    StriationComparisonResults,
-    Profile,
     AlignmentParameters,
+    Profile,
+    StriationComparisonResults,
 )
 from conversion.surface_comparison.models import (
     Cell,
@@ -16,6 +16,8 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
 )
 from plots.likelihood_ratio.data_formats import HistogramData, LlrTransformationData
+
+from ..helper_functions import make_mark
 from .helper_functions import (
     create_synthetic_impression_data,
     create_synthetic_impression_mark,
@@ -24,7 +26,6 @@ from .helper_functions import (
     create_synthetic_striation_data,
     create_synthetic_striation_mark,
 )
-from ..helper_functions import make_mark
 
 
 @pytest.fixture

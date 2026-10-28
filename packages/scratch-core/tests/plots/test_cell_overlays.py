@@ -6,6 +6,7 @@ from scipy.constants import micro
 from conversion.surface_comparison.models import Cell
 from conversion.surface_comparison.utils import _cells_correlation_to_grid
 from plots.cell_overlays import _plot_cell_heatmap_on_axes, plot_cell_overlay_on_axes
+
 from ..helper_functions import make_cell
 
 

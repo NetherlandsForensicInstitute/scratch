@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+
 from conversion.data_formats import SurfaceTerms, SurfaceTermsAnnotated
 
 

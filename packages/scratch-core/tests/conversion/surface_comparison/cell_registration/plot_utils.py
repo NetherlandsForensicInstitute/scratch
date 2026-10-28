@@ -1,14 +1,11 @@
 from collections.abc import Sequence
 from typing import Literal
 
+import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-
 from container_models.base import FloatArray2D, ImageRGB
-
-import cv2
-
 from conversion.surface_comparison.models import Cell
 from conversion.surface_comparison.utils import convert_meters_to_pixels
 

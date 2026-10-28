@@ -11,15 +11,16 @@ import pytest
 
 from container_models.base import FloatArray2D
 from conversion.data_formats import MarkImpressionType, SurfaceTerms
-from ..helper_functions import make_mark
+from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.preprocess_impression import (
     preprocess_impression_mark,
 )
-from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
+
+from ..helper_functions import make_mark
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
 )
 
 

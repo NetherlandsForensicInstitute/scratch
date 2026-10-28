@@ -9,19 +9,21 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import numpy as np
-from pydantic import BeforeValidator, Field, BaseModel
+from pydantic import BaseModel, BeforeValidator, Field
 from scipy.io import loadmat
+
 from container_models.scan_image import ScanImage
 from conversion.data_formats import (
     Mark,
-    MarkStriationType,
     MarkImpressionType,
+    MarkStriationType,
     MarkType,
 )
+
 from .utils import (
     check_if_file_exists,
-    load_json,
     load_compressed_binary,
+    load_json,
     save_as_compressed_binary,
     save_as_json,
 )

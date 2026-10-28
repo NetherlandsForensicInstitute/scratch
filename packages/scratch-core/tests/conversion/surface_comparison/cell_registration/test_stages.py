@@ -8,12 +8,12 @@ from conversion.surface_comparison.cell_registration.geometry import (
     pad_image_array,
     rotate_image,
 )
+from conversion.surface_comparison.cell_registration.models import Match
 from conversion.surface_comparison.cell_registration.search import (
     find_best_matches,
     get_uniform_cell_shape,
     search_candidates,
 )
-from conversion.surface_comparison.cell_registration.models import Match
 from conversion.surface_comparison.cell_registration.stages import (
     build_refinement_jobs,
     run_fine_stage,

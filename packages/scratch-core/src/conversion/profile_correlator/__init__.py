@@ -22,32 +22,31 @@ Submodules
 """
 
 # Core data types
+# Re-export cutoff_to_gaussian_sigma from conversion.filter for convenience
+from conversion.filter.gaussian import cutoff_to_gaussian_sigma
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
     MarkCorrelationResult,
-    StriationComparisonResults,
     Profile,
+    StriationComparisonResults,
 )
-
-# Main entry point
-from conversion.profile_correlator.profile_correlator import correlate_profiles
 
 # Mark-level wrapper
 from conversion.profile_correlator.mark_correlator import correlate_striation_marks
 
-# Transform functions
-from conversion.profile_correlator.transforms import equalize_pixel_scale
+# Main entry point
+from conversion.profile_correlator.profile_correlator import correlate_profiles
 
 # Statistics functions
 from conversion.profile_correlator.statistics import (
+    compute_normalized_square_based_roughness_differences,
     compute_overlap_ratio,
     compute_roughness_sa,
     compute_roughness_sq,
-    compute_normalized_square_based_roughness_differences,
 )
 
-# Re-export cutoff_to_gaussian_sigma from conversion.filter for convenience
-from conversion.filter.gaussian import cutoff_to_gaussian_sigma
+# Transform functions
+from conversion.profile_correlator.transforms import equalize_pixel_scale
 
 __all__ = [
     # Main entry point

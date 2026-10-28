@@ -13,10 +13,10 @@ from .filter import GaussianRegressionFilter, LevelMap, Mask
 from .spatial import CropToMask, Resample, Rotate
 
 __all__ = [
-    "LevelMap",
+    "CropToMask",
     "GaussianRegressionFilter",
+    "LevelMap",
     "Mask",
     "Resample",
-    "CropToMask",
     "Rotate",
 ]

@@ -1,4 +1,5 @@
-from typing import Callable, cast
+from collections.abc import Callable
+from typing import cast
 
 import matplotlib.pyplot as plt
 import numpy as np

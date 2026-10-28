@@ -10,17 +10,16 @@ import numpy as np
 import pytest
 from scipy.constants import micro
 
-
-from container_models.base import FloatArray2D, BinaryMask
+from container_models.base import BinaryMask, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import SurfaceTerms
 from conversion.get_cropped_image import get_cropped_image
+
 from .helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
 )
-
 
 FILTER_METHOD_MAP = {
     "r0": 0,

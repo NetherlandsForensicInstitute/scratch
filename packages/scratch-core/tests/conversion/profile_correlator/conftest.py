@@ -12,7 +12,8 @@ import pytest
 from scipy.constants import micro
 
 from conversion.data_formats import Mark, MarkStriationType
-from conversion.profile_correlator import Profile, AlignmentParameters
+from conversion.profile_correlator import AlignmentParameters, Profile
+
 from ...helper_functions import make_mark
 
 # Directory for test data files (MATLAB .mat files for validation)

@@ -5,12 +5,12 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
 from plots.utils import (
+    _fit_cell_label_fontsizes,
     figure_to_array,
     get_figure_dimensions,
     get_height_ratios,
-    _fit_cell_label_fontsizes,
-    side_by_side_gap_width,
     overview_figure_height,
+    side_by_side_gap_width,
 )
 
 from .helper_functions import (

@@ -3,7 +3,6 @@ from typing import Any, TypeVar
 
 from pydantic import BeforeValidator
 
-
 E = TypeVar("E", bound=Enum)
 
 

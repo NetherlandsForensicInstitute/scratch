@@ -25,9 +25,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from comparison_utils import ComparisonEntry, infer_mark_type
 from conversion.data_formats import MarkImpressionType, MarkType
-from conversion_utils import ConversionConfig
+
+from scripts.comparison_utils import ComparisonEntry, infer_mark_type
+from scripts.conversion_utils import ConversionConfig
 
 logger = logging.getLogger(__name__)
 
