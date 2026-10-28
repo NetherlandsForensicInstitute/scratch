@@ -6,17 +6,17 @@ including NaN-aware filtering and striation-preserving 1D filters.
 """
 
 from math import ceil
-from scipy.special import lambertw
 
 import numpy as np
+from scipy.special import lambertw
 
 from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.filter.regression import (
-    create_normalized_separable_kernels,
-    create_gaussian_kernel_1d,
     apply_order0_filter,
     apply_polynomial_filter,
+    create_gaussian_kernel_1d,
+    create_normalized_separable_kernels,
 )
 
 # Constants based on ISO 16610 surface texture standards

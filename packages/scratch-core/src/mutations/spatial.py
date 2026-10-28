@@ -25,16 +25,17 @@ the image while adjusting its spatial representation.
 from typing import Self
 
 import numpy as np
+from loguru import logger
+from scipy.ndimage import binary_dilation, rotate
+from skimage.transform import resize
+
 from computations.spatial import get_bounding_box
 from container_models.base import BinaryMask
 from container_models.scan_image import ScanImage
 from conversion.data_formats import BoundingBox
 from conversion.rotate import rotate_mask
 from exceptions import ImageShapeMismatchError
-from loguru import logger
 from mutations.base import ImageMutation
-from scipy.ndimage import binary_dilation, rotate
-from skimage.transform import resize
 
 
 class CropToMask(ImageMutation):

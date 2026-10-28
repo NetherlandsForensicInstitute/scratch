@@ -8,14 +8,14 @@ from computations.spatial import level_map
 from container_models.base import DepthData
 from conversion.data_formats import Mark, SurfaceTerms
 from conversion.filter import (
-    apply_gaussian_filter_mark,
     apply_filter_pipeline,
+    apply_gaussian_filter_mark,
 )
 from conversion.mask import crop_to_mask
 from conversion.preprocess_impression.parameters import PreprocessingImpressionParams
 from conversion.preprocess_impression.resample import (
-    resample,
     needs_resampling,
+    resample,
 )
 from conversion.preprocess_impression.tilt import apply_tilt_correction
 from conversion.preprocess_impression.utils import update_mark_data

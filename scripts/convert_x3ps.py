@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 _PREVIEW_KEYS = ("preview_image", "surface_map_image")
 
 
-def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
+def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int, float, float]:
     """Load an X3P from path, parse it, and write the result atomically."""
     scan = ScanImage.from_file(input_path)
     x3p = convert_to_x3p(scan)
@@ -54,7 +54,7 @@ def convert_x3p(input_path: Path, output_path: Path) -> tuple[int, int]:
             tmp.unlink()
         raise
 
-    return scan.width, scan.height
+    return scan.width, scan.height, scan.scale_x, scan.scale_y
 
 
 def convert_measurement_x3p(
@@ -63,14 +63,14 @@ def convert_measurement_x3p(
     session: requests.Session,
     *,
     skip_conversion: bool = False,
-) -> tuple[Path, tuple[int, int] | None]:
+) -> tuple[Path, tuple[int, int, float, float] | None]:
     """Convert a measurement.x3p (or copy an existing one) and generate preview/surface_map images.
 
     :param skip_conversion: if True, ``measurement_folder`` is assumed to already contain a converted
     ``measurement.x3p`` (e.g. the "original" no longer exists, just the x3p does). Instead of parsing/re-encoding via
     ``convert_x3p``, the existing file is plainly copied from root to the mirrored path under output, then sent to
     the preprocessor API.
-    :returns: (path to the x3p under output, (size_x, size_y) pixel dimensions, or None if unknown).
+    :returns: (path to the x3p under output, (size_x, size_y, scale_x, scale_y) pixel dimensions, or None if unknown).
     """
     original = measurement_folder / "measurement.x3p"
     output_x3p = cfg.output_dir / measurement_folder.relative_to(cfg.root) / "measurement.x3p"
@@ -78,19 +78,26 @@ def convert_measurement_x3p(
     if skip_conversion:
         if not original.exists():
             raise FileNotFoundError(f"Expected an existing x3p at {original}, but it's missing")
-
-        if output_x3p.exists() and not cfg.force:
-            shape = load_shape(output_x3p)
-        else:
+        if not output_x3p.exists() or cfg.force:
             output_x3p.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(original, output_x3p)
-            shape = load_shape(output_x3p)  # likely None — no fresh conversion happened to produce one
+        try:
+            shape = load_shape(output_x3p)
+        except ValueError:
+            shape = None
+        if shape is None:
+            scan = ScanImage.from_file(output_x3p)
+            shape = (scan.width, scan.height, scan.scale_x, scan.scale_y)
+            save_shape(output_x3p, shape)
     else:
         if output_x3p.exists() and not cfg.force:
-            shape = load_shape(output_x3p)
-            if shape is not None:
-                return output_x3p, shape
-            logger.warning("Missing shape file for %s, reconverting", output_x3p)
+            try:
+                shape = load_shape(output_x3p)
+            except ValueError:
+                shape = None  # old 2-field sidecar: reconvert below
+        if shape is not None:
+            return output_x3p, shape
+        logger.warning("Missing or outdated shape file for %s, reconverting", output_x3p)
 
         output_x3p.parent.mkdir(parents=True, exist_ok=True)
         shape = convert_x3p(original, output_x3p)
@@ -109,7 +116,7 @@ def _convert_measurement_safe(
     cfg: ConversionConfig,
     session: requests.Session,
     skip_conversion: bool = False,
-) -> tuple[Path, tuple[int, int] | None] | None:
+) -> tuple[Path, tuple[int, int, float, float] | None] | None:
     """Convert measurement while logging errors instead of raising."""
     try:
         return convert_measurement_x3p(measurement_folder, cfg, session, skip_conversion=skip_conversion)

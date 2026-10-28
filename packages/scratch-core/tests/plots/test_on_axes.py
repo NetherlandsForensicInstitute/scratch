@@ -4,11 +4,12 @@ from matplotlib import pyplot as plt
 from scipy.constants import micro
 
 from plots.on_axes import (
-    plot_depth_map_with_axes,
     plot_depth_map_on_axes,
+    plot_depth_map_with_axes,
     plot_profiles_on_axes,
     plot_side_by_side_on_axes,
 )
+
 from .helper_functions import assert_valid_rgb_image, create_synthetic_striation_data
 
 

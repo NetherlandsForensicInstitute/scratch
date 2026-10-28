@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from loguru import logger
 
-from container_models.base import FloatArray2D, FloatArray1D
+from container_models.base import FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.resample import (
     resample_array_2d_nan_aware,
@@ -11,13 +11,13 @@ from conversion.resample import (
 )
 from conversion.surface_comparison.cell_registration.geometry import pad_image_array
 from conversion.surface_comparison.cell_registration.models import Stage
+from conversion.surface_comparison.grid import extract_patch
+from conversion.surface_comparison.models import ComparisonParams, GridCell
+from conversion.surface_comparison.template_fill import fill_template_nan
 from conversion.surface_comparison.utils import (
     SCALE_COMPARISON_ATOL,
     SCALE_COMPARISON_RTOL,
 )
-from conversion.surface_comparison.grid import extract_patch
-from conversion.surface_comparison.models import ComparisonParams, GridCell
-from conversion.surface_comparison.template_fill import fill_template_nan
 
 # Min coarse cell size for reliable matching. Cap factor is limited to keep cells above this size.
 _MIN_COARSE_CELL = 12

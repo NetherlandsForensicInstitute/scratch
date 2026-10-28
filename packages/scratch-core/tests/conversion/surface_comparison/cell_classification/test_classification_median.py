@@ -20,7 +20,6 @@ from conversion.surface_comparison.cmc_classification_median import (
 
 from ..helpers import build_test_inputs
 
-
 TEST_ROOT = Path(__file__).parent.parent.parent.parent
 RESOURCES_DIR = TEST_ROOT / "resources"
 TEST_DATA_PATH = RESOURCES_DIR / "cmc" / "classification" / "cmc_test_data.json"

@@ -6,9 +6,10 @@ regression filters used by the higher-level Gaussian filter functions.
 """
 
 import numpy as np
-from scipy.signal import fftconvolve
 from numpy.typing import NDArray
-from container_models.base import FloatArray1D, FloatArray2D, FloatArray4D, FloatArray3D
+from scipy.signal import fftconvolve
+
+from container_models.base import FloatArray1D, FloatArray2D, FloatArray3D, FloatArray4D
 
 
 def create_normalized_separable_kernels(

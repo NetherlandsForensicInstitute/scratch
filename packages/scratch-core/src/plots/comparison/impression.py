@@ -1,43 +1,42 @@
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Sequence, Any, Literal
+from typing import Any, Literal
 
 import matplotlib.pyplot as plt
-from scipy.constants import mega
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from scipy.constants import mega
 
 from container_models.base import FloatArray2D, ImageRGB
 from conversion.data_formats import Mark, MarkMetadata
+from conversion.surface_comparison.models import (
+    Cell,
+    ComparisonParams,
+    ComparisonResult,
+)
+from conversion.surface_comparison.utils import _cells_correlation_to_grid
 from plots.cell_overlays import (
-    plot_cell_overlay_on_axes,
     _plot_cell_heatmap_on_axes,
+    plot_cell_overlay_on_axes,
 )
 from plots.comparison.data_formats import ImpressionComparisonPlots
-
+from plots.metadata_tables import (
+    draw_metadata_box,
+    draw_metadata_pair,
+    get_metadata_dimensions,
+)
+from plots.on_axes import (
+    _plot_surface_with_colorbar,
+    plot_depth_map_on_axes,
+    plot_depth_map_with_axes,
+)
 from plots.utils import (
     finish_overview,
-    render_single_panel,
     get_figure_dimensions,
     get_height_ratios,
     overview_figure_height,
+    render_single_panel,
 )
-from plots.on_axes import (
-    plot_depth_map_on_axes,
-    plot_depth_map_with_axes,
-    _plot_surface_with_colorbar,
-)
-from plots.metadata_tables import (
-    get_metadata_dimensions,
-    draw_metadata_box,
-    draw_metadata_pair,
-)
-
-from conversion.surface_comparison.models import (
-    Cell,
-    ComparisonResult,
-    ComparisonParams,
-)
-from conversion.surface_comparison.utils import _cells_correlation_to_grid
 
 
 def plot_impression_comparison_results(

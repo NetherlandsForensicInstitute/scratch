@@ -1,10 +1,10 @@
 import numpy as np
 import pytest
+from scipy.constants import micro
 
 from container_models.base import VectorField
 from container_models.light_source import LightSource
 from renders.shading import calculate_lighting
-from scipy.constants import micro
 
 from ..helper_functions import assert_nan_mask_preserved
 

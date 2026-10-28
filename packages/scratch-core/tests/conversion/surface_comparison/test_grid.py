@@ -4,8 +4,9 @@ import numpy as np
 import pytest
 
 from container_models.scan_image import ScanImage
-from conversion.surface_comparison.grid import extract_patch, _tile_axis, generate_grid
+from conversion.surface_comparison.grid import _tile_axis, extract_patch, generate_grid
 from conversion.surface_comparison.utils import _cells_correlation_to_grid
+
 from ...helper_functions import make_cell
 
 

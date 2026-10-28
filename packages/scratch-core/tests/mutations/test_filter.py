@@ -1,12 +1,12 @@
 from pathlib import Path
 
+import numpy as np
+from scipy.constants import micro
 
 from computations.spatial import get_bounding_box
 from container_models.scan_image import ScanImage
 from mutations import GaussianRegressionFilter
 from utils.constants import RegressionOrder
-import numpy as np
-from scipy.constants import micro
 
 
 def test_gaussian_filter_mutation(baseline_images_dir: Path):

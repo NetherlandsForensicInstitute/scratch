@@ -11,10 +11,11 @@ from conversion.profile_correlator import (
     correlate_profiles,
     correlate_striation_marks,
 )
+
 from .conftest import (
-    striation_mark,
-    make_synthetic_striation_profile,
     make_shifted_profile,
+    make_synthetic_striation_profile,
+    striation_mark,
 )
 
 PIXEL_SIZE_M = 1.5 * micro  # 1.5 μm

@@ -7,7 +7,6 @@ import pytest
 
 from conversion.filter import apply_gaussian_regression_filter
 
-
 CUTOFF: float = 5.0
 SEED: int = 42
 approx = partial(pytest.approx, rel=1e-15)

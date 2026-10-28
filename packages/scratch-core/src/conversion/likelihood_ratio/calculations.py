@@ -1,5 +1,5 @@
 import numpy as np
-from lir import LLRData, FeatureData
+from lir import FeatureData, LLRData
 from lir.lrsystems import LRSystem
 
 

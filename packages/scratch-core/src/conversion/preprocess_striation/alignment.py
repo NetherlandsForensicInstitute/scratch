@@ -11,11 +11,11 @@ from container_models.base import FloatArray1D, FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
-    gaussian_sigma_to_cutoff,
     apply_gaussian_regression_filter,
+    gaussian_sigma_to_cutoff,
 )
-from conversion.resample import resample_mark, resample_scan_image_and_mask
 from conversion.preprocess_striation.shear import shear_data_by_shifting_profiles
+from conversion.resample import resample_mark, resample_scan_image_and_mask
 
 # Maximum expected striation angle for outlier filtering in gradient detection (degrees)
 _MAX_GRADIENT_ANGLE_DEG = 10.0
@@ -119,7 +119,7 @@ def _find_alignment_angle(
         if np.isnan(current_angle):
             break
         else:
-            total_angle += current_angle
+            total_angle -= current_angle
             total_angle_rad = np.radians(total_angle)
             data_tmp = shear_data_by_shifting_profiles(
                 scan_image.data, total_angle_rad, cut_y_after_shift

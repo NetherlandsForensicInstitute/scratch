@@ -1,7 +1,9 @@
 from functools import cached_property
+
 import numpy as np
 from pydantic import Field
-from .base import UnitVector, ConfigBaseModel
+
+from .base import ConfigBaseModel, UnitVector
 
 
 class LightSource(ConfigBaseModel):

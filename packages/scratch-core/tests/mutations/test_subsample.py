@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+
 from container_models.scan_image import ScanImage
 from mutations.spatial import Subsample
 

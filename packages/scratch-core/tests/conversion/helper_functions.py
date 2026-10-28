@@ -1,10 +1,9 @@
 """Helper functions for conversion tests."""
 
 import numpy as np
+from numpy.typing import NDArray
 
 from container_models.base import FloatArray
-
-from numpy.typing import NDArray
 
 
 def _crop_to_common_shape(

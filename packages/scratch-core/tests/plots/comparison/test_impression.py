@@ -1,25 +1,25 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import pytest
 from scipy.constants import micro
 
 from conversion.data_formats import Mark, MarkMetadata
-from plots.comparison.data_formats import ImpressionComparisonPlots
-from plots.comparison.impression import (
-    plot_cell_grid_overlay,
-    plot_cell_correlation_heatmap,
-    plot_impression_comparison_results,
-    plot_impression_comparison_overview,
-)
-
 from conversion.surface_comparison.models import (
     Cell,
-    ComparisonResult,
     ComparisonParams,
+    ComparisonResult,
 )
-from ..helper_functions import assert_valid_rgb_image
+from plots.comparison.data_formats import ImpressionComparisonPlots
+from plots.comparison.impression import (
+    plot_cell_correlation_heatmap,
+    plot_cell_grid_overlay,
+    plot_impression_comparison_overview,
+    plot_impression_comparison_results,
+)
+
 from ...helper_functions import make_cell
+from ..helper_functions import assert_valid_rgb_image
 
 
 @pytest.mark.integration

@@ -8,11 +8,12 @@ from scipy.interpolate import interp1d
 
 from conversion.profile_correlator import (
     AlignmentParameters,
-    StriationComparisonResults,
     Profile,
+    StriationComparisonResults,
     correlate_profiles,
 )
-from .conftest import make_synthetic_striation_profile, make_shifted_profile
+
+from .conftest import make_shifted_profile, make_synthetic_striation_profile
 
 PIXEL_SIZE_M = 1.5 * micro  # 1.5 μm
 

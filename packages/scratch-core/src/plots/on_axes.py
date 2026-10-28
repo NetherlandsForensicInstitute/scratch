@@ -1,4 +1,4 @@
-from typing import Literal, Any
+from typing import Any, Literal
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -6,12 +6,12 @@ from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from container_models.base import StriationProfile, FloatArray2D, ImageRGB
+from container_models.base import FloatArray2D, ImageRGB, StriationProfile
 from plots.utils import (
-    side_by_side_gap_width,
     DEFAULT_COLORMAP,
     get_figure_dimensions,
     render_single_panel,
+    side_by_side_gap_width,
 )
 
 

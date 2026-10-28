@@ -11,18 +11,18 @@ import pytest
 from scipy.constants import micro
 
 from container_models.base import DepthData
-from conversion.data_formats import MarkStriationType, MarkImpressionType, MarkType
-from ...helper_functions import make_mark
+from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from conversion.preprocess_striation import (
     PreprocessingStriationParams,
     preprocess_striation_mark,
 )
+
+from ...helper_functions import make_mark
 from ..helper_functions import (
     _compute_correlation,
-    _crop_to_common_shape,
     _compute_difference_stats,
+    _crop_to_common_shape,
 )
-
 
 MARK_TYPE_MAPPING = {
     "bullet lea striation": MarkStriationType.BULLET_LEA_STRIATION,

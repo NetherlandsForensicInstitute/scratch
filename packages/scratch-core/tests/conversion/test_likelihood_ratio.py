@@ -1,15 +1,15 @@
 import pickle
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from unittest.mock import patch, MagicMock
 from lir.data.models import FeatureData
 
 from conversion.likelihood_ratio import (
-    get_reference_data_from_path,
     DummyLRSystem,
     ModelSpecs,
+    get_reference_data_from_path,
 )
 
 

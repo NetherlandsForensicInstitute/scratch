@@ -12,8 +12,8 @@ from container_models.base import FloatArray2D
 from container_models.scan_image import ScanImage
 from conversion.data_formats import Mark
 from conversion.filter import (
-    cutoff_to_gaussian_sigma,
     apply_striation_preserving_filter_1d,
+    cutoff_to_gaussian_sigma,
 )
 from conversion.preprocess_striation import PreprocessingStriationParams
 from conversion.preprocess_striation.alignment import fine_align_bullet_marks

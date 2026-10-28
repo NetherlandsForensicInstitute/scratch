@@ -14,10 +14,10 @@ class PreprocessingStriationParams(BaseModel):
     :param subsampling_factor: Subsampling factor for gradient detection (higher = faster but less precise).
     """
 
-    highpass_cutoff: float = 2e-3
-    lowpass_cutoff: float = 2.5e-4
+    highpass_cutoff: float = 250e-6
+    lowpass_cutoff: float = 5e-6
     cut_borders_after_smoothing: bool = True
-    use_mean: bool = True
+    use_mean: bool = False
     angle_accuracy: float = 0.1
     max_iter: int = 25
     subsampling_factor: int = 1

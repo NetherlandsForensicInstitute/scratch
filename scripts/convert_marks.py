@@ -3,30 +3,36 @@ Fetch marks from the preprocessor API using already-converted x3p files.
 
 Expects that convert_x3ps.py has already been run, so that converted
 measurement.x3p and .shape sidecar files exist in the output directory.
+
+Only the mark itself (mark type, crop mask, bounding box) is taken from the
+MATLAB mark.mat. Preprocessing parameters are left to the API's Python
+defaults, so the output matches what casework would produce.
 """
 
 import argparse
-import io
 import json
 import logging
 import queue
 import threading
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import requests
 from conversion.data_formats import MarkImpressionType
 from tqdm import tqdm
 
-from scripts.conversion_utils import ConversionConfig, find_mark_folders, load_shape, run_parallel
-from scripts.http_utils import _post_with_retry, download_result_files
-from scripts.matlab_utils import (
-    extract_impression_params,
-    extract_mark_type,
-    extract_mask_and_bounding_box,
-    extract_striation_params,
-    load_mat_struct,
+from scripts.conversion_utils import (
+    ConversionConfig,
+    find_mark_folders,
+    load_shape,
+    make_isotropic_shape,
+    resample_mask_nearest,
+    run_parallel,
+    scale_bounding_box,
 )
+from scripts.http_utils import _post_with_retry, download_result_files
+from scripts.matlab_utils import extract_mark_type, extract_mask_and_bounding_box, load_mat_struct
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -35,12 +41,12 @@ logger = logging.getLogger(__name__)
 def _resolve_converted_x3ps(
     marks: list[tuple[Path, Path]],
     cfg: ConversionConfig,
-) -> dict[Path, tuple[Path, tuple[int, int]]]:
+) -> dict[Path, tuple[Path, tuple[int, int, float, float]]]:
     """Build a mapping from measurement folder to (converted x3p path, shape).
 
     Raises if a required .shape sidecar is missing (run convert_x3ps.py first).
     """
-    converted: dict[Path, tuple[Path, tuple[int, int]]] = {}
+    converted: dict[Path, tuple[Path, tuple[int, int, float, float]]] = {}
     for meas_folder, _ in marks:
         if meas_folder in converted:
             continue
@@ -57,7 +63,7 @@ def _resolve_converted_x3ps(
 def fetch_mark(
     mark_folder: Path,
     converted_x3p: Path,
-    shape: tuple[int, int],
+    shape: tuple[int, int, float, float],
     cfg: ConversionConfig,
     session: requests.Session,
 ) -> tuple[Path, dict[str, bytes]] | None:
@@ -73,15 +79,20 @@ def fetch_mark(
     struct = load_mat_struct(mark_folder / "mark.mat")
     mark_type = extract_mark_type(struct)
 
-    size_x, size_y = shape
-    mask, bounding_box_list = extract_mask_and_bounding_box(struct, size_x, size_y)
+    # The mask is built on the raw pixel grid (crop coordinates are raw pixel indices),
+    # then resampled to the isotropic grid the server uses after MakeIsotropic.
+    raw_x, raw_y, _, _ = shape
+    iso_x, iso_y = make_isotropic_shape(*shape)
+    mask, bounding_box_list = extract_mask_and_bounding_box(struct, raw_x, raw_y)
+    mask = resample_mask_nearest(mask, iso_x, iso_y)
+    bounding_box_list = scale_bounding_box(bounding_box_list, iso_x / raw_x, iso_y / raw_y)
 
     is_impression = isinstance(mark_type, MarkImpressionType)
     endpoint = f"preprocessor/prepare-mark-{'impression' if is_impression else 'striation'}"
-    param_struct = load_mat_struct(mark_folder / "processed.mat")  # cutoffs/levelling only exist here
-    params = (
-        extract_impression_params(param_struct, mark_type) if is_impression else extract_striation_params(param_struct)
-    )
+
+    # Python defaults for everything; add the agreed MATLAB-derived exceptions here.
+    params: dict[str, Any] = {}
+
     params_dict = {
         "scan_file": str(converted_x3p),
         "mark_type": mark_type.value,
@@ -94,7 +105,7 @@ def fetch_mark(
     result = _post_with_retry(
         f"{cfg.api_url}/{endpoint}",
         data={"params": json.dumps(params_dict)},
-        files={"mask_data": ("mask.bin", io.BytesIO(mask_bytes), "application/octet-stream")},
+        files={"mask_data": ("mask.bin", mask_bytes, "application/octet-stream")},
     )
 
     downloaded = download_result_files(result, session)
@@ -129,7 +140,7 @@ def _fetch_and_enqueue(
     progress: tqdm,
     mark_folder: Path,
     converted_x3p: Path,
-    shape: tuple[int, int],
+    shape: tuple[int, int, float, float],
     cfg: ConversionConfig,
     session: requests.Session,
 ) -> None:
@@ -152,7 +163,7 @@ def _fetch_and_enqueue(
 
 def convert_marks_parallel(
     marks: list[tuple[Path, Path]],
-    converted_x3ps: dict[Path, tuple[Path, tuple[int, int]]],
+    converted_x3ps: dict[Path, tuple[Path, tuple[int, int, float, float]]],
     cfg: ConversionConfig,
     workers: int,
 ) -> None:

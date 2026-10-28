@@ -8,16 +8,16 @@ callers can visualise or further process the overlapping portion of each mark pa
 
 from conversion.data_formats import Mark
 from conversion.preprocess_impression.utils import update_mark_data
-from conversion.profile_correlator.profile_correlator import (
-    _calculate_idx_parameters,
-    correlate_profiles,
-)
-from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.profile_correlator.data_types import (
     AlignmentParameters,
     MarkCorrelationResult,
     Profile,
 )
+from conversion.profile_correlator.profile_correlator import (
+    _calculate_idx_parameters,
+    correlate_profiles,
+)
+from conversion.profile_correlator.transforms import equalize_pixel_scale
 from conversion.resample import resample_array_1d, resample_scan_image_and_mask
 
 

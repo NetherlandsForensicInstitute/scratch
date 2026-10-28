@@ -20,6 +20,10 @@ def _post_with_retry(
     data: dict | None = None,
     files: dict | None = None,
 ) -> dict[str, Any]:
+    """POST to the API, retrying transient failures (connection errors, timeouts, 5xx).
+
+    Client errors (4xx, e.g. 422 validation errors) are raised immediately: retrying won't help.
+    """
     for attempt in range(retries):
         try:
             with API_SEMAPHORE:
@@ -33,6 +37,12 @@ def _post_with_retry(
                     logger.error("HTTP %d for %s: %s", resp.status_code, url, resp.text[:500])
                 resp.raise_for_status()
                 return resp.json()
+        except requests.HTTPError as exc:
+            # HTTPError subclasses OSError, so it must be handled before the clause below.
+            status = exc.response.status_code if exc.response is not None else 0
+            if status < 500 or attempt == retries - 1:  # noqa: PLR2004
+                raise
+            time.sleep(2**attempt)
         except (requests.ConnectionError, OSError):
             if attempt == retries - 1:
                 raise
@@ -102,6 +112,7 @@ def download_result_files(
                 continue
             filename = url.rsplit("/", 1)[-1]
             resp = get(url, timeout=60)
+
             resp.raise_for_status()
             downloaded[filename] = resp.content
         return downloaded

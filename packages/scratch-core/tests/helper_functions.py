@@ -5,7 +5,7 @@ import numpy as np
 
 from container_models.base import DepthData
 from container_models.scan_image import ScanImage
-from conversion.data_formats import MarkImpressionType, MarkType, Mark
+from conversion.data_formats import Mark, MarkImpressionType, MarkType
 from conversion.surface_comparison.models import Cell, CellMetaData
 
 

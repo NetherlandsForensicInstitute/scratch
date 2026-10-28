@@ -1,21 +1,19 @@
-from typing import Annotated
-from enum import IntEnum, StrEnum
 import json
-
-from container_models.base import (
-    FloatArray2D,
-)
-
+from enum import IntEnum, StrEnum
 from functools import partial
-from pydantic import (
-    Field,
-    AfterValidator,
-    PlainSerializer,
-    BeforeValidator,
-)
+from typing import Annotated
+
 from numpy import float64
+from pydantic import (
+    AfterValidator,
+    BeforeValidator,
+    Field,
+    PlainSerializer,
+)
+
 from container_models.base import (
     ConfigBaseModel,
+    FloatArray2D,
     coerce_to_array,
     serialize_ndarray,
 )

@@ -1,7 +1,7 @@
 from typing import Self
 
 import numpy as np
-from lir.data.models import FeatureData, LLRData, InstanceData
+from lir.data.models import FeatureData, InstanceData, LLRData
 from lir.lrsystems import LRSystem
 from pydantic import model_validator
 

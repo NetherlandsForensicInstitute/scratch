@@ -9,7 +9,8 @@ from typing import Any
 import numpy as np
 from conversion.data_formats import MarkImpressionType, MarkStriationType, MarkType
 from conversion.surface_comparison.models import ComparisonParams
-from conversion_utils import parse_db_scratch
+
+from scripts.conversion_utils import parse_db_scratch
 
 logger = logging.getLogger(__name__)
 _MARK_TYPE_FOLDER_MAP: list[tuple[str, MarkType]] = sorted(
@@ -84,8 +85,8 @@ def _build_body(entry: ComparisonEntry, plot: bool = False) -> dict[str, Any]:
     processed_comp = str(entry.mark_dir_comp)
 
     if isinstance(entry.mark_type, MarkImpressionType):
-        # Build params with default values; cell_size is derived from mark_type at runtime
-        params = ComparisonParams(plot=plot).model_dump()
+        # Only send what we set; the API fills in its defaults (cell_size is derived from mark_type at runtime)
+        params = ComparisonParams(plot=plot).model_dump(exclude_unset=True)
         return {
             "mark_dir_ref": processed_ref,
             "mark_dir_comp": processed_comp,

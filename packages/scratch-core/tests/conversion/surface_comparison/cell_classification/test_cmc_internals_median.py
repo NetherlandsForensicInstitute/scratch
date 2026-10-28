@@ -7,9 +7,9 @@ import pytest
 
 from conversion.surface_comparison.cmc_classification_median import (
     _circular_median,
+    _get_esd_criterion,
     _get_median_angle,
     _get_median_translation,
-    _get_esd_criterion,
     _get_threshold_criterion,
     _outliers_gesd,
     _rosner_critical_value,
@@ -17,6 +17,7 @@ from conversion.surface_comparison.cmc_classification_median import (
     wrap_angles,
 )
 from conversion.surface_comparison.models import Cell, CellMetaData
+
 from ....helper_functions import make_cell
 
 

@@ -4,12 +4,12 @@ from matplotlib.transforms import Bbox
 
 from conversion.data_formats import MarkMetadata
 from plots.metadata_tables import (
-    metadata_to_table_data,
-    get_col_widths,
-    get_bounding_box,
-    get_metadata_dimensions,
-    draw_metadata_box,
     _calculate_table_rows,
+    draw_metadata_box,
+    get_bounding_box,
+    get_col_widths,
+    get_metadata_dimensions,
+    metadata_to_table_data,
 )
 
 
