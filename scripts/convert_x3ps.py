@@ -70,7 +70,7 @@ def convert_measurement_x3p(
     ``measurement.x3p`` (e.g. the "original" no longer exists, just the x3p does). Instead of parsing/re-encoding via
     ``convert_x3p``, the existing file is plainly copied from root to the mirrored path under output, then sent to
     the preprocessor API.
-    :returns: (path to the x3p under output, (size_x, size_y, scale_x, scale_y) pixel dimensions, or None if unknown).
+    :returns: (path to the x3p under output, (size_x, size_y, scale_x, scale_y)).
     """
     original = measurement_folder / "measurement.x3p"
     output_x3p = cfg.output_dir / measurement_folder.relative_to(cfg.root) / "measurement.x3p"
@@ -81,23 +81,21 @@ def convert_measurement_x3p(
         if not output_x3p.exists() or cfg.force:
             output_x3p.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(original, output_x3p)
-        try:
+        shape = None
+        with contextlib.suppress(ValueError):  # old 2-field sidecar: rebuild below
             shape = load_shape(output_x3p)
-        except ValueError:
-            shape = None
         if shape is None:
             scan = ScanImage.from_file(output_x3p)
             shape = (scan.width, scan.height, scan.scale_x, scan.scale_y)
             save_shape(output_x3p, shape)
     else:
         if output_x3p.exists() and not cfg.force:
-            try:
+            shape = None
+            with contextlib.suppress(ValueError):  # old 2-field sidecar: reconvert below
                 shape = load_shape(output_x3p)
-            except ValueError:
-                shape = None  # old 2-field sidecar: reconvert below
-        if shape is not None:
-            return output_x3p, shape
-        logger.warning("Missing or outdated shape file for %s, reconverting", output_x3p)
+            if shape is not None:
+                return output_x3p, shape
+            logger.warning("Missing or outdated shape file for %s, reconverting", output_x3p)
 
         output_x3p.parent.mkdir(parents=True, exist_ok=True)
         shape = convert_x3p(original, output_x3p)

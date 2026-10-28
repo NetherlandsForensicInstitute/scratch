@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from conversion.data_formats import MarkImpressionType
 
 from scripts.comparison_utils import (
     ComparisonEntry,
