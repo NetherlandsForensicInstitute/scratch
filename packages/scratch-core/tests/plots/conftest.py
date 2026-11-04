@@ -287,7 +287,6 @@ def impression_overview_comparison_params() -> ComparisonParams:
         minimum_fill_fraction=0.5,
         correlation_threshold=0.25,
         angle_deviation_threshold=6.0,
-        position_threshold=75e-6,
     )
 
 

@@ -336,7 +336,7 @@ def main() -> None:
     parser.add_argument("--csv-out-dir", type=Path, default=None, help="Where to write the scored CSV copies")
     parser.add_argument("--csv-delimiter", default=",", help="CSV delimiter")
     parser.add_argument(
-        "--csv-flush-every", type=int, default=1, help="Rewrite a scored CSV after this many comparisons"
+        "--csv-flush-every", type=int, default=100, help="Rewrite a scored CSV after this many comparisons"
     )
     parser.add_argument("--retry-failed", action="store_true", help="Re-run rows that errored on a previous run")
     parser.add_argument(

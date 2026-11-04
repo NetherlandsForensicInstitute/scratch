@@ -13,6 +13,7 @@ from conversion.surface_comparison.utils import rotate_points, wrap_angles
 def classify_congruent_cells_median(
     cells: list[Cell],
     params: ComparisonParams,
+    position_threshold: float,
     reference_center: tuple[float, float],
 ) -> ComparisonResult:
     """
@@ -37,6 +38,7 @@ def classify_congruent_cells_median(
 
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
+    :param position_threshold: Maximum positional deviation from consensus.
     :param reference_center: Global center [x, y] of the reference surface in meters,
         used as the fixed point for the median rotation.
     :returns: A :class:`ComparisonResult` containing the classified cells, median
@@ -55,7 +57,9 @@ def classify_congruent_cells_median(
     median_translation = _get_median_translation(
         cells=cells, angle=median_angle, rotation_center=reference_center
     )
-    _update_congruence(cells=cells, params=params)
+    _update_congruence(
+        cells=cells, params=params, position_threshold=position_threshold
+    )
 
     result = ComparisonResult(
         cells=cells,
@@ -194,7 +198,9 @@ def _get_median_translation(
     return float(median_translation[0]), float(median_translation[1])
 
 
-def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
+def _update_congruence(
+    cells: list[Cell], params: ComparisonParams, position_threshold: float
+) -> None:
     """
     Set ``is_congruent`` on each cell based on all four CMC criteria.
 
@@ -211,6 +217,7 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
     :param cells: Cells whose ``meta_data`` fields have already been populated by
         :func:`_get_median_angle` and :func:`_get_median_translation`.
     :param params: Algorithm parameters providing the classification thresholds.
+    :param position_threshold: Maximum positional deviation from consensus.
     """
     for cell in cells:
         is_congruent = bool(
@@ -218,9 +225,7 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
             and not cell.meta_data.is_outlier
             and np.abs(cell.meta_data.residual_angle_deg)
             <= params.angle_deviation_threshold
-            and np.all(
-                np.abs(cell.meta_data.position_error) <= params.position_threshold
-            )
+            and np.all(np.abs(cell.meta_data.position_error) <= position_threshold)
         )
         cell.is_congruent = is_congruent
 

@@ -307,7 +307,9 @@ class ScoreWriter:
         resume: bool = True,
     ) -> None:
         self.header = header
-        self.rows = rows
+        # One CSV row can expand into several tasks (one per shared mark type), so callers may pass the same
+        # PairRow more than once. Keep each input row exactly once, in original order.
+        self.rows = list({row.index: row for row in rows}.values())
         self.delimiter = delimiter
         self.flush_every = max(1, flush_every)
         self.paths = {mt: out_dir / f"{csv_path.stem}_{get_mark_type_slug(mt)}{csv_path.suffix}" for mt in mark_types}

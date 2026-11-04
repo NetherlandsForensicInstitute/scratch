@@ -2,6 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import cache
 from itertools import combinations
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,7 @@ def _firearm_dir(mark_dir: Path) -> Path:
         return mark_dir.parent.parent.parent
 
 
+@cache
 def _extract_metadata(mark_dir: Path) -> dict[str, str]:
     """Extract MarkMetadata by walking up from *mark_dir* to ``tool-entries``.
 

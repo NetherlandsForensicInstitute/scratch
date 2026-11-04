@@ -57,7 +57,12 @@ class TestClassifyCongruentCells:
         """The number of CMC cells must match the MATLAB reference."""
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            matlab_test_case["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         expected_cmc_count = matlab_test_case["outputs"]["cmc_count"]
         assert result.cmc_count == expected_cmc_count, (
@@ -69,7 +74,12 @@ class TestClassifyCongruentCells:
         """Per-cell congruence flags must match the MATLAB reference."""
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            matlab_test_case["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         expected_flags = matlab_test_case["outputs"]["is_congruent"]
         if isinstance(expected_flags, bool):
@@ -85,7 +95,12 @@ class TestClassifyCongruentCells:
         """The consensus rotation must match the MATLAB reference."""
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            matlab_test_case["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         expected_rotation = matlab_test_case["outputs"]["consensus_rotation_deg"]
         if np.isnan(expected_rotation):
@@ -111,7 +126,12 @@ class TestClassifyCongruentCells:
         """
         cells, params, rotation_center = build_test_inputs(matlab_test_case["inputs"])
 
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            matlab_test_case["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         expected_translation = matlab_test_case["outputs"]["consensus_translation"]
         actual_translation = result.estimated_translation
@@ -141,7 +161,12 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            _get_case("all_congruent_no_outliers")["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         # Assert
         assert all(cell.is_congruent for cell in result.cells)
@@ -155,7 +180,12 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            _get_case("low_similarity_cells")["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         # Assert — cells at index 1 and 3 have scores 0.2 and 0.15 (below threshold 0.4)
         assert not result.cells[1].is_congruent
@@ -170,7 +200,12 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            _get_case("angle_outliers_esd_rejection")["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         # Assert — cells at index 2 and 6 are angle outliers (~29° and ~-23°)
         assert not result.cells[2].is_congruent
@@ -185,7 +220,12 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            _get_case("position_outliers")["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         # Assert — cells at index 1 and 4 exceed the position threshold
         assert not result.cells[1].is_congruent
@@ -200,7 +240,12 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            _get_case("no_valid_cells")["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         # Assert
         assert not any(cell.is_congruent for cell in result.cells)
@@ -213,7 +258,12 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            _get_case("mixed_outliers")["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         # Assert — index 1: low score, index 3: angle outlier, index 7: position outlier
         assert not result.cells[1].is_congruent
@@ -229,7 +279,12 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            _get_case("single_cell")["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         # Assert
         assert result.cells[0].is_congruent
@@ -242,7 +297,12 @@ class TestSpecificScenarios:
         )
 
         # Act
-        result = classify_congruent_cells_median(cells, params, rotation_center)
+        result = classify_congruent_cells_median(
+            cells,
+            params,
+            _get_case("all_angle_outliers")["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         # Assert
         assert not any(cell.is_congruent for cell in result.cells)

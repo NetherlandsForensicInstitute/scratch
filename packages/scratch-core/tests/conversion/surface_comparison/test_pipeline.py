@@ -382,14 +382,18 @@ def test_coarse_registration_finds_angle(
     comparison_image = reference_image.model_copy(update={"data": rotated})
 
     # Act
+    reference_processed_mark = make_processed_mark(reference_image)
     cells = compare_surfaces(
-        reference_mark=make_processed_mark(reference_image),
+        reference_mark=reference_processed_mark,
         comparison_mark=make_processed_mark(comparison_image),
         params=params,
     ).cells
 
     classification = classification_function(
-        cells=cells, params=params, reference_center=reference_image.center_meters
+        cells=cells,
+        params=params,
+        position_threshold=reference_processed_mark.raw_mark.mark_type.position_threshold,
+        reference_center=reference_image.center_meters,
     )
 
     if plot:

@@ -172,5 +172,8 @@ def compare_surfaces(
         else classify_congruent_cells_consensus
     )
     return classify_func(
-        cells=cells, params=params, reference_center=reference_image.center_meters
+        cells=cells,
+        params=params,
+        position_threshold=reference_mark.filtered_mark.mark_type.position_threshold,
+        reference_center=reference_image.center_meters,
     )
