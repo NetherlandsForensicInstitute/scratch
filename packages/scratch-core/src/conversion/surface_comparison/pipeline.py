@@ -175,5 +175,5 @@ def compare_surfaces(
         cells=cells,
         params=params,
         position_threshold=reference_mark.filtered_mark.mark_type.position_threshold,
-        reference_center=reference_image.center_meters
+        reference_center=reference_image.center_meters,
     )

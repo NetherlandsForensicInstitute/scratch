@@ -444,7 +444,7 @@ class TestImpressionComparisonPose:
             cells=cells,
             params=_default_comparison_params(),
             position_threshold=75.0e-6,
-            reference_center=(0.002, 0.0015)
+            reference_center=(0.002, 0.0015),
         )
 
         with (

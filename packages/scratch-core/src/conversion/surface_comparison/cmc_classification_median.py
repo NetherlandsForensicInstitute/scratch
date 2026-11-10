@@ -57,7 +57,9 @@ def classify_congruent_cells_median(
     median_translation = _get_median_translation(
         cells=cells, angle=median_angle, rotation_center=reference_center
     )
-    _update_congruence(cells=cells, position_threshold=position_threshold, params=params)
+    _update_congruence(
+        cells=cells, position_threshold=position_threshold, params=params
+    )
 
     result = ComparisonResult(
         cells=cells,
@@ -196,7 +198,9 @@ def _get_median_translation(
     return float(median_translation[0]), float(median_translation[1])
 
 
-def _update_congruence(cells: list[Cell], params: ComparisonParams, position_threshold: float) -> None:
+def _update_congruence(
+    cells: list[Cell], params: ComparisonParams, position_threshold: float
+) -> None:
     """
     Set ``is_congruent`` on each cell based on all four CMC criteria.
 
@@ -221,9 +225,7 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams, position_thr
             and not cell.meta_data.is_outlier
             and np.abs(cell.meta_data.residual_angle_deg)
             <= params.angle_deviation_threshold
-            and np.all(
-                np.abs(cell.meta_data.position_error) <= position_threshold
-            )
+            and np.all(np.abs(cell.meta_data.position_error) <= position_threshold)
         )
         cell.is_congruent = is_congruent
 

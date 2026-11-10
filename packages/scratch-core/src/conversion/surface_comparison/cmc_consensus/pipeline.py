@@ -23,10 +23,10 @@ from conversion.surface_comparison.utils import rotate_points, wrap_angles
 
 
 def classify_congruent_cells_consensus(
-        cells: list[Cell],
-        params: ComparisonParams,
-        position_threshold: float,
-        reference_center: tuple[float, float]
+    cells: list[Cell],
+    params: ComparisonParams,
+    position_threshold: float,
+    reference_center: tuple[float, float],
 ) -> ComparisonResult:
     """
     Identify Congruent Matching Cells (CMCs) with a consensus-based procedure using Procrustes rotation and translation
