@@ -36,7 +36,6 @@ def _default_comparison_params() -> ComparisonParams:
         correlation_threshold=0.2,
         minimum_fill_fraction=0.1,
         angle_deviation_threshold=10.0,
-        position_threshold=0.001,
     )
 
 
@@ -442,7 +441,10 @@ class TestImpressionComparisonPose:
             )
         ]
         no_consensus = classify_congruent_cells_consensus(
-            cells=cells, params=_default_comparison_params(), reference_center=(0.002, 0.0015)
+            cells=cells,
+            params=_default_comparison_params(),
+            position_threshold=75.0e-6,
+            reference_center=(0.002, 0.0015)
         )
 
         with (

@@ -23,7 +23,10 @@ from conversion.surface_comparison.utils import rotate_points, wrap_angles
 
 
 def classify_congruent_cells_consensus(
-    cells: list[Cell], params: ComparisonParams, reference_center: tuple[float, float]
+        cells: list[Cell],
+        params: ComparisonParams,
+        position_threshold: float,
+        reference_center: tuple[float, float]
 ) -> ComparisonResult:
     """
     Identify Congruent Matching Cells (CMCs) with a consensus-based procedure using Procrustes rotation and translation
@@ -38,6 +41,7 @@ def classify_congruent_cells_consensus(
 
     :param cells: Per-cell registration results to classify.
     :param params: Algorithm parameters (thresholds for score, angle, and position).
+    :param position_threshold: Maximum positional deviation from consensus.
     :param reference_center: Reference rotation center (meters); used if only one cell fits.
     :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees, and consensus
         translation in meters, both expressed around `reference_center`. Both are NaN when no consensus
@@ -48,7 +52,7 @@ def classify_congruent_cells_consensus(
         inlier_ids = [0]
     else:
         inlier_ids = _find_best_ids(
-            cells, params.position_threshold, params.angle_deviation_threshold
+            cells, position_threshold, params.angle_deviation_threshold
         )
     if not inlier_ids:
         # Note: the `meta_data` residuals keep their pre-classification values here.

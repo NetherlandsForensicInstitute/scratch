@@ -33,16 +33,17 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from comparison_utils import (
+from conversion.data_formats import MarkImpressionType
+
+from scripts.comparison_utils import (
     ComparisonEntry,
     _build_body,
     _save_result,
     find_all_mark_types,
     generate_pairs,
 )
-from conversion.data_formats import MarkImpressionType
-from conversion_utils import ConversionConfig, run_parallel
-from csv_pairs import (
+from scripts.conversion_utils import ConversionConfig, run_parallel
+from scripts.csv_pairs import (
     DONE_STATUSES,
     CsvTask,
     ScoreWriter,
@@ -52,7 +53,7 @@ from csv_pairs import (
     find_result_file,
     read_pairs_csv,
 )
-from http_utils import _cleanup_vault, _post_with_retry, download_urls
+from scripts.http_utils import _cleanup_vault, _post_with_retry, download_urls
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -335,7 +336,7 @@ def main() -> None:
     parser.add_argument("--csv-out-dir", type=Path, default=None, help="Where to write the scored CSV copies")
     parser.add_argument("--csv-delimiter", default=",", help="CSV delimiter")
     parser.add_argument(
-        "--csv-flush-every", type=int, default=1, help="Rewrite a scored CSV after this many comparisons"
+        "--csv-flush-every", type=int, default=100, help="Rewrite a scored CSV after this many comparisons"
     )
     parser.add_argument("--retry-failed", action="store_true", help="Re-run rows that errored on a previous run")
     parser.add_argument(

@@ -87,7 +87,10 @@ class TestClassifyCongruentCells:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference
+            cells,
+            params,
+            matlab_test_case["inputs"]["position_threshold"],
+            rotation_center_reference,
         )
 
         # Assert
@@ -107,7 +110,10 @@ class TestClassifyCongruentCells:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference
+            cells,
+            params,
+            matlab_test_case["inputs"]["position_threshold"],
+            rotation_center_reference,
         )
 
         # Assert
@@ -134,7 +140,10 @@ class TestClassifyCongruentCells:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference
+            cells,
+            params,
+            matlab_test_case["inputs"]["position_threshold"],
+            rotation_center_reference,
         )
 
         # Assert
@@ -165,7 +174,10 @@ class TestClassifyCongruentCells:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference
+            cells,
+            params,
+            matlab_test_case["inputs"]["position_threshold"],
+            rotation_center_reference,
         )
 
         # Assert
@@ -199,7 +211,10 @@ class TestSpecificScenarios:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference
+            cells,
+            params,
+            _get_case("all_congruent_no_outliers")["inputs"]["position_threshold"],
+            rotation_center_reference,
         )
 
         # Assert
@@ -215,7 +230,10 @@ class TestSpecificScenarios:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference
+            cells,
+            params,
+            _get_case("single_cell")["inputs"]["position_threshold"],
+            rotation_center_reference,
         )
 
         # Assert
@@ -237,7 +255,7 @@ class TestCorrelationThresholdFilter:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference
+            cells, params, base_inputs["position_threshold"], rotation_center_reference
         )
 
         # Assert: the low-scoring cell is retained but excluded from the CMCs
@@ -263,7 +281,10 @@ class TestCorrelationThresholdFilter:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference
+            cells,
+            params,
+            _get_case("all_congruent_no_outliers")["inputs"]["position_threshold"],
+            rotation_center_reference,
         )
 
         # Assert: the cells still agree geometrically, so a pose is reported
@@ -284,7 +305,9 @@ class TestCorrelationThresholdFilter:
         cells, params, rotation_center = build_test_inputs(case_inputs)
 
         # Act
-        result = classify_congruent_cells_consensus(cells, params, rotation_center)
+        result = classify_congruent_cells_consensus(
+            cells, params, case_inputs["position_threshold"], rotation_center
+        )
 
         # Assert: no CMC's found
         assert result.cmc_count == 0
@@ -298,7 +321,10 @@ class TestCorrelationThresholdFilter:
 
         # Act
         result = classify_congruent_cells_consensus(
-            cells, params, rotation_center_reference
+            cells,
+            params,
+            _get_case("all_congruent_no_outliers")["inputs"]["position_threshold"],
+            rotation_center_reference,
         )
 
         # Assert: all cells should be congruent (same as baseline)
@@ -319,9 +345,11 @@ class TestSharedClassifierBehavior:
 
         # Act
         consensus = classify_congruent_cells_consensus(
-            cells_consensus, params, rotation_center
+            cells_consensus, params, case_inputs["position_threshold"], rotation_center
         )
-        median = classify_congruent_cells_median(cells_median, params, rotation_center)
+        median = classify_congruent_cells_median(
+            cells_median, params, case_inputs["position_threshold"], rotation_center
+        )
 
         # Assert: both follow the sign of the cell angles they were derived from
         assert np.sign(consensus.estimated_rotation) == np.sign(mean_cell_angle)
@@ -376,7 +404,7 @@ class TestSharedClassifierBehavior:
         ]
 
         # Act
-        result = classifier(cells, ComparisonParams(), reference_center)
+        result = classifier(cells, ComparisonParams(), 75e-6, reference_center)
 
         # Assert: every cell is congruent and the known pose comes back out
         assert result.cmc_count == len(cells)
@@ -398,7 +426,9 @@ class TestSharedClassifierBehavior:
         cells, params, rotation_center = build_test_inputs(case_inputs)
 
         # Act
-        result = classifier(cells, params, rotation_center)
+        result = classifier(
+            cells, params, case_inputs["position_threshold"], rotation_center
+        )
 
         # Assert: the odd cell out is flagged, and residuals track the congruence decision
         assert [cell.meta_data.is_outlier for cell in result.cells][-1]
@@ -410,7 +440,7 @@ class TestSharedClassifierBehavior:
                 )
                 assert (
                     max(abs(error) for error in cell.meta_data.position_error)
-                    <= params.position_threshold
+                    <= case_inputs["position_threshold"]
                 )
 
     @pytest.mark.parametrize(
@@ -438,7 +468,12 @@ class TestSharedClassifierBehavior:
         }
 
         # Act
-        result = classifier(cells, params, rotation_center)
+        result = classifier(
+            cells,
+            params,
+            _get_case("all_congruent_no_outliers")["inputs"]["position_threshold"],
+            rotation_center,
+        )
 
         # Assert: no cell is dropped, and each cell's core properties match the original
         assert len(result.cells) == len(original_properties)

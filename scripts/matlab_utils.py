@@ -25,15 +25,6 @@ def _scalar(value: Any) -> Any:
     return value
 
 
-def _data_param_field(struct: np.ndarray, field: str, default: Any = None) -> Any:
-    """Extract a field from the nested data_param sub-struct."""
-    dp = struct["data_param"].item()
-    if field in dp.dtype.names:
-        val = _scalar(dp[field])
-        return default if val is None else val
-    return default
-
-
 def load_mat_struct(mat_path: Path) -> np.ndarray:
     """Load a .mat file and return the data_struct."""
     return sio.loadmat(str(mat_path), squeeze_me=True)["data_struct"]
@@ -160,31 +151,3 @@ def extract_mark_type(struct: np.ndarray) -> MarkType:
         return MarkImpressionType(mark_string)
     except ValueError:
         return MarkStriationType(mark_string)
-
-
-def extract_impression_params(struct: np.ndarray, mark_type: MarkType) -> dict[str, Any]:
-    """Extract preprocessing parameters for impression marks from a MATLAB struct."""
-    hi, lo = _scalar(struct["cutoff_hi"]), _scalar(struct["cutoff_lo"])
-    return {
-        "pixel_size": mark_type.scale,
-        "adjust_pixel_spacing": bool(_data_param_field(struct, "bAdjustPixelSpacing", 1)),
-        "level_offset": bool(_data_param_field(struct, "bLevelOffset", 1)),
-        "level_tilt": bool(_data_param_field(struct, "bLevelTilt", 1)),
-        "level_2nd": bool(_data_param_field(struct, "bLevel2nd", 1)),
-        "interp_method": _data_param_field(struct, "intMeth", "cubic"),
-        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 250e-6,
-        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 5e-6,
-    }
-
-
-def extract_striation_params(struct: np.ndarray) -> dict[str, Any]:
-    """Extract preprocessing parameters for striation marks from a MATLAB struct."""
-    hi, lo = _scalar(struct["cutoff_hi"]), _scalar(struct["cutoff_lo"])
-    return {
-        "highpass_cutoff": float(hi) * 1e-6 if hi is not None else 250e-6,
-        "lowpass_cutoff": float(lo) * 1e-6 if lo is not None else 5e-6,
-        "cut_borders_after_smoothing": bool(_data_param_field(struct, "cut_borders_after_smoothing", 1)),
-        "use_mean": bool(_data_param_field(struct, "use_mean", 1)),
-        "angle_accuracy": float(_data_param_field(struct, "angle_accuracy", 90)),
-        "subsampling_factor": int(_scalar(struct["subsampling"]) or 1),
-    }

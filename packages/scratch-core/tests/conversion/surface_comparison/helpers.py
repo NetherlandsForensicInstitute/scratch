@@ -93,7 +93,6 @@ def build_test_inputs(
     params = ComparisonParams(
         correlation_threshold=inputs["correlation_threshold"],
         angle_deviation_threshold=inputs["angle_deviation_threshold"],
-        position_threshold=inputs["position_threshold"],
     )
 
     rotation_center_list = inputs["rotation_center"]

@@ -43,6 +43,11 @@ class MarkType(StrEnum):
     def cell_size(self) -> tuple[float, float]:
         return 1.25e-4, 1.25e-4
 
+    @property
+    def position_threshold(self) -> float:
+        """Maximum positional deviation from consensus for CMC (m)."""
+        return 75e-6
+
 
 class MarkImpressionType(MarkType):
     # Impression marks
@@ -63,6 +68,13 @@ class MarkImpressionType(MarkType):
         if self == MarkImpressionType.BREECH_FACE_IMPRESSION:
             return 4.5e-4, 4.5e-4
         return 1.25e-4, 1.25e-4
+
+    @property
+    def position_threshold(self) -> float:
+        """Maximum positional deviation from consensus for CMC (m)"""
+        if self == MarkImpressionType.FIRING_PIN_IMPRESSION:
+            return 25e-6
+        return 75e-6
 
 
 class MarkStriationType(MarkType):
