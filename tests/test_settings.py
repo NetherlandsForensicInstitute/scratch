@@ -1,9 +1,7 @@
 """Tests for application settings."""
 
 import tempfile
-from importlib.metadata import PackageNotFoundError
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -107,23 +105,69 @@ class TestSettings:
         # Assert - unknown field should not be present
         assert not hasattr(settings, "UNKNOWN_FIELD")
 
-    def test_app_version_returns_fallback_when_package_not_found(self, settings: Settings) -> None:
-        """Test that app_version returns '0.0.0' when package version cannot be determined."""
-        with patch("settings.version", side_effect=PackageNotFoundError):
-            assert settings.app_version == "0.0.0"
-
-    @patch("settings.version")
-    def test_app_version_returns_package_version(self, mock_version) -> None:
-        """Test that app_version returns actual package version when available."""
+    def test_app_version_prefers_build_info(self, settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test that app_version uses the version written by CI when present."""
         # Arrange
-        mock_version.return_value = "1.2.3"
+        monkeypatch.setattr("settings._build_info.VERSION", "9.9.9")
 
-        # Act
-        settings = Settings()  # type: ignore
+        # Act & Assert
+        assert settings.app_version == "9.9.9"
 
-        # Assert
+    def test_app_version_reads_pyproject(
+        self, settings: Settings, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Test that app_version falls back to pyproject.toml when no build info is present."""
+        # Arrange
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text('[project]\nname = "scratch"\nversion = "1.2.3"\n')
+        monkeypatch.setattr("settings._build_info.VERSION", "")
+        monkeypatch.setattr("settings._PYPROJECT", pyproject)
+
+        # Act & Assert
         assert settings.app_version == "1.2.3"
-        mock_version.assert_called_once_with("scratch")
+
+    @pytest.mark.parametrize(
+        "pyproject_content",
+        [
+            pytest.param(None, id="file_missing"),
+            pytest.param('[project]\nname = "scratch"\n', id="version_missing"),
+            pytest.param("this is not [ toml", id="invalid_toml"),
+        ],
+    )
+    def test_app_version_returns_fallback(
+        self, settings: Settings, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, pyproject_content: str | None
+    ) -> None:
+        """Test that app_version returns '0.0.0' when the version cannot be determined."""
+        # Arrange
+        pyproject = tmp_path / "pyproject.toml"
+        if pyproject_content is not None:
+            pyproject.write_text(pyproject_content)
+        monkeypatch.setattr("settings._build_info.VERSION", "")
+        monkeypatch.setattr("settings._PYPROJECT", pyproject)
+
+        # Act & Assert
+        assert settings.app_version == "0.0.0"
+
+    def test_full_version_and_build_info(self, settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test that full_version and build_info combine version and build metadata."""
+        # Arrange
+        monkeypatch.setattr("settings._build_info.VERSION", "1.2.3")
+        monkeypatch.setattr("settings._build_info.COMMIT", "a1b2c3d4e5f6")
+        monkeypatch.setattr("settings._build_info.COMMIT_SHORT", "a1b2c3d")
+        monkeypatch.setattr("settings._build_info.REF", "main")
+        monkeypatch.setattr("settings._build_info.RUN_NUMBER", "42")
+        monkeypatch.setattr("settings._build_info.BUILD_TIME", "2026-11-11T10:00:00Z")
+
+        # Act & Assert
+        assert settings.full_version == "1.2.3+a1b2c3d"
+        assert settings.build_info == {
+            "version": "1.2.3+a1b2c3d",
+            "app_version": "1.2.3",
+            "commit": "a1b2c3d4e5f6",
+            "ref": "main",
+            "run_number": "42",
+            "build_time": "2026-11-11T10:00:00Z",
+        }
 
     def test_log_startup_config_logs_configuration(self, settings: Settings, caplog: pytest.LogCaptureFixture) -> None:
         """Test that log_startup_config logs all configuration values."""
@@ -135,7 +179,8 @@ class TestSettings:
 
         assert "Application startup - Configuration:" in log_text
         assert f"Title: {settings.app_title}" in log_text
-        assert f"Version: {settings.app_version}" in log_text
+        assert f"Version: {settings.full_version}" in log_text
+        assert "Commit: " in log_text
         assert f"Host: {settings.api_host}:{settings.api_port}" in log_text
         assert f"Storage: {settings.storage}" in log_text
         assert f"Persistent storage: {settings.persistent_storage}" in log_text
