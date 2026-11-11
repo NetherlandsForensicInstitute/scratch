@@ -34,4 +34,6 @@ runs:
 
     - name: Run tests
       shell: bash
+      env:
+        EXPECT_BUILD_INFO: "1"
       run: just smoke-test "${{ steps.test_arg.outputs.test_arg }}"

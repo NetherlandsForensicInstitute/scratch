@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import tempfile
+import tomllib
 from functools import lru_cache
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Annotated
 
@@ -14,6 +14,8 @@ from pydantic import DirectoryPath, Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 import _build_info
+
+_PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 
 
 def _create_default_temp_dir() -> Path:
@@ -114,15 +116,16 @@ class Settings(BaseSettings):
         """
         Get the application version.
 
-        Uses the version written by CI at build time (works in the frozen exe),
-        then package metadata (works in a dev install), then "0.0.0".
+        Uses the version written by CI at build time (frozen exe), then
+        pyproject.toml (source run), then "0.0.0".
         """
         if _build_info.VERSION:
             return _build_info.VERSION
         try:
-            return version("scratch")
-        except PackageNotFoundError:
-            logger.warning("Could not determine package version, using fallback '0.0.0'")
+            with _PYPROJECT.open("rb") as f:
+                return tomllib.load(f)["project"]["version"]
+        except (OSError, KeyError, tomllib.TOMLDecodeError):
+            logger.warning("Could not determine version, using fallback '0.0.0'")
             return "0.0.0"
 
     @computed_field  # type: ignore[prop-decorator]

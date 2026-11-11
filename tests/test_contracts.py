@@ -75,7 +75,7 @@ class TestContracts:
         )
         assert response.headers.get("X-App-Version") == body["version"], "X-App-Version header should match /version"
 
-    @pytest.mark.skipif(os.environ.get("GITHUB_ACTIONS") != "true", reason="build info is only written in CI")
+    @pytest.mark.skipif(os.environ.get("EXPECT_BUILD_INFO") != "1", reason="only checked against a CI-built exe")
     def test_version_has_build_info(self) -> None:
         """Check if the CI-built exe reports the real version and the commit it was built from."""
         # Act
