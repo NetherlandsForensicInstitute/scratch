@@ -1,4 +1,5 @@
 import json
+import os
 from enum import StrEnum
 from http import HTTPStatus
 from pathlib import Path
@@ -61,6 +62,29 @@ class TestContracts:
     """
 
     BASE_URL = "http://127.0.0.1:8000"
+
+    def test_version_endpoint(self) -> None:
+        """Check if /version returns build info and matches the X-App-Version header."""
+        # Act
+        response = requests.get(f"{get_settings().base_url}/version", timeout=5)
+        # Assert
+        assert response.status_code == HTTPStatus.OK, response.text
+        body = response.json()
+        assert body.keys() == {"version", "app_version", "commit", "ref", "run_number", "build_time"}, (
+            "version response keys should match expected keys"
+        )
+        assert response.headers.get("X-App-Version") == body["version"], "X-App-Version header should match /version"
+
+    @pytest.mark.skipif(os.environ.get("GITHUB_ACTIONS") != "true", reason="build info is only written in CI")
+    def test_version_has_build_info(self) -> None:
+        """Check if the CI-built exe reports the real version and the commit it was built from."""
+        # Act
+        body = requests.get(f"{get_settings().base_url}/version", timeout=5).json()
+        # Assert
+        sha = os.environ["GITHUB_SHA"]
+        assert body["app_version"] not in ("", "0.0.0"), "version should be embedded in the exe"
+        assert body["commit"] == sha, f"exe should be built from {sha}, got {body['commit']}"
+        assert body["version"] == f"{body['app_version']}+{sha[:7]}", "version should be '<app_version>+<short sha>'"
 
     @pytest.fixture(scope="class")
     def process_scan(self, scan_directory: Path) -> EndpointContractInterface:

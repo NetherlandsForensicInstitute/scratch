@@ -63,10 +63,24 @@ settings = get_settings()
 app = FastAPI(
     lifespan=_lifespan,
     title=settings.app_title,
-    version=settings.app_version,
+    version=settings.full_version,
     redirect_slashes=False,
 )
 app.include_router(prefix_router)
+
+
+@app.get("/version", tags=["meta"])
+def get_version() -> dict[str, str]:
+    """Return the version and build information of this API."""
+    return settings.build_info
+
+
+@app.middleware("http")
+async def add_version_header(request: Request, call_next):
+    """Add the API version to every response."""
+    response = await call_next(request)
+    response.headers["X-App-Version"] = settings.full_version
+    return response
 
 
 @app.exception_handler(FileNotFoundError)

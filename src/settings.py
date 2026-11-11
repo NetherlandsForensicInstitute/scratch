@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import tempfile
 from functools import lru_cache
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Annotated
 
@@ -12,6 +12,8 @@ from fastapi import Depends
 from loguru import logger
 from pydantic import DirectoryPath, Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+import _build_info
 
 
 def _create_default_temp_dir() -> Path:
@@ -110,16 +112,36 @@ class Settings(BaseSettings):
     @property
     def app_version(self) -> str:
         """
-        Get the application version from package metadata.
+        Get the application version.
 
-        :return: The application version from pyproject.toml.
-                 Falls back to "0.0.0" if version cannot be determined.
+        Uses the version written by CI at build time (works in the frozen exe),
+        then package metadata (works in a dev install), then "0.0.0".
         """
+        if _build_info.VERSION:
+            return _build_info.VERSION
         try:
             return version("scratch")
-        except Exception:
+        except PackageNotFoundError:
             logger.warning("Could not determine package version, using fallback '0.0.0'")
             return "0.0.0"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def full_version(self) -> str:
+        """Version including commit, e.g. '0.3.0+a1b2c3d'."""
+        return f"{self.app_version}+{_build_info.COMMIT_SHORT}"
+
+    @property
+    def build_info(self) -> dict[str, str]:
+        """Build metadata for the /version endpoint."""
+        return {
+            "version": self.full_version,
+            "app_version": self.app_version,
+            "commit": _build_info.COMMIT,
+            "ref": _build_info.REF,
+            "run_number": _build_info.RUN_NUMBER,
+            "build_time": _build_info.BUILD_TIME,
+        }
 
     def log_startup_config(self) -> None:
         """
@@ -131,7 +153,8 @@ class Settings(BaseSettings):
         logger.info("=" * 60)
         logger.info("Application startup - Configuration:")
         logger.info(f"  Title: {self.app_title}")
-        logger.info(f"  Version: {self.app_version}")
+        logger.info(f"  Version: {self.full_version}")
+        logger.info(f"  Commit: {_build_info.COMMIT} ({_build_info.REF}, built {_build_info.BUILD_TIME or 'n/a'})")
         logger.info(f"  Host: {self.api_host}:{self.api_port}")
         logger.info(f"  Storage: {self.storage}")
         logger.info(f"  Persistent storage: {self.persistent_storage}")
