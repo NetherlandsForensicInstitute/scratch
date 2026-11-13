@@ -116,7 +116,7 @@ class Settings(BaseSettings):
         """
         Get the application version.
 
-        Uses the version written by CI at build time (frozen exe), then
+        Uses the version written by CI at build time, then
         pyproject.toml (source run), then "0.0.0".
         """
         if _build_info.VERSION:
