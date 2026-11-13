@@ -16,11 +16,24 @@ runs:
     - name: Install dependencies
       shell: bash
       run: just install
-
+    - name: Write build info
+      shell: bash
+      run: |
+        APP_VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+        cat > src/_build_info.py <<EOF
+        VERSION = "${APP_VERSION}"
+        COMMIT = "${GITHUB_SHA}"
+        COMMIT_SHORT = "${GITHUB_SHA::7}"
+        REF = "${GITHUB_REF_NAME}"
+        RUN_NUMBER = "${GITHUB_RUN_NUMBER}"
+        BUILD_TIME = "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        EOF
     - name: Build artifact
       shell: bash
       run: just build
 
     - name: Run tests
       shell: bash
+      env:
+        EXPECT_BUILD_INFO: "1"
       run: just smoke-test "${{ steps.test_arg.outputs.test_arg }}"
