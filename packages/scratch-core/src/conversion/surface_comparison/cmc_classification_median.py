@@ -5,14 +5,15 @@ from container_models.base import FloatArray1D, BoolArray1D
 from conversion.surface_comparison.models import (
     Cell,
     ComparisonResult,
-    ComparisonParams,
 )
 from conversion.surface_comparison.utils import rotate_points, wrap_angles
 
 
 def classify_congruent_cells_median(
     cells: list[Cell],
-    params: ComparisonParams,
+    angle_deviation_threshold: float,
+    correlation_threshold: float,
+    position_threshold: float,
     reference_center: tuple[float, float],
 ) -> ComparisonResult:
     """
@@ -36,7 +37,9 @@ def classify_congruent_cells_median(
        components within ``position_threshold``.
 
     :param cells: Per-cell registration results to classify.
-    :param params: Algorithm parameters (thresholds for score, angle, and position).
+    :param angle_deviation_threshold: Maximum angle deviation from consensus.
+    :param correlation_threshold: Minimum correlation to classify as congruent.
+    :param position_threshold: Maximum positional deviation from consensus.
     :param reference_center: Global center [x, y] of the reference surface in meters,
         used as the fixed point for the median rotation.
     :returns: A :class:`ComparisonResult` containing the classified cells, median
@@ -47,7 +50,7 @@ def classify_congruent_cells_median(
         raise ValueError("Cannot identify CMC from an empty list.")
 
     median_angle = _get_median_angle(
-        cells=cells, threshold=np.radians(params.angle_deviation_threshold)
+        cells=cells, threshold=np.radians(angle_deviation_threshold)
     )
     # Rotate reference positions to compute the translation.
     # Since we rotate the reference image, the natural center for rotation
@@ -55,7 +58,12 @@ def classify_congruent_cells_median(
     median_translation = _get_median_translation(
         cells=cells, angle=median_angle, rotation_center=reference_center
     )
-    _update_congruence(cells=cells, params=params)
+    _update_congruence(
+        cells=cells,
+        position_threshold=position_threshold,
+        angle_deviation_threshold=angle_deviation_threshold,
+        correlation_threshold=correlation_threshold,
+    )
 
     result = ComparisonResult(
         cells=cells,
@@ -194,7 +202,12 @@ def _get_median_translation(
     return float(median_translation[0]), float(median_translation[1])
 
 
-def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
+def _update_congruence(
+    cells: list[Cell],
+    angle_deviation_threshold: float,
+    correlation_threshold: float,
+    position_threshold: float,
+) -> None:
     """
     Set ``is_congruent`` on each cell based on all four CMC criteria.
 
@@ -210,17 +223,16 @@ def _update_congruence(cells: list[Cell], params: ComparisonParams) -> None:
 
     :param cells: Cells whose ``meta_data`` fields have already been populated by
         :func:`_get_median_angle` and :func:`_get_median_translation`.
-    :param params: Algorithm parameters providing the classification thresholds.
+    :param angle_deviation_threshold: Maximum angle deviation from consensus.
+    :param correlation_threshold: Minimum correlation to classify as congru
+    :param position_threshold: Maximum positional deviation from consensus.
     """
     for cell in cells:
         is_congruent = bool(
-            cell.best_score >= params.correlation_threshold
+            cell.best_score >= correlation_threshold
             and not cell.meta_data.is_outlier
-            and np.abs(cell.meta_data.residual_angle_deg)
-            <= params.angle_deviation_threshold
-            and np.all(
-                np.abs(cell.meta_data.position_error) <= params.position_threshold
-            )
+            and np.abs(cell.meta_data.residual_angle_deg) <= angle_deviation_threshold
+            and np.all(np.abs(cell.meta_data.position_error) <= position_threshold)
         )
         cell.is_congruent = is_congruent
 

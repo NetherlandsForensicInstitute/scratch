@@ -16,14 +16,17 @@ from conversion.surface_comparison.cmc_consensus.procrustes import (
 )
 from conversion.surface_comparison.models import (
     Cell,
-    ComparisonParams,
     ComparisonResult,
 )
 from conversion.surface_comparison.utils import rotate_points, wrap_angles
 
 
 def classify_congruent_cells_consensus(
-    cells: list[Cell], params: ComparisonParams, reference_center: tuple[float, float]
+    cells: list[Cell],
+    angle_deviation_threshold: float,
+    correlation_threshold: float,
+    position_threshold: float,
+    reference_center: tuple[float, float],
 ) -> ComparisonResult:
     """
     Identify Congruent Matching Cells (CMCs) with a consensus-based procedure using Procrustes rotation and translation
@@ -37,7 +40,9 @@ def classify_congruent_cells_consensus(
     4. Return a ComparisonResult.
 
     :param cells: Per-cell registration results to classify.
-    :param params: Algorithm parameters (thresholds for score, angle, and position).
+    :param angle_deviation_threshold: Maximum angle deviation from consensus.
+    :param correlation_threshold: Minimum correlation to classify as congruent.
+    :param position_threshold: Maximum positional deviation from consensus.
     :param reference_center: Reference rotation center (meters); used if only one cell fits.
     :returns: A `ComparisonResult` containing the classified cells, consensus rotation in degrees, and consensus
         translation in meters, both expressed around `reference_center`. Both are NaN when no consensus
@@ -48,7 +53,7 @@ def classify_congruent_cells_consensus(
         inlier_ids = [0]
     else:
         inlier_ids = _find_best_ids(
-            cells, params.position_threshold, params.angle_deviation_threshold
+            cells, position_threshold, angle_deviation_threshold
         )
     if not inlier_ids:
         # Note: the `meta_data` residuals keep their pre-classification values here.
@@ -62,9 +67,7 @@ def classify_congruent_cells_consensus(
         [cells[i] for i in inlier_ids], reference_center
     )
     # Apply the similarity threshold to the inliers
-    cmc_ids = [
-        i for i in inlier_ids if cells[i].best_score >= params.correlation_threshold
-    ]
+    cmc_ids = [i for i in inlier_ids if cells[i].best_score >= correlation_threshold]
     _update_congruent_cells(cells, cmc_ids)
     _update_cell_meta_data(cells, inlier_ids, consensus, reference_center)
 

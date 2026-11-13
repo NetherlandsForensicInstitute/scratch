@@ -128,7 +128,6 @@ class ComparisonParams(ConfigBaseModel):
     :param correlation_threshold: Minimum per-cell ACCF score for CMC classification.
     :param cmc_algorithm: Which CMC classifier to run, 'consensus' or 'median'.
     :param angle_deviation_threshold: Maximum absolute angular deviation from consensus for CMC (degrees).
-    :param position_threshold: Maximum positional deviation from consensus for CMC (m).
     :param search_angle_min: Lower bound of rotation search range (degrees).
     :param search_angle_max: Upper bound of rotation search range (degrees).
     :param search_angle_step: Angular step size for the coarse rotation sweep (degrees).
@@ -146,7 +145,6 @@ class ComparisonParams(ConfigBaseModel):
         "or 'median' (median-based with ESD).",
     )
     angle_deviation_threshold: float = Field(default=6.0, gt=0.0)
-    position_threshold: float = Field(default=7.5e-5, gt=0.0)
     search_angle_min: float = -180.0
     search_angle_max: float = 180.0
     search_angle_step: float = Field(default=5.0, gt=0.0)

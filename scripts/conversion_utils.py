@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+from skimage.transform import resize
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -68,18 +70,52 @@ def parse_db_scratch(path: Path) -> dict[str, str]:
     return props
 
 
-def save_shape(path: Path, shape: tuple[int, int]) -> None:
-    """Persist pixel dimensions as a sidecar .shape file."""
-    path.with_suffix(".shape").write_text(f"{shape[0]},{shape[1]}")
+def save_shape(path: Path, shape: tuple[int, int, float, float]) -> None:
+    """Persist pixel dimensions and scale as a sidecar .shape file."""
+    width, height, scale_x, scale_y = shape
+    path.with_suffix(".shape").write_text(f"{width},{height},{scale_x!r},{scale_y!r}")
 
 
-def load_shape(path: Path) -> tuple[int, int] | None:
-    """Read pixel dimensions from a sidecar .shape file, if it exists."""
+def load_shape(path: Path) -> tuple[int, int, float, float] | None:
+    """Read pixel dimensions and scale from a sidecar .shape file, if it exists."""
     shape_file = path.with_suffix(".shape")
-    if shape_file.exists():
-        x, y = shape_file.read_text().strip().split(",")
-        return int(x), int(y)
-    return None
+    if not shape_file.exists():
+        return None
+    parts = shape_file.read_text().strip().split(",")
+    if len(parts) != 4:  # noqa: PLR2004
+        raise ValueError(f"Old or malformed shape file {shape_file} ({parts!r}); rerun convert_x3ps.py --force")
+    x, y, scale_x, scale_y = parts
+    return int(x), int(y), float(scale_x), float(scale_y)
+
+
+def make_isotropic_shape(width: int, height: int, scale_x: float, scale_y: float) -> tuple[int, int]:
+    """Mirror MakeIsotropic._get_target_shape on the server; returns (width, height)."""
+    if np.isclose(scale_x, scale_y, atol=1e-16):
+        return width, height
+    target_scale = min(scale_x, scale_y)
+    return int(round(width * scale_x / target_scale)), int(round(height * scale_y / target_scale))
+
+
+def resample_mask_nearest(mask: np.ndarray, target_width: int, target_height: int) -> np.ndarray:
+    """Resample a 2D mask exactly like the server's Resample.for_upsampling (MakeIsotropic)."""
+    if mask.shape == (target_height, target_width):
+        return mask
+    resized = resize(
+        image=mask,
+        output_shape=(target_height, target_width),
+        mode="edge",
+        anti_aliasing=False,
+        preserve_range=True,
+        order=0,
+    )
+    return np.ascontiguousarray(resized.astype(bool))
+
+
+def scale_bounding_box(bbox: list | None, factor_x: float, factor_y: float) -> list | None:
+    """Scale [[x, y], ...] pixel corners to the resampled grid."""
+    if bbox is None:
+        return None
+    return (np.asarray(bbox, dtype=float) * [factor_x, factor_y]).tolist()
 
 
 def find_mark_folders(root: Path) -> Iterator[tuple[Path, Path]]:
