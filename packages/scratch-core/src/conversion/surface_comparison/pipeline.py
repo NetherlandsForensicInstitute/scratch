@@ -173,7 +173,8 @@ def compare_surfaces(
     )
     return classify_func(
         cells=cells,
-        params=params,
+        correlation_threshold=params.correlation_threshold,
+        angle_deviation_threshold=params.angle_deviation_threshold,
         position_threshold=reference_mark.filtered_mark.mark_type.position_threshold,
         reference_center=reference_image.center_meters,
     )

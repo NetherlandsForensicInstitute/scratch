@@ -391,7 +391,8 @@ def test_coarse_registration_finds_angle(
 
     classification = classification_function(
         cells=cells,
-        params=params,
+        angle_deviation_threshold=params.angle_deviation_threshold,
+        correlation_threshold=params.correlation_threshold,
         position_threshold=reference_processed_mark.raw_mark.mark_type.position_threshold,
         reference_center=reference_image.center_meters,
     )

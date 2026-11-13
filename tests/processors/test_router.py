@@ -442,7 +442,8 @@ class TestImpressionComparisonPose:
         ]
         no_consensus = classify_congruent_cells_consensus(
             cells=cells,
-            params=_default_comparison_params(),
+            angle_deviation_threshold=_default_comparison_params().angle_deviation_threshold,
+            correlation_threshold=_default_comparison_params().correlation_threshold,
             position_threshold=75.0e-6,
             reference_center=(0.002, 0.0015),
         )
