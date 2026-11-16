@@ -25,9 +25,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from comparison_utils import ComparisonEntry, infer_mark_type
 from conversion.data_formats import MarkImpressionType, MarkType
-from conversion_utils import ConversionConfig
+
+from scripts.comparison_utils import ComparisonEntry, infer_mark_type
+from scripts.conversion_utils import ConversionConfig
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +307,9 @@ class ScoreWriter:
         resume: bool = True,
     ) -> None:
         self.header = header
-        self.rows = rows
+        # One CSV row can expand into several tasks (one per shared mark type), so callers may pass the same
+        # PairRow more than once. Keep each input row exactly once, in original order.
+        self.rows = list({row.index: row for row in rows}.values())
         self.delimiter = delimiter
         self.flush_every = max(1, flush_every)
         self.paths = {mt: out_dir / f"{csv_path.stem}_{get_mark_type_slug(mt)}{csv_path.suffix}" for mt in mark_types}

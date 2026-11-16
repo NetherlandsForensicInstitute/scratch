@@ -398,7 +398,7 @@ def build_impression_results_metadata(
         "Data spacing (Y)": f"{scale_y_um:.4f} µm",
         "Cell Size": f"{cells[0].cell_size_um[0]:.0f} µm",
         "Minimum cell similarity": f"{comparison_params.correlation_threshold}",
-        "Max error cell position": f"{comparison_params.position_threshold * 1e6:.0f} µm",
+        "Max error cell position": f"{mark_reference_raw.mark_type.position_threshold * 1e6:.0f} µm",
         "Max error cell angle": f"{comparison_params.angle_deviation_threshold:.0f} degree",
     }
     return results_items

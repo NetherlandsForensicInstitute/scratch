@@ -5,7 +5,7 @@ Test helpers for cmc_classification tests.
 import numpy as np
 
 from container_models.base import FloatArray2D
-from conversion.surface_comparison.models import Cell, CellMetaData, ComparisonParams
+from conversion.surface_comparison.models import Cell, CellMetaData
 
 # Placeholder cell data: a minimal 2x2 height map, unused by the classifier.
 _PLACEHOLDER_CELL_SIZE = (1e-3, 1e-3)
@@ -80,24 +80,18 @@ def build_cells(inputs: dict) -> list[Cell]:
 
 def build_test_inputs(
     inputs: dict,
-) -> tuple[list[Cell], ComparisonParams, tuple[float, float]]:
+) -> tuple[list[Cell], tuple[float, float]]:
     """
     Build the full set of inputs for ``classify_congruent_cells`` from a test-case input dict.
     The y-coordinate of the rotation center is reflected over the x-axis since MATLAB uses
     mathematical coordinates while our pipeline uses image coordinates
 
-    Returns ``(cells, params, rotation_center)``.
+    Returns ``(cells, rotation_center)``.
     """
     cells = build_cells(inputs)
-
-    params = ComparisonParams(
-        correlation_threshold=inputs["correlation_threshold"],
-        angle_deviation_threshold=inputs["angle_deviation_threshold"],
-        position_threshold=inputs["position_threshold"],
-    )
 
     rotation_center_list = inputs["rotation_center"]
     # Reflect the rotation center about the y-axis in order to comply with image coordinates
     rotation_center = (float(rotation_center_list[0]), -float(rotation_center_list[1]))
 
-    return cells, params, rotation_center
+    return cells, rotation_center

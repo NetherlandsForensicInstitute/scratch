@@ -119,7 +119,7 @@ def _find_alignment_angle(
         if np.isnan(current_angle):
             break
         else:
-            total_angle += current_angle
+            total_angle -= current_angle
             total_angle_rad = np.radians(total_angle)
             data_tmp = shear_data_by_shifting_profiles(
                 scan_image.data, total_angle_rad, cut_y_after_shift
