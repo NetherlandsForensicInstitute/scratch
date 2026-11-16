@@ -51,7 +51,7 @@ def _get_case(name: str) -> dict:
 
 
 def _classify(inputs: dict):
-    cells, _, reference_center = build_test_inputs(inputs)
+    cells, reference_center = build_test_inputs(inputs)
     return classify_congruent_cells_median(
         cells,
         position_threshold=inputs["position_threshold"],
