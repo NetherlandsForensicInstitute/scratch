@@ -3239,7 +3239,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "lir", specifier = ">=1.5.1" },
+    { name = "lir", specifier = "==1.5.1" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "lr-module-scratch", git = "https://github.com/NetherlandsForensicInstitute/lr_module_scratch.git?rev=v0.2" },
     { name = "matplotlib", specifier = ">=3.10.7" },

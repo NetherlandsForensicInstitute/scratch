@@ -8,7 +8,7 @@ import pytest
 from container_models.base import BinaryMask
 from conversion.data_formats import MarkImpressionType, MarkStriationType, SurfaceTerms
 from fastapi.testclient import TestClient
-from httpx import Response
+from httpx2 import Response
 from pydantic import HttpUrl
 from scipy.constants import micro
 from utils.constants import RegressionOrder

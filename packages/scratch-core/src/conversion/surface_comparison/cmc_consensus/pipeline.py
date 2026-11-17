@@ -77,6 +77,65 @@ def classify_congruent_cells_consensus(
         estimated_translation=consensus.translation,
     )
 
+def _find_best_ids(
+    cells: list[Cell], max_distance: float, max_abs_angle_distance: float
+) -> list[int]:
+    """
+    Find best inliers by iteratively refining initial pair-based solutions, prioritizing higher cell count than better
+    criterion. All pair fits are evaluated in vectorized batches; refinement fits are memoized.
+
+    :param cells: list of cells.
+    :param max_distance: maximum distance to consider for consensus, in meters.
+    :param max_abs_angle_distance: maximum absolute angle deviation to consider for consensus, in degrees.
+    :returns: list of inlier cell ids, these will be the congruent cells
+    """
+    n_cells = len(cells)
+    ref, comp, angle_rad = _cell_arrays(cells)
+    fit = _make_fit(cells, max_distance, max_abs_angle_distance)
+
+    best_ids: list[int] = []
+    best_criterion = np.inf
+    first, second = np.triu_indices(
+        n_cells, k=1
+    )  # same order as itertools.combinations
+
+    for start in range(0, len(first), _PAIR_CHUNK):
+        i, j = first[start : start + _PAIR_CHUNK], second[start : start + _PAIR_CHUNK]
+        # Two-point fit: centroids are the midpoints
+        center_ref, center_comp = (ref[i] + ref[j]) / 2, (comp[i] + comp[j]) / 2
+        ref_pair = np.stack([ref[i] - center_ref, ref[j] - center_ref], axis=1)
+        comp_pair = np.stack([comp[i] - center_comp, comp[j] - center_comp], axis=1)
+        rotation = rotation_angle_closed_form(ref_pair, comp_pair)
+
+        d, a = _residuals(ref, comp, angle_rad, rotation, center_ref, center_comp)
+        inlier_mask = (d <= max_distance) & (a <= max_abs_angle_distance)
+        counts = inlier_mask.sum(axis=1)
+
+        for row in range(len(i)):
+            count = int(counts[row])
+            # A seed with <= 2 inliers is not refined, so it can only win while the best has <= 2 cells
+            if count <= 2 and count < len(best_ids):
+                continue
+            current_ids = np.flatnonzero(inlier_mask[row]).tolist()
+            current_criterion = calculate_criterion(
+                d[row, current_ids],
+                a[row, current_ids],
+                max_distance,
+                max_abs_angle_distance,
+            )
+            if 2 < count < n_cells:
+                current_ids, current_criterion = _refine(
+                    current_ids, current_criterion, fit
+                )
+            if len(current_ids) > len(best_ids) or (
+                len(current_ids) == len(best_ids) and current_criterion < best_criterion
+            ):
+                best_ids, best_criterion = current_ids, current_criterion
+            if len(best_ids) == n_cells:
+                return best_ids  # outer loop short-circuit
+
+    return best_ids
+
 
 def _update_congruent_cells(cells: list[Cell], congruent_ids: list[int]) -> None:
     """
@@ -260,63 +319,3 @@ def _refine(
             best_ids, best_criterion = candidate_ids, criterion_candidate
         else:
             return best_ids, best_criterion
-
-
-def _find_best_ids(
-    cells: list[Cell], max_distance: float, max_abs_angle_distance: float
-) -> list[int]:
-    """
-    Find best inliers by iteratively refining initial pair-based solutions, prioritizing higher cell count than better
-    criterion. All pair fits are evaluated in vectorized batches; refinement fits are memoized.
-
-    :param cells: list of cells.
-    :param max_distance: maximum distance to consider for consensus, in meters.
-    :param max_abs_angle_distance: maximum absolute angle deviation to consider for consensus, in degrees.
-    :returns: list of inlier cell ids, these will be the congruent cells
-    """
-    n_cells = len(cells)
-    ref, comp, angle_rad = _cell_arrays(cells)
-    fit = _make_fit(cells, max_distance, max_abs_angle_distance)
-
-    best_ids: list[int] = []
-    best_criterion = np.inf
-    first, second = np.triu_indices(
-        n_cells, k=1
-    )  # same order as itertools.combinations
-
-    for start in range(0, len(first), _PAIR_CHUNK):
-        i, j = first[start : start + _PAIR_CHUNK], second[start : start + _PAIR_CHUNK]
-        # Two-point fit: centroids are the midpoints
-        center_ref, center_comp = (ref[i] + ref[j]) / 2, (comp[i] + comp[j]) / 2
-        ref_pair = np.stack([ref[i] - center_ref, ref[j] - center_ref], axis=1)
-        comp_pair = np.stack([comp[i] - center_comp, comp[j] - center_comp], axis=1)
-        rotation = rotation_angle_closed_form(ref_pair, comp_pair)
-
-        d, a = _residuals(ref, comp, angle_rad, rotation, center_ref, center_comp)
-        inlier_mask = (d <= max_distance) & (a <= max_abs_angle_distance)
-        counts = inlier_mask.sum(axis=1)
-
-        for row in range(len(i)):
-            count = int(counts[row])
-            # A seed with <= 2 inliers is not refined, so it can only win while the best has <= 2 cells
-            if count <= 2 and count < len(best_ids):
-                continue
-            current_ids = np.flatnonzero(inlier_mask[row]).tolist()
-            current_criterion = calculate_criterion(
-                d[row, current_ids],
-                a[row, current_ids],
-                max_distance,
-                max_abs_angle_distance,
-            )
-            if 2 < count < n_cells:
-                current_ids, current_criterion = _refine(
-                    current_ids, current_criterion, fit
-                )
-            if len(current_ids) > len(best_ids) or (
-                len(current_ids) == len(best_ids) and current_criterion < best_criterion
-            ):
-                best_ids, best_criterion = current_ids, current_criterion
-            if len(best_ids) == n_cells:
-                return best_ids  # outer loop short-circuit
-
-    return best_ids
