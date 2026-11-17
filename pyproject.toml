@@ -16,7 +16,7 @@ classifiers = [
 requires-python = ">=3.13,<3.15"
 dependencies = [
   "fastapi[standard]>=0.119.0",
-  "lir>=1.5.1",
+  "lir==1.5.1",
   "loguru>=0.7.3",
   "lr_module_scratch @ git+https://github.com/NetherlandsForensicInstitute/lr_module_scratch.git@v0.2",
   "pydantic>=2.12.4",
@@ -142,3 +142,14 @@ DEP003 = ["mutations"]   # part of scratch-core
 
 [tool.uv.sources]
 scratch-core = { workspace = true }
+torch = { index = "pytorch-cu126" }
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true

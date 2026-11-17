@@ -19,11 +19,16 @@ import pytest
 from conversion.surface_comparison.cmc_classification_median import (
     classify_congruent_cells_median,
 )
-from conversion.surface_comparison.cmc_consensus.criterion import calculate_criterion
-from conversion.surface_comparison.cmc_consensus.pipeline import (
+from conversion.surface_comparison.cmc_consensus.criterion import (
+    calculate_criterion,
     _get_cell_angle_and_position_distances,
-    _refine,
+    _build_2d_rotation_matrix,
+    find_consensus_parameters,
+)
+from conversion.surface_comparison.cmc_consensus.pipeline import (
     classify_congruent_cells_consensus,
+    _refine,
+    _make_fit,
 )
 from conversion.surface_comparison.models import (
     Cell,
@@ -544,9 +549,11 @@ class TestRefineReturnsUpdatedValues:
         refined_ids, refined_criterion = _refine(
             current_ids=initial_ids,
             criterion_current=initial_criterion,
-            cells=cells_with_consistent_group,
-            max_distance=0.0001,
-            max_abs_angle_distance=2.0,
+            fit=_make_fit(
+                cells_with_consistent_group,
+                max_distance=0.0001,
+                max_abs_angle_distance=2.0,
+            ),
         )
 
         # Assert: refinement should have pulled in cells 2 and 3, excluded outlier cell 4
@@ -579,9 +586,11 @@ class TestRefineReturnsUpdatedValues:
         refined_ids, refined_criterion = _refine(
             current_ids=initial_ids,
             criterion_current=initial_criterion,
-            cells=cells_with_consistent_group,
-            max_distance=0.0001,
-            max_abs_angle_distance=2.0,
+            fit=_make_fit(
+                cells_with_consistent_group,
+                max_distance=0.0001,
+                max_abs_angle_distance=2.0,
+            ),
         )
 
         # Assert: should pull in cell 3 and improve criterion
@@ -610,11 +619,56 @@ class TestRefineReturnsUpdatedValues:
         refined_ids, refined_criterion = _refine(
             current_ids=initial_ids,
             criterion_current=initial_criterion,
-            cells=cells_with_consistent_group,
-            max_distance=0.0001,
-            max_abs_angle_distance=2.0,
+            fit=_make_fit(
+                cells_with_consistent_group,
+                max_distance=0.0001,
+                max_abs_angle_distance=2.0,
+            ),
         )
 
         # Assert: no improvement possible, should return as-is
         assert refined_ids == initial_ids
         assert refined_criterion == initial_criterion
+        assert refined_criterion == pytest.approx(initial_criterion)
+
+
+class TestPairFitRotation:
+    """Two-cell fits seed every consensus search, so their rotation must be exact."""
+
+    @pytest.mark.parametrize("angle_deg", list(range(-175, 180, 5)))
+    def test_two_cell_fit_recovers_rotation(self, angle_deg: int) -> None:
+        """With two cells the cross-terms matrix has rank 1, and the SVD can return a reflection."""
+        # Arrange: comparison = reference rotated about its centroid, plus a translation
+        rotation_rad = -np.radians(
+            angle_deg
+        )  # fit convention: residual = cell angle + fit rotation
+        reference = np.array([[1e-3, 2e-3], [3e-3, 2.5e-3]])
+        centroid = reference.mean(axis=0)
+        comparison = (
+            (reference - centroid) @ _build_2d_rotation_matrix(rotation_rad)
+            + centroid
+            + [2e-5, -1e-5]
+        )
+        meta = CellMetaData(
+            is_outlier=False, residual_angle_deg=0.0, position_error=(0.0, 0.0)
+        )
+        cells = [
+            Cell(
+                center_reference=(float(r[0]), float(r[1])),
+                center_comparison=(float(c[0]), float(c[1])),
+                angle_deg=float(angle_deg),
+                best_score=0.9,
+                cell_size=(1.25e-4, 1.25e-4),
+                fill_fraction_reference=1.0,
+                is_congruent=False,
+                meta_data=meta.model_copy(),
+            )
+            for r, c in zip(reference, comparison)
+        ]
+
+        # Act
+        fitted_deg = -np.degrees(find_consensus_parameters(cells).rotation_rad)
+
+        # Assert: compare on the circle so -180 and 180 count as equal
+        residual = (fitted_deg - angle_deg + 180) % 360 - 180
+        assert abs(residual) < 1e-6

@@ -1,17 +1,13 @@
-from itertools import combinations
-
 import numpy as np
 
-from conversion.surface_comparison.cmc_consensus.criterion import (
-    _get_cell_angle_and_position_distances,
-    calculate_criterion,
-)
+from conversion.surface_comparison.cmc_consensus.criterion import calculate_criterion
 from conversion.surface_comparison.cmc_consensus.models import (
     CMCTranslationRotation,
 )
 from conversion.surface_comparison.cmc_consensus.procrustes import (
     _get_rotation_component_using_angle_degree,
     find_consensus_parameters,
+    rotation_angle_closed_form,
     get_translation_about,
 )
 from conversion.surface_comparison.models import (
@@ -19,6 +15,10 @@ from conversion.surface_comparison.models import (
     ComparisonResult,
 )
 from conversion.surface_comparison.utils import rotate_points, wrap_angles
+from collections.abc import Callable
+
+_PAIR_CHUNK = 1024
+Fit = Callable[[list[int]], tuple[list[int], float]]
 
 
 def classify_congruent_cells_consensus(
@@ -76,61 +76,6 @@ def classify_congruent_cells_consensus(
         estimated_rotation=consensus.rotation,
         estimated_translation=consensus.translation,
     )
-
-
-def _find_best_ids(
-    cells: list[Cell], max_distance: float, max_abs_angle_distance: float
-) -> list[int]:
-    """
-    Find best inliers by iteratively refining initial pair-based solutions, prioritizing higher cell count than better
-    criterion.
-
-    :param cells: list of cells.
-    :param max_distance: maximum distance to consider for consensus, in meters.
-    :param max_abs_angle_distance: maximum absolute angle deviation to consider for consensus, in degrees.
-    :returns: list of inlier cell ids, these will be the congruent cells
-    """
-    best_ids = []
-    criterion = np.inf
-    n_cells = len(cells)
-
-    for pair_ids in combinations(range(n_cells), 2):
-        # Initial solution: evaluate two-cell pair solution ---
-        cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
-            list(pair_ids), cells
-        )
-        current_ids = np.where(
-            (cell_distances <= max_distance)
-            & (cell_angle_distances <= max_abs_angle_distance)
-        )[0].tolist()
-
-        criterion_current = calculate_criterion(
-            cell_distances[current_ids],
-            cell_angle_distances[current_ids],
-            max_distance,
-            max_abs_angle_distance,
-        )
-
-        if 2 < len(current_ids) < n_cells:
-            current_ids, criterion_current = _refine(
-                current_ids,
-                criterion_current,
-                cells,
-                max_distance,
-                max_abs_angle_distance,
-            )
-
-        # Accept current solution if it is better
-        if len(current_ids) > len(best_ids) or (
-            len(current_ids) == len(best_ids) and criterion_current < criterion
-        ):
-            best_ids = current_ids
-            criterion = criterion_current
-
-        if len(best_ids) == n_cells:
-            return best_ids  # outer loop short-circuit
-
-    return best_ids
 
 
 def _update_congruent_cells(cells: list[Cell], congruent_ids: list[int]) -> None:
@@ -222,48 +167,156 @@ def _get_estimated_translation_rotation(
     return shared_parameters
 
 
+def _residuals(ref, comp, angle_rad, rotation, center_ref, center_comp):
+    """Distances (m) and |angle| residuals (deg) of all cells for P fits -> two (P, n) arrays."""
+    cos, sin = np.cos(rotation)[:, None], np.sin(rotation)[:, None]
+    dx = ref[None, :, 0] - center_ref[:, 0:1]
+    dy = ref[None, :, 1] - center_ref[:, 1:2]
+    # Same convention as `(data - center) @ _build_2d_rotation_matrix(rotation)`
+    pred_x = dx * cos - dy * sin + center_comp[:, 0:1]
+    pred_y = dx * sin + dy * cos + center_comp[:, 1:2]
+    distances = np.sqrt(
+        (comp[None, :, 0] - pred_x) ** 2 + (comp[None, :, 1] - pred_y) ** 2
+    )
+    # Cell angles are in pixel coordinates and the fit in math coordinates, hence the +
+    angle_distances = np.abs(
+        np.degrees(wrap_angles(angle_rad[None, :] + rotation[:, None]))
+    )
+    return distances, angle_distances
+
+
+def _cell_arrays(cells: list[Cell]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Reference centers (n, 2), comparison centers (n, 2) and cell angles in radians (n,)."""
+    return (
+        np.array([cell.center_reference for cell in cells], dtype=float),
+        np.array([cell.center_comparison for cell in cells], dtype=float),
+        np.radians([cell.angle_deg for cell in cells]),
+    )
+
+
+def _make_fit(
+    cells: list[Cell], max_distance: float, max_abs_angle_distance: float
+) -> Fit:
+    """
+    Build a memoized fit: Procrustes fit on the given ids, returning the inliers among all cells and their criterion.
+
+    :param cells: list of cells.
+    :param max_distance: maximum distance threshold (meters)
+    :param max_abs_angle_distance: maximum absolute angle threshold (degrees)
+    :returns: function mapping cell ids to (inlier ids, criterion)
+    """
+    ref, comp, angle_rad = _cell_arrays(cells)
+    cache: dict[tuple[int, ...], tuple[list[int], float]] = {}
+
+    def fit(ids: list[int]) -> tuple[list[int], float]:
+        key = tuple(ids)
+        if key not in cache:
+            ids = list(key)
+            center_ref, center_comp = ref[ids].mean(axis=0), comp[ids].mean(axis=0)
+            rotation = rotation_angle_closed_form(
+                ref[ids] - center_ref, comp[ids] - center_comp
+            )
+            d, a = _residuals(
+                ref,
+                comp,
+                angle_rad,
+                np.atleast_1d(rotation),
+                center_ref[None],
+                center_comp[None],
+            )
+            d, a = d[0], a[0]
+            inliers = np.flatnonzero(
+                (d <= max_distance) & (a <= max_abs_angle_distance)
+            ).tolist()
+            cache[key] = (
+                inliers,
+                calculate_criterion(
+                    d[inliers], a[inliers], max_distance, max_abs_angle_distance
+                ),
+            )
+        return cache[key]
+
+    return fit
+
+
 def _refine(
-    current_ids: list[int],
-    criterion_current: float,
-    cells: list[Cell],
-    max_distance: float,
-    max_abs_angle_distance: float,
+    current_ids: list[int], criterion_current: float, fit: Fit
 ) -> tuple[list[int], float]:
     """
-    Iteratively re-fit inlier set and criterion.
+    Iteratively re-fit inlier set and criterion until a local optimum is reached.
 
     :param current_ids: a list of inlier indices (used for least-squares Procrustes fit)
     :param criterion_current: the current value of the criterion
-    :param cells: a list of cells
-    :param max_distance: maximum distance threshold (meters)
-    :param max_abs_angle_distance: maximum absolute angle threshold (degrees)
+    :param fit: memoized fit from `_make_fit`
     :returns: tuple of (updated inlier indices, updated criterion)
     """
-    best_ids = current_ids
-    best_criterion = criterion_current
-
+    best_ids, best_criterion = current_ids, criterion_current
     while True:
-        cell_distances, cell_angle_distances = _get_cell_angle_and_position_distances(
-            best_ids, cells
-        )
-        candidate_ids = np.where(
-            (cell_distances <= max_distance)
-            & (cell_angle_distances <= max_abs_angle_distance)
-        )[0].tolist()
-
-        criterion_candidate = calculate_criterion(
-            cell_distances[candidate_ids],
-            cell_angle_distances[candidate_ids],
-            max_distance,
-            max_abs_angle_distance,
-        )
-
+        candidate_ids, criterion_candidate = fit(best_ids)
         # Accept if strictly more inliers, or same count with lower criterion
         if len(candidate_ids) > len(best_ids) or (
             len(candidate_ids) == len(best_ids) and criterion_candidate < best_criterion
         ):
-            best_ids = candidate_ids
-            best_criterion = criterion_candidate
+            best_ids, best_criterion = candidate_ids, criterion_candidate
         else:
-            # Local optimum reached
             return best_ids, best_criterion
+
+
+def _find_best_ids(
+    cells: list[Cell], max_distance: float, max_abs_angle_distance: float
+) -> list[int]:
+    """
+    Find best inliers by iteratively refining initial pair-based solutions, prioritizing higher cell count than better
+    criterion. All pair fits are evaluated in vectorized batches; refinement fits are memoized.
+
+    :param cells: list of cells.
+    :param max_distance: maximum distance to consider for consensus, in meters.
+    :param max_abs_angle_distance: maximum absolute angle deviation to consider for consensus, in degrees.
+    :returns: list of inlier cell ids, these will be the congruent cells
+    """
+    n_cells = len(cells)
+    ref, comp, angle_rad = _cell_arrays(cells)
+    fit = _make_fit(cells, max_distance, max_abs_angle_distance)
+
+    best_ids: list[int] = []
+    best_criterion = np.inf
+    first, second = np.triu_indices(
+        n_cells, k=1
+    )  # same order as itertools.combinations
+
+    for start in range(0, len(first), _PAIR_CHUNK):
+        i, j = first[start : start + _PAIR_CHUNK], second[start : start + _PAIR_CHUNK]
+        # Two-point fit: centroids are the midpoints
+        center_ref, center_comp = (ref[i] + ref[j]) / 2, (comp[i] + comp[j]) / 2
+        ref_pair = np.stack([ref[i] - center_ref, ref[j] - center_ref], axis=1)
+        comp_pair = np.stack([comp[i] - center_comp, comp[j] - center_comp], axis=1)
+        rotation = rotation_angle_closed_form(ref_pair, comp_pair)
+
+        d, a = _residuals(ref, comp, angle_rad, rotation, center_ref, center_comp)
+        inlier_mask = (d <= max_distance) & (a <= max_abs_angle_distance)
+        counts = inlier_mask.sum(axis=1)
+
+        for row in range(len(i)):
+            count = int(counts[row])
+            # A seed with <= 2 inliers is not refined, so it can only win while the best has <= 2 cells
+            if count <= 2 and count < len(best_ids):
+                continue
+            current_ids = np.flatnonzero(inlier_mask[row]).tolist()
+            current_criterion = calculate_criterion(
+                d[row, current_ids],
+                a[row, current_ids],
+                max_distance,
+                max_abs_angle_distance,
+            )
+            if 2 < count < n_cells:
+                current_ids, current_criterion = _refine(
+                    current_ids, current_criterion, fit
+                )
+            if len(current_ids) > len(best_ids) or (
+                len(current_ids) == len(best_ids) and current_criterion < best_criterion
+            ):
+                best_ids, best_criterion = current_ids, current_criterion
+            if len(best_ids) == n_cells:
+                return best_ids  # outer loop short-circuit
+
+    return best_ids

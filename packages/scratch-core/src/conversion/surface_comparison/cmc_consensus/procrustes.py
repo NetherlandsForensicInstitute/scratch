@@ -91,32 +91,25 @@ def _get_rotation_angle(
     centers_reference_centered: FloatArray2D, centers_comparison_centered: FloatArray2D
 ) -> float:
     """
+    Closed-form 2-D Procrustes rotation (the best proper rotation, never a reflection).
+
     :param centers_reference_centered: centers_reference with cells_mean subtracted
     :param centers_comparison_centered: centers_comparison with cells_mean subtracted
-    :return: consensus_rotation_rad
+    :return: consensus_rotation_rad, in [-pi, pi]
     """
-    # SVD for best-fit rotation (no reflection)
-
-    cross_terms_matrix = (
-        centers_reference_centered.T @ centers_comparison_centered
-    )  # (2, 2)
-    left_singular_vectors, _, right_singular_vectors_transposed = np.linalg.svd(
-        cross_terms_matrix
+    return float(
+        rotation_angle_closed_form(
+            centers_reference_centered, centers_comparison_centered
+        )
     )
-    rotation_matrix = (
-        left_singular_vectors @ right_singular_vectors_transposed
-    )  # (2, 2)
 
-    # If det == -1 we have an unintended reflection; correct it by changing sign of last column of left_singular_vectors.
-    if np.linalg.det(rotation_matrix) == -1:
-        left_singular_vectors[:, -1] *= -1
-        rotation_matrix = left_singular_vectors @ right_singular_vectors_transposed
 
-    # Rotation angle: atan2(sin/cos)
-    (cos, sin) = tuple(rotation_matrix[0])
-    consensus_rotation_rad = float(np.arctan2(sin, cos))  # -pi <= angle <= pi
-
-    return consensus_rotation_rad
+def rotation_angle_closed_form(
+    ref_centered: np.ndarray, comp_centered: np.ndarray
+) -> np.ndarray:
+    """Closed-form 2-D Procrustes angle for (k, 2) or batched (..., k, 2) input."""
+    h = np.einsum("...ki,...kj->...ij", ref_centered, comp_centered)
+    return np.arctan2(h[..., 0, 1] - h[..., 1, 0], h[..., 0, 0] + h[..., 1, 1])
 
 
 def get_translation_about(
