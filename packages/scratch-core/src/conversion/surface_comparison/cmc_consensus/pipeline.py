@@ -77,6 +77,7 @@ def classify_congruent_cells_consensus(
         estimated_translation=consensus.translation,
     )
 
+
 def _find_best_ids(
     cells: list[Cell], max_distance: float, max_abs_angle_distance: float
 ) -> list[int]:
