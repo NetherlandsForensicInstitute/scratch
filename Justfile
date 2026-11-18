@@ -91,7 +91,8 @@ build: (log "\nBuilding the REST API to an executable" "blue")
     --copy-metadata=opencv-python \
     --collect-all=cv2 \
     --collect-all=scipy \
-    --collect-all=lir
+    --collect-all=lir \
+    --collect-all=lrmodule
 
 # Start API development server
 api: (log "Starting FastAPI development server")
