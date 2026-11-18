@@ -10,6 +10,10 @@ def calculate_lr_striation(lr_system: LRSystem, score: float) -> LLRData:
     :param lr_system: Trained LR system to apply.
     :param score: Correlation coefficient between two striation profiles.
     """
+    if not -1 <= score <= 1:
+        raise ValueError(
+            f"striation score (ccf) must be strictly between -1 and 1, got {score}"
+        )
     log10_lr_data = lr_system.apply(FeatureData(features=np.array([[score]])))
     return log10_lr_data
 
@@ -22,5 +26,11 @@ def calculate_lr_impression(lr_system: LRSystem, score: int, n_cells: int) -> LL
     :param score: CMC count (number of matching cells).
     :param n_cells: Total number of cells analyzed.
     """
-    result = lr_system.apply(FeatureData(features=np.array([[0, score, n_cells]])))
+    if n_cells < 1:
+        raise ValueError(f"n_cells must be at least 1, got {n_cells}")
+    if not 0 <= score <= n_cells:
+        raise ValueError(
+            f"CMC count must be between 0 and n_cells ({n_cells}), got {score}"
+        )
+    result = lr_system.apply(FeatureData(features=np.array([[score, n_cells]])))
     return result

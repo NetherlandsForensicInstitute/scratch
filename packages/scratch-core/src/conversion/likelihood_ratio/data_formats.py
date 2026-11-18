@@ -68,9 +68,14 @@ class ModelSpecs(ConfigBaseModel):
 class DummyLRSystem(LRSystem):  # pragma: no cover
     """Minimal LR system for testing."""
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.received: list[np.ndarray] = []
+
     def apply(self, instances: InstanceData) -> LLRData:
         """Return dummy results."""
         assert isinstance(instances, FeatureData)
+        self.received.append(instances.features)
         n = len(instances.features)
         # 3 columns: llr, lower_ci, upper_ci
         features = np.column_stack(
