@@ -153,3 +153,6 @@ explicit = true
 name = "pypi"
 url = "https://pypi.org/simple"
 default = true
+
+[tool.uv]
+constraint-dependencies = ["scikit-learn==1.7.2"]
