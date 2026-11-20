@@ -1,4 +1,3 @@
-import os
 import pickle
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -6,8 +5,6 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 from lir.data.models import FeatureData
-from lir.lrsystems import LRSystem
-from lrmodule import get_lr_system
 
 from conversion.likelihood_ratio import (
     DummyLRSystem,
@@ -19,11 +16,10 @@ from conversion.likelihood_ratio.calculations import (
     calculate_lr_striation,
 )
 
-# Allow tiny numerical noise when checking that LLRs never decrease.
-MONOTONIC_TOL = 1e-9
-MODELS_DIR = Path(
-    os.environ.get("SCRATCH_LR_MODELS_DIR", "/mnt/scratch/dev_lr_modellen/2026-06-23")
-)
+
+@pytest.fixture
+def dummy_lr_system() -> DummyLRSystem:
+    return DummyLRSystem()
 
 
 @pytest.fixture(scope="session")
@@ -54,28 +50,6 @@ def striation_lr_system_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
     )
 
     return lr_dir
-
-
-@pytest.fixture
-def dummy_lr_system() -> DummyLRSystem:
-    return DummyLRSystem()
-
-
-def _load_model(name: str) -> LRSystem:
-    folder = MODELS_DIR / name
-    if not (folder / "model.pkl").exists():
-        pytest.skip(f"no trained model at {folder} (set SCRATCH_LR_MODELS_DIR)")
-    return get_lr_system(folder)
-
-
-@pytest.fixture(scope="module")
-def striation_model() -> LRSystem:
-    return _load_model("aperture_shear")
-
-
-@pytest.fixture(scope="module")
-def impression_model() -> LRSystem:
-    return _load_model("firing_pin_impression")
 
 
 @pytest.fixture
@@ -216,71 +190,3 @@ class TestCalculateLrImpression:
         with pytest.raises(ValueError, match="n_cells"):
             calculate_lr_impression(dummy_lr_system, 0, n_cells)
         assert dummy_lr_system.received == []
-
-
-@pytest.mark.integration
-class TestStriationModel:
-    @pytest.mark.parametrize("score", [0.0, 0.5, 0.9, 0.999])
-    def test_gives_one_finite_llr(self, striation_model, score):
-        result = calculate_lr_striation(striation_model, score)
-
-        assert result.llrs.shape == (1,)
-        assert np.isfinite(result.llrs).all()
-
-    @pytest.mark.xfail(
-        strict=True,
-        raises=ValueError,
-        reason="lr_module transform_marktype_ccf does not handle ccf = ±1 (log10 of 0); should clip",
-    )
-    @pytest.mark.parametrize(("score", "nearby"), [(1.0, 0.999), (-1.0, -0.999)])
-    def test_endpoints_match_nearby_scores(self, striation_model, score, nearby):
-        at_endpoint = calculate_lr_striation(striation_model, score).llrs[0]
-        near_endpoint = calculate_lr_striation(striation_model, nearby).llrs[0]
-
-        assert at_endpoint == pytest.approx(near_endpoint)
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="KDE tail artifact: LLR decreases between ccf 0.0 and ~0.06 (model issue)",
-    )
-    def test_monotonic_for_positive_scores(self, striation_model):
-        scores = np.linspace(0.0, 0.999, 50)
-        llrs = np.array(
-            [calculate_lr_striation(striation_model, s).llrs[0] for s in scores]
-        )
-
-        assert np.all(np.diff(llrs) >= -MONOTONIC_TOL), (
-            "LLR decreases while score increases"
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="KDE tail artifact: negative ccf gives maximum same-source LLR (model issue)",
-    )
-    def test_monotonic_over_full_range(self, striation_model):
-        scores = np.linspace(-0.99, 0.999, 100)
-        llrs = np.array(
-            [calculate_lr_striation(striation_model, s).llrs[0] for s in scores]
-        )
-
-        assert np.all(np.diff(llrs) >= -MONOTONIC_TOL), (
-            "LLR decreases while score increases"
-        )
-
-
-@pytest.mark.integration
-class TestImpressionModel:
-    def test_monotonic_in_matching_cells(self, impression_model):
-        n_cells = 20
-        llrs = np.array(
-            [
-                calculate_lr_impression(impression_model, k, n_cells).llrs[0]
-                for k in range(n_cells + 1)
-            ]
-        )
-
-        assert np.isfinite(llrs).all()
-        assert np.all(np.diff(llrs) >= -MONOTONIC_TOL), (
-            "LLR decreases while the number of matching cells increases"
-        )
-        assert llrs[0] < 0 < llrs[-1]

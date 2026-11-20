@@ -6,8 +6,9 @@ from unittest.mock import patch, MagicMock
 
 from conversion.surface_comparison.cmc_consensus.procrustes import (
     find_consensus_parameters,
+    get_rotation_angle_closed_form,
+    get_rotation_component_using_angle_degree,
     _get_rotation_component_using_rotation_matrix,
-    _get_rotation_component_using_angle_degree,
     _build_2d_rotation_matrix,
 )
 
@@ -149,7 +150,7 @@ class TestRotationComponentWithRotationMatrix:
         center = np.array([[1.0, 1.0]])
 
         result = _get_rotation_component_using_rotation_matrix(
-            data, center, rotation_matrix
+            data=data, center=center, rotation_matrix=rotation_matrix
         )
 
         expected = (data - center) @ rotation_matrix
@@ -215,8 +216,8 @@ class TestRotateUsingAngleDeg:
         rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
         expected = (xy_data - reference_center.reshape(1, -1)) @ rotation_matrix
 
-        result = _get_rotation_component_using_angle_degree(
-            xy_data, angle_deg, reference_center
+        result = get_rotation_component_using_angle_degree(
+            xy_data=xy_data, angle_deg=angle_deg, reference_center=reference_center
         )
 
         assert result == pytest.approx(expected, abs=1e-6)
@@ -306,3 +307,41 @@ class TestGetDistancesMeters:
         result = _get_distances_meters(cells, predicted_positions)
 
         assert result == pytest.approx(expected, abs=1e-6)
+
+
+class TestGetRotationAngleClosedForm:
+    def test_recovers_batched_rotations(self):
+        """A batch of rotated copies of one point set gives back each rotation angle."""
+        # Arrange
+        angles = np.array([-3.0, -1.0, 0.0, 0.5, 2.0, 3.1])
+        reference = np.array([[1.0, 0.0], [0.0, 2.0], [-1.0, -2.0]])
+        reference = reference - reference.mean(axis=0)
+        comparison = np.stack(
+            [reference @ _build_2d_rotation_matrix(angle) for angle in angles]
+        )  # (P, k, 2)
+
+        # Act
+        result = get_rotation_angle_closed_form(
+            centered_reference_centers=np.broadcast_to(reference, comparison.shape),
+            centered_comparison_centers=comparison,
+        )
+
+        # Assert
+        assert result.shape == angles.shape
+        assert result == pytest.approx(angles, abs=1e-9)
+
+    def test_single_point_set_returns_scalar(self):
+        """An unbatched (k, 2) input gives a single angle."""
+        # Arrange
+        reference = np.array([[1.0, 0.0], [-1.0, 0.0]])
+        comparison = reference @ _build_2d_rotation_matrix(0.3)
+
+        # Act
+        result = get_rotation_angle_closed_form(
+            centered_reference_centers=reference,
+            centered_comparison_centers=comparison,
+        )
+
+        # Assert
+        assert np.ndim(result) == 0
+        assert float(result) == pytest.approx(0.3, abs=1e-9)
