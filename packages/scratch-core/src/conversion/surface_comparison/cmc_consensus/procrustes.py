@@ -19,104 +19,48 @@ def find_consensus_parameters(
     See README.md @ 'Explanation of Procrustes procedure' for details.
 
     :param cells: cells whose (center_reference, center_comparison) pairs are used for fitting
-    :returns: consensus_parameters
+    :returns: consensus parameters: rotation centers (the centroids) and rotation angle in radians
     """
-    consensus_parameters = _get_translation(cells)
-
-    centers_reference_centered, centers_comparison_centered = _center(
-        cells,
-        consensus_parameters.rotation_center_reference,
-        consensus_parameters.rotation_center_comparison,
+    reference_centers = np.array([cell.center_reference for cell in cells], dtype=float)
+    comparison_centers = np.array(
+        [cell.center_comparison for cell in cells], dtype=float
     )
 
-    consensus_parameters.rotation_rad = _get_rotation_angle(
-        centers_reference_centered, centers_comparison_centered
+    consensus_parameters = ConsensusParameters(
+        rotation_center_reference=reference_centers.mean(axis=0),
+        rotation_center_comparison=comparison_centers.mean(axis=0),
+    )
+    consensus_parameters.rotation_rad = float(
+        get_rotation_angle_closed_form(
+            centered_reference_centers=reference_centers
+            - consensus_parameters.rotation_center_reference,
+            centered_comparison_centers=comparison_centers
+            - consensus_parameters.rotation_center_comparison,
+        )
     )
 
     return consensus_parameters
 
 
-def _get_translation(
-    cells: list[Cell],
-) -> ConsensusParameters:
+def get_rotation_angle_closed_form(
+    centered_reference_centers: np.ndarray, centered_comparison_centers: np.ndarray
+) -> np.ndarray:
     """
-    :param cells: cells whose (center_reference, center_comparison) are used for fitting
-    :returns: ConsensusParameters filled with translation part
+    Closed-form 2-D Procrustes rotation angle (the best proper rotation, never a reflection).
+
+    Works on a single point set of shape (k, 2) or on a batch of point sets of shape (..., k, 2).
+
+    :param centered_reference_centers: reference centers with their centroid subtracted, shape (..., k, 2)
+    :param centered_comparison_centers: comparison centers with their centroid subtracted, shape (..., k, 2)
+    :returns: rotation angle(s) in radians, in [-pi, pi], shape (...)
     """
-    centers_reference = np.array(
-        [cell.center_reference for cell in cells], dtype=float
-    )  # (N, 2)
-    centers_comparison = np.array(
-        [cell.center_comparison for cell in cells], dtype=float
-    )  # (N, 2)
-
-    reference_mean = centers_reference.mean(axis=0)  # mean of reference positions (2,)
-
-    comparison_mean = centers_comparison.mean(
-        axis=0
-    )  # mean of comparison positions (2,)
-
-    return ConsensusParameters(
-        rotation_center_reference=reference_mean,
-        rotation_center_comparison=comparison_mean,
+    cross_covariance = np.einsum(
+        "...ki,...kj->...ij", centered_reference_centers, centered_comparison_centers
     )
-
-
-def _center(
-    cells: list[Cell],
-    rotation_center_reference: FloatArray1D,
-    rotation_center_comparison: FloatArray1D,
-) -> tuple[FloatArray2D, FloatArray2D]:
-    """
-    :param cells: cells whose (center_reference, center_comparison) are used for fitting
-    :param rotation_center_reference: rotation_center_reference
-    :param rotation_center_comparison: rotation_center_comparison
-
-    :returns: centers with respective means substracted
-    """
-    centers_reference = np.array([cell.center_reference for cell in cells])
-    centers_comparison = np.array([cell.center_comparison for cell in cells])
-
-    centers_reference_centered = (
-        centers_reference - rotation_center_reference
-    )  # centred reference positions
-    centers_comparison_centered = (
-        centers_comparison - rotation_center_comparison
-    )  # centred comparison positions
-
-    return centers_reference_centered, centers_comparison_centered
-
-
-def _get_rotation_angle(
-    centers_reference_centered: FloatArray2D, centers_comparison_centered: FloatArray2D
-) -> float:
-    """
-    :param centers_reference_centered: centers_reference with cells_mean subtracted
-    :param centers_comparison_centered: centers_comparison with cells_mean subtracted
-    :return: consensus_rotation_rad
-    """
-    # SVD for best-fit rotation (no reflection)
-
-    cross_terms_matrix = (
-        centers_reference_centered.T @ centers_comparison_centered
-    )  # (2, 2)
-    left_singular_vectors, _, right_singular_vectors_transposed = np.linalg.svd(
-        cross_terms_matrix
+    return np.arctan2(
+        cross_covariance[..., 0, 1] - cross_covariance[..., 1, 0],
+        cross_covariance[..., 0, 0] + cross_covariance[..., 1, 1],
     )
-    rotation_matrix = (
-        left_singular_vectors @ right_singular_vectors_transposed
-    )  # (2, 2)
-
-    # If det == -1 we have an unintended reflection; correct it by changing sign of last column of left_singular_vectors.
-    if np.linalg.det(rotation_matrix) == -1:
-        left_singular_vectors[:, -1] *= -1
-        rotation_matrix = left_singular_vectors @ right_singular_vectors_transposed
-
-    # Rotation angle: atan2(sin/cos)
-    (cos, sin) = tuple(rotation_matrix[0])
-    consensus_rotation_rad = float(np.arctan2(sin, cos))  # -pi <= angle <= pi
-
-    return consensus_rotation_rad
 
 
 def get_translation_about(
@@ -131,10 +75,10 @@ def get_translation_about(
     :param center: center to express the translation around, (x, y) meters
     :returns: translation from reference to comparison frame, (x, y) meters
     """
-    rotated_center = _get_rotation_component_using_angle_degree(
-        np.array(center),
-        float(np.degrees(consensus_parameters.rotation_rad)),
-        consensus_parameters.rotation_center_reference,
+    rotated_center = get_rotation_component_using_angle_degree(
+        xy_data=np.array(center),
+        angle_deg=float(np.degrees(consensus_parameters.rotation_rad)),
+        reference_center=consensus_parameters.rotation_center_reference,
     )[0]
     translation = (
         rotated_center + consensus_parameters.rotation_center_comparison - center
@@ -143,58 +87,52 @@ def get_translation_about(
     return float(translation[0]), float(translation[1])
 
 
+def get_rotation_component_using_angle_degree(
+    xy_data: FloatArray2D | FloatArray1D,
+    angle_deg: float,
+    reference_center: FloatArray1D,
+) -> FloatArray2D:
+    """
+    Rotate data around a center, returning only the rotation component (the center is not added back).
+
+    :param xy_data: data to be rotated, shape (n, 2) for n points, or (2,) for one point
+    :param angle_deg: rotation angle in degrees
+    :param reference_center: center of rotation, shape (2,)
+    :returns: rotated data relative to the center, shape (n, 2)
+    """
+    return _get_rotation_component_using_rotation_matrix(
+        data=xy_data,
+        center=reference_center.reshape(1, -1),
+        rotation_matrix=_build_2d_rotation_matrix(np.radians(angle_deg)),
+    )
+
+
 def _get_rotation_component_using_rotation_matrix(
     data: FloatArray2D | FloatArray1D,
     center: FloatArray2D,
     rotation_matrix: FloatArray2D,
 ) -> FloatArray2D:
     """
-    Rotate data around center, return only rotation component (no offset by center).
+    Rotate data around a center, returning only the rotation component (the center is not added back).
 
-    :param data: data to be rotated, shape (n ,m), n cases with m features, or (m,) for one case
-    :param center: center of rotation, shape (1 ,m)
-    :param rotation_matrix: rotation matrix, shape (m, m)
-
-    :returns: rotated data minus center, shape (n ,m)
+    :param data: data to be rotated, shape (n, m) for n points with m coordinates, or (m,) for one point
+    :param center: center of rotation, shape (1, m)
+    :param rotation_matrix: rotation matrix for row vectors, shape (m, m)
+    :returns: rotated data relative to the center, shape (n, m)
     """
-
-    rotated = (data - center) @ rotation_matrix
-
-    return rotated
-
-
-def _get_rotation_component_using_angle_degree(
-    xy_data: FloatArray2D, angle_deg: float, reference_center: FloatArray2D
-) -> FloatArray2D:
-    """
-    Rotate data around center.
-
-    :param xy_data: data to be rotated, shape (n ,2), n cases with 2 features, or (2,) for 1 case
-    :param angle_deg: angle in degrees
-    :param reference_center: center of rotation, shape (2,)
-    :returns rotated data, shape (n ,2)
-    """
-    reference_center = reference_center.reshape(1, -1)
-    angle_rad = np.radians(angle_deg)
-    rotation_matrix = _build_2d_rotation_matrix(angle_rad)
-
-    return _get_rotation_component_using_rotation_matrix(
-        data=xy_data, center=reference_center, rotation_matrix=rotation_matrix
-    )
+    return (data - center) @ rotation_matrix
 
 
 def _build_2d_rotation_matrix(angle_rad: float) -> FloatArray2D:
     """
-    Build 2d rotation matrix from angle_rad.
+    Build a 2-D rotation matrix for row vectors (`points @ matrix`).
 
-     2-D rotation matrix  [[ cos, -sin], [sin,  cos]]
-     R for angle θ is [row1, row2] = [[cos, sin], [-sin, cos]]  → x' = x*cos + y*-sin
+    The matrix is [[cos, sin], [-sin, cos]], the transpose of the usual column-vector matrix, so that
+    `[x, y] @ matrix` gives x' = x*cos - y*sin and y' = x*sin + y*cos: a counter-clockwise rotation by `angle_rad`.
 
-    :param angle_rad: angle in radians
-    :returns: 2d rotation matrix, shape (2,2).
+    :param angle_rad: rotation angle in radians
+    :returns: rotation matrix, shape (2, 2)
     """
     cos_a = np.cos(angle_rad)
     sin_a = np.sin(angle_rad)
-    rotation_matrix = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
-
-    return rotation_matrix
+    return np.array([[cos_a, sin_a], [-sin_a, cos_a]])

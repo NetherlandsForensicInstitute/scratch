@@ -1,16 +1,25 @@
 import pickle
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from unittest.mock import patch, MagicMock
 from lir.data.models import FeatureData
 
 from conversion.likelihood_ratio import (
-    get_reference_data_from_path,
     DummyLRSystem,
     ModelSpecs,
+    get_reference_data_from_path,
 )
+from conversion.likelihood_ratio.calculations import (
+    calculate_lr_impression,
+    calculate_lr_striation,
+)
+
+
+@pytest.fixture
+def dummy_lr_system() -> DummyLRSystem:
+    return DummyLRSystem()
 
 
 @pytest.fixture(scope="session")
@@ -126,3 +135,58 @@ class TestModelSpecs:
             ValueError, match="Only models with llr_intervals can be used"
         ):
             specs.llr_intervals
+
+
+class TestCalculateLrStriation:
+    @pytest.mark.parametrize("score", [-0.99, -0.5, 0.0, 0.5, 0.9, 0.999])
+    def test_passes_score_as_single_feature(self, dummy_lr_system, score):
+        calculate_lr_striation(dummy_lr_system, score)
+
+        (features,) = dummy_lr_system.received
+        assert features.shape == (1, 1)
+        assert features[0, 0] == pytest.approx(score)
+
+    def test_returns_lr_system_output(self, dummy_lr_system):
+        result = calculate_lr_striation(dummy_lr_system, 0.5)
+
+        np.testing.assert_array_equal(result.llrs, [0.0])
+        np.testing.assert_array_equal(result.llr_intervals, [[-1.0, 1.0]])
+
+    @pytest.mark.parametrize("score", [-1.0, 1.0])
+    def test_passes_endpoints_unchanged(self, dummy_lr_system, score):
+        calculate_lr_striation(dummy_lr_system, score)
+
+        assert dummy_lr_system.received[0][0, 0] == score
+
+    @pytest.mark.parametrize("score", [1.0001, -1.0001, 2.0, 85.0, -100.0, np.nan])
+    def test_rejects_scores_outside_range(self, dummy_lr_system, score):
+        with pytest.raises(ValueError, match="between -1 and 1"):
+            calculate_lr_striation(dummy_lr_system, score)
+        assert dummy_lr_system.received == []
+
+
+class TestCalculateLrImpression:
+    @pytest.mark.parametrize(("score", "n_cells"), [(0, 20), (5, 20), (20, 20), (1, 1)])
+    def test_passes_k_then_n(self, dummy_lr_system, score, n_cells):
+        calculate_lr_impression(dummy_lr_system, score, n_cells)
+
+        (features,) = dummy_lr_system.received
+        np.testing.assert_array_equal(features, [[score, n_cells]])
+
+    def test_returns_lr_system_output(self, dummy_lr_system):
+        result = calculate_lr_impression(dummy_lr_system, 5, 20)
+
+        np.testing.assert_array_equal(result.llrs, [0.0])
+        np.testing.assert_array_equal(result.llr_intervals, [[-1.0, 1.0]])
+
+    @pytest.mark.parametrize(("score", "n_cells"), [(-1, 20), (21, 20), (5, 4)])
+    def test_rejects_score_outside_zero_to_n(self, dummy_lr_system, score, n_cells):
+        with pytest.raises(ValueError, match="CMC count"):
+            calculate_lr_impression(dummy_lr_system, score, n_cells)
+        assert dummy_lr_system.received == []
+
+    @pytest.mark.parametrize("n_cells", [0, -5])
+    def test_rejects_non_positive_n_cells(self, dummy_lr_system, n_cells):
+        with pytest.raises(ValueError, match="n_cells"):
+            calculate_lr_impression(dummy_lr_system, 0, n_cells)
+        assert dummy_lr_system.received == []
